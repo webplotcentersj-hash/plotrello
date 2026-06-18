@@ -13,6 +13,7 @@ import WeatherWidget from './WeatherWidget'
 import AdminAlertButton from './AdminAlertButton'
 import PwaUpdateButton from './PwaUpdateButton'
 import PwaUpdateModalHost from './PwaUpdateModalHost'
+import { VENTAS } from '../utils/ventasRoutes'
 import './Header.css'
 
 type HeaderProps = {
@@ -331,12 +332,13 @@ const Header = ({
               </button>
             )}
             {canAccessMostradorViews && (
-              <a
-                href="/crm-ventas"
+              <Link
+                to={VENTAS}
                 className="brand-button"
+                onClick={() => setActionsOpen(false)}
               >
-                💼 CRM Ventas
-              </a>
+                💰 Ventas
+              </Link>
             )}
             {canAccessTotemImpresionPanel && (
               <Link

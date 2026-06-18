@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react'
 import apiService from '../services/api'
 import type { ClienteRecord, PresupuestoVentaRecord, OportunidadVenta } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
+import { labelListaPrecio, type TipoListaPrecioVentas } from '../constants/ventasListasPrecio'
+import {
+  leerVentasPresupuestoDraft,
+  limpiarVentasPresupuestoDraft
+} from '../utils/ventasPresupuestoDraft'
 import './VentaRapidaModal.css'
 
 interface CrearPresupuestoModalProps {
@@ -54,6 +59,7 @@ const CrearPresupuestoModal = ({
   const [articulosEncontrados, setArticulosEncontrados] = useState<ArticuloStock[]>([])
   const [buscandoArticulos, setBuscandoArticulos] = useState(false)
   const [itemsPresupuesto, setItemsPresupuesto] = useState<ItemPresupuesto[]>([])
+  const [tipoListaPrecio, setTipoListaPrecio] = useState<TipoListaPrecioVentas | null>(null)
 
   const [guardando, setGuardando] = useState(false)
   const [presupuestoCreado, setPresupuestoCreado] = useState<PresupuestoVentaRecord | null>(null)
@@ -78,6 +84,27 @@ const CrearPresupuestoModal = ({
       setObservacionesCliente(`Alcance / referencia: ${o.descripcion.slice(0, 800)}${o.descripcion.length > 800 ? '…' : ''}`)
     }
   }, [prefillDesdeOportunidad])
+
+  useEffect(() => {
+    const draft = leerVentasPresupuestoDraft()
+    if (!draft) return
+    setTipoListaPrecio(draft.tipoLista)
+    setItemsPresupuesto(
+      draft.items.map((item) => ({
+        id_articulo_stock: item.id_articulo_stock,
+        codigo_articulo: item.codigo_articulo,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio_unitario,
+        descuento: item.descuento,
+        precio_total: item.precio_total
+      }))
+    )
+    setObservacionesInternas((prev) => {
+      const nota = `Lista: ${labelListaPrecio(draft.tipoLista)}`
+      return prev?.includes(nota) ? prev : prev ? `${prev}\n${nota}` : nota
+    })
+  }, [])
 
   // Buscar clientes (desde 1 letra)
   useEffect(() => {
@@ -271,13 +298,15 @@ const CrearPresupuestoModal = ({
         fecha_vencimiento: fechaVencimiento || undefined,
         observaciones_cliente: observacionesCliente || undefined,
         observaciones_internas: observacionesInternas || undefined,
-        estado
+        estado,
+        tipo_lista_precio: tipoListaPrecio
       })
 
       if (!presupuestoResponse.success || !presupuestoResponse.data) {
         throw new Error(presupuestoResponse.error || 'Error al crear presupuesto')
       }
 
+      limpiarVentasPresupuestoDraft()
       setPresupuestoCreado(presupuestoResponse.data)
       onSuccess()
     } catch (error: any) {
@@ -303,6 +332,9 @@ const CrearPresupuestoModal = ({
       <div className="modal-content venta-rapida-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>📄 Crear Presupuesto de Venta</h2>
+          {tipoListaPrecio ? (
+            <p className="venta-rapida-lista-badge">{labelListaPrecio(tipoListaPrecio)}</p>
+          ) : null}
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 

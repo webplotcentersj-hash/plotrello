@@ -658,6 +658,11 @@ export interface ArticuloEmpresaRecord {
   categoria?: string | null
   subcategoria?: string | null
   precio_base?: number | null
+  precio_lista_1?: number | null
+  precio_lista_2?: number | null
+  precio_lista_3?: number | null
+  precio_lista_4?: number | null
+  precio_lista_5?: number | null
   activo: boolean
   imagen_url?: string | null
   tiempo_estimado_dias?: number | null
@@ -803,6 +808,7 @@ export interface PresupuestoVentaRecord {
   cliente_dni_cuit?: string | null
   cliente_empresa?: string | null
   cliente_direccion?: string | null
+  tipo_lista_precio?: 'lista_1' | 'lista_2' | null
   created_at?: string
   updated_at?: string
 }

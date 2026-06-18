@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
+import { VENTAS, VENTAS_REPORTES } from '../utils/ventasRoutes'
 import './ErpSectionPage.css'
 
 type TopClienteRow = {
@@ -89,15 +90,15 @@ export default function ErpCrmPage() {
     <div className="erp-section">
       <div className="erp-section-header">
         <div>
-          <h1>🤝 CRM / Gestión comercial</h1>
+          <h1>🤝 Gestión comercial</h1>
           <p className="erp-section-sub">Clientes, ventas, oportunidades y seguimiento</p>
         </div>
         <div className="erp-section-actions">
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp')}>
             ← Volver a ERP
           </button>
-          <button type="button" className="btn-primary" onClick={() => navigate('/crm-ventas')}>
-            Abrir CRM Ventas
+          <button type="button" className="btn-primary" onClick={() => navigate(VENTAS)}>
+            Abrir Ventas
           </button>
         </div>
       </div>
@@ -146,14 +147,11 @@ export default function ErpCrmPage() {
         <div className="erp-panel">
           <h2>Accesos</h2>
           <div className="erp-section-actions">
-            <button type="button" className="btn-primary" onClick={() => navigate('/crm-ventas')}>
-              CRM Ventas
+            <button type="button" className="btn-primary" onClick={() => navigate(VENTAS)}>
+              Ventas
             </button>
-            <button type="button" className="btn-primary" onClick={() => navigate('/crm-ventas/reportes')}>
-              Reportes ventas (CRM)
-            </button>
-            <button type="button" className="btn-primary" onClick={() => navigate('/mostrador/ventas')}>
-              Ventas (Mostrador)
+            <button type="button" className="btn-primary" onClick={() => navigate(VENTAS_REPORTES)}>
+              Reportes de ventas
             </button>
             <button type="button" className="btn-primary" onClick={() => navigate('/erp/facturas?estado=Emitida')}>
               Facturas emitidas

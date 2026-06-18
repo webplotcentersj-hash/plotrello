@@ -8,6 +8,7 @@ import {
   getArgentinaDateString,
   parseArgentinaDate
 } from '../../../utils/dateUtils'
+import { VENTAS } from '../../../utils/ventasRoutes'
 import {
   LineChart,
   Line,
@@ -253,7 +254,7 @@ export default function CajaSectionTablero({ canViewIngresos }: Props) {
         <div className="caja-section-card">
           <div className="caja-section-header">
             <h2>Ventas de hoy</h2>
-            <button type="button" className="btn-link" onClick={() => navigate('/crm-ventas')}>
+            <button type="button" className="btn-link" onClick={() => navigate(VENTAS)}>
               Ver todas →
             </button>
           </div>

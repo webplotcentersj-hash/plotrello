@@ -13464,6 +13464,53 @@ class ApiService {
   }
 
   /**
+   * Actualizar precios de lista 1 (efectivo/débito) y lista 2 (cuenta corriente).
+   */
+  async actualizarPreciosListaArticulo(
+    id: number,
+    datos: {
+      nombre?: string | null
+      categoria?: string | null
+      precio_lista_1?: number | null
+      precio_lista_2?: number | null
+      precio_lista_3?: number | null
+      precio_lista_4?: number | null
+      precio_lista_5?: number | null
+    }
+  ): Promise<ApiResponse<ArticuloEmpresaRecord>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const payload: Record<string, string | number | null> = {}
+      if (datos.nombre !== undefined) payload.nombre = datos.nombre?.trim() || null
+      if (datos.categoria !== undefined) payload.categoria = datos.categoria?.trim() || null
+      for (const key of [
+        'precio_lista_1',
+        'precio_lista_2',
+        'precio_lista_3',
+        'precio_lista_4',
+        'precio_lista_5'
+      ] as const) {
+        if (datos[key] !== undefined) payload[key] = datos[key]
+      }
+      if (datos.precio_lista_1 !== undefined) {
+        payload.precio_base = datos.precio_lista_1
+      }
+      payload.updated_at = new Date().toISOString()
+
+      const { data, error } = await supabase
+        .from('articulos_empresa')
+        .update(payload)
+        .eq('id', id)
+        .select('*')
+        .single()
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: data as ArticuloEmpresaRecord }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
    * Eliminar artículo de empresa (marcar como inactivo)
    */
   async eliminarArticuloEmpresa(id: number): Promise<ApiResponse<void>> {
@@ -14304,6 +14351,7 @@ class ApiService {
     observaciones_cliente?: string
     observaciones_internas?: string
     estado?: 'borrador' | 'enviado'
+    tipo_lista_precio?: 'lista_1' | 'lista_2' | null
   }): Promise<ApiResponse<PresupuestoVentaRecord>> {
     if (supabase) {
       try {
@@ -14321,7 +14369,8 @@ class ApiService {
           p_fecha_vencimiento: params.fecha_vencimiento || null,
           p_observaciones_cliente: params.observaciones_cliente || null,
           p_observaciones_internas: params.observaciones_internas || null,
-          p_estado: params.estado || 'borrador'
+          p_estado: params.estado || 'borrador',
+          p_tipo_lista_precio: params.tipo_lista_precio || null
         })
 
         if (error) return { success: false, error: error.message }

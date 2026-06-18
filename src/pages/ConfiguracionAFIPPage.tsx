@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
+import { probarConexionAFIP } from '../services/afipApi'
 import type { ConfiguracionAFIPRecord } from '../types/api'
 import './ConfiguracionAFIPPage.css'
 
@@ -8,6 +9,7 @@ export default function ConfiguracionAFIPPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [testingAfip, setTestingAfip] = useState(false)
   const [config, setConfig] = useState<Partial<ConfiguracionAFIPRecord>>({
     cuit: '',
     punto_venta: 1,
@@ -41,6 +43,30 @@ export default function ConfiguracionAFIPPage() {
       console.error('Error cargando configuración:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleProbarAfip = async () => {
+    setTestingAfip(true)
+    try {
+      const response = await probarConexionAFIP()
+      if (response.success && response.data) {
+        const d = response.data
+        alert(
+          `Conexión AFIP OK (homologación)\n\n` +
+            `Ambiente: ${d.ambiente}\n` +
+            `CUIT SDK: ${d.cuit ?? '—'}\n` +
+            `PtoVta: ${d.puntoVenta} · Tipo 6 (Factura B)\n` +
+            `Último comprobante AFIP: ${d.ultimoNumero}`
+        )
+      } else {
+        alert('Error probando AFIP: ' + (response.error || 'desconocido'))
+      }
+    } catch (error) {
+      console.error('Error probando AFIP:', error)
+      alert('Error al probar conexión AFIP')
+    } finally {
+      setTestingAfip(false)
     }
   }
 
@@ -302,6 +328,7 @@ export default function ConfiguracionAFIPPage() {
             <li><strong>Ambiente Testing:</strong> Usa certificados de prueba. No genera facturas válidas.</li>
             <li><strong>Ambiente Producción:</strong> Solo usar después de homologación aprobada. Genera facturas reales.</li>
             <li><strong>Web Service wsmtxca:</strong> Recomendado para facturas con detalle de items (R.G. N° 2.904).</li>
+            <li><strong>Pruebas con @afipsdk/afip.js:</strong> Configurá <code>AFIP_ACCESS_TOKEN</code> en Vercel/.env.local. En desarrollo podés usar el CUIT de prueba 20-40937847-2 sin certificado propio.</li>
           </ul>
           <div className="info-links">
             <a href="/docs/INTEGRACION_AFIP.md" target="_blank" rel="noopener noreferrer">
@@ -332,6 +359,14 @@ export default function ConfiguracionAFIPPage() {
         <div className="form-actions">
           <button className="btn-secondary" onClick={() => navigate('/erp')}>
             Cancelar
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleProbarAfip}
+            disabled={testingAfip}
+          >
+            {testingAfip ? 'Probando AFIP…' : '🔌 Probar conexión AFIP'}
           </button>
           <button
             className="btn-primary"

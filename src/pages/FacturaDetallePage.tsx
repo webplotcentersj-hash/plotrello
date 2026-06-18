@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import apiService from '../services/api'
+import { autorizarFacturaAFIP } from '../services/afipApi'
 import { syncVentaPlotLabACaja } from '../features/control-cajas/plotlabVentaCajaSync'
 import type { CuentaPorCobrarRecord, FacturaVentaRecord, FacturaItemRecord } from '../types/api'
 import './FacturaDetallePage.css'
@@ -12,6 +13,7 @@ export default function FacturaDetallePage() {
   const [factura, setFactura] = useState<(FacturaVentaRecord & { items?: FacturaItemRecord[] }) | null>(null)
   const [cxc, setCxc] = useState<CuentaPorCobrarRecord | null>(null)
   const [loadingCobro, setLoadingCobro] = useState(false)
+  const [loadingAfip, setLoadingAfip] = useState(false)
   const [showCobro, setShowCobro] = useState(false)
   const [cuentas, setCuentas] = useState<any[]>([])
 
@@ -78,6 +80,34 @@ export default function FacturaDetallePage() {
       navigate('/erp/facturas')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleAutorizarAfip = async () => {
+    if (!factura) return
+    if (
+      !confirm(
+        '¿Autorizar este comprobante en AFIP (homologación)?\n\nRequiere AFIP_ACCESS_TOKEN en el servidor y usa wsfev1 para pruebas.'
+      )
+    ) {
+      return
+    }
+
+    setLoadingAfip(true)
+    try {
+      const response = await autorizarFacturaAFIP(factura.id)
+      if (response.success) {
+        alert(`Factura autorizada. CAE: ${response.data?.cae || '—'}`)
+        if (id) await loadFactura(parseInt(id))
+      } else {
+        alert('Error AFIP: ' + (response.error || 'desconocido'))
+        if (id) await loadFactura(parseInt(id))
+      }
+    } catch (error) {
+      console.error('Error autorizando AFIP:', error)
+      alert('Error al autorizar en AFIP')
+    } finally {
+      setLoadingAfip(false)
     }
   }
 
@@ -184,6 +214,10 @@ export default function FacturaDetallePage() {
   const esNotaCredito = tipo.startsWith('Nota de Crédito')
   const puedeCrearNotas = factura.estado === 'Emitida' && tipo.startsWith('Factura')
   const esCobrable = factura.estado === 'Emitida' && !esNotaCredito && Number(factura.total || 0) > 0
+  const puedeAutorizarAfip =
+    factura.estado === 'Emitida' &&
+    factura.estado_afip !== 'Autorizada' &&
+    factura.estado_afip !== 'Enviando'
 
   return (
     <div className="factura-detalle-page">
@@ -211,6 +245,11 @@ export default function FacturaDetallePage() {
           {factura.estado === 'Borrador' && (
             <button className="btn-primary" onClick={handleEmitir}>
               Emitir Factura
+            </button>
+          )}
+          {puedeAutorizarAfip && (
+            <button className="btn-primary" onClick={handleAutorizarAfip} disabled={loadingAfip}>
+              {loadingAfip ? 'Autorizando AFIP…' : 'Autorizar AFIP'}
             </button>
           )}
           {puedeCrearNotas && (

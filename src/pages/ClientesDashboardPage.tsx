@@ -10,6 +10,7 @@ import {
   CLIENTES_FRECUENTES,
   CLIENTES_WEB_GESTION
 } from '../utils/clientesRoutes'
+import { VENTAS } from '../utils/ventasRoutes'
 import './ClientesDashboardPage.css'
 
 type NavTileProps = {
@@ -136,6 +137,13 @@ export default function ClientesDashboardPage() {
             icon="🌐"
             accent="web"
             onClick={() => navigate(CLIENTES_WEB_GESTION)}
+          />
+          <NavTile
+            title="Ventas"
+            desc="Pipeline, cobros y venta rápida"
+            icon="💰"
+            accent="add"
+            onClick={() => navigate(VENTAS)}
           />
           <NavTile
             title="Atención al público"

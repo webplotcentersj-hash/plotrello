@@ -1,4 +1,5 @@
 import type { Usuario } from '../../hooks/useAuth'
+import { VENTAS } from '../../utils/ventasRoutes'
 
 export type AdminModuleCategory =
   | 'produccion'
@@ -37,9 +38,9 @@ export const CATEGORY_META: Record<
     description: 'Tablero, diseño, asesoría y seguimiento de órdenes'
   },
   ventas: {
-    label: 'Mostrador & Ventas',
-    color: '#3b82f6',
-    description: 'Atención, CRM, cuenta corriente y pedidos'
+    label: 'Ventas',
+    color: '#6366f1',
+    description: 'Ventas, cobros, clientes y cuenta corriente'
   },
   finanzas: {
     label: 'Finanzas & Caja',
@@ -235,6 +236,17 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     featured: true
   },
   {
+    id: 'ventas',
+    title: 'Ventas',
+    description: 'Ventas, cobros, clientes y cuenta corriente',
+    icon: '💰',
+    path: VENTAS,
+    category: 'ventas',
+    roles: ['mostrador', 'caja', 'presupuestos', 'administracion', 'gerencia'],
+    accent: '#6366f1',
+    featured: true
+  },
+  {
     id: 'mostrador',
     title: 'Mostrador',
     description: 'Dashboard de atención y entregas',
@@ -242,19 +254,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     path: '/mostrador/dashboard',
     category: 'ventas',
     roles: ['mostrador', 'caja', 'presupuestos', 'administracion', 'gerencia'],
-    accent: '#3b82f6',
-    featured: true
-  },
-  {
-    id: 'crm-ventas',
-    title: 'CRM Ventas',
-    description: 'Pipeline comercial y seguimiento de clientes',
-    icon: '🧾',
-    path: '/crm-ventas',
-    category: 'ventas',
-    roles: ['mostrador', 'presupuestos', 'administracion', 'gerencia'],
-    accent: '#6366f1',
-    featured: true
+    accent: '#3b82f6'
   },
   {
     id: 'cuenta-corriente',

@@ -6,6 +6,7 @@ import { operarioExternoHomeRoute } from '../features/work-pool/workPoolOperario
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import type { Notification, UserRole } from '../types/api'
+import { ventasConOportunidadId, ventasConVentaId } from '../utils/ventasRoutes'
 import './NotificationsDropdown.css'
 
 /** Mismo título que `crear_atencion_mostrador` en SQL (tótem / mostrador). */
@@ -365,12 +366,12 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
       }
       // Venta (CRM)
       if (notification.venta_id != null) {
-        navigate(`/crm-ventas?ventaId=${notification.venta_id}`)
+        navigate(ventasConVentaId(notification.venta_id))
         return
       }
       // Oportunidad (CRM)
       if (notification.oportunidad_id != null) {
-        navigate(`/crm-ventas?oportunidadId=${notification.oportunidad_id}`)
+        navigate(ventasConOportunidadId(notification.oportunidad_id))
         return
       }
       // Solicitud de permiso / RRHH

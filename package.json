@@ -23,6 +23,7 @@
     "manual:pdf:op-sectores": "node scripts/build-manual-pdf.mjs MANUAL_OP_SECTORES_MULTIPLES.md",
     "pdf:mejoras-usuarios": "node scripts/build-manual-pdf.mjs docs/MEJORAS_USUARIOS.md docs/MEJORAS_USUARIOS.pdf",
     "migrate:postulantes": "node scripts/migrar-postulantes-legacy.mjs",
+    "import:lista-precios": "node scripts/import-lista-precios-flexxus.mjs",
     "migrate:postulantes:db": "node scripts/importar-postulantes-anon.mjs",
     "migrate:postulantes:cvs": "node scripts/subir-cvs-legacy.mjs",
     "manual:pdf:espejo": "node scripts/print-manual-espejo-pdf.mjs"
@@ -40,6 +41,7 @@
     "vite-plugin-pwa": "^1.2.0"
   },
   "dependencies": {
+    "@afipsdk/afip.js": "^1.2.3",
     "@elevenlabs/elevenlabs-js": "^2.41.1",
     "@google/genai": "^1.34.0",
     "@google/generative-ai": "^0.24.1",

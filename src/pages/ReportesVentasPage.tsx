@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { Venta } from '../types/api'
 import { formatArgentinaDate } from '../utils/dateUtils'
+import { VENTAS } from '../utils/ventasRoutes'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './ReportesVentasPage.css'
 
@@ -27,7 +28,7 @@ const ReportesVentasPage = () => {
     
     if (!canAccessMostradorViews) {
       console.log('Sin permisos para ver reportes, redirigiendo...')
-      navigate('/crm-ventas')
+      navigate(VENTAS)
       return
     }
   }, [canAccessMostradorViews, navigate, authLoading])
@@ -257,8 +258,8 @@ const ReportesVentasPage = () => {
         <div className="header-content">
           <h1>📊 Reportes de Ventas</h1>
           <div className="header-actions">
-            <button className="btn-secondary" onClick={() => navigate('/crm-ventas')}>
-              ← Volver a CRM
+            <button className="btn-secondary" onClick={() => navigate(VENTAS)}>
+              ← Volver a Ventas
             </button>
           </div>
         </div>

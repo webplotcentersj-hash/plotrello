@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
@@ -22,15 +22,20 @@ import {
   type UrgenciaProximaAccion
 } from '../utils/crmVentasHelpers'
 import { generateContent } from '../services/plotAIService'
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
 import CajaCobroVentaModal from '../features/control-cajas/components/CajaCobroVentaModal'
 import { forceResyncVenta } from '../features/control-cajas/plotlabVentaCajaSync'
-import { clientesPerfil } from '../utils/clientesRoutes'
+import VentaRapidaModal from '../components/VentaRapidaModal'
+import VentasListaPreciosPanel from '../components/ventas/VentasListaPreciosPanel'
+import { labelListaPrecio } from '../constants/ventasListasPrecio'
+import { CLIENTES_AGREGAR, CLIENTES_CUENTA_CORRIENTE, clientesPerfil } from '../utils/clientesRoutes'
+import { VENTAS_REPORTES } from '../utils/ventasRoutes'
 import './CRMVentasPage.css'
 
-const CRM_VENTAS_TAB_KEY = 'crmVentasActiveTab'
+const VENTAS_TAB_KEY = 'ventasActiveTab'
+const VENTAS_TAB_KEY_LEGACY = 'crmVentasActiveTab'
 
 const VENTA_PIPELINE_ESTADOS = ['Pendiente', 'Parcial', 'Pagado', 'Cancelado'] as const
 
@@ -132,19 +137,25 @@ function aplicarClienteAOportunidadForm(
   }
 }
 
+const VENTAS_TAB_IDS = ['ventas', 'lista-precios', 'presupuestos', 'oportunidades'] as const
+type VentasTabId = (typeof VENTAS_TAB_IDS)[number]
+
 const CRMVentasPage = () => {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { canAccessMostradorViews, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'oportunidades' | 'ventas' | 'presupuestos'>(() => {
+  const [activeTab, setActiveTab] = useState<VentasTabId>(() => {
     try {
-      const raw = sessionStorage.getItem(CRM_VENTAS_TAB_KEY)
-      if (raw === 'oportunidades' || raw === 'ventas' || raw === 'presupuestos') return raw
+      const raw =
+        sessionStorage.getItem(VENTAS_TAB_KEY) ?? sessionStorage.getItem(VENTAS_TAB_KEY_LEGACY)
+      if (raw && (VENTAS_TAB_IDS as readonly string[]).includes(raw)) return raw as VentasTabId
     } catch {
       /* ignore */
     }
-    return 'oportunidades'
+    return 'ventas'
   })
+  const [showVentaRapida, setShowVentaRapida] = useState(false)
   
   // Oportunidades
   const [oportunidades, setOportunidades] = useState<OportunidadVenta[]>([])
@@ -317,7 +328,7 @@ const CRMVentasPage = () => {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(CRM_VENTAS_TAB_KEY, activeTab)
+      sessionStorage.setItem(VENTAS_TAB_KEY, activeTab)
     } catch {
       /* ignore */
     }
@@ -389,6 +400,60 @@ const CRMVentasPage = () => {
   const cerrarVentaModal = useCallback(() => {
     setVentaModalId(null)
     setDropdownDocumentosAbierto(null)
+  }, [])
+
+  useEffect(() => {
+    if (!crmBootstrapped) return
+
+    const ventaIdParam = searchParams.get('ventaId')
+    const oportunidadIdParam = searchParams.get('oportunidadId')
+    const nueva = searchParams.get('nueva')
+    const tabParam = searchParams.get('tab')
+
+    if (tabParam && (VENTAS_TAB_IDS as readonly string[]).includes(tabParam)) {
+      setActiveTab(tabParam as VentasTabId)
+      if (tabParam === 'presupuestos') {
+        setMostrarModalPresupuesto(true)
+      }
+    }
+
+    if (nueva === '1') {
+      setActiveTab('ventas')
+      setShowVentaRapida(true)
+    }
+
+    if (ventaIdParam) {
+      const id = Number(ventaIdParam)
+      if (Number.isFinite(id) && id > 0) {
+        setActiveTab('ventas')
+        abrirVentaModal(id)
+      }
+    }
+
+    if (oportunidadIdParam) {
+      const id = Number(oportunidadIdParam)
+      const opp = oportunidades.find((o) => o.id === id)
+      if (opp) {
+        setActiveTab('oportunidades')
+        setOportunidadEditando(opp)
+        setMostrarModalOportunidad(true)
+      }
+    }
+
+    if (ventaIdParam || oportunidadIdParam || nueva === '1' || tabParam) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('ventaId')
+      next.delete('oportunidadId')
+      next.delete('nueva')
+      next.delete('tab')
+      setSearchParams(next, { replace: true })
+    }
+  }, [crmBootstrapped, searchParams, setSearchParams, oportunidades, abrirVentaModal])
+
+  const irAPresupuestoDesdeLista = useCallback(() => {
+    setActiveTab('presupuestos')
+    setOportunidadParaPresupuesto(null)
+    setMostrarModalPresupuesto(true)
   }, [])
 
   const generarInformePlotAiOportunidad = useCallback(async () => {
@@ -1583,17 +1648,17 @@ const CRMVentasPage = () => {
 
   if (loading && !crmBootstrapped) {
     return (
-      <div className="crm-ventas-page">
+      <div className="ventas-page">
         <div className="loading-container">
           <div className="spinner"></div>
-          <p>Cargando CRM de Ventas...</p>
+          <p>Cargando Ventas…</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="crm-ventas-page">
+    <div className="ventas-page">
       {loading && crmBootstrapped ? (
         <div className="crm-refresh-banner" role="status">
           Actualizando datos…
@@ -1603,14 +1668,14 @@ const CRMVentasPage = () => {
         <div className="crm-header__hero">
           <div className="crm-header__brand">
             <span className="crm-header__icon" aria-hidden>
-              💼
+              💰
             </span>
             <div>
-              <h1>CRM de Ventas</h1>
+              <h1>Ventas</h1>
               <p className="crm-header__meta">
                 {lastDataRefresh
                   ? `Actualizado ${lastDataRefresh.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · Ctrl+K buscar`
-                  : 'Pipeline comercial · Ctrl+K enfoca la búsqueda'}
+                  : 'Pipeline de cobros · Ctrl+K enfoca la búsqueda'}
               </p>
             </div>
           </div>
@@ -1637,7 +1702,7 @@ const CRMVentasPage = () => {
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => navigate('/crm-ventas/reportes')}
+              onClick={() => navigate(VENTAS_REPORTES)}
             >
               📊 Ver Reportes
             </button>
@@ -1834,6 +1899,79 @@ const CRMVentasPage = () => {
         </div>
       </header>
 
+      <section className="ventas-essential-actions" aria-label="Acciones principales">
+        <button
+          type="button"
+          className="ventas-action-btn ventas-action-btn--primary"
+          onClick={() => setShowVentaRapida(true)}
+        >
+          <span className="ventas-action-btn__icon" aria-hidden>
+            💰
+          </span>
+          <span className="ventas-action-btn__text">
+            <strong>Venta</strong>
+            <small>Realizar una venta</small>
+          </span>
+        </button>
+        <button
+          type="button"
+          className="ventas-action-btn"
+          onClick={() => setActiveTab('lista-precios')}
+        >
+          <span className="ventas-action-btn__icon" aria-hidden>
+            📋
+          </span>
+          <span className="ventas-action-btn__text">
+            <strong>Lista de precios</strong>
+            <small>Listas 1 y 2</small>
+          </span>
+        </button>
+        <button
+          type="button"
+          className="ventas-action-btn"
+          onClick={() => {
+            setActiveTab('presupuestos')
+            setOportunidadParaPresupuesto(null)
+            setMostrarModalPresupuesto(true)
+          }}
+        >
+          <span className="ventas-action-btn__icon" aria-hidden>
+            📄
+          </span>
+          <span className="ventas-action-btn__text">
+            <strong>Presupuesto</strong>
+            <small>Nuevo presupuesto</small>
+          </span>
+        </button>
+        <button
+          type="button"
+          className="ventas-action-btn"
+          onClick={() => navigate(CLIENTES_AGREGAR)}
+        >
+          <span className="ventas-action-btn__icon" aria-hidden>
+            👤
+          </span>
+          <span className="ventas-action-btn__text">
+            <strong>Crear cuenta</strong>
+            <small>Nuevas cuentas</small>
+          </span>
+        </button>
+        <button
+          type="button"
+          className="ventas-action-btn"
+          onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
+        >
+          <span className="ventas-action-btn__icon" aria-hidden>
+            📒
+          </span>
+          <span className="ventas-action-btn__text">
+            <strong>Cuenta corriente</strong>
+            <small>Cobranzas y saldos</small>
+          </span>
+        </button>
+      </section>
+
+      {activeTab !== 'ventas' && activeTab !== 'lista-precios' && activeTab !== 'presupuestos' && (
       <div className="crm-insights">
         {/* Gráficos de Tendencias */}
         {activeTab === 'oportunidades' && oportunidades.length > 0 && (
@@ -1906,92 +2044,6 @@ const CRMVentasPage = () => {
           </div>
         )}
         
-        {activeTab === 'ventas' && ventas.length > 0 && (
-          <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
-            {/* Gráfico de ventas por día */}
-            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '24px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <h3 style={{ margin: '0 0 20px 0', color: 'white', fontSize: '1.1rem', fontWeight: 700 }}>Tendencia de Ventas</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={(() => {
-                  const porDia = ventas.reduce((acc, v) => {
-                    const fecha = v.fecha_venta
-                    if (!acc[fecha]) {
-                      acc[fecha] = { cantidad: 0, total: 0 }
-                    }
-                    acc[fecha].cantidad += 1
-                    acc[fecha].total += v.valor_total
-                    return acc
-                  }, {} as Record<string, { cantidad: number; total: number }>)
-                  
-                  return Object.entries(porDia)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .slice(-14) // Últimas 2 semanas
-                    .map(([fecha, datos]) => ({
-                      fecha: formatArgentinaDate(fecha, 'dd/MM'),
-                      cantidad: datos.cantidad,
-                      total: Number(datos.total)
-                    }))
-                })()}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-                  <XAxis dataKey="fecha" stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
-                  <YAxis yAxisId="left" stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
-                  <YAxis yAxisId="right" orientation="right" stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      background: 'rgba(15, 23, 42, 0.95)', 
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: '8px',
-                      color: 'white'
-                    }}
-                  />
-                  <Legend />
-                  <Line yAxisId="left" type="monotone" dataKey="cantidad" stroke="#3b82f6" strokeWidth={2} name="Cantidad" />
-                  <Line yAxisId="right" type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2} name="Total ($)" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            
-            {/* Gráfico de ventas por método de pago */}
-            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '16px', padding: '24px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <h3 style={{ margin: '0 0 20px 0', color: 'white', fontSize: '1.1rem', fontWeight: 700 }}>Ventas por Método de Pago</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={(() => {
-                  const porMetodo = ventas.reduce((acc, v) => {
-                    const metodo = v.metodo_pago || 'No especificado'
-                    if (!acc[metodo]) {
-                      acc[metodo] = { cantidad: 0, total: 0 }
-                    }
-                    acc[metodo].cantidad += 1
-                    acc[metodo].total += v.valor_total
-                    return acc
-                  }, {} as Record<string, { cantidad: number; total: number }>)
-                  
-                  return Object.entries(porMetodo)
-                    .map(([metodo, datos]) => ({
-                      metodo,
-                      cantidad: datos.cantidad,
-                      total: Number(datos.total)
-                    }))
-                    .sort((a, b) => b.total - a.total)
-                })()}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
-                  <XAxis dataKey="metodo" stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
-                  <YAxis stroke="rgba(255, 255, 255, 0.6)" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      background: 'rgba(15, 23, 42, 0.95)', 
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: '8px',
-                      color: 'white'
-                    }}
-                  />
-                  <Bar dataKey="total" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-        
         {/* Alertas y Recordatorios */}
         {usuario && (
           <div className="alertas-section" style={{ 
@@ -2012,9 +2064,6 @@ const CRMVentasPage = () => {
                 const fechaLimite = new Date()
                 fechaLimite.setDate(fechaLimite.getDate() + 7)
                 const fechaLimiteISO = fechaLimite.toISOString().split('T')[0]
-                const fechaLimitePago = new Date()
-                fechaLimitePago.setDate(fechaLimitePago.getDate() - 7)
-                const fechaLimitePagoISO = fechaLimitePago.toISOString().split('T')[0]
 
                 const alertas: Array<{ tipo: string; mensaje: string; color: string }> = []
 
@@ -2059,26 +2108,6 @@ const CRMVentasPage = () => {
                   }
                 }
 
-                // Ventas pendientes de pago
-                if (activeTab === 'ventas') {
-                  const ventasPendientes = ventas.filter(v => {
-                    if (v.estado_pago !== 'Pendiente' || v.id_vendedor !== usuario.id) return false
-                    const fechaVenta = new Date(v.fecha_venta)
-                    fechaVenta.setHours(0, 0, 0, 0)
-                    const fechaVentaISO = fechaVenta.toISOString().split('T')[0]
-                    return fechaVentaISO <= fechaLimitePagoISO
-                  })
-
-                  if (ventasPendientes.length > 0) {
-                    const totalPendiente = ventasPendientes.reduce((sum, v) => sum + v.valor_total, 0)
-                    alertas.push({
-                      tipo: 'pagos',
-                      mensaje: `${ventasPendientes.length} venta(s) pendiente(s) de pago por más de 7 días. Total: $${totalPendiente.toLocaleString()}`,
-                      color: '#ef4444'
-                    })
-                  }
-                }
-
                 if (alertas.length === 0) {
                   return (
                     <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.875rem' }}>
@@ -2104,19 +2133,10 @@ const CRMVentasPage = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Tabs */}
-      <div className="crm-tabs" role="tablist" aria-label="Secciones del CRM">
-        <button
-          type="button"
-          role="tab"
-          id="crm-tab-oportunidades"
-          aria-selected={activeTab === 'oportunidades'}
-          className={`tab-button ${activeTab === 'oportunidades' ? 'active' : ''}`}
-          onClick={() => setActiveTab('oportunidades')}
-        >
-          📋 Oportunidades ({oportunidadesFiltradas.length})
-        </button>
+      <div className="crm-tabs" role="tablist" aria-label="Secciones de Ventas">
         <button
           type="button"
           role="tab"
@@ -2130,6 +2150,16 @@ const CRMVentasPage = () => {
         <button
           type="button"
           role="tab"
+          id="crm-tab-lista-precios"
+          aria-selected={activeTab === 'lista-precios'}
+          className={`tab-button ${activeTab === 'lista-precios' ? 'active' : ''}`}
+          onClick={() => setActiveTab('lista-precios')}
+        >
+          📋 Lista de precios
+        </button>
+        <button
+          type="button"
+          role="tab"
           id="crm-tab-presupuestos"
           aria-selected={activeTab === 'presupuestos'}
           className={`tab-button ${activeTab === 'presupuestos' ? 'active' : ''}`}
@@ -2137,7 +2167,23 @@ const CRMVentasPage = () => {
         >
           📄 Presupuestos ({presupuestosFiltrados.length})
         </button>
+        <button
+          type="button"
+          role="tab"
+          id="crm-tab-oportunidades"
+          aria-selected={activeTab === 'oportunidades'}
+          className={`tab-button ${activeTab === 'oportunidades' ? 'active' : ''}`}
+          onClick={() => setActiveTab('oportunidades')}
+        >
+          🎯 Oportunidades ({oportunidadesFiltradas.length})
+        </button>
       </div>
+
+      {activeTab === 'lista-precios' && (
+        <div className="crm-section" role="tabpanel" aria-labelledby="crm-tab-lista-precios">
+          <VentasListaPreciosPanel onIrAPresupuesto={irAPresupuestoDesdeLista} />
+        </div>
+      )}
 
       {/* Tab: Oportunidades */}
       {activeTab === 'oportunidades' && (
@@ -2822,9 +2868,28 @@ const CRMVentasPage = () => {
         </div>
       )}
 
-      {/* Tab: Presupuestos */}
+      {/* Tab: Presupuestos (presenciales — distinto de PCL portal online) */}
       {activeTab === 'presupuestos' && (
         <div className="crm-section" role="tabpanel" aria-labelledby="crm-tab-presupuestos">
+          <div className="ventas-presupuestos-intro">
+            <div>
+              <h2>Presupuestos presenciales</h2>
+              <p>
+                Armá desde la <button type="button" className="ventas-link-btn" onClick={() => setActiveTab('lista-precios')}>Lista de precios</button>{' '}
+                (Lista 1 efectivo/débito · Lista 2 cuenta corriente). Los presupuestos online del portal (PCL) se gestionan en Clientes Web.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                setOportunidadParaPresupuesto(null)
+                setMostrarModalPresupuesto(true)
+              }}
+            >
+              + Nuevo presupuesto
+            </button>
+          </div>
           {/* Filtros */}
           <div className="filtros-section">
             <div className="filtro-group">
@@ -2904,6 +2969,12 @@ const CRMVentasPage = () => {
                       {presupuesto.estado}
                     </span>
                   </div>
+
+                  {presupuesto.tipo_lista_precio ? (
+                    <p className="venta-pipeline-card__lista">
+                      {labelListaPrecio(presupuesto.tipo_lista_precio)}
+                    </p>
+                  ) : null}
                   
                   {presupuesto.cliente_empresa && (
                     <p className="cliente-empresa">🏢 {presupuesto.cliente_empresa}</p>
@@ -3693,6 +3764,20 @@ const CRMVentasPage = () => {
           usuarioId={usuario.id}
           usuarioNombre={usuario.nombre}
           prefillDesdeOportunidad={oportunidadParaPresupuesto}
+        />
+      )}
+
+      {showVentaRapida && usuario && (
+        <VentaRapidaModal
+          uiVariant="mostrador"
+          onClose={() => setShowVentaRapida(false)}
+          onSuccess={() => {
+            setShowVentaRapida(false)
+            void loadData()
+            setActiveTab('ventas')
+          }}
+          usuarioId={usuario.id}
+          usuarioNombre={usuario.nombre}
         />
       )}
     </div>

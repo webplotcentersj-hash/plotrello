@@ -991,11 +991,11 @@ function AppRoutes({
       />
       <Route
         path="/mostrador/ventas"
-        element={<CRMVentasPage />}
+        element={<Navigate to="/ventas" replace />}
       />
       <Route
         path="/mostrador/ventas/reportes"
-        element={<ReportesVentasPage />}
+        element={<Navigate to="/ventas/reportes" replace />}
       />
       <Route
         path="/mostrador/clientes-frecuentes"
@@ -1024,14 +1024,10 @@ function AppRoutes({
         path="/atencion-publico"
         element={<AtencionPublicoDashboardPage />}
       />
-      <Route
-        path="/crm-ventas"
-        element={<CRMVentasPage />}
-      />
-      <Route
-        path="/crm-ventas/reportes"
-        element={<ReportesVentasPage />}
-      />
+      <Route path="/ventas" element={<CRMVentasPage />} />
+      <Route path="/ventas/reportes" element={<ReportesVentasPage />} />
+      <Route path="/crm-ventas" element={<Navigate to="/ventas" replace />} />
+      <Route path="/crm-ventas/reportes" element={<Navigate to="/ventas/reportes" replace />} />
       <Route
         path="/caja/dashboard"
         element={<CajaDashboardPage />}

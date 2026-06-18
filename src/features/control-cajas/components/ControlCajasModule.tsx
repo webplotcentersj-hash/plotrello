@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
 import { NAV_ADMIN, NAV_CAJA } from '../constants'
+import { VENTAS } from '../../../utils/ventasRoutes'
 import type { CajaSectionId } from '../types'
 import { getParams, usesRemoteStorage } from '../cajaRepository'
 import { resolveUsuarioCajaEtiqueta } from '../cajaUsuarioDisplay'
@@ -232,8 +233,8 @@ export default function ControlCajasModule() {
           </div>
           <div className="caja-header-actions">
             <CajaVolverPlotLab />
-            <button type="button" className="btn-secondary" onClick={() => navigate('/crm-ventas')}>
-              CRM ventas
+            <button type="button" className="btn-secondary" onClick={() => navigate(VENTAS)}>
+              Ventas
             </button>
             {canAccessTotemImpresionPanel && (
               <button type="button" className="btn-secondary" onClick={() => navigate('/impresoras/totem')}>

@@ -5,6 +5,7 @@ import type { Task, TeamMember, ActivityEvent } from '../../types/board'
 import PlotAIChat from '../../components/PlotAIChat'
 import { useAuth } from '../../hooks/useAuth'
 import apiService from '../../services/api'
+import { VENTAS } from '../../utils/ventasRoutes'
 import { ordenToTask } from '../../utils/dataMappers'
 import { exportTableroFichasActivasPdf } from '../../utils/exportTableroFichasActivasPdf'
 import type { FacturaVentaRecord, HistorialMovimiento, PedidoClienteRecord } from '../../types/api'
@@ -635,9 +636,9 @@ export default function AdminDashboard({
             <div className="admin-quick-action-icon">🤖</div>
             <div className="admin-quick-action-label">PlotAI</div>
           </button>
-          <button className="admin-quick-action-card" onClick={() => window.open('/crm-ventas', '_blank')}>
+          <button className="admin-quick-action-card" onClick={() => window.open(VENTAS, '_blank')}>
             <div className="admin-quick-action-icon">🧾</div>
-            <div className="admin-quick-action-label">CRM ventas</div>
+            <div className="admin-quick-action-label">Ventas</div>
           </button>
           <button className="admin-quick-action-card" onClick={() => window.open('/caja/dashboard/admin', '_blank')}>
             <div className="admin-quick-action-icon">💳</div>

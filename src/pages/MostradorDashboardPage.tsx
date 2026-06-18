@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CLIENTES_BUSCAR, CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
+import { VENTAS, ventasConVentaId, ventasNuevaVenta } from '../utils/ventasRoutes'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import RegistrarAtencionModal from '../components/RegistrarAtencionModal'
-import VentaRapidaModal from '../components/VentaRapidaModal'
 import type { OrdenTrabajo, Venta, PedidoClienteRecord } from '../types/api'
 import { supabase } from '../services/supabaseClient'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
@@ -107,8 +107,6 @@ const MostradorDashboardPage = () => {
   const [ordenesCreadasCount, setOrdenesCreadasCount] = useState(0)
   const [showFabMenu, setShowFabMenu] = useState(false)
   const [registrandoRapido, setRegistrandoRapido] = useState(false)
-  const [showVentaRapida, setShowVentaRapida] = useState(false)
-  
   const handleRegistrarAtencionSuccess = async () => {
     await loadAtencionesHoy()
     if (isAdmin) {
@@ -159,7 +157,7 @@ const MostradorDashboardPage = () => {
   // Pedidos del portal de clientes (con mensajes)
   const [pedidosClientes, setPedidosClientes] = useState<(PedidoClienteRecord & { cliente?: { nombre?: string; empresa?: string } })[]>([])
 
-  // CRM de Ventas
+  // CRM de Ventas → resumen; venta rápida unificada en /ventas
   const [ventasRecientes, setVentasRecientes] = useState<Venta[]>([])
   const [estadisticasVentas, setEstadisticasVentas] = useState({
     totalHoy: 0,
@@ -495,7 +493,7 @@ const MostradorDashboardPage = () => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!usuario || loading) return
-      if (showVentaRapida || showRegistrarAtencion) return
+      if (showRegistrarAtencion) return
 
       const target = e.target as HTMLElement | null
       if (target) {
@@ -506,7 +504,7 @@ const MostradorDashboardPage = () => {
 
       if ((e.key === 'v' || e.key === 'V') && !e.altKey && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
-        setShowVentaRapida(true)
+        navigate(ventasNuevaVenta())
         return
       }
 
@@ -528,9 +526,9 @@ const MostradorDashboardPage = () => {
   }, [
     usuario,
     loading,
-    showVentaRapida,
     showRegistrarAtencion,
-    registrarAtencionRapida
+    registrarAtencionRapida,
+    navigate
   ])
 
   // Suscripción en tiempo real a atenciones_mostrador
@@ -848,7 +846,7 @@ const MostradorDashboardPage = () => {
         <button
           type="button"
           className="md-btn md-btn--amber md-btn--lg"
-          onClick={() => setShowVentaRapida(true)}
+          onClick={() => navigate(ventasNuevaVenta())}
         >
           <span className="md-btn__label">Venta rápida</span>
           <kbd className="md-btn__kbd">V</kbd>
@@ -1048,7 +1046,7 @@ const MostradorDashboardPage = () => {
           />
           <NavTile title="Gestión de clientes" desc="Alta y edición web" onClick={() => navigate('/clientes-web/gestion')} />
           <NavTile title="Artículos de empresa" desc="Catálogo visible" onClick={() => navigate('/clientes-web/articulos')} />
-          <NavTile title="CRM ventas" desc="Pipeline comercial" accent="crm" onClick={() => navigate('/crm-ventas')} />
+          <NavTile title="Ventas" desc="Pipeline y cobros" accent="crm" onClick={() => navigate(VENTAS)} />
           {canAccessTotemImpresionPanel && (
             <NavTile title="Pedidos tótem" desc="Panel de impresión" accent="print" onClick={() => navigate('/impresoras/totem')} />
           )}
@@ -1196,15 +1194,15 @@ const MostradorDashboardPage = () => {
         </section>
       )}
 
-      {/* CRM de Ventas */}
-      <section className="md-panel crm-ventas-section">
+      {/* Ventas de hoy */}
+      <section className="md-panel ventas-resumen-section">
         <header className="md-panel-head">
           <div>
             <h2>Ventas de hoy</h2>
-            <p>Resumen CRM</p>
+            <p>Resumen del módulo Ventas</p>
           </div>
-          <button type="button" className="md-btn md-btn--ghost md-btn--sm" onClick={() => navigate('/crm-ventas')}>
-            Abrir CRM
+          <button type="button" className="md-btn md-btn--ghost md-btn--sm" onClick={() => navigate(VENTAS)}>
+            Ir a Ventas
           </button>
         </header>
 
@@ -1275,7 +1273,7 @@ const MostradorDashboardPage = () => {
                       navigate(`/op/${encodeURIComponent(venta.numero_op)}`)
                       return
                     }
-                    navigate(`/crm-ventas?ventaId=${venta.id}`)
+                    navigate(ventasConVentaId(venta.id))
                   }}
                 >
                   Ver detalle
@@ -1300,7 +1298,7 @@ const MostradorDashboardPage = () => {
           <button
             type="button"
             className="fab-button fab-venta"
-            onClick={() => setShowVentaRapida(true)}
+            onClick={() => navigate(ventasNuevaVenta())}
             title="Venta rápida (tecla V)"
             aria-label="Venta rápida"
           >
@@ -1348,22 +1346,6 @@ const MostradorDashboardPage = () => {
           </div>
         )}
       </div>
-
-      {/* Modal de Venta Rápida */}
-      {showVentaRapida && usuario && (
-        <VentaRapidaModal
-          uiVariant="mostrador"
-          onClose={() => {
-            setShowVentaRapida(false)
-            loadDashboardData()
-          }}
-          onSuccess={() => {
-            loadDashboardData()
-          }}
-          usuarioId={usuario.id}
-          usuarioNombre={usuario.nombre}
-        />
-      )}
     </div>
   )
 }
