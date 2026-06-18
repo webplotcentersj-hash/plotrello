@@ -4762,6 +4762,9 @@ class ApiService {
           }
         }
         candidatos = Array.from(map?.values() ?? [])
+        if (candidatos.length === 0) {
+          candidatos = await this.buscarClientesPorToken(queryTrimmed, limiteToken)
+        }
       }
 
       const filtrados = candidatos

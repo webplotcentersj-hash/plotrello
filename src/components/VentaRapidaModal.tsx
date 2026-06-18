@@ -1,11 +1,16 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
-import type { ClienteRecord, Venta } from '../types/api'
-import type { ArticuloStock } from '../types/pedidos'
+import type { ArticuloEmpresaRecord, ClienteRecord, Venta } from '../types/api'
 import { generarFacturaRemitoPDF, generarPagarePDF } from '../utils/crmExportUtils'
+import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
 import { CLIENTES_CUENTA_CORRIENTE, clientesCcPerfil } from '../utils/clientesRoutes'
 import { getArgentinaDateString } from '../utils/dateUtils'
+import {
+  labelListaPrecio,
+  resolvePrecioLista,
+  type TipoListaPrecioVentas
+} from '../constants/ventasListasPrecio'
 import CuentaCorrienteScoreBadge from './CuentaCorrienteScoreBadge'
 import {
   formatLimiteCredito,
@@ -24,13 +29,25 @@ interface VentaRapidaModalProps {
 }
 
 interface ItemVenta {
+  id_articulo_empresa?: number
   id_articulo_stock?: number
   codigo_articulo?: string
   descripcion: string
   cantidad: number
   precio_unitario: number
   descuento: number
+  precio_lista?: TipoListaPrecioVentas
   observaciones?: string
+}
+
+function listaFromCondicion(
+  condicion: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
+): TipoListaPrecioVentas {
+  return condicion === 'Cuenta Corriente' ? 'lista_2' : 'lista_1'
+}
+
+function formatArs(n: number): string {
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const VentaRapidaModal = ({
@@ -69,9 +86,12 @@ const VentaRapidaModal = ({
   const [observaciones, setObservaciones] = useState('')
 
   const [busquedaArticulo, setBusquedaArticulo] = useState('')
-  const [articulosEncontrados, setArticulosEncontrados] = useState<ArticuloStock[]>([])
-  const [buscandoArticulos, setBuscandoArticulos] = useState(false)
+  const [categoriaArticulo, setCategoriaArticulo] = useState('todas')
+  const [catalogoArticulos, setCatalogoArticulos] = useState<ArticuloEmpresaRecord[]>([])
+  const [loadingCatalogo, setLoadingCatalogo] = useState(false)
   const [itemsVenta, setItemsVenta] = useState<ItemVenta[]>([])
+
+  const tipoListaPrecio = useMemo(() => listaFromCondicion(condicionVenta), [condicionVenta])
 
   const [guardando, setGuardando] = useState(false)
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
@@ -118,36 +138,69 @@ const VentaRapidaModal = ({
     return () => clearTimeout(timer)
   }, [busquedaCliente])
 
-  // Buscar artículos (desde 1 letra)
   useEffect(() => {
-    if (busquedaArticulo.trim().length < 1) {
-      setArticulosEncontrados([])
-      return
-    }
-
-    const timer = setTimeout(async () => {
-      setBuscandoArticulos(true)
+    let cancelled = false
+    const run = async () => {
+      setLoadingCatalogo(true)
       try {
-        const response = await apiService.getArticulosStock(busquedaArticulo.trim(), false)
-        if (response.success && response.data) {
-          setArticulosEncontrados(response.data)
-        } else {
-          setArticulosEncontrados([])
+        const response = await apiService.getArticulosEmpresa(undefined, false)
+        if (!cancelled && response.success && response.data) {
+          setCatalogoArticulos(
+            response.data.filter((a) => a.activo && !a.codigo?.startsWith('ART-'))
+          )
         }
       } catch (error) {
-        console.error('Error buscando artículos:', error)
-        setArticulosEncontrados([])
+        console.error('Error cargando lista de precios:', error)
       } finally {
-        setBuscandoArticulos(false)
+        if (!cancelled) setLoadingCatalogo(false)
       }
-    }, 200)
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-    return () => clearTimeout(timer)
-  }, [busquedaArticulo])
+  const categoriasArticulos = useMemo(() => {
+    const set = new Set<string>()
+    for (const a of catalogoArticulos) {
+      if (a.categoria?.trim()) set.add(a.categoria.trim())
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'))
+  }, [catalogoArticulos])
+
+  const articulosFiltrados = useMemo(() => {
+    const q = busquedaArticulo.trim().toLowerCase()
+    return catalogoArticulos.filter((a) => {
+      if (categoriaArticulo !== 'todas' && (a.categoria || '') !== categoriaArticulo) return false
+      if (!q) return true
+      const tokens = q.split(/\s+/).filter(Boolean)
+      const haystack = [a.nombre, a.codigo, a.descripcion, a.categoria]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return tokens.every((t) => haystack.includes(t))
+    })
+  }, [catalogoArticulos, busquedaArticulo, categoriaArticulo])
+
+  useEffect(() => {
+    if (itemsVenta.length === 0 || catalogoArticulos.length === 0) return
+    const lista = tipoListaPrecio
+    setItemsVenta((prev) =>
+      prev.map((item) => {
+        if (!item.id_articulo_empresa) return item
+        const art = catalogoArticulos.find((a) => a.id === item.id_articulo_empresa)
+        if (!art) return item
+        const precio = resolvePrecioLista(art, lista)
+        if (precio == null) return item
+        return { ...item, precio_unitario: precio, precio_lista: lista }
+      })
+    )
+  }, [tipoListaPrecio, catalogoArticulos])
 
   const seleccionarCliente = (cliente: ClienteRecord) => {
     setClienteSeleccionado(cliente)
-    setBusquedaCliente(cliente.nombre)
+    setBusquedaCliente(nombreCompletoCliente(cliente))
     setClientesEncontrados([])
     setCrearNuevoCliente(false)
     setClienteCcHabilitado(null)
@@ -179,25 +232,36 @@ const VentaRapidaModal = ({
     }
   }, [esCuentaCorriente, clienteSeleccionado?.id])
 
-  const agregarArticulo = (articulo: ArticuloStock) => {
-    if (itemsVenta.some(item => item.id_articulo_stock === articulo.id)) {
+  const agregarArticulo = (articulo: ArticuloEmpresaRecord) => {
+    if (itemsVenta.some((item) => item.id_articulo_empresa === articulo.id)) {
       alert('Este artículo ya está en la lista')
       return
     }
 
+    const precio = resolvePrecioLista(articulo, tipoListaPrecio)
+    if (precio == null) {
+      alert(`Este artículo no tiene precio en ${labelListaPrecio(tipoListaPrecio)}.`)
+      return
+    }
+
+    const stock = articulo.stock_disponible
     const nuevoItem: ItemVenta = {
-      id_articulo_stock: articulo.id,
+      id_articulo_empresa: articulo.id,
+      id_articulo_stock: articulo.id_articulo_stock ?? undefined,
       codigo_articulo: articulo.codigo || undefined,
-      descripcion: articulo.descripcion,
+      descripcion: articulo.nombre,
       cantidad: 1,
-      precio_unitario: articulo.precio || 0,
+      precio_unitario: precio,
+      precio_lista: tipoListaPrecio,
       descuento: 0,
-      observaciones: articulo.stock !== null && articulo.stock <= 0 ? 'Stock agotado' : undefined
+      observaciones:
+        stock != null && stock <= 0 && articulo.controla_stock !== false
+          ? 'Stock agotado'
+          : undefined
     }
 
     setItemsVenta([...itemsVenta, nuevoItem])
     setBusquedaArticulo('')
-    setArticulosEncontrados([])
   }
 
   const eliminarItem = (index: number) => {
@@ -600,53 +664,66 @@ const VentaRapidaModal = ({
           </div>
 
           {/* Buscador de Cliente */}
-          <div className="form-group">
-            <label>Cliente *</label>
-            <div className="cliente-search-container">
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Buscar cliente..."
-                value={busquedaCliente}
-                onChange={(e) => {
-                  setBusquedaCliente(e.target.value)
-                  setClienteSeleccionado(null)
-                  setCrearNuevoCliente(false)
-                }}
-                disabled={crearNuevoCliente}
-              />
-              {buscandoClientes && <span className="loading-spinner">⏳</span>}
-              
-              {clientesEncontrados.length > 0 && !crearNuevoCliente && (
-                <div className="dropdown-results">
-                  {clientesEncontrados.map((cliente) => (
-                    <div
-                      key={cliente.id}
-                      className="dropdown-item"
-                      onClick={() => seleccionarCliente(cliente)}
-                    >
-                      <strong>{cliente.nombre}</strong>
-                      {cliente.telefono && <span className="dropdown-subtext">📞 {cliente.telefono}</span>}
-                      {cliente.email && <span className="dropdown-subtext">✉️ {cliente.email}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-
+          <div className="form-group form-group--cliente">
+            <div className="form-group-label-row">
+              <label>Cliente *</label>
               {!clienteSeleccionado && !crearNuevoCliente && (
                 <button
-                  className="btn-secondary"
+                  type="button"
+                  className="btn-link btn-link-inline"
                   onClick={() => {
                     setCrearNuevoCliente(true)
                     setClientesEncontrados([])
                     setBusquedaCliente('')
                   }}
-                  style={{ marginTop: '8px' }}
                 >
-                  ➕ Crear Nuevo Cliente
+                  ➕ Crear nuevo
                 </button>
               )}
             </div>
+            {!crearNuevoCliente && (
+              <div className={`cliente-search-container${clienteSeleccionado ? ' cliente-search-container--selected' : ''}`}>
+                <input
+                  type="text"
+                  className="form-input form-input--search"
+                  placeholder="Nombre, apellido, DNI, teléfono o empresa…"
+                  value={busquedaCliente}
+                  onChange={(e) => {
+                    setBusquedaCliente(e.target.value)
+                    setClienteSeleccionado(null)
+                  }}
+                  readOnly={!!clienteSeleccionado}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                {buscandoClientes && !clienteSeleccionado && (
+                  <span className="loading-spinner" aria-hidden>⏳</span>
+                )}
+
+                {clientesEncontrados.length > 0 && !clienteSeleccionado && (
+                  <div className="dropdown-results dropdown-results--cliente">
+                    {clientesEncontrados.map((cliente) => (
+                      <div
+                        key={cliente.id}
+                        className="dropdown-item"
+                        onClick={() => seleccionarCliente(cliente)}
+                      >
+                        <strong>{nombreCompletoCliente(cliente)}</strong>
+                        {cliente.empresa && (
+                          <span className="dropdown-subtext">🏢 {cliente.empresa}</span>
+                        )}
+                        {cliente.dni_cuit && (
+                          <span className="dropdown-subtext">🪪 {cliente.dni_cuit}</span>
+                        )}
+                        {cliente.telefono && (
+                          <span className="dropdown-subtext">📞 {cliente.telefono}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Formulario para nuevo cliente */}
             {crearNuevoCliente && (
@@ -700,12 +777,19 @@ const VentaRapidaModal = ({
 
             {clienteSeleccionado && (
               <div className="cliente-seleccionado">
-                <strong>✓ {clienteSeleccionado.nombre}</strong>
+                <div className="cliente-seleccionado__texto">
+                  <strong>✓ {nombreCompletoCliente(clienteSeleccionado)}</strong>
+                  {clienteSeleccionado.dni_cuit && (
+                    <span className="cliente-seleccionado__meta">{clienteSeleccionado.dni_cuit}</span>
+                  )}
+                </div>
                 <button
+                  type="button"
                   className="btn-link"
                   onClick={() => {
                     setClienteSeleccionado(null)
                     setBusquedaCliente('')
+                    setClientesEncontrados([])
                   }}
                 >
                   Cambiar
@@ -821,6 +905,84 @@ const VentaRapidaModal = ({
             )}
           </div>
 
+          {/* Lista de precios / artículos */}
+          <div className="form-group form-group--lista-precios">
+            <div className="form-group-label-row">
+              <label>Lista de precios</label>
+              <span className="venta-rapida-lista-badge venta-rapida-lista-badge--inline">
+                {labelListaPrecio(tipoListaPrecio)}
+              </span>
+            </div>
+            <p className="form-hint-comprobante venta-lista-hint">
+              {tipoListaPrecio === 'lista_1'
+                ? 'Efectivo, transferencia, tarjeta y otros medios usan Lista 1.'
+                : 'Cuenta corriente usa Lista 2.'}
+            </p>
+            <div className="lista-precios-filtros">
+              <input
+                type="text"
+                className="form-input form-input--search"
+                placeholder="Buscar por código, nombre o rubro…"
+                value={busquedaArticulo}
+                onChange={(e) => setBusquedaArticulo(e.target.value)}
+                autoComplete="off"
+              />
+              {categoriasArticulos.length > 0 && (
+                <select
+                  className="form-select lista-precios-categoria"
+                  value={categoriaArticulo}
+                  onChange={(e) => setCategoriaArticulo(e.target.value)}
+                >
+                  <option value="todas">Todos los rubros</option>
+                  {categoriasArticulos.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="lista-precios-panel">
+              {loadingCatalogo ? (
+                <p className="lista-precios-empty">Cargando catálogo…</p>
+              ) : articulosFiltrados.length === 0 ? (
+                <p className="lista-precios-empty">
+                  {busquedaArticulo.trim() || categoriaArticulo !== 'todas'
+                    ? 'Sin resultados. Probá con otras palabras o rubro.'
+                    : 'No hay artículos en la lista de precios.'}
+                </p>
+              ) : (
+                <div className="lista-precios-scroll">
+                  {articulosFiltrados.slice(0, 80).map((articulo) => {
+                    const precio = resolvePrecioLista(articulo, tipoListaPrecio)
+                    const yaAgregado = itemsVenta.some((i) => i.id_articulo_empresa === articulo.id)
+                    return (
+                      <button
+                        key={articulo.id}
+                        type="button"
+                        className={`lista-precios-row${yaAgregado ? ' lista-precios-row--added' : ''}`}
+                        disabled={precio == null || yaAgregado}
+                        onClick={() => agregarArticulo(articulo)}
+                      >
+                        <span className="lista-precios-row__codigo">{articulo.codigo}</span>
+                        <span className="lista-precios-row__nombre">{articulo.nombre}</span>
+                        <span className="lista-precios-row__precio">
+                          {precio != null ? `$${formatArs(precio)}` : '—'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  {articulosFiltrados.length > 80 && (
+                    <p className="lista-precios-more">
+                      Mostrando 80 de {articulosFiltrados.length}. Acotá la búsqueda para ver más.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="form-group">
             <label>Comprobante de pago (opcional)</label>
             <p className="form-hint-comprobante">
@@ -879,43 +1041,7 @@ const VentaRapidaModal = ({
             </select>
           </div>
 
-          {/* Búsqueda de Artículos */}
-          <div className="form-group">
-            <label>Buscar Artículo</label>
-            <div className="articulo-search-container">
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Buscar por código o descripción..."
-                value={busquedaArticulo}
-                onChange={(e) => setBusquedaArticulo(e.target.value)}
-              />
-              {buscandoArticulos && <span className="loading-spinner">⏳</span>}
-              
-              {articulosEncontrados.length > 0 && (
-                <div className="dropdown-results">
-                  {articulosEncontrados.map((articulo) => (
-                    <div
-                      key={articulo.id}
-                      className="dropdown-item"
-                      onClick={() => agregarArticulo(articulo)}
-                    >
-                      <strong>{articulo.descripcion}</strong>
-                      {articulo.codigo && <span className="dropdown-subtext">Código: {articulo.codigo}</span>}
-                      <span className="dropdown-subtext">Precio: ${articulo.precio || 0}</span>
-                      {articulo.stock !== null && (
-                        <span className={`dropdown-subtext ${articulo.stock <= 0 ? 'stock-agotado' : ''}`}>
-                          Stock: {articulo.stock}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Lista de Items */}
+          {/* Items de venta (se muestran al agregar desde la lista) */}
           {itemsVenta.length > 0 && (
             <div className="items-venta-section">
               <h3>Items de Venta</h3>
@@ -946,16 +1072,18 @@ const VentaRapidaModal = ({
                           onChange={(e) => actualizarItem(index, 'cantidad', parseFloat(e.target.value) || 1)}
                         />
                       </div>
-                      <div className="item-control">
-                        <label>Precio Unit.</label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="form-input-small"
-                          value={item.precio_unitario}
-                          onChange={(e) => actualizarItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
-                        />
+                      <div className="item-control item-control--precio">
+                        <label>
+                          Precio unit.{' '}
+                          {item.precio_lista && (
+                            <span className="item-precio-lista-tag">
+                              {item.precio_lista === 'lista_1' ? 'L1' : 'L2'}
+                            </span>
+                          )}
+                        </label>
+                        <div className="item-precio-readonly" title="Según lista de precios activa">
+                          ${formatArs(item.precio_unitario)}
+                        </div>
                       </div>
                       <div className="item-control">
                         <label>Descuento</label>
@@ -969,7 +1097,7 @@ const VentaRapidaModal = ({
                         />
                       </div>
                       <div className="item-subtotal">
-                        <strong>Subtotal: ${((item.precio_unitario * item.cantidad) - item.descuento).toFixed(2)}</strong>
+                        <strong>Subtotal: ${formatArs(item.precio_unitario * item.cantidad - item.descuento)}</strong>
                       </div>
                     </div>
                     {item.observaciones && (
@@ -986,11 +1114,15 @@ const VentaRapidaModal = ({
             <div className="totales-section">
               <div className="total-line">
                 <span>Subtotal:</span>
-                <span>${calcularSubtotal().toFixed(2)}</span>
+                <span>${formatArs(calcularSubtotal())}</span>
+              </div>
+              <div className="total-line total-line--lista">
+                <span>Lista aplicada:</span>
+                <span>{labelListaPrecio(tipoListaPrecio)}</span>
               </div>
               <div className="total-line total-final">
                 <span><strong>Total:</strong></span>
-                <span><strong>${calcularSubtotal().toFixed(2)}</strong></span>
+                <span><strong>${formatArs(calcularSubtotal())}</strong></span>
               </div>
             </div>
           )}
