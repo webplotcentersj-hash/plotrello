@@ -5,7 +5,7 @@ import type { OrdenTrabajo, ClienteRecord } from '../types/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { clienteCoincideBusqueda } from '../utils/clienteDuplicados'
-import { CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
+import { CLIENTES_DASHBOARD, clientesPerfil } from '../utils/clientesRoutes'
 import './ClientesFrecuentesPage.css'
 
 type ClienteFrecuente = ClienteRecord & {
@@ -473,6 +473,13 @@ const ClientesFrecuentesPage = () => {
                   )}
                 </div>
                 <div className="cf-detalle__actions">
+                  <button
+                    type="button"
+                    className="cf-btn cf-btn--primary"
+                    onClick={() => navigate(clientesPerfil(clienteSeleccionado.id))}
+                  >
+                    Ver ficha completa
+                  </button>
                   <button
                     type="button"
                     className={`cf-btn cf-btn--vip${clienteSeleccionado.esVIP ? ' cf-btn--vip-on' : ''}`}

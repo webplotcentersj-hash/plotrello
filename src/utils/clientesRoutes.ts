@@ -9,3 +9,7 @@ export const ATENCION_PUBLICO = '/atencion-publico'
 export function clientesCcPerfil(idCliente: number | string): string {
   return `${CLIENTES_CUENTA_CORRIENTE}/cliente/${idCliente}`
 }
+
+export function clientesPerfil(idCliente: number | string): string {
+  return `/clientes/cliente/${idCliente}`
+}

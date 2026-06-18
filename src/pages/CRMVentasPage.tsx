@@ -27,6 +27,7 @@ import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
 import CajaCobroVentaModal from '../features/control-cajas/components/CajaCobroVentaModal'
 import { forceResyncVenta } from '../features/control-cajas/plotlabVentaCajaSync'
+import { clientesPerfil } from '../utils/clientesRoutes'
 import './CRMVentasPage.css'
 
 const CRM_VENTAS_TAB_KEY = 'crmVentasActiveTab'
@@ -2686,6 +2687,15 @@ const CRMVentasPage = () => {
                 </div>
 
                 <div className="modal-footer venta-detail-modal__footer card-actions">
+                  {ventaModal.id_cliente ? (
+                    <button
+                      type="button"
+                      className="btn-action"
+                      onClick={() => navigate(clientesPerfil(ventaModal.id_cliente!))}
+                    >
+                      👤 Perfil cliente
+                    </button>
+                  ) : null}
                   {ventaTieneOp(ventaModal) ? (
                     <button
                       type="button"

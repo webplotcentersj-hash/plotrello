@@ -12801,6 +12801,22 @@ class ApiService {
   }
 
   /**
+   * Ficha de cliente por id (catálogo unificado).
+   */
+  async getClientePorId(id: number): Promise<ApiResponse<ClienteRecord | null>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    if (!Number.isFinite(id) || id <= 0) return { success: false, error: 'ID inválido' }
+    try {
+      const { data, error } = await supabase.from('clientes').select('*').eq('id', id).maybeSingle()
+      if (error) return { success: false, error: error.message }
+      if (!data) return { success: true, data: null }
+      return { success: true, data: data as ClienteRecord }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al cargar cliente' }
+    }
+  }
+
+  /**
    * Obtener todos los clientes (con y sin acceso web)
    */
   async getClientes(
@@ -17763,6 +17779,25 @@ class ApiService {
         success: false,
         error: error.message || 'Error al crear venta desde oportunidad'
       }
+    }
+  }
+
+  async obtenerVentasPorCliente(idCliente: number): Promise<ApiResponse<Array<import('../types/api').Venta>>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    if (!Number.isFinite(idCliente) || idCliente <= 0) {
+      return { success: false, error: 'Cliente inválido' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('ventas')
+        .select('*')
+        .eq('id_cliente', idCliente)
+        .order('fecha_venta', { ascending: false })
+        .limit(120)
+      if (error) throw error
+      return { success: true, data: (data ?? []) as Array<import('../types/api').Venta> }
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Error al obtener ventas del cliente' }
     }
   }
 

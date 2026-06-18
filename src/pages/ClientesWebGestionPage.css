@@ -471,6 +471,27 @@
   white-space: nowrap;
 }
 
+.cwg-link-name {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  color: #93c5fd;
+  cursor: pointer;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cwg-link-name:hover {
+  color: #bfdbfe;
+  text-decoration: underline;
+}
+
 .cwg-table .cwg-td--muted {
   color: var(--cwg-muted);
   font-size: 0.75rem;

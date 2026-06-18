@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { ClienteRecord } from '../types/api'
+import { clientesPerfil } from '../utils/clientesRoutes'
 import './ClientesWebGestionPage.css'
 
 type FiltroAcceso = 'todos' | 'con_acceso' | 'sin_acceso'
@@ -571,8 +572,14 @@ const ClientesWebGestionPage = () => {
                     </td>
                     <td className="cwg-td--muted">{cliente.usuario || '—'}</td>
                     <td className="cwg-td--name">
-                      {cliente.nombre}
-                      {cliente.apellido ? ` ${cliente.apellido}` : ''}
+                      <button
+                        type="button"
+                        className="cwg-link-name"
+                        onClick={() => navigate(clientesPerfil(cliente.id))}
+                      >
+                        {cliente.nombre}
+                        {cliente.apellido ? ` ${cliente.apellido}` : ''}
+                      </button>
                     </td>
                     <td className="cwg-td--muted">{cliente.empresa || '—'}</td>
                     <td className="cwg-td--muted">{cliente.email || '—'}</td>
@@ -588,6 +595,13 @@ const ClientesWebGestionPage = () => {
                     </td>
                     <td>
                       <div className="cwg-actions">
+                        <button
+                          type="button"
+                          className="cwg-btn cwg-btn--ghost cwg-btn--xs"
+                          onClick={() => navigate(clientesPerfil(cliente.id))}
+                        >
+                          Perfil
+                        </button>
                         <button
                           type="button"
                           className="cwg-btn cwg-btn--edit cwg-btn--xs"

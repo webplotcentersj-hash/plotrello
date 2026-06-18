@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CLIENTES_CUENTA_CORRIENTE } from '../utils/clientesRoutes'
+import { CLIENTES_CUENTA_CORRIENTE, clientesPerfil } from '../utils/clientesRoutes'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import CuentaCorrienteScoreBadge from '../components/CuentaCorrienteScoreBadge'
@@ -299,6 +299,9 @@ export default function CuentaCorrientePerfilPage() {
                 }
               ]}
             />
+            <Link to={clientesPerfil(idCliente)} className="cc-btn cc-btn--secondary">
+              Ver perfil cliente
+            </Link>
             <CuentaCorrienteScoreBadge
               score={res.score}
               nivel={res.score_nivel as CcScoreNivel | undefined}

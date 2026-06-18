@@ -32,6 +32,7 @@ const ReportesMostradorPage = lazy(() => import('../pages/ReportesMostradorPage'
 const ClientesFrecuentesPage = lazy(() => import('../pages/ClientesFrecuentesPage'))
 const CuentaCorrientePage = lazy(() => import('../pages/CuentaCorrientePage'))
 const CuentaCorrientePerfilPage = lazy(() => import('../pages/CuentaCorrientePerfilPage'))
+const ClientePerfilPage = lazy(() => import('../pages/ClientePerfilPage'))
 const AtencionPublicoDashboardPage = lazy(() => import('../pages/AtencionPublicoDashboardPage'))
 const ComprasDashboardPage = lazy(() => import('../pages/ComprasDashboardPage'))
 const PedidoCompraDetallePage = lazy(() => import('../pages/PedidoCompraDetallePage'))
@@ -1011,6 +1012,7 @@ function AppRoutes({
       <Route path="/clientes" element={<Navigate to="/clientes/dashboard" replace />} />
       <Route path="/clientes/dashboard" element={<ClientesDashboardPage />} />
       <Route path="/clientes/buscar" element={<BuscarClientePage />} />
+      <Route path="/clientes/cliente/:idCliente" element={<ClientePerfilPage />} />
       <Route path="/clientes/frecuentes" element={<ClientesFrecuentesPage />} />
       <Route path="/clientes/cuenta-corriente" element={<CuentaCorrientePage />} />
       <Route

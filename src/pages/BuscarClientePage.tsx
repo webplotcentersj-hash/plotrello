@@ -18,7 +18,8 @@ import {
 } from '../constants/cuentaCorriente'
 import {
   CLIENTES_DASHBOARD,
-  clientesCcPerfil
+  clientesCcPerfil,
+  clientesPerfil
 } from '../utils/clientesRoutes'
 import './BuscarClientePage.css'
 
@@ -404,6 +405,13 @@ const BuscarClientePage = () => {
                 )}
               </div>
               <div className="bc-detalle__actions">
+                <button
+                  type="button"
+                  className="bc-btn bc-btn--secondary"
+                  onClick={() => navigate(clientesPerfil(clienteSeleccionado.id))}
+                >
+                  Ver ficha completa
+                </button>
                 {isClienteCcOperativo(clienteSeleccionado.cuentaCorriente ?? {}) && (
                   <button
                     type="button"
