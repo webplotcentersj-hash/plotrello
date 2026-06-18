@@ -739,17 +739,22 @@ const CrearPresupuestoModal = ({
               )}
 
               {itemsPresupuesto.length > 0 && (
-                <div className="items-list" style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div className="items-list presupuesto-items-list">
                   {itemsPresupuesto.map((item, index) => (
-                    <div key={index} className="item-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                        <div>
+                    <div key={index} className="item-card presupuesto-item-card">
+                      <div className="item-header">
+                        <div className="presupuesto-item-card__info">
                           <strong>{item.descripcion}</strong>
                           {item.codigo_articulo && (
                             <div className="item-codigo">Código: {item.codigo_articulo}</div>
                           )}
                         </div>
-                        <button type="button" className="btn-icon" onClick={() => eliminarItem(index)}>
+                        <button
+                          type="button"
+                          className="btn-remove presupuesto-item-card__remove"
+                          onClick={() => eliminarItem(index)}
+                          aria-label="Quitar artículo"
+                        >
                           🗑️
                         </button>
                       </div>

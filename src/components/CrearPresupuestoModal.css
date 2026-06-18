@@ -458,3 +458,104 @@
   color: #f8fafc !important;
   -webkit-text-fill-color: #f8fafc !important;
 }
+
+/* Ítems del presupuesto — tema oscuro (anula VentaRapidaModal.css blanco) */
+.modal-content.presupuesto-venta-modal .presupuesto-items-list {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-content.presupuesto-venta-modal .presupuesto-item-card,
+.modal-content.presupuesto-venta-modal .presupuesto-item-card.item-card {
+  background: linear-gradient(165deg, #1e293b 0%, #172033 100%) !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  border-radius: 12px !important;
+  padding: 16px 18px !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+.modal-content.presupuesto-venta-modal .presupuesto-item-card .item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modal-content.presupuesto-venta-modal .presupuesto-item-card strong {
+  color: #f8fafc !important;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.modal-content.presupuesto-venta-modal .presupuesto-item-card .item-codigo {
+  color: #7dd3fc !important;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.modal-content.presupuesto-venta-modal .presupuesto-item-card__remove,
+.modal-content.presupuesto-venta-modal .presupuesto-item-card .btn-remove {
+  flex-shrink: 0;
+  background: rgba(127, 29, 29, 0.35) !important;
+  border: 1px solid rgba(248, 113, 113, 0.45) !important;
+  border-radius: 10px !important;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fecaca !important;
+  box-shadow: none !important;
+}
+
+.modal-content.presupuesto-venta-modal .presupuesto-item-card__remove:hover,
+.modal-content.presupuesto-venta-modal .presupuesto-item-card .btn-remove:hover {
+  background: rgba(153, 27, 27, 0.55) !important;
+  border-color: #f87171 !important;
+  transform: scale(1.04);
+}
+
+.modal-content.presupuesto-venta-modal .presupuesto-item-card .item-control label {
+  color: #94a3b8 !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.modal-content.presupuesto-venta-modal .presupuesto-item-card .form-input-small,
+.modal-content.presupuesto-venta-modal .presupuesto-item-card input[type='number'] {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border: 1px solid rgba(148, 163, 184, 0.28) !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.modal-content.presupuesto-venta-modal .presupuesto-item-card .form-input-small:focus,
+.modal-content.presupuesto-venta-modal .presupuesto-item-card input[type='number']:focus {
+  border-color: #3b82f6 !important;
+  background: rgba(15, 23, 42, 1) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  outline: none !important;
+}
+
+.modal-content.presupuesto-venta-modal .presupuesto-item-card .item-subtotal {
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2) !important;
+  text-align: right;
+  color: #34d399 !important;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
