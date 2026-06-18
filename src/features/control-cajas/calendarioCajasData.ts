@@ -22,6 +22,7 @@ export type DiaCalendarioCaja = {
   cierresTurno: number
   planillas: number
   arqueos: number
+  movimientos: number
   cajasSlugs: string[]
   searchText: string
 }
@@ -38,6 +39,7 @@ function ensureDay(index: CalendarioCajasIndex, fecha: string): DiaCalendarioCaj
       cierresTurno: 0,
       planillas: 0,
       arqueos: 0,
+      movimientos: 0,
       cajasSlugs: [],
       searchText: ''
     }
@@ -104,7 +106,7 @@ export function buildCalendarioCajasIndex(
     if (e.fecha) fechas.add(e.fecha)
   }
   for (const m of movimientos) {
-    if (m.origen_importacion === 'plotlab_venta' && m.fecha && !m.anulado) fechas.add(m.fecha)
+    if (m.fecha && !m.anulado) fechas.add(m.fecha)
   }
 
   for (const fecha of fechas) {
@@ -147,6 +149,14 @@ export function buildCalendarioCajasIndex(
     const day = ensureDay(index, e.fecha)
     if (e.estado === 'pendiente') day.egresosPendientes += 1
     addCajaSlug(day, e.caja_slug)
+  }
+
+  for (const m of movimientos) {
+    if (!m.fecha || m.anulado) continue
+    const day = ensureDay(index, m.fecha)
+    day.movimientos += 1
+    addCajaSlug(day, m.origen_slug)
+    addCajaSlug(day, m.destino_slug)
   }
 
   for (const day of Object.values(index)) {
@@ -231,6 +241,7 @@ export function dayHasActivity(day: DiaCalendarioCaja | undefined): boolean {
     day.cierresTurno > 0 ||
     day.planillas > 0 ||
     day.arqueos > 0 ||
+    day.movimientos > 0 ||
     day.ingreso > 0 ||
     day.egreso > 0 ||
     day.egresosPendientes > 0

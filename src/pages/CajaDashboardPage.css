@@ -1219,6 +1219,23 @@
   border-bottom: 1px solid #e2e8f0;
 }
 
+.caja-dashboard-page .caja-cc-timeline-item-clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  margin: 0 -8px;
+  padding: 14px 8px;
+  transition: background 0.15s ease;
+}
+
+.caja-dashboard-page .caja-cc-timeline-item-clickable:hover {
+  background: #f8fafc;
+}
+
+.caja-dashboard-page .caja-cc-timeline-item-clickable:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 .caja-dashboard-page .caja-cc-timeline-icon {
   width: 36px;
   height: 36px;
@@ -1262,6 +1279,152 @@
 .caja-dashboard-page .caja-cc-amount {
   font-weight: 700;
   font-family: ui-monospace, monospace;
+}
+
+.caja-dashboard-page .caja-cc-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.caja-dashboard-page .caja-cc-amount-cc,
+.caja-dashboard-page .caja-cc-amount-cc-inline {
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  color: #7c3aed;
+  font-size: 12px;
+}
+
+.caja-dashboard-page .caja-cc-hoy-hero-cc {
+  font-size: 15px;
+  font-weight: 700;
+  color: #7c3aed;
+  font-family: ui-monospace, monospace;
+}
+
+.caja-dashboard-page .caja-cc-concil-dia {
+  margin-bottom: 20px;
+}
+
+.caja-dashboard-page .caja-cc-concil-dia-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.caja-dashboard-page .caja-cc-concil-dia-totales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+}
+
+.caja-dashboard-page .caja-cc-concil-dia-cc strong {
+  color: #7c3aed;
+}
+
+.caja-dashboard-page .caja-cc-concil-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.caja-dashboard-page .caja-cc-concil-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.caja-dashboard-page .caja-cc-concil-card.ok {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.caja-dashboard-page .caja-cc-concil-card.bad {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.caja-dashboard-page .caja-cc-concil-card.warn {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.caja-dashboard-page .caja-cc-concil-card.is-cc {
+  border-color: #c4b5fd;
+  background: #f5f3ff;
+}
+
+.caja-dashboard-page .caja-cc-concil-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.caja-dashboard-page .caja-cc-concil-label {
+  font-weight: 600;
+  font-size: 13px;
+  flex: 1;
+}
+
+.caja-dashboard-page .caja-cc-concil-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.caja-dashboard-page .caja-cc-concil-badge.ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.caja-dashboard-page .caja-cc-concil-badge.bad {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.caja-dashboard-page .caja-cc-concil-badge.warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.caja-dashboard-page .caja-cc-concil-montos {
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.caja-dashboard-page .caja-cc-concil-fuente {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.caja-dashboard-page .caja-cc-concil-dif {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.caja-dashboard-page .caja-cc-concil-hint-cc {
+  margin: 0;
+  font-size: 11px;
+  color: #7c3aed;
+}
+
+.caja-dashboard-page .dot.movimiento {
+  background: #8b5cf6;
 }
 
 .caja-dashboard-page .btn-small.danger {
@@ -2360,6 +2523,21 @@
   font-size: 13px;
   color: #64748b;
   line-height: 1.35;
+}
+
+.caja-dashboard-page .caja-cc-hoy-hero-card-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.caja-dashboard-page .caja-cc-hoy-hero-card-clickable:hover {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.caja-dashboard-page .caja-cc-hoy-hero-card-clickable:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
 /* —— Calendario admin —— */

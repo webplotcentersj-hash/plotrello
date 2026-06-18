@@ -1,11 +1,13 @@
-import { fmtArs, fmtDateAr, montoVisibleMovimiento } from '../format'
+import { fmtArs, fmtDateAr } from '../format'
 import { paseTieneTrazabilidad } from '../paseCaja'
 import type { CajaMovimiento, CajaRegistro } from '../types'
+import CajaMontoMovimiento from './CajaMontoMovimiento'
 
 type Props = {
   movimientos: CajaMovimiento[]
   cajas: CajaRegistro[]
   onDelete?: (id: string) => void
+  onSelect?: (m: CajaMovimiento) => void
   showUsuario?: boolean
   showPaseTrazabilidad?: boolean
 }
@@ -27,6 +29,7 @@ export default function CajaMovimientosList({
   movimientos,
   cajas,
   onDelete,
+  onSelect,
   showUsuario,
   showPaseTrazabilidad = false
 }: Props) {
@@ -36,7 +39,6 @@ export default function CajaMovimientosList({
   return (
     <div className="caja-cc-timeline">
       {movimientos.map((m) => {
-        const tot = montoVisibleMovimiento(m)
         const cls =
           m.concepto === 'Fondo de caja'
             ? 'fondo'
@@ -44,7 +46,24 @@ export default function CajaMovimientosList({
               ? 'cierre'
               : 'pase'
         return (
-          <div key={m.id} className="caja-cc-timeline-item">
+          <div
+            key={m.id}
+            className={`caja-cc-timeline-item${onSelect ? ' caja-cc-timeline-item-clickable' : ''}`}
+            onClick={onSelect ? () => onSelect(m) : undefined}
+            onKeyDown={
+              onSelect
+                ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onSelect(m)
+                    }
+                  }
+                : undefined
+            }
+            role={onSelect ? 'button' : undefined}
+            tabIndex={onSelect ? 0 : undefined}
+            title={onSelect ? 'Ver detalle del movimiento' : undefined}
+          >
             <div className={`caja-cc-timeline-icon ${cls}`} aria-hidden>
               {m.concepto === 'Fondo de caja' ? '💰' : m.concepto === 'Cierre de caja' ? '🔒' : '↔️'}
             </div>
@@ -95,9 +114,16 @@ export default function CajaMovimientosList({
               )}
             </div>
             <div className="caja-cc-timeline-end">
-              <div className="caja-cc-amount">$ {fmtArs(tot)}</div>
+              <CajaMontoMovimiento movimiento={m} />
               {onDelete && !m.cierre_id && !m.anulado && (
-                <button type="button" className="btn-small danger" onClick={() => onDelete(m.id)}>
+                <button
+                  type="button"
+                  className="btn-small danger"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(m.id)
+                  }}
+                >
                   Eliminar
                 </button>
               )}

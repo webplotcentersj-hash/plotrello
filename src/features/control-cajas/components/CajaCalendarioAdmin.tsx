@@ -173,7 +173,7 @@ export default function CajaCalendarioAdmin({
                 onClick={() => onSelectFecha(fecha)}
                 title={
                   active && day
-                    ? `Ingreso $ ${fmtArs(day.ingreso)} · Egreso $ ${fmtArs(day.egreso)}`
+                    ? `Ingreso $ ${fmtArs(day.ingreso)} · Egreso $ ${fmtArs(day.egreso)}${day.movimientos > 0 ? ` · ${day.movimientos} mov.` : ''}`
                     : undefined
                 }
               >
@@ -182,6 +182,7 @@ export default function CajaCalendarioAdmin({
                   <span className="caja-cc-cal-dots" aria-hidden>
                     {day.cierresTurno > 0 && <i className="dot cierre" />}
                     {day.planillas > 0 && <i className="dot planilla" />}
+                    {day.movimientos > 0 && <i className="dot movimiento" />}
                     {day.arqueos > 0 && <i className="dot arqueo" />}
                     {day.egresosPendientes > 0 && <i className="dot pendiente" />}
                   </span>
@@ -198,6 +199,9 @@ export default function CajaCalendarioAdmin({
         </span>
         <span>
           <i className="dot planilla" /> Planilla
+        </span>
+        <span>
+          <i className="dot movimiento" /> Movimientos
         </span>
         <span>
           <i className="dot arqueo" /> Arqueo

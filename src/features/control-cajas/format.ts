@@ -30,13 +30,33 @@ export function montoVisibleMovimiento(m: {
   tarjeta?: number | null
   cuenta_corriente?: number | null
   transferencia_bancaria?: number | null
+  cheque_propio?: number | null
+  cheque_tercero?: number | null
+  documento?: number | null
+  cuenta_contable?: number | null
 }): number {
   if (m.monto_total != null && m.monto_total > 0) return m.monto_total
   const tarj = m.tarjeta ?? 0
   const ef = m.efectivo ?? 0
   const ot = m.otros ?? 0
-  if (tarj > 0) return tarj + ef + ot
+  const cc = m.cuenta_corriente ?? 0
+  const tr = m.transferencia_bancaria ?? 0
+  const extra =
+    (m.cheque_propio ?? 0) +
+    (m.cheque_tercero ?? 0) +
+    (m.documento ?? 0) +
+    (m.cuenta_contable ?? 0)
+  if (tarj > 0 || tr > 0 || cc > 0 || extra > 0) return ef + tarj + tr + cc + ot + extra
   return ef + ot
+}
+
+export function montoCuentaCorriente(m: { cuenta_corriente?: number | null }): number {
+  return Number(m.cuenta_corriente) || 0
+}
+
+/** Cobrado en caja (excluye cuenta corriente contable). */
+export function montoCobradoCaja(m: Parameters<typeof montoVisibleMovimiento>[0]): number {
+  return Math.max(0, montoVisibleMovimiento(m) - montoCuentaCorriente(m))
 }
 
 export const newId = () =>

@@ -1,20 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { buildCalendarioCajasIndex, yearMonthFromDate } from '../calendarioCajasData'
+import { movimientosDelDia, mediosIngresosDia } from '../conciliacionDiaCaja'
 import { resumenAdminHoy } from '../cajaDashboardData'
 import { alertaDobleFuenteCaja } from '../plotlabVentasCajaData'
 import { fmtArs, fmtDateAr } from '../format'
 import {
   listArqueos,
   listCajas,
+  listConcilBanco,
+  listConcilMP,
   listEgresoSolicitudes,
   listMovimientos,
   listPlanillas,
   listTransferenciaLotes
 } from '../cajaRepository'
-import type { CajaRegistro, CajaTransferenciaLote } from '../types'
+import type { CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from '../types'
 import CajaCalendarioAdmin from './CajaCalendarioAdmin'
 import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
+import CajaDiaConciliacionPanel from './CajaDiaConciliacionPanel'
+import CajaDiaResumenDetalleModal from './CajaDiaResumenDetalleModal'
+import CajaMovimientoDetalleModal from './CajaMovimientoDetalleModal'
+import CajaMovimientosList from './CajaMovimientosList'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 type Props = {
@@ -34,8 +41,12 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
   const [arqueos, setArqueos] = useState<Awaited<ReturnType<typeof listArqueos>>>([])
   const [egresos, setEgresos] = useState<Awaited<ReturnType<typeof listEgresoSolicitudes>>>([])
   const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
+  const [concilMp, setConcilMp] = useState<Awaited<ReturnType<typeof listConcilMP>>>([])
+  const [concilBanco, setConcilBanco] = useState<Awaited<ReturnType<typeof listConcilBanco>>>([])
   const [loading, setLoading] = useState(true)
   const [detalleLote, setDetalleLote] = useState<CajaTransferenciaLote | null>(null)
+  const [diaResumenTipo, setDiaResumenTipo] = useState<'ingreso' | 'egreso' | null>(null)
+  const [detalleMovimiento, setDetalleMovimiento] = useState<CajaMovimiento | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -45,14 +56,18 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
       listEgresoSolicitudes(),
       listArqueos(),
       listCajas(),
-      listMovimientos()
-    ]).then(([l, p, e, a, c, m]) => {
+      listMovimientos(),
+      listConcilMP(),
+      listConcilBanco()
+    ]).then(([l, p, e, a, c, m, mp, banco]) => {
       setLotes(l)
       setPlanillas(p)
       setEgresos(e)
       setArqueos(a)
       setCajas(c)
       setMovimientos(m)
+      setConcilMp(mp)
+      setConcilBanco(banco)
       setLoading(false)
     })
   }, [refreshKey])
@@ -68,6 +83,26 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
   const calendarioIndex = useMemo(
     () => buildCalendarioCajasIndex(lotes, planillas, arqueos, egresos, cajas, movimientos),
     [lotes, planillas, arqueos, egresos, cajas, movimientos]
+  )
+
+  const mediosDia = useMemo(
+    () => mediosIngresosDia(movimientos, selectedFecha),
+    [movimientos, selectedFecha]
+  )
+
+  const movsDia = useMemo(
+    () => movimientosDelDia(movimientos, selectedFecha),
+    [movimientos, selectedFecha]
+  )
+
+  const concilMpDia = useMemo(
+    () => concilMp.find((c) => c.fecha === selectedFecha) ?? null,
+    [concilMp, selectedFecha]
+  )
+
+  const concilBancoDia = useMemo(
+    () => concilBanco.find((c) => c.fecha === selectedFecha) ?? null,
+    [concilBanco, selectedFecha]
   )
 
   const resumen = useMemo(
@@ -138,12 +173,43 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
       ) : (
         <>
           <div className="caja-cc-hoy-hero">
-            <div className="caja-cc-hoy-hero-card ingreso">
+            <div
+              className="caja-cc-hoy-hero-card ingreso caja-cc-hoy-hero-card-clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => setDiaResumenTipo('ingreso')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setDiaResumenTipo('ingreso')
+                }
+              }}
+              title="Ver detalle del ingreso del día"
+            >
               <span className="caja-cc-hoy-hero-label">{esHoy ? 'Ingreso hoy' : 'Ingreso del día'}</span>
-              <span className="caja-cc-hoy-hero-value">$ {fmtArs(resumen.ingresoHoy)}</span>
+              <span className="caja-cc-hoy-hero-value">
+                $ {fmtArs(mediosDia.totalCobrado > 0 ? mediosDia.totalCobrado : resumen.ingresoHoy)}
+              </span>
+              {mediosDia.cuenta_corriente > 0 && (
+                <span className="caja-cc-hoy-hero-cc">
+                  CC $ {fmtArs(mediosDia.cuenta_corriente)}
+                </span>
+              )}
               <span className="caja-cc-hoy-hero-hint">{ingresoLabel}</span>
             </div>
-            <div className="caja-cc-hoy-hero-card egreso">
+            <div
+              className="caja-cc-hoy-hero-card egreso caja-cc-hoy-hero-card-clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => setDiaResumenTipo('egreso')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setDiaResumenTipo('egreso')
+                }
+              }}
+              title="Ver detalle de egresos del día"
+            >
               <span className="caja-cc-hoy-hero-label">{esHoy ? 'Egresos hoy' : 'Egresos del día'}</span>
               <span className="caja-cc-hoy-hero-value">$ {fmtArs(resumen.egresosHoy)}</span>
               <span className="caja-cc-hoy-hero-hint">
@@ -152,12 +218,45 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
                   : 'Egresos aprobados del día (todas las cajas)'}
               </span>
               {resumen.egresosPendientes > 0 && (
-                <button type="button" className="btn-secondary btn-small" onClick={onEgresos}>
+                <button
+                  type="button"
+                  className="btn-secondary btn-small"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEgresos()
+                  }}
+                >
                   Ver egresos
                 </button>
               )}
             </div>
           </div>
+
+          <CajaDiaConciliacionPanel
+            fecha={selectedFecha}
+            movimientos={movimientos}
+            planillas={planillas}
+            concilMp={concilMpDia}
+            concilBanco={concilBancoDia}
+          />
+
+          {movsDia.length > 0 && (
+            <div className="caja-cc-card caja-cc-card-collapsible is-open">
+              <div className="caja-cc-card-collapsible-head">
+                <h3>Movimientos del día — {fmtDateAr(selectedFecha)}</h3>
+                <span className="caja-cc-card-collapsible-badge">{movsDia.length}</span>
+              </div>
+              <div className="caja-cc-card-collapsible-body caja-cc-card-body-scroll">
+                <p className="caja-cc-help">Tocá un movimiento para ver detalle y exportar PDF.</p>
+                <CajaMovimientosList
+                  movimientos={movsDia}
+                  cajas={cajas}
+                  showUsuario
+                  onSelect={setDetalleMovimiento}
+                />
+              </div>
+            </div>
+          )}
 
           {esHoy && (
             <div className="caja-cc-card caja-cc-fondo-regla">
@@ -216,7 +315,8 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
 
           {resumen.cierresTurnoHoy.length === 0 &&
             resumen.ingresoHoy <= 0 &&
-            resumen.egresosHoy <= 0 && (
+            resumen.egresosHoy <= 0 &&
+            movsDia.length === 0 && (
               <p className="caja-cc-muted caja-cc-empty-day">
                 Sin cierres de turno ni movimientos registrados para este día.
               </p>
@@ -226,6 +326,28 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
 
       {detalleLote && (
         <CajaCierreTurnoDetalleModal lote={detalleLote} cajas={cajas} onClose={() => setDetalleLote(null)} />
+      )}
+
+      {diaResumenTipo && (
+        <CajaDiaResumenDetalleModal
+          tipo={diaResumenTipo}
+          fecha={selectedFecha}
+          esHoy={esHoy}
+          resumen={resumen}
+          planillas={planillas}
+          egresos={egresos}
+          movimientos={movimientos}
+          cajas={cajas}
+          onClose={() => setDiaResumenTipo(null)}
+        />
+      )}
+
+      {detalleMovimiento && (
+        <CajaMovimientoDetalleModal
+          movimiento={detalleMovimiento}
+          cajas={cajas}
+          onClose={() => setDetalleMovimiento(null)}
+        />
       )}
     </>
   )

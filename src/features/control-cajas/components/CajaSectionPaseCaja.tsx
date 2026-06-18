@@ -20,6 +20,7 @@ import { fmtArs, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { calcularPaseTrazabilidad, validarPaseCaja } from '../paseCaja'
 import CajaMovimientosList from './CajaMovimientosList'
+import CajaMovimientoDetalleModal from './CajaMovimientoDetalleModal'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 import type { CajaMovimiento, CajaRegistro } from '../types'
 
@@ -42,6 +43,7 @@ export default function CajaSectionPaseCaja({
   const [cajaResolviendo, setCajaResolviendo] = useState(soloMisPases)
   const [cajaAutoAsignada, setCajaAutoAsignada] = useState(false)
   const [historialOpen, setHistorialOpen] = useState(false)
+  const [detalleMovimiento, setDetalleMovimiento] = useState<CajaMovimiento | null>(null)
 
   const [fecha, setFecha] = useState(getArgentinaDateString())
   const [hora, setHora] = useState(() => new Date().toTimeString().slice(0, 5))
@@ -535,11 +537,20 @@ export default function CajaSectionPaseCaja({
                 cajas={cajas}
                 showUsuario={!soloMisPases}
                 showPaseTrazabilidad
+                onSelect={setDetalleMovimiento}
               />
             )}
           </div>
         )}
       </div>
+
+      {detalleMovimiento && (
+        <CajaMovimientoDetalleModal
+          movimiento={detalleMovimiento}
+          cajas={cajas}
+          onClose={() => setDetalleMovimiento(null)}
+        />
+      )}
     </div>
   )
 }

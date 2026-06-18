@@ -14,6 +14,7 @@ import {
 } from '../parseMovimientosExcel'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import CajaMovimientosList from './CajaMovimientosList'
+import CajaMovimientoDetalleModal from './CajaMovimientoDetalleModal'
 import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
@@ -56,6 +57,7 @@ export default function CajaSectionMovimientos({
   const [filtDesde, setFiltDesde] = useState('')
   const [filtHasta, setFiltHasta] = useState('')
   const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE)
+  const [detalleMovimiento, setDetalleMovimiento] = useState<CajaMovimiento | null>(null)
   const reload = useCallback(async () => {
     setLoading(true)
     const [c, m] = await Promise.all([
@@ -367,6 +369,7 @@ export default function CajaSectionMovimientos({
               movimientos={movimientosVisibles}
               cajas={cajas}
               showUsuario={!soloMisMovimientos}
+              onSelect={setDetalleMovimiento}
               onDelete={allowDelete ? handleDelete : undefined}
             />
             {movimientosFiltrados.length > listLimit && (
@@ -381,6 +384,15 @@ export default function CajaSectionMovimientos({
           </>
         )}
       </CajaCollapsibleCard>
+
+      {detalleMovimiento && (
+        <CajaMovimientoDetalleModal
+          movimiento={detalleMovimiento}
+          cajas={cajas}
+          onClose={() => setDetalleMovimiento(null)}
+          onDelete={allowDelete ? handleDelete : undefined}
+        />
+      )}
     </div>
   )
 }
