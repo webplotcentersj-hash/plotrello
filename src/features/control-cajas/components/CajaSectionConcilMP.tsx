@@ -98,8 +98,8 @@ Historial reciente: ${historial
         <CajaVolverPlotLab small />
       </div>
       <p className="caja-cc-sub">
-        Sistema vs dashboard de Mercado Pago, por día. El sistema se calcula desde cierres, planillas PDF o
-        movimientos importados.
+        Sistema vs dashboard de Mercado Pago, por día. El sistema se calcula desde cierres, planillas PDF,
+        ventas PlotLab o movimientos importados.
       </p>
 
       {msg && (

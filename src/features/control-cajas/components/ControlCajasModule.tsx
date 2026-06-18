@@ -165,6 +165,12 @@ export default function ControlCajasModule() {
     if (!enVistaAdmin && section === 'movimientos') setSection('historial')
   }, [enVistaAdmin, section])
 
+  useEffect(() => {
+    if (enVistaAdmin && (section === 'ventas' || section === 'config')) {
+      setSection('tablero_admin')
+    }
+  }, [enVistaAdmin, section])
+
   const bumpRefresh = () => setRefreshKey((k) => k + 1)
 
   if (authLoading && !usuario) {

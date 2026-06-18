@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { TURNOS_CAJA } from '../constants'
 import { calcularCierre, cierreFromCalculado, type CierreFormInput } from '../cierreCalculations'
 import { fmtArs } from '../format'
@@ -19,6 +19,7 @@ import { totalEgresosAprobados } from '../cierreTurno'
 import { cierrePrecargaDesdePlanilla } from '../cajaTotales'
 import { calcularTotalesCaja, enrichCierreFromTotales } from '../movimientoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
+import { sincronizarVentasPlotLabRango } from '../plotlabVentaCajaSync'
 import type { CajaCierreEstadoCierre, CajaMovimiento } from '../types'
 import CajaBadge from './CajaBadge'
 import CajaCierreSnapshotPanel from './CajaCierreSnapshotPanel'
@@ -80,6 +81,7 @@ export default function CajaSectionCierreForm({
   const [snapshot, setSnapshot] = useState<Record<string, unknown> | null>(null)
   const [movsVinculados, setMovsVinculados] = useState<CajaMovimiento[]>([])
   const [idPlanilla, setIdPlanilla] = useState<string | null>(null)
+  const autoPrecargaRef = useRef(false)
 
   useEffect(() => {
     void Promise.all([listCajas(), getParams()]).then(([c, p]) => {
@@ -93,6 +95,10 @@ export default function CajaSectionCierreForm({
   useEffect(() => {
     void listMovimientos().then(setMovimientos)
   }, [])
+
+  useEffect(() => {
+    if (!editId) autoPrecargaRef.current = false
+  }, [editId, fecha, cajaSlug])
 
   useEffect(() => {
     if (!editId) return
@@ -144,6 +150,71 @@ export default function CajaSectionCierreForm({
   const fondoMin = cajaActiva ? fondoFijoEfectivo(cajaActiva) : 0
 
   const bloqueado = estadoCierre === 'cerrado' || estadoCierre === 'observado'
+
+  useEffect(() => {
+    if (editId || bloqueado || !cajaSlug || !fecha || planillaActiva) return
+    let cancelled = false
+    void (async () => {
+      await sincronizarVentasPlotLabRango(fecha, fecha)
+      const movs = await listMovimientos()
+      if (cancelled) return
+      setMovimientos(movs)
+      const plotlab = movs.some(
+        (m) =>
+          m.fecha === fecha &&
+          m.destino_slug === cajaSlug &&
+          !m.anulado &&
+          m.origen_importacion === 'plotlab_venta'
+      )
+      if (!plotlab || autoPrecargaRef.current) return
+      autoPrecargaRef.current = true
+      const totales = calcularTotalesCaja(movs, cajaSlug, fecha, fecha)
+      const solicitudes = await listEgresoSolicitudes({ fecha, cajaSlug })
+      const egresosSol = totalEgresosAprobados(solicitudes)
+      setForm((prev) => {
+        const calcEnriched = enrichCierreFromTotales(prev, totales, tolerancia)
+        return {
+          ...prev,
+          ing_ef: calcEnriched.ing_ef,
+          egr_ef: egresosSol.efectivo > 0 ? egresosSol.efectivo : calcEnriched.egr_ef,
+          tarj_sist: calcEnriched.tarj_sist,
+          trans: calcEnriched.trans,
+          cta_cte: calcEnriched.cta_cte
+        }
+      })
+      setMsg(
+        `Precargado desde ventas PlotLab (${totales.detalle.ingresos} ingreso(s)) y movimientos del día.`
+      )
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [fecha, cajaSlug, editId, bloqueado, planillaActiva, tolerancia])
+
+  const cargarDesdePlotLab = async () => {
+    if (!cajaSlug) return
+    await sincronizarVentasPlotLabRango(fecha, fecha)
+    const movs = await listMovimientos()
+    setMovimientos(movs)
+    const totales = calcularTotalesCaja(movs, cajaSlug, fecha, fecha)
+    const calc = enrichCierreFromTotales(form, totales, tolerancia)
+    const solicitudes = await listEgresoSolicitudes({ fecha, cajaSlug })
+    const egresosSol = totalEgresosAprobados(solicitudes)
+    setForm({
+      fondo_fijo: form.fondo_fijo,
+      ing_ef: calc.ing_ef,
+      egr_ef: egresosSol.efectivo > 0 ? egresosSol.efectivo : calc.egr_ef,
+      ef_contado: form.ef_contado,
+      tarj_sist: calc.tarj_sist,
+      tarj_fis: form.tarj_fis,
+      mp_qr: form.mp_qr,
+      trans: calc.trans,
+      cta_cte: calc.cta_cte
+    })
+    setMsg(
+      `Precargado desde ventas PlotLab: ${totales.detalle.ingresos} ingreso(s) del día.`
+    )
+  }
 
   const cargarDesdeMovimientos = async () => {
     if (!cajaSlug) return
@@ -358,7 +429,10 @@ export default function CajaSectionCierreForm({
               contado y cupones en los pasos siguientes.
             </p>
             <div className="caja-cc-cierre-precarga-btns">
-              <button type="button" className="btn-primary btn-small" onClick={() => void cargarDesdeMovimientos()}>
+              <button type="button" className="btn-primary btn-small" onClick={() => void cargarDesdePlotLab()}>
+                Desde ventas PlotLab
+              </button>
+              <button type="button" className="btn-secondary btn-small" onClick={() => void cargarDesdeMovimientos()}>
                 Desde movimientos del día
               </button>
               <button type="button" className="btn-secondary btn-small" onClick={() => void cargarDesdePlanilla()}>

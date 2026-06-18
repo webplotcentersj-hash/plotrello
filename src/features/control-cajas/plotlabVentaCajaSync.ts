@@ -326,3 +326,46 @@ export function initPlotlabVentaCajaBridge(): void {
     })
   })
 }
+
+export type SyncVentasPlotLabResumen = {
+  sincronizadas: number
+  omitidas: number
+  errores: number
+}
+
+/** Trae ventas del CRM y las vuelca como movimientos de caja (idempotente). */
+export async function sincronizarVentasPlotLabRango(
+  fechaDesde: string,
+  fechaHasta: string
+): Promise<SyncVentasPlotLabResumen> {
+  const { default: apiService } = await import('../../services/api')
+  const res = await apiService.obtenerVentas(undefined, fechaDesde, fechaHasta)
+  const out: SyncVentasPlotLabResumen = { sincronizadas: 0, omitidas: 0, errores: 0 }
+  if (!res.success || !res.data?.length) return out
+
+  for (const v of res.data) {
+    const r = await syncDesdeVentaRecord(
+      {
+        id: v.id,
+        numero_venta: v.numero_venta,
+        cliente_nombre: v.cliente_nombre,
+        valor_total: v.valor_total,
+        metodo_pago: v.metodo_pago,
+        estado_pago: v.estado_pago,
+        fecha_venta: v.fecha_venta,
+        id_vendedor: v.id_vendedor,
+        nombre_vendedor: v.nombre_vendedor,
+        id_pedido_cliente: v.id_pedido_cliente,
+        monto_pagado: v.monto_pagado,
+        caja_slug_cobro: v.caja_slug_cobro
+      },
+      { silencioso: true }
+    )
+    if (r.ok) out.sincronizadas++
+    else if (r.omitido) out.omitidas++
+    else out.errores++
+  }
+
+  if (out.sincronizadas > 0) notificarCajaActualizada()
+  return out
+}

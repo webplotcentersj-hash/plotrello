@@ -41,6 +41,34 @@ export type LineaConciliacionDia = {
 
 const TOLERANCIA = 0.02
 
+function movimientosPlotLabIngreso(
+  movimientos: CajaMovimiento[],
+  fecha: string,
+  pick: (m: CajaMovimiento) => number
+): number {
+  return movimientos
+    .filter(
+      (m) =>
+        m.fecha === fecha &&
+        !m.anulado &&
+        m.tipo_movimiento === 'ingreso' &&
+        m.origen_importacion === 'plotlab_venta'
+    )
+    .reduce((s, m) => s + pick(m), 0)
+}
+
+function movimientosPlotLabTarjeta(movimientos: CajaMovimiento[], fecha: string): number {
+  return movimientosPlotLabIngreso(movimientos, fecha, (m) => m.tarjeta ?? 0)
+}
+
+function movimientosPlotLabTransferencia(movimientos: CajaMovimiento[], fecha: string): number {
+  return movimientosPlotLabIngreso(movimientos, fecha, (m) => m.transferencia_bancaria ?? 0)
+}
+
+function movimientosPlotLabEfectivo(movimientos: CajaMovimiento[], fecha: string): number {
+  return movimientosPlotLabIngreso(movimientos, fecha, (m) => m.efectivo ?? 0)
+}
+
 const LABELS: Record<CanalConciliacion, { label: string; icon: string; esContable: boolean }> = {
   efectivo: { label: 'Efectivo', icon: '💵', esContable: false },
   tarjeta: { label: 'Tarjetas / MP', icon: '💳', esContable: false },
@@ -190,8 +218,14 @@ export function conciliacionAutomaticaDia(input: {
   const planilla = totalesPlanillaDia(planillas, fecha)
   const comprobantes = totalesComprobantesDia(movimientos, fecha)
 
-  const refEfectivo = planilla?.efectivo ?? null
-  const refEfectivoFuente = planilla ? 'Planilla PDF' : null
+  const efPlotlab = movimientosPlotLabEfectivo(movimientos, fecha)
+  const refEfectivo =
+    planilla != null && planilla.efectivo > 0 ? planilla.efectivo : efPlotlab > 0 ? efPlotlab : null
+  const refEfectivoFuente = planilla != null && planilla.efectivo > 0
+    ? 'Planilla PDF'
+    : efPlotlab > 0
+      ? 'Ventas PlotLab'
+      : null
 
   const refTarjetaMp =
     concilMp != null
@@ -200,22 +234,34 @@ export function conciliacionAutomaticaDia(input: {
         : null
       : comprobantes.tarjeta > 0
         ? comprobantes.tarjeta
-        : planilla?.tarjeta ?? null
+        : planilla?.tarjeta != null && planilla.tarjeta > 0
+          ? planilla.tarjeta
+          : movimientosPlotLabTarjeta(movimientos, fecha) || null
 
   const refTarjetaFuente = concilMp
     ? 'Conciliación MP'
     : comprobantes.tarjeta > 0
       ? 'Comprobantes MP/POS'
-      : planilla
+      : planilla?.tarjeta
         ? 'Planilla PDF'
-        : null
+        : movimientosPlotLabTarjeta(movimientos, fecha) > 0
+          ? 'Ventas PlotLab'
+          : null
 
   const refTrans =
     concilBanco != null
       ? (concilBanco.sistema ?? concilBanco.extracto ?? null)
-      : planilla?.transferencia ?? null
+      : planilla?.transferencia != null && planilla.transferencia > 0
+        ? planilla.transferencia
+        : movimientosPlotLabTransferencia(movimientos, fecha) || null
 
-  const refTransFuente = concilBanco ? 'Conciliación bancaria' : planilla ? 'Planilla PDF' : null
+  const refTransFuente = concilBanco
+    ? 'Conciliación bancaria'
+    : planilla?.transferencia
+      ? 'Planilla PDF'
+      : movimientosPlotLabTransferencia(movimientos, fecha) > 0
+        ? 'Ventas PlotLab'
+        : null
 
   const canales: CanalConciliacion[] = [
     'efectivo',

@@ -77,6 +77,22 @@ function totalesPlanilla(p: PlanillaCajaGuardada) {
   }
 }
 
+function movimientosPlotLabDelDia(
+  movimientos: CajaMovimiento[],
+  fecha: string,
+  pick: (m: CajaMovimiento) => number
+): number {
+  return movimientos
+    .filter(
+      (m) =>
+        m.fecha === fecha &&
+        !m.anulado &&
+        m.origen_importacion === 'plotlab_venta' &&
+        m.tipo_movimiento === 'ingreso'
+    )
+    .reduce((s, m) => s + pick(m), 0)
+}
+
 export function sistemaMpParaFecha(
   fecha: string,
   cierres: CajaCierre[],
@@ -95,9 +111,14 @@ export function sistemaMpParaFecha(
   if (delPlanilla > 0) return { valor: delPlanilla, fuente: 'planillas' }
 
   const delMov = movimientos
-    .filter((m) => m.fecha === fecha && !m.anulado)
-    .reduce((s, m) => s + (m.tarjeta ?? 0) + (m.otros ?? 0), 0)
-  if (delMov > 0) return { valor: delMov, fuente: 'movimientos' }
+    .filter((m) => m.fecha === fecha && !m.anulado && m.tipo_movimiento === 'ingreso')
+    .reduce((s, m) => s + (m.tarjeta ?? 0), 0)
+  if (delMov > 0) {
+    const delPlotlab = movimientosPlotLabDelDia(movimientos, fecha, (m) => m.tarjeta ?? 0)
+    const fuente =
+      delPlotlab > 0 && Math.abs(delPlotlab - delMov) <= 0.02 ? 'plotlab' : 'movimientos'
+    return { valor: delMov, fuente }
+  }
 
   return { valor: 0, fuente: 'ninguno' }
 }
@@ -117,9 +138,18 @@ export function sistemaBancoParaFecha(
   if (delPlanilla > 0) return { valor: delPlanilla, fuente: 'planillas' }
 
   const delMov = movimientos
-    .filter((m) => m.fecha === fecha && !m.anulado)
+    .filter((m) => m.fecha === fecha && !m.anulado && m.tipo_movimiento === 'ingreso')
     .reduce((s, m) => s + (m.transferencia_bancaria ?? 0), 0)
-  if (delMov > 0) return { valor: delMov, fuente: 'movimientos' }
+  if (delMov > 0) {
+    const delPlotlab = movimientosPlotLabDelDia(
+      movimientos,
+      fecha,
+      (m) => m.transferencia_bancaria ?? 0
+    )
+    const fuente =
+      delPlotlab > 0 && Math.abs(delPlotlab - delMov) <= 0.02 ? 'plotlab' : 'movimientos'
+    return { valor: delMov, fuente }
+  }
 
   return { valor: 0, fuente: 'ninguno' }
 }

@@ -65,9 +65,7 @@ export const NAV_ADMIN: NavItem[] = [
   { section: 'cierres_new', label: 'Nuevo cierre', icon: '➕', adminOnly: true },
   { section: 'concil_mp', label: 'Mercado Pago', icon: '💳', adminOnly: true },
   { section: 'concil_banco', label: 'Banco', icon: '🏦', adminOnly: true },
-  { section: 'ventas', label: 'Ventas diarias', icon: '📈', adminOnly: true },
-  { section: 'centro_ia', label: 'Centro IA', icon: '✨', adminOnly: true },
-  { section: 'config', label: 'Maestros', icon: '⚙️', adminOnly: true }
+  { section: 'centro_ia', label: 'Centro IA', icon: '✨', adminOnly: true }
 ]
 
 export const LS_KEY = 'plotlab_control_cajas_v1'

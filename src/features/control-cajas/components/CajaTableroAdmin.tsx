@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { buildCalendarioCajasIndex, yearMonthFromDate } from '../calendarioCajasData'
 import { movimientosDelDia, mediosIngresosDia } from '../conciliacionDiaCaja'
+import { downloadInformeDiaCajaPdf } from '../exportInformeDiaCajaPdf'
 import { resumenAdminHoy } from '../cajaDashboardData'
+import { sincronizarVentasPlotLabRango } from '../plotlabVentaCajaSync'
 import { alertaDobleFuenteCaja } from '../plotlabVentasCajaData'
 import { fmtArs, fmtDateAr } from '../format'
 import {
@@ -47,6 +49,8 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
   const [detalleLote, setDetalleLote] = useState<CajaTransferenciaLote | null>(null)
   const [diaResumenTipo, setDiaResumenTipo] = useState<'ingreso' | 'egreso' | null>(null)
   const [detalleMovimiento, setDetalleMovimiento] = useState<CajaMovimiento | null>(null)
+  const [pdfBusy, setPdfBusy] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -79,6 +83,22 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
     window.addEventListener('caja-datos-actualizados', onRefresh)
     return () => window.removeEventListener('caja-datos-actualizados', onRefresh)
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void sincronizarVentasPlotLabRango(selectedFecha, selectedFecha).then((r) => {
+      if (cancelled || (r.sincronizadas === 0 && r.errores === 0)) return
+      void listMovimientos().then((m) => {
+        if (!cancelled) setMovimientos(m)
+      })
+      if (r.sincronizadas > 0) {
+        setSyncMsg(`${r.sincronizadas} venta(s) PlotLab sincronizada(s) al día.`)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedFecha, refreshKey])
 
   const calendarioIndex = useMemo(
     () => buildCalendarioCajasIndex(lotes, planillas, arqueos, egresos, cajas, movimientos),
@@ -136,6 +156,26 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
   const esHoy = selectedFecha === hoy
   const tituloDia = esHoy ? `Hoy — ${fmtDateAr(selectedFecha)}` : fmtDateAr(selectedFecha)
 
+  const handlePdfDia = () => {
+    setPdfBusy(true)
+    try {
+      downloadInformeDiaCajaPdf({
+        fecha: selectedFecha,
+        resumen,
+        movimientos,
+        cajas,
+        planillas,
+        egresos,
+        lotes,
+        arqueos,
+        concilMp: concilMpDia,
+        concilBanco: concilBancoDia
+      })
+    } finally {
+      setPdfBusy(false)
+    }
+  }
+
   return (
     <>
       <CajaCalendarioAdmin
@@ -157,7 +197,12 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
             el resto ingresa a administración.
           </p>
         </div>
-        <CajaVolverPlotLab small />
+        <div className="caja-cc-page-head-actions">
+          <button type="button" className="btn-primary btn-small" disabled={pdfBusy} onClick={handlePdfDia}>
+            {pdfBusy ? 'Generando PDF…' : 'PDF del día'}
+          </button>
+          <CajaVolverPlotLab small />
+        </div>
       </div>
 
       {alertasDobleFuente.length > 0 && (
@@ -167,6 +212,8 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
           ))}
         </div>
       )}
+
+      {syncMsg && <p className="caja-cc-ok">{syncMsg}</p>}
 
       {loading ? (
         <p className="caja-cc-muted">Cargando movimientos del calendario…</p>
@@ -242,12 +289,23 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
 
           {movsDia.length > 0 && (
             <div className="caja-cc-card caja-cc-card-collapsible is-open">
-              <div className="caja-cc-card-collapsible-head">
+              <div className="caja-cc-card-collapsible-head caja-cc-movs-dia-head">
                 <h3>Movimientos del día — {fmtDateAr(selectedFecha)}</h3>
                 <span className="caja-cc-card-collapsible-badge">{movsDia.length}</span>
+                <button
+                  type="button"
+                  className="btn-primary btn-small caja-cc-movs-dia-pdf"
+                  disabled={pdfBusy}
+                  onClick={handlePdfDia}
+                >
+                  {pdfBusy ? 'Generando…' : 'Descargar PDF del día'}
+                </button>
               </div>
               <div className="caja-cc-card-collapsible-body caja-cc-card-body-scroll">
-                <p className="caja-cc-help">Tocá un movimiento para ver detalle y exportar PDF.</p>
+                <p className="caja-cc-help">
+                  Ventas PlotLab, cierres de turno, arqueos y conciliación incluidos en el PDF. Tocá un
+                  movimiento para el detalle individual.
+                </p>
                 <CajaMovimientosList
                   movimientos={movsDia}
                   cajas={cajas}

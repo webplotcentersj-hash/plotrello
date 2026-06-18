@@ -94,7 +94,8 @@ Extracto: $${fmtArs(extNum)}. Diferencia: $${fmtArs(dif)}. Estado: ${estado}.`
         <CajaVolverPlotLab small />
       </div>
       <p className="caja-cc-sub">
-        Transferencias del sistema vs extracto bancario. El sistema usa cierres, planillas o movimientos del día.
+        Transferencias del sistema vs extracto bancario. El sistema usa cierres, planillas, ventas PlotLab o
+        movimientos del día.
       </p>
 
       {msg && (

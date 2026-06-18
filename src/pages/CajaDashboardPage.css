@@ -1417,6 +1417,29 @@
   font-weight: 600;
 }
 
+.caja-dashboard-page .caja-cc-page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.caja-dashboard-page .caja-cc-movs-dia-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.caja-dashboard-page .caja-cc-movs-dia-head h3 {
+  flex: 1;
+  margin: 0;
+}
+
+.caja-dashboard-page .caja-cc-movs-dia-pdf {
+  margin-left: auto;
+}
+
 .caja-dashboard-page .caja-cc-concil-hint-cc {
   margin: 0;
   font-size: 11px;
