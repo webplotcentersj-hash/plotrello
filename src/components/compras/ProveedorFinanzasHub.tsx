@@ -20,6 +20,7 @@ export type ProveedorFinanzasHubProps = {
   deudaCcCount?: number
   onClose?: () => void
   onEditar?: () => void
+  onProductos?: () => void
 }
 
 const TAB_LABELS: Array<{ key: FinanzasTab; label: string; icon: string }> = [
@@ -51,6 +52,7 @@ export default function ProveedorFinanzasHub({
   proveedorNombre,
   onClose,
   onEditar,
+  onProductos,
   ...shared
 }: ProveedorFinanzasHubProps) {
   const navigate = useNavigate()
@@ -116,6 +118,11 @@ export default function ProveedorFinanzasHub({
             <h1 style={{ margin: '4px 0 0', color: '#fff' }}>{proveedorNombre}</h1>
           </div>
           <div className="deudas-prov-header__actions">
+            {onProductos && (
+              <button type="button" className="cp-btn cp-btn--secondary" onClick={onProductos}>
+                📦 Productos
+              </button>
+            )}
             {onEditar && (
               <button type="button" className="cp-btn cp-btn--secondary" onClick={onEditar}>
                 ✏️ Ficha

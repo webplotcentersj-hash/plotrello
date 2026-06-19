@@ -457,6 +457,14 @@ const ProveedoresPage = () => {
                 handleAbrirModal(proveedorTrazado)
               }
             }}
+            onProductos={
+              proveedorTrazado.id > 0 && !proveedorTrazado.es_solo_listado
+                ? () => {
+                    void handleVerProductos(proveedorTrazado)
+                    setProveedorTrazado(null)
+                  }
+                : undefined
+            }
           />
         </div>
       )}

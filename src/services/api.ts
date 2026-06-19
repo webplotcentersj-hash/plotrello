@@ -11481,7 +11481,7 @@ class ApiService {
 
       const matchedDeudaIds = new Set<number>()
 
-      const enriched = provRes.data.map((p) => {
+      const enriched: import('../types/api').ProveedorConFinanzas[] = provRes.data.map((p) => {
         let deuda = deudaByProv.get(p.id) ?? null
         if (!deuda) {
           deuda =
@@ -11535,7 +11535,7 @@ class ApiService {
           telefono,
           razon_social,
           finanzas,
-          es_solo_listado: false as const
+          es_solo_listado: false
         }
       })
 
@@ -11577,7 +11577,7 @@ class ApiService {
             deuda_cc_count: ccSolo.length,
             tiene_cuenta_corriente: true
           },
-          es_solo_listado: true as const,
+          es_solo_listado: true,
           id_deuda: d.id
         })
       }
