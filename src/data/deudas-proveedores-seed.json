@@ -1,0 +1,317 @@
+{
+  "fecha_corte": "2026-06-19",
+  "rows": [
+    {
+      "codigo": "00009",
+      "razon_social": "ALANIZ MOLINA, MARCELO EMILIANO",
+      "telefono": "-",
+      "saldo": 941986.37
+    },
+    {
+      "codigo": "00013",
+      "razon_social": "ALESSI MARTIN ESTEBAN SRL",
+      "telefono": "-",
+      "saldo": 110000
+    },
+    {
+      "codigo": "00935",
+      "razon_social": "ALFREDO ALEJANDRO DARONI",
+      "telefono": "(264) 5641800",
+      "saldo": 26000000
+    },
+    {
+      "codigo": "00014",
+      "razon_social": "ALUMETAL S A",
+      "telefono": "-",
+      "saldo": 877906.21
+    },
+    {
+      "codigo": "00861",
+      "razon_social": "ARACENA RUZYCKI MARIANO AGUSTIN",
+      "telefono": "(-264) 4227030",
+      "saldo": 1802000
+    },
+    {
+      "codigo": "00969",
+      "razon_social": "ARANCIBIA MOYANO GUSTAVO A",
+      "telefono": "( 0264) 44444444",
+      "saldo": 1800000
+    },
+    {
+      "codigo": "00801",
+      "razon_social": "BANCO DE GALICIA Y BUENOS AIRES S.A.U.",
+      "telefono": "-",
+      "saldo": 690806.01
+    },
+    {
+      "codigo": "00023",
+      "razon_social": "BANCO SANTANDER RIO SOCIEDAD ANONIMA",
+      "telefono": "-",
+      "saldo": -711372.01
+    },
+    {
+      "codigo": "00033",
+      "razon_social": "BULONERA RAWSON S.R.L",
+      "telefono": "-",
+      "saldo": 300000.01
+    },
+    {
+      "codigo": "00049",
+      "razon_social": "CICCHITTI, MARIA BIBIANA",
+      "telefono": "-",
+      "saldo": -341.95
+    },
+    {
+      "codigo": "00059",
+      "razon_social": "COSTAUGO MENDOZA SA",
+      "telefono": "-",
+      "saldo": 3622923.92
+    },
+    {
+      "codigo": "00997",
+      "razon_social": "D.G.A/SERVICIOS INTEGRALES S.A.S",
+      "telefono": "2644898982",
+      "saldo": 86712.94
+    },
+    {
+      "codigo": "00996",
+      "razon_social": "DELAL S.A.S",
+      "telefono": "00000",
+      "saldo": 36542
+    },
+    {
+      "codigo": "00071",
+      "razon_social": "DIMAGRAF S A C I F",
+      "telefono": "-",
+      "saldo": 1203521.86
+    },
+    {
+      "codigo": "00852",
+      "razon_social": "DISTRIBUIDORA FERRETERIA SRL",
+      "telefono": "4228080",
+      "saldo": 154391.6
+    },
+    {
+      "codigo": "00102",
+      "razon_social": "FLEXXUS S A",
+      "telefono": "-",
+      "saldo": -1549056.36
+    },
+    {
+      "codigo": "00109",
+      "razon_social": "GALVAN HERMANOS SRL",
+      "telefono": "-",
+      "saldo": 118000.09
+    },
+    {
+      "codigo": "00929",
+      "razon_social": "GALVAN MANCHINI PABLO EDUARDO",
+      "telefono": "( 264) 4221563",
+      "saldo": 138000
+    },
+    {
+      "codigo": "00889",
+      "razon_social": "GAMA SONIC ARGENTINA SRL",
+      "telefono": "54 9 11 6996-3302",
+      "saldo": 203988
+    },
+    {
+      "codigo": "00117",
+      "razon_social": "GIMENEZ, CAROLINA H",
+      "telefono": "1156225814",
+      "saldo": 21477.5
+    },
+    {
+      "codigo": "00121",
+      "razon_social": "GOLDSTEIN AUTOMOTORES SACI",
+      "telefono": "-",
+      "saldo": 2593649.41
+    },
+    {
+      "codigo": "00761",
+      "razon_social": "GORANSKY DE LA TORRE NICOLAS ABRAHAM",
+      "telefono": "-",
+      "saldo": 1200944.91
+    },
+    {
+      "codigo": "00125",
+      "razon_social": "GRAF OESTE S A",
+      "telefono": "-",
+      "saldo": 32372.34
+    },
+    {
+      "codigo": "00130",
+      "razon_social": "GUSBERTI, FABIO",
+      "telefono": "-",
+      "saldo": 2578994.61
+    },
+    {
+      "codigo": "00778",
+      "razon_social": "IFRIMEN SRL",
+      "telefono": "4218282",
+      "saldo": 1268694.31
+    },
+    {
+      "codigo": "00868",
+      "razon_social": "IGENAR ARGENTINA S.A.",
+      "telefono": "(011) 47626788",
+      "saldo": 13872134.21
+    },
+    {
+      "codigo": "00847",
+      "razon_social": "L.C SUMINISTROS GRAFICOS S.R.L",
+      "telefono": "5464",
+      "saldo": 3913917.86
+    },
+    {
+      "codigo": "00950",
+      "razon_social": "MACSTATION",
+      "telefono": "1",
+      "saldo": 159990
+    },
+    {
+      "codigo": "00164",
+      "razon_social": "MANANTO S.A.",
+      "telefono": "-",
+      "saldo": 5630275.77
+    },
+    {
+      "codigo": "00165",
+      "razon_social": "MARIO GOLDSTEIN S A C I",
+      "telefono": "-2644227141",
+      "saldo": 300000
+    },
+    {
+      "codigo": "00167",
+      "razon_social": "MARTIN CAVA S A",
+      "telefono": "-",
+      "saldo": 761974.92
+    },
+    {
+      "codigo": "00991",
+      "razon_social": "MAZA LUIS CESAR",
+      "telefono": "646464",
+      "saldo": 150000
+    },
+    {
+      "codigo": "00176",
+      "razon_social": "MEYNIEL SRL",
+      "telefono": "-",
+      "saldo": 589188.71
+    },
+    {
+      "codigo": "00177",
+      "razon_social": "MIADOSQUI, JORGE ERNESTO",
+      "telefono": "-",
+      "saldo": 2611176.96
+    },
+    {
+      "codigo": "00762",
+      "razon_social": "MUNICIPALIDAD DE LA CIUDAD DE SAN JUAN",
+      "telefono": "-",
+      "saldo": -7700110
+    },
+    {
+      "codigo": "00087",
+      "razon_social": "NATURGY SAN JUAN S.A.",
+      "telefono": "-",
+      "saldo": 5099118.13
+    },
+    {
+      "codigo": "00814",
+      "razon_social": "PIACENZA SRL",
+      "telefono": "25",
+      "saldo": 510879.62
+    },
+    {
+      "codigo": "00205",
+      "razon_social": "PINTURERIA CORDOBA S R L",
+      "telefono": "-",
+      "saldo": 9550557.89
+    },
+    {
+      "codigo": "00806",
+      "razon_social": "PM SERVICIOS EMPRESARIOS SRL",
+      "telefono": "-",
+      "saldo": 6420290.25
+    },
+    {
+      "codigo": "00207",
+      "razon_social": "POLITO, NORMA GLADIS MERCEDES",
+      "telefono": "-",
+      "saldo": 2224078.16
+    },
+    {
+      "codigo": "00910",
+      "razon_social": "R&R S.A",
+      "telefono": "2644 17-3422",
+      "saldo": 468137.1
+    },
+    {
+      "codigo": "00228",
+      "razon_social": "SAN FRANCISCO HOGAR SOCIEDAD DE RESPONSABILIDAD LI",
+      "telefono": "-",
+      "saldo": -30253886.11
+    },
+    {
+      "codigo": "00186",
+      "razon_social": "SAN SISTEMAS SRL",
+      "telefono": "-",
+      "saldo": 73999.99
+    },
+    {
+      "codigo": "00232",
+      "razon_social": "SASTRE SIREROL, PERFECTO",
+      "telefono": "-",
+      "saldo": -500000
+    },
+    {
+      "codigo": "00796",
+      "razon_social": "SERVICIOS INTEGRALES DE MEDICINA LABORAL S.R.L",
+      "telefono": "4",
+      "saldo": 264381.37
+    },
+    {
+      "codigo": "00758",
+      "razon_social": "SERVINFO SRL",
+      "telefono": "54 9 2615 73-1955",
+      "saldo": -292427.96
+    },
+    {
+      "codigo": "00858",
+      "razon_social": "SEÑALAR SRL",
+      "telefono": "544",
+      "saldo": 325.25
+    },
+    {
+      "codigo": "00793",
+      "razon_social": "SOSTEN S.A.",
+      "telefono": "4210415",
+      "saldo": 405043.49
+    },
+    {
+      "codigo": "00243",
+      "razon_social": "SWISS MEDICAL S A",
+      "telefono": "-",
+      "saldo": 169192.06
+    },
+    {
+      "codigo": "00247",
+      "razon_social": "TELEFONICA MOVILES ARGENTINA SOCIEDAD ANONIMA",
+      "telefono": "-",
+      "saldo": 48154.31
+    },
+    {
+      "codigo": "00248",
+      "razon_social": "TORO DIGITAL S.A.",
+      "telefono": "-",
+      "saldo": 1838897.52
+    },
+    {
+      "codigo": "00776",
+      "razon_social": "WAYPOINT S.R.L",
+      "telefono": "4212893",
+      "saldo": 228268.25
+    }
+  ]
+}

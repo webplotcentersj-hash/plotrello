@@ -2,14 +2,21 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import type { ProveedorFinanzasResumen } from '../types/api'
 import type { Proveedor, ProveedorProducto } from '../types/pedidos'
 import './ProveedoresPage.css'
+
+type ProveedorConFinanzas = Proveedor & { finanzas: ProveedorFinanzasResumen }
+
+function money(n: number): string {
+  return `$ ${Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
 
 const ProveedoresPage = () => {
   const navigate = useNavigate()
   const { canManageCompras, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [proveedores, setProveedores] = useState<Proveedor[]>([])
+  const [proveedores, setProveedores] = useState<ProveedorConFinanzas[]>([])
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null)
   const [productosProveedor, setProductosProveedor] = useState<ProveedorProducto[]>([])
   const [mostrarModal, setMostrarModal] = useState(false)
@@ -54,7 +61,7 @@ const ProveedoresPage = () => {
   const loadProveedores = async () => {
     setLoading(true)
     try {
-      const response = await apiService.getProveedores(true) // Solo activos
+      const response = await apiService.getProveedoresConFinanzas()
       if (response.success && response.data) {
         setProveedores(response.data)
       }
@@ -239,6 +246,18 @@ const ProveedoresPage = () => {
             <p className="subtitle">Administra tus proveedores y sus productos</p>
           </div>
           <div className="header-actions">
+            <button className="btn-secondary" onClick={() => navigate('/compras/deudas-proveedores')}>
+              💳 Deudas
+            </button>
+            <button className="btn-secondary" onClick={() => navigate('/compras/deuda-cc-proveedores')}>
+            📑 Deuda CC
+          </button>
+          <button className="btn-secondary" onClick={() => navigate('/compras/movimientos-proveedores')}>
+              📒 Movimientos
+            </button>
+            <button className="btn-secondary" onClick={() => navigate('/compras/pagos-proveedores')}>
+              💸 Pagos
+            </button>
             <button className="btn-secondary" onClick={() => navigate('/compras/dashboard')}>
               ← Volver
             </button>
@@ -319,8 +338,54 @@ const ProveedoresPage = () => {
                     <span className="label">Monto Total:</span>
                     <span>${proveedor.monto_total_compras.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                   </div>
+                  {proveedor.finanzas.tiene_cuenta_corriente && (
+                    <div className="proveedor-finanzas">
+                      {proveedor.finanzas.saldo_listado != null && (
+                        <div className="info-row proveedor-finanzas__saldo">
+                          <span className="label">Saldo listado:</span>
+                          <span>{money(proveedor.finanzas.saldo_listado)}</span>
+                        </div>
+                      )}
+                      {proveedor.finanzas.saldo_movimientos != null && (
+                        <div className="info-row">
+                          <span className="label">Saldo CC:</span>
+                          <span>{money(proveedor.finanzas.saldo_movimientos)}</span>
+                        </div>
+                      )}
+                      {proveedor.finanzas.pagos_count > 0 && (
+                        <div className="info-row">
+                          <span className="label">Pagos registrados:</span>
+                          <span>{proveedor.finanzas.pagos_count} ({money(proveedor.finanzas.pagos_total)})</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="proveedor-actions">
+                  {proveedor.finanzas.tiene_cuenta_corriente && (
+                    <>
+                      <button
+                        className="btn-action btn-action--fin"
+                        onClick={() => navigate(`/compras/deudas-proveedores?id_proveedor=${proveedor.id}`)}
+                      >
+                        💳 Deuda
+                      </button>
+                      <button
+                        className="btn-action btn-action--fin"
+                        onClick={() => navigate(`/compras/movimientos-proveedores?id_proveedor=${proveedor.id}`)}
+                      >
+                        📒 CC
+                      </button>
+                      {proveedor.finanzas.pagos_count > 0 && (
+                        <button
+                          className="btn-action btn-action--fin"
+                          onClick={() => navigate(`/compras/pagos-proveedores?id_proveedor=${proveedor.id}`)}
+                        >
+                          💸 Pagos
+                        </button>
+                      )}
+                    </>
+                  )}
                   <button className="btn-action" onClick={() => handleVerProductos(proveedor)}>
                     📦 Productos
                   </button>

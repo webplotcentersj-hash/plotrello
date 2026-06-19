@@ -1,0 +1,31 @@
+{
+  "fecha_desde": "2026-01-01",
+  "fecha_hasta": "2026-06-19",
+  "proveedor_filtro": "IGENAR ARGENTINA S.A.",
+  "rows": [
+    {
+      "fecha": "2026-03-18",
+      "numero_pago": "00000-00010447",
+      "numero_recibo": "00000-00001928",
+      "proveedor_nombre": "IGENAR ARGENTINA S.A.",
+      "usuario": "ROSAALV",
+      "monto": 6478512.79
+    },
+    {
+      "fecha": "2026-04-17",
+      "numero_pago": "00000-00010621",
+      "numero_recibo": "00000-00001954",
+      "proveedor_nombre": "IGENAR ARGENTINA S.A.",
+      "usuario": "ROSAALV",
+      "monto": 4274361.82
+    },
+    {
+      "fecha": "2026-06-18",
+      "numero_pago": "00000-00010774",
+      "numero_recibo": "00000-00001964",
+      "proveedor_nombre": "IGENAR ARGENTINA S.A.",
+      "usuario": "ROSAALV",
+      "monto": 4505535.04
+    }
+  ]
+}

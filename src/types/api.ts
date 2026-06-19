@@ -1043,6 +1043,119 @@ export interface CuentaPorPagarRecord {
   updated_at?: string
 }
 
+export interface DeudaProveedorRecord {
+  id: number
+  codigo: string
+  razon_social: string
+  telefono: string
+  saldo: number
+  id_proveedor?: number | null
+  fecha_corte: string
+  notas?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface DeudaProveedorEnriquecida extends DeudaProveedorRecord {
+  saldo_cxp: number
+  cxp_pendientes: number
+  proveedor_nombre?: string | null
+}
+
+export interface PagoProveedorRecord {
+  id: number
+  fecha: string
+  numero_pago: string
+  numero_recibo: string
+  proveedor_nombre: string
+  usuario?: string | null
+  monto: number
+  id_proveedor?: number | null
+  id_pago_cobro?: number | null
+  fecha_desde?: string | null
+  fecha_hasta?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PagoProveedorEnriquecido extends PagoProveedorRecord {
+  vinculado_sistema: boolean
+  id_pago_cobro_match?: number | null
+}
+
+export interface MovimientoProveedorRecord {
+  id: number
+  proveedor_nombre: string
+  moneda: string
+  fecha_desde?: string | null
+  fecha_hasta?: string | null
+  fecha_hora: string
+  fecha_comprobante?: string | null
+  tipo_movimiento: string
+  comprobante: string
+  debe: number
+  haber: number
+  saldo: number
+  es_saldo_inicial: boolean
+  id_proveedor?: number | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface MovimientoProveedorEnriquecido extends MovimientoProveedorRecord {
+  id_pago_proveedor?: number | null
+  enlace_tipo?: 'pago' | 'factura' | 'nota' | null
+}
+
+export interface ProveedorFinanzasResumen {
+  codigo_deuda: string | null
+  saldo_listado: number | null
+  saldo_movimientos: number | null
+  pagos_total: number
+  movimientos_count: number
+  pagos_count: number
+  tiene_cuenta_corriente: boolean
+}
+
+export interface ClienteCcEnriquecido {
+  cliente: ClienteRecord
+  ordenes: OrdenTrabajo[]
+  ordenes_activas: number
+  cuenta_corriente: ClienteCuentaCorrienteRecord | null
+  datos_sugeridos: import('../utils/cuentaCorrienteClienteData').DatosCcSugeridos
+}
+
+export interface DeudaCcProveedorRecord {
+  id: number
+  proveedor_codigo: string
+  proveedor_nombre: string
+  fecha_corte: string
+  tipo_comprobante: string
+  numero_comprobante: string
+  fecha_comprobante?: string | null
+  fecha_vencimiento?: string | null
+  total: number
+  pagado: number
+  deuda: number
+  dias_vencido?: number | null
+  total_moneda_origen?: string | null
+  total_actualizado: number
+  id_proveedor?: number | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface DeudaCcProveedorResumen {
+  total_comprobantes: number
+  total_cheques: number
+  total_cta_cte: number
+}
+
+export interface DeudaCcProveedorEnriquecido extends DeudaCcProveedorRecord {
+  enlace_movimiento?: boolean
+  enlace_cxp?: boolean
+}
+
 export interface PagoCobroRecord {
   id: number
   tipo: 'Pago' | 'Cobro'

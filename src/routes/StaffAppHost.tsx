@@ -35,6 +35,11 @@ const CuentaCorrientePerfilPage = lazy(() => import('../pages/CuentaCorrientePer
 const ClientePerfilPage = lazy(() => import('../pages/ClientePerfilPage'))
 const AtencionPublicoDashboardPage = lazy(() => import('../pages/AtencionPublicoDashboardPage'))
 const ComprasDashboardPage = lazy(() => import('../pages/ComprasDashboardPage'))
+const ComprasEstadisticasPage = lazy(() => import('../pages/ComprasEstadisticasPage'))
+const DeudasProveedoresPage = lazy(() => import('../pages/DeudasProveedoresPage'))
+const PagosProveedoresPage = lazy(() => import('../pages/PagosProveedoresPage'))
+const MovimientosProveedoresPage = lazy(() => import('../pages/MovimientosProveedoresPage'))
+const DeudaCcProveedoresPage = lazy(() => import('../pages/DeudaCcProveedoresPage'))
 const PedidoCompraDetallePage = lazy(() => import('../pages/PedidoCompraDetallePage'))
 const ReportesStockPage = lazy(() => import('../pages/ReportesStockPage'))
 const GestionStockPage = lazy(() => import('../pages/GestionStockPage'))
@@ -1043,6 +1048,26 @@ function AppRoutes({
       <Route
         path="/compras/dashboard"
         element={<ComprasDashboardPage />}
+      />
+      <Route
+        path="/compras/estadisticas"
+        element={<ComprasEstadisticasPage />}
+      />
+      <Route
+        path="/compras/deudas-proveedores"
+        element={<DeudasProveedoresPage />}
+      />
+      <Route
+        path="/compras/pagos-proveedores"
+        element={<PagosProveedoresPage />}
+      />
+      <Route
+        path="/compras/movimientos-proveedores"
+        element={<MovimientosProveedoresPage />}
+      />
+      <Route
+        path="/compras/deuda-cc-proveedores"
+        element={<DeudaCcProveedoresPage />}
       />
       <Route
         path="/compras"

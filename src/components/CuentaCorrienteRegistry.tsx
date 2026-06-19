@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { clientesCcPerfil } from '../utils/clientesRoutes'
+import { clientesCcPerfil, clientesPerfil } from '../utils/clientesRoutes'
 import type { ClienteCuentaCorrienteRecord, ClienteRecord } from '../types/api'
 import {
   ESTADO_CC_LABELS,
@@ -279,6 +279,13 @@ export default function CuentaCorrienteRegistry({
                         )}
                       </dl>
                       <div className="cc-registry-row__actions">
+                        <button
+                          type="button"
+                          className="cc-btn cc-btn--secondary cc-btn--sm"
+                          onClick={() => navigate(clientesPerfil(r.id_cliente))}
+                        >
+                          Ficha cliente
+                        </button>
                         {isAdmin && estado === 'pendiente' && (
                           <>
                             <button
@@ -332,14 +339,14 @@ export default function CuentaCorrienteRegistry({
                                 : 'Completar ficha'}
                           </button>
                         )}
-                        {isAdmin && (
+                        {(isAdmin || estado === 'rechazada' || estado === 'pendiente') && (
                           <button
                             type="button"
                             className="cc-btn cc-btn--danger cc-btn--sm"
                             onClick={() => onQuitar(r.id_cliente)}
                             disabled={quitandoId === r.id_cliente}
                           >
-                            {quitandoId === r.id_cliente ? '…' : 'Quitar de cartera'}
+                            {quitandoId === r.id_cliente ? 'Quitando…' : 'Quitar de cartera'}
                           </button>
                         )}
                       </div>

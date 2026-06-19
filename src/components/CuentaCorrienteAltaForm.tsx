@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import type { ClienteCuentaCorrienteRecord, ClienteRecord } from '../types/api'
+import type { DatosCcSugeridos } from '../utils/cuentaCorrienteClienteData'
 import {
   CONDICIONES_IVA_CUENTA_CORRIENTE,
   TIPO_CLIENTE_CC_LABELS,
@@ -45,28 +46,47 @@ function defaultVencimiento(): string {
 
 function valuesFromRecord(
   cc: ClienteCuentaCorrienteRecord | null,
-  cliente?: ClienteRecord | null
+  cliente?: ClienteRecord | null,
+  sugeridos?: DatosCcSugeridos | null
 ): CuentaCorrienteFormValues {
-  const nombre = cc?.nombre ?? ''
-  const apellido = cc?.apellido ?? ''
+  if (sugeridos && !cc) {
+    return {
+      cuit: sugeridos.cuit,
+      razon_social: sugeridos.razon_social,
+      nombre: sugeridos.nombre,
+      apellido: sugeridos.apellido,
+      condicion_iva: '',
+      email: sugeridos.email,
+      whatsapp: sugeridos.whatsapp,
+      persona_contacto: sugeridos.persona_contacto,
+      domicilio: sugeridos.domicilio,
+      localidad: sugeridos.localidad,
+      provincia: sugeridos.provincia,
+      codigo_postal: sugeridos.codigo_postal
+    }
+  }
+
+  const nombre = cc?.nombre ?? cliente?.nombre ?? sugeridos?.nombre ?? ''
+  const apellido = cc?.apellido ?? cliente?.apellido ?? sugeridos?.apellido ?? ''
   const razon =
     cc?.razon_social ??
     cliente?.empresa ??
+    sugeridos?.razon_social ??
     cliente?.nombre ??
     [nombre, apellido].filter(Boolean).join(' ')
   return {
-    cuit: cc?.cuit ?? cliente?.dni_cuit ?? '',
+    cuit: cc?.cuit ?? cliente?.dni_cuit ?? sugeridos?.cuit ?? '',
     razon_social: razon,
     nombre,
     apellido,
     condicion_iva: (cc?.condicion_iva as CondicionIvaCuentaCorriente) ?? '',
-    email: cc?.email ?? cliente?.email ?? '',
-    whatsapp: cc?.whatsapp ?? cliente?.telefono ?? '',
-    persona_contacto: cc?.persona_contacto ?? '',
-    domicilio: cc?.domicilio ?? cliente?.direccion ?? '',
-    localidad: cc?.localidad ?? '',
-    provincia: cc?.provincia ?? '',
-    codigo_postal: cc?.codigo_postal ?? ''
+    email: cc?.email ?? cliente?.email ?? sugeridos?.email ?? '',
+    whatsapp: cc?.whatsapp ?? cliente?.telefono ?? sugeridos?.whatsapp ?? '',
+    persona_contacto: cc?.persona_contacto ?? sugeridos?.persona_contacto ?? '',
+    domicilio: cc?.domicilio ?? cliente?.direccion ?? sugeridos?.domicilio ?? '',
+    localidad: cc?.localidad ?? sugeridos?.localidad ?? '',
+    provincia: cc?.provincia ?? sugeridos?.provincia ?? '',
+    codigo_postal: cc?.codigo_postal ?? sugeridos?.codigo_postal ?? ''
   }
 }
 
@@ -78,11 +98,46 @@ function nombreCompleto(values: CuentaCorrienteFormValues, tipo: TipoClienteCuen
   return values.razon_social.trim()
 }
 
+/** Al cambiar tipo, conserva datos compartidos y mapea razón social ↔ nombre/apellido. */
+function adaptarValoresAlTipo(
+  prev: CuentaCorrienteFormValues,
+  desde: TipoClienteCuentaCorriente,
+  hacia: TipoClienteCuentaCorriente
+): CuentaCorrienteFormValues {
+  if (desde === hacia) return prev
+
+  if (hacia === 'persona_fisica' && desde === 'empresa') {
+    const rs = prev.razon_social.trim()
+    const tieneNombre = prev.nombre.trim() || prev.apellido.trim()
+    if (!tieneNombre && rs) {
+      const parts = rs.split(/\s+/).filter(Boolean)
+      return {
+        ...prev,
+        nombre: parts[0] ?? '',
+        apellido: parts.slice(1).join(' ')
+      }
+    }
+    return prev
+  }
+
+  if (hacia === 'empresa' && desde === 'persona_fisica') {
+    const full = [prev.nombre.trim(), prev.apellido.trim()].filter(Boolean).join(' ')
+    return {
+      ...prev,
+      razon_social: prev.razon_social.trim() || full,
+      persona_contacto: prev.persona_contacto.trim() || full
+    }
+  }
+
+  return prev
+}
+
 type CuentaCorrienteAltaFormProps = {
   idCliente?: number | null
   clienteNombre?: string
   initialRecord?: ClienteCuentaCorrienteRecord | null
   initialCliente?: ClienteRecord | null
+  datosSugeridos?: DatosCcSugeridos | null
   isAdmin?: boolean
   onCancel: () => void
   onSubmit: (payload: {
@@ -104,17 +159,41 @@ export default function CuentaCorrienteAltaForm({
   clienteNombre,
   initialRecord = null,
   initialCliente = null,
+  datosSugeridos = null,
   isAdmin = false,
   onCancel,
   onSubmit
 }: CuentaCorrienteAltaFormProps) {
   const initialTipo: TipoClienteCuentaCorriente =
-    initialRecord?.tipo_cliente === 'persona_fisica' ? 'persona_fisica' : 'empresa'
+    initialRecord?.tipo_cliente === 'persona_fisica'
+      ? 'persona_fisica'
+      : datosSugeridos?.tipo_cliente === 'persona_fisica'
+        ? 'persona_fisica'
+        : 'empresa'
 
   const [tipoCliente, setTipoCliente] = useState<TipoClienteCuentaCorriente>(initialTipo)
   const [values, setValues] = useState<CuentaCorrienteFormValues>(() =>
-    valuesFromRecord(initialRecord, initialCliente)
+    valuesFromRecord(initialRecord, initialCliente, datosSugeridos)
   )
+
+  useEffect(() => {
+    if (initialRecord) {
+      setValues(valuesFromRecord(initialRecord, initialCliente, null))
+      setTipoCliente(initialRecord.tipo_cliente === 'persona_fisica' ? 'persona_fisica' : 'empresa')
+      setUploadedUrls({
+        constancia_afip: initialRecord.url_constancia_afip ?? '',
+        estatuto: initialRecord.url_estatuto ?? '',
+        domicilio: initialRecord.url_comprobante_domicilio ?? '',
+        documento_dni: initialRecord.url_documento_dni ?? ''
+      })
+      setPagareUrl(initialRecord.url_pagare ?? '')
+      return
+    }
+    setValues(valuesFromRecord(null, initialCliente, datosSugeridos))
+    if (datosSugeridos?.tipo_cliente) setTipoCliente(datosSugeridos.tipo_cliente)
+    else if (initialCliente?.empresa) setTipoCliente('empresa')
+    else if (initialCliente?.apellido) setTipoCliente('persona_fisica')
+  }, [initialRecord, initialCliente?.id, datosSugeridos])
   const [docLabels, setDocLabels] = useState<Partial<Record<DocKey, string>>>({})
   const [uploadedUrls, setUploadedUrls] = useState<Record<DocKey, string>>({
     constancia_afip: initialRecord?.url_constancia_afip ?? '',
@@ -314,6 +393,13 @@ export default function CuentaCorrienteAltaForm({
     }
   }
 
+  const cambiarTipoCliente = (t: TipoClienteCuentaCorriente) => {
+    if (t === tipoCliente) return
+    setValues((prev) => adaptarValoresAlTipo(prev, tipoCliente, t))
+    setTipoCliente(t)
+    setFormError(null)
+  }
+
   return (
     <form className="cc-alta-form" onSubmit={(e) => void handleSubmit(e)}>
       {clienteNombre && (
@@ -330,11 +416,7 @@ export default function CuentaCorrienteAltaForm({
             role="tab"
             aria-selected={tipoCliente === t}
             className={`cc-alta-tipo__btn${tipoCliente === t ? ' cc-alta-tipo__btn--active' : ''}`}
-            onClick={() => {
-              setTipoCliente(t)
-              setFormError(null)
-              if (t === 'empresa') setPagareUrl('')
-            }}
+            onClick={() => cambiarTipoCliente(t)}
             disabled={saving}
           >
             {TIPO_CLIENTE_CC_LABELS[t]}

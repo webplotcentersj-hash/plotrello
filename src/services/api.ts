@@ -5131,6 +5131,47 @@ class ApiService {
     }
   }
 
+  /** Cliente + OPs + datos sugeridos para alta en cuenta corriente. */
+  async getClienteEnriquecidoParaCc(
+    idCliente: number
+  ): Promise<ApiResponse<import('../types/api').ClienteCcEnriquecido | null>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+
+    try {
+      const clienteRes = await this.getClientePorId(idCliente)
+      if (!clienteRes.success) return { success: false, error: clienteRes.error }
+      if (!clienteRes.data) return { success: true, data: null }
+
+      const cliente = clienteRes.data
+      const [ordRes, ccRes] = await Promise.all([
+        this.getOrdenesPorCliente(cliente),
+        this.getCuentaCorrientePorCliente(idCliente)
+      ])
+
+      const ordenes = ordRes.success && ordRes.data ? ordRes.data : []
+      const cuenta_corriente = ccRes.success ? ccRes.data ?? null : null
+
+      const { inferirDatosCcDesdeCliente } = await import('../utils/cuentaCorrienteClienteData')
+      const datos_sugeridos = inferirDatosCcDesdeCliente(cliente, ordenes, cuenta_corriente)
+      const ordenes_activas = ordenes.filter(
+        (o) => o.estado !== 'Entregado o Instalado' && !o.entregado
+      ).length
+
+      return {
+        success: true,
+        data: {
+          cliente,
+          ordenes,
+          ordenes_activas,
+          cuenta_corriente,
+          datos_sugeridos
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al enriquecer cliente' }
+    }
+  }
+
   async clienteHabilitadoCuentaCorriente(idCliente: number): Promise<ApiResponse<boolean>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
@@ -5577,12 +5618,29 @@ class ApiService {
   }
 
   async quitarClienteCuentaCorriente(idCliente: number): Promise<ApiResponse<void>> {
-    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
     try {
       const { error } = await supabase.rpc('quitar_cliente_cuenta_corriente', {
         p_id_cliente: idCliente
       })
-      if (error) return { success: false, error: error.message }
+      if (!error) return { success: true }
+
+      const msg = error.message || ''
+      const rpcMissing =
+        msg.includes('quitar_cliente_cuenta_corriente') ||
+        msg.includes('Could not find the function') ||
+        error.code === '42883'
+
+      if (!rpcMissing) return { success: false, error: msg }
+
+      await supabase.from('cc_cuenta_movimientos').delete().eq('id_cliente', idCliente)
+      const { error: delErr, count } = await supabase
+        .from('clientes_cuenta_corriente')
+        .delete({ count: 'exact' })
+        .eq('id_cliente', idCliente)
+
+      if (delErr) return { success: false, error: delErr.message }
+      if (!count) return { success: false, error: 'El cliente no está en cuenta corriente' }
       return { success: true }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al quitar cliente' }
@@ -11375,6 +11433,93 @@ class ApiService {
       }
     }
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  private matchProveedorNombre(
+    p: Proveedor,
+    nombre: string
+  ): boolean {
+    const n = nombre.trim().toUpperCase()
+    if (!n) return false
+    const rs = (p.razon_social || '').trim().toUpperCase()
+    const nm = p.nombre.trim().toUpperCase()
+    return rs === n || nm === n || n.includes(nm) || Boolean(rs && n.includes(rs.split(' ')[0]))
+  }
+
+  async getProveedoresConFinanzas(): Promise<
+    ApiResponse<Array<Proveedor & { finanzas: import('../types/api').ProveedorFinanzasResumen }>>
+  > {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    try {
+      await Promise.all([
+        this.vincularDeudasProveedores(),
+        this.vincularPagosProveedores(),
+        this.vincularMovimientosProveedores()
+      ])
+
+      const [provRes, deudasRes, movsRes, pagosRes] = await Promise.all([
+        this.getProveedores(true),
+        supabase.from('deudas_proveedores').select('*'),
+        supabase.from('movimientos_proveedores').select('*').order('fecha_hora', { ascending: true }),
+        supabase.from('pagos_proveedores').select('*')
+      ])
+
+      if (!provRes.success || !provRes.data) {
+        return { success: false, error: provRes.error || 'No se pudieron cargar proveedores' }
+      }
+
+      const deudas = (deudasRes.data ?? []) as import('../types/api').DeudaProveedorRecord[]
+      const movs = (movsRes.data ?? []) as import('../types/api').MovimientoProveedorRecord[]
+      const pagos = (pagosRes.data ?? []) as import('../types/api').PagoProveedorRecord[]
+
+      const deudaByProv = new Map<number, import('../types/api').DeudaProveedorRecord>()
+      for (const d of deudas) {
+        if (d.id_proveedor) deudaByProv.set(d.id_proveedor, d)
+      }
+
+      const enriched = provRes.data.map((p) => {
+        let deuda = deudaByProv.get(p.id) ?? null
+        if (!deuda) {
+          deuda =
+            deudas.find(
+              (d) =>
+                !d.id_proveedor &&
+                this.matchProveedorNombre(p, d.razon_social)
+            ) ?? null
+        }
+
+        const movsProv = movs.filter(
+          (m) =>
+            m.id_proveedor === p.id ||
+            this.matchProveedorNombre(p, m.proveedor_nombre)
+        )
+        const pagosProv = pagos.filter(
+          (pg) =>
+            pg.id_proveedor === p.id ||
+            this.matchProveedorNombre(p, pg.proveedor_nombre)
+        )
+
+        const lastMov = movsProv[movsProv.length - 1]
+        const pagosTotal = pagosProv.reduce((s, pg) => s + (Number(pg.monto) || 0), 0)
+
+        const finanzas: import('../types/api').ProveedorFinanzasResumen = {
+          codigo_deuda: deuda?.codigo ?? null,
+          saldo_listado: deuda ? Number(deuda.saldo) || 0 : null,
+          saldo_movimientos: lastMov ? Number(lastMov.saldo) || 0 : null,
+          pagos_total: pagosTotal,
+          movimientos_count: movsProv.length,
+          pagos_count: pagosProv.length,
+          tiene_cuenta_corriente: movsProv.length > 0 || pagosProv.length > 0 || !!deuda
+        }
+
+        return { ...p, finanzas }
+      })
+
+      return { success: true, data: enriched }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
   }
 
   async getProveedor(id: number): Promise<ApiResponse<Proveedor>> {
@@ -20204,6 +20349,587 @@ class ApiService {
       }
     }
     return { success: false, error: 'Supabase no configurado' }
+  }
+
+  // ========== DEUDAS PROVEEDORES ==========
+  async importarDeudasProveedoresSeed(): Promise<ApiResponse<{ importados: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const seed = (await import('../data/deudas-proveedores-seed.json')).default as {
+        fecha_corte: string
+        rows: Array<{ codigo: string; razon_social: string; telefono: string; saldo: number }>
+      }
+      const payload = seed.rows.map((r) => ({
+        codigo: r.codigo,
+        razon_social: r.razon_social,
+        telefono: r.telefono || '-',
+        saldo: r.saldo,
+        fecha_corte: seed.fecha_corte
+      }))
+      const { error } = await supabase.from('deudas_proveedores').upsert(payload, { onConflict: 'codigo' })
+      if (error) return { success: false, error: error.message }
+      await supabase.rpc('vincular_deudas_proveedores')
+      return { success: true, data: { importados: payload.length } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async vincularDeudasProveedores(): Promise<ApiResponse<{ vinculados: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase.rpc('vincular_deudas_proveedores')
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: { vinculados: Number(data) || 0 } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async getDeudasProveedores(options?: {
+    buscar?: string
+    soloConSaldo?: boolean
+    idProveedor?: number
+  }): Promise<ApiResponse<import('../types/api').DeudaProveedorEnriquecida[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    try {
+      let query = supabase.from('deudas_proveedores').select('*').order('codigo', { ascending: true })
+      const { data, error } = await query
+
+      if (error) {
+        if (error.message.includes('deudas_proveedores') || error.code === '42P01') {
+          const imp = await this.importarDeudasProveedoresSeed()
+          if (!imp.success) return { success: false, error: imp.error }
+          const retry = await supabase.from('deudas_proveedores').select('*').order('codigo', { ascending: true })
+          if (retry.error) return { success: false, error: retry.error.message }
+          return this.getDeudasProveedores(options)
+        }
+        return { success: false, error: error.message }
+      }
+
+      let rows = (data as import('../types/api').DeudaProveedorRecord[]) ?? []
+      if (rows.length === 0) {
+        const imp = await this.importarDeudasProveedoresSeed()
+        if (imp.success) {
+          const retry = await supabase.from('deudas_proveedores').select('*').order('codigo', { ascending: true })
+          rows = (retry.data as import('../types/api').DeudaProveedorRecord[]) ?? []
+        }
+      }
+
+      const [cxpRes, provRes] = await Promise.all([
+        this.getCuentasPorPagar(),
+        this.getProveedores(true)
+      ])
+
+      const cxp = cxpRes.data ?? []
+      const proveedores = provRes.data ?? []
+
+      const cxpByProveedor = new Map<number, { saldo: number; count: number }>()
+      const cxpByNombre = new Map<string, { saldo: number; count: number }>()
+
+      for (const c of cxp) {
+        if (c.estado === 'Pagado' || c.estado === 'Cancelado') continue
+        const monto = Number(c.monto_pendiente) || 0
+        if (c.id_proveedor) {
+          const prev = cxpByProveedor.get(c.id_proveedor) ?? { saldo: 0, count: 0 }
+          cxpByProveedor.set(c.id_proveedor, { saldo: prev.saldo + monto, count: prev.count + 1 })
+        }
+        const key = (c.proveedor_nombre || '').trim().toUpperCase()
+        if (key) {
+          const prev = cxpByNombre.get(key) ?? { saldo: 0, count: 0 }
+          cxpByNombre.set(key, { saldo: prev.saldo + monto, count: prev.count + 1 })
+        }
+      }
+
+      const provMap = new Map(proveedores.map((p) => [p.id, p]))
+
+      let enriched: import('../types/api').DeudaProveedorEnriquecida[] = rows.map((d) => {
+        let saldo_cxp = 0
+        let cxp_pendientes = 0
+        let proveedor_nombre: string | null = null
+
+        if (d.id_proveedor) {
+          const agg = cxpByProveedor.get(d.id_proveedor)
+          saldo_cxp = agg?.saldo ?? 0
+          cxp_pendientes = agg?.count ?? 0
+          proveedor_nombre = provMap.get(d.id_proveedor)?.nombre ?? null
+        } else {
+          const key = d.razon_social.trim().toUpperCase()
+          const agg = cxpByNombre.get(key)
+          saldo_cxp = agg?.saldo ?? 0
+          cxp_pendientes = agg?.count ?? 0
+        }
+
+        return {
+          ...d,
+          saldo: Number(d.saldo) || 0,
+          saldo_cxp,
+          cxp_pendientes,
+          proveedor_nombre
+        }
+      })
+
+      const q = (options?.buscar || '').trim().toLowerCase()
+      if (q) {
+        enriched = enriched.filter(
+          (d) =>
+            d.codigo.toLowerCase().includes(q) ||
+            d.razon_social.toLowerCase().includes(q) ||
+            (d.telefono || '').toLowerCase().includes(q)
+        )
+      }
+
+      if (options?.soloConSaldo) {
+        enriched = enriched.filter((d) => Math.abs(d.saldo) > 0.01)
+      }
+
+      if (options?.idProveedor) {
+        const provRes = await this.getProveedor(options.idProveedor)
+        const prov = provRes.data
+        enriched = enriched.filter(
+          (d) =>
+            d.id_proveedor === options.idProveedor ||
+            (prov ? this.matchProveedorNombre(prov, d.razon_social) : false)
+        )
+      }
+
+      return { success: true, data: enriched }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  // ========== PAGOS PROVEEDORES (legacy planilla) ==========
+  async importarPagosProveedoresSeed(): Promise<ApiResponse<{ importados: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const seed = (await import('../data/pagos-proveedores-seed.json')).default as {
+        fecha_desde: string
+        fecha_hasta: string
+        rows: Array<{
+          fecha: string
+          numero_pago: string
+          numero_recibo: string
+          proveedor_nombre: string
+          usuario: string
+          monto: number
+        }>
+      }
+      const payload = seed.rows.map((r) => ({
+        fecha: r.fecha,
+        numero_pago: r.numero_pago,
+        numero_recibo: r.numero_recibo || '',
+        proveedor_nombre: r.proveedor_nombre,
+        usuario: r.usuario || null,
+        monto: r.monto,
+        fecha_desde: seed.fecha_desde,
+        fecha_hasta: seed.fecha_hasta
+      }))
+      const { error } = await supabase.from('pagos_proveedores').upsert(payload, {
+        onConflict: 'numero_pago,numero_recibo'
+      })
+      if (error) return { success: false, error: error.message }
+      await supabase.rpc('vincular_pagos_proveedores')
+      return { success: true, data: { importados: payload.length } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async vincularPagosProveedores(): Promise<ApiResponse<{ vinculados: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase.rpc('vincular_pagos_proveedores')
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: { vinculados: Number(data) || 0 } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async getPagosProveedores(options?: {
+    buscar?: string
+    proveedor?: string
+    idProveedor?: number
+    fechaDesde?: string
+    fechaHasta?: string
+  }): Promise<ApiResponse<import('../types/api').PagoProveedorEnriquecido[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    try {
+      const { data, error } = await supabase
+        .from('pagos_proveedores')
+        .select('*')
+        .order('fecha', { ascending: false })
+
+      if (error) {
+        if (error.message.includes('pagos_proveedores') || error.code === '42P01') {
+          const imp = await this.importarPagosProveedoresSeed()
+          if (!imp.success) return { success: false, error: imp.error }
+          return this.getPagosProveedores(options)
+        }
+        return { success: false, error: error.message }
+      }
+
+      let rows = (data as import('../types/api').PagoProveedorRecord[]) ?? []
+      if (rows.length === 0) {
+        const imp = await this.importarPagosProveedoresSeed()
+        if (imp.success) {
+          const retry = await supabase.from('pagos_proveedores').select('*').order('fecha', { ascending: false })
+          rows = (retry.data as import('../types/api').PagoProveedorRecord[]) ?? []
+        }
+      }
+
+      const pagosSistema = await this.getPagosCobros({ tipo: 'Pago', limit: 500 })
+      const sistemaPagos = pagosSistema.data ?? []
+
+      const matchSistema = (p: import('../types/api').PagoProveedorRecord) => {
+        if (p.id_pago_cobro) return p.id_pago_cobro
+        const fecha = p.fecha?.split('T')[0]
+        const monto = Number(p.monto) || 0
+        const hit = sistemaPagos.find((s) => {
+          const f = s.fecha_pago?.split('T')[0]
+          return f === fecha && Math.abs(Number(s.monto) - monto) < 0.02
+        })
+        return hit?.id ?? null
+      }
+
+      let enriched: import('../types/api').PagoProveedorEnriquecido[] = rows.map((p) => {
+        const idMatch = matchSistema(p)
+        return {
+          ...p,
+          monto: Number(p.monto) || 0,
+          vinculado_sistema: Boolean(p.id_pago_cobro || idMatch),
+          id_pago_cobro_match: p.id_pago_cobro ?? idMatch
+        }
+      })
+
+      const q = (options?.buscar || '').trim().toLowerCase()
+      if (q) {
+        enriched = enriched.filter(
+          (p) =>
+            p.numero_pago.toLowerCase().includes(q) ||
+            p.numero_recibo.toLowerCase().includes(q) ||
+            p.proveedor_nombre.toLowerCase().includes(q) ||
+            (p.usuario || '').toLowerCase().includes(q)
+        )
+      }
+
+      if (options?.proveedor) {
+        const prov = options.proveedor.trim().toLowerCase()
+        enriched = enriched.filter((p) => p.proveedor_nombre.toLowerCase().includes(prov))
+      }
+
+      if (options?.idProveedor) {
+        const provRes = await this.getProveedor(options.idProveedor)
+        const prov = provRes.data
+        enriched = enriched.filter(
+          (p) =>
+            p.id_proveedor === options.idProveedor ||
+            (prov ? this.matchProveedorNombre(prov, p.proveedor_nombre) : false)
+        )
+      }
+
+      if (options?.fechaDesde) {
+        enriched = enriched.filter((p) => p.fecha >= options.fechaDesde!)
+      }
+      if (options?.fechaHasta) {
+        enriched = enriched.filter((p) => p.fecha <= options.fechaHasta!)
+      }
+
+      return { success: true, data: enriched }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  // ========== MOVIMIENTOS PROVEEDORES (legacy cuenta corriente) ==========
+  async importarMovimientosProveedoresSeed(): Promise<ApiResponse<{ importados: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const seed = (await import('../data/movimientos-proveedores-seed.json')).default as {
+        rows: Array<{
+          proveedor_nombre: string
+          moneda: string
+          fecha_desde: string
+          fecha_hasta: string
+          fecha_hora: string
+          fecha_comprobante: string
+          tipo_movimiento: string
+          comprobante: string
+          debe: number
+          haber: number
+          saldo: number
+          es_saldo_inicial: boolean
+        }>
+      }
+      const payload = seed.rows.map((r) => ({ ...r }))
+      const { error } = await supabase.from('movimientos_proveedores').upsert(payload, {
+        onConflict: 'proveedor_nombre,fecha_hora,comprobante,tipo_movimiento'
+      })
+      if (error) return { success: false, error: error.message }
+      await supabase.rpc('vincular_movimientos_proveedores')
+      return { success: true, data: { importados: payload.length } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async vincularMovimientosProveedores(): Promise<ApiResponse<{ vinculados: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase.rpc('vincular_movimientos_proveedores')
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: { vinculados: Number(data) || 0 } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async getMovimientosProveedores(options?: {
+    buscar?: string
+    proveedor?: string
+    idProveedor?: number
+    tipo?: string
+  }): Promise<ApiResponse<import('../types/api').MovimientoProveedorEnriquecido[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    try {
+      const { data, error } = await supabase
+        .from('movimientos_proveedores')
+        .select('*')
+        .order('fecha_hora', { ascending: true })
+
+      if (error) {
+        if (error.message.includes('movimientos_proveedores') || error.code === '42P01') {
+          const imp = await this.importarMovimientosProveedoresSeed()
+          if (!imp.success) return { success: false, error: imp.error }
+          return this.getMovimientosProveedores(options)
+        }
+        return { success: false, error: error.message }
+      }
+
+      let rows = (data as import('../types/api').MovimientoProveedorRecord[]) ?? []
+      if (rows.length === 0) {
+        const imp = await this.importarMovimientosProveedoresSeed()
+        if (imp.success) {
+          const retry = await supabase
+            .from('movimientos_proveedores')
+            .select('*')
+            .order('fecha_hora', { ascending: true })
+          rows = (retry.data as import('../types/api').MovimientoProveedorRecord[]) ?? []
+        }
+      }
+
+      const pagosRes = await supabase.from('pagos_proveedores').select('id, numero_pago')
+      const pagosMap = new Map<string, number>()
+      for (const p of pagosRes.data ?? []) {
+        const key = String((p as { numero_pago: string }).numero_pago || '').replace(/\s/g, '')
+        if (key) pagosMap.set(key, (p as { id: number }).id)
+      }
+
+      const normPagoKey = (comprobante: string) => {
+        const m = comprobante.match(/PA\s+(\d{5}-\d+)/i)
+        return m ? m[1].replace(/\s/g, '') : ''
+      }
+
+      let enriched: import('../types/api').MovimientoProveedorEnriquecido[] = rows.map((m) => {
+        const tipo = m.tipo_movimiento.toUpperCase()
+        let enlace_tipo: 'pago' | 'factura' | 'nota' | null = null
+        let id_pago_proveedor: number | null = null
+
+        if (tipo.includes('PAGO')) {
+          enlace_tipo = 'pago'
+          const key = normPagoKey(m.comprobante)
+          id_pago_proveedor = pagosMap.get(key) ?? null
+        } else if (tipo.includes('FACTURA')) {
+          enlace_tipo = 'factura'
+        } else if (tipo.includes('NOTA')) {
+          enlace_tipo = 'nota'
+        }
+
+        return {
+          ...m,
+          debe: Number(m.debe) || 0,
+          haber: Number(m.haber) || 0,
+          saldo: Number(m.saldo) || 0,
+          enlace_tipo,
+          id_pago_proveedor
+        }
+      })
+
+      const q = (options?.buscar || '').trim().toLowerCase()
+      if (q) {
+        enriched = enriched.filter(
+          (m) =>
+            m.comprobante.toLowerCase().includes(q) ||
+            m.tipo_movimiento.toLowerCase().includes(q) ||
+            m.proveedor_nombre.toLowerCase().includes(q)
+        )
+      }
+      if (options?.proveedor) {
+        const p = options.proveedor.trim().toLowerCase()
+        enriched = enriched.filter((m) => m.proveedor_nombre.toLowerCase().includes(p))
+      }
+      if (options?.tipo) {
+        const t = options.tipo.trim().toLowerCase()
+        enriched = enriched.filter((m) => m.tipo_movimiento.toLowerCase().includes(t))
+      }
+
+      if (options?.idProveedor) {
+        const provRes = await this.getProveedor(options.idProveedor)
+        const prov = provRes.data
+        enriched = enriched.filter(
+          (m) =>
+            m.id_proveedor === options.idProveedor ||
+            (prov ? this.matchProveedorNombre(prov, m.proveedor_nombre) : false)
+        )
+      }
+
+      return { success: true, data: enriched }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  // ========== DEUDA CC PROVEEDORES (cuenta corriente detalle) ==========
+  async importarDeudaCcProveedoresSeed(): Promise<ApiResponse<{ importados: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const seed = (await import('../data/deuda-cc-proveedores-seed.json')).default as {
+        rows: Array<Record<string, unknown>>
+      }
+      const payload = seed.rows.map((r) => ({ ...r }))
+      const { error } = await supabase.from('deuda_cc_proveedores').upsert(payload, {
+        onConflict: 'proveedor_nombre,tipo_comprobante,numero_comprobante,fecha_comprobante'
+      })
+      if (error) return { success: false, error: error.message }
+      await supabase.rpc('vincular_deuda_cc_proveedores')
+      return { success: true, data: { importados: payload.length } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async vincularDeudaCcProveedores(): Promise<ApiResponse<{ vinculados: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase.rpc('vincular_deuda_cc_proveedores')
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: { vinculados: Number(data) || 0 } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async getDeudaCcProveedores(options?: {
+    buscar?: string
+    idProveedor?: number
+    soloConDeuda?: boolean
+  }): Promise<
+    ApiResponse<{
+      rows: import('../types/api').DeudaCcProveedorEnriquecido[]
+      resumen: import('../types/api').DeudaCcProveedorResumen
+      meta: { proveedor_nombre: string; proveedor_codigo: string; fecha_corte: string }
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    try {
+      const seed = (await import('../data/deuda-cc-proveedores-seed.json')).default as {
+        proveedor_codigo: string
+        proveedor_nombre: string
+        fecha_corte: string
+        resumen: import('../types/api').DeudaCcProveedorResumen
+      }
+
+      const { data, error } = await supabase
+        .from('deuda_cc_proveedores')
+        .select('*')
+        .order('fecha_vencimiento', { ascending: true })
+
+      if (error) {
+        if (error.message.includes('deuda_cc_proveedores') || error.code === '42P01') {
+          const imp = await this.importarDeudaCcProveedoresSeed()
+          if (!imp.success) return { success: false, error: imp.error }
+          return this.getDeudaCcProveedores(options)
+        }
+        return { success: false, error: error.message }
+      }
+
+      let rows = (data as import('../types/api').DeudaCcProveedorRecord[]) ?? []
+      if (rows.length === 0) {
+        const imp = await this.importarDeudaCcProveedoresSeed()
+        if (imp.success) {
+          const retry = await supabase
+            .from('deuda_cc_proveedores')
+            .select('*')
+            .order('fecha_vencimiento', { ascending: true })
+          rows = (retry.data as import('../types/api').DeudaCcProveedorRecord[]) ?? []
+        }
+      }
+
+      const movRes = await supabase.from('movimientos_proveedores').select('comprobante')
+      const comprobantesMov = new Set(
+        (movRes.data ?? []).map((m) => String((m as { comprobante: string }).comprobante || '').toUpperCase())
+      )
+
+      let enriched: import('../types/api').DeudaCcProveedorEnriquecido[] = rows.map((r) => {
+        const enlace_movimiento = [...comprobantesMov].some((c) =>
+          c.includes(r.numero_comprobante.toUpperCase())
+        )
+        return {
+          ...r,
+          total: Number(r.total) || 0,
+          pagado: Number(r.pagado) || 0,
+          deuda: Number(r.deuda) || 0,
+          total_actualizado: Number(r.total_actualizado) || 0,
+          enlace_movimiento,
+          enlace_cxp: r.tipo_comprobante.toUpperCase().startsWith('F')
+        }
+      })
+
+      const q = (options?.buscar || '').trim().toLowerCase()
+      if (q) {
+        enriched = enriched.filter(
+          (r) =>
+            r.numero_comprobante.toLowerCase().includes(q) ||
+            r.tipo_comprobante.toLowerCase().includes(q) ||
+            r.proveedor_nombre.toLowerCase().includes(q)
+        )
+      }
+
+      if (options?.soloConDeuda) {
+        enriched = enriched.filter((r) => Math.abs(r.deuda) > 0.01)
+      }
+
+      if (options?.idProveedor) {
+        const provRes = await this.getProveedor(options.idProveedor)
+        const prov = provRes.data
+        enriched = enriched.filter(
+          (r) =>
+            r.id_proveedor === options.idProveedor ||
+            (prov ? this.matchProveedorNombre(prov, r.proveedor_nombre) : false)
+        )
+      }
+
+      const resumenCalc: import('../types/api').DeudaCcProveedorResumen = {
+        total_comprobantes: enriched.reduce((s, r) => s + r.deuda, 0),
+        total_cheques: seed.resumen?.total_cheques ?? 0,
+        total_cta_cte: seed.resumen?.total_cta_cte ?? enriched.reduce((s, r) => s + r.deuda, 0)
+      }
+
+      const meta = {
+        proveedor_nombre: rows[0]?.proveedor_nombre ?? seed.proveedor_nombre,
+        proveedor_codigo: rows[0]?.proveedor_codigo ?? seed.proveedor_codigo,
+        fecha_corte: rows[0]?.fecha_corte ?? seed.fecha_corte
+      }
+
+      return { success: true, data: { rows: enriched, resumen: resumenCalc, meta } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
   }
 
   // ========== PAGOS Y COBROS ==========

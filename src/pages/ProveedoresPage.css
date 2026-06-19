@@ -175,6 +175,28 @@
   border-color: #3b82f6;
 }
 
+.proveedor-finanzas {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+.proveedor-finanzas__saldo span:last-child {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.btn-action--fin {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.35);
+  color: #fdba74;
+}
+
+.btn-action--fin:hover {
+  background: rgba(249, 115, 22, 0.25);
+  border-color: #f97316;
+}
+
 .empty-state {
   text-align: center;
   padding: 48px;

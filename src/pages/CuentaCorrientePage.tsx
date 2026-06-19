@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -11,10 +11,16 @@ import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
 import { downloadCarteraCsv } from '../utils/cuentaCorrienteExport'
 import CcExportMenu from '../components/CcExportMenu'
 import CuentaCorrienteCobranzasPanel from '../components/CuentaCorrienteCobranzasPanel'
-import type { ClienteCuentaCorrienteRecord, ClienteRecord, CcCobranzasPanelData } from '../types/api'
+import type { ClienteCuentaCorrienteRecord, ClienteRecord, CcCobranzasPanelData, ClienteCcEnriquecido } from '../types/api'
 import { normalizeEstadoCc, type EstadoCuentaCorriente } from '../constants/cuentaCorriente'
 import { CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
+import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
+import { clienteCoincideBusqueda } from '../utils/clienteDuplicados'
+import { mergeClienteBusquedaCc } from '../utils/cuentaCorrienteClienteData'
 import './CuentaCorrientePage.css'
+
+const MIN_BUSQUEDA_VINCULAR = 1
+const MAX_RESULTADOS_VINCULAR = 80
 
 type CuentaCorrienteRow = ClienteCuentaCorrienteRecord & { cliente?: ClienteRecord }
 
@@ -27,7 +33,11 @@ const CuentaCorrientePage = () => {
   const [busqueda, setBusqueda] = useState('')
   const [filtroLista, setFiltroLista] = useState('')
   const [resultadosBusqueda, setResultadosBusqueda] = useState<ClienteRecord[]>([])
+  const [catalogoClientes, setCatalogoClientes] = useState<ClienteRecord[]>([])
+  const [cargandoCatalogo, setCargandoCatalogo] = useState(false)
   const [buscando, setBuscando] = useState(false)
+  const [vinculandoId, setVinculandoId] = useState<number | null>(null)
+  const [clienteEnriquecido, setClienteEnriquecido] = useState<ClienteCcEnriquecido | null>(null)
   const [modoForm, setModoForm] = useState<'cerrado' | 'nuevo' | 'editar' | 'vincular'>('cerrado')
   const [clienteVincular, setClienteVincular] = useState<ClienteRecord | null>(null)
   const [editando, setEditando] = useState<CuentaCorrienteRow | null>(null)
@@ -86,12 +96,17 @@ const CuentaCorrientePage = () => {
 
     let cancelled = false
     const run = async () => {
-      const res = await apiService.getClientePorId(idCliente)
+      const res = await apiService.getClienteEnriquecidoParaCc(idCliente)
       if (cancelled) return
       if (res.success && res.data) {
-        setClienteVincular(res.data)
+        setClienteEnriquecido(res.data)
+        setClienteVincular(res.data.cliente)
         setModoForm('nuevo')
-        setMensajeOk(`Completá el alta de cuenta corriente para ${res.data.nombre}`)
+        setMensajeOk(`Completá el alta de cuenta corriente para ${nombreCompletoCliente(res.data.cliente)}`)
+      } else if (res.success && !res.data) {
+        setError('Cliente no encontrado')
+      } else {
+        setError(res.error || 'No se pudo cargar el cliente')
       }
       const next = new URLSearchParams(searchParams)
       next.delete('altaCliente')
@@ -103,27 +118,103 @@ const CuentaCorrientePage = () => {
     }
   }, [searchParams, setSearchParams])
 
+  const idsEnCartera = useMemo(() => new Set(registros.map((r) => r.id_cliente)), [registros])
+
+  const clientesDisponibles = useMemo(
+    () => catalogoClientes.filter((c) => !idsEnCartera.has(c.id)),
+    [catalogoClientes, idsEnCartera]
+  )
+
+  const filtrarClientesVincular = useCallback(
+    (lista: ClienteRecord[], q: string) => {
+      const trimmed = q.trim()
+      if (!trimmed) return lista.slice(0, MAX_RESULTADOS_VINCULAR)
+      return lista
+        .filter((c) => clienteCoincideBusqueda(c, trimmed))
+        .slice(0, MAX_RESULTADOS_VINCULAR)
+    },
+    []
+  )
+
   useEffect(() => {
-    if (modoForm !== 'vincular' || busqueda.trim().length < 2) {
+    if (modoForm !== 'vincular') return
+    let cancelled = false
+    const run = async () => {
+      setCargandoCatalogo(true)
+      try {
+        const res = await apiService.getClientes(true, { limit: 5000 })
+        if (cancelled) return
+        if (res.success && res.data) setCatalogoClientes(res.data)
+      } finally {
+        if (!cancelled) setCargandoCatalogo(false)
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [modoForm])
+
+  useEffect(() => {
+    if (modoForm !== 'vincular') {
       setResultadosBusqueda([])
       return
     }
+
+    const q = busqueda.trim()
+    const locales = filtrarClientesVincular(clientesDisponibles, q)
+
+    if (q.length < MIN_BUSQUEDA_VINCULAR) {
+      setResultadosBusqueda(locales)
+      return
+    }
+
     const t = setTimeout(async () => {
       setBuscando(true)
       try {
-        const res = await apiService.buscarClientes(busqueda.trim())
-        if (res.success && res.data) {
-          const ids = new Set(registros.map((r) => r.id_cliente))
-          setResultadosBusqueda(res.data.filter((c) => !ids.has(c.id)))
-        } else setResultadosBusqueda([])
+        const res = await apiService.buscarClientes(q, { limit: 120 })
+        const remotos = (res.success && res.data ? res.data : []).filter((c) => !idsEnCartera.has(c.id))
+        const merged = mergeClienteBusquedaCc(locales, remotos)
+        setResultadosBusqueda(filtrarClientesVincular(merged, q))
       } catch {
-        setResultadosBusqueda([])
+        setResultadosBusqueda(locales)
       } finally {
         setBuscando(false)
       }
-    }, 300)
+    }, 280)
+
     return () => clearTimeout(t)
-  }, [busqueda, modoForm, registros])
+  }, [busqueda, modoForm, clientesDisponibles, idsEnCartera, filtrarClientesVincular])
+
+  const seleccionarClienteVincular = async (c: ClienteRecord) => {
+    setVinculandoId(c.id)
+    setError(null)
+    try {
+      const res = await apiService.getClienteEnriquecidoParaCc(c.id)
+      if (!res.success) {
+        setError(res.error || 'No se pudieron cargar los datos del cliente')
+        return
+      }
+      if (!res.data) {
+        setError('Cliente no encontrado')
+        return
+      }
+      if (res.data.cuenta_corriente) {
+        setError('Este cliente ya tiene ficha de cuenta corriente')
+        return
+      }
+      setClienteEnriquecido(res.data)
+      setClienteVincular(res.data.cliente)
+      setModoForm('nuevo')
+      setMensajeOk(
+        `Datos cargados desde ficha y ${res.data.ordenes.length} OP(s) vinculada(s). Revisá y completá el alta.`
+      )
+    } catch {
+      setError('Error al cargar datos del cliente')
+    } finally {
+      setVinculandoId(null)
+    }
+  }
 
   const registrosFiltrados = useMemo(() => {
     let list = registros
@@ -164,6 +255,7 @@ const CuentaCorrientePage = () => {
   const cerrarForm = () => {
     setModoForm('cerrado')
     setClienteVincular(null)
+    setClienteEnriquecido(null)
     setEditando(null)
     setBusqueda('')
     setResultadosBusqueda([])
@@ -314,18 +406,36 @@ const CuentaCorrientePage = () => {
   }
 
   const quitar = async (idCliente: number) => {
-    if (!confirm('¿Quitar a este cliente de cuenta corriente?')) return
+    if (!confirm('¿Quitar a este cliente de cuenta corriente? Se eliminará la ficha (incluye rechazadas).')) return
     setQuitandoId(idCliente)
     setError(null)
     try {
       const res = await apiService.quitarClienteCuentaCorriente(idCliente)
-      if (res.success) setRegistros((prev) => prev.filter((r) => r.id_cliente !== idCliente))
-      else setError(res.error || 'Error al quitar')
+      if (res.success) {
+        setRegistros((prev) => prev.filter((r) => r.id_cliente !== idCliente))
+        if (editando?.id_cliente === idCliente) cerrarForm()
+        setMensajeOk('Cliente quitado de la cartera de cuenta corriente.')
+      } else setError(res.error || 'Error al quitar')
     } catch {
       setError('Error al quitar')
     } finally {
       setQuitandoId(null)
     }
+  }
+
+  const abrirEdicion = async (r: CuentaCorrienteRow) => {
+    setError(null)
+    const enr = await apiService.getClienteEnriquecidoParaCc(r.id_cliente)
+    if (enr.success && enr.data) {
+      setClienteEnriquecido(enr.data)
+      setClienteVincular(enr.data.cliente)
+    }
+    setEditando({
+      ...r,
+      cliente: enr.data?.cliente ?? r.cliente
+    })
+    setModoForm('editar')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const habilitadosCount = aprobados.length
@@ -468,38 +578,62 @@ const CuentaCorrientePage = () => {
             <span className="cc-section-head__icon" aria-hidden>🔍</span>
             <h3>Vincular cliente existente</h3>
           </header>
+          <p className="cuenta-corriente-vincular-hint">
+            Buscá en todo el padrón de clientes. Al seleccionar uno se completan CUIT, contacto y domicilio
+            desde su ficha y las OPs vinculadas.
+          </p>
           <div className="cuenta-corriente-busqueda">
             <input
               type="search"
-              placeholder="Buscar por nombre, CUIT, teléfono…"
+              placeholder="Nombre, apellido, empresa, CUIT, teléfono, email…"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="cuenta-corriente-input"
               autoFocus
             />
-            {buscando && <span className="cuenta-corriente-buscando">Buscando…</span>}
+            {(buscando || cargandoCatalogo) && (
+              <span className="cuenta-corriente-buscando">
+                {cargandoCatalogo ? 'Cargando clientes…' : 'Buscando…'}
+              </span>
+            )}
+            {!cargandoCatalogo && (
+              <span className="cuenta-corriente-buscando">
+                {clientesDisponibles.length} disponibles
+              </span>
+            )}
           </div>
-          {resultadosBusqueda.length > 0 && (
+          {resultadosBusqueda.length > 0 ? (
             <ul className="cuenta-corriente-resultados">
               {resultadosBusqueda.map((c) => (
                 <li key={c.id} className="cuenta-corriente-resultado-item">
                   <div className="cuenta-corriente-resultado-info">
-                    <strong>{c.nombre}</strong>
+                    <strong>{nombreCompletoCliente(c)}</strong>
+                    {c.empresa && <span>Empresa: {c.empresa}</span>}
                     {c.dni_cuit && <span>CUIT/DNI: {c.dni_cuit}</span>}
+                    {c.telefono && <span>Tel: {c.telefono}</span>}
+                    {c.email && <span>Email: {c.email}</span>}
+                    {c.direccion && <span>{c.direccion}</span>}
                   </div>
                   <button
                     type="button"
                     className="cc-btn cc-btn--primary"
-                    onClick={() => {
-                      setClienteVincular(c)
-                      setModoForm('nuevo')
-                    }}
+                    disabled={vinculandoId === c.id}
+                    onClick={() => void seleccionarClienteVincular(c)}
                   >
-                    Completar alta
+                    {vinculandoId === c.id ? 'Cargando…' : 'Completar alta'}
                   </button>
                 </li>
               ))}
             </ul>
+          ) : (
+            !cargandoCatalogo &&
+            !buscando && (
+              <p className="cuenta-corriente-sin-resultados">
+                {busqueda.trim()
+                  ? 'Sin coincidencias. Probá con otro nombre, CUIT o teléfono.'
+                  : 'No hay clientes disponibles para vincular (todos ya están en cuenta corriente).'}
+              </p>
+            )
           )}
           <button type="button" className="cc-btn cc-btn--secondary" onClick={cerrarForm}>
             Cancelar
@@ -511,13 +645,60 @@ const CuentaCorrientePage = () => {
         <section className="cuenta-corriente-agregar cuenta-corriente-agregar--form">
           <header className="cc-section-head">
             <span className="cc-section-head__icon" aria-hidden>📋</span>
-            <h3>{editando ? 'Actualizar ficha' : 'Alta en cuenta corriente'}</h3>
+            <h3>
+              {editando
+                ? normalizeEstadoCc(editando) === 'rechazada'
+                  ? 'Corregir y reenviar solicitud'
+                  : 'Actualizar ficha'
+                : 'Alta en cuenta corriente'}
+            </h3>
           </header>
+          {editando && (
+            <div className="cuenta-corriente-preview cuenta-corriente-preview--edit">
+              <p>
+                Editando ficha de <strong>{editando.razon_social || editando.cliente?.nombre}</strong>
+                {normalizeEstadoCc(editando) === 'rechazada' && editando.motivo_rechazo && (
+                  <>
+                    {' '}
+                    · <span className="cc-registry-rechazo">Rechazo: {editando.motivo_rechazo}</span>
+                  </>
+                )}
+              </p>
+              {editando.id_cliente > 0 && (
+                <button
+                  type="button"
+                  className="cc-btn cc-btn--secondary cc-btn--sm"
+                  onClick={() => navigate(`/clientes/cliente/${editando.id_cliente}`)}
+                >
+                  Ver ficha cliente
+                </button>
+              )}
+            </div>
+          )}
+          {clienteEnriquecido && !editando && (
+            <div className="cuenta-corriente-preview" role="status">
+              <p>
+                <strong>{nombreCompletoCliente(clienteEnriquecido.cliente)}</strong>
+                {' · '}
+                {clienteEnriquecido.ordenes.length} OP(s) en historial
+                {clienteEnriquecido.ordenes_activas > 0 &&
+                  ` · ${clienteEnriquecido.ordenes_activas} activa(s)`}
+              </p>
+              {clienteEnriquecido.ordenes.slice(0, 3).map((o) => (
+                <span key={o.id} className="cuenta-corriente-preview__op">
+                  OP {o.numero_op} — {o.estado}
+                </span>
+              ))}
+            </div>
+          )}
           <CuentaCorrienteAltaForm
             idCliente={editando?.id_cliente ?? clienteVincular?.id ?? null}
-            clienteNombre={editando?.razon_social ?? clienteVincular?.nombre}
+            clienteNombre={
+              editando?.razon_social ?? nombreCompletoCliente(clienteVincular ?? { id: 0, nombre: '' })
+            }
             initialRecord={editando}
             initialCliente={editando?.cliente ?? clienteVincular}
+            datosSugeridos={editando ? null : clienteEnriquecido?.datos_sugeridos ?? null}
             isAdmin={isAdmin}
             onCancel={cerrarForm}
             onSubmit={handleSubmitAlta}
@@ -540,10 +721,7 @@ const CuentaCorrientePage = () => {
         onFiltroLista={setFiltroLista}
         onAprobar={(id) => void resolverSolicitud(id, 'aprobar')}
         onRechazar={(id) => void resolverSolicitud(id, 'rechazar')}
-        onEditar={(r) => {
-          setEditando(r)
-          setModoForm('editar')
-        }}
+        onEditar={(r) => void abrirEdicion(r)}
         onQuitar={(id) => void quitar(id)}
         onScoring={setScoringCliente}
       />
