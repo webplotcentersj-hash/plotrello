@@ -1,15 +1,46 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { ProveedorFinanzasResumen } from '../types/api'
+import type { ProveedorConFinanzas } from '../types/api'
 import type { Proveedor, ProveedorProducto } from '../types/pedidos'
+import ProveedorFinanzasHub from '../components/compras/ProveedorFinanzasHub'
 import './ProveedoresPage.css'
 
-type ProveedorConFinanzas = Proveedor & { finanzas: ProveedorFinanzasResumen }
+type PipelineKey = 'maestro' | 'deuda' | 'favor' | 'listado'
+
+const PIPELINE_COLS: Array<{ key: PipelineKey; label: string; color: string }> = [
+  { key: 'maestro', label: 'En maestro', color: '#64748b' },
+  { key: 'deuda', label: 'Con deuda', color: '#f59e0b' },
+  { key: 'favor', label: 'Saldo a favor', color: '#22c55e' },
+  { key: 'listado', label: 'Solo listado ERP', color: '#a78bfa' }
+]
 
 function money(n: number): string {
   return `$ ${Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function displayNombre(p: ProveedorConFinanzas): string {
+  return p.razon_social || p.nombre
+}
+
+function displayTelefono(p: ProveedorConFinanzas): string | null {
+  const t = p.telefono?.trim()
+  if (!t || t === '-') return null
+  return t
+}
+
+function pipelineKey(p: ProveedorConFinanzas): PipelineKey {
+  if (p.es_solo_listado) return 'listado'
+  const saldo = p.finanzas.saldo_listado
+  if (saldo == null || saldo === 0) return 'maestro'
+  if (saldo > 0) return 'deuda'
+  return 'favor'
+}
+
+function saldoClass(saldo: number | null | undefined): string {
+  if (saldo == null || saldo === 0) return 'prov-pipeline-card__saldo--cero'
+  return saldo > 0 ? 'prov-pipeline-card__saldo--deuda' : 'prov-pipeline-card__saldo--favor'
 }
 
 const ProveedoresPage = () => {
@@ -17,6 +48,7 @@ const ProveedoresPage = () => {
   const { canManageCompras, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [proveedores, setProveedores] = useState<ProveedorConFinanzas[]>([])
+  const [proveedorTrazado, setProveedorTrazado] = useState<ProveedorConFinanzas | null>(null)
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null)
   const [productosProveedor, setProductosProveedor] = useState<ProveedorProducto[]>([])
   const [mostrarModal, setMostrarModal] = useState(false)
@@ -83,10 +115,10 @@ const ProveedoresPage = () => {
     }
   }
 
-  const handleAbrirModal = (proveedor?: Proveedor) => {
+  const handleAbrirModal = (proveedor?: Proveedor | ProveedorConFinanzas) => {
     if (proveedor) {
       setModoEdicion(true)
-      setProveedorSeleccionado(proveedor)
+      setProveedorSeleccionado(proveedor.id > 0 ? (proveedor as Proveedor) : null)
       setFormData({
         nombre: proveedor.nombre,
         razon_social: proveedor.razon_social || '',
@@ -119,6 +151,27 @@ const ProveedoresPage = () => {
         notas: ''
       })
     }
+    setMostrarModal(true)
+  }
+
+  const handleAltaDesdeListado = (p: ProveedorConFinanzas) => {
+    setProveedorTrazado(null)
+    setModoEdicion(false)
+    setProveedorSeleccionado(null)
+    setFormData({
+      nombre: p.razon_social?.split(',')[0]?.trim() || p.nombre,
+      razon_social: p.razon_social || p.nombre,
+      cuit: '',
+      contacto_nombre: '',
+      telefono: p.telefono || '',
+      email: '',
+      direccion: '',
+      ciudad: '',
+      provincia: '',
+      codigo_postal: '',
+      sitio_web: '',
+      notas: p.finanzas.codigo_deuda ? `Código ERP: ${p.finanzas.codigo_deuda}` : ''
+    })
     setMostrarModal(true)
   }
 
@@ -207,10 +260,44 @@ const ProveedoresPage = () => {
     }
   }
 
-  const proveedoresFiltrados = proveedores.filter(p =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-    (p.cuit && p.cuit.includes(busqueda)) ||
-    (p.email && p.email.toLowerCase().includes(busqueda.toLowerCase()))
+  const proveedoresFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return proveedores
+    return proveedores.filter(
+      (p) =>
+        p.nombre.toLowerCase().includes(q) ||
+        (p.razon_social && p.razon_social.toLowerCase().includes(q)) ||
+        (p.cuit && p.cuit.includes(q)) ||
+        (p.email && p.email.toLowerCase().includes(q)) ||
+        (p.telefono && p.telefono.includes(q)) ||
+        (p.finanzas.codigo_deuda && p.finanzas.codigo_deuda.includes(q))
+    )
+  }, [proveedores, busqueda])
+
+  const pipeline = useMemo(() => {
+    const cols: Record<PipelineKey, ProveedorConFinanzas[]> = {
+      maestro: [],
+      deuda: [],
+      favor: [],
+      listado: []
+    }
+    for (const p of proveedoresFiltrados) {
+      cols[pipelineKey(p)].push(p)
+    }
+    const bySaldoDesc = (a: ProveedorConFinanzas, b: ProveedorConFinanzas) =>
+      Math.abs(b.finanzas.saldo_listado ?? 0) - Math.abs(a.finanzas.saldo_listado ?? 0)
+    cols.deuda.sort(bySaldoDesc)
+    cols.favor.sort(bySaldoDesc)
+    return cols
+  }, [proveedoresFiltrados])
+
+  const totalSaldoDeuda = useMemo(
+    () =>
+      proveedoresFiltrados.reduce(
+        (s, p) => s + (p.finanzas.saldo_listado && p.finanzas.saldo_listado > 0 ? p.finanzas.saldo_listado : 0),
+        0
+      ),
+    [proveedoresFiltrados]
   )
 
   if (authLoading || loading) {
@@ -243,7 +330,9 @@ const ProveedoresPage = () => {
         <div className="header-content">
           <div>
             <h1>🏢 Gestión de Proveedores</h1>
-            <p className="subtitle">Administra tus proveedores y sus productos</p>
+            <p className="subtitle">
+              {proveedores.length} proveedores · deuda activa {money(totalSaldoDeuda)}
+            </p>
           </div>
           <div className="header-actions">
             <button className="btn-secondary" onClick={() => navigate('/compras/deudas-proveedores')}>
@@ -268,18 +357,16 @@ const ProveedoresPage = () => {
         </div>
       </header>
 
-      {/* Búsqueda */}
       <section className="search-section">
         <input
           type="text"
-          placeholder="Buscar por nombre, CUIT o email..."
+          placeholder="Buscar razón social, nombre, CUIT, teléfono o código ERP…"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           className="search-input"
         />
       </section>
 
-      {/* Lista de Proveedores */}
       <section className="proveedores-section">
         {proveedoresFiltrados.length === 0 ? (
           <div className="empty-state">
@@ -289,115 +376,90 @@ const ProveedoresPage = () => {
             </button>
           </div>
         ) : (
-          <div className="proveedores-grid">
-            {proveedoresFiltrados.map((proveedor) => (
-              <div key={proveedor.id} className="proveedor-card">
-                <div className="proveedor-header">
-                  <h3>{proveedor.nombre}</h3>
-                  <div className="proveedor-rating">
-                    {'⭐'.repeat(Math.floor(proveedor.calificacion))}
-                    {proveedor.calificacion > 0 && proveedor.calificacion < 5 && '☆'}
+          <div className="prov-pipeline">
+            {PIPELINE_COLS.map((col) => {
+              const items = pipeline[col.key]
+              const colTotal = items.reduce((s, p) => s + (p.finanzas.saldo_listado ?? 0), 0)
+              return (
+                <section key={col.key} className="prov-pipeline__col">
+                  <header className="prov-pipeline__col-head">
+                    <span className="prov-pipeline__dot" style={{ background: col.color }} />
+                    <h3>{col.label}</h3>
+                    <span className="prov-pipeline__count">{items.length}</span>
+                    {col.key === 'deuda' || col.key === 'favor' ? (
+                      <span className="prov-pipeline__total">{money(colTotal)}</span>
+                    ) : (
+                      <span className="prov-pipeline__total prov-pipeline__total--muted">—</span>
+                    )}
+                  </header>
+                  <div className="prov-pipeline__cards">
+                    {items.length === 0 ? (
+                      <p className="prov-pipeline__empty">Sin proveedores</p>
+                    ) : (
+                      items.map((proveedor) => {
+                        const nombre = displayNombre(proveedor)
+                        const tel = displayTelefono(proveedor)
+                        const saldo = proveedor.finanzas.saldo_listado
+                        return (
+                          <article key={proveedor.id} className="prov-pipeline-card">
+                            <button
+                              type="button"
+                              className="prov-pipeline-card__name"
+                              onClick={() => setProveedorTrazado(proveedor)}
+                            >
+                              {nombre}
+                            </button>
+                            {proveedor.finanzas.codigo_deuda && (
+                              <span className="prov-pipeline-card__codigo">
+                                #{proveedor.finanzas.codigo_deuda}
+                              </span>
+                            )}
+                            {saldo != null && (
+                              <div className={`prov-pipeline-card__saldo ${saldoClass(saldo)}`}>
+                                {money(saldo)}
+                              </div>
+                            )}
+                            {tel && <div className="prov-pipeline-card__tel">📞 {tel}</div>}
+                            {!proveedor.es_solo_listado && proveedor.nombre !== nombre && (
+                              <div className="prov-pipeline-card__alias">{proveedor.nombre}</div>
+                            )}
+                            {proveedor.es_solo_listado && (
+                              <span className="prov-pipeline-card__badge">Migrado desde deudas</span>
+                            )}
+                          </article>
+                        )
+                      })
+                    )}
                   </div>
-                </div>
-                <div className="proveedor-info">
-                  {proveedor.razon_social && (
-                    <div className="info-row">
-                      <span className="label">Razón Social:</span>
-                      <span>{proveedor.razon_social}</span>
-                    </div>
-                  )}
-                  {proveedor.cuit && (
-                    <div className="info-row">
-                      <span className="label">CUIT:</span>
-                      <span>{proveedor.cuit}</span>
-                    </div>
-                  )}
-                  {proveedor.contacto_nombre && (
-                    <div className="info-row">
-                      <span className="label">Contacto:</span>
-                      <span>{proveedor.contacto_nombre}</span>
-                    </div>
-                  )}
-                  {proveedor.telefono && (
-                    <div className="info-row">
-                      <span className="label">Teléfono:</span>
-                      <span>{proveedor.telefono}</span>
-                    </div>
-                  )}
-                  {proveedor.email && (
-                    <div className="info-row">
-                      <span className="label">Email:</span>
-                      <span>{proveedor.email}</span>
-                    </div>
-                  )}
-                  <div className="info-row">
-                    <span className="label">Compras:</span>
-                    <span>{proveedor.total_compras} pedidos</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="label">Monto Total:</span>
-                    <span>${proveedor.monto_total_compras.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  {proveedor.finanzas.tiene_cuenta_corriente && (
-                    <div className="proveedor-finanzas">
-                      {proveedor.finanzas.saldo_listado != null && (
-                        <div className="info-row proveedor-finanzas__saldo">
-                          <span className="label">Saldo listado:</span>
-                          <span>{money(proveedor.finanzas.saldo_listado)}</span>
-                        </div>
-                      )}
-                      {proveedor.finanzas.saldo_movimientos != null && (
-                        <div className="info-row">
-                          <span className="label">Saldo CC:</span>
-                          <span>{money(proveedor.finanzas.saldo_movimientos)}</span>
-                        </div>
-                      )}
-                      {proveedor.finanzas.pagos_count > 0 && (
-                        <div className="info-row">
-                          <span className="label">Pagos registrados:</span>
-                          <span>{proveedor.finanzas.pagos_count} ({money(proveedor.finanzas.pagos_total)})</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="proveedor-actions">
-                  {proveedor.finanzas.tiene_cuenta_corriente && (
-                    <>
-                      <button
-                        className="btn-action btn-action--fin"
-                        onClick={() => navigate(`/compras/deudas-proveedores?id_proveedor=${proveedor.id}`)}
-                      >
-                        💳 Deuda
-                      </button>
-                      <button
-                        className="btn-action btn-action--fin"
-                        onClick={() => navigate(`/compras/movimientos-proveedores?id_proveedor=${proveedor.id}`)}
-                      >
-                        📒 CC
-                      </button>
-                      {proveedor.finanzas.pagos_count > 0 && (
-                        <button
-                          className="btn-action btn-action--fin"
-                          onClick={() => navigate(`/compras/pagos-proveedores?id_proveedor=${proveedor.id}`)}
-                        >
-                          💸 Pagos
-                        </button>
-                      )}
-                    </>
-                  )}
-                  <button className="btn-action" onClick={() => handleVerProductos(proveedor)}>
-                    📦 Productos
-                  </button>
-                  <button className="btn-action" onClick={() => handleAbrirModal(proveedor)}>
-                    ✏️ Editar
-                  </button>
-                </div>
-              </div>
-            ))}
+                </section>
+              )
+            })}
           </div>
         )}
       </section>
+
+      {proveedorTrazado && (
+        <div className="prov-trazado-overlay">
+          <ProveedorFinanzasHub
+            mode="embedded"
+            idProveedor={proveedorTrazado.id > 0 ? proveedorTrazado.id : undefined}
+            proveedorNombre={displayNombre(proveedorTrazado)}
+            saldoListado={proveedorTrazado.finanzas.saldo_listado}
+            codigoDeuda={proveedorTrazado.finanzas.codigo_deuda}
+            movimientosCount={proveedorTrazado.finanzas.movimientos_count}
+            pagosCount={proveedorTrazado.finanzas.pagos_count}
+            deudaCcCount={proveedorTrazado.finanzas.deuda_cc_count}
+            onClose={() => setProveedorTrazado(null)}
+            onEditar={() => {
+              if (proveedorTrazado.es_solo_listado) {
+                handleAltaDesdeListado(proveedorTrazado)
+              } else {
+                handleAbrirModal(proveedorTrazado)
+              }
+            }}
+          />
+        </div>
+      )}
 
       {/* Modal de Crear/Editar Proveedor */}
       {mostrarModal && (

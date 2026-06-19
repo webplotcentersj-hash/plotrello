@@ -11458,11 +11458,12 @@ class ApiService {
         this.vincularMovimientosProveedores()
       ])
 
-      const [provRes, deudasRes, movsRes, pagosRes] = await Promise.all([
+      const [provRes, deudasRes, movsRes, pagosRes, deudaCcRows] = await Promise.all([
         this.getProveedores(true),
         supabase.from('deudas_proveedores').select('*'),
         supabase.from('movimientos_proveedores').select('*').order('fecha_hora', { ascending: true }),
-        supabase.from('pagos_proveedores').select('*')
+        supabase.from('pagos_proveedores').select('*'),
+        this.loadDeudaCcRows()
       ])
 
       if (!provRes.success || !provRes.data) {
@@ -11478,6 +11479,8 @@ class ApiService {
         if (d.id_proveedor) deudaByProv.set(d.id_proveedor, d)
       }
 
+      const matchedDeudaIds = new Set<number>()
+
       const enriched = provRes.data.map((p) => {
         let deuda = deudaByProv.get(p.id) ?? null
         if (!deuda) {
@@ -11488,6 +11491,7 @@ class ApiService {
                 this.matchProveedorNombre(p, d.razon_social)
             ) ?? null
         }
+        if (deuda) matchedDeudaIds.add(deuda.id)
 
         const movsProv = movs.filter(
           (m) =>
@@ -11499,9 +11503,20 @@ class ApiService {
             pg.id_proveedor === p.id ||
             this.matchProveedorNombre(p, pg.proveedor_nombre)
         )
+        const ccProv = deudaCcRows.filter(
+          (cc) =>
+            cc.id_proveedor === p.id ||
+            this.matchProveedorNombre(p, cc.proveedor_nombre)
+        )
 
         const lastMov = movsProv[movsProv.length - 1]
         const pagosTotal = pagosProv.reduce((s, pg) => s + (Number(pg.monto) || 0), 0)
+
+        const telefono =
+          p.telefono ||
+          (deuda?.telefono && deuda.telefono !== '-' ? deuda.telefono : null) ||
+          null
+        const razon_social = p.razon_social || deuda?.razon_social || null
 
         const finanzas: import('../types/api').ProveedorFinanzasResumen = {
           codigo_deuda: deuda?.codigo ?? null,
@@ -11510,10 +11525,67 @@ class ApiService {
           pagos_total: pagosTotal,
           movimientos_count: movsProv.length,
           pagos_count: pagosProv.length,
-          tiene_cuenta_corriente: movsProv.length > 0 || pagosProv.length > 0 || !!deuda
+          deuda_cc_count: ccProv.length,
+          tiene_cuenta_corriente:
+            movsProv.length > 0 || pagosProv.length > 0 || ccProv.length > 0 || !!deuda
         }
 
-        return { ...p, finanzas }
+        return {
+          ...p,
+          telefono,
+          razon_social,
+          finanzas,
+          es_solo_listado: false as const
+        }
+      })
+
+      for (const d of deudas) {
+        if (matchedDeudaIds.has(d.id) || d.id_proveedor) continue
+        const ccSolo = deudaCcRows.filter((cc) =>
+          this.matchProveedorNombre(
+            { id: 0, nombre: d.razon_social, razon_social: d.razon_social } as Proveedor,
+            cc.proveedor_nombre
+          )
+        )
+        enriched.push({
+          id: -d.id,
+          nombre: d.razon_social,
+          razon_social: d.razon_social,
+          cuit: null,
+          contacto_nombre: null,
+          telefono: d.telefono && d.telefono !== '-' ? d.telefono : null,
+          email: null,
+          direccion: null,
+          ciudad: null,
+          provincia: null,
+          codigo_postal: null,
+          sitio_web: null,
+          notas: null,
+          activo: true,
+          calificacion: 0,
+          total_compras: 0,
+          monto_total_compras: 0,
+          created_at: d.created_at || '',
+          updated_at: d.updated_at || '',
+          finanzas: {
+            codigo_deuda: d.codigo,
+            saldo_listado: Number(d.saldo) || 0,
+            saldo_movimientos: null,
+            pagos_total: 0,
+            movimientos_count: 0,
+            pagos_count: 0,
+            deuda_cc_count: ccSolo.length,
+            tiene_cuenta_corriente: true
+          },
+          es_solo_listado: true as const,
+          id_deuda: d.id
+        })
+      }
+
+      enriched.sort((a, b) => {
+        const na = (a.razon_social || a.nombre).toUpperCase()
+        const nb = (b.razon_social || b.nombre).toUpperCase()
+        return na.localeCompare(nb, 'es')
       })
 
       return { success: true, data: enriched }
@@ -20390,6 +20462,7 @@ class ApiService {
     buscar?: string
     soloConSaldo?: boolean
     idProveedor?: number
+    proveedor?: string
   }): Promise<ApiResponse<import('../types/api').DeudaProveedorEnriquecida[]>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
 
@@ -20492,6 +20565,11 @@ class ApiService {
             d.id_proveedor === options.idProveedor ||
             (prov ? this.matchProveedorNombre(prov, d.razon_social) : false)
         )
+      }
+
+      if (options?.proveedor) {
+        const p = options.proveedor.trim().toLowerCase()
+        enriched = enriched.filter((d) => d.razon_social.toLowerCase().includes(p))
       }
 
       return { success: true, data: enriched }
@@ -20794,6 +20872,56 @@ class ApiService {
   }
 
   // ========== DEUDA CC PROVEEDORES (cuenta corriente detalle) ==========
+  private async loadDeudaCcRows(): Promise<import('../types/api').DeudaCcProveedorRecord[]> {
+    if (!supabase) return []
+
+    type CcRow = import('../types/api').DeudaCcProveedorRecord
+    type SeedFile = {
+      rows: Array<Omit<CcRow, 'id' | 'id_proveedor'>>
+    }
+
+    const seedFromFile = async (): Promise<CcRow[]> => {
+      const seed = (await import('../data/deuda-cc-proveedores-seed.json')).default as SeedFile
+      return seed.rows.map((r, i) => ({
+        id: -(i + 1),
+        ...r,
+        id_proveedor: null
+      }))
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('deuda_cc_proveedores')
+        .select('*')
+        .order('fecha_vencimiento', { ascending: true })
+
+      if (error) {
+        if (error.message.includes('deuda_cc_proveedores') || error.code === '42P01') {
+          const imp = await this.importarDeudaCcProveedoresSeed()
+          if (imp.success) return this.loadDeudaCcRows()
+        }
+        return seedFromFile()
+      }
+
+      let rows = (data as CcRow[]) ?? []
+      if (rows.length === 0) {
+        const imp = await this.importarDeudaCcProveedoresSeed()
+        if (imp.success) {
+          const retry = await supabase
+            .from('deuda_cc_proveedores')
+            .select('*')
+            .order('fecha_vencimiento', { ascending: true })
+          rows = (retry.data as CcRow[]) ?? []
+        }
+      }
+
+      if (rows.length === 0) return seedFromFile()
+      return rows
+    } catch {
+      return seedFromFile()
+    }
+  }
+
   async importarDeudaCcProveedoresSeed(): Promise<ApiResponse<{ importados: number }>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
     try {
@@ -20827,6 +20955,8 @@ class ApiService {
     buscar?: string
     idProveedor?: number
     soloConDeuda?: boolean
+    proveedor?: string
+    codigoProveedor?: string
   }): Promise<
     ApiResponse<{
       rows: import('../types/api').DeudaCcProveedorEnriquecido[]
@@ -20844,31 +20974,7 @@ class ApiService {
         resumen: import('../types/api').DeudaCcProveedorResumen
       }
 
-      const { data, error } = await supabase
-        .from('deuda_cc_proveedores')
-        .select('*')
-        .order('fecha_vencimiento', { ascending: true })
-
-      if (error) {
-        if (error.message.includes('deuda_cc_proveedores') || error.code === '42P01') {
-          const imp = await this.importarDeudaCcProveedoresSeed()
-          if (!imp.success) return { success: false, error: imp.error }
-          return this.getDeudaCcProveedores(options)
-        }
-        return { success: false, error: error.message }
-      }
-
-      let rows = (data as import('../types/api').DeudaCcProveedorRecord[]) ?? []
-      if (rows.length === 0) {
-        const imp = await this.importarDeudaCcProveedoresSeed()
-        if (imp.success) {
-          const retry = await supabase
-            .from('deuda_cc_proveedores')
-            .select('*')
-            .order('fecha_vencimiento', { ascending: true })
-          rows = (retry.data as import('../types/api').DeudaCcProveedorRecord[]) ?? []
-        }
-      }
+      const rows = await this.loadDeudaCcRows()
 
       const movRes = await supabase.from('movimientos_proveedores').select('comprobante')
       const comprobantesMov = new Set(
@@ -20914,16 +21020,37 @@ class ApiService {
         )
       }
 
-      const resumenCalc: import('../types/api').DeudaCcProveedorResumen = {
-        total_comprobantes: enriched.reduce((s, r) => s + r.deuda, 0),
-        total_cheques: seed.resumen?.total_cheques ?? 0,
-        total_cta_cte: seed.resumen?.total_cta_cte ?? enriched.reduce((s, r) => s + r.deuda, 0)
+      if (options?.proveedor) {
+        const p = options.proveedor.trim().toLowerCase()
+        enriched = enriched.filter((r) => r.proveedor_nombre.toLowerCase().includes(p))
       }
 
+      if (options?.codigoProveedor) {
+        const c = options.codigoProveedor.trim()
+        enriched = enriched.filter((r) => r.proveedor_codigo === c)
+      }
+
+      const useSeedResumen =
+        enriched.length > 0 &&
+        enriched.every(
+          (r) =>
+            r.proveedor_nombre === seed.proveedor_nombre ||
+            r.proveedor_codigo === seed.proveedor_codigo
+        )
+
+      const resumenCalc: import('../types/api').DeudaCcProveedorResumen = {
+        total_comprobantes: enriched.reduce((s, r) => s + r.deuda, 0),
+        total_cheques: useSeedResumen ? (seed.resumen?.total_cheques ?? 0) : 0,
+        total_cta_cte: useSeedResumen
+          ? (seed.resumen?.total_cta_cte ?? enriched.reduce((s, r) => s + r.deuda, 0))
+          : enriched.reduce((s, r) => s + r.deuda, 0)
+      }
+
+      const metaRow = enriched[0] ?? rows[0]
       const meta = {
-        proveedor_nombre: rows[0]?.proveedor_nombre ?? seed.proveedor_nombre,
-        proveedor_codigo: rows[0]?.proveedor_codigo ?? seed.proveedor_codigo,
-        fecha_corte: rows[0]?.fecha_corte ?? seed.fecha_corte
+        proveedor_nombre: metaRow?.proveedor_nombre ?? seed.proveedor_nombre,
+        proveedor_codigo: metaRow?.proveedor_codigo ?? seed.proveedor_codigo,
+        fecha_corte: metaRow?.fecha_corte ?? seed.fecha_corte
       }
 
       return { success: true, data: { rows: enriched, resumen: resumenCalc, meta } }

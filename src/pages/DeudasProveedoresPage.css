@@ -14,6 +14,25 @@
   background-image: radial-gradient(ellipse 80% 50% at 0% 0%, rgba(249, 115, 22, 0.15), transparent 50%);
 }
 
+.deudas-prov-page--panel {
+  min-height: auto;
+  padding: 0 24px 24px;
+  max-width: none;
+  background: transparent;
+  background-image: none;
+}
+
+.deudas-prov-page--embedded {
+  min-height: 100%;
+  max-width: none;
+}
+
+.prov-trazado-embedded-head {
+  padding: 24px 24px 0;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
 .deudas-prov-loading {
   display: flex;
   flex-direction: column;
@@ -276,4 +295,57 @@
   background: rgba(249, 115, 22, 0.12);
   border: 1px solid rgba(249, 115, 22, 0.35);
   color: var(--dp-ink);
+}
+
+.prov-trazado-completo {
+  min-height: 100%;
+}
+
+.prov-trazado-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px 0;
+  max-width: 1280px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, #020617 85%, transparent);
+}
+
+.prov-trazado-tabs__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px 10px 0 0;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-bottom: none;
+  background: rgba(15, 23, 42, 0.7);
+  color: #94a3b8;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.prov-trazado-tabs__btn em {
+  font-style: normal;
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+}
+
+.prov-trazado-tabs__btn--active {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.4);
+  color: #fdba74;
+}
+
+.prov-trazado-tabs__btn--active em {
+  background: rgba(249, 115, 22, 0.25);
+  color: #fed7aa;
 }

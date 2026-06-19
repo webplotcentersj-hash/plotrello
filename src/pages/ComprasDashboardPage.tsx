@@ -6,6 +6,30 @@ import type { PedidoCompra } from '../types/pedidos'
 import './ComprasDashboardPage.css'
 
 const CARGAR_MAS = 15
+const INICIAL_TODOS = 30
+
+const PERIODOS = [
+  { value: '7', label: 'Últimos 7 días' },
+  { value: '30', label: 'Últimos 30 días' },
+  { value: '90', label: 'Últimos 90 días' },
+  { value: '180', label: 'Últimos 6 meses' },
+  { value: '365', label: 'Último año' },
+  { value: 'todos', label: 'Todo el historial' }
+] as const
+
+type PeriodoFiltro = (typeof PERIODOS)[number]['value']
+
+function getCutoffPeriodo(periodo: PeriodoFiltro): Date | null {
+  if (periodo === 'todos') return null
+  const d = new Date()
+  d.setDate(d.getDate() - Number(periodo))
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function getPeriodoLabel(periodo: PeriodoFiltro): string {
+  return PERIODOS.find((p) => p.value === periodo)?.label ?? 'Últimos 7 días'
+}
 
 const ESTADOS = [
   'todos',
@@ -54,8 +78,9 @@ export default function ComprasDashboardPage() {
     location.pathname === '/compras/pedidos' ? 'Pendiente' : 'todos'
   )
   const [filtroPrioridad, setFiltroPrioridad] = useState<string>('todos')
+  const [filtroPeriodo, setFiltroPeriodo] = useState<PeriodoFiltro>('7')
   const [buscar, setBuscar] = useState('')
-  const [antiguosVisibles, setAntiguosVisibles] = useState(0)
+  const [extraVisibles, setExtraVisibles] = useState(0)
 
   useEffect(() => {
     if (authLoading) return
@@ -67,8 +92,8 @@ export default function ComprasDashboardPage() {
   }, [canManageCompras, navigate, authLoading])
 
   useEffect(() => {
-    setAntiguosVisibles(0)
-  }, [filtroEstado, filtroPrioridad, buscar])
+    setExtraVisibles(0)
+  }, [filtroEstado, filtroPrioridad, filtroPeriodo, buscar])
 
   const loadPedidos = async () => {
     setLoading(true)
@@ -84,12 +109,7 @@ export default function ComprasDashboardPage() {
     }
   }
 
-  const cutoff7d = useMemo(() => {
-    const d = new Date()
-    d.setDate(d.getDate() - 7)
-    d.setHours(0, 0, 0, 0)
-    return d
-  }, [])
+  const cutoffPeriodo = useMemo(() => getCutoffPeriodo(filtroPeriodo), [filtroPeriodo])
 
   const pedidosFiltrados = useMemo(() => {
     let list = [...pedidos]
@@ -114,37 +134,49 @@ export default function ComprasDashboardPage() {
     )
   }, [pedidos, filtroEstado, filtroPrioridad, buscar])
 
-  const { recientes, antiguos } = useMemo(() => {
-    const r: PedidoCompra[] = []
-    const a: PedidoCompra[] = []
+  const { enPeriodo, anterioresAlPeriodo } = useMemo(() => {
+    if (filtroPeriodo === 'todos') {
+      return { enPeriodo: pedidosFiltrados, anterioresAlPeriodo: [] as PedidoCompra[] }
+    }
+    const en: PedidoCompra[] = []
+    const ant: PedidoCompra[] = []
     for (const p of pedidosFiltrados) {
       const f = new Date(p.fecha_solicitud)
       f.setHours(0, 0, 0, 0)
-      if (f >= cutoff7d) r.push(p)
-      else a.push(p)
+      if (cutoffPeriodo && f >= cutoffPeriodo) en.push(p)
+      else ant.push(p)
     }
-    return { recientes: r, antiguos: a }
-  }, [pedidosFiltrados, cutoff7d])
+    return { enPeriodo: en, anterioresAlPeriodo: ant }
+  }, [pedidosFiltrados, filtroPeriodo, cutoffPeriodo])
 
-  const pedidosVisibles = useMemo(
-    () => [...recientes, ...antiguos.slice(0, antiguosVisibles)],
-    [recientes, antiguos, antiguosVisibles]
-  )
+  const pedidosVisibles = useMemo(() => {
+    if (filtroPeriodo === 'todos') {
+      return pedidosFiltrados.slice(0, INICIAL_TODOS + extraVisibles)
+    }
+    return [...enPeriodo, ...anterioresAlPeriodo.slice(0, extraVisibles)]
+  }, [filtroPeriodo, pedidosFiltrados, enPeriodo, anterioresAlPeriodo, extraVisibles])
 
-  const hayMasAntiguos = antiguosVisibles < antiguos.length
-  const restantes = antiguos.length - antiguosVisibles
+  const hayMasPorCargar =
+    filtroPeriodo === 'todos'
+      ? pedidosVisibles.length < pedidosFiltrados.length
+      : extraVisibles < anterioresAlPeriodo.length
 
-  const miniStats = useMemo(
-    () => ({
+  const restantes =
+    filtroPeriodo === 'todos'
+      ? pedidosFiltrados.length - pedidosVisibles.length
+      : anterioresAlPeriodo.length - extraVisibles
+
+  const miniStats = useMemo(() => {
+    const cutoff7d = getCutoffPeriodo('7')!
+    return {
       pendientes: pedidos.filter((p) => p.estado === 'Pendiente').length,
       ultimos7: pedidos.filter((p) => {
         const f = new Date(p.fecha_solicitud)
         f.setHours(0, 0, 0, 0)
         return f >= cutoff7d
       }).length
-    }),
-    [pedidos, cutoff7d]
-  )
+    }
+  }, [pedidos])
 
   if (authLoading || loading) {
     return (
@@ -236,11 +268,13 @@ export default function ComprasDashboardPage() {
               <span className="pedidos-section-count">
                 {' '}
                 ({pedidosVisibles.length}
-                {antiguos.length > 0 && antiguosVisibles < antiguos.length ? ` de ${pedidosFiltrados.length}` : ''})
+                {pedidosVisibles.length < pedidosFiltrados.length ? ` de ${pedidosFiltrados.length}` : ''})
               </span>
             </h2>
             <p className="pedidos-section__hint">
-              Por defecto se muestran los últimos 7 días. Los anteriores se cargan bajo demanda.
+              {filtroPeriodo === 'todos'
+                ? 'Mostrando el historial completo por lotes. Usá el filtro de período para acotar fechas.'
+                : `Período: ${getPeriodoLabel(filtroPeriodo).toLowerCase()}. Los anteriores se cargan bajo demanda.`}
             </p>
           </div>
           <button type="button" className="cp-btn cp-btn--secondary cp-btn--sm" onClick={() => void loadPedidos()}>
@@ -288,6 +322,19 @@ export default function ComprasDashboardPage() {
                 ))}
               </select>
             </label>
+            <label className="pedidos-filter-field">
+              <span>Período</span>
+              <select
+                value={filtroPeriodo}
+                onChange={(e) => setFiltroPeriodo(e.target.value as PeriodoFiltro)}
+              >
+                {PERIODOS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div className="pedidos-chips">
@@ -310,36 +357,56 @@ export default function ComprasDashboardPage() {
 
         {pedidosVisibles.length === 0 ? (
           <div className="empty-state">
-            <p>No hay pedidos para mostrar con estos filtros.</p>
-            {(buscar || filtroEstado !== 'todos' || filtroPrioridad !== 'todos') && (
+            <p>
+              {anterioresAlPeriodo.length > 0 && enPeriodo.length === 0
+                ? `No hay pedidos en ${getPeriodoLabel(filtroPeriodo).toLowerCase()}.`
+                : 'No hay pedidos para mostrar con estos filtros.'}
+            </p>
+            {anterioresAlPeriodo.length > 0 && enPeriodo.length === 0 ? (
               <button
                 type="button"
-                className="cp-btn cp-btn--ghost"
-                onClick={() => {
-                  setBuscar('')
-                  setFiltroEstado('todos')
-                  setFiltroPrioridad('todos')
-                }}
+                className="cp-btn cp-btn--secondary"
+                onClick={() => setExtraVisibles(CARGAR_MAS)}
               >
-                Limpiar filtros
+                Ver pedidos anteriores ({anterioresAlPeriodo.length})
               </button>
+            ) : (
+              (buscar || filtroEstado !== 'todos' || filtroPrioridad !== 'todos' || filtroPeriodo !== '7') && (
+                <button
+                  type="button"
+                  className="cp-btn cp-btn--ghost"
+                  onClick={() => {
+                    setBuscar('')
+                    setFiltroEstado('todos')
+                    setFiltroPrioridad('todos')
+                    setFiltroPeriodo('7')
+                  }}
+                >
+                  Limpiar filtros
+                </button>
+              )
             )}
           </div>
         ) : (
           <>
             <div className="pedidos-list">
-              {recientes.length > 0 && antiguosVisibles > 0 && (
-                <p className="pedidos-list__divider-label">Últimos 7 días</p>
+              {enPeriodo.length > 0 && extraVisibles > 0 && filtroPeriodo !== 'todos' && (
+                <p className="pedidos-list__divider-label">{getPeriodoLabel(filtroPeriodo)}</p>
               )}
               {pedidosVisibles.map((pedido, idx) => {
                 const showDivider =
-                  antiguosVisibles > 0 &&
-                  idx === recientes.length &&
-                  recientes.length > 0 &&
-                  antiguos.length > 0
+                  filtroPeriodo !== 'todos' &&
+                  extraVisibles > 0 &&
+                  idx === enPeriodo.length &&
+                  enPeriodo.length > 0 &&
+                  anterioresAlPeriodo.length > 0
                 return (
                   <div key={pedido.id}>
-                    {showDivider && <p className="pedidos-list__divider-label">Pedidos anteriores</p>}
+                    {showDivider && (
+                      <p className="pedidos-list__divider-label">
+                        Anteriores a {getPeriodoLabel(filtroPeriodo).toLowerCase()}
+                      </p>
+                    )}
                     <article
                       className="pedido-card"
                       onClick={() => navigate(`/compras/pedidos/${pedido.id}`)}
@@ -396,26 +463,26 @@ export default function ComprasDashboardPage() {
               })}
             </div>
 
-            {antiguos.length > 0 && hayMasAntiguos && (
+            {hayMasPorCargar && (
               <div className="pedidos-load-more">
                 <button
                   type="button"
                   className="cp-btn cp-btn--secondary"
-                  onClick={() => setAntiguosVisibles((v) => v + CARGAR_MAS)}
+                  onClick={() =>
+                    setExtraVisibles((v) =>
+                      filtroPeriodo === 'todos'
+                        ? v + CARGAR_MAS
+                        : v === 0
+                          ? CARGAR_MAS
+                          : v + CARGAR_MAS
+                    )
+                  }
                 >
-                  Cargar más pedidos anteriores ({Math.min(CARGAR_MAS, restantes)} de {restantes})
-                </button>
-              </div>
-            )}
-
-            {antiguos.length > 0 && antiguosVisibles === 0 && recientes.length > 0 && (
-              <div className="pedidos-load-more">
-                <button
-                  type="button"
-                  className="cp-btn cp-btn--secondary"
-                  onClick={() => setAntiguosVisibles(CARGAR_MAS)}
-                >
-                  Ver pedidos anteriores a 7 días ({antiguos.length})
+                  {filtroPeriodo === 'todos'
+                    ? `Cargar más pedidos (${Math.min(CARGAR_MAS, restantes)} de ${restantes})`
+                    : extraVisibles === 0
+                      ? `Ver pedidos anteriores a ${getPeriodoLabel(filtroPeriodo).toLowerCase()} (${anterioresAlPeriodo.length})`
+                      : `Cargar más pedidos anteriores (${Math.min(CARGAR_MAS, restantes)} de ${restantes})`}
                 </button>
               </div>
             )}

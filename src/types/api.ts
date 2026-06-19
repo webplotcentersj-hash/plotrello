@@ -1114,7 +1114,14 @@ export interface ProveedorFinanzasResumen {
   pagos_total: number
   movimientos_count: number
   pagos_count: number
+  deuda_cc_count: number
   tiene_cuenta_corriente: boolean
+}
+
+export type ProveedorConFinanzas = import('./pedidos').Proveedor & {
+  finanzas: ProveedorFinanzasResumen
+  es_solo_listado?: boolean
+  id_deuda?: number
 }
 
 export interface ClienteCcEnriquecido {

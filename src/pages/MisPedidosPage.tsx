@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -6,12 +6,16 @@ import type { PedidoCompra } from '../types/pedidos'
 import { formatArgentinaDate, formatArgentinaDateTime } from '../utils/dateUtils'
 import './MisPedidosPage.css'
 
+const CARGAR_MAS = 15
+const INICIAL_VISIBLES = 15
+
 const MisPedidosPage = () => {
   const navigate = useNavigate()
   const { usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
   const [filtroEstado, setFiltroEstado] = useState<string>('todos')
+  const [visibles, setVisibles] = useState(INICIAL_VISIBLES)
   const [editPedido, setEditPedido] = useState<PedidoCompra | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
   const [editSnapshot, setEditSnapshot] = useState<string>('')
@@ -40,6 +44,26 @@ const MisPedidosPage = () => {
     }
     loadPedidos()
   }, [authLoading, usuario, navigate, filtroEstado])
+
+  useEffect(() => {
+    setVisibles(INICIAL_VISIBLES)
+  }, [filtroEstado])
+
+  const pedidosOrdenados = useMemo(
+    () =>
+      [...pedidos].sort(
+        (a, b) => new Date(b.fecha_solicitud).getTime() - new Date(a.fecha_solicitud).getTime()
+      ),
+    [pedidos]
+  )
+
+  const pedidosVisibles = useMemo(
+    () => pedidosOrdenados.slice(0, visibles),
+    [pedidosOrdenados, visibles]
+  )
+
+  const hayMas = visibles < pedidosOrdenados.length
+  const restantes = pedidosOrdenados.length - visibles
 
   const loadPedidos = async () => {
     setLoading(true)
@@ -248,7 +272,7 @@ const MisPedidosPage = () => {
       </div>
 
       <div className="mis-pedidos-content">
-        {pedidos.length === 0 ? (
+        {pedidosOrdenados.length === 0 ? (
           <div className="empty-state">
             <p>No tienes pedidos de compra</p>
             <button className="btn-primary" onClick={() => navigate('/')}>
@@ -256,8 +280,14 @@ const MisPedidosPage = () => {
             </button>
           </div>
         ) : (
-          <div className="pedidos-list">
-            {pedidos.map((pedido) => (
+          <>
+            {pedidosOrdenados.length > INICIAL_VISIBLES && (
+              <p className="mis-pedidos-count">
+                Mostrando {pedidosVisibles.length} de {pedidosOrdenados.length} pedidos
+              </p>
+            )}
+            <div className="pedidos-list">
+              {pedidosVisibles.map((pedido) => (
               <div key={pedido.id} className="pedido-card">
                 <div className="pedido-card-header">
                   <div className="pedido-info">
@@ -347,8 +377,20 @@ const MisPedidosPage = () => {
                   )}
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            {hayMas && (
+              <div className="mis-pedidos-load-more">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setVisibles((v) => v + CARGAR_MAS)}
+                >
+                  Cargar más pedidos ({Math.min(CARGAR_MAS, restantes)} de {restantes})
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
