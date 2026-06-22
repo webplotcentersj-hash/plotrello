@@ -1,15 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { GoogleGenAI } from '@google/genai'
-import { buildLista1PreciosContext } from '../../lib/plotai/listaPreciosChat'
-import {
-  buildContactoContextPrompt,
-  buildSolicitudContactoReply,
-  buildWhatsappLinkApi,
-  enrichUserHistorialEntry,
-  modoRequiereContactoCliente,
-  resolveContactoCliente
-} from '../../lib/plotai/contactoClienteChat'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
 const supabaseKey =
