@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Board from '../components/Board'
 import Header from '../components/Header'
@@ -9,7 +9,7 @@ import AgendaAsesorTecnico from '../components/AgendaAsesorTecnico'
 import HistorialFichasAsesorPanel from '../components/HistorialFichasAsesorPanel'
 import { ASESOR_PRESUPUESTOS_COLUMNS } from '../data/asesorPresupuestosColumns'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
-import type { MaterialRecord, SectorRecord } from '../types/api'
+import type { MaterialRecord, OrdenTrabajo, SectorRecord } from '../types/api'
 import { useAuth } from '../hooks/useAuth'
 import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
 import apiService from '../services/api'
@@ -19,6 +19,7 @@ import {
   parseTaskIdToOrdenId,
   taskToOrdenPayload
 } from '../utils/dataMappers'
+import { notifyOrdenChangedLocally } from '../utils/ordenLocalSync'
 import { subscribeOrdenesBroadcast } from '../utils/ordenesBroadcast'
 import './AsesorPresupuestosPage.css'
 
@@ -35,15 +36,41 @@ const ASESOR_KANBAN_STATUSES: TaskStatus[] = [
   'finalizado-asesor-presupuestos'
 ]
 
+function sectorToAsesorKanbanStatus(sector?: string | null): TaskStatus | null {
+  switch (sector) {
+    case 'Asesor Técnico':
+      return 'asesor-tecnico'
+    case 'Presupuestos':
+      return 'presupuestos'
+    case 'Armados/Enviados':
+      return 'armados-enviados-asesor-presupuestos'
+    case 'No Aprobados':
+      return 'no-aprobados-asesor-presupuestos'
+    default:
+      return null
+  }
+}
+
 /**
  * Si la ficha entra al filtro por sector/sectores pero el estado mapeado sigue siendo de otro
  * tablero (p. ej. En espera), sin esto la tarjeta no cae en ninguna columna.
+ * El sector actual gana sobre `status` obsoleto tras drag, fusión o realtime tardío.
  */
 function normalizeTaskForAsesorKanban(task: Task): Task {
+  const sector = task.assignedSector || task.sectorInicial
+  const fromSector = sectorToAsesorKanbanStatus(sector)
+  const terminalStatuses = new Set<TaskStatus>([
+    'finalizado-asesor-presupuestos',
+    'no-aprobados-asesor-presupuestos'
+  ])
+
+  if (fromSector && task.status !== fromSector && !terminalStatuses.has(task.status)) {
+    return { ...task, status: fromSector }
+  }
+
   if (ASESOR_KANBAN_STATUSES.includes(task.status)) {
     return task
   }
-  const sector = task.assignedSector || task.sectorInicial
   if (sector === 'Asesor Técnico') {
     return { ...task, status: 'asesor-tecnico' }
   }
@@ -77,6 +104,7 @@ function normalizeTaskForAsesorKanban(task: Task): Task {
 
 type AsesorPresupuestosPageProps = {
   tasks: Task[]
+  setTasks: Dispatch<SetStateAction<Task[]>>
   activity: ActivityEvent[]
   teamMembers: TeamMember[]
   sectores: SectorRecord[]
@@ -90,6 +118,7 @@ type AsesorPresupuestosPageProps = {
 
 const AsesorPresupuestosPage = ({
   tasks,
+  setTasks,
   activity,
   teamMembers,
   sectores,
@@ -138,14 +167,17 @@ const AsesorPresupuestosPage = ({
         sector === 'Asesor Técnico' ||
         sector === 'Presupuestos' ||
         sector === 'Armados/Enviados' ||
+        sector === 'No Aprobados' ||
         task.status === 'asesor-tecnico' ||
         task.status === 'presupuestos' ||
         task.status === 'armados-enviados-asesor-presupuestos' ||
+        task.status === 'no-aprobados-asesor-presupuestos' ||
         task.status === 'finalizado-asesor-presupuestos' ||
         (task.sectores && (
           task.sectores.includes('Asesor Técnico') ||
           task.sectores.includes('Presupuestos') ||
-          task.sectores.includes('Armados/Enviados')
+          task.sectores.includes('Armados/Enviados') ||
+          task.sectores.includes('No Aprobados')
         ))
       )
     })
@@ -236,6 +268,12 @@ const AsesorPresupuestosPage = ({
     destination: TaskStatus,
     sourceColumn?: TaskStatus
   ) => {
+    const taskSnapshot = tasks.find((t) => t.id === taskId)
+    if (!taskSnapshot) {
+      setActionError('Ficha no encontrada')
+      return
+    }
+
     try {
       const ordenId = parseTaskIdToOrdenId(taskId)
       if (!ordenId) {
@@ -249,40 +287,98 @@ const AsesorPresupuestosPage = ({
         return
       }
 
-      const taskToUpdate = tasks.find((t) => t.id === taskId)
-      if (!taskToUpdate) {
-        setActionError('Ficha no encontrada')
-        return
-      }
-
-      if (taskToUpdate.opBloqueada && !isAdmin) {
+      if (taskSnapshot.opBloqueada && !isAdmin) {
         setActionError(
           'Esta ficha/OP está trabada: no se puede mover ni editar hasta que el operario asignado la destabe (administración/gerencia puede hacerlo).'
         )
         return
       }
 
-      // Ficha No OP → OP: solo desde la columna Presupuestos (no desde Asesor directo a Finalizado)
-      if (destination === 'finalizado-asesor-presupuestos' && taskToUpdate.esFichaNoOP) {
+      const destinationSector = destinationColumn.label
+      const nuevoEstado = mapStatusToEstado(destination)
+      const movedAt = Date.now()
+
+      const revertOptimistic = () => {
+        setTasks((prev) => prev.map((task) => (task.id === taskId ? taskSnapshot : task)))
+      }
+
+      const applyFusionState = (fusionadaId: string, conservadaId: string) => {
+        const apply = () => {
+          setTasks((prev) => {
+            const movedTask = prev.find((task) => task.id === taskId) ?? taskSnapshot
+            const hadConservada = prev.some((task) => task.id === conservadaId)
+            const next = prev
+              .map((task) => {
+                if (task.id !== conservadaId) return task
+                return {
+                  ...task,
+                  status: destination,
+                  assignedSector: destinationSector,
+                  updatedAt: new Date().toISOString(),
+                  uiMovedAt: movedAt
+                }
+              })
+              .filter((task) => task.id !== fusionadaId)
+
+            if (!hadConservada && movedTask && conservadaId) {
+              next.push({
+                ...movedTask,
+                id: conservadaId,
+                status: destination,
+                assignedSector: destinationSector,
+                updatedAt: new Date().toISOString(),
+                uiMovedAt: movedAt
+              })
+            }
+            return next.filter((task) => !isTaskHiddenFromKanban(task))
+          })
+        }
+        requestAnimationFrame(() => {
+          requestAnimationFrame(apply)
+        })
+      }
+
+      setTasks((prev) =>
+        prev.map((task) => {
+          if (task.id !== taskId) return task
+          return {
+            ...task,
+            status: destination,
+            assignedSector: destinationSector,
+            updatedAt: new Date().toISOString(),
+            uiMovedAt: movedAt
+          }
+        })
+      )
+
+      window.dispatchEvent(
+        new CustomEvent('user-moved-task', {
+          detail: { taskId, estado: nuevoEstado, timestamp: Date.now() }
+        })
+      )
+
+      // Ficha No OP → OP: solo desde Presupuestos o Armados/Enviados
+      if (destination === 'finalizado-asesor-presupuestos' && taskSnapshot.esFichaNoOP) {
         const effectiveSource =
-          sourceColumn ?? normalizeTaskForAsesorKanban(taskToUpdate).status
+          sourceColumn ?? normalizeTaskForAsesorKanban(taskSnapshot).status
         if (
           effectiveSource !== 'presupuestos' &&
           effectiveSource !== 'armados-enviados-asesor-presupuestos'
         ) {
+          revertOptimistic()
           setActionError(
             'Flujo: Asesor → Presupuestos → Finalizado. Desde Presupuestos o Armados/Enviados, al finalizar, la ficha pasa a OP en el tablero general.'
           )
           return
         }
         const sectorActual =
-          taskToUpdate.assignedSector ||
-          taskToUpdate.sectorInicial ||
-          (taskToUpdate.sectores && taskToUpdate.sectores[0]) ||
+          taskSnapshot.assignedSector ||
+          taskSnapshot.sectorInicial ||
+          (taskSnapshot.sectores && taskSnapshot.sectores[0]) ||
           'Asesor Técnico'
 
         const updatedTask = {
-          ...taskToUpdate,
+          ...taskSnapshot,
           status: destination,
           assignedSector: sectorActual
         }
@@ -292,15 +388,25 @@ const AsesorPresupuestosPage = ({
 
         const updateResponse = await apiService.updateOrden(ordenId, payload)
         if (!updateResponse.success) {
+          revertOptimistic()
           setActionError(updateResponse.error || 'Error al finalizar la ficha')
           return
         }
 
         const transformResponse = await apiService.transformarFichaNoOPAOP(ordenId)
         if (!transformResponse.success) {
+          revertOptimistic()
           setActionError(transformResponse.error || 'Error al transformar la ficha')
           return
         }
+
+        setTasks((prev) => prev.filter((task) => task.id !== taskId))
+        notifyOrdenChangedLocally({
+          id: ordenId,
+          estado: 'Finalizado',
+          sector: sectorActual,
+          visible_en_tablero: false
+        } as OrdenTrabajo)
 
         setActionSuccess(
           `Ficha convertida en OP: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ya está en el tablero general.`
@@ -308,33 +414,51 @@ const AsesorPresupuestosPage = ({
       } else if (
         destination === 'asesor-tecnico' ||
         destination === 'presupuestos' ||
-        destination === 'armados-enviados-asesor-presupuestos'
+        destination === 'armados-enviados-asesor-presupuestos' ||
+        destination === 'no-aprobados-asesor-presupuestos'
       ) {
-        // Fusión si la misma ficha (mismo código FICHA-*) ya tenía instancia en el otro sector
         const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
-        const nuevoEstado = mapStatusToEstado(destination)
         const response = await apiService.moveOrden(ordenId, nuevoEstado, usuarioId)
         if (!response.success) {
+          revertOptimistic()
           setActionError(response.error || 'Error al mover la ficha')
           return
         }
-        if ((response.data as { fusionada?: boolean })?.fusionada) {
+
+        const fusionData = response.data as {
+          fusionada?: boolean
+          fusionadaId?: number
+          id?: number
+        }
+
+        if (fusionData?.fusionada && fusionData.fusionadaId != null) {
+          const fusionadaId = String(fusionData.fusionadaId)
+          const conservadaId = String(fusionData.id ?? ordenId)
+          applyFusionState(fusionadaId, conservadaId)
+          notifyOrdenChangedLocally({
+            id: fusionData.fusionadaId,
+            visible_en_tablero: false
+          } as OrdenTrabajo)
           setActionSuccess(
             'Ficha unificada en el sector destino (la otra instancia queda oculta del tablero, sin borrarla).'
           )
         } else {
+          notifyOrdenChangedLocally({
+            id: ordenId,
+            estado: nuevoEstado,
+            sector: destinationSector
+          } as OrdenTrabajo)
           setActionSuccess('Ficha movida correctamente')
         }
       } else {
-        // Finalizado sin ser ficha No OP: estado Finalizado, sector sigue Asesor o Presupuestos
         const sectorActual =
-          taskToUpdate.assignedSector ||
-          taskToUpdate.sectorInicial ||
-          (taskToUpdate.sectores && taskToUpdate.sectores[0]) ||
+          taskSnapshot.assignedSector ||
+          taskSnapshot.sectorInicial ||
+          (taskSnapshot.sectores && taskSnapshot.sectores[0]) ||
           'Asesor Técnico'
 
         const updatedTask = {
-          ...taskToUpdate,
+          ...taskSnapshot,
           status: destination,
           assignedSector: sectorActual
         }
@@ -346,18 +470,23 @@ const AsesorPresupuestosPage = ({
 
         const response = await apiService.updateOrden(ordenId, payload)
         if (!response.success) {
+          revertOptimistic()
           setActionError(response.error || 'Error al mover la ficha')
           return
         }
 
+        notifyOrdenChangedLocally({
+          id: ordenId,
+          estado: payload.estado,
+          sector: payload.sector ?? sectorActual
+        } as OrdenTrabajo)
         setActionSuccess('Ficha movida correctamente')
       }
 
-      if (onReloadData) {
-        await onReloadData()
-      }
+      void onReloadData?.({ silent: true })
     } catch (error) {
       console.error('Error moviendo ficha:', error)
+      setTasks((prev) => prev.map((task) => (task.id === taskId ? taskSnapshot : task)))
       setActionError('Error al mover la ficha')
     }
   }

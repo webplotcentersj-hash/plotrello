@@ -1134,6 +1134,7 @@ function AppRoutes({
         element={
           <AsesorPresupuestosPage
             tasks={tasks}
+            setTasks={setTasks}
             activity={filteredActivity}
             teamMembers={teamMembers}
             sectores={sectores}
