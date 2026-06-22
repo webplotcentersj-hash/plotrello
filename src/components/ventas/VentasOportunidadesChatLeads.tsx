@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import apiService from '../../services/api'
 import { supabase } from '../../services/supabaseClient'
-import { nombreClienteAtencionVisible } from '../../utils/atencionClienteDisplay'
+import { nombreClienteAtencionVisible, telefonoWhatsappAtencionVisible } from '../../utils/atencionClienteDisplay'
 import { ATENCION_PUBLICO } from '../../utils/clientesRoutes'
 import { buildWhatsappLink } from '../../utils/whatsappLink'
 import './VentasOportunidadesChatLeads.css'
@@ -17,7 +17,7 @@ export type ChatLeadCRM = {
   ultimo_mensaje_preview: string | null
   estado: string
   visto_por_staff_at?: string | null
-  historial_mensajes?: Array<{ role: string; text: string; contacto_nombre?: string }>
+  historial_mensajes?: Array<{ role: string; text: string; contacto_nombre?: string; whatsapp?: string }>
   respuestas_staff?: Array<{ autor: string; texto: string }>
   created_at: string
   updated_at: string
@@ -75,7 +75,7 @@ function labelCanal(canal: string): string {
 function tieneContactoCompleto(c: ChatLeadCRM): boolean {
   const nombre = nombreClienteAtencionVisible(c)
   if (nombre === 'Cliente web' && !c.cliente_email) return false
-  return !!(c.cliente_telefono && c.cliente_telefono.replace(/\D/g, '').length >= 8)
+  return !!telefonoWhatsappAtencionVisible(c)
 }
 
 export default function VentasOportunidadesChatLeads({ onCrearOportunidad, onStatsChange }: Props) {
@@ -253,7 +253,8 @@ export default function VentasOportunidadesChatLeads({ onCrearOportunidad, onSta
         <ul className="crm-chat-leads-list">
           {filtradas.map((c) => {
             const nombre = nombreClienteAtencionVisible(c)
-            const wa = c.cliente_whatsapp_link || buildWhatsappLink(c.cliente_telefono)
+            const telefono = telefonoWhatsappAtencionVisible(c)
+            const wa = c.cliente_whatsapp_link || buildWhatsappLink(telefono)
             const sinLeer = !c.visto_por_staff_at
             return (
               <li key={c.id} className={`crm-chat-leads-item${sinLeer ? ' crm-chat-leads-item--nuevo' : ''}`}>
@@ -272,9 +273,9 @@ export default function VentasOportunidadesChatLeads({ onCrearOportunidad, onSta
                   <p className="crm-chat-leads-item-preview">{c.ultimo_mensaje_preview}</p>
                 )}
                 <div className="crm-chat-leads-item-meta">
-                  {c.cliente_telefono && wa ? (
+                  {telefono && wa ? (
                     <a href={wa} target="_blank" rel="noopener noreferrer" className="crm-chat-leads-wa">
-                      WhatsApp {c.cliente_telefono}
+                      WhatsApp {telefono}
                     </a>
                   ) : (
                     <span className="crm-chat-leads-sin-tel">Sin WhatsApp</span>
@@ -294,7 +295,7 @@ export default function VentasOportunidadesChatLeads({ onCrearOportunidad, onSta
                     onClick={() =>
                       onCrearOportunidad({
                         cliente_nombre: nombre,
-                        cliente_telefono: c.cliente_telefono || undefined,
+                        cliente_telefono: telefono || undefined,
                         cliente_email: c.cliente_email || undefined,
                         descripcion: c.ultimo_mensaje_preview
                           ? `Lead chat #${c.id} (${labelCanal(c.canal)}): ${c.ultimo_mensaje_preview}`

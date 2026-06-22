@@ -23,14 +23,20 @@ function esNombreValido(nombre: string | null | undefined): boolean {
   return true
 }
 
+function normalizarTelefonoAr(digitsRaw: string): string | null {
+  let d = digitsRaw.replace(/\D/g, '')
+  if (!d) return null
+  if (d.startsWith('0')) d = d.slice(1)
+  if (d.startsWith('54') && d.length > 10) d = d.slice(2)
+  if (d.startsWith('9') && d.length === 11) d = d.slice(1)
+  if (d.length < 8 || d.length > 12) return null
+  return d
+}
+
 function extractTelefono(text: string): string | null {
   const m = text.match(/(?:\+?54[\s-]?)?(?:9[\s-]?)?\d[\d\s\-()]{6,}\d|\b\d{8,12}\b/)
   if (!m) return null
-  let d = m[0].replace(/\D/g, '')
-  if (d.startsWith('0')) d = d.slice(1)
-  if (d.startsWith('54') && d.length > 10) d = d.slice(2)
-  if (d.length < 8) return null
-  return d
+  return normalizarTelefonoAr(m[0])
 }
 
 function extractNombreExplicito(text: string): string | null {
@@ -107,4 +113,43 @@ export function nombreClienteAtencionVisible(input: {
   if (email) return email
 
   return 'Cliente web'
+}
+
+function telefonoDesdeHistorial(historial?: MensajeHistorial[] | null): string | null {
+  if (!historial?.length) return null
+
+  for (let i = historial.length - 1; i >= 0; i--) {
+    const wa = historial[i].whatsapp
+    if (wa) {
+      const n = normalizarTelefonoAr(wa)
+      if (n) return n
+    }
+  }
+
+  for (let i = historial.length - 1; i >= 0; i--) {
+    const m = historial[i]
+    if (m.role !== 'user') continue
+    const tel = extractTelefono((m.text || '').trim())
+    if (tel) return tel
+  }
+
+  return null
+}
+
+/** Teléfono/WhatsApp visible: BD, historial del chat o nombre con número embebido. */
+export function telefonoWhatsappAtencionVisible(input: {
+  cliente_telefono?: string | null
+  cliente_nombre?: string | null
+  historial_mensajes?: MensajeHistorial[] | null
+}): string | null {
+  const fromDb = normalizarTelefonoAr(input.cliente_telefono || '')
+  if (fromDb) return fromDb
+
+  const desdeHistorial = telefonoDesdeHistorial(input.historial_mensajes)
+  if (desdeHistorial) return desdeHistorial
+
+  const desdeNombre = extractTelefono(input.cliente_nombre || '')
+  if (desdeNombre) return desdeNombre
+
+  return null
 }
