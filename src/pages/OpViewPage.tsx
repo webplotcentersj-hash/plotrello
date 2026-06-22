@@ -1,9 +1,11 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { jsPDF } from 'jspdf'
 import type { Task } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import { useAuth } from '../hooks/useAuth'
+import apiService from '../services/api'
+import { ordenToTask } from '../utils/dataMappers'
 import WorkPoolPublicarForm from '../features/work-pool/WorkPoolPublicarForm'
 import {
   inferProductFromOpSectorName,
@@ -42,8 +44,10 @@ const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
   const [downloading, setDownloading] = useState(false)
   const [deriveOpen, setDeriveOpen] = useState(false)
   const [deriveSuccess, setDeriveSuccess] = useState('')
+  const [resolvedTask, setResolvedTask] = useState<Task | null>(null)
+  const [fetching, setFetching] = useState(false)
 
-  const task = useMemo(() => {
+  const localTask = useMemo(() => {
     if (!opNumber) return null
     return (
       tasks.find((t) => t.opNumber === opNumber) ||
@@ -51,6 +55,34 @@ const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
       null
     )
   }, [opNumber, tasks])
+
+  const task = localTask ?? resolvedTask
+
+  useEffect(() => {
+    setResolvedTask(null)
+    if (!opNumber || localTask) return
+
+    let cancelled = false
+    setFetching(true)
+
+    void (async () => {
+      try {
+        const response = await apiService.getOrdenByOpNumber(opNumber)
+        if (cancelled) return
+        if (response.success && response.data) {
+          setResolvedTask(ordenToTask(response.data))
+        }
+      } catch (error) {
+        console.error('OpViewPage: error al cargar orden', error)
+      } finally {
+        if (!cancelled) setFetching(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [opNumber, localTask])
 
   const sectorColor =
     (task && sectores.find((s) => s.nombre === task.assignedSector)?.color) || '#4b5563'
@@ -76,7 +108,11 @@ const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
       <div className="opview-page">
         <div className="opview-card">
           <h2>OP {opNumber}</h2>
-          <p>No se encontró la orden.</p>
+          {fetching ? (
+            <p className="muted">Cargando orden…</p>
+          ) : (
+            <p>No se encontró la orden.</p>
+          )}
           <button className="ghost-button" onClick={() => navigate('/')}>
             Volver al tablero
           </button>

@@ -184,12 +184,16 @@ function redondear(valor: number, paso: number): number {
 // Parseo del Excel
 // ------------------------------------------------------------
 
-/** Detecta la fila de encabezados y devuelve filas como objetos normalizados por clave. */
-function leerFilas(file: ArrayBuffer): Record<string, unknown>[] {
+function leerAoa(file: ArrayBuffer): unknown[][] {
   const wb = XLSX.read(file, { type: 'array', cellDates: false })
   const ws = wb.Sheets[wb.SheetNames[0]]
   if (!ws) return []
-  const aoa = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '', blankrows: false }) as unknown[][]
+  return XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '', blankrows: false }) as unknown[][]
+}
+
+/** Detecta la fila de encabezados y devuelve filas como objetos normalizados por clave. */
+function leerFilas(file: ArrayBuffer): Record<string, unknown>[] {
+  const aoa = leerAoa(file)
   if (!aoa.length) return []
 
   // Buscar la fila de encabezado (la que contiene "Nombre" y "Fecha/Hora")
@@ -505,6 +509,70 @@ export function procesarMarcaciones(
   return resumenes
 }
 
+function esFormatoPlanillaAsistencia(aoa: unknown[][]): boolean {
+  if (!aoa.length) return false
+  const headers = aoa[0].map((c) => String(c ?? '').trim())
+  const hasEmpleado = headers.some((h) => normKey(h) === 'empleado')
+  const fechas = headers.filter((h) => /^\d{4}-\d{2}-\d{2}$/.test(h))
+  return hasEmpleado && fechas.length >= 1
+}
+
+function horaDesdeCeldaPlanilla(token: string): string {
+  const t = String(token ?? '').trim()
+  if (!t || t === '—' || t === '–' || t === '-' || /^[-—–\s]+$/.test(t)) return ''
+  const m = t.match(/^(\d{1,2}):(\d{2})/)
+  return m ? `${pad(Number(m[1]))}:${m[2]}` : ''
+}
+
+/** Parsea celdas del Excel planilla (Empleado + columnas YYYY-MM-DD). */
+export function parsearCeldaPlanillaAsistencia(text: unknown): CeldaDia {
+  const raw = String(text ?? '').trim()
+  if (!raw) return { entrada: '', salida: '', ausente: false, obs: '' }
+
+  const slashIdx = raw.indexOf('/')
+  if (slashIdx > 0) {
+    const parteIzq = raw.slice(0, slashIdx).trim()
+    const resto = raw.slice(slashIdx + 1)
+    const parteDerMatch = resto.match(/^\s*([^\s·(]+)/)
+    const parteDer = parteDerMatch ? parteDerMatch[1] : resto.split(/[·(]/)[0].trim()
+    const entrada = horaDesdeCeldaPlanilla(parteIzq)
+    const salida = horaDesdeCeldaPlanilla(parteDer)
+    if (entrada || salida) {
+      const obs: string[] = []
+      if (raw.includes('(tarde)')) obs.push('Tarde')
+      return { entrada, salida, ausente: false, obs: obs.join('; ') }
+    }
+  }
+
+  if (/\binjustificad/i.test(raw) || /\bausente\b/i.test(raw)) {
+    return { entrada: '', salida: '', ausente: true, obs: raw }
+  }
+
+  return { entrada: '', salida: '', ausente: false, obs: raw }
+}
+
+function parsearPlanillaAsistenciaDesdeAoa(aoa: unknown[][]): { planilla: PlanillaEmpleado[]; dias: string[] } {
+  const headers = aoa[0].map((c) => String(c ?? '').trim())
+  const idxEmpleado = headers.findIndex((h) => normKey(h) === 'empleado')
+  const dias = headers.filter((h) => /^\d{4}-\d{2}-\d{2}$/.test(h))
+  const planilla: PlanillaEmpleado[] = []
+
+  for (let r = 1; r < aoa.length; r++) {
+    const row = aoa[r] as unknown[]
+    const nombreRaw = String(row[idxEmpleado] ?? '').trim()
+    if (!nombreRaw) continue
+    const nombre = nombreRaw.toUpperCase()
+    const diasMap: Record<string, CeldaDia> = {}
+    for (const fecha of dias) {
+      const colIdx = headers.indexOf(fecha)
+      diasMap[fecha] = parsearCeldaPlanillaAsistencia(colIdx >= 0 ? row[colIdx] : '')
+    }
+    planilla.push({ idUsuario: nombre, nombre, departamento: '', dias: diasMap })
+  }
+
+  return { planilla, dias }
+}
+
 /** Atajo: archivo -> resúmenes por empleado. */
 export function procesarArchivoReloj(
   file: ArrayBuffer,
@@ -513,10 +581,27 @@ export function procesarArchivoReloj(
 ): {
   marcaciones: MarcacionReloj[]
   resumenes: ResumenEmpleado[]
+  planillaDirecta?: PlanillaEmpleado[]
+  diasPeriodo?: string[]
 } {
-  const marcaciones = parsearMarcaciones(file)
+  let marcaciones = parsearMarcaciones(file)
+  let planillaDirecta: PlanillaEmpleado[] | undefined
+  let diasPeriodo: string[] | undefined
+
+  if (!marcaciones.length) {
+    const aoa = leerAoa(file)
+    if (esFormatoPlanillaAsistencia(aoa)) {
+      const parsed = parsearPlanillaAsistenciaDesdeAoa(aoa)
+      if (parsed.planilla.length) {
+        planillaDirecta = parsed.planilla
+        diasPeriodo = parsed.dias
+        marcaciones = planillaToMarcaciones(parsed.planilla)
+      }
+    }
+  }
+
   const resumenes = procesarMarcaciones(marcaciones, config, horariosFijos)
-  return { marcaciones, resumenes }
+  return { marcaciones, resumenes, planillaDirecta, diasPeriodo }
 }
 
 // ------------------------------------------------------------

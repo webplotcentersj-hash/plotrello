@@ -734,17 +734,22 @@ const RelojImportTab = ({
     setProcesando(true)
     setError('')
     try {
-      const { marcaciones: marc, resumenes: res } = procesarArchivoReloj(buffer, cfg)
+      const { marcaciones: marc, resumenes: res, planillaDirecta, diasPeriodo } = procesarArchivoReloj(
+        buffer,
+        cfg
+      )
       if (!marc.length) {
-        setError('No se encontraron marcaciones. Verificá que el Excel tenga columnas "Nombre" y "Fecha/Hora".')
+        setError(
+          'No se encontraron marcaciones. Usá el Excel crudo del reloj (columnas Nombre y Fecha/Hora) o la planilla de asistencia (Empleado + fechas).'
+        )
         setMarcaciones([])
         setResumenes([])
         return
       }
       setMarcaciones(marc)
       setResumenes(res)
-      setPlanilla(construirPlanilla(res))
-      const dias = diasDelPeriodo(marc)
+      setPlanilla(planillaDirecta?.length ? planillaDirecta : construirPlanilla(res))
+      const dias = diasPeriodo?.length ? diasPeriodo : diasDelPeriodo(marc)
       setDiasPeriodo(dias)
       setCeldaEdit(null)
       setInformeIa('')
@@ -1037,9 +1042,9 @@ const RelojImportTab = ({
       <div className="reloj-intro">
         <h2>🕒 Importar asistencia del reloj biométrico</h2>
         <p>
-          Subí el Excel que exporta el reloj. Al procesarlo se guarda automáticamente el informe
-          semanal con todo el desglose, la asistencia en Plot Lab y las tardanzas en el legajo (si
-          está activado).
+          Subí el Excel que exporta el reloj (marcaciones crudas) o la planilla de asistencia de Plot Lab
+          (Empleado + columnas por fecha). Al procesarlo se guarda automáticamente el informe semanal con
+          todo el desglose, la asistencia en Plot Lab y las tardanzas en el legajo (si está activado).
         </p>
       </div>
 
