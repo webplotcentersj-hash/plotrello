@@ -1047,6 +1047,13 @@
   margin-top: 20px;
 }
 
+.crm-oportunidades-pipeline-title {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary, #e2e8f0);
+}
+
 /* Pipeline ventas */
 .ventas-pipeline {
   display: flex;

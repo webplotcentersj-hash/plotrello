@@ -38,6 +38,7 @@ import CajaCobroVentaModal from '../features/control-cajas/components/CajaCobroV
 import { forceResyncVenta } from '../features/control-cajas/plotlabVentaCajaSync'
 import VentaRapidaModal from '../components/VentaRapidaModal'
 import VentasListaPreciosPanel from '../components/ventas/VentasListaPreciosPanel'
+import VentasOportunidadesChatLeads from '../components/ventas/VentasOportunidadesChatLeads'
 import { labelListaPrecio } from '../constants/ventasListasPrecio'
 import {
   descargarPresupuestoVentaPDF,
@@ -214,6 +215,7 @@ const CRMVentasPage = () => {
   // Oportunidades
   const [oportunidades, setOportunidades] = useState<OportunidadVenta[]>([])
   const [oportunidadesFiltradas, setOportunidadesFiltradas] = useState<OportunidadVenta[]>([])
+  const [chatLeadsSinLeer, setChatLeadsSinLeer] = useState(0)
   const [filtroEtapa, setFiltroEtapa] = useState<string>('todas')
   /** Filtro por fecha próxima acción en seguimientos */
   const [filtroAlertaSeguimiento, setFiltroAlertaSeguimiento] = useState<'todas' | 'criticas' | 'con_alerta'>('todas')
@@ -1171,6 +1173,36 @@ const CRMVentasPage = () => {
     })
     setMostrarModalOportunidad(true)
   }
+
+  const handleCrearOportunidadDesdeChat = useCallback(
+    (lead: {
+      cliente_nombre: string
+      cliente_telefono?: string
+      cliente_email?: string
+      descripcion?: string
+    }) => {
+      setOportunidadEditando(null)
+      setClienteSeleccionado(null)
+      setBusquedaCliente(lead.cliente_nombre)
+      setFormOportunidad({
+        cliente_nombre: lead.cliente_nombre,
+        cliente_telefono: lead.cliente_telefono || '',
+        cliente_email: lead.cliente_email || '',
+        cliente_dni_cuit: '',
+        cliente_empresa: '',
+        cliente_direccion: '',
+        descripcion: lead.descripcion || '',
+        valor_estimado: '',
+        probabilidad_cierre: 50,
+        etapa: 'Prospecto',
+        fecha_cierre_estimada: '',
+        observaciones: 'Generado desde chat web (Atención al público).',
+        id_cliente: null
+      })
+      setMostrarModalOportunidad(true)
+    },
+    []
+  )
 
   const handleEditarOportunidad = (oportunidad: OportunidadVenta) => {
     setOportunidadEditando(oportunidad)
@@ -2328,7 +2360,8 @@ const CRMVentasPage = () => {
           className={`tab-button ${activeTab === 'oportunidades' ? 'active' : ''}`}
           onClick={() => setActiveTab('oportunidades')}
         >
-          🎯 Oportunidades ({oportunidadesFiltradas.length})
+          🎯 Oportunidades ({oportunidadesFiltradas.length}
+          {chatLeadsSinLeer > 0 ? ` · ${chatLeadsSinLeer} chat` : ''})
         </button>
       </div>
 
@@ -2341,6 +2374,13 @@ const CRMVentasPage = () => {
       {/* Tab: Oportunidades */}
       {activeTab === 'oportunidades' && (
         <div className="crm-section" role="tabpanel" aria-labelledby="crm-tab-oportunidades">
+          <VentasOportunidadesChatLeads
+            onCrearOportunidad={handleCrearOportunidadDesdeChat}
+            onStatsChange={(s) => setChatLeadsSinLeer(s.sinLeer)}
+          />
+
+          <h3 className="crm-oportunidades-pipeline-title">Pipeline de oportunidades</h3>
+
           {/* Filtros */}
           <div className="filtros-section">
             <div className="filtro-group">

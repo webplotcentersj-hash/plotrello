@@ -1,6 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenAI } from '@google/genai'
+import { buildLista1PreciosContext } from './_listaPreciosChat'
+import {
+  buildContactoContextPrompt,
+  buildSolicitudContactoReply,
+  buildWhatsappLinkApi,
+  enrichUserHistorialEntry,
+  modoRequiereContactoCliente,
+  resolveContactoCliente
+} from './_contactoClienteChat'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
 const supabaseKey =
@@ -51,6 +60,8 @@ type Body = {
   dni?: string
   cuit?: string
   op?: string
+  telefono?: string
+  whatsapp?: string
   cliente_email?: string
   conversation_id?: number
   history?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>
@@ -695,6 +706,9 @@ SALIDA:
       ordersContext = byClient.ordersContext
     }
 
+    const preciosContext =
+      supabase && modo !== 'admin' ? await buildLista1PreciosContext(supabase, allUserTexts) : ''
+
     const solicitudAtencion = detectSolicitudAtencionHumano(message)
     let notificacionEnviada = false
     let solicitudChatId: number | null = null
@@ -758,12 +772,14 @@ SALIDA:
     const STAFF_ATTENDING_MSG = 'Un integrante del equipo ya te está atendiendo. Tu mensaje fue enviado; te responderán a la brevedad.'
     let replyText: string = ''
     let skipGemini = false
+    let convRowContacto: { cliente_nombre?: string | null; cliente_telefono?: string | null } | null = null
     if (body.conversation_id && Number.isInteger(Number(body.conversation_id)) && supabase) {
       const { data: convRow } = await supabase
         .from('atencion_conversaciones')
-        .select('respuestas_staff, historial_mensajes')
+        .select('respuestas_staff, historial_mensajes, cliente_nombre, cliente_telefono')
         .eq('id', Number(body.conversation_id))
         .single()
+      convRowContacto = (convRow as any) || null
       const staffReplies = Array.isArray((convRow as any)?.respuestas_staff) ? (convRow as any).respuestas_staff : []
       if (staffReplies.length > 0) {
         skipGemini = true
@@ -772,6 +788,18 @@ SALIDA:
         replyText = yaDijoAtendiendo ? '' : STAFF_ATTENDING_MSG
       }
     }
+
+    const telefonoBody = (body.telefono || body.whatsapp || '').trim()
+    const contactoCliente = resolveContactoCliente({
+      bodyNombre: nombre,
+      bodyTelefono: telefonoBody || undefined,
+      userTexts: allUserTexts,
+      convNombre: convRowContacto?.cliente_nombre,
+      convTelefono: convRowContacto?.cliente_telefono
+    })
+    const contactoContext = modoRequiereContactoCliente(modo) ? buildContactoContextPrompt(contactoCliente) : ''
+    const requiereContactoPendiente =
+      modoRequiereContactoCliente(modo) && !contactoCliente.completo
 
     if (!skipGemini) {
     const textoUsuarioReciente = [
@@ -782,6 +810,8 @@ SALIDA:
 
     if (consultaInterna) {
       replyText = RESPUESTA_CONSULTA_INTERNA
+    } else if (requiereContactoPendiente) {
+      replyText = buildSolicitudContactoReply(contactoCliente)
     } else {
     const canalPrompt =
       modo === 'cliente_portal'
@@ -834,11 +864,20 @@ REGLA — CONSULTAS INTERNAS / SEGURIDAD (obligatorio):
 - Respondé breve que eso es información interna o no disponible en este canal y ofrecé ayuda con pedidos, estado de OP, horarios o servicios (o derivación humana por teléfono/email si corresponde).
 
 REGLA CRÍTICA — NO ALUCINAR (obligatorio):
-- Solo podés usar información que aparezca EXPLÍCITAMENTE en las secciones "CONOCIMIENTO DE LA EMPRESA" y "CLIENTE CON QUIEN ESTÁS HABLANDO" más abajo.
+- Solo podés usar información que aparezca EXPLÍCITAMENTE en las secciones "CONOCIMIENTO DE LA EMPRESA", "CLIENTE CON QUIEN ESTÁS HABLANDO"${preciosContext ? ' y "LISTA DE PRECIOS 1"' : ''} más abajo.
 - NUNCA inventes: números de OP, fechas de entrega, estados de órdenes, precios, nombres de clientes, teléfonos, emails, direcciones ni ningún otro dato.
 - Si el contexto dice "No se encontró" o "no tiene órdenes" o "no hay coincidencias", decilo tal cual; no digas que sí hay datos.
 - Si no tenés un dato (ej. precio, fecha, estado), no lo inventes: decí que no lo tenés y, solo si realmente hace falta, ofrecé como opción que un humano del equipo siga por este chat o por teléfono/WhatsApp (2646212163) o email (contacto@plotcenter.com.ar). No repitas estos datos de contacto en todas las respuestas: usalos como máximo cada varias intervenciones.
 - Para datos de Plot Center (dirección, teléfono, servicios) usá ÚNICAMENTE lo que está en CONOCIMIENTO DE LA EMPRESA.
+${preciosContext ? `
+REGLA — PRECIOS LISTA 1 (obligatorio cuando pregunten por precios, cotización o pidan un producto nuevo):
+- Cotizá SOLO con los importes de "LISTA DE PRECIOS 1" (efectivo, transferencia, débito/tarjeta). Es la lista de atención al público en mostrador.
+- Si el cliente pide un producto sin preguntar precio (ej. "quiero 500 stickers"), ofrecé el precio de referencia de Lista 1 del artículo más cercano en el listado y multiplicá por cantidad solo si el precio es claramente por unidad.
+- Decí el precio en pesos argentinos con el formato del listado. Si hay varios artículos relacionados, mencioná los más relevantes (máx. 5).
+- Aclará que es referencial por unidad base; medidas, cantidades, terminaciones o diseño pueden cambiar el total final.
+- Si el producto no está en la lista cargada, NO inventes: decí que no tenés ese precio en el sistema y ofrecé que mostrador cotice con detalle.
+- No uses Lista 2 (cuenta corriente) salvo que el cliente pregunte explícitamente por cuenta corriente.
+` : ''}
 
 IDIOMA Y TONO:
 - Responde SIEMPRE en español (argentino): podés usar "vos", "tu trabajo", "te cuento", "cualquier cosa escribinos".
@@ -853,9 +892,12 @@ CLIENTE CON QUIEN ESTÁS HABLANDO (solo esta info es válida para OPs, estados y
 ${clientContext}
 ${pedidosContext ? '\n' + pedidosContext : ''}
 ${ordersContext ? '\n' + ordersContext : ''}
+${preciosContext ? '\n\n' + preciosContext : ''}
+${contactoContext ? '\n\n' + contactoContext : ''}
 
 CÓMO TRATAR AL CLIENTE (atención al público):
-- Saludo y atención general: respondé con buena onda a cualquier consulta (horarios, servicios, contacto, ubicación). No pidas datos al inicio; solo ayudá con lo que pregunten.
+- CONTACTO OBLIGATORIO (chat web y tótem): antes de cotizar precios, armar pedidos nuevos o dar información comercial detallada, el visitante DEBE dejar nombre y WhatsApp. Si faltan, pedilos siempre de forma amable y no avances con otras respuestas hasta tenerlos (salvo horarios, ubicación o consulta de OP si ya la resolviste).
+- Saludo: podés saludar brevemente, pero en la primera o segunda respuesta pedí nombre y WhatsApp si aún no los tenés.
 - Diferenciá bien dos casos:
   1) PEDIDO NUEVO: cuando el cliente quiere hacer un pedido nuevo (ej. "quiero hacer un pedido de stickers", "necesito un logo", "quiero hacer un cartel"). En estos casos NO pidas número de OP. Pedile solo los datos mínimos para avanzar (nombre y un teléfono de contacto) y después guiá la conversación con preguntas concretas (cantidad, tamaños, dónde va colocado, plazos, etc.) dando ejemplos si ayuda.
   2) CONSULTA DE ESTADO: cuando el cliente pregunta por un trabajo ya hecho o en proceso (ej. "cómo va mi pedido", "la OP 92185", "mi trabajo de carteles"). Ahí sí podés pedirle un dato para buscar (nombre, DNI/CUIT o número de OP) y usar el contexto de OPs para responder.
@@ -919,15 +961,37 @@ CÓMO TRATAR AL CLIENTE (atención al público):
     }
 
     let conversationId: number | null = null
-    const clienteNombreConv =
-      nombre ||
-      (modo === 'cliente_portal' && clienteIdFromBody ? `Cliente portal #${clienteIdFromBody}` : 'Cliente web')
+    const userHistorialEntry = enrichUserHistorialEntry(message)
     const canalConversacion =
       modo === 'cliente_portal'
         ? 'cliente_portal'
         : modo === 'totem' || modo === 'totem_autogestion' || modo === 'totem_consulta_cliente'
           ? 'totem'
           : 'chat_web'
+
+    const buildContactoPersist = (userTexts: string[]) => {
+      const resolved = resolveContactoCliente({
+        bodyNombre: nombre,
+        bodyTelefono: telefonoBody || undefined,
+        userTexts,
+        convNombre: convRowContacto?.cliente_nombre,
+        convTelefono: convRowContacto?.cliente_telefono
+      })
+      const payload: Record<string, string> = {}
+      if (resolved.nombre) payload.cliente_nombre = resolved.nombre
+      if (resolved.telefono) {
+        payload.cliente_telefono = resolved.telefono
+        const waLink = buildWhatsappLinkApi(resolved.telefono)
+        if (waLink) payload.cliente_whatsapp_link = waLink
+      }
+      return { resolved, payload }
+    }
+
+    const nombreConvFallback =
+      contactoCliente.nombre ||
+      nombre ||
+      (modo === 'cliente_portal' && clienteIdFromBody ? `Cliente portal #${clienteIdFromBody}` : 'Cliente web')
+
     if (supabase && modo !== 'admin') {
       try {
         if (body.conversation_id && Number.isInteger(Number(body.conversation_id))) {
@@ -944,31 +1008,42 @@ CÓMO TRATAR AL CLIENTE (atención al público):
             console.error('Error leyendo conversación para actualizar:', selectErr)
           }
           const updated = replyText
-            ? [...hist, { role: 'user', text: message.slice(0, 5000) }, { role: 'model', text: replyText.slice(0, 5000) }]
-            : [...hist, { role: 'user', text: message.slice(0, 5000) }]
+            ? [...hist, userHistorialEntry, { role: 'model', text: replyText.slice(0, 5000) }]
+            : [...hist, userHistorialEntry]
+          const userTextsPersist = updated
+            .filter((m) => m.role === 'user')
+            .map((m) => String((m as { text?: string }).text || ''))
+          const { payload: contactoUpdate } = buildContactoPersist(userTextsPersist)
           const { error: updateErr } = await supabase
             .from('atencion_conversaciones')
             .update({
               historial_mensajes: updated,
               ultimo_mensaje_preview: message.slice(0, 200),
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
+              ...contactoUpdate
             })
             .eq('id', idConv)
           if (updateErr) console.error('Error actualizando conversación:', updateErr)
           conversationId = idConv
         } else {
+          const historialInicial = [
+            userHistorialEntry,
+            { role: 'model', text: replyText.slice(0, 5000) }
+          ]
+          const userTextsPersist = historialInicial
+            .filter((m) => m.role === 'user')
+            .map((m) => String((m as { text?: string }).text || ''))
+          const { payload: contactoInsert } = buildContactoPersist(userTextsPersist)
           const { data: newConv, error: insertErr } = await supabase
             .from('atencion_conversaciones')
             .insert({
-              cliente_nombre: clienteNombreConv,
+              cliente_nombre: contactoInsert.cliente_nombre || nombreConvFallback,
               canal: canalConversacion,
               ...(body.cliente_email?.trim() ? { cliente_email: body.cliente_email.trim() } : {}),
+              ...contactoInsert,
               ultimo_mensaje_preview: message.slice(0, 200),
               estado: 'abierto',
-              historial_mensajes: [
-                { role: 'user', text: message.slice(0, 5000) },
-                { role: 'model', text: replyText.slice(0, 5000) }
-              ]
+              historial_mensajes: historialInicial
             })
             .select('id')
             .single()

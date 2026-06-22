@@ -490,6 +490,10 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .atencion-publico-conversacion-meta {
@@ -565,6 +569,25 @@
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.atencion-publico-wa-link {
+  color: #25d366;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.atencion-publico-wa-link:hover {
+  color: #1ebe5d;
+}
+
+.atencion-publico-wa-link--header {
+  display: inline-block;
+  margin-left: 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  vertical-align: middle;
 }
 
 .atencion-publico-msg-image {

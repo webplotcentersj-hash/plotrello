@@ -5,6 +5,9 @@ import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import './AtencionPublicoDashboardPage.css'
 import AtencionSatisfaccionPanel from '../components/AtencionSatisfaccionPanel'
+import { buildWhatsappLink } from '../utils/whatsappLink'
+import { renderTextoConWhatsapp } from '../utils/renderTextoConWhatsapp'
+import { nombreClienteAtencionVisible } from '../utils/atencionClienteDisplay'
 
 const REFRESH_INTERVAL_MS = 25000
 
@@ -70,6 +73,8 @@ type Conversacion = {
   id: number
   cliente_nombre: string | null
   cliente_email: string | null
+  cliente_telefono?: string | null
+  cliente_whatsapp_link?: string | null
   canal: string
   ultimo_mensaje_preview: string | null
   estado: string
@@ -85,10 +90,12 @@ type ConversacionDetalle = {
   id: number
   cliente_nombre: string | null
   cliente_email: string | null
+  cliente_telefono?: string | null
+  cliente_whatsapp_link?: string | null
   canal: string
   ultimo_mensaje_preview: string | null
   estado: string
-  historial_mensajes: Array<{ role: string; text: string }>
+  historial_mensajes: Array<{ role: string; text: string; whatsapp?: string; contacto_nombre?: string }>
   respuestas_staff: Array<{ autor: string; texto: string; created_at?: string }>
   created_at: string
   updated_at: string
@@ -357,8 +364,9 @@ const AtencionPublicoDashboardPage = () => {
     const hoy: Conversacion[] = []
     const bib: Conversacion[] = []
     for (const c of conversaciones) {
-      const match = !q || (c.cliente_nombre || '').toLowerCase().includes(q) ||
+      const match = !q || nombreClienteAtencionVisible(c).toLowerCase().includes(q) ||
         (c.cliente_email || '').toLowerCase().includes(q) ||
+        (c.cliente_telefono || '').includes(q.replace(/\D/g, '')) ||
         (c.ultimo_mensaje_preview || '').toLowerCase().includes(q) ||
         (c.canal || '').toLowerCase().includes(q)
       if (!match) continue
@@ -375,8 +383,9 @@ const AtencionPublicoDashboardPage = () => {
     if (!qb) return conversacionesBiblioteca
     return conversacionesBiblioteca.filter(
       (c) =>
-        (c.cliente_nombre || '').toLowerCase().includes(qb) ||
+        nombreClienteAtencionVisible(c).toLowerCase().includes(qb) ||
         (c.cliente_email || '').toLowerCase().includes(qb) ||
+        (c.cliente_telefono || '').includes(qb.replace(/\D/g, '')) ||
         (c.ultimo_mensaje_preview || '').toLowerCase().includes(qb) ||
         (c.canal || '').toLowerCase().includes(qb)
     )
@@ -502,7 +511,7 @@ const AtencionPublicoDashboardPage = () => {
                     {solicitudChat.historial_mensajes?.map((m, i) => (
                       <div key={i} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
                         <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'PlotAI'}</span>
-                        <p className="atencion-publico-msg-text">{m.text}</p>
+                        <p className="atencion-publico-msg-text">{renderTextoConWhatsapp(m.text)}</p>
                         {(m as any).imageDataUrl && (
                           <img
                             src={(m as any).imageDataUrl}
@@ -536,7 +545,19 @@ const AtencionPublicoDashboardPage = () => {
                 <>
                   <div className="atencion-publico-conversacion-header">
                     <div className="atencion-publico-conversacion-header-left">
-                      <h2>💬 {conversacionDetalle.cliente_nombre || conversacionDetalle.cliente_email || 'Cliente'}</h2>
+                      <h2>
+                        💬 {nombreClienteAtencionVisible(conversacionDetalle)}
+                        {(conversacionDetalle.cliente_whatsapp_link || conversacionDetalle.cliente_telefono) && (
+                          <a
+                            href={conversacionDetalle.cliente_whatsapp_link || buildWhatsappLink(conversacionDetalle.cliente_telefono) || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="atencion-publico-wa-link atencion-publico-wa-link--header"
+                          >
+                            WhatsApp {conversacionDetalle.cliente_telefono}
+                          </a>
+                        )}
+                      </h2>
                       <p className="atencion-publico-conversacion-meta">{conversacionDetalle.canal} · {tiempoRelativo(conversacionDetalle.updated_at)}</p>
                     </div>
                   </div>
@@ -544,7 +565,7 @@ const AtencionPublicoDashboardPage = () => {
                     {conversacionDetalle.historial_mensajes?.map((m, i) => (
                       <div key={`h-${i}`} className={`atencion-publico-msg atencion-publico-msg--${m.role}`}>
                         <span className="atencion-publico-msg-role">{m.role === 'user' ? 'Cliente' : 'PlotAI'}</span>
-                        <p className="atencion-publico-msg-text">{m.text}</p>
+                        <p className="atencion-publico-msg-text">{renderTextoConWhatsapp(m.text, m)}</p>
                         {(m as any).imageDataUrl && (
                           <img
                             src={(m as any).imageDataUrl}
@@ -657,7 +678,7 @@ const AtencionPublicoDashboardPage = () => {
                             tabIndex={0}
                           >
                             <div className="atencion-publico-item-header">
-                              <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
+                              <span className="atencion-publico-item-nombre">{nombreClienteAtencionVisible(c)}</span>
                               {!c.visto_por_staff_at && (
                                 <span className="atencion-publico-badge atencion-publico-badge-no-leido" title="No abierto por el staff">
                                     ● No leído{mensajesSinLeer(c) > 0 ? ` (${mensajesSinLeer(c)})` : ''}
@@ -716,7 +737,7 @@ const AtencionPublicoDashboardPage = () => {
                               tabIndex={0}
                             >
                               <div className="atencion-publico-item-header">
-                                <span className="atencion-publico-item-nombre">{c.cliente_nombre || c.cliente_email || 'Cliente web'}</span>
+                                <span className="atencion-publico-item-nombre">{nombreClienteAtencionVisible(c)}</span>
                                 {!c.visto_por_staff_at && (
                                   <span className="atencion-publico-badge atencion-publico-badge-no-leido" title="No abierto por el staff">
                                     ● No leído{mensajesSinLeer(c) > 0 ? ` (${mensajesSinLeer(c)})` : ''}

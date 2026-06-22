@@ -1,0 +1,254 @@
+.crm-chat-leads {
+  margin-bottom: 1.75rem;
+  padding: 1.25rem 1.35rem;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: linear-gradient(145deg, rgba(30, 27, 75, 0.55) 0%, rgba(15, 23, 42, 0.9) 100%);
+}
+
+.crm-chat-leads-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.crm-chat-leads-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.crm-chat-leads-sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.crm-chat-leads-link-all {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #a5b4fc;
+  text-decoration: none;
+}
+
+.crm-chat-leads-link-all:hover {
+  color: #c7d2fe;
+  text-decoration: underline;
+}
+
+.crm-chat-leads-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.crm-chat-leads-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 5.5rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.6);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.crm-chat-leads-metric--static {
+  cursor: default;
+}
+
+.crm-chat-leads-metric--active,
+.crm-chat-leads-metric:not(.crm-chat-leads-metric--static):hover {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.15);
+}
+
+.crm-chat-leads-metric-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1.1;
+}
+
+.crm-chat-leads-metric-lbl {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: 0.15rem;
+}
+
+.crm-chat-leads-canales {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.crm-chat-leads-canales-title {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-right: 0.25rem;
+}
+
+.crm-chat-leads-canal-chip {
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.crm-chat-leads-canal-chip.active,
+.crm-chat-leads-canal-chip:hover {
+  border-color: #818cf8;
+  background: rgba(99, 102, 241, 0.2);
+  color: #e0e7ff;
+}
+
+.crm-chat-leads-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.crm-chat-leads-item {
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.crm-chat-leads-item--nuevo {
+  border-color: rgba(239, 68, 68, 0.45);
+  box-shadow: inset 3px 0 0 #ef4444;
+}
+
+.crm-chat-leads-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.crm-chat-leads-item-nombre {
+  color: #f1f5f9;
+  font-size: 0.95rem;
+}
+
+.crm-chat-leads-item-canal {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.crm-chat-leads-badge-nuevo,
+.crm-chat-leads-badge-staff {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.crm-chat-leads-badge-nuevo {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.crm-chat-leads-badge-staff {
+  background: #065f46;
+  color: #d1fae5;
+}
+
+.crm-chat-leads-item-time {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.crm-chat-leads-item-preview {
+  margin: 0.45rem 0 0;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.crm-chat-leads-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.crm-chat-leads-wa {
+  color: #25d366;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.crm-chat-leads-wa:hover {
+  text-decoration: underline;
+}
+
+.crm-chat-leads-sin-tel {
+  color: #f59e0b;
+}
+
+.crm-chat-leads-email {
+  color: #94a3b8;
+}
+
+.crm-chat-leads-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.crm-chat-leads-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+}
+
+.crm-chat-leads-btn--secondary {
+  background: rgba(148, 163, 184, 0.15);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.crm-chat-leads-btn--primary {
+  background: #6366f1;
+  color: #fff;
+}
+
+.crm-chat-leads-btn--primary:hover {
+  background: #4f46e5;
+}
+
+.crm-chat-leads-empty {
+  margin: 0;
+  padding: 1rem 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}

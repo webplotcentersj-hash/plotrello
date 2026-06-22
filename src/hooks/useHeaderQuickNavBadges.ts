@@ -28,7 +28,7 @@ function countBadgesFromNotifications(notifications: Notification[]): Record<str
 }
 
 export function useHeaderQuickNavBadges(): Record<string, number> {
-  const { usuario, canManageRecursosHumanos } = useAuth()
+  const { usuario, canManageRecursosHumanos, canAccessAtencionPublico } = useAuth()
   const [badges, setBadges] = useState<Record<string, number>>({})
 
   const refresh = useCallback(async () => {
@@ -57,15 +57,28 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
       /* ignore */
     }
 
+    let atencionPendientes = 0
+    if (canAccessAtencionPublico) {
+      try {
+        const atRes = await apiService.getAtencionPublicoPendientesCount()
+        if (atRes.success && atRes.data) {
+          atencionPendientes = atRes.data.total
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     setBadges({
       ...fromNotifs,
-      permisos: Math.max(fromNotifs.permisos ?? 0, permisosPending)
+      permisos: Math.max(fromNotifs.permisos ?? 0, permisosPending),
+      'atencion-publico': Math.max(fromNotifs['atencion-publico'] ?? 0, atencionPendientes)
     })
-  }, [usuario?.id, canManageRecursosHumanos])
+  }, [usuario?.id, canManageRecursosHumanos, canAccessAtencionPublico])
 
   useEffect(() => {
     void refresh()
-    const interval = window.setInterval(() => void refresh(), 60_000)
+    const interval = window.setInterval(() => void refresh(), 30_000)
     return () => window.clearInterval(interval)
   }, [refresh])
 
@@ -126,6 +139,58 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
       if (supabase) void supabase.removeChannel(channel)
     }
   }, [usuario?.id, refresh])
+
+  useEffect(() => {
+    if (!canAccessAtencionPublico || !supabase) return
+
+    const channel = supabase
+      .channel(`quick-nav-atencion:${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'atencion_conversaciones' },
+        (payload) => {
+          void refresh()
+          if (
+            payload.eventType === 'INSERT' &&
+            'Notification' in window &&
+            Notification.permission === 'granted'
+          ) {
+            const row = payload.new as { cliente_nombre?: string | null; ultimo_mensaje_preview?: string | null }
+            new Notification('Nuevo mensaje — Atención al público', {
+              body:
+                (row.cliente_nombre ? `${row.cliente_nombre}: ` : '') +
+                (row.ultimo_mensaje_preview || 'Conversación nueva en el chat web'),
+              tag: `atencion-conv-${(payload.new as { id?: number }).id ?? Date.now()}`
+            })
+          }
+        }
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'atencion_reclamos' }, () => {
+        void refresh()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_atencion_chat' }, (payload) => {
+        void refresh()
+        if (
+          payload.eventType === 'INSERT' &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          const row = payload.new as {
+            cliente_nombre?: string | null
+            sector_solicitado?: string | null
+          }
+          new Notification('Solicitud de atención en chat', {
+            body: `${row.cliente_nombre || 'Cliente'} quiere hablar con ${row.sector_solicitado || 'un sector'}`,
+            tag: `atencion-sol-${(payload.new as { id?: number }).id ?? Date.now()}`
+          })
+        }
+      })
+      .subscribe()
+
+    return () => {
+      if (supabase) void supabase.removeChannel(channel)
+    }
+  }, [canAccessAtencionPublico, refresh])
 
   return badges
 }

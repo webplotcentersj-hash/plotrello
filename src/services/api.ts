@@ -5770,7 +5770,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('atencion_conversaciones')
-        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, usuario_asignado_id, visto_por_staff_at, historial_mensajes, respuestas_staff, created_at, updated_at')
+        .select('id, cliente_nombre, cliente_email, cliente_telefono, cliente_whatsapp_link, canal, ultimo_mensaje_preview, estado, usuario_asignado_id, visto_por_staff_at, historial_mensajes, respuestas_staff, created_at, updated_at')
         .order('updated_at', { ascending: false })
         .limit(100)
       if (error) return { success: false, error: error.message }
@@ -5797,7 +5797,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('atencion_conversaciones')
-        .select('id, cliente_nombre, cliente_email, canal, ultimo_mensaje_preview, estado, historial_mensajes, respuestas_staff, visto_por_staff_at, created_at, updated_at')
+        .select('id, cliente_nombre, cliente_email, cliente_telefono, cliente_whatsapp_link, canal, ultimo_mensaje_preview, estado, historial_mensajes, respuestas_staff, visto_por_staff_at, created_at, updated_at')
         .eq('id', id)
         .single()
       if (error) return { success: false, error: error.message }
@@ -5843,6 +5843,45 @@ class ApiService {
       return { success: true }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al enviar respuesta' }
+    }
+  }
+
+  /** Conteo liviano para badge del header (conversaciones/reclamos/solicitudes sin ver). */
+  async getAtencionPublicoPendientesCount(): Promise<
+    ApiResponse<{ total: number; conversaciones: number; solicitudes: number; reclamos: number }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const [convRes, solRes, recRes] = await Promise.all([
+        supabase
+          .from('atencion_conversaciones')
+          .select('id', { count: 'exact', head: true })
+          .is('visto_por_staff_at', null),
+        supabase
+          .from('solicitudes_atencion_chat')
+          .select('id', { count: 'exact', head: true })
+          .is('visto_por_staff_at', null),
+        supabase
+          .from('atencion_reclamos')
+          .select('id', { count: 'exact', head: true })
+          .in('estado', ['abierto', 'en_revision'])
+      ])
+
+      const conversaciones = convRes.error ? 0 : convRes.count ?? 0
+      const solicitudes = solRes.error ? 0 : solRes.count ?? 0
+      const reclamos = recRes.error ? 0 : recRes.count ?? 0
+
+      return {
+        success: true,
+        data: {
+          conversaciones,
+          solicitudes,
+          reclamos,
+          total: conversaciones + solicitudes + reclamos
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al contar pendientes de atención' }
     }
   }
 
