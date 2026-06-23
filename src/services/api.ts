@@ -3965,6 +3965,28 @@ class ApiService {
     return this.handleFallback(fallbackUsuarios)
   }
 
+  /** Incluye usuarios inactivos (baja) para vincular planillas históricas del reloj. */
+  async getUsuariosParaRelojMatch(): Promise<ApiResponse<UsuarioRecord[]>> {
+    if (supabase) {
+      const { data, error } = await supabase.rpc('listar_usuarios_reloj')
+      if (!error && Array.isArray(data)) {
+        return { success: true, data: data as UsuarioRecord[] }
+      }
+
+      const { data: rows, error: selErr } = await supabase
+        .from('usuarios')
+        .select('id, nombre, rol')
+        .order('nombre')
+      if (!selErr && Array.isArray(rows) && rows.length > 0) {
+        return { success: true, data: rows as UsuarioRecord[] }
+      }
+
+      console.warn('listar_usuarios_reloj no disponible, usando solo activos:', error?.message)
+      return this.getUsuarios()
+    }
+    return this.getUsuarios()
+  }
+
   /** Solo los IDs pedidos. Usa RPC (SECURITY DEFINER); el SELECT directo suele fallar por RLS. */
   async getUsuariosPorIds(ids: number[]): Promise<ApiResponse<UsuarioRecord[]>> {
     const unique = [...new Set(ids.filter((n) => Number.isFinite(n) && n > 0))]

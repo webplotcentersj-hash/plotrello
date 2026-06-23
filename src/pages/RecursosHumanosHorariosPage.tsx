@@ -396,6 +396,17 @@ const RelojImportTab = ({
   const [legajosBasico, setLegajosBasico] = useState<
     Record<number, { nombre: string; apellido: string; email: string | null }>
   >({})
+  const [usuariosParaReloj, setUsuariosParaReloj] = useState<UsuarioRecord[]>(usuarios)
+
+  useEffect(() => {
+    let cancelado = false
+    apiService.getUsuariosParaRelojMatch().then((r) => {
+      if (!cancelado && r.success && r.data?.length) setUsuariosParaReloj(r.data)
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelado = false
@@ -418,7 +429,7 @@ const RelojImportTab = ({
 
   const usuariosLite = useMemo(
     () =>
-      usuarios.map((u) => {
+      usuariosParaReloj.map((u) => {
         const leg = legajosBasico[u.id]
         return {
           id: u.id,
@@ -430,7 +441,7 @@ const RelojImportTab = ({
           legajoApellido: leg?.apellido || null
         }
       }),
-    [usuarios, legajosBasico]
+    [usuariosParaReloj, legajosBasico]
   )
 
   // Mes (YYYY-MM) del archivo importado: se usa para leer/guardar los horarios

@@ -930,11 +930,22 @@ function identidadesUsuarioMatch(u: UsuarioRelojMatch): string[] {
   const ids = [u.nombre]
   if (u.email) ids.push(u.email)
   if (u.legajoNombre && u.legajoApellido) {
-    ids.push(`${u.legajoNombre} ${u.legajoApellido}`)
-    const n = u.legajoNombre.trim().toLowerCase()
-    const a = u.legajoApellido.trim().toLowerCase()
-    if (n && a) ids.push(`${n[0]}${a}`)
-    if (n && a) ids.push(`${a} ${n}`)
+    const nom = u.legajoNombre.trim()
+    const ape = u.legajoApellido.trim()
+    ids.push(`${nom} ${ape}`)
+    ids.push(`${ape} ${nom}`)
+    const n = nom.toLowerCase()
+    const a = ape.toLowerCase()
+    if (n && a) {
+      ids.push(`${n[0]}${a}`)
+      ids.push(`${a[0]}${n}`)
+    }
+    for (const c of candidatosLoginDesdeTokens(tokensReloj(`${ape} ${nom}`))) {
+      if (c.length >= 4 && c.length <= 14) ids.push(c)
+    }
+    for (const c of candidatosLoginDesdeTokens(tokensReloj(`${nom} ${ape}`))) {
+      if (c.length >= 4 && c.length <= 14) ids.push(c)
+    }
   }
   const inf = inferirEmailPlotcenter(u.nombre)
   if (inf) ids.push(inf)
@@ -1004,6 +1015,11 @@ export function puntajeMatch(nombreReloj: string, nombreUsuario: string): number
     for (const u of userLocales) {
       if (r === u) return 25
       if (r.length >= 4 && u.length >= 4 && (r.includes(u) || u.includes(r))) return 18
+      if (r.length >= 5 && u.length >= 5) {
+        const dist = damerauLevenshtein(r, u)
+        if (dist === 1) return 20
+        if (dist === 2) return 12
+      }
     }
   }
 
@@ -1026,11 +1042,13 @@ export function puntajeMatch(nombreReloj: string, nombreUsuario: string): number
   const scoreContencion = mejorToken + (mejorToken > 0 ? inicialBonus : 0)
 
   let mejorFuzzy = 0
-  for (const cand of relojLocales) {
-    if (Math.abs(cand.length - local.length) > 3) continue
-    const dist = damerauLevenshtein(local, cand)
-    const score = dist === 0 ? 20 : dist === 1 ? 14 : dist === 2 ? 8 : 0
-    if (score > mejorFuzzy) mejorFuzzy = score
+  for (const r of relojLocales) {
+    for (const u of userLocales) {
+      if (Math.abs(r.length - u.length) > 2) continue
+      const dist = damerauLevenshtein(r, u)
+      const score = dist === 0 ? 25 : dist === 1 ? 20 : dist === 2 ? 12 : 0
+      if (score > mejorFuzzy) mejorFuzzy = score
+    }
   }
 
   return Math.max(scoreContencion, mejorFuzzy)
