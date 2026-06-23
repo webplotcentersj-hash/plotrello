@@ -17,6 +17,7 @@ type Body = {
   detalle?: string
   dispositivo_id?: string
   omitir_foto?: boolean
+  marcado_at?: string
 }
 
 function assertRelojTabletAuth(req: VercelRequest, res: VercelResponse): boolean {
@@ -83,10 +84,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     fotoUrl = await uploadSelfieTablet(supabase, idUsuario, selfie)
   }
 
+  const marcadoAt = String(body.marcado_at || '').trim() || new Date().toISOString()
+
   const { data, error } = await supabase.rpc('registrar_marcacion_tablet', {
     p_id_usuario: idUsuario,
     p_tipo: body.tipo ?? null,
-    p_hora: new Date().toISOString(),
+    p_hora: marcadoAt,
     p_foto_url: fotoUrl,
     p_confianza: body.confianza ?? null,
     p_detalle: body.detalle ?? null,

@@ -110,6 +110,7 @@ export async function marcarRelojTablet(opts: {
   confianza?: number
   detalle?: string
   dispositivoId?: string
+  marcadoAt?: string
 }): Promise<MarcacionTabletResult> {
   const resp = await plotLabFetch('/api/plotai/reloj-tablet-marcar', {
     method: 'POST',
@@ -119,7 +120,8 @@ export async function marcarRelojTablet(opts: {
       selfie_data_url: opts.selfieDataUrl,
       confianza: opts.confianza,
       detalle: opts.detalle,
-      dispositivo_id: opts.dispositivoId || 'tablet-reloj-1'
+      dispositivo_id: opts.dispositivoId || 'tablet-reloj-1',
+      marcado_at: opts.marcadoAt
     })
   })
   const json = await parseApiJson<{ success?: boolean; data?: MarcacionTabletResult; error?: string }>(resp)

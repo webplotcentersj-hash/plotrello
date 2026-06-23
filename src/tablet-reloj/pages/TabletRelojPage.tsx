@@ -21,17 +21,7 @@ const SETTLE_MS = 1400
 const COOLDOWN_MS = 9000
 const AUTO_RESET_ERROR_MS = 5000
 
-function formatHora(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString('es-AR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'America/Argentina/San_Juan'
-    })
-  } catch {
-    return ''
-  }
-}
+import { isoToArgentinaTime } from '../../utils/dateUtils'
 
 export default function TabletRelojPage() {
   const [empleados, setEmpleados] = useState<EmpleadoRelojTablet[]>([])
@@ -47,6 +37,7 @@ export default function TabletRelojPage() {
   const [apiKeyDraft, setApiKeyDraft] = useState(getRelojTabletApiKey())
   const [camaraLista, setCamaraLista] = useState(false)
   const [enCooldown, setEnCooldown] = useState(false)
+  const [relojArgentina, setRelojArgentina] = useState('')
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -71,6 +62,24 @@ export default function TabletRelojPage() {
   useEffect(() => {
     void cargar()
   }, [cargar])
+
+  useEffect(() => {
+    const tick = () =>
+      setRelojArgentina(
+        new Date().toLocaleString('es-AR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZone: 'America/Argentina/Buenos_Aires'
+        })
+      )
+    tick()
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [])
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
@@ -163,7 +172,8 @@ export default function TabletRelojPage() {
           idUsuario: emp.id_usuario,
           selfieDataUrl: selfie,
           confianza,
-          detalle
+          detalle,
+          marcadoAt: new Date().toISOString()
         })
         setResultado(data)
         setPaso('exito')
@@ -261,15 +271,6 @@ export default function TabletRelojPage() {
     }
   }
 
-  const ahora = new Date().toLocaleString('es-AR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'America/Argentina/San_Juan'
-  })
-
   const estadoTexto =
     paso === 'detectando'
       ? 'Detectando presencia…'
@@ -288,7 +289,7 @@ export default function TabletRelojPage() {
       <header className="tablet-reloj-header">
         <div>
           <h1>Reloj Plot Lab</h1>
-          <p className="tablet-reloj-sub">{ahora}</p>
+          <p className="tablet-reloj-sub">{relojArgentina}</p>
         </div>
         <div className="tablet-reloj-header-actions">
           {modo === 'manual' ? (
@@ -370,7 +371,7 @@ export default function TabletRelojPage() {
               <div className="tablet-reloj-exito-icon">✓</div>
               <h2>{resultado.nombre || seleccionado?.nombre_completo}</h2>
               <p className="tablet-reloj-exito-tipo">
-                {resultado.tipo === 'entrada' ? 'Entrada' : 'Salida'} · {formatHora(resultado.hora)}
+                {resultado.tipo === 'entrada' ? 'Entrada' : 'Salida'} · {isoToArgentinaTime(resultado.hora)}
               </p>
               <p>{resultado.mensaje}</p>
             </div>
