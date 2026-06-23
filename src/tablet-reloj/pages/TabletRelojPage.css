@@ -1,0 +1,289 @@
+.tablet-reloj-page {
+  min-height: 100vh;
+  background: linear-gradient(160deg, #0a0c14 0%, #141a2e 45%, #0d111c 100%);
+  color: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+}
+
+.tablet-reloj-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tablet-reloj-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.tablet-reloj-sub {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.95rem;
+  text-transform: capitalize;
+}
+
+.tablet-reloj-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tablet-reloj-search-wrap {
+  padding: 12px 24px;
+}
+
+.tablet-reloj-search {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: #f8fafc;
+  font-size: 1.1rem;
+}
+
+.tablet-reloj-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  padding: 8px 24px 32px;
+  flex: 1;
+  overflow: auto;
+}
+
+.tablet-reloj-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.tablet-reloj-card:active {
+  transform: scale(0.98);
+}
+
+.tablet-reloj-card:hover {
+  border-color: rgba(235, 103, 27, 0.55);
+  background: rgba(235, 103, 27, 0.08);
+}
+
+.tablet-reloj-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #334155, #1e293b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+}
+
+.tablet-reloj-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tablet-reloj-card-text {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tablet-reloj-card-text strong {
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.tablet-reloj-card-text span {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.tablet-reloj-loading,
+.tablet-reloj-procesando {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #94a3b8;
+}
+
+.tablet-reloj-spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #eb671b;
+  border-radius: 50%;
+  animation: tablet-reloj-spin 0.9s linear infinite;
+}
+
+@keyframes tablet-reloj-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tablet-reloj-error-banner {
+  margin: 24px;
+  padding: 20px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  text-align: center;
+}
+
+.tablet-reloj-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.tablet-reloj-modal {
+  width: min(520px, 100%);
+  background: #121826;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.tablet-reloj-modal h2 {
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+.tablet-reloj-modal-hint {
+  text-align: center;
+  color: #94a3b8;
+  margin: 0 0 16px;
+}
+
+.tablet-reloj-video-wrap {
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 4 / 3;
+}
+
+.tablet-reloj-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.tablet-reloj-canvas {
+  display: none;
+}
+
+.tablet-reloj-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.tablet-reloj-modal-actions button {
+  flex: 1;
+}
+
+.tablet-reloj-btn-primary,
+.tablet-reloj-btn-ghost {
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.tablet-reloj-btn-primary {
+  background: #eb671b;
+  color: #fff;
+}
+
+.tablet-reloj-btn-ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tablet-reloj-exito {
+  text-align: center;
+  padding: 12px 0;
+}
+
+.tablet-reloj-exito-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  font-size: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(34, 197, 94, 0.45);
+}
+
+.tablet-reloj-exito-tipo {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.tablet-reloj-error-modal {
+  text-align: center;
+}
+
+.tablet-reloj-config {
+  margin: 0 24px 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tablet-reloj-config label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.tablet-reloj-config input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+  color: #f8fafc;
+}

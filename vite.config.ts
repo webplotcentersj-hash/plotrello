@@ -67,7 +67,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         admin: resolve(__dirname, 'admin.html'),
-        'tablet-firma': resolve(__dirname, 'tablet-firma.html')
+        'tablet-firma': resolve(__dirname, 'tablet-firma.html'),
+        'tablet-reloj': resolve(__dirname, 'tablet-reloj.html')
       },
       output: {
         entryFileNames: 'assets/[name].[hash].js',

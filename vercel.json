@@ -27,6 +27,14 @@
       "destination": "/tablet-firma.html"
     },
     {
+      "source": "/tablet-reloj",
+      "destination": "/tablet-reloj.html"
+    },
+    {
+      "source": "/tablet-reloj/(.*)",
+      "destination": "/tablet-reloj.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
@@ -92,6 +100,24 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/tablet-reloj",
+      "headers": [
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(self), microphone=(), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/tablet-reloj.html",
+      "headers": [
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(self), microphone=(), geolocation=()"
         }
       ]
     }
