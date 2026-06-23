@@ -2,17 +2,18 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 
 const MOTION_THRESHOLD = 0.08
 const MOTION_CHECKS = 2
-const CHECK_INTERVAL_MS = 800
+const CHECK_INTERVAL_MS = 600
+const DETECT_COOLDOWN_MS = 2500
 
-/** Detección de presencia por cambio de píxeles en cámara (mismo criterio que el tótem). */
+/** Detección de presencia por cambio de píxeles (canvas interno, no comparte con la captura). */
 export function useMotionPresence(
   videoRef: RefObject<HTMLVideoElement | null>,
-  canvasRef: RefObject<HTMLCanvasElement | null>,
   enabled: boolean,
   onDetected: () => void
 ) {
   const [activo, setActivo] = useState(false)
   const onDetectedRef = useRef(onDetected)
+  const lastDetectRef = useRef(0)
   onDetectedRef.current = onDetected
 
   useEffect(() => {
@@ -22,9 +23,9 @@ export function useMotionPresence(
     }
 
     const video = videoRef.current
-    const canvas = canvasRef.current
-    if (!video || !canvas) return
+    if (!video) return
 
+    const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -54,12 +55,17 @@ export function useMotionPresence(
         let diff = 0
         for (let i = 0; i < gray.length; i++) diff += Math.abs(gray[i] - lastFrame[i])
         const change = diff / (gray.length * 255)
-        setActivo(change > MOTION_THRESHOLD * 0.5)
+        setActivo(change > MOTION_THRESHOLD * 0.45)
         if (change > MOTION_THRESHOLD) {
           sameCount++
           if (sameCount >= MOTION_CHECKS) {
             sameCount = 0
-            onDetectedRef.current()
+            const now = Date.now()
+            if (now - lastDetectRef.current >= DETECT_COOLDOWN_MS) {
+              lastDetectRef.current = now
+              onDetectedRef.current()
+            }
+            timeoutId = setTimeout(check, CHECK_INTERVAL_MS)
             return
           }
         } else {
@@ -70,13 +76,13 @@ export function useMotionPresence(
       timeoutId = setTimeout(check, CHECK_INTERVAL_MS)
     }
 
-    timeoutId = setTimeout(check, 1200)
+    timeoutId = setTimeout(check, 1000)
     return () => {
       cancelled = true
       clearTimeout(timeoutId)
       setActivo(false)
     }
-  }, [enabled, videoRef, canvasRef])
+  }, [enabled, videoRef])
 
   return { sensorActivo: activo }
 }

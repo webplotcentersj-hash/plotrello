@@ -85,6 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const marcadoAt = String(body.marcado_at || '').trim() || new Date().toISOString()
+  // registrar_marcacion_tablet: fecha del día y tardanzas en America/Argentina/Buenos_Aires
 
   const { data, error } = await supabase.rpc('registrar_marcacion_tablet', {
     p_id_usuario: idUsuario,

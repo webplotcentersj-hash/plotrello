@@ -1,4 +1,5 @@
 import { plotLabFetch } from '../../utils/plotLabApiOrigin'
+import { getMarcacionTimestamptzIso } from '../../utils/dateUtils'
 
 const STORAGE_KEY = 'reloj_tablet_api_key'
 
@@ -19,6 +20,8 @@ export type MarcacionTabletResult = {
   tipo: 'entrada' | 'salida'
   fecha: string
   hora: string
+  /** HH:mm calculado en BD con America/Argentina/Buenos_Aires */
+  hora_argentina?: string
   tarde: boolean
   minutos_tarde: number
   horas_trabajadas: number | null
@@ -121,7 +124,7 @@ export async function marcarRelojTablet(opts: {
       confianza: opts.confianza,
       detalle: opts.detalle,
       dispositivo_id: opts.dispositivoId || 'tablet-reloj-1',
-      marcado_at: opts.marcadoAt
+      marcado_at: opts.marcadoAt ?? getMarcacionTimestamptzIso()
     })
   })
   const json = await parseApiJson<{ success?: boolean; data?: MarcacionTabletResult; error?: string }>(resp)

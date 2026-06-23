@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react'
+import {
+  ARGENTINA_TIMEZONE,
+  getMarcacionTimestamptzIso,
+  horaMarcacionTabletDisplay
+} from '../../utils/dateUtils'
 import {
   fetchEmpleadosRelojTablet,
   fotoEmpleadoUrl,
@@ -15,13 +20,73 @@ import { useMotionPresence } from '../hooks/useMotionPresence'
 import './TabletRelojPage.css'
 
 type Modo = 'auto' | 'manual'
-type Paso = 'esperando' | 'detectando' | 'procesando' | 'exito' | 'error'
+type Paso = 'esperando' | 'camara' | 'detectando' | 'procesando' | 'exito' | 'error'
 
-const SETTLE_MS = 1400
-const COOLDOWN_MS = 9000
-const AUTO_RESET_ERROR_MS = 5000
+const SETTLE_MS = 1200
+const COOLDOWN_MS = 8000
+const AUTO_RESET_ERROR_MS = 6000
 
-import { isoToArgentinaTime } from '../../utils/dateUtils'
+function tituloExitoMarcacion(tipo: 'entrada' | 'salida'): string {
+  return tipo === 'entrada' ? '¡Registrado!' : '¡Salida!'
+}
+
+function PanelExitoMarcacion({
+  resultado,
+  nombre
+}: {
+  resultado: MarcacionTabletResult
+  nombre?: string | null
+}) {
+  return (
+    <div className="tablet-reloj-exito">
+      <p className="tablet-reloj-exito-banner">{tituloExitoMarcacion(resultado.tipo)}</p>
+      <div className="tablet-reloj-exito-icon">✓</div>
+      {nombre ? <h2 className="tablet-reloj-exito-nombre">{nombre}</h2> : null}
+      <p className="tablet-reloj-exito-hora">
+        {horaMarcacionTabletDisplay(resultado)} · Argentina
+      </p>
+      {resultado.tipo === 'salida' && resultado.horas_trabajadas != null ? (
+        <p className="tablet-reloj-exito-detalle">{resultado.mensaje}</p>
+      ) : null}
+    </div>
+  )
+}
+
+async function esperarVideoListo(video: HTMLVideoElement, maxMs = 6000): Promise<boolean> {
+  const t0 = Date.now()
+  while (Date.now() - t0 < maxMs) {
+    if (video.readyState >= 2 && video.videoWidth > 64 && video.videoHeight > 64) return true
+    await new Promise((r) => window.setTimeout(r, 120))
+  }
+  return video.readyState >= 2 && video.videoWidth > 0
+}
+
+function useAnchorRect(ref: RefObject<HTMLElement | null>, active: boolean) {
+  const [rect, setRect] = useState<DOMRect | null>(null)
+
+  useEffect(() => {
+    if (!active) {
+      setRect(null)
+      return
+    }
+    const el = ref.current
+    if (!el) return
+
+    const update = () => setRect(el.getBoundingClientRect())
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [active, ref])
+
+  return rect
+}
 
 export default function TabletRelojPage() {
   const [empleados, setEmpleados] = useState<EmpleadoRelojTablet[]>([])
@@ -38,13 +103,20 @@ export default function TabletRelojPage() {
   const [camaraLista, setCamaraLista] = useState(false)
   const [enCooldown, setEnCooldown] = useState(false)
   const [relojArgentina, setRelojArgentina] = useState('')
+  const [ocupado, setOcupado] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const captureCanvasRef = useRef<HTMLCanvasElement>(null)
+  const kioscoWrapRef = useRef<HTMLDivElement>(null)
+  const modalHoleRef = useRef<HTMLDivElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const procesandoRef = useRef(false)
-  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pasoRef = useRef<Paso>('esperando')
+  const enCooldownRef = useRef(false)
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  pasoRef.current = paso
+  enCooldownRef.current = enCooldown
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -73,7 +145,8 @@ export default function TabletRelojPage() {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
-          timeZone: 'America/Argentina/Buenos_Aires'
+          hour12: false,
+          timeZone: ARGENTINA_TIMEZONE
         })
       )
     tick()
@@ -92,11 +165,19 @@ export default function TabletRelojPage() {
   const detenerCamara = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
+    if (videoRef.current) videoRef.current.srcObject = null
     setCamaraLista(false)
   }, [])
 
   const iniciarCamara = useCallback(async () => {
-    detenerCamara()
+    if (streamRef.current?.active) {
+      if (videoRef.current && !videoRef.current.srcObject) {
+        videoRef.current.srcObject = streamRef.current
+        await videoRef.current.play().catch(() => undefined)
+      }
+      setCamaraLista(true)
+      return
+    }
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
@@ -107,39 +188,40 @@ export default function TabletRelojPage() {
       await videoRef.current.play()
     }
     setCamaraLista(true)
-  }, [detenerCamara])
+  }, [])
 
   useEffect(() => {
-    if (modo === 'auto' && !loading && !error) {
-      void iniciarCamara().catch(() => {
-        setError('No se pudo acceder a la cámara. Revisá permisos del navegador.')
-      })
+    if (loading || error) return
+    let cancelled = false
+    void iniciarCamara().catch(() => {
+      if (!cancelled) setError('No se pudo acceder a la cámara. Revisá permisos del navegador.')
+    })
+    return () => {
+      cancelled = true
+      detenerCamara()
     }
-    return () => detenerCamara()
-  }, [modo, loading, error, iniciarCamara, detenerCamara])
+  }, [loading, error, iniciarCamara, detenerCamara])
 
-  const capturarSelfie = useCallback((): string | null => {
+  const capturarSelfie = useCallback(async (): Promise<string | null> => {
     const video = videoRef.current
-    const canvas = canvasRef.current
+    const canvas = captureCanvasRef.current
     if (!video || !canvas) return null
-    canvas.width = video.videoWidth || 640
-    canvas.height = video.videoHeight || 480
+    if (!(await esperarVideoListo(video))) return null
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
     const ctx = canvas.getContext('2d')
     if (!ctx) return null
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    return canvas.toDataURL('image/jpeg', 0.85)
+    return canvas.toDataURL('image/jpeg', 0.88)
   }, [])
 
   const volverEspera = useCallback(() => {
-    if (settleTimerRef.current) {
-      clearTimeout(settleTimerRef.current)
-      settleTimerRef.current = null
-    }
     setPaso('esperando')
     setSeleccionado(null)
     setResultado(null)
     setMensajeError('')
     procesandoRef.current = false
+    setOcupado(false)
   }, [])
 
   const iniciarCooldown = useCallback(() => {
@@ -162,9 +244,7 @@ export default function TabletRelojPage() {
             throw new Error(ver.mensaje || 'La foto no coincide con el legajo')
           }
         } catch (verErr) {
-          if (verErr instanceof Error && verErr.message.includes('coincide')) {
-            throw verErr
-          }
+          if (verErr instanceof Error && verErr.message.includes('coincide')) throw verErr
           detalle = 'Verificación omitida por error técnico'
         }
 
@@ -173,7 +253,7 @@ export default function TabletRelojPage() {
           selfieDataUrl: selfie,
           confianza,
           detalle,
-          marcadoAt: new Date().toISOString()
+          marcadoAt: getMarcacionTimestamptzIso()
         })
         setResultado(data)
         setPaso('exito')
@@ -185,34 +265,28 @@ export default function TabletRelojPage() {
         window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
       } finally {
         procesandoRef.current = false
+        setOcupado(false)
       }
     },
     [iniciarCooldown, volverEspera]
   )
 
-  const procesarAuto = useCallback(async () => {
-    if (procesandoRef.current || enCooldown) return
-    procesandoRef.current = true
+  const ejecutarFlujoAuto = useCallback(async () => {
     setPaso('detectando')
-
-    await new Promise((r) => setTimeout(r, SETTLE_MS))
-
-    const selfie = capturarSelfie()
+    await new Promise((r) => window.setTimeout(r, SETTLE_MS))
+    const selfie = await capturarSelfie()
     if (!selfie) {
       setPaso('error')
-      setMensajeError('No se pudo capturar la foto')
+      setMensajeError('No se pudo capturar la foto. Mantenete frente a la cámara.')
       procesandoRef.current = false
+      setOcupado(false)
       window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
       return
     }
-
     setPaso('procesando')
     try {
       const id = await identificarSelfieRelojTablet(selfie)
-      if (!id.match || !id.id_usuario) {
-        throw new Error(id.mensaje || 'No se reconoció ningún empleado')
-      }
-
+      if (!id.match || !id.id_usuario) throw new Error(id.mensaje || 'No se reconoció ningún empleado')
       const emp =
         empleados.find((e) => e.id_usuario === id.id_usuario) ||
         ({
@@ -224,87 +298,168 @@ export default function TabletRelojPage() {
           login: '',
           nombre_completo: id.nombre || 'Empleado'
         } satisfies EmpleadoRelojTablet)
-
       setSeleccionado(emp)
       await procesarMarcacion(selfie, emp)
     } catch (e) {
       setPaso('error')
       setMensajeError(e instanceof Error ? e.message : 'No se pudo identificar')
       procesandoRef.current = false
+      setOcupado(false)
       window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
     }
-  }, [capturarSelfie, empleados, enCooldown, procesarMarcacion, volverEspera])
+  }, [capturarSelfie, empleados, procesarMarcacion, volverEspera])
 
-  const onPresenciaDetectada = useCallback(() => {
-    if (modo !== 'auto' || paso !== 'esperando' || enCooldown || procesandoRef.current) return
-    if (settleTimerRef.current) return
-    settleTimerRef.current = setTimeout(() => {
-      settleTimerRef.current = null
-      void procesarAuto()
-    }, 0)
-  }, [modo, paso, enCooldown, procesarAuto])
+  const dispararMarcacion = useCallback(() => {
+    if (modo !== 'auto') return
+    if (pasoRef.current !== 'esperando' || enCooldownRef.current || procesandoRef.current) return
+    procesandoRef.current = true
+    setOcupado(true)
+    void ejecutarFlujoAuto()
+  }, [modo, ejecutarFlujoAuto])
 
   const { sensorActivo } = useMotionPresence(
     videoRef,
-    canvasRef,
-    modo === 'auto' && paso === 'esperando' && camaraLista && !enCooldown,
-    onPresenciaDetectada
+    modo === 'auto' && paso === 'esperando' && camaraLista && !enCooldown && !ocupado,
+    dispararMarcacion
   )
 
   const elegirEmpleadoManual = async (emp: EmpleadoRelojTablet) => {
-    if (procesandoRef.current) return
-    procesandoRef.current = true
+    if (ocupado || procesandoRef.current) return
     setSeleccionado(emp)
-    setPaso('detectando')
     setMensajeError('')
+    setPaso('camara')
     try {
-      if (!camaraLista) await iniciarCamara()
-      await new Promise((r) => setTimeout(r, SETTLE_MS))
-      const selfie = capturarSelfie()
-      if (!selfie) throw new Error('No se pudo capturar la foto')
-      await procesarMarcacion(selfie, emp)
-    } catch (e) {
+      await iniciarCamara()
+      const video = videoRef.current
+      if (video) await esperarVideoListo(video)
+    } catch {
       setPaso('error')
-      setMensajeError(e instanceof Error ? e.message : 'Error al marcar')
-      procesandoRef.current = false
+      setMensajeError('No se pudo activar la cámara')
       window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
     }
   }
 
+  const confirmarMarcacionManual = async () => {
+    if (!seleccionado || procesandoRef.current) return
+    procesandoRef.current = true
+    setOcupado(true)
+    try {
+      await new Promise((r) => window.setTimeout(r, 400))
+      const selfie = await capturarSelfie()
+      if (!selfie) throw new Error('No se pudo capturar la foto. Mirá a la cámara e intentá de nuevo.')
+      await procesarMarcacion(selfie, seleccionado)
+    } catch (e) {
+      setPaso('error')
+      setMensajeError(e instanceof Error ? e.message : 'Error al marcar')
+      procesandoRef.current = false
+      setOcupado(false)
+      window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
+    }
+  }
+
+  const videoModo =
+    modo === 'auto' && paso === 'esperando'
+      ? 'kiosco'
+      : paso === 'camara'
+        ? 'modal'
+        : 'standby'
+
+  const kioscoRect = useAnchorRect(kioscoWrapRef, videoModo === 'kiosco')
+  const modalRect = useAnchorRect(modalHoleRef, videoModo === 'modal')
+
+  const videoStyle = useMemo((): CSSProperties => {
+    const standby: CSSProperties = {
+      position: 'fixed',
+      width: 640,
+      height: 480,
+      right: -10000,
+      top: 0,
+      zIndex: 1,
+      objectFit: 'cover',
+      transform: 'scaleX(-1)',
+      pointerEvents: 'none'
+    }
+    if (videoModo === 'kiosco' && kioscoRect) {
+      return {
+        position: 'fixed',
+        left: kioscoRect.left,
+        top: kioscoRect.top,
+        width: kioscoRect.width,
+        height: kioscoRect.height,
+        zIndex: 1,
+        objectFit: 'cover',
+        transform: 'scaleX(-1)',
+        borderRadius: 20
+      }
+    }
+    if (videoModo === 'modal' && modalRect) {
+      return {
+        position: 'fixed',
+        left: modalRect.left,
+        top: modalRect.top,
+        width: modalRect.width,
+        height: modalRect.height,
+        zIndex: 60,
+        objectFit: 'cover',
+        transform: 'scaleX(-1)',
+        borderRadius: 16,
+        border: '2px solid rgba(255, 255, 255, 0.15)',
+        boxShadow: '0 24px 80px rgba(0, 0, 0, 0.55)'
+      }
+    }
+    return standby
+  }, [videoModo, kioscoRect, modalRect])
+
+  const cambiarModo = (nuevo: Modo) => {
+    if (nuevo === modo) return
+    volverEspera()
+    setModo(nuevo)
+  }
+
   const estadoTexto =
-    paso === 'detectando'
-      ? 'Detectando presencia…'
-      : paso === 'procesando'
-        ? 'Identificando y registrando…'
-        : paso === 'exito'
-          ? 'Marcación registrada'
-          : paso === 'error'
-            ? mensajeError
-            : enCooldown
-              ? 'Esperá unos segundos antes de marcar de nuevo'
-              : 'Acercate al reloj — el sensor te detecta solo'
+    paso === 'camara'
+      ? 'Confirmá tu marcación'
+      : paso === 'detectando'
+        ? 'Posate frente a la cámara…'
+        : paso === 'procesando'
+          ? 'Verificando y registrando…'
+          : paso === 'exito'
+            ? 'Marcación registrada'
+            : paso === 'error'
+              ? mensajeError
+              : enCooldown
+                ? 'Esperá unos segundos antes de marcar de nuevo'
+                : 'Acercate al reloj — el sensor te detecta solo'
+
+  const puedeMarcarAuto = modo === 'auto' && paso === 'esperando' && !enCooldown && !ocupado
 
   return (
     <div className={`tablet-reloj-page ${modo === 'auto' ? 'tablet-reloj-page--kiosco' : ''}`}>
       <header className="tablet-reloj-header">
-        <div>
+        <div className="tablet-reloj-header-brand">
           <h1>Reloj Plot Lab</h1>
-          <p className="tablet-reloj-sub">{relojArgentina}</p>
+          <p className="tablet-reloj-sub" title="Hora de Argentina (Buenos Aires)">
+            {relojArgentina}
+          </p>
         </div>
         <div className="tablet-reloj-header-actions">
           {modo === 'manual' ? (
-            <button type="button" className="tablet-reloj-btn-ghost" onClick={() => setModo('auto')}>
-              Modo automático
+            <button type="button" className="tablet-reloj-btn-ghost" onClick={() => cambiarModo('auto')}>
+              Automático
             </button>
           ) : (
-            <button type="button" className="tablet-reloj-btn-ghost" onClick={() => setModo('manual')}>
-              Buscar manual
+            <button type="button" className="tablet-reloj-btn-ghost" onClick={() => cambiarModo('manual')}>
+              Manual
             </button>
           )}
-          <button type="button" className="tablet-reloj-btn-ghost" onClick={() => void cargar()}>
-            Actualizar
+          <button type="button" className="tablet-reloj-btn-ghost tablet-reloj-btn-icon" onClick={() => void cargar()}>
+            ↻
           </button>
-          <button type="button" className="tablet-reloj-btn-ghost" onClick={() => setMostrarConfig((v) => !v)}>
+          <button
+            type="button"
+            className="tablet-reloj-btn-ghost tablet-reloj-btn-icon"
+            onClick={() => setMostrarConfig((v) => !v)}
+          >
             ⚙
           </button>
         </div>
@@ -349,39 +504,39 @@ export default function TabletRelojPage() {
         </div>
       ) : modo === 'auto' ? (
         <div className="tablet-reloj-kiosco">
-          <div className="tablet-reloj-kiosco-video-wrap">
-            <video ref={videoRef} playsInline muted className="tablet-reloj-kiosco-video" />
-            <canvas ref={canvasRef} className="tablet-reloj-canvas" />
+          <div className="tablet-reloj-kiosco-video-wrap" ref={kioscoWrapRef}>
+            <div className="tablet-reloj-kiosco-hole" />
             <div className="tablet-reloj-kiosco-overlay">
               <div
                 className={`tablet-reloj-sensor ${sensorActivo ? 'tablet-reloj-sensor--activo' : ''} ${paso !== 'esperando' ? 'tablet-reloj-sensor--busy' : ''}`}
               >
                 <span className="tablet-reloj-sensor-dot" />
-                Sensor
+                {paso === 'esperando' ? 'Sensor activo' : 'Procesando'}
               </div>
               <p className="tablet-reloj-kiosco-hint">{estadoTexto}</p>
-              {paso === 'procesando' || paso === 'detectando' ? (
+              {(paso === 'procesando' || paso === 'detectando') && (
                 <div className="tablet-reloj-spinner tablet-reloj-spinner--lg" />
-              ) : null}
+              )}
+              {puedeMarcarAuto && (
+                <button type="button" className="tablet-reloj-btn-marcar" onClick={dispararMarcacion}>
+                  Marcar ahora
+                </button>
+              )}
             </div>
+            {paso === 'exito' && resultado && (
+              <div className="tablet-reloj-exito-overlay">
+                <PanelExitoMarcacion
+                  resultado={resultado}
+                  nombre={resultado.nombre || seleccionado?.nombre_completo}
+                />
+              </div>
+            )}
           </div>
-
-          {paso === 'exito' && resultado ? (
-            <div className="tablet-reloj-exito tablet-reloj-exito--kiosco">
-              <div className="tablet-reloj-exito-icon">✓</div>
-              <h2>{resultado.nombre || seleccionado?.nombre_completo}</h2>
-              <p className="tablet-reloj-exito-tipo">
-                {resultado.tipo === 'entrada' ? 'Entrada' : 'Salida'} · {isoToArgentinaTime(resultado.hora)}
-              </p>
-              <p>{resultado.mensaje}</p>
-            </div>
-          ) : null}
-
-          {paso === 'error' ? (
+          {paso === 'error' && (
             <div className="tablet-reloj-error-kiosco">
               <p>{mensajeError}</p>
             </div>
-          ) : null}
+          )}
         </div>
       ) : (
         <>
@@ -403,6 +558,7 @@ export default function TabletRelojPage() {
                   type="button"
                   className="tablet-reloj-card"
                   onClick={() => void elegirEmpleadoManual(emp)}
+                  disabled={ocupado || paso !== 'esperando'}
                 >
                   <div className="tablet-reloj-avatar">
                     {foto ? <img src={foto} alt="" /> : <span>{inicialesEmpleado(emp)}</span>}
@@ -415,9 +571,65 @@ export default function TabletRelojPage() {
               )
             })}
           </div>
-          <canvas ref={canvasRef} className="tablet-reloj-canvas" />
-          <video ref={videoRef} playsInline muted className="tablet-reloj-canvas" aria-hidden />
         </>
+      )}
+
+      <canvas ref={captureCanvasRef} className="tablet-reloj-canvas" aria-hidden />
+
+      <video
+        ref={videoRef}
+        playsInline
+        muted
+        autoPlay
+        className="tablet-reloj-video"
+        style={videoStyle}
+        aria-hidden={videoModo === 'standby'}
+      />
+
+      {paso === 'camara' && seleccionado && (
+        <div className="tablet-reloj-overlay" role="dialog" aria-modal="true">
+          <div className="tablet-reloj-modal tablet-reloj-modal--camara">
+            <h2>{seleccionado.nombre_completo || seleccionado.login}</h2>
+            <p className="tablet-reloj-modal-hint">Mirá a la cámara y confirmá tu marcación</p>
+            <div ref={modalHoleRef} className="tablet-reloj-modal-video-hole" />
+            <div className="tablet-reloj-modal-actions">
+              <button type="button" className="tablet-reloj-btn-ghost" onClick={volverEspera}>
+                Cancelar
+              </button>
+              <button type="button" className="tablet-reloj-btn-primary" onClick={() => void confirmarMarcacionManual()}>
+                Marcar ahora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modo === 'manual' && paso !== 'esperando' && paso !== 'camara' && (
+        <div className="tablet-reloj-overlay" role="status">
+          <div className="tablet-reloj-modal">
+            {(paso === 'procesando' || paso === 'detectando') && (
+              <div className="tablet-reloj-procesando">
+                <div className="tablet-reloj-spinner tablet-reloj-spinner--lg" />
+                <p>{estadoTexto}</p>
+              </div>
+            )}
+            {paso === 'exito' && resultado && (
+              <PanelExitoMarcacion
+                resultado={resultado}
+                nombre={resultado.nombre || seleccionado?.nombre_completo}
+              />
+            )}
+            {paso === 'error' && (
+              <div className="tablet-reloj-error-modal">
+                <h2>No se pudo marcar</h2>
+                <p>{mensajeError}</p>
+                <button type="button" className="tablet-reloj-btn-primary" onClick={volverEspera}>
+                  Volver
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

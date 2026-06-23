@@ -3,6 +3,27 @@
  * Zona horaria: America/Argentina/Buenos_Aires (UTC-3)
  */
 
+export const ARGENTINA_TIMEZONE = 'America/Argentina/Buenos_Aires' as const
+
+/**
+ * Instante UTC (ISO) del momento de marcación.
+ * En Supabase, registrar_marcacion_tablet interpreta fecha/hora de negocio en Argentina.
+ */
+export function getMarcacionTimestamptzIso(): string {
+  return new Date().toISOString()
+}
+
+/**
+ * Hora HH:mm en Argentina para mostrar en tablet (prioriza valor calculado en BD).
+ */
+export function horaMarcacionTabletDisplay(result: {
+  hora_argentina?: string | null
+  hora?: string | null
+}): string {
+  if (result.hora_argentina) return result.hora_argentina
+  return isoToArgentinaTime(result.hora ?? '')
+}
+
 /**
  * Obtiene la fecha actual en zona horaria de Argentina
  */
@@ -16,7 +37,7 @@ export function getArgentinaDate(): Date {
  */
 export function getArgentinaDateString(): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: ARGENTINA_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -26,7 +47,7 @@ export function getArgentinaDateString(): string {
   const d = parts.find((p) => p.type === 'day')?.value?.padStart(2, '0')
   if (y && m && d) return `${y}-${m}-${d}`
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: ARGENTINA_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -39,7 +60,7 @@ export function getArgentinaDateString(): string {
  */
 export function formatArgentinaDateOnly(date: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: ARGENTINA_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -51,7 +72,7 @@ export function formatArgentinaDateOnly(date: Date): string {
  */
 export function formatArgentinaTimeOnly(date: Date): string {
   return new Intl.DateTimeFormat('es-AR', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: ARGENTINA_TIMEZONE,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
@@ -79,7 +100,7 @@ export function timeStringToSecondsSinceMidnight(t: string): number | null {
 /** Hora de un instante visto en Argentina (segundos desde medianoche ese día AR). */
 export function dateToArgentinaSecondsSinceMidnight(date: Date): number {
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: ARGENTINA_TIMEZONE,
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -194,7 +215,7 @@ export function isoToArgentinaTime(value: string): string {
  */
 export function getArgentinaTime(): { hours: number; minutes: number; seconds: number } {
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: ARGENTINA_TIMEZONE,
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -238,7 +259,7 @@ export function formatArgentinaDate(date: Date | string, formatStr: string = 'dd
 
   if (useDefaultEsAR) {
     return d.toLocaleDateString('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires',
+      timeZone: ARGENTINA_TIMEZONE,
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
@@ -266,7 +287,7 @@ export function formatArgentinaDate(date: Date | string, formatStr: string = 'dd
 export function formatArgentinaTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return d.toLocaleTimeString('es-AR', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: ARGENTINA_TIMEZONE,
     hour: '2-digit',
     minute: '2-digit'
   })
@@ -278,7 +299,7 @@ export function formatArgentinaTime(date: Date | string): string {
 export function formatArgentinaDateTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return d.toLocaleString('es-AR', {
-    timeZone: 'America/Argentina/Buenos_Aires',
+    timeZone: ARGENTINA_TIMEZONE,
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
