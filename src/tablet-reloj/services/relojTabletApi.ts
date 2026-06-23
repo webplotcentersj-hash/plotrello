@@ -51,6 +51,21 @@ function headers(): HeadersInit {
   return key ? { 'X-Reloj-Tablet-Key': key } : {}
 }
 
+async function plotLabFetchTimeout(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const ctrl = new AbortController()
+  const timer = window.setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    return await plotLabFetch(path, { ...init, signal: ctrl.signal })
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('La identificación tardó demasiado. Parate de frente e intentá de nuevo.')
+    }
+    throw e
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
 async function parseApiJson<T>(resp: Response): Promise<T> {
   const text = await resp.text()
   try {
@@ -85,12 +100,27 @@ export type IdentificacionTabletResult = {
   mensaje: string
 }
 
+export async function precalentarLegajosRelojTablet(): Promise<void> {
+  try {
+    await plotLabFetch('/api/plotai/reloj-tablet-precalentar', {
+      method: 'POST',
+      headers: headers()
+    })
+  } catch {
+    /* no bloquear la UI */
+  }
+}
+
 export async function identificarSelfieRelojTablet(selfieDataUrl: string): Promise<IdentificacionTabletResult> {
-  const resp = await plotLabFetch('/api/plotai/reloj-tablet-identificar', {
-    method: 'POST',
-    headers: { ...headers(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ selfie_data_url: selfieDataUrl })
-  })
+  const resp = await plotLabFetchTimeout(
+    '/api/plotai/reloj-tablet-identificar',
+    {
+      method: 'POST',
+      headers: { ...headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selfie_data_url: selfieDataUrl })
+    },
+    50_000
+  )
   const json = await parseApiJson<IdentificacionTabletResult & { success?: boolean; error?: string }>(resp)
   if (!resp.ok || json.success === false) {
     throw new Error(json.error || 'Identificación fallida')

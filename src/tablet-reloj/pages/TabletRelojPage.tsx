@@ -12,6 +12,7 @@ import {
   inicialesEmpleado,
   identificarSelfieRelojTablet,
   marcarRelojTablet,
+  precalentarLegajosRelojTablet,
   setRelojTabletApiKey,
   verificarSelfieRelojTablet,
   type EmpleadoRelojTablet,
@@ -113,6 +114,7 @@ export default function TabletRelojPage() {
     try {
       const list = await fetchEmpleadosRelojTablet()
       setEmpleados(list)
+      void precalentarLegajosRelojTablet()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error de conexión')
     } finally {

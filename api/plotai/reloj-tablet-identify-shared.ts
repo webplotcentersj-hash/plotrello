@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
+import sharp from 'sharp'
 
 export type SelfieParsed = { mimeType: string; base64: string }
 
@@ -15,12 +16,13 @@ export type EmpleadoConFotoUrl = {
 }
 
 const LEGAJO_CACHE = new Map<string, { mimeType: string; base64: string; at: number }>()
-const CACHE_TTL_MS = 15 * 60 * 1000
-/** Hasta 20 legajos en una sola llamada Gemini (con miniaturas). */
-const BATCH_SIZE = 20
+const CACHE_TTL_MS = 20 * 60 * 1000
+const BATCH_SIZE = 12
 const MATCH_MIN = 70
-const EARLY_EXIT_CONF = 88
-const GEMINI_MODEL = 'gemini-2.0-flash'
+const EARLY_EXIT_CONF = 85
+const GEMINI_MODEL = 'gemini-2.5-flash'
+const THUMB_PX = 224
+const GEMINI_TIMEOUT_MS = 28_000
 
 export function stripDataUrl(dataUrl: string): SelfieParsed | null {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
@@ -48,26 +50,37 @@ export function tryParseJson(text: string): Record<string, unknown> | null {
   }
 }
 
-/** Miniatura Supabase para no saturar Gemini ni el timeout de Vercel. */
+/** @deprecated Supabase render devuelve 403 en este proyecto; se usa sharp. */
 export function legajoThumbUrl(url: string): string {
-  const u = String(url || '').trim()
-  if (!u) return u
-  if (u.includes('/storage/v1/render/image/public/')) return u
-  if (u.includes('/storage/v1/object/public/')) {
-    const rendered = u.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
-    return `${rendered}?width=256&height=256&resize=cover`
+  return String(url || '').trim()
+}
+
+async function resizeForAi(buf: Buffer): Promise<SelfieParsed> {
+  const out = await sharp(buf)
+    .rotate()
+    .resize(THUMB_PX, THUMB_PX, { fit: 'cover', position: 'centre' })
+    .jpeg({ quality: 70, mozjpeg: true })
+    .toBuffer()
+  return { mimeType: 'image/jpeg', base64: out.toString('base64') }
+}
+
+export async function compactSelfieForAi(selfie: SelfieParsed): Promise<SelfieParsed> {
+  try {
+    const buf = Buffer.from(selfie.base64, 'base64')
+    if (buf.length <= 120_000) return selfie
+    return await resizeForAi(buf)
+  } catch {
+    return selfie
   }
-  return u
 }
 
 async function fetchImageRaw(url: string): Promise<SelfieParsed | null> {
   try {
-    const resp = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const resp = await fetch(url, { signal: AbortSignal.timeout(10_000) })
     if (!resp.ok) return null
     const buf = Buffer.from(await resp.arrayBuffer())
-    if (buf.length > 800_000) return null
-    const mimeType = resp.headers.get('content-type') || 'image/jpeg'
-    return { mimeType, base64: buf.toString('base64') }
+    if (buf.length > 6_000_000) return null
+    return await resizeForAi(buf)
   } catch {
     return null
   }
@@ -80,12 +93,24 @@ export async function fetchImageAsBase64Cached(url: string): Promise<SelfieParse
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
     return { mimeType: hit.mimeType, base64: hit.base64 }
   }
-  const thumb = legajoThumbUrl(key)
-  let parsed = await fetchImageRaw(thumb)
-  if (!parsed && thumb !== key) parsed = await fetchImageRaw(key)
+  const parsed = await fetchImageRaw(key)
   if (!parsed) return null
   LEGAJO_CACHE.set(key, { ...parsed, at: Date.now() })
   return parsed
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} tardó demasiado`)), ms)
+      })
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 async function identificarEnLote(
@@ -122,10 +147,14 @@ Reglas:
     parts.push({ inlineData: { mimeType: c.foto.mimeType, data: c.foto.base64 } })
   }
 
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: [{ role: 'user', parts }]
-  })
+  const response = await withTimeout(
+    ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [{ role: 'user', parts }]
+    }),
+    GEMINI_TIMEOUT_MS,
+    'Gemini'
+  )
 
   const parsed = tryParseJson(response.text ?? '')
   const confianza = Math.min(100, Math.max(0, Number(parsed?.confianza ?? 0)))
@@ -154,7 +183,7 @@ async function cargarCandidatosLote(empleados: EmpleadoConFotoUrl[]): Promise<Ca
     }))
 }
 
-/** Carga fotos por lote y compara en una llamada Gemini por lote (miniaturas). */
+/** Carga miniaturas por lote y compara en Gemini (liviano para Vercel). */
 export async function identificarEmpleadoRapido(
   apiKey: string,
   selfie: SelfieParsed,
@@ -162,6 +191,7 @@ export async function identificarEmpleadoRapido(
 ): Promise<{ id_usuario: number; confianza: number; nombre: string } | null> {
   if (!empleados.length) return null
 
+  const selfieAi = await compactSelfieForAi(selfie)
   let mejor: { id_usuario: number; confianza: number; nombre: string } | null = null
 
   for (let i = 0; i < empleados.length; i += BATCH_SIZE) {
@@ -169,7 +199,7 @@ export async function identificarEmpleadoRapido(
     const candidatos = await cargarCandidatosLote(slice)
     if (!candidatos.length) continue
 
-    const hit = await identificarEnLote(apiKey, selfie, candidatos)
+    const hit = await identificarEnLote(apiKey, selfieAi, candidatos)
     if (hit && (!mejor || hit.confianza > mejor.confianza)) mejor = hit
     if (mejor && mejor.confianza >= EARLY_EXIT_CONF) break
   }

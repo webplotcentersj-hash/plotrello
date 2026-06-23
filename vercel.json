@@ -2,6 +2,7 @@
   "crons": [],
   "functions": {
     "api/plotai/reloj-tablet-identificar.ts": { "maxDuration": 60 },
+    "api/plotai/reloj-tablet-precalentar.ts": { "maxDuration": 60 },
     "api/plotai/reloj-tablet-marcar-auto.ts": { "maxDuration": 60 },
     "api/plotai/reloj-tablet-verificar.ts": { "maxDuration": 30 }
   },
