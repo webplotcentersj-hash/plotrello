@@ -59,7 +59,7 @@ async function parseApiJson<T>(resp: Response): Promise<T> {
 }
 
 export async function fetchEmpleadosRelojTablet(): Promise<EmpleadoRelojTablet[]> {
-  const resp = await plotLabFetch('/api/reloj-tablet/empleados', { headers: headers() })
+  const resp = await plotLabFetch('/api/plotai/reloj-tablet-empleados', { headers: headers() })
   const json = await parseApiJson<{ success?: boolean; empleados?: EmpleadoRelojTablet[]; error?: string }>(resp)
   if (!resp.ok || !json.success) {
     throw new Error(json.error || 'No se pudo cargar empleados')
@@ -71,7 +71,7 @@ export async function verificarSelfieRelojTablet(
   idUsuario: number,
   selfieDataUrl: string
 ): Promise<VerificacionTabletResult> {
-  const resp = await plotLabFetch('/api/reloj-tablet/verificar', {
+  const resp = await plotLabFetch('/api/plotai/reloj-tablet-verificar', {
     method: 'POST',
     headers: { ...headers(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ id_usuario: idUsuario, selfie_data_url: selfieDataUrl })
@@ -90,7 +90,7 @@ export async function marcarRelojTablet(opts: {
   detalle?: string
   dispositivoId?: string
 }): Promise<MarcacionTabletResult> {
-  const resp = await plotLabFetch('/api/reloj-tablet/marcar', {
+  const resp = await plotLabFetch('/api/plotai/reloj-tablet-marcar', {
     method: 'POST',
     headers: { ...headers(), 'Content-Type': 'application/json' },
     body: JSON.stringify({
