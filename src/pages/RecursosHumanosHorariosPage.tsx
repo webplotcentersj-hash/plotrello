@@ -44,6 +44,7 @@ import {
   parsearHorariosReales,
   diasDelPeriodo,
   matchearUsuario,
+  inferirEmailPlotcenter,
   formatHoras,
   CONFIG_CALCULO_DEFAULT,
   type ResumenEmpleado,
@@ -324,6 +325,11 @@ const RecursosHumanosHorariosPage = () => {
             usuarioActual={usuario}
             reporteInicial={relojReporteJump}
             onReporteInicialConsumido={() => setRelojReporteJump(null)}
+            onImportadoAsistencia={(desde, hasta) => {
+              setFechaDesde(desde)
+              setFechaHasta(hasta)
+              setActiveTab('asistencia')
+            }}
           />
         )}
       </div>
@@ -340,12 +346,14 @@ const RelojImportTab = ({
   usuarios,
   usuarioActual,
   reporteInicial,
-  onReporteInicialConsumido
+  onReporteInicialConsumido,
+  onImportadoAsistencia
 }: {
   usuarios: UsuarioRecord[]
   usuarioActual: { id: number } | null
   reporteInicial?: RrhhRelojReporteSemanal | null
   onReporteInicialConsumido?: () => void
+  onImportadoAsistencia?: (fechaDesde: string, fechaHasta: string) => void
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [modo, setModo] = useState<ModoRelojTab>('calendario')
@@ -387,7 +395,12 @@ const RelojImportTab = ({
   const [resFijos, setResFijos] = useState('')
 
   const usuariosLite = useMemo(
-    () => usuarios.map((u) => ({ id: u.id, nombre: u.nombre })),
+    () =>
+      usuarios.map((u) => ({
+        id: u.id,
+        nombre: u.nombre,
+        email: u.nombre.includes('@') ? u.nombre : inferirEmailPlotcenter(u.nombre)
+      })),
     [usuarios]
   )
 
@@ -723,6 +736,9 @@ const RelojImportTab = ({
       })
       setResultadoGuardado(msg)
       setModo('reporte')
+      if (dias.length && onImportadoAsistencia) {
+        onImportadoAsistencia(dias[0], dias[dias.length - 1])
+      }
     } catch (e) {
       setErrorGuardado(e instanceof Error ? e.message : 'Error al guardar el informe.')
     } finally {
@@ -748,14 +764,15 @@ const RelojImportTab = ({
       }
       setMarcaciones(marc)
       setResumenes(res)
-      setPlanilla(planillaDirecta?.length ? planillaDirecta : construirPlanilla(res))
+      const pl = planillaDirecta?.length ? planillaDirecta : construirPlanilla(res)
+      setPlanilla(pl)
       const dias = diasPeriodo?.length ? diasPeriodo : diasDelPeriodo(marc)
       setDiasPeriodo(dias)
       setCeldaEdit(null)
       setInformeIa('')
       setErrorGuardado('')
       setModo('reporte')
-      void autoGuardarImportacion(construirPlanilla(res), dias, cfg, nombreArchivo)
+      void autoGuardarImportacion(pl, dias, cfg, nombreArchivo)
     } catch (e) {
       console.error(e)
       setError('No se pudo leer el archivo. Probá exportarlo de nuevo en formato Excel.')
@@ -1043,8 +1060,8 @@ const RelojImportTab = ({
         <h2>🕒 Importar asistencia del reloj biométrico</h2>
         <p>
           Subí el Excel que exporta el reloj (marcaciones crudas) o la planilla de asistencia de Plot Lab
-          (Empleado + columnas por fecha). Al procesarlo se guarda automáticamente el informe semanal con
-          todo el desglose, la asistencia en Plot Lab y las tardanzas en el legajo (si está activado).
+          (Empleado + columnas por fecha). Al procesarlo se guarda el informe, se vuelca la asistencia en Plot Lab
+          según las fechas del archivo y se abre la pestaña Asistencia con ese período.
         </p>
       </div>
 

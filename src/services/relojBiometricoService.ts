@@ -223,10 +223,10 @@ function detectarTipo(descripcion: string, tipoRegistro: unknown): TipoMarcacion
   if (desc.includes('FALTA') || desc.includes('AUSENT')) return 'falta'
   if (desc.startsWith('ENTRA')) return 'entrada'
   if (desc.startsWith('SALI')) return 'salida'
-  // Tipo de registro: 0 = entrada, 1 = salida (formato crudo del reloj)
-  const tr = String(tipoRegistro ?? '').trim()
-  if (tr === '0') return 'entrada'
-  if (tr === '1') return 'salida'
+  const tr = normalizarTexto(String(tipoRegistro ?? ''))
+  // Tipo de registro: 0/1 (numérico) o ENTRADA/SALIDA (texto del export del reloj)
+  if (tr === '0' || tr === 'ENTRADA' || tr.startsWith('ENTRA')) return 'entrada'
+  if (tr === '1' || tr === 'SALIDA' || tr.startsWith('SALI')) return 'salida'
   if (desc) return 'otro'
   return 'otro'
 }
@@ -245,7 +245,8 @@ export function parsearMarcaciones(file: ArrayBuffer): MarcacionReloj[] {
 
     const descripcion = String(row['descripcion'] ?? '').trim()
     const tipoRegistro = row['tipoderegistro']
-    const idUsuario = String(row['iddeusuario'] ?? row['usuarionro'] ?? '').trim() || nombre
+    const idUsuario =
+      String(row['iddeusuario'] ?? row['usuarionro'] ?? row['codigodeidentificacion'] ?? '').trim() || nombre
     const departamento = String(row['departamento'] ?? '').trim().toUpperCase()
 
     marcaciones.push({
@@ -854,6 +855,72 @@ function tokensReloj(nombre: string): string[] {
     .filter((t) => t.length >= 2)
 }
 
+const PLOTCENTER_EMAIL_DOMAIN = 'plotcenter.com.ar'
+
+/** Login corporativo: inicial(nombre) + apellido → "rtabera" desde "Rosa Tabera". */
+function loginDesdeNombreDisplay(nombre: string): string | null {
+  const tokens = tokensReloj(nombre)
+  if (tokens.length < 2 || nombre.includes('@')) return null
+  const nombrePila = tokens[0]
+  const apellido = tokens[tokens.length - 1]
+  if (nombrePila.length < 1 || apellido.length < 3) return null
+  return nombrePila[0] + apellido
+}
+
+/** Email inferido @plotcenter.com.ar para matcheo cuando el usuario no trae email explícito. */
+export function inferirEmailPlotcenter(nombre: string): string | null {
+  const local = loginDesdeNombreDisplay(nombre)
+  return local ? `${local}@${PLOTCENTER_EMAIL_DOMAIN}` : null
+}
+
+/** Logins posibles según lo que exporta el reloj (email o APELLIDO NOMBRE). */
+function localesReloj(nombreReloj: string): Set<string> {
+  const out = new Set<string>()
+  const raw = String(nombreReloj || '').trim()
+  if (!raw) return out
+
+  if (raw.includes('@')) {
+    const l = loginLocal(raw)
+    if (l) out.add(l)
+    return out
+  }
+
+  const tokens = tokensReloj(raw)
+  if (!tokens.length) return out
+
+  const largos = tokens.filter((t) => t.length >= 3)
+  for (const t of largos) out.add(t)
+
+  // Reloj biométrico: APELLIDO NOMBRE — "TABERA ROSA MARIA" → rtabera
+  if (tokens.length >= 2) {
+    const apellido = tokens[0]
+    const nombre = tokens[1]
+    if (apellido.length >= 3 && nombre.length >= 1) out.add(nombre[0] + apellido)
+  }
+
+  for (const a of largos) {
+    for (const b of largos) {
+      if (a === b) continue
+      out.add(a[0] + b)
+    }
+  }
+  return out
+}
+
+/** Logins posibles del usuario Plot Lab (email, nombre o inferido). */
+function localesUsuario(identidad: string): Set<string> {
+  const out = new Set<string>()
+  const raw = String(identidad || '').trim()
+  if (!raw) return out
+  const l = loginLocal(raw)
+  if (l) out.add(l)
+  if (!raw.includes('@')) {
+    const inf = loginDesdeNombreDisplay(raw)
+    if (inf) out.add(inf)
+  }
+  return out
+}
+
 /** Longitud de la subcadena común más larga (tolera prefijos y typos menores). */
 function lcsLongitud(a: string, b: string): number {
   if (!a || !b) return 0
@@ -897,12 +964,23 @@ function damerauLevenshtein(a: string, b: string): number {
 }
 
 /**
- * Puntaje de coincidencia entre el nombre del reloj (ej. "BARROS JUAN MIGUEL")
- * y el login de un usuario (ej. "jbarros@plotcenter.com.ar" → "jbarros").
+ * Puntaje de coincidencia entre el nombre del reloj (ej. "TABERA ROSA MARIA" o
+ * "rtabera@plotcenter.com.ar") y el usuario Plot Lab (login/email o nombre).
  */
 export function puntajeMatch(nombreReloj: string, nombreUsuario: string): number {
-  const local = loginLocal(nombreUsuario)
-  const tokens = tokensReloj(nombreReloj)
+  const relojLocales = localesReloj(nombreReloj)
+  const userLocales = localesUsuario(nombreUsuario)
+  if (!relojLocales.size || !userLocales.size) return 0
+
+  for (const r of relojLocales) {
+    for (const u of userLocales) {
+      if (r === u) return 25
+      if (r.length >= 4 && u.length >= 4 && (r.includes(u) || u.includes(r))) return 18
+    }
+  }
+
+  const local = [...userLocales][0]
+  const tokens = [...relojLocales]
   if (!local || !tokens.length) return 0
 
   let mejorToken = 0
@@ -916,22 +994,11 @@ export function puntajeMatch(nombreReloj: string, nombreUsuario: string): number
     }
   }
 
-  // Bonus por inicial: el login suele ser inicial(nombre) + apellido.
   const inicialBonus = tokens.some((t) => t[0] === local[0]) ? 3 : 0
   const scoreContencion = mejorToken + (mejorToken > 0 ? inicialBonus : 0)
 
-  // Coincidencia difusa contra logins candidatos (inicial+apellido, apellido solo).
-  const largos = tokens.filter((t) => t.length >= 3)
-  const candidatos = new Set<string>()
-  for (const t of largos) candidatos.add(t)
-  for (const a of largos) {
-    for (const b of largos) {
-      if (a === b) continue
-      candidatos.add(a[0] + b)
-    }
-  }
   let mejorFuzzy = 0
-  for (const cand of candidatos) {
+  for (const cand of relojLocales) {
     if (Math.abs(cand.length - local.length) > 3) continue
     const dist = damerauLevenshtein(local, cand)
     const score = dist === 0 ? 20 : dist === 1 ? 14 : dist === 2 ? 8 : 0
@@ -941,14 +1008,25 @@ export function puntajeMatch(nombreReloj: string, nombreUsuario: string): number
   return Math.max(scoreContencion, mejorFuzzy)
 }
 
+export type UsuarioRelojMatch = { id: number; nombre: string; email?: string | null }
+
 export function matchearUsuario(
   nombreReloj: string,
-  usuarios: Array<{ id: number; nombre: string }>
+  usuarios: UsuarioRelojMatch[]
 ): { id: number; nombre: string } | null {
   let mejor: { id: number; nombre: string } | null = null
   let mejorScore = 0
   for (const u of usuarios) {
-    const score = puntajeMatch(nombreReloj, u.nombre)
+    const identidades = [u.nombre]
+    if (u.email) identidades.push(u.email)
+    else {
+      const inf = inferirEmailPlotcenter(u.nombre)
+      if (inf) identidades.push(inf)
+    }
+    let score = 0
+    for (const id of identidades) {
+      score = Math.max(score, puntajeMatch(nombreReloj, id))
+    }
     if (score > mejorScore) {
       mejorScore = score
       mejor = u
