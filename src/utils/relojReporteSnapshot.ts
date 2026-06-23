@@ -2,7 +2,10 @@ import type {
   ConfigCalculo,
   PlanillaEmpleado
 } from '../services/relojBiometricoService'
-import { CONFIG_CALCULO_DEFAULT } from '../services/relojBiometricoService'
+import {
+  CONFIG_CALCULO_DEFAULT,
+  filtrarDiasConDatosPlanilla
+} from '../services/relojBiometricoService'
 
 export type RelojResumenCompacto = {
   idUsuario: string
@@ -43,11 +46,19 @@ export function parseSnapshotReloj(raw: unknown): RelojReporteSnapshot | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   if (o.version !== 1) return null
+  const planilla = Array.isArray(o.planilla) ? (o.planilla as PlanillaEmpleado[]) : []
+  const diasRaw = Array.isArray(o.diasPeriodo) ? (o.diasPeriodo as string[]) : []
+  const diasPeriodo = planilla.length
+    ? filtrarDiasConDatosPlanilla(
+        planilla,
+        diasRaw.length ? diasRaw : [...new Set(planilla.flatMap((emp) => Object.keys(emp.dias ?? {})))]
+      )
+    : diasRaw
   return {
     version: 1,
     config: { ...CONFIG_CALCULO_DEFAULT, ...(o.config as ConfigCalculo) },
-    planilla: Array.isArray(o.planilla) ? (o.planilla as PlanillaEmpleado[]) : [],
-    diasPeriodo: Array.isArray(o.diasPeriodo) ? (o.diasPeriodo as string[]) : [],
+    planilla,
+    diasPeriodo,
     override: (o.override as Record<string, number>) ?? {},
     horariosFijos: (o.horariosFijos as RelojReporteSnapshot['horariosFijos']) ?? {},
     fileName: String(o.fileName ?? ''),
@@ -90,13 +101,21 @@ function parseHoraMin(h: string): number | null {
   return Number(m[1]) * 60 + Number(m[2])
 }
 
-function diasEnSnapshot(snapshot: RelojReporteSnapshot): string[] {
+export function diasEnSnapshot(snapshot: RelojReporteSnapshot): string[] {
   if (snapshot.diasPeriodo.length) return [...snapshot.diasPeriodo].sort()
-  const set = new Set<string>()
-  for (const emp of snapshot.planilla) {
-    for (const f of Object.keys(emp.dias ?? {})) set.add(f)
-  }
-  return [...set].sort()
+  const candidatos = [...new Set(snapshot.planilla.flatMap((emp) => Object.keys(emp.dias ?? {})))]
+  return filtrarDiasConDatosPlanilla(snapshot.planilla, candidatos)
+}
+
+export function reporteTieneDiaConDatos(
+  reporte: { periodo_desde: string; periodo_hasta: string; payload: unknown },
+  dayStr: string
+): boolean {
+  const snap = parseSnapshotReloj(reporte.payload)
+  if (snap) return diasEnSnapshot(snap).includes(dayStr)
+  const desde = fechaYmd(reporte.periodo_desde)
+  const hasta = fechaYmd(reporte.periodo_hasta)
+  return desde <= dayStr && hasta >= dayStr
 }
 
 function baselineEntradaEmpleado(
@@ -117,12 +136,11 @@ export function resumenDiaCalendario(
   periodo?: { desde: string; hasta: string }
 ): RelojDiaCalendarioResumen | null {
   const dias = diasEnSnapshot(snapshot)
-  const pDesde = fechaYmd(periodo?.desde ?? dias[0] ?? '')
-  const pHasta = fechaYmd(periodo?.hasta ?? dias[dias.length - 1] ?? '')
-  const enLista = dias.includes(dayStr)
-  const enPeriodo = Boolean(pDesde && pHasta && dayStr >= pDesde && dayStr <= pHasta)
-  if (!enLista && !enPeriodo) return null
-  if (!snapshot.planilla.length) return null
+  if (!dias.includes(dayStr) || !snapshot.planilla.length) return null
+
+  const pSnap = periodoDesdeSnapshot(snapshot)
+  const pDesde = fechaYmd(periodo?.desde ?? pSnap.desde)
+  const pHasta = fechaYmd(periodo?.hasta ?? pSnap.hasta)
 
   const tolerancia = snapshot.config.toleranciaTardanzaMin ?? 15
   let presentes = 0

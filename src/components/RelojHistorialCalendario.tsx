@@ -12,8 +12,11 @@ import {
 import { es } from 'date-fns/locale'
 import type { RrhhRelojReporteSemanal } from '../types/api'
 import {
+  diasEnSnapshot,
   fechaYmd,
   parseSnapshotReloj,
+  periodoDesdeSnapshot,
+  reporteTieneDiaConDatos,
   resumenDiaCalendario,
   tooltipDiaCalendario,
   type RelojDiaCalendarioResumen
@@ -32,18 +35,19 @@ type DiaCalendarioMeta = {
   resumen: RelojDiaCalendarioResumen
 }
 
-function reporteContieneDia(r: RrhhRelojReporteSemanal, dayStr: string): boolean {
-  const desde = fechaYmd(r.periodo_desde)
-  const hasta = fechaYmd(r.periodo_hasta)
-  return desde <= dayStr && hasta >= dayStr
-}
-
 function reporteSolapaMes(r: RrhhRelojReporteSemanal, monthStart: Date, monthEnd: Date): boolean {
-  const desde = fechaYmd(r.periodo_desde)
-  const hasta = fechaYmd(r.periodo_hasta)
+  const snap = parseSnapshotReloj(r.payload)
+  const periodo = snap ? periodoDesdeSnapshot(snap) : { desde: fechaYmd(r.periodo_desde), hasta: fechaYmd(r.periodo_hasta) }
+  if (!periodo.desde || !periodo.hasta) return false
   const mesDesde = format(monthStart, 'yyyy-MM-dd')
   const mesHasta = format(monthEnd, 'yyyy-MM-dd')
-  return desde <= mesHasta && hasta >= mesDesde
+  return periodo.desde <= mesHasta && periodo.hasta >= mesDesde
+}
+
+function periodoEfectivoReporte(r: RrhhRelojReporteSemanal): { desde: string; hasta: string } {
+  const snap = parseSnapshotReloj(r.payload)
+  if (snap) return periodoDesdeSnapshot(snap)
+  return { desde: fechaYmd(r.periodo_desde), hasta: fechaYmd(r.periodo_hasta) }
 }
 
 function formatPeriodoCorto(desde: string, hasta: string): string {
@@ -77,11 +81,10 @@ const RelojHistorialCalendario = ({
     for (const reporte of reportesDelMes) {
       const snap = parseSnapshotReloj(reporte.payload)
       if (!snap) continue
-      const periodo = { desde: fechaYmd(reporte.periodo_desde), hasta: fechaYmd(reporte.periodo_hasta) }
+      const periodo = periodoDesdeSnapshot(snap)
 
-      for (const day of days) {
-        const dayStr = format(day, 'yyyy-MM-dd')
-        if (dayStr < periodo.desde || dayStr > periodo.hasta) continue
+      for (const dayStr of diasEnSnapshot(snap)) {
+        if (!days.some((d) => format(d, 'yyyy-MM-dd') === dayStr)) continue
         const resumen = resumenDiaCalendario(snap, dayStr, periodo)
         if (!resumen) continue
         const prev = map.get(dayStr)
@@ -118,7 +121,7 @@ const RelojHistorialCalendario = ({
         {days.map((day) => {
           const dayStr = format(day, 'yyyy-MM-dd')
           const meta = metaPorDia.get(dayStr)
-          const reporte = meta?.reporte ?? reportesDelMes.find((r) => reporteContieneDia(r, dayStr))
+          const reporte = meta?.reporte ?? reportesDelMes.find((r) => reporteTieneDiaConDatos(r, dayStr))
           const resumen = meta?.resumen
           const activo = reporte?.id === reporteActivoId
           const finde = day.getDay() === 0 || day.getDay() === 6
@@ -142,9 +145,19 @@ const RelojHistorialCalendario = ({
               onClick={() => reporte && onSeleccionarReporte(reporte)}
               title={
                 reporte && resumen
-                  ? tooltipDiaCalendario(dayStr, reporte, resumen)
+                  ? (() => {
+                      const p = periodoEfectivoReporte(reporte)
+                      return tooltipDiaCalendario(
+                        dayStr,
+                        { ...reporte, periodo_desde: p.desde, periodo_hasta: p.hasta },
+                        resumen
+                      )
+                    })()
                   : reporte
-                    ? `Informe ${fechaYmd(reporte.periodo_desde)} → ${fechaYmd(reporte.periodo_hasta)} (sin detalle diario)`
+                    ? (() => {
+                        const p = periodoEfectivoReporte(reporte)
+                        return `Informe ${p.desde} → ${p.hasta} (sin detalle diario)`
+                      })()
                     : 'Sin informe guardado'
               }
             >
@@ -178,7 +191,10 @@ const RelojHistorialCalendario = ({
                   )}
                   {resumen!.esInicioPeriodo && reporte ? (
                     <span className="reloj-historial-periodo">
-                      {formatPeriodoCorto(reporte.periodo_desde, reporte.periodo_hasta)}
+                      {(() => {
+                        const p = periodoEfectivoReporte(reporte)
+                        return formatPeriodoCorto(p.desde, p.hasta)
+                      })()}
                     </span>
                   ) : null}
                 </div>
@@ -215,8 +231,9 @@ const RelojHistorialCalendario = ({
           <ul>
             {reportesDelMes.map((r) => {
               const snap = parseSnapshotReloj(r.payload)
-              const desde = parseISO(fechaYmd(r.periodo_desde))
-              const hasta = parseISO(fechaYmd(r.periodo_hasta))
+              const periodo = snap ? periodoDesdeSnapshot(snap) : { desde: fechaYmd(r.periodo_desde), hasta: fechaYmd(r.periodo_hasta) }
+              const desde = parseISO(periodo.desde)
+              const hasta = parseISO(periodo.hasta)
               const label =
                 isSameMonth(desde, hasta) && format(desde, 'yyyy-MM') === format(hasta, 'yyyy-MM')
                   ? `${format(desde, 'd/M')} – ${format(hasta, 'd/M/yyyy')}`

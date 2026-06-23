@@ -784,11 +784,17 @@
 .reloj-vinculo-select {
   max-width: 230px;
   padding: 5px 8px;
-  background: var(--bg-primary);
+  background-color: #000;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
-  color: var(--text-primary);
+  color: #f1f5f9;
   font-size: 0.82rem;
+  color-scheme: dark;
+}
+
+.reloj-vinculo-select option {
+  background-color: #000;
+  color: #f1f5f9;
 }
 
 .reloj-vinculo-auto {

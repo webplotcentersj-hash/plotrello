@@ -45,11 +45,13 @@ import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnrea
 import { calcularIndicadoresNovedadesOrganizacion } from '../utils/rrhhNovedadesSectorStats'
 import type { LegajoSectorBasico } from '../utils/rrhhNovedadesSectorStats'
 import { parseFechaFiltro } from '../utils/rrhhNovedadesLegajoStats'
+import {
+  etiquetaCortaChipCalendario,
+  novedadVisibleEnCalendarioDia,
+  ordenarNovedadesCalendario
+} from '../utils/rrhhNovedadDates'
+import { filtrarUsuariosRrhhOperarios, idsUsuariosGenericosRrhh } from '../utils/rrhhUsuariosExcluidos'
 import './RecursosHumanosNovedadesPage.css'
-
-function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
-  return n.fecha_desde <= dayStr && n.fecha_hasta >= dayStr
-}
 
 type GrupoCounts = Partial<Record<RrhhNovedadGrupo, number>>
 
@@ -142,8 +144,15 @@ const RecursosHumanosNovedadesPage = () => {
         apiService.obtenerSolicitudesPermisos(null, null, null, null, null),
         apiService.obtenerLegajosBasico()
       ])
-      if (u.success && u.data) setUsuarios(u.data)
-      if (n.success && n.data) setNovedades(n.data)
+      if (u.success && u.data) {
+        setUsuarios(filtrarUsuariosRrhhOperarios(u.data))
+        if (n.success && n.data) {
+          const excluidos = idsUsuariosGenericosRrhh(u.data)
+          setNovedades(n.data.filter((nov) => !excluidos.has(nov.id_usuario)))
+        }
+      } else if (n.success && n.data) {
+        setNovedades(n.data)
+      }
       if (s.success && s.data) setSolicitudes(s.data)
       if (legajosRes.success && legajosRes.data) {
         const map: Record<number, LegajoSectorBasico> = {}
@@ -246,7 +255,9 @@ const RecursosHumanosNovedadesPage = () => {
 
   const novedadesDiaCalendario = useMemo(() => {
     if (!calendarDayOpen) return []
-    return novedades.filter((n) => novedadEnDia(n, calendarDayOpen))
+    return ordenarNovedadesCalendario(
+      novedades.filter((n) => novedadVisibleEnCalendarioDia(n, calendarDayOpen))
+    )
   }, [calendarDayOpen, novedades])
 
   const solicitudesEmpleado = useMemo(() => {
@@ -812,19 +823,50 @@ const RecursosHumanosNovedadesPage = () => {
           ))}
           {monthDays.map((day) => {
             const key = format(day, 'yyyy-MM-dd')
-            const list = novedades.filter((n) => novedadEnDia(n, key))
+            const list = ordenarNovedadesCalendario(
+              novedades.filter((n) => novedadVisibleEnCalendarioDia(n, key))
+            )
+            const tardanzasDia = list.filter((n) => n.codigo === 'tardanza').length
             const maxVisible = list.length > 4 ? 3 : 4
             const hidden = list.length - maxVisible
             return (
-              <div key={key} className="rrhh-novedades-cal-cell">
-                <div className="rrhh-novedades-cal-daynum">{format(day, 'd')}</div>
+              <div
+                key={key}
+                className={`rrhh-novedades-cal-cell${list.length ? ' rrhh-novedades-cal-cell--has' : ''}`}
+                role={list.length ? 'button' : undefined}
+                tabIndex={list.length ? 0 : undefined}
+                onClick={() => list.length && setCalendarDayOpen(key)}
+                onKeyDown={(e) => {
+                  if (list.length && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault()
+                    setCalendarDayOpen(key)
+                  }
+                }}
+              >
+                <div className="rrhh-novedades-cal-daynum-row">
+                  <span className="rrhh-novedades-cal-daynum">{format(day, 'd')}</span>
+                  {tardanzasDia > 0 ? (
+                    <span className="rrhh-novedades-cal-day-badge" title={`${tardanzasDia} tardanza${tardanzasDia === 1 ? '' : 's'}`}>
+                      {tardanzasDia}T
+                    </span>
+                  ) : null}
+                </div>
                 <div className="rrhh-novedades-cal-chips">
                   {list.slice(0, maxVisible).map((n) => (
                     <button
                       key={n.id}
                       type="button"
                       className={`rrhh-novedades-cal-chip rrhh-novedades-cal-chip--${n.grupo}`}
-                      title={`${empleadoMostrar(n.id_usuario, 'usuario-hash')} · ${etiquetaCodigo(n.codigo)}`}
+                      title={[
+                        empleadoMostrar(n.id_usuario, 'usuario-hash'),
+                        etiquetaCodigo(n.codigo),
+                        n.grupo === 'tardanza_retiro' && n.duracion_minutos != null
+                          ? `${n.duracion_minutos} min`
+                          : null,
+                        n.observaciones
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                       onClick={(e) => {
                         e.stopPropagation()
                         setDetailNovedad(n)
@@ -834,6 +876,7 @@ const RecursosHumanosNovedadesPage = () => {
                         className={`rrhh-novedades-cal-chip-dot rrhh-novedades-cal-chip-dot--${n.grupo}`}
                         aria-hidden
                       />
+                      <span className="rrhh-novedades-cal-chip-tag">{etiquetaCortaChipCalendario(n)}</span>
                       <span className="rrhh-novedades-cal-chip-name">
                         {nombreParaChipCalendario(nombreUsuario.get(n.id_usuario))}
                       </span>
@@ -1100,7 +1143,10 @@ const RecursosHumanosNovedadesPage = () => {
                         {empleadoMostrar(n.id_usuario, 'usuario-hash')}
                       </span>
                       <span className="rrhh-novedades-cal-day-item-code">
-                        {etiquetaCodigo(n.codigo)}
+                        {etiquetaCortaChipCalendario(n)}
+                        {n.grupo === 'tardanza_retiro' && n.duracion_minutos != null
+                          ? ` · ${n.duracion_minutos} min`
+                          : ''}
                       </span>
                     </span>
                   </button>

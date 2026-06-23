@@ -1,7 +1,50 @@
-import type { RrhhNovedad, SolicitudPermiso } from '../types/api'
+import type { RrhhNovedad, RrhhNovedadGrupo, SolicitudPermiso } from '../types/api'
 
 export function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
   return n.fecha_desde <= dayStr && n.fecha_hasta >= dayStr
+}
+
+/** Si la novedad debe mostrarse como chip en un día del calendario mensual. */
+export function novedadVisibleEnCalendarioDia(n: RrhhNovedad, dayStr: string): boolean {
+  if (!novedadEnDia(n, dayStr)) return false
+  // Pérdida de beneficio comida: vigencia mensual, se marca solo el día de inicio.
+  if (n.grupo === 'beneficio_comida' && n.codigo === 'perdida_beneficio_comida') {
+    return n.fecha_desde === dayStr
+  }
+  return true
+}
+
+const PRIORIDAD_CALENDARIO: Partial<Record<RrhhNovedadGrupo, number>> = {
+  tardanza_retiro: 0,
+  falta: 1,
+  licencia: 2,
+  horas_extra: 3,
+  parte_diario: 4,
+  anticipacion_sueldo: 5,
+  beneficio_comida: 6
+}
+
+/** Orden de chips: tardanzas y faltas primero; dentro del grupo, más recientes arriba. */
+export function ordenarNovedadesCalendario(list: RrhhNovedad[]): RrhhNovedad[] {
+  return [...list].sort((a, b) => {
+    const pa = PRIORIDAD_CALENDARIO[a.grupo] ?? 9
+    const pb = PRIORIDAD_CALENDARIO[b.grupo] ?? 9
+    if (pa !== pb) return pa - pb
+    if (a.grupo === 'tardanza_retiro' && b.grupo === 'tardanza_retiro') {
+      const ma = a.duracion_minutos ?? 0
+      const mb = b.duracion_minutos ?? 0
+      if (ma !== mb) return mb - ma
+    }
+    return b.id - a.id
+  })
+}
+
+/** Etiqueta corta para chips del calendario (incluye minutos de tardanza). */
+export function etiquetaCortaChipCalendario(n: RrhhNovedad): string {
+  if (n.grupo === 'tardanza_retiro' && n.codigo === 'tardanza' && n.duracion_minutos != null) {
+    return `T ${n.duracion_minutos}′`
+  }
+  return abreviaturaCodigoNovedad(n.codigo)
 }
 
 /** Novedad activa de pérdida de beneficio de comida para un empleado en una fecha (YYYY-MM-DD). */

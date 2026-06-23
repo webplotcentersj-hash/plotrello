@@ -43,6 +43,7 @@ import {
   construirMapaHorariosFijos,
   parsearHorariosReales,
   diasDelPeriodo,
+  filtrarDiasConDatosPlanilla,
   matchearUsuario,
   matchearUsuariosReloj,
   inferirEmailPlotcenter,
@@ -110,7 +111,7 @@ const RecursosHumanosHorariosPage = () => {
   const loadInitialData = async () => {
     setLoading(true)
     try {
-      const usuariosResponse = await apiService.getUsuarios()
+      const usuariosResponse = await apiService.getUsuariosRrhhOperarios()
       if (usuariosResponse.success && usuariosResponse.data) {
         setUsuarios(usuariosResponse.data)
       }
@@ -551,7 +552,8 @@ const RelojImportTab = ({
     resumenes?: ResumenEmpleado[]
   }): Promise<number | null> => {
     const pl = opts?.pl ?? planilla
-    const dias = opts?.dias ?? diasPeriodo
+    const diasRaw = opts?.dias ?? diasPeriodo
+    const dias = filtrarDiasConDatosPlanilla(pl, diasRaw)
     if (!pl.length || !dias.length) return null
     const periodoDesde = dias[0]
     const periodoHasta = dias[dias.length - 1]
@@ -717,7 +719,14 @@ const RelojImportTab = ({
     setResultadoGuardado('')
     try {
       const vinc = construirVinculosInline(pl, {})
-      const mapaFijos = construirMapaHorariosFijos(vinc, horariosFijos)
+      const mesImport = dias[0]?.slice(0, 7) ?? mesActivo
+      const horariosResp = await apiService.obtenerHorariosFijos(mesImport)
+      const fijosImport =
+        horariosResp.success && horariosResp.data ? horariosResp.data : horariosFijos
+      if (horariosResp.success && horariosResp.data) {
+        setHorariosFijos(horariosResp.data)
+      }
+      const mapaFijos = construirMapaHorariosFijos(vinc, fijosImport)
       const res = procesarMarcaciones(planillaToMarcaciones(pl), cfg, mapaFijos)
       const { registros, vinculados, noVinculados } = construirRegistrosAsistencia(res, vinc)
 
@@ -786,7 +795,8 @@ const RelojImportTab = ({
       setResumenes(res)
       const pl = planillaDirecta?.length ? planillaDirecta : construirPlanilla(res)
       setPlanilla(pl)
-      const dias = diasPeriodo?.length ? diasPeriodo : diasDelPeriodo(marc)
+      const diasRaw = diasPeriodo?.length ? diasPeriodo : diasDelPeriodo(marc)
+      const dias = filtrarDiasConDatosPlanilla(pl, diasRaw)
       setDiasPeriodo(dias)
       setCeldaEdit(null)
       setInformeIa('')

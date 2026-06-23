@@ -143,6 +143,7 @@ import {
 } from '../constants/tallerGraficoPedidoEntrega'
 
 import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
+import { filtrarUsuariosRrhhOperarios } from '../utils/rrhhUsuariosExcluidos'
 
 export { formatSupabaseStatementTimeoutError }
 
@@ -3965,12 +3966,19 @@ class ApiService {
     return this.handleFallback(fallbackUsuarios)
   }
 
+  /** Empleados humanos para módulos RRHH (sin cuentas genéricas: admin, plotai, caja, etc.). */
+  async getUsuariosRrhhOperarios(): Promise<ApiResponse<UsuarioRecord[]>> {
+    const resp = await this.getUsuarios()
+    if (!resp.success || !resp.data) return resp
+    return { success: true, data: filtrarUsuariosRrhhOperarios(resp.data) }
+  }
+
   /** Incluye usuarios inactivos (baja) para vincular planillas históricas del reloj. */
   async getUsuariosParaRelojMatch(): Promise<ApiResponse<UsuarioRecord[]>> {
     if (supabase) {
       const { data, error } = await supabase.rpc('listar_usuarios_reloj')
       if (!error && Array.isArray(data)) {
-        return { success: true, data: data as UsuarioRecord[] }
+        return { success: true, data: filtrarUsuariosRrhhOperarios(data as UsuarioRecord[]) }
       }
 
       const { data: rows, error: selErr } = await supabase
@@ -3978,13 +3986,13 @@ class ApiService {
         .select('id, nombre, rol')
         .order('nombre')
       if (!selErr && Array.isArray(rows) && rows.length > 0) {
-        return { success: true, data: rows as UsuarioRecord[] }
+        return { success: true, data: filtrarUsuariosRrhhOperarios(rows as UsuarioRecord[]) }
       }
 
       console.warn('listar_usuarios_reloj no disponible, usando solo activos:', error?.message)
-      return this.getUsuarios()
+      return this.getUsuariosRrhhOperarios()
     }
-    return this.getUsuarios()
+    return this.getUsuariosRrhhOperarios()
   }
 
   /** Solo los IDs pedidos. Usa RPC (SECURITY DEFINER); el SELECT directo suele fallar por RLS. */

@@ -213,10 +213,41 @@
   min-height: 0;
 }
 
+.rrhh-novedades-cal-cell--has {
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.rrhh-novedades-cal-cell--has:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.rrhh-novedades-cal-daynum-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
 .rrhh-novedades-cal-daynum {
   font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 4px;
+}
+
+.rrhh-novedades-cal-day-badge {
+  flex-shrink: 0;
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 1px 4px;
+  border-radius: 4px;
 }
 
 .rrhh-novedades-cal-chips {
@@ -317,7 +348,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  flex: 1 1 auto;
   opacity: 0.95;
+}
+
+.rrhh-novedades-cal-chip-tag {
+  flex-shrink: 0;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #fbbf24;
+  letter-spacing: 0.02em;
 }
 
 .rrhh-novedades-cal-more {

@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
+import { esUsuarioGenericoRrhh, esUsuarioRrhhExcluido } from '../utils/rrhhUsuariosExcluidos'
 
 // ============================================================
 // Importador de reloj biométrico (asistencia) + cálculo de horas
@@ -525,6 +526,21 @@ function horaDesdeCeldaPlanilla(token: string): string {
   return m ? `${pad(Number(m[1]))}:${m[2]}` : ''
 }
 
+/** Indica si la celda del día tiene asistencia registrada (marca, ausente u observación). */
+export function celdaTieneDatos(c: CeldaDia | undefined): boolean {
+  if (!c) return false
+  return c.ausente || Boolean(c.entrada) || Boolean(c.salida) || Boolean(c.obs?.trim())
+}
+
+/** Conserva solo fechas con al menos un empleado con datos en la planilla. */
+export function filtrarDiasConDatosPlanilla(
+  planilla: PlanillaEmpleado[],
+  candidatos: string[]
+): string[] {
+  if (!planilla.length || !candidatos.length) return []
+  return candidatos.filter((fecha) => planilla.some((emp) => celdaTieneDatos(emp.dias[fecha])))
+}
+
 /** Parsea celdas del Excel planilla (Empleado + columnas YYYY-MM-DD). */
 export function parsearCeldaPlanillaAsistencia(text: unknown): CeldaDia {
   const raw = String(text ?? '').trim()
@@ -571,7 +587,8 @@ function parsearPlanillaAsistenciaDesdeAoa(aoa: unknown[][]): { planilla: Planil
     planilla.push({ idUsuario: nombre, nombre, departamento: '', dias: diasMap })
   }
 
-  return { planilla, dias }
+  const diasConDatos = filtrarDiasConDatosPlanilla(planilla, dias)
+  return { planilla, dias: diasConDatos }
 }
 
 /** Atajo: archivo -> resúmenes por empleado. */
@@ -1069,6 +1086,7 @@ export function matchearUsuario(
   let mejor: { id: number; nombre: string } | null = null
   let mejorScore = 0
   for (const u of usuarios) {
+    if (esUsuarioRrhhExcluido(u)) continue
     const score = puntajeUsuarioReloj(nombreReloj, u)
     if (score > mejorScore) {
       mejorScore = score
@@ -1087,11 +1105,12 @@ export function matchearUsuariosReloj(
   usuarios: UsuarioRelojMatch[],
   override: Record<string, number> = {}
 ): Record<string, { id: number; nombre: string }> {
+  const operarios = usuarios.filter((u) => !esUsuarioRrhhExcluido(u))
   const resultado: Record<string, { id: number; nombre: string }> = {}
 
   for (const emp of empleados) {
     if (emp.idUsuario in override) {
-      const u = usuarios.find((x) => x.id === override[emp.idUsuario])
+      const u = operarios.find((x) => x.id === override[emp.idUsuario])
       resultado[emp.idUsuario] = u ? { id: u.id, nombre: u.nombre } : { id: 0, nombre: '' }
     }
   }
@@ -1099,7 +1118,7 @@ export function matchearUsuariosReloj(
   const candidatos: Array<{ key: string; usuario: UsuarioRelojMatch; score: number }> = []
   for (const emp of empleados) {
     if (emp.idUsuario in resultado) continue
-    for (const u of usuarios) {
+    for (const u of operarios) {
       const score = puntajeUsuarioReloj(emp.nombre, u)
       if (score >= 6) candidatos.push({ key: emp.idUsuario, usuario: u, score })
     }
@@ -1197,6 +1216,7 @@ export function construirRegistrosAsistencia(
       noVinculados.push(emp.nombre)
       continue
     }
+    if (esUsuarioGenericoRrhh(match.nombre)) continue
     vinculados.push({ nombre: emp.nombre, plotLab: match.nombre })
 
     // Agrupar por fecha (la tabla tiene UNIQUE(id_usuario, fecha))
@@ -1254,7 +1274,7 @@ export function construirTardanzas(
   const tardanzas: TardanzaEmpleado[] = []
   for (const emp of resumenes) {
     const match = vinculacion[emp.idUsuario]
-    if (!match || !match.id) continue
+    if (!match || !match.id || esUsuarioGenericoRrhh(match.nombre)) continue
     for (const s of emp.sesiones) {
       if (!s.tarde || s.minutosTarde <= 0) continue
       tardanzas.push({
