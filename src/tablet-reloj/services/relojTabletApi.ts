@@ -48,9 +48,19 @@ function headers(): HeadersInit {
   return key ? { 'X-Reloj-Tablet-Key': key } : {}
 }
 
+async function parseApiJson<T>(resp: Response): Promise<T> {
+  const text = await resp.text()
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    const snippet = text.trim().slice(0, 120) || `HTTP ${resp.status}`
+    throw new Error(snippet.startsWith('A server error') ? 'Error del servidor API. Reintentá en unos segundos.' : snippet)
+  }
+}
+
 export async function fetchEmpleadosRelojTablet(): Promise<EmpleadoRelojTablet[]> {
-  const resp = await plotLabFetch('/api/rrhh/reloj-tablet/empleados', { headers: headers() })
-  const json = (await resp.json()) as { success?: boolean; empleados?: EmpleadoRelojTablet[]; error?: string }
+  const resp = await plotLabFetch('/api/reloj-tablet/empleados', { headers: headers() })
+  const json = await parseApiJson<{ success?: boolean; empleados?: EmpleadoRelojTablet[]; error?: string }>(resp)
   if (!resp.ok || !json.success) {
     throw new Error(json.error || 'No se pudo cargar empleados')
   }
@@ -61,12 +71,12 @@ export async function verificarSelfieRelojTablet(
   idUsuario: number,
   selfieDataUrl: string
 ): Promise<VerificacionTabletResult> {
-  const resp = await plotLabFetch('/api/rrhh/reloj-tablet/verificar', {
+  const resp = await plotLabFetch('/api/reloj-tablet/verificar', {
     method: 'POST',
     headers: { ...headers(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ id_usuario: idUsuario, selfie_data_url: selfieDataUrl })
   })
-  const json = (await resp.json()) as VerificacionTabletResult & { success?: boolean; error?: string }
+  const json = await parseApiJson<VerificacionTabletResult & { success?: boolean; error?: string }>(resp)
   if (!resp.ok || json.success === false) {
     throw new Error(json.error || 'Verificación fallida')
   }
@@ -80,7 +90,7 @@ export async function marcarRelojTablet(opts: {
   detalle?: string
   dispositivoId?: string
 }): Promise<MarcacionTabletResult> {
-  const resp = await plotLabFetch('/api/rrhh/reloj-tablet/marcar', {
+  const resp = await plotLabFetch('/api/reloj-tablet/marcar', {
     method: 'POST',
     headers: { ...headers(), 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -91,7 +101,7 @@ export async function marcarRelojTablet(opts: {
       dispositivo_id: opts.dispositivoId || 'tablet-reloj-1'
     })
   })
-  const json = (await resp.json()) as { success?: boolean; data?: MarcacionTabletResult; error?: string }
+  const json = await parseApiJson<{ success?: boolean; data?: MarcacionTabletResult; error?: string }>(resp)
   if (!resp.ok || !json.success || !json.data) {
     throw new Error(json.error || 'No se pudo registrar la marcación')
   }
