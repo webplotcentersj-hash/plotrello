@@ -861,10 +861,29 @@ const PLOTCENTER_EMAIL_DOMAIN = 'plotcenter.com.ar'
 function loginDesdeNombreDisplay(nombre: string): string | null {
   const tokens = tokensReloj(nombre)
   if (tokens.length < 2 || nombre.includes('@')) return null
-  const nombrePila = tokens[0]
-  const apellido = tokens[tokens.length - 1]
-  if (nombrePila.length < 1 || apellido.length < 3) return null
-  return nombrePila[0] + apellido
+  const candidatos = candidatosLoginDesdeTokens(tokens)
+  // Preferir el más corto (suele ser inicial+apellido, no apellido completo solo).
+  const ordenados = [...candidatos].filter((c) => c.length >= 4 && c.length <= 12).sort((a, b) => a.length - b.length)
+  return ordenados[0] ?? null
+}
+
+/** Genera logins tipo achavez, rtabera, jalvarado, esanti a partir de tokens del nombre. */
+function candidatosLoginDesdeTokens(tokens: string[]): Set<string> {
+  const out = new Set<string>()
+  for (const t of tokens) {
+    if (t.length >= 3) out.add(t)
+  }
+  for (let i = 0; i < tokens.length; i++) {
+    for (let j = 0; j < tokens.length; j++) {
+      if (i === j) continue
+      const ini = tokens[i][0]
+      const dest = tokens[j]
+      if (!ini || dest.length < 3) continue
+      out.add(ini + dest)
+      if (dest.length > 6) out.add(ini + dest.slice(0, 5))
+    }
+  }
+  return out
 }
 
 /** Email inferido @plotcenter.com.ar para matcheo cuando el usuario no trae email explícito. */
@@ -886,24 +905,7 @@ function localesReloj(nombreReloj: string): Set<string> {
   }
 
   const tokens = tokensReloj(raw)
-  if (!tokens.length) return out
-
-  const largos = tokens.filter((t) => t.length >= 3)
-  for (const t of largos) out.add(t)
-
-  // Reloj biométrico: APELLIDO NOMBRE — "TABERA ROSA MARIA" → rtabera
-  if (tokens.length >= 2) {
-    const apellido = tokens[0]
-    const nombre = tokens[1]
-    if (apellido.length >= 3 && nombre.length >= 1) out.add(nombre[0] + apellido)
-  }
-
-  for (const a of largos) {
-    for (const b of largos) {
-      if (a === b) continue
-      out.add(a[0] + b)
-    }
-  }
+  for (const c of candidatosLoginDesdeTokens(tokens)) out.add(c)
   return out
 }
 
@@ -917,8 +919,34 @@ function localesUsuario(identidad: string): Set<string> {
   if (!raw.includes('@')) {
     const inf = loginDesdeNombreDisplay(raw)
     if (inf) out.add(inf)
+    for (const c of candidatosLoginDesdeTokens(tokensReloj(raw))) {
+      if (c.length >= 4 && c.length <= 12) out.add(c)
+    }
   }
   return out
+}
+
+function identidadesUsuarioMatch(u: UsuarioRelojMatch): string[] {
+  const ids = [u.nombre]
+  if (u.email) ids.push(u.email)
+  if (u.legajoNombre && u.legajoApellido) {
+    ids.push(`${u.legajoNombre} ${u.legajoApellido}`)
+    const n = u.legajoNombre.trim().toLowerCase()
+    const a = u.legajoApellido.trim().toLowerCase()
+    if (n && a) ids.push(`${n[0]}${a}`)
+    if (n && a) ids.push(`${a} ${n}`)
+  }
+  const inf = inferirEmailPlotcenter(u.nombre)
+  if (inf) ids.push(inf)
+  return ids
+}
+
+function puntajeUsuarioReloj(nombreReloj: string, u: UsuarioRelojMatch): number {
+  let score = 0
+  for (const id of identidadesUsuarioMatch(u)) {
+    score = Math.max(score, puntajeMatch(nombreReloj, id))
+  }
+  return score
 }
 
 /** Longitud de la subcadena común más larga (tolera prefijos y typos menores). */
@@ -1008,7 +1036,13 @@ export function puntajeMatch(nombreReloj: string, nombreUsuario: string): number
   return Math.max(scoreContencion, mejorFuzzy)
 }
 
-export type UsuarioRelojMatch = { id: number; nombre: string; email?: string | null }
+export type UsuarioRelojMatch = {
+  id: number
+  nombre: string
+  email?: string | null
+  legajoNombre?: string | null
+  legajoApellido?: string | null
+}
 
 export function matchearUsuario(
   nombreReloj: string,
@@ -1017,22 +1051,60 @@ export function matchearUsuario(
   let mejor: { id: number; nombre: string } | null = null
   let mejorScore = 0
   for (const u of usuarios) {
-    const identidades = [u.nombre]
-    if (u.email) identidades.push(u.email)
-    else {
-      const inf = inferirEmailPlotcenter(u.nombre)
-      if (inf) identidades.push(inf)
-    }
-    let score = 0
-    for (const id of identidades) {
-      score = Math.max(score, puntajeMatch(nombreReloj, id))
-    }
+    const score = puntajeUsuarioReloj(nombreReloj, u)
     if (score > mejorScore) {
       mejorScore = score
       mejor = u
     }
   }
   return mejorScore >= 6 ? mejor : null
+}
+
+/**
+ * Asigna empleados del reloj a usuarios Plot Lab sin repetir el mismo usuario
+ * (evita que dos BARBETTA compitan por el mismo login).
+ */
+export function matchearUsuariosReloj(
+  empleados: Array<{ idUsuario: string; nombre: string }>,
+  usuarios: UsuarioRelojMatch[],
+  override: Record<string, number> = {}
+): Record<string, { id: number; nombre: string }> {
+  const resultado: Record<string, { id: number; nombre: string }> = {}
+
+  for (const emp of empleados) {
+    if (emp.idUsuario in override) {
+      const u = usuarios.find((x) => x.id === override[emp.idUsuario])
+      resultado[emp.idUsuario] = u ? { id: u.id, nombre: u.nombre } : { id: 0, nombre: '' }
+    }
+  }
+
+  const candidatos: Array<{ key: string; usuario: UsuarioRelojMatch; score: number }> = []
+  for (const emp of empleados) {
+    if (emp.idUsuario in resultado) continue
+    for (const u of usuarios) {
+      const score = puntajeUsuarioReloj(emp.nombre, u)
+      if (score >= 6) candidatos.push({ key: emp.idUsuario, usuario: u, score })
+    }
+  }
+  candidatos.sort((a, b) => b.score - a.score)
+
+  const usuariosUsados = new Set(
+    Object.values(resultado)
+      .map((v) => v.id)
+      .filter((id) => id > 0)
+  )
+
+  for (const c of candidatos) {
+    if (c.key in resultado) continue
+    if (usuariosUsados.has(c.usuario.id)) continue
+    resultado[c.key] = { id: c.usuario.id, nombre: c.usuario.nombre }
+    usuariosUsados.add(c.usuario.id)
+  }
+
+  for (const emp of empleados) {
+    if (!(emp.idUsuario in resultado)) resultado[emp.idUsuario] = { id: 0, nombre: '' }
+  }
+  return resultado
 }
 
 /**

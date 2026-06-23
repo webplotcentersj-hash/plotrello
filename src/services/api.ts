@@ -15872,7 +15872,10 @@ class ApiService {
    */
   async obtenerLegajosBasico(): Promise<
     ApiResponse<
-      Record<number, { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null }>
+      Record<
+        number,
+        { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null; email: string | null }
+      >
     >
   > {
     if (!supabase) {
@@ -15882,7 +15885,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('legajos_empleados')
-        .select('id_usuario, nombre, apellido, sector, fecha_ingreso')
+        .select('id_usuario, nombre, apellido, sector, fecha_ingreso, email')
 
       if (error) {
         return { success: false, error: error.message }
@@ -15890,7 +15893,7 @@ class ApiService {
 
       const mapa: Record<
         number,
-        { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null }
+        { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null; email: string | null }
       > = {}
       for (const row of (data as Array<{
         id_usuario: number
@@ -15898,12 +15901,14 @@ class ApiService {
         apellido: string | null
         sector: string | null
         fecha_ingreso: string | null
+        email: string | null
       }>) || []) {
         mapa[row.id_usuario] = {
           nombre: row.nombre || '',
           apellido: row.apellido || '',
           sector: row.sector || '',
-          fecha_ingreso: row.fecha_ingreso ?? null
+          fecha_ingreso: row.fecha_ingreso ?? null,
+          email: row.email ?? null
         }
       }
 

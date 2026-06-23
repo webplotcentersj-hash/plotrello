@@ -44,6 +44,7 @@ import {
   parsearHorariosReales,
   diasDelPeriodo,
   matchearUsuario,
+  matchearUsuariosReloj,
   inferirEmailPlotcenter,
   formatHoras,
   CONFIG_CALCULO_DEFAULT,
@@ -328,7 +329,6 @@ const RecursosHumanosHorariosPage = () => {
             onImportadoAsistencia={(desde, hasta) => {
               setFechaDesde(desde)
               setFechaHasta(hasta)
-              setActiveTab('asistencia')
             }}
           />
         )}
@@ -393,15 +393,44 @@ const RelojImportTab = ({
   >(null)
   const [guardandoFijos, setGuardandoFijos] = useState(false)
   const [resFijos, setResFijos] = useState('')
+  const [legajosBasico, setLegajosBasico] = useState<
+    Record<number, { nombre: string; apellido: string; email: string | null }>
+  >({})
+
+  useEffect(() => {
+    let cancelado = false
+    apiService.obtenerLegajosBasico().then((r) => {
+      if (!cancelado && r.success && r.data) {
+        setLegajosBasico(
+          Object.fromEntries(
+            Object.entries(r.data).map(([id, leg]) => [
+              Number(id),
+              { nombre: leg.nombre, apellido: leg.apellido, email: leg.email ?? null }
+            ])
+          )
+        )
+      }
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
   const usuariosLite = useMemo(
     () =>
-      usuarios.map((u) => ({
-        id: u.id,
-        nombre: u.nombre,
-        email: u.nombre.includes('@') ? u.nombre : inferirEmailPlotcenter(u.nombre)
-      })),
-    [usuarios]
+      usuarios.map((u) => {
+        const leg = legajosBasico[u.id]
+        return {
+          id: u.id,
+          nombre: u.nombre,
+          email:
+            leg?.email ||
+            (u.nombre.includes('@') ? u.nombre : inferirEmailPlotcenter(u.nombre)),
+          legajoNombre: leg?.nombre || null,
+          legajoApellido: leg?.apellido || null
+        }
+      }),
+    [usuarios, legajosBasico]
   )
 
   // Mes (YYYY-MM) del archivo importado: se usa para leer/guardar los horarios
@@ -434,38 +463,15 @@ const RelojImportTab = ({
   // Vínculo efectivo por empleado del reloj: override manual o match automático.
   // Se basa en la planilla (identidad estable de empleados) para no recalcularse
   // en cada recompute de resúmenes y evitar bucles.
-  const vinculos = useMemo(() => {
-    const map: Record<string, { id: number; nombre: string }> = {}
-    for (const emp of planilla) {
-      if (emp.idUsuario in override) {
-        const id = override[emp.idUsuario]
-        const u = usuariosLite.find((x) => x.id === id)
-        map[emp.idUsuario] = u ? { id: u.id, nombre: u.nombre } : { id: 0, nombre: '' }
-      } else {
-        const auto = matchearUsuario(emp.nombre, usuariosLite)
-        map[emp.idUsuario] = auto ? { id: auto.id, nombre: auto.nombre } : { id: 0, nombre: '' }
-      }
-    }
-    return map
-  }, [planilla, override, usuariosLite])
+  const vinculos = useMemo(
+    () => matchearUsuariosReloj(planilla, usuariosLite, override),
+    [planilla, override, usuariosLite]
+  )
 
   const construirVinculosInline = (
     pl: PlanillaEmpleado[],
     ov: Record<string, number>
-  ): Record<string, { id: number; nombre: string }> => {
-    const map: Record<string, { id: number; nombre: string }> = {}
-    for (const emp of pl) {
-      if (emp.idUsuario in ov) {
-        const id = ov[emp.idUsuario]
-        const u = usuariosLite.find((x) => x.id === id)
-        map[emp.idUsuario] = u ? { id: u.id, nombre: u.nombre } : { id: 0, nombre: '' }
-      } else {
-        const auto = matchearUsuario(emp.nombre, usuariosLite)
-        map[emp.idUsuario] = auto ? { id: auto.id, nombre: auto.nombre } : { id: 0, nombre: '' }
-      }
-    }
-    return map
-  }
+  ): Record<string, { id: number; nombre: string }> => matchearUsuariosReloj(pl, usuariosLite, ov)
 
   const cargarReportesGuardados = async () => {
     setCargandoReportes(true)
@@ -711,7 +717,10 @@ const RelojImportTab = ({
         const resp = await apiService.registrarAsistenciaReloj(registros)
         if (resp.success && resp.data) {
           guardadoAsistencia = resp.data
-          msg += ` Asistencia: ${resp.data.total} registros (${vinculados.length} empleados).`
+          msg += ` Asistencia: ${resp.data.total} registros (${vinculados.length}/${pl.length} empleados).`
+          if (noVinculados.length) {
+            msg += ` Sin vínculo: ${noVinculados.join(', ')}.`
+          }
           if (registrarTardanzas) {
             const tardRes = await registrarTardanzasEnLegajo(res, vinc)
             if (tardRes.error) msg += ` Tardanzas: ${tardRes.error}`
@@ -1060,8 +1069,8 @@ const RelojImportTab = ({
         <h2>🕒 Importar asistencia del reloj biométrico</h2>
         <p>
           Subí el Excel que exporta el reloj (marcaciones crudas) o la planilla de asistencia de Plot Lab
-          (Empleado + columnas por fecha). Al procesarlo se guarda el informe, se vuelca la asistencia en Plot Lab
-          según las fechas del archivo y se abre la pestaña Asistencia con ese período.
+          (Empleado + columnas por fecha). Al procesarlo se guarda el informe y la asistencia en Plot Lab
+          automáticamente (sin cambiar de pestaña). Los empleados se vinculan por login @plotcenter.com.ar.
         </p>
       </div>
 
