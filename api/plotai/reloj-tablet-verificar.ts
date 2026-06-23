@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { GoogleGenAI } from '@google/genai'
 import { createClient } from '@supabase/supabase-js'
+import { fetchImageAsBase64Cached, tryParseJson, stripDataUrl } from './reloj-tablet-identify-shared'
+
+export const maxDuration = 30
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
 const supabaseKey =
@@ -30,42 +33,8 @@ function assertRelojTabletAuth(req: VercelRequest, res: VercelResponse): boolean
   return true
 }
 
-function stripDataUrl(dataUrl: string): { mimeType: string; base64: string } | null {
-  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
-  if (!m) return null
-  return { mimeType: m[1], base64: m[2] }
-}
-
-function tryParseJson(text: string): Record<string, unknown> | null {
-  const raw = String(text || '').trim()
-  if (!raw) return null
-  const stripped = raw.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim()
-  try {
-    return JSON.parse(stripped) as Record<string, unknown>
-  } catch {
-    const a = stripped.indexOf('{')
-    const b = stripped.lastIndexOf('}')
-    if (a >= 0 && b > a) {
-      try {
-        return JSON.parse(stripped.slice(a, b + 1)) as Record<string, unknown>
-      } catch {
-        return null
-      }
-    }
-    return null
-  }
-}
-
 async function fetchImageAsBase64(url: string): Promise<{ mimeType: string; base64: string } | null> {
-  try {
-    const resp = await fetch(url)
-    if (!resp.ok) return null
-    const buf = Buffer.from(await resp.arrayBuffer())
-    const mimeType = resp.headers.get('content-type') || 'image/jpeg'
-    return { mimeType, base64: buf.toString('base64') }
-  } catch {
-    return null
-  }
+  return fetchImageAsBase64Cached(url)
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -142,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const ai = new GoogleGenAI({ apiKey })
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: [
         {
           role: 'user',

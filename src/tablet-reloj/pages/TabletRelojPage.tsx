@@ -213,7 +213,7 @@ export default function TabletRelojPage() {
   }, [iniciarCamara, detenerCamara])
 
   const videoTarget = useMemo(() => {
-    if (modo === 'auto' && paso === 'esperando' && kioscoAnchor) return kioscoAnchor
+    if (modo === 'auto' && kioscoAnchor && paso !== 'camara') return kioscoAnchor
     if (paso === 'camara' && modalAnchor) return modalAnchor
     return standbyRef.current
   }, [modo, paso, kioscoAnchor, modalAnchor])
@@ -431,7 +431,7 @@ export default function TabletRelojPage() {
       : paso === 'detectando'
         ? 'Posate frente a la cámara…'
         : paso === 'procesando'
-          ? 'Registrando…'
+          ? 'Identificando…'
           : paso === 'exito'
             ? 'Marcación registrada'
             : paso === 'error'

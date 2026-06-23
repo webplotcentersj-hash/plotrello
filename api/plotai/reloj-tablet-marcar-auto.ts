@@ -1,11 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
-  fetchImageAsBase64Cached,
   identificarEmpleadoRapido,
   stripDataUrl,
-  type CandidatoReloj
+  type EmpleadoConFotoUrl
 } from './reloj-tablet-identify-shared'
+
+export const maxDuration = 60
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
 const supabaseKey =
@@ -105,7 +106,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const empleados = (rows as EmpleadoRow[] || []).filter((e) => e.foto_url)
+  const empleados: EmpleadoConFotoUrl[] = (rows as EmpleadoRow[] || [])
+    .filter((e) => e.foto_url)
+    .map((e) => ({
+      id_usuario: e.id_usuario,
+      nombre: [e.apellido, e.nombre].filter(Boolean).join(', ') || e.login,
+      foto_url: String(e.foto_url)
+    }))
+
   if (!empleados.length) {
     res.status(200).json({
       success: false,
@@ -115,32 +123,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const fotos = await Promise.all(
-    empleados.map(async (emp) => ({
-      emp,
-      foto: await fetchImageAsBase64Cached(String(emp.foto_url))
-    }))
-  )
-
-  const candidatos: CandidatoReloj[] = fotos
-    .filter((x): x is { emp: EmpleadoRow; foto: NonNullable<typeof x.foto> } => !!x.foto)
-    .map(({ emp, foto }) => ({
-      id_usuario: emp.id_usuario,
-      nombre: [emp.apellido, emp.nombre].filter(Boolean).join(', ') || emp.login,
-      foto
-    }))
-
-  if (!candidatos.length) {
-    res.status(200).json({
-      success: false,
-      match: false,
-      error: 'No se pudieron leer las fotos del legajo.'
-    })
-    return
-  }
-
   try {
-    const hit = await identificarEmpleadoRapido(apiKey, selfie, candidatos)
+    const hit = await identificarEmpleadoRapido(apiKey, selfie, empleados)
     if (!hit) {
       res.status(200).json({
         success: false,

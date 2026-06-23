@@ -56,8 +56,15 @@ async function parseApiJson<T>(resp: Response): Promise<T> {
   try {
     return JSON.parse(text) as T
   } catch {
-    const snippet = text.trim().slice(0, 120) || `HTTP ${resp.status}`
-    throw new Error(snippet.startsWith('A server error') ? 'Error del servidor API. Reintentá en unos segundos.' : snippet)
+    const snippet = text.trim().slice(0, 160) || `HTTP ${resp.status}`
+    if (
+      resp.status === 504 ||
+      snippet.startsWith('A server error') ||
+      snippet.includes('FUNCTION_INVOCATION_TIMEOUT')
+    ) {
+      throw new Error('La identificación tardó demasiado. Parate de frente e intentá de nuevo.')
+    }
+    throw new Error(snippet.startsWith('<') ? 'Error del servidor API. Reintentá en unos segundos.' : snippet)
   }
 }
 

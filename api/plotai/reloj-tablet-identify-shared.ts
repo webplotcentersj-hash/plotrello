@@ -8,11 +8,19 @@ export type CandidatoReloj = {
   foto: { mimeType: string; base64: string }
 }
 
+export type EmpleadoConFotoUrl = {
+  id_usuario: number
+  nombre: string
+  foto_url: string
+}
+
 const LEGAJO_CACHE = new Map<string, { mimeType: string; base64: string; at: number }>()
-const CACHE_TTL_MS = 10 * 60 * 1000
-const BATCH_SIZE = 10
+const CACHE_TTL_MS = 15 * 60 * 1000
+/** Hasta 20 legajos en una sola llamada Gemini (con miniaturas). */
+const BATCH_SIZE = 20
 const MATCH_MIN = 70
-const EARLY_EXIT_CONF = 92
+const EARLY_EXIT_CONF = 88
+const GEMINI_MODEL = 'gemini-2.0-flash'
 
 export function stripDataUrl(dataUrl: string): SelfieParsed | null {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
@@ -40,6 +48,31 @@ export function tryParseJson(text: string): Record<string, unknown> | null {
   }
 }
 
+/** Miniatura Supabase para no saturar Gemini ni el timeout de Vercel. */
+export function legajoThumbUrl(url: string): string {
+  const u = String(url || '').trim()
+  if (!u) return u
+  if (u.includes('/storage/v1/render/image/public/')) return u
+  if (u.includes('/storage/v1/object/public/')) {
+    const rendered = u.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+    return `${rendered}?width=256&height=256&resize=cover`
+  }
+  return u
+}
+
+async function fetchImageRaw(url: string): Promise<SelfieParsed | null> {
+  try {
+    const resp = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (!resp.ok) return null
+    const buf = Buffer.from(await resp.arrayBuffer())
+    if (buf.length > 800_000) return null
+    const mimeType = resp.headers.get('content-type') || 'image/jpeg'
+    return { mimeType, base64: buf.toString('base64') }
+  } catch {
+    return null
+  }
+}
+
 export async function fetchImageAsBase64Cached(url: string): Promise<SelfieParsed | null> {
   const key = String(url || '').trim()
   if (!key) return null
@@ -47,17 +80,12 @@ export async function fetchImageAsBase64Cached(url: string): Promise<SelfieParse
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
     return { mimeType: hit.mimeType, base64: hit.base64 }
   }
-  try {
-    const resp = await fetch(key)
-    if (!resp.ok) return null
-    const buf = Buffer.from(await resp.arrayBuffer())
-    const mimeType = resp.headers.get('content-type') || 'image/jpeg'
-    const base64 = buf.toString('base64')
-    LEGAJO_CACHE.set(key, { mimeType, base64, at: Date.now() })
-    return { mimeType, base64 }
-  } catch {
-    return null
-  }
+  const thumb = legajoThumbUrl(key)
+  let parsed = await fetchImageRaw(thumb)
+  if (!parsed && thumb !== key) parsed = await fetchImageRaw(key)
+  if (!parsed) return null
+  LEGAJO_CACHE.set(key, { ...parsed, at: Date.now() })
+  return parsed
 }
 
 async function identificarEnLote(
@@ -95,7 +123,7 @@ Reglas:
   }
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: GEMINI_MODEL,
     contents: [{ role: 'user', parts }]
   })
 
@@ -110,19 +138,38 @@ Reglas:
   return { id_usuario: id, confianza, nombre: nombre || candidatos.find((c) => c.id_usuario === id)?.nombre || '' }
 }
 
-/** Identificación por lotes (1 llamada Gemini por hasta 10 empleados) — estable en Vercel. */
+async function cargarCandidatosLote(empleados: EmpleadoConFotoUrl[]): Promise<CandidatoReloj[]> {
+  const loaded = await Promise.all(
+    empleados.map(async (emp) => ({
+      emp,
+      foto: await fetchImageAsBase64Cached(emp.foto_url)
+    }))
+  )
+  return loaded
+    .filter((x): x is { emp: EmpleadoConFotoUrl; foto: NonNullable<typeof x.foto> } => !!x.foto)
+    .map(({ emp, foto }) => ({
+      id_usuario: emp.id_usuario,
+      nombre: emp.nombre,
+      foto
+    }))
+}
+
+/** Carga fotos por lote y compara en una llamada Gemini por lote (miniaturas). */
 export async function identificarEmpleadoRapido(
   apiKey: string,
   selfie: SelfieParsed,
-  candidatos: CandidatoReloj[]
+  empleados: EmpleadoConFotoUrl[]
 ): Promise<{ id_usuario: number; confianza: number; nombre: string } | null> {
-  if (!candidatos.length) return null
+  if (!empleados.length) return null
 
   let mejor: { id_usuario: number; confianza: number; nombre: string } | null = null
 
-  for (let i = 0; i < candidatos.length; i += BATCH_SIZE) {
-    const lote = candidatos.slice(i, i + BATCH_SIZE)
-    const hit = await identificarEnLote(apiKey, selfie, lote)
+  for (let i = 0; i < empleados.length; i += BATCH_SIZE) {
+    const slice = empleados.slice(i, i + BATCH_SIZE)
+    const candidatos = await cargarCandidatosLote(slice)
+    if (!candidatos.length) continue
+
+    const hit = await identificarEnLote(apiKey, selfie, candidatos)
     if (hit && (!mejor || hit.confianza > mejor.confianza)) mejor = hit
     if (mejor && mejor.confianza >= EARLY_EXIT_CONF) break
   }
