@@ -246,8 +246,10 @@ export function parsearMarcaciones(file: ArrayBuffer): MarcacionReloj[] {
 
     const descripcion = String(row['descripcion'] ?? '').trim()
     const tipoRegistro = row['tipoderegistro']
-    const idUsuario =
-      String(row['iddeusuario'] ?? row['usuarionro'] ?? row['codigodeidentificacion'] ?? '').trim() || nombre
+    // Agrupar por nombre: en exportes del reloj "Código de identificación" suele repetirse
+    // (ej. 16 para toda la empresa) y no identifica al empleado.
+    const idReloj = String(row['iddeusuario'] ?? row['usuarionro'] ?? '').trim()
+    const idUsuario = idReloj || nombre.toUpperCase()
     const departamento = String(row['departamento'] ?? '').trim().toUpperCase()
 
     marcaciones.push({
