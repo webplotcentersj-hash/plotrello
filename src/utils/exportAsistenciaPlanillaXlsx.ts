@@ -2,14 +2,7 @@ import * as XLSX from 'xlsx'
 import type { Asistencia, RrhhNovedad } from '../types/api'
 import { abreviaturaCodigoNovedad, novedadEnDia } from './rrhhNovedadDates'
 import { etiquetaCodigoRrhhNovedad } from './rrhhNovedadCatalog'
-
-function asisHoraCorta(ts: string | null): string {
-  if (!ts) return ''
-  const m = String(ts).match(/[T ](\d{2}):(\d{2})/)
-  if (m) return `${m[1]}:${m[2]}`
-  const m2 = String(ts).match(/^(\d{1,2}):(\d{2})/)
-  return m2 ? `${m2[1].padStart(2, '0')}:${m2[2]}` : ''
-}
+import { asistenciaHoraCorta } from './dateUtils'
 
 function textoCeldaExport(
   asistencia: Asistencia | undefined,
@@ -28,8 +21,8 @@ function textoCeldaExport(
         ? `Justificado · ${etiquetaCodigoRrhhNovedad(nov.codigo)}`
         : 'Justificado'
     }
-    const e = asisHoraCorta(asistencia.hora_entrada)
-    const s = asisHoraCorta(asistencia.hora_salida)
+    const e = asistenciaHoraCorta(asistencia.hora_entrada)
+    const s = asistenciaHoraCorta(asistencia.hora_salida)
     const tipo = asistencia.tipo_registro === 'tarde' ? ' (tarde)' : ''
     const hs =
       asistencia.horas_trabajadas != null && asistencia.horas_trabajadas > 0

@@ -107,6 +107,43 @@ export async function verificarSelfieRelojTablet(
   return json
 }
 
+export async function marcarAutoRelojTablet(selfieDataUrl: string): Promise<{
+  match: boolean
+  data?: MarcacionTabletResult
+  nombre?: string
+  confianza?: number
+  mensaje?: string
+}> {
+  const resp = await plotLabFetch('/api/plotai/reloj-tablet-marcar-auto', {
+    method: 'POST',
+    headers: { ...headers(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      selfie_data_url: selfieDataUrl,
+      dispositivo_id: 'tablet-reloj-1',
+      marcado_at: getMarcacionTimestamptzIso()
+    })
+  })
+  const json = await parseApiJson<{
+    success?: boolean
+    match?: boolean
+    data?: MarcacionTabletResult
+    nombre?: string
+    confianza?: number
+    mensaje?: string
+    error?: string
+  }>(resp)
+  if (!resp.ok || json.success === false) {
+    throw new Error(json.error || json.mensaje || 'No se pudo marcar')
+  }
+  return {
+    match: json.match ?? false,
+    data: json.data,
+    nombre: json.nombre,
+    confianza: json.confianza,
+    mensaje: json.mensaje
+  }
+}
+
 export async function marcarRelojTablet(opts: {
   idUsuario: number
   selfieDataUrl?: string

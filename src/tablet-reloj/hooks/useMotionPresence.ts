@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 
-const MOTION_THRESHOLD = 0.08
-const MOTION_CHECKS = 2
-const CHECK_INTERVAL_MS = 600
-const DETECT_COOLDOWN_MS = 2500
+const MOTION_THRESHOLD = 0.045
+const MOTION_CHECKS = 1
+const MIN_FRAME_MS = 66
+const DETECT_COOLDOWN_MS = 800
 
-/** Detección de presencia por cambio de píxeles (canvas interno, no comparte con la captura). */
+/** Detección de presencia por cambio de píxeles — loop con rAF para mínima latencia. */
 export function useMotionPresence(
   videoRef: RefObject<HTMLVideoElement | null>,
   enabled: boolean,
@@ -26,60 +26,67 @@ export function useMotionPresence(
     if (!video) return
 
     const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return
 
-    const w = 64
-    const h = 48
+    const w = 48
+    const h = 36
     canvas.width = w
     canvas.height = h
 
     let lastFrame: number[] | null = null
     let sameCount = 0
-    let timeoutId: ReturnType<typeof setTimeout>
+    let rafId = 0
     let cancelled = false
+    let lastTick = 0
 
-    const check = () => {
+    const check = (now: number) => {
       if (cancelled) return
-      if (video.readyState < 2) {
-        timeoutId = setTimeout(check, CHECK_INTERVAL_MS)
+      if (now - lastTick < MIN_FRAME_MS) {
+        rafId = requestAnimationFrame(check)
         return
       }
+      lastTick = now
+
+      if (video.readyState < 2) {
+        rafId = requestAnimationFrame(check)
+        return
+      }
+
       ctx.drawImage(video, 0, 0, w, h)
       const img = ctx.getImageData(0, 0, w, h)
       const gray: number[] = []
       for (let i = 0; i < img.data.length; i += 4) {
         gray.push((img.data[i] + img.data[i + 1] + img.data[i + 2]) / 3)
       }
+
       if (lastFrame && lastFrame.length === gray.length) {
         let diff = 0
         for (let i = 0; i < gray.length; i++) diff += Math.abs(gray[i] - lastFrame[i])
         const change = diff / (gray.length * 255)
-        setActivo(change > MOTION_THRESHOLD * 0.45)
+        setActivo(change > MOTION_THRESHOLD * 0.4)
         if (change > MOTION_THRESHOLD) {
           sameCount++
           if (sameCount >= MOTION_CHECKS) {
             sameCount = 0
-            const now = Date.now()
-            if (now - lastDetectRef.current >= DETECT_COOLDOWN_MS) {
-              lastDetectRef.current = now
+            const t = Date.now()
+            if (t - lastDetectRef.current >= DETECT_COOLDOWN_MS) {
+              lastDetectRef.current = t
               onDetectedRef.current()
             }
-            timeoutId = setTimeout(check, CHECK_INTERVAL_MS)
-            return
           }
         } else {
           sameCount = 0
         }
       }
       lastFrame = gray
-      timeoutId = setTimeout(check, CHECK_INTERVAL_MS)
+      rafId = requestAnimationFrame(check)
     }
 
-    timeoutId = setTimeout(check, 1000)
+    rafId = requestAnimationFrame(check)
     return () => {
       cancelled = true
-      clearTimeout(timeoutId)
+      cancelAnimationFrame(rafId)
       setActivo(false)
     }
   }, [enabled, videoRef])

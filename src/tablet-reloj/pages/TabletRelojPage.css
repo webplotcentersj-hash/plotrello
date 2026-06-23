@@ -129,6 +129,26 @@
   color: #94a3b8;
 }
 
+.tablet-reloj-loading-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+  margin: 0 16px 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.tablet-reloj-loading-badge .tablet-reloj-spinner {
+  width: 22px;
+  height: 22px;
+  border-width: 3px;
+}
+
 .tablet-reloj-loading,
 .tablet-reloj-procesando {
   flex: 1;
@@ -206,12 +226,43 @@
   object-fit: cover;
 }
 
+.tablet-reloj-video-anchor {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.tablet-reloj-video-fill {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+  background: #000;
+}
+
+.tablet-reloj-video-standby {
+  position: fixed;
+  width: 320px;
+  height: 240px;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
 .tablet-reloj-modal-video-hole {
+  position: relative;
   height: min(360px, 48vh);
   min-height: 240px;
   margin-bottom: 8px;
   border-radius: 16px;
   background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
 }
 
 .tablet-reloj-modal--camara {
@@ -219,9 +270,7 @@
 }
 
 .tablet-reloj-kiosco-hole {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
+  display: none;
 }
 
 .tablet-reloj-canvas {

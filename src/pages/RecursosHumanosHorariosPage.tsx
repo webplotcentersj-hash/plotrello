@@ -30,6 +30,7 @@ import {
   novedadEnDia
 } from '../utils/rrhhNovedadDates'
 import { etiquetaCodigoRrhhNovedad } from '../utils/rrhhNovedadCatalog'
+import { asistenciaHoraCorta } from '../utils/dateUtils'
 import {
   procesarArchivoReloj,
   exportarRelojXlsx,
@@ -1572,11 +1573,11 @@ const RelojImportTab = ({
                                     <td>{s.dia}</td>
                                     <td>{s.fecha}</td>
                                     <td className={s.tarde ? 'reloj-td-tarde' : ''}>
-                                      {s.entradaStr ? s.entradaStr.slice(11, 16) : '—'}
+                                      {s.entradaStr ? asistenciaHoraCorta(s.entradaStr) : '—'}
                                       {s.tarde && <span className="reloj-tarde-badge"> tarde</span>}
                                     </td>
                                     <td>
-                                      {s.salidaStr ? s.salidaStr.slice(11, 16) : '—'}
+                                      {s.salidaStr ? asistenciaHoraCorta(s.salidaStr) : '—'}
                                       {s.cruzaMedianoche && <span className="reloj-cruza"> (+1d)</span>}
                                     </td>
                                     <td>{formatHoras(s.horasTrabajadas)}</td>
@@ -2195,14 +2196,6 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
 }
 
 // Componente de Asistencia
-/** Extrae 'HH:mm' de un timestamp/hora guardado (timestamptz, ISO o 'YYYY-MM-DD HH:mm:ss'). */
-const asisHoraCorta = (ts: string | null): string => {
-  if (!ts) return ''
-  const m = String(ts).match(/[T ](\d{2}):(\d{2})/)
-  if (m) return `${m[1]}:${m[2]}`
-  const m2 = String(ts).match(/^(\d{1,2}):(\d{2})/)
-  return m2 ? `${m2[1].padStart(2, '0')}:${m2[2]}` : ''
-}
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
@@ -2332,8 +2325,8 @@ const AsistenciaTab = ({
           onClick: () => eliminar(a)
         }
       }
-      const e = asisHoraCorta(a.hora_entrada)
-      const s = asisHoraCorta(a.hora_salida)
+      const e = asistenciaHoraCorta(a.hora_entrada)
+      const s = asistenciaHoraCorta(a.hora_salida)
       const tardeNov = novs.find((n) => n.codigo === 'tardanza')
       return {
         cls: `${a.tipo_registro === 'tarde' || tardeNov ? 'celda-tarde' : 'celda-ok'}${!s && e ? ' celda-sin-salida' : ''}`,

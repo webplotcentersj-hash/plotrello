@@ -54,7 +54,7 @@
       ]
     },
     {
-      "source": "/((?!embed/).*)",
+      "source": "/((?!embed/|tablet-reloj).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -104,7 +104,7 @@
       ]
     },
     {
-      "source": "/tablet-reloj",
+      "source": "/tablet-reloj(.*)",
       "headers": [
         {
           "key": "Permissions-Policy",

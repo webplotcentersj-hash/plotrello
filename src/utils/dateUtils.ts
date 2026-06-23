@@ -211,6 +211,15 @@ export function isoToArgentinaTime(value: string): string {
 }
 
 /**
+ * Hora HH:mm en Argentina para planilla de asistencia (timestamptz / ISO).
+ * No usar slice del string ISO: ahí viene la hora UTC (+3 h respecto de AR).
+ */
+export function asistenciaHoraCorta(ts: string | null | undefined): string {
+  if (!ts) return ''
+  return isoToArgentinaTime(ts)
+}
+
+/**
  * Obtiene la hora actual en zona horaria de Argentina
  */
 export function getArgentinaTime(): { hours: number; minutes: number; seconds: number } {

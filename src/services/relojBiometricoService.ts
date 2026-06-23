@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
+import { asistenciaHoraCorta } from '../utils/dateUtils'
 import { esUsuarioGenericoRrhh, esUsuarioRrhhExcluido } from '../utils/rrhhUsuariosExcluidos'
 
 // ============================================================
@@ -1285,7 +1286,7 @@ export function construirTardanzas(
         nombreReloj: emp.nombre,
         fecha: s.fecha,
         minutos: s.minutosTarde,
-        entrada: s.entradaStr ? s.entradaStr.slice(11, 16) : '',
+        entrada: s.entradaStr ? asistenciaHoraCorta(s.entradaStr) : '',
         baseline: emp.baselineEntrada
       })
     }
