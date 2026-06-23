@@ -132,11 +132,15 @@ export async function verificarSelfieRelojTablet(
   idUsuario: number,
   selfieDataUrl: string
 ): Promise<VerificacionTabletResult> {
-  const resp = await plotLabFetch('/api/plotai/reloj-tablet-verificar', {
-    method: 'POST',
-    headers: { ...headers(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id_usuario: idUsuario, selfie_data_url: selfieDataUrl })
-  })
+  const resp = await plotLabFetchTimeout(
+    '/api/plotai/reloj-tablet-verificar',
+    {
+      method: 'POST',
+      headers: { ...headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_usuario: idUsuario, selfie_data_url: selfieDataUrl })
+    },
+    35_000
+  )
   const json = await parseApiJson<VerificacionTabletResult & { success?: boolean; error?: string }>(resp)
   if (!resp.ok || json.success === false) {
     throw new Error(json.error || 'Verificación fallida')
@@ -151,15 +155,19 @@ export async function marcarAutoRelojTablet(selfieDataUrl: string): Promise<{
   confianza?: number
   mensaje?: string
 }> {
-  const resp = await plotLabFetch('/api/plotai/reloj-tablet-marcar-auto', {
-    method: 'POST',
-    headers: { ...headers(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      selfie_data_url: selfieDataUrl,
-      dispositivo_id: 'tablet-reloj-1',
-      marcado_at: getMarcacionTimestamptzIso()
-    })
-  })
+  const resp = await plotLabFetchTimeout(
+    '/api/plotai/reloj-tablet-marcar-auto',
+    {
+      method: 'POST',
+      headers: { ...headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        selfie_data_url: selfieDataUrl,
+        dispositivo_id: 'tablet-reloj-1',
+        marcado_at: getMarcacionTimestamptzIso()
+      })
+    },
+    55_000
+  )
   const json = await parseApiJson<{
     success?: boolean
     match?: boolean

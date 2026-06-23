@@ -1,7 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { GoogleGenAI } from '@google/genai'
 import { createClient } from '@supabase/supabase-js'
-import { fetchImageAsBase64Cached, tryParseJson, stripDataUrl } from './reloj-tablet-identify-shared'
+import {
+  fetchImageAsBase64Cached,
+  stripDataUrl,
+  verificarParFacial
+} from './reloj-tablet-identify-shared'
 
 export const maxDuration = 30
 
@@ -31,10 +34,6 @@ function assertRelojTabletAuth(req: VercelRequest, res: VercelResponse): boolean
     return false
   }
   return true
-}
-
-async function fetchImageAsBase64(url: string): Promise<{ mimeType: string; base64: string } | null> {
-  return fetchImageAsBase64Cached(url)
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -80,6 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  const nombreCompleto = [legajo.apellido, legajo.nombre].filter(Boolean).join(' ')
   const fotoUrl = legajo.foto_url ? String(legajo.foto_url) : ''
   if (!fotoUrl) {
     res.status(200).json({
@@ -88,12 +88,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       confianza: 0,
       omitir_verificacion: true,
       mensaje: 'Sin foto de legajo; marcación permitida sin verificación facial.',
-      nombre: [legajo.apellido, legajo.nombre].filter(Boolean).join(', ')
+      nombre: nombreCompleto || 'Empleado'
     })
     return
   }
 
-  const referencia = await fetchImageAsBase64(fotoUrl)
+  const referencia = await fetchImageAsBase64Cached(fotoUrl)
   if (!referencia) {
     res.status(200).json({
       success: true,
@@ -101,53 +101,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       confianza: 0,
       omitir_verificacion: true,
       mensaje: 'No se pudo leer la foto del legajo; continuá con confirmación manual.',
-      nombre: [legajo.apellido, legajo.nombre].filter(Boolean).join(', ')
+      nombre: nombreCompleto || 'Empleado'
     })
     return
   }
 
-  const nombreCompleto = [legajo.apellido, legajo.nombre].filter(Boolean).join(' ')
-
   try {
-    const ai = new GoogleGenAI({ apiKey })
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `Sos un sistema de control de asistencia laboral en Argentina.
-Compará si la persona de la FOTO EN VIVO (selfie) es la misma persona que la FOTO DE REFERENCIA del legajo de "${nombreCompleto}".
-Respondé SOLO JSON válido:
-{"match":true|false,"confianza":0-100,"motivo":"breve en español"}
-
-Reglas:
-- match=true solo si confianza >= 70
-- Si hay duda (gorro, barbijo, mala luz), bajá confianza
-- No inventes datos`
-            },
-            { inlineData: { mimeType: selfieParsed.mimeType, data: selfieParsed.base64 } },
-            { inlineData: { mimeType: referencia.mimeType, data: referencia.base64 } }
-          ]
-        }
-      ]
-    })
-
-    const text = response.text ?? ''
-    const parsed = tryParseJson(text)
-    const confianza = Math.min(100, Math.max(0, Number(parsed?.confianza ?? 0)))
-    const match = parsed?.match === true && confianza >= 70
-    const motivo = String(parsed?.motivo ?? (match ? 'Coincidencia facial' : 'No coincide con la foto del legajo'))
-
+    const ver = await verificarParFacial(apiKey, selfieParsed, referencia, nombreCompleto)
     res.status(200).json({
       success: true,
-      match,
-      confianza,
-      motivo,
-      mensaje: match
-        ? `Identidad verificada (${confianza}%)`
-        : `No coincide con ${nombreCompleto} (${confianza}%)`,
+      match: ver.match,
+      confianza: ver.confianza,
+      motivo: ver.motivo,
+      mensaje: ver.match
+        ? `Identidad verificada (${ver.confianza}%)`
+        : `No coincide con ${nombreCompleto} (${ver.confianza}%)`,
       nombre: nombreCompleto
     })
   } catch (e) {

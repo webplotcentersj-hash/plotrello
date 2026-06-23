@@ -10,7 +10,7 @@ import {
   fotoEmpleadoUrl,
   getRelojTabletApiKey,
   inicialesEmpleado,
-  identificarSelfieRelojTablet,
+  marcarAutoRelojTablet,
   marcarRelojTablet,
   precalentarLegajosRelojTablet,
   setRelojTabletApiKey,
@@ -215,8 +215,9 @@ export default function TabletRelojPage() {
   }, [iniciarCamara, detenerCamara])
 
   const videoTarget = useMemo(() => {
-    if (modo === 'auto' && kioscoAnchor && paso !== 'camara') return kioscoAnchor
     if (paso === 'camara' && modalAnchor) return modalAnchor
+    if (modo === 'manual' && paso === 'procesando' && modalAnchor) return modalAnchor
+    if (modo === 'auto' && kioscoAnchor && paso !== 'camara') return kioscoAnchor
     return standbyRef.current
   }, [modo, paso, kioscoAnchor, modalAnchor])
 
@@ -329,25 +330,23 @@ export default function TabletRelojPage() {
     }
     setPaso('procesando')
     try {
-      const res = await identificarSelfieRelojTablet(selfie)
-      if (!res.match || !res.id_usuario) throw new Error(res.mensaje || 'No se reconoció ningún empleado')
-      const emp =
-        empleados.find((e) => e.id_usuario === res.id_usuario) ||
-        ({
-          id_usuario: res.id_usuario,
+      const res = await marcarAutoRelojTablet(selfie)
+      if (!res.match || !res.data) throw new Error(res.mensaje || 'No se reconoció ningún empleado')
+      setSeleccionado(
+        empleados.find((e) => e.id_usuario === res.data!.id_usuario) || {
+          id_usuario: res.data.id_usuario,
           nombre: '',
           apellido: '',
           sector: '',
           foto_url: null,
           login: '',
-          nombre_completo: res.nombre || 'Empleado'
-        } satisfies EmpleadoRelojTablet)
-      setSeleccionado(emp)
-      await procesarMarcacion(selfie, emp, {
-        confianza: res.confianza,
-        detalle: `Identificado automáticamente${res.confianza ? ` (${res.confianza}%)` : ''}`,
-        omitirVerificacion: true
-      })
+          nombre_completo: res.data.nombre || res.nombre || 'Empleado'
+        }
+      )
+      setResultado(res.data)
+      setPaso('exito')
+      iniciarCooldown()
+      window.setTimeout(() => volverEspera(), EXITO_MS)
     } catch (e) {
       setPaso('error')
       setMensajeError(e instanceof Error ? e.message : 'No se pudo identificar')
@@ -356,7 +355,7 @@ export default function TabletRelojPage() {
       procesandoRef.current = false
       setOcupado(false)
     }
-  }, [capturarSelfie, empleados, loading, procesarMarcacion, volverEspera])
+  }, [capturarSelfie, empleados, loading, iniciarCooldown, volverEspera])
 
   const dispararMarcacion = useCallback(() => {
     if (modo !== 'auto') return
@@ -400,10 +399,10 @@ export default function TabletRelojPage() {
     if (!seleccionado || procesandoRef.current) return
     procesandoRef.current = true
     setOcupado(true)
-    setPaso('procesando')
     try {
       const selfie = await capturarSelfie()
       if (!selfie) throw new Error('No se pudo capturar la foto. Mirá a la cámara e intentá de nuevo.')
+      setPaso('procesando')
       await procesarMarcacion(selfie, seleccionado, {
         detalle: 'Marcación manual'
       })

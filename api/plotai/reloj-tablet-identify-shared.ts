@@ -1,5 +1,4 @@
 import { GoogleGenAI } from '@google/genai'
-import sharp from 'sharp'
 
 export type SelfieParsed = { mimeType: string; base64: string }
 
@@ -17,12 +16,11 @@ export type EmpleadoConFotoUrl = {
 
 const LEGAJO_CACHE = new Map<string, { mimeType: string; base64: string; at: number }>()
 const CACHE_TTL_MS = 20 * 60 * 1000
-const BATCH_SIZE = 12
-const MATCH_MIN = 70
-const EARLY_EXIT_CONF = 85
+const BATCH_SIZE = 8
+const MATCH_MIN = 68
+const EARLY_EXIT_CONF = 82
 const GEMINI_MODEL = 'gemini-2.5-flash'
-const THUMB_PX = 224
-const GEMINI_TIMEOUT_MS = 28_000
+const GEMINI_TIMEOUT_MS = 22_000
 
 export function stripDataUrl(dataUrl: string): SelfieParsed | null {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
@@ -50,37 +48,18 @@ export function tryParseJson(text: string): Record<string, unknown> | null {
   }
 }
 
-/** @deprecated Supabase render devuelve 403 en este proyecto; se usa sharp. */
 export function legajoThumbUrl(url: string): string {
   return String(url || '').trim()
 }
 
-async function resizeForAi(buf: Buffer): Promise<SelfieParsed> {
-  const out = await sharp(buf)
-    .rotate()
-    .resize(THUMB_PX, THUMB_PX, { fit: 'cover', position: 'centre' })
-    .jpeg({ quality: 70, mozjpeg: true })
-    .toBuffer()
-  return { mimeType: 'image/jpeg', base64: out.toString('base64') }
-}
-
-export async function compactSelfieForAi(selfie: SelfieParsed): Promise<SelfieParsed> {
-  try {
-    const buf = Buffer.from(selfie.base64, 'base64')
-    if (buf.length <= 120_000) return selfie
-    return await resizeForAi(buf)
-  } catch {
-    return selfie
-  }
-}
-
 async function fetchImageRaw(url: string): Promise<SelfieParsed | null> {
   try {
-    const resp = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+    const resp = await fetch(url, { signal: AbortSignal.timeout(12_000) })
     if (!resp.ok) return null
     const buf = Buffer.from(await resp.arrayBuffer())
-    if (buf.length > 6_000_000) return null
-    return await resizeForAi(buf)
+    if (buf.length > 4_000_000) return null
+    const mimeType = resp.headers.get('content-type') || 'image/jpeg'
+    return { mimeType, base64: buf.toString('base64') }
   } catch {
     return null
   }
@@ -167,6 +146,39 @@ Reglas:
   return { id_usuario: id, confianza, nombre: nombre || candidatos.find((c) => c.id_usuario === id)?.nombre || '' }
 }
 
+async function compararUnEmpleado(
+  apiKey: string,
+  selfie: SelfieParsed,
+  candidato: CandidatoReloj
+): Promise<{ id_usuario: number; confianza: number; nombre: string } | null> {
+  const ai = new GoogleGenAI({ apiKey })
+  const response = await withTimeout(
+    ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Reloj laboral. ¿La selfie y la foto de legajo de "${candidato.nombre}" son la misma persona?
+Solo JSON: {"match":true|false,"confianza":0-100}`
+            },
+            { inlineData: { mimeType: selfie.mimeType, data: selfie.base64 } },
+            { inlineData: { mimeType: candidato.foto.mimeType, data: candidato.foto.base64 } }
+          ]
+        }
+      ]
+    }),
+    12_000,
+    'Gemini'
+  )
+  const parsed = tryParseJson(response.text ?? '')
+  const confianza = Math.min(100, Math.max(0, Number(parsed?.confianza ?? 0)))
+  const match = parsed?.match === true && confianza >= MATCH_MIN
+  if (!match) return null
+  return { id_usuario: candidato.id_usuario, confianza, nombre: candidato.nombre }
+}
+
 async function cargarCandidatosLote(empleados: EmpleadoConFotoUrl[]): Promise<CandidatoReloj[]> {
   const loaded = await Promise.all(
     empleados.map(async (emp) => ({
@@ -183,7 +195,6 @@ async function cargarCandidatosLote(empleados: EmpleadoConFotoUrl[]): Promise<Ca
     }))
 }
 
-/** Carga miniaturas por lote y compara en Gemini (liviano para Vercel). */
 export async function identificarEmpleadoRapido(
   apiKey: string,
   selfie: SelfieParsed,
@@ -191,7 +202,6 @@ export async function identificarEmpleadoRapido(
 ): Promise<{ id_usuario: number; confianza: number; nombre: string } | null> {
   if (!empleados.length) return null
 
-  const selfieAi = await compactSelfieForAi(selfie)
   let mejor: { id_usuario: number; confianza: number; nombre: string } | null = null
 
   for (let i = 0; i < empleados.length; i += BATCH_SIZE) {
@@ -199,10 +209,64 @@ export async function identificarEmpleadoRapido(
     const candidatos = await cargarCandidatosLote(slice)
     if (!candidatos.length) continue
 
-    const hit = await identificarEnLote(apiKey, selfieAi, candidatos)
-    if (hit && (!mejor || hit.confianza > mejor.confianza)) mejor = hit
-    if (mejor && mejor.confianza >= EARLY_EXIT_CONF) break
+    try {
+      const hit = await identificarEnLote(apiKey, selfie, candidatos)
+      if (hit && (!mejor || hit.confianza > mejor.confianza)) mejor = hit
+      if (mejor && mejor.confianza >= EARLY_EXIT_CONF) return mejor
+    } catch (e) {
+      console.warn('lote identificar falló, intento 1:1:', e)
+      for (const c of candidatos) {
+        try {
+          const hit = await compararUnEmpleado(apiKey, selfie, c)
+          if (hit && (!mejor || hit.confianza > mejor.confianza)) mejor = hit
+          if (mejor && mejor.confianza >= EARLY_EXIT_CONF) return mejor
+        } catch {
+          /* siguiente */
+        }
+      }
+    }
   }
 
   return mejor
+}
+
+export async function verificarParFacial(
+  apiKey: string,
+  selfie: SelfieParsed,
+  referencia: SelfieParsed,
+  nombreCompleto: string
+): Promise<{ match: boolean; confianza: number; motivo: string }> {
+  const ai = new GoogleGenAI({ apiKey })
+  const response = await withTimeout(
+    ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Sos un sistema de control de asistencia laboral en Argentina.
+Compará si la persona de la FOTO EN VIVO (selfie) es la misma persona que la FOTO DE REFERENCIA del legajo de "${nombreCompleto}".
+Respondé SOLO JSON válido:
+{"match":true|false,"confianza":0-100,"motivo":"breve en español"}
+
+Reglas:
+- match=true solo si confianza >= ${MATCH_MIN}
+- Si hay duda (gorro, barbijo, mala luz), bajá confianza
+- No inventes datos`
+            },
+            { inlineData: { mimeType: selfie.mimeType, data: selfie.base64 } },
+            { inlineData: { mimeType: referencia.mimeType, data: referencia.base64 } }
+          ]
+        }
+      ]
+    }),
+    GEMINI_TIMEOUT_MS,
+    'Gemini'
+  )
+  const parsed = tryParseJson(response.text ?? '')
+  const confianza = Math.min(100, Math.max(0, Number(parsed?.confianza ?? 0)))
+  const match = parsed?.match === true && confianza >= MATCH_MIN
+  const motivo = String(parsed?.motivo ?? (match ? 'Coincidencia facial' : 'No coincide con la foto del legajo'))
+  return { match, confianza, motivo }
 }
