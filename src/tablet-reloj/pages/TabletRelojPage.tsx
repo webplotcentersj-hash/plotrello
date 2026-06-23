@@ -26,8 +26,8 @@ type Paso = 'esperando' | 'camara' | 'detectando' | 'procesando' | 'exito' | 'er
 const COOLDOWN_MS = 2000
 const EXITO_MS = 1200
 const AUTO_RESET_ERROR_MS = 2500
-const SELFIE_MAX_WIDTH = 480
-const SELFIE_JPEG_QUALITY = 0.65
+const SELFIE_MAX_WIDTH = 640
+const SELFIE_JPEG_QUALITY = 0.72
 
 function tituloExitoMarcacion(tipo: 'entrada' | 'salida'): string {
   return tipo === 'entrada' ? '¡Registrado!' : '¡Salida!'
@@ -276,16 +276,11 @@ export default function TabletRelojPage() {
         let detalle = opts?.detalle
 
         if (!opts?.omitirVerificacion) {
-          try {
-            const ver = await verificarSelfieRelojTablet(emp.id_usuario, selfie)
-            confianza = ver.confianza
-            detalle = ver.motivo || ver.mensaje
-            if (!ver.omitir_verificacion && !ver.match) {
-              throw new Error(ver.mensaje || 'La foto no coincide con el legajo')
-            }
-          } catch (verErr) {
-            if (verErr instanceof Error && verErr.message.includes('coincide')) throw verErr
-            detalle = 'Verificación omitida por error técnico'
+          const ver = await verificarSelfieRelojTablet(emp.id_usuario, selfie)
+          confianza = ver.confianza
+          detalle = ver.motivo || ver.mensaje
+          if (!ver.omitir_verificacion && !ver.match) {
+            throw new Error(ver.mensaje || 'La foto no coincide con el legajo')
           }
         }
 
@@ -403,6 +398,7 @@ export default function TabletRelojPage() {
     if (!seleccionado || procesandoRef.current) return
     procesandoRef.current = true
     setOcupado(true)
+    setPaso('procesando')
     try {
       const selfie = await capturarSelfie()
       if (!selfie) throw new Error('No se pudo capturar la foto. Mirá a la cámara e intentá de nuevo.')

@@ -158,8 +158,8 @@ Reglas:
 - Si hay duda (gorro, barbijo, mala luz), bajá confianza
 - No inventes datos`
             },
-            { inlineData: { mimeType: referencia.mimeType, data: referencia.base64 } },
-            { inlineData: { mimeType: selfieParsed.mimeType, data: selfieParsed.base64 } }
+            { inlineData: { mimeType: selfieParsed.mimeType, data: selfieParsed.base64 } },
+            { inlineData: { mimeType: referencia.mimeType, data: referencia.base64 } }
           ]
         }
       ]
