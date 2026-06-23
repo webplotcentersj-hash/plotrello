@@ -67,6 +67,27 @@ export async function fetchEmpleadosRelojTablet(): Promise<EmpleadoRelojTablet[]
   return json.empleados ?? []
 }
 
+export type IdentificacionTabletResult = {
+  match: boolean
+  id_usuario?: number
+  confianza?: number
+  nombre?: string
+  mensaje: string
+}
+
+export async function identificarSelfieRelojTablet(selfieDataUrl: string): Promise<IdentificacionTabletResult> {
+  const resp = await plotLabFetch('/api/plotai/reloj-tablet-identificar', {
+    method: 'POST',
+    headers: { ...headers(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ selfie_data_url: selfieDataUrl })
+  })
+  const json = await parseApiJson<IdentificacionTabletResult & { success?: boolean; error?: string }>(resp)
+  if (!resp.ok || json.success === false) {
+    throw new Error(json.error || 'Identificación fallida')
+  }
+  return json
+}
+
 export async function verificarSelfieRelojTablet(
   idUsuario: number,
   selfieDataUrl: string

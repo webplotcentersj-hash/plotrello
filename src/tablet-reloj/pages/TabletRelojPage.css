@@ -287,3 +287,130 @@
   background: #0f172a;
   color: #f8fafc;
 }
+
+/* Modo kiosco con sensor de presencia */
+.tablet-reloj-page--kiosco {
+  min-height: 100vh;
+}
+
+.tablet-reloj-kiosco {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 24px 24px;
+  gap: 16px;
+}
+
+.tablet-reloj-kiosco-video-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 55vh;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #000;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.tablet-reloj-kiosco-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.tablet-reloj-kiosco-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 28px;
+  background: linear-gradient(transparent 40%, rgba(0, 0, 0, 0.75));
+  pointer-events: none;
+}
+
+.tablet-reloj-kiosco-hint {
+  margin: 12px 0 0;
+  font-size: 1.2rem;
+  text-align: center;
+  color: #f1f5f9;
+  max-width: 480px;
+  line-height: 1.4;
+}
+
+.tablet-reloj-sensor {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 0.95rem;
+  color: #94a3b8;
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.tablet-reloj-sensor--activo {
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.5);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
+}
+
+.tablet-reloj-sensor--busy {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+.tablet-reloj-sensor-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+.tablet-reloj-sensor--activo .tablet-reloj-sensor-dot {
+  background: #22c55e;
+  animation: tablet-reloj-pulse 1.2s ease-in-out infinite;
+}
+
+.tablet-reloj-sensor--busy .tablet-reloj-sensor-dot {
+  background: #fbbf24;
+  animation: tablet-reloj-pulse 0.7s ease-in-out infinite;
+}
+
+@keyframes tablet-reloj-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.35);
+  }
+}
+
+.tablet-reloj-spinner--lg {
+  width: 56px;
+  height: 56px;
+  margin-top: 16px;
+}
+
+.tablet-reloj-exito--kiosco {
+  text-align: center;
+  padding: 20px;
+  border-radius: 16px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.tablet-reloj-error-kiosco {
+  text-align: center;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+}
