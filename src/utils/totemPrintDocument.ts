@@ -12,8 +12,26 @@ function ensureWorker(): void {
 
 export type PrintFormat = 'A4' | 'A3'
 export type PrintColorMode = 'color' | 'bw'
+export type PrintColorDetection = PrintColorMode | 'mixed'
 
 export type PrintDocumentKind = 'pdf' | 'image' | 'unknown'
+
+export type PrintPagePreview = {
+  previewUrl: string
+  color: PrintColorMode
+  label: string
+  sourceIndex: number
+  pageInSource: number
+}
+
+export type PrintDocumentAnalysis = {
+  kind: PrintDocumentKind
+  pageCount: number
+  previews: PrintPagePreview[]
+  colorDetection: PrintColorDetection
+  colorPages: number
+  bwPages: number
+}
 
 export function parseTipoImpresion(tipo: string): { format: PrintFormat; color: PrintColorMode } {
   const t = String(tipo || '').toLowerCase()
@@ -21,6 +39,17 @@ export function parseTipoImpresion(tipo: string): { format: PrintFormat; color: 
   const color: PrintColorMode =
     t.includes('blanco') || t.includes('negro') || t.includes('b/n') || t.includes('bn') ? 'bw' : 'color'
   return { format, color }
+}
+
+export function buildTipoImpresionLabel(
+  format: PrintFormat,
+  detection: PrintColorDetection,
+  colorPages: number,
+  bwPages: number
+): string {
+  if (detection === 'color') return `${format} - Color (detectado)`
+  if (detection === 'bw') return `${format} - Blanco y negro (detectado)`
+  return `${format} - Mixto (${colorPages} color, ${bwPages} B/N)`
 }
 
 export function aspectRatioForFormat(format: PrintFormat): number {
@@ -100,34 +129,157 @@ export async function renderPdfPagePreview(
   }
 }
 
+const COLOR_DELTA_THRESHOLD = 22
+const COLOR_PIXEL_RATIO = 0.007
+
+export function detectColorFromImageData(data: Uint8ClampedArray): PrintColorMode {
+  let colorPixels = 0
+  let total = 0
+  for (let i = 0; i < data.length; i += 16) {
+    const r = data[i]
+    const g = data[i + 1]
+    const b = data[i + 2]
+    const a = data[i + 3]
+    if (a < 16) continue
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    if (max - min > COLOR_DELTA_THRESHOLD) colorPixels++
+    total++
+  }
+  if (total === 0) return 'bw'
+  return colorPixels / total > COLOR_PIXEL_RATIO ? 'color' : 'bw'
+}
+
+export async function detectColorFromPreviewUrl(previewUrl: string): Promise<PrintColorMode> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const w = Math.min(220, img.naturalWidth || img.width)
+      const h = Math.min(220, img.naturalHeight || img.height)
+      canvas.width = Math.max(1, w)
+      canvas.height = Math.max(1, h)
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve('bw')
+        return
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      resolve(detectColorFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height).data))
+    }
+    img.onerror = () => resolve('bw')
+    img.src = previewUrl
+  })
+}
+
+function aggregateColorDetection(pages: PrintPagePreview[]): {
+  colorDetection: PrintColorDetection
+  colorPages: number
+  bwPages: number
+} {
+  const colorPages = pages.filter((p) => p.color === 'color').length
+  const bwPages = pages.length - colorPages
+  let colorDetection: PrintColorDetection = 'bw'
+  if (colorPages > 0 && bwPages > 0) colorDetection = 'mixed'
+  else if (colorPages > 0) colorDetection = 'color'
+  return { colorDetection, colorPages, bwPages }
+}
+
+async function analyzeSingleSource(
+  source: string,
+  fileName: string,
+  sourceIndex: number,
+  maxThumbWidth: number,
+  maxThumbsPerFile: number
+): Promise<{ kind: PrintDocumentKind; pages: PrintPagePreview[] }> {
+  const buffer = await loadFileBytes(source)
+  const kind = detectKindFromSource(source, buffer)
+  const labelBase = fileName.trim() || `Archivo ${sourceIndex + 1}`
+
+  if (kind === 'image') {
+    const url = source.startsWith('data:') || source.startsWith('http') ? source : null
+    let previewUrl = url
+    if (!previewUrl && buffer) {
+      const blob = new Blob([buffer])
+      previewUrl = URL.createObjectURL(blob)
+    }
+    if (!previewUrl) return { kind: 'unknown', pages: [] }
+    const color = await detectColorFromPreviewUrl(previewUrl)
+    return {
+      kind: 'image',
+      pages: [{ previewUrl, color, label: labelBase, sourceIndex, pageInSource: 1 }]
+    }
+  }
+
+  if (kind === 'pdf' && buffer) {
+    const pageCount = await countPdfPages(buffer)
+    const thumbs = Math.min(pageCount, maxThumbsPerFile)
+    const pages: PrintPagePreview[] = []
+    for (let p = 1; p <= thumbs; p++) {
+      const previewUrl = await renderPdfPagePreview(buffer, p, maxThumbWidth)
+      const color = await detectColorFromPreviewUrl(previewUrl)
+      pages.push({
+        previewUrl,
+        color,
+        label: pageCount > 1 ? `${labelBase} · pág. ${p}` : labelBase,
+        sourceIndex,
+        pageInSource: p
+      })
+    }
+    return { kind: 'pdf', pages }
+  }
+
+  return { kind: 'unknown', pages: [] }
+}
+
+export async function analyzePrintSources(
+  sources: Array<{ source: string; name?: string }>,
+  maxThumbWidth = 400,
+  maxThumbsPerFile = 5
+): Promise<PrintDocumentAnalysis> {
+  if (sources.length === 0) {
+    return { kind: 'unknown', pageCount: 0, previews: [], colorDetection: 'bw', colorPages: 0, bwPages: 0 }
+  }
+
+  const allPages: PrintPagePreview[] = []
+  let kind: PrintDocumentKind = 'unknown'
+  let pageCount = 0
+
+  for (let i = 0; i < sources.length; i++) {
+    const item = sources[i]
+    const doc = await analyzeSingleSource(item.source, item.name || '', i, maxThumbWidth, maxThumbsPerFile)
+    if (doc.kind !== 'unknown') kind = doc.kind
+    allPages.push(...doc.pages)
+
+    const buffer = await loadFileBytes(item.source)
+    const k = detectKindFromSource(item.source, buffer)
+    if (k === 'image') pageCount += 1
+    else if (k === 'pdf' && buffer) pageCount += await countPdfPages(buffer)
+  }
+
+  const { colorDetection, colorPages, bwPages } = aggregateColorDetection(allPages)
+
+  return {
+    kind,
+    pageCount: Math.max(pageCount, allPages.length, 1),
+    previews: allPages,
+    colorDetection,
+    colorPages,
+    bwPages
+  }
+}
+
+/** @deprecated Usar analyzePrintSources */
 export async function buildPrintDocumentPreview(
   source: string,
   maxThumbWidth = 320,
   maxThumbs = 4
 ): Promise<{ kind: PrintDocumentKind; pageCount: number; previews: string[] }> {
-  const buffer = await loadFileBytes(source)
-  const kind = detectKindFromSource(source, buffer)
-
-  if (kind === 'image') {
-    const url = source.startsWith('data:') || source.startsWith('http') ? source : null
-    if (!url && buffer) {
-      const blob = new Blob([buffer])
-      const obj = URL.createObjectURL(blob)
-      return { kind: 'image', pageCount: 1, previews: [obj] }
-    }
-    if (!url) return { kind: 'unknown', pageCount: 1, previews: [] }
-    return { kind: 'image', pageCount: 1, previews: [url] }
+  const doc = await analyzePrintSources([{ source }], maxThumbWidth, maxThumbs)
+  return {
+    kind: doc.kind,
+    pageCount: doc.pageCount,
+    previews: doc.previews.map((p) => p.previewUrl)
   }
-
-  if (kind === 'pdf' && buffer) {
-    const pageCount = await countPdfPages(buffer)
-    const thumbs = Math.min(pageCount, maxThumbs)
-    const previews: string[] = []
-    for (let p = 1; p <= thumbs; p++) {
-      previews.push(await renderPdfPagePreview(buffer, p, maxThumbWidth))
-    }
-    return { kind: 'pdf', pageCount, previews }
-  }
-
-  return { kind: 'unknown', pageCount: 1, previews: [] }
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { parseTotemArchivoManifest } from '@/utils/totemArchivoManifest'
 import './TotemImpresionBackofficePage.css'
 
 const LIST_LIMIT = 500
@@ -26,6 +27,8 @@ type Row = {
   estado_pago_venta?: string | null
   impreso_at?: string | null
   impreso_por_usuario_id?: number | null
+  mp_payment_id?: string | null
+  mp_preference_id?: string | null
 }
 
 type FiltroCola = 'todos' | 'pendiente_pago' | 'pagado_sin_imprimir' | 'impreso'
@@ -227,15 +230,35 @@ export default function TotemImpresionBackofficePage() {
                     <td>
                       <div className="totem-bo-file">
                         <div title={r.archivo_nombre}>{r.archivo_nombre}</div>
-                        <a href={r.archivo_url} target="_blank" rel="noreferrer">
-                          Abrir link
-                        </a>
+                        {parseTotemArchivoManifest(r.archivo_url).files.map((f, i) => (
+                          <a key={`${f.url}-${i}`} href={f.url} target="_blank" rel="noreferrer">
+                            {f.nombre?.trim() ? `Abrir ${f.nombre}` : `Abrir archivo ${i + 1}`}
+                          </a>
+                        ))}
                       </div>
                     </td>
                     <td>
                       <span className={`totem-bo-badge ${r.estado_pago === 'pagado' ? 'ok' : 'pending'}`}>
                         {r.estado_pago}
                       </span>
+                      {r.estado_pago === 'pagado' && (r.valor_venta != null || r.mp_payment_id) ? (
+                        <div className="totem-bo-mpReceipt">
+                          <div className="totem-bo-mpReceipt-brand">MERCADO PAGO</div>
+                          {r.valor_venta != null ? (
+                            <div className="totem-bo-mpReceipt-amount">
+                              Checkout{' '}
+                              {new Intl.NumberFormat('es-AR', {
+                                style: 'currency',
+                                currency: 'ARS',
+                                maximumFractionDigits: 0
+                              }).format(r.valor_venta)}
+                            </div>
+                          ) : null}
+                          {r.mp_payment_id ? (
+                            <div className="totem-bo-mpReceipt-id">Pago: {r.mp_payment_id}</div>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {r.pagado_at ? (
                         <div className="totem-bo-muted">Pagado: {new Date(r.pagado_at).toLocaleString()}</div>
                       ) : null}

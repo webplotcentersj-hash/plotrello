@@ -1,0 +1,125 @@
+.totem-mp-pay {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: var(--totem-radius-xl, 20px);
+  border: 1px solid rgba(0, 188, 212, 0.35);
+  background: linear-gradient(165deg, rgba(0, 188, 212, 0.12) 0%, rgba(8, 10, 20, 0.55) 100%);
+}
+
+.totem-mp-pay-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.totem-mp-pay-lead {
+  margin: 0;
+  color: var(--totem-text-soft, #cbd5e1);
+  line-height: 1.45;
+}
+
+.totem-mp-pay-muted {
+  margin: 0;
+  color: var(--totem-text-muted, #94a3b8);
+  font-weight: 600;
+}
+
+.totem-mp-pay-error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--totem-radius-md, 12px);
+  background: rgba(127, 29, 29, 0.45);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+  font-weight: 600;
+}
+
+.totem-mp-pay-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.totem-mp-pay-qr {
+  border-radius: 16px;
+  border: 3px solid #fff;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+}
+
+.totem-mp-pay-qrFallback {
+  width: 260px;
+  height: 260px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--totem-text-muted, #94a3b8);
+  font-weight: 700;
+}
+
+.totem-mp-pay-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 220px;
+  flex: 1;
+}
+
+.totem-mp-pay-step {
+  margin: 0;
+  font-weight: 600;
+  color: var(--totem-text-soft, #cbd5e1);
+  line-height: 1.4;
+}
+
+.totem-mp-pay-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  border-radius: var(--totem-radius-md, 12px);
+  font-weight: 800;
+  background: linear-gradient(135deg, #00bcd4, #0097a7);
+  color: #042f2e;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.totem-mp-pay-note {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #86efac;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.totem-mp-pay-ref {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--totem-text-muted, #94a3b8);
+  word-break: break-all;
+}
+
+.totem-mp-pay-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.totem-mp-pay-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--totem-text, #f8fafc);
+  padding: 12px 18px;
+  border-radius: var(--totem-radius-md, 12px);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.totem-mp-pay-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+}

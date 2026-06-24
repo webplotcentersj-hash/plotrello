@@ -201,6 +201,39 @@
   background: rgba(34, 197, 94, 0.12);
 }
 
+.totem-print-monitor-chip--mixed {
+  background: rgba(167, 139, 250, 0.2);
+  border-color: rgba(167, 139, 250, 0.45);
+  color: #ddd6fe;
+}
+
+.totem-print-monitor-thumb-badge {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.58rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.totem-print-monitor-thumb-badge--color {
+  background: rgba(234, 88, 12, 0.9);
+}
+
+.totem-print-monitor-thumb-badge--bw {
+  background: rgba(51, 65, 85, 0.92);
+}
+
+.totem-print-monitor-overlay-tag--color {
+  background: rgba(234, 88, 12, 0.88);
+}
+
+.totem-print-monitor-overlay-tag--bw {
+  background: rgba(51, 65, 85, 0.92);
+}
+
 .totem-print-monitor-thumbs {
   display: flex;
   flex-wrap: wrap;

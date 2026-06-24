@@ -10336,6 +10336,8 @@ class ApiService {
         estado_pago_venta?: string | null
         impreso_at?: string | null
         impreso_por_usuario_id?: number | null
+        mp_payment_id?: string | null
+        mp_preference_id?: string | null
       }>
     >
   > {
@@ -10453,6 +10455,8 @@ class ApiService {
       archivo_url?: string | null
       archivo_nombre?: string | null
       archivo_bytes?: number | null
+      archivo_count?: number
+      archivos?: Array<{ url: string; nombre: string; bytes?: number }>
       estado?: string
     }>
   > {
@@ -10466,10 +10470,14 @@ class ApiService {
     }
   }
 
-  /** Sube archivo al bucket `archivos` y registra la URL en la sesión QR (una sola vez por sesión). */
-  async subirArchivoSesionTotemQr(file: File, sessionId: string): Promise<ApiResponse<boolean>> {
+  /** Sube archivo al bucket `archivos` y registra la URL en la sesión QR (varios archivos por sesión). */
+  async subirArchivoSesionTotemQr(
+    file: File,
+    sessionId: string,
+    options?: { finalizar?: boolean }
+  ): Promise<ApiResponse<boolean>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
-    const maxBytes = 12 * 1024 * 1024
+    const maxBytes = 25 * 1024 * 1024
     if (file.size > maxBytes) {
       return { success: false, error: `El archivo supera ${maxBytes / (1024 * 1024)} MB` }
     }
@@ -10498,7 +10506,8 @@ class ApiService {
         p_session_id: sessionId,
         p_archivo_url: publicUrl,
         p_archivo_nombre: file.name.slice(0, 500),
-        p_archivo_bytes: file.size
+        p_archivo_bytes: file.size,
+        p_finalizar: options?.finalizar !== false
       })
       if (regErr) return { success: false, error: regErr.message }
       const out = (reg ?? null) as { ok?: boolean; error?: string } | null
@@ -10506,6 +10515,61 @@ class ApiService {
         return { success: false, error: out.error || 'No se pudo registrar en la sesión' }
       }
       return { success: true, data: true }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al subir archivo' }
+    }
+  }
+
+  async agregarArchivoSesionTotemQr(
+    file: File,
+    sessionId: string
+  ): Promise<ApiResponse<boolean>> {
+    return this.subirArchivoSesionTotemQr(file, sessionId, { finalizar: false })
+  }
+
+  async finalizarSesionQrUploadTotem(sessionId: string): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('finalizar_sesion_qr_upload_totem', {
+        p_session_id: sessionId
+      })
+      if (error) return { success: false, error: error.message }
+      const out = (data ?? null) as { ok?: boolean; error?: string } | null
+      if (out && out.ok === false) return { success: false, error: out.error || 'No se pudo finalizar' }
+      return { success: true, data: true }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al finalizar sesión' }
+    }
+  }
+
+  /** Subida directa al bucket para pendrive / tótem (sin sesión QR). */
+  async subirArchivoTotemImpresion(file: File): Promise<ApiResponse<{ url: string }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const maxBytes = 25 * 1024 * 1024
+    if (file.size > maxBytes) {
+      return { success: false, error: `El archivo supera ${maxBytes / (1024 * 1024)} MB` }
+    }
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const allowedExt = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic'])
+    if (!allowedExt.has(ext)) {
+      return { success: false, error: 'Formato no permitido (PDF o imagen).' }
+    }
+    const safeBase = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
+      .slice(0, 80)
+    const path = `totem-qr-uploads/pendrive/${Date.now()}_${safeBase}.${ext}`
+    try {
+      const { error: uploadError } = await supabase.storage.from('archivos').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || `application/${ext === 'pdf' ? 'pdf' : 'octet-stream'}`
+      })
+      if (uploadError) return { success: false, error: uploadError.message }
+      const { data: urlData } = supabase.storage.from('archivos').getPublicUrl(path)
+      const publicUrl = urlData?.publicUrl
+      if (!publicUrl) return { success: false, error: 'No se pudo obtener la URL pública del archivo' }
+      return { success: true, data: { url: publicUrl } }
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'Error al subir archivo' }
     }

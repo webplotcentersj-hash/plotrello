@@ -254,6 +254,33 @@
   font-size: 1.02rem;
 }
 
+.totem-bo-mpReceipt {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.35);
+  line-height: 1.35;
+}
+
+.totem-bo-mpReceipt-brand {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.totem-bo-mpReceipt-amount {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.totem-bo-mpReceipt-id {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
 .totem-bo-card {
   margin: 48px auto;
   width: min(720px, 100%);
