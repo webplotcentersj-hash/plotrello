@@ -1,4 +1,4 @@
--- Incluye foto del legajo en el listado de cumples / aniversarios (home “Hoy en Plot”).
+-- Excluir personal dado de baja (usuarios.activo = false) de cumples y aniversarios en home.
 
 DROP FUNCTION IF EXISTS public.listar_fechas_plot_hoy();
 
@@ -51,15 +51,17 @@ BEGIN
   INNER JOIN public.usuarios u ON u.id = l.id_usuario
   WHERE COALESCE(u.activo, true) = true
     AND (
-      l.fecha_nacimiento IS NOT NULL
-      AND EXTRACT(MONTH FROM l.fecha_nacimiento::date) = EXTRACT(MONTH FROM hoy)
-      AND EXTRACT(DAY FROM l.fecha_nacimiento::date) = EXTRACT(DAY FROM hoy)
-    )
-    OR
-    (
-      l.fecha_ingreso IS NOT NULL
-      AND EXTRACT(MONTH FROM l.fecha_ingreso::date) = EXTRACT(MONTH FROM hoy)
-      AND EXTRACT(DAY FROM l.fecha_ingreso::date) = EXTRACT(DAY FROM hoy)
+      (
+        l.fecha_nacimiento IS NOT NULL
+        AND EXTRACT(MONTH FROM l.fecha_nacimiento::date) = EXTRACT(MONTH FROM hoy)
+        AND EXTRACT(DAY FROM l.fecha_nacimiento::date) = EXTRACT(DAY FROM hoy)
+      )
+      OR
+      (
+        l.fecha_ingreso IS NOT NULL
+        AND EXTRACT(MONTH FROM l.fecha_ingreso::date) = EXTRACT(MONTH FROM hoy)
+        AND EXTRACT(DAY FROM l.fecha_ingreso::date) = EXTRACT(DAY FROM hoy)
+      )
     );
 END;
 $$;
@@ -68,4 +70,4 @@ GRANT EXECUTE ON FUNCTION public.listar_fechas_plot_hoy() TO anon;
 GRANT EXECUTE ON FUNCTION public.listar_fechas_plot_hoy() TO authenticated;
 
 COMMENT ON FUNCTION public.listar_fechas_plot_hoy() IS
-  'Cumples y aniversarios de alta (mismo día/mes que hoy en AR) con foto del legajo si existe.';
+  'Cumples y aniversarios de alta (mismo día/mes que hoy en AR) solo para usuarios activos.';
