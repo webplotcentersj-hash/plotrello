@@ -1838,6 +1838,8 @@ export interface Venta {
   observaciones?: string | null
   /** URL del comprobante de pago (imagen/PDF) en Storage */
   comprobante_pago_url?: string | null
+  mp_payment_id?: string | null
+  mp_preference_id?: string | null
   created_at: string
   updated_at: string
   items?: VentaItem[]

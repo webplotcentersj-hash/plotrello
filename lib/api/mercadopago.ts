@@ -95,6 +95,10 @@ export function buildTotemCheckoutExternalRef(checkoutId: string): string {
   return `totem_checkout:${checkoutId}`
 }
 
+export function buildMpCheckoutExternalRef(checkoutId: string): string {
+  return `mp_checkout:${checkoutId}`
+}
+
 export function parseTotemImpresionExternalRef(ref: string | null | undefined): number | null {
   const s = String(ref || '').trim()
   const m = s.match(/^totem_impresion:(\d+)$/i)
@@ -106,6 +110,12 @@ export function parseTotemImpresionExternalRef(ref: string | null | undefined): 
 export function parseTotemCheckoutExternalRef(ref: string | null | undefined): string | null {
   const s = String(ref || '').trim()
   const m = s.match(/^totem_checkout:([0-9a-f-]{36})$/i)
+  return m ? m[1] : null
+}
+
+export function parseMpCheckoutExternalRef(ref: string | null | undefined): string | null {
+  const s = String(ref || '').trim()
+  const m = s.match(/^mp_checkout:([0-9a-f-]{36})$/i)
   return m ? m[1] : null
 }
 

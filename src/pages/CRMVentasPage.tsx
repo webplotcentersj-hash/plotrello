@@ -35,6 +35,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
 import CajaCobroVentaModal from '../features/control-cajas/components/CajaCobroVentaModal'
+import MercadoPagoCheckoutPanel from '../components/payments/MercadoPagoCheckoutPanel'
 import { forceResyncVenta } from '../features/control-cajas/plotlabVentaCajaSync'
 import VentaRapidaModal from '../components/VentaRapidaModal'
 import VentasListaPreciosPanel from '../components/ventas/VentasListaPreciosPanel'
@@ -332,6 +333,7 @@ const CRMVentasPage = () => {
     venta: Venta
     estadoDestino: 'Pagado' | 'Parcial'
   } | null>(null)
+  const [mpVentaModal, setMpVentaModal] = useState<Venta | null>(null)
   const [resyncVentaId, setResyncVentaId] = useState<number | null>(null)
 
   const busquedaOportunidadRef = useRef<HTMLInputElement>(null)
@@ -3024,6 +3026,15 @@ const CRMVentasPage = () => {
                   >
                     {resyncVentaId === ventaModal.id ? '↻…' : '↻ Caja'}
                   </button>
+                  {(ventaModal.estado_pago === 'Pendiente' || ventaModal.estado_pago === 'Parcial') && (
+                    <button
+                      type="button"
+                      className="btn-action btn-action--mp"
+                      onClick={() => setMpVentaModal(ventaModal)}
+                    >
+                      💙 Mercado Pago
+                    </button>
+                  )}
                   <select
                     className="venta-estado-select"
                     value={ventaModal.metodo_pago || 'Otro'}
@@ -4120,6 +4131,30 @@ const CRMVentasPage = () => {
           onClose={() => setCobroCajaModal(null)}
           onConfirm={confirmarCobroCaja}
         />
+      )}
+
+      {mpVentaModal && (
+        <div className="mp-checkout-modal-backdrop" onClick={() => setMpVentaModal(null)}>
+          <div className="mp-checkout-modal" onClick={(e) => e.stopPropagation()}>
+            <MercadoPagoCheckoutPanel
+              tipo="venta"
+              payload={{ venta_id: mpVentaModal.id }}
+              amountHint={mpVentaModal.valor_total}
+              title={`Cobrar venta ${mpVentaModal.numero_venta}`}
+              note="El cliente escanea el QR y paga. Al confirmarse, la venta queda Pagada y el movimiento llega a caja con el número de pago MP."
+              onPaid={async ({ mpPaymentId }) => {
+                setMpVentaModal(null)
+                await loadData()
+                if (mpPaymentId) {
+                  alert(`Pago confirmado. MP: ${mpPaymentId}`)
+                }
+              }}
+            />
+            <button type="button" className="mp-checkout-modal-close" onClick={() => setMpVentaModal(null)}>
+              Cerrar
+            </button>
+          </div>
+        </div>
       )}
 
       {mostrarModalPresupuesto && usuario && (

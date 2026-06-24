@@ -1,0 +1,337 @@
+.totem-asesor-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #070b14;
+  color: #f1f5f9;
+  font-family: inherit;
+}
+
+.totem-asesor-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(7, 11, 20, 0.9));
+}
+
+.totem-asesor-logo {
+  height: 52px;
+  width: auto;
+}
+
+.totem-asesor-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.totem-asesor-header-text h1 {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.5vw, 1.55rem);
+  font-weight: 800;
+}
+
+.totem-asesor-header-text p {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.totem-asesor-clock {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.totem-asesor-clock-time {
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #7dd3fc;
+}
+
+.totem-asesor-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.totem-asesor-idle {
+  position: relative;
+  max-width: 560px;
+  margin: 10vh auto 0;
+  text-align: center;
+  padding: 48px 28px;
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.totem-asesor-idle-pulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 28px;
+  border: 2px solid rgba(56, 189, 248, 0.25);
+  animation: totem-asesor-idle-pulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes totem-asesor-idle-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.02);
+  }
+}
+
+.totem-asesor-idle-title {
+  margin: 0 0 10px;
+  font-size: clamp(1.4rem, 3vw, 1.8rem);
+  font-weight: 800;
+}
+
+.totem-asesor-idle-sub {
+  margin: 0;
+  line-height: 1.55;
+  color: rgba(203, 213, 225, 0.9);
+}
+
+.totem-asesor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+}
+
+.totem-asesor-card {
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.totem-asesor-card--active {
+  border-color: rgba(251, 146, 60, 0.55);
+  box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.2), 0 12px 40px rgba(249, 115, 22, 0.15);
+}
+
+.totem-asesor-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.totem-asesor-card-time {
+  font-size: 0.85rem;
+  color: rgba(148, 163, 184, 0.95);
+  font-variant-numeric: tabular-nums;
+}
+
+.totem-asesor-card-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fed7aa;
+  background: rgba(249, 115, 22, 0.2);
+  border: 1px solid rgba(251, 146, 60, 0.4);
+}
+
+.totem-asesor-card-name {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.totem-asesor-card-op,
+.totem-asesor-card-sector {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  color: rgba(203, 213, 225, 0.9);
+}
+
+.totem-asesor-card-btn {
+  margin-top: 14px;
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: #0f172a;
+  background: linear-gradient(135deg, #34d399, #10b981);
+}
+
+/* ——— Alerta fullscreen ——— */
+.totem-asesor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(ellipse 120% 80% at 50% 20%, rgba(249, 115, 22, 0.35), transparent 55%),
+    rgba(4, 6, 18, 0.94);
+  backdrop-filter: blur(10px);
+  animation: totem-asesor-overlay-in 0.35s ease-out both;
+}
+
+@keyframes totem-asesor-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.totem-asesor-overlay-led {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 14px;
+  pointer-events: none;
+  background: linear-gradient(90deg, #f97316, #eab308, #22c55e, #38bdf8, #f97316);
+  background-size: 400% 100%;
+  animation: totem-asesor-led 2s linear infinite;
+  box-shadow: 0 0 24px rgba(249, 115, 22, 0.5);
+}
+
+.totem-asesor-overlay-led--top {
+  top: 0;
+}
+
+.totem-asesor-overlay-led--bottom {
+  bottom: 0;
+  animation-direction: reverse;
+}
+
+@keyframes totem-asesor-led {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.totem-asesor-overlay-card {
+  position: relative;
+  width: min(96vw, 680px);
+  border-radius: 28px;
+  padding: 36px 28px 28px;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(67, 20, 7, 0.98) 0%, rgba(15, 23, 42, 0.99) 50%, rgba(12, 10, 30, 1) 100%);
+  border: 1px solid rgba(251, 146, 60, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 24px 80px rgba(0, 0, 0, 0.65),
+    0 0 100px rgba(249, 115, 22, 0.25);
+}
+
+.totem-asesor-overlay-pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 32px;
+  border: 2px solid rgba(251, 146, 60, 0.4);
+  animation: totem-asesor-overlay-pulse 1.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes totem-asesor-overlay-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+.totem-asesor-overlay-badge {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffedd5;
+  background: rgba(249, 115, 22, 0.25);
+  border: 1px solid rgba(251, 146, 60, 0.5);
+}
+
+.totem-asesor-overlay-title {
+  margin: 0 0 8px;
+  font-size: clamp(1.75rem, 4vw, 2.4rem);
+  font-weight: 900;
+  color: #fff;
+}
+
+.totem-asesor-overlay-op {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fdba74;
+}
+
+.totem-asesor-overlay-meta {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.totem-asesor-overlay-hint {
+  margin: 0 0 20px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(203, 213, 225, 0.88);
+}
+
+.totem-asesor-overlay-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.totem-asesor-overlay-btn-primary {
+  min-height: 56px;
+  min-width: min(100%, 280px);
+  padding: 14px 24px;
+  border: none;
+  border-radius: 14px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #0f172a;
+  background: linear-gradient(135deg, #fb923c 0%, #f97316 55%, #ea580c 100%);
+  box-shadow: 0 12px 32px rgba(249, 115, 22, 0.35);
+}
+
+@media (min-width: 768px) {
+  .totem-asesor-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+  }
+}

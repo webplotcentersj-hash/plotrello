@@ -187,7 +187,11 @@ export default function TallerGraficoPedidoEntregaOverlay() {
       <div className="tg-pedido-led-strip tg-pedido-led-strip--bottom" aria-hidden />
       <div className="tg-pedido-card" onClick={(e) => e.stopPropagation()}>
         <div className="tg-pedido-pulse-ring" aria-hidden />
-        <div className="tg-pedido-badge">Pedido desde Caja · Entrega</div>
+        <div className="tg-pedido-badge">
+          {active.solicitanteRol === 'totem'
+            ? 'Cliente en tótem · Pedido a mostrador'
+            : 'Pedido desde Caja · Entrega'}
+        </div>
         <h2 id="tg-pedido-heading" className="tg-pedido-op">
           OP #{active.numeroOp}
         </h2>

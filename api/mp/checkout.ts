@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import {
-  buildTotemCheckoutExternalRef,
+  buildMpCheckoutExternalRef,
   createCheckoutPreference,
   getMercadoPagoWebhookBaseUrl,
   isMercadoPagoConfigured,
@@ -27,17 +27,7 @@ function publicOrigin(req: VercelRequest): string {
   return allowed[0] || 'https://plotrello.vercel.app'
 }
 
-type Draft = {
-  cliente_nombre?: string
-  cliente_dni?: string
-  cliente_telefono?: string
-  cantidad_hojas?: number
-  tipo_impresion?: string
-  origen_archivo?: string
-  archivo_url?: string
-  archivo_nombre?: string
-  valor_total?: number
-}
+type CheckoutTipo = 'venta' | 'pedido_portal'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsRestricted(req, res)
@@ -59,38 +49,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const body = (req.body ?? {}) as { draft?: Draft }
-  const draft = body.draft
-  if (!draft || typeof draft !== 'object') {
-    res.status(400).json({ ok: false, error: 'Falta draft de la solicitud' })
+  const body = (req.body ?? {}) as { tipo?: CheckoutTipo; payload?: Record<string, unknown> }
+  const tipo = body.tipo
+  const payload = body.payload
+  if (!tipo || !payload || typeof payload !== 'object') {
+    res.status(400).json({ ok: false, error: 'Faltan tipo y payload' })
     return
   }
 
-  const amount = Number(draft.valor_total)
-  if (!Number.isFinite(amount) || amount < 1) {
-    res.status(400).json({ ok: false, error: 'El monto debe ser al menos $1' })
-    return
-  }
-
-  const payload = {
-    cliente_nombre: String(draft.cliente_nombre || '').trim(),
-    cliente_dni: String(draft.cliente_dni || '').trim(),
-    cliente_telefono: String(draft.cliente_telefono || '').trim(),
-    cantidad_hojas: Math.max(1, Math.floor(Number(draft.cantidad_hojas) || 1)),
-    tipo_impresion: String(draft.tipo_impresion || '').trim(),
-    origen_archivo: String(draft.origen_archivo || '').trim(),
-    archivo_url: String(draft.archivo_url || '').trim(),
-    archivo_nombre: String(draft.archivo_nombre || '').trim(),
-    valor_total: amount
-  }
-
-  const { data: chkRaw, error: chkErr } = await supabase.rpc('crear_totem_impresion_checkout', {
+  const { data: chkRaw, error: chkErr } = await supabase.rpc('crear_mp_checkout', {
+    p_tipo: tipo,
     p_payload: payload
   })
   if (chkErr) {
     res.status(500).json({ ok: false, error: chkErr.message })
     return
   }
+
   const chk = (chkRaw ?? {}) as { ok?: boolean; error?: string; checkout_id?: string; amount?: number }
   if (!chk.ok || !chk.checkout_id) {
     res.status(400).json({ ok: false, error: chk.error || 'No se pudo crear checkout' })
@@ -98,19 +73,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const checkoutId = String(chk.checkout_id)
+  const amount = Number(chk.amount) || 0
   const site = publicOrigin(req)
   const webhookBase = getMercadoPagoWebhookBaseUrl()
-  const externalRef = buildTotemCheckoutExternalRef(checkoutId)
-  const title = `Impresión tótem`
-  const itemTitle = payload.archivo_nombre
-    ? `${title} — ${payload.archivo_nombre}`.slice(0, 120)
-    : title
+  const externalRef = buildMpCheckoutExternalRef(checkoutId)
+
+  let title = 'Plot Center'
+  if (tipo === 'venta') {
+    title = `Venta Plot Center`
+  } else if (tipo === 'pedido_portal') {
+    title = `Compra portal Plot Center`
+  }
 
   try {
     const pref = await createCheckoutPreference({
       items: [
         {
-          title: itemTitle,
+          title: title.slice(0, 120),
           quantity: 1,
           unit_price: Math.round(amount * 100) / 100,
           currency_id: 'ARS'
@@ -119,15 +98,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       external_reference: externalRef,
       notification_url: `${webhookBase}/api/mp/webhook`,
       back_urls: {
-        success: `${site}/totem/autogestion/imprimir?pago=ok&checkout=${checkoutId}`,
-        failure: `${site}/totem/autogestion/imprimir?pago=error&checkout=${checkoutId}`,
-        pending: `${site}/totem/autogestion/imprimir?pago=pending&checkout=${checkoutId}`
+        success: `${site}/?mp_pago=ok&checkout=${checkoutId}`,
+        failure: `${site}/?mp_pago=error&checkout=${checkoutId}`,
+        pending: `${site}/?mp_pago=pending&checkout=${checkoutId}`
       },
       statement_descriptor: 'PLOT CENTER'
     })
 
     const initPoint = mpInitPoint(pref)
-    const { data: regRaw, error: regErr } = await supabase.rpc('registrar_mp_checkout_totem', {
+    const { data: regRaw, error: regErr } = await supabase.rpc('registrar_mp_checkout_preference', {
       p_checkout_id: checkoutId,
       p_preference_id: pref.id,
       p_init_point: initPoint
@@ -141,9 +120,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({
       ok: true,
       checkout_id: checkoutId,
+      tipo,
       preference_id: pref.id,
       init_point: initPoint,
-      amount: chk.amount ?? amount
+      amount
     })
   } catch (e) {
     res.status(500).json({ ok: false, error: e instanceof Error ? e.message : 'Error al crear checkout MP' })

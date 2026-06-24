@@ -115,3 +115,17 @@
   border-color: var(--cliente-brand);
   color: #fff;
 }
+
+.intent-card-hint {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--cliente-muted);
+  margin-top: 0.2rem;
+}
+
+.cliente-checkout-mp-id {
+  font-size: 0.9rem;
+  color: var(--cliente-muted);
+  margin: 0.75rem 0 1rem;
+}

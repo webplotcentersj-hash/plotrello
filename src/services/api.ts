@@ -141,6 +141,11 @@ import {
   TALLER_GRAFICO_PEDIDO_ENTREGA_EVENT,
   type TallerGraficoPedidoEntregaInput
 } from '../constants/tallerGraficoPedidoEntrega'
+import {
+  TOTEM_SOLICITUD_ASESOR_CHANNEL,
+  TOTEM_SOLICITUD_ASESOR_EVENT,
+  type TotemSolicitudAsesorInput
+} from '../constants/totemSolicitudAsesor'
 
 import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
 import { filtrarUsuariosRrhhOperarios } from '../utils/rrhhUsuariosExcluidos'
@@ -3110,6 +3115,73 @@ class ApiService {
             .send({
               type: 'broadcast',
               event: TALLER_GRAFICO_PEDIDO_ENTREGA_EVENT,
+              payload
+            })
+            .then((sendResult) => {
+              if (sendResult === 'ok') void done({ success: true })
+              else void done({ success: false, error: `Realtime: ${String(sendResult)}` })
+            })
+            .catch((e: unknown) => {
+              void done({
+                success: false,
+                error: e instanceof Error ? e.message : 'No se pudo enviar el aviso'
+              })
+            })
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          void done({ success: false, error: `Canal Realtime: ${status}` })
+        }
+      })
+    })
+  }
+
+  /**
+   * Aviso inmediato a la tablet /asesor (Supabase Realtime Broadcast).
+   * Se dispara cuando un cliente toca «Llamar a un asesor» en el tótem.
+   */
+  async broadcastTotemSolicitudAsesor(input: TotemSolicitudAsesorInput): Promise<ApiResponse<void>> {
+    const sb = supabase
+    if (!sb) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    const payload = {
+      ...input,
+      sentAt: new Date().toISOString(),
+      nonce:
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`
+    }
+
+    return await new Promise((resolve) => {
+      let settled = false
+      const ch = sb.channel(TOTEM_SOLICITUD_ASESOR_CHANNEL, {
+        config: { broadcast: { ack: false } }
+      })
+
+      const done = async (out: ApiResponse<void>) => {
+        if (settled) return
+        settled = true
+        window.clearTimeout(timeoutId)
+        try {
+          await sb.removeChannel(ch)
+        } catch {
+          /* ignore */
+        }
+        resolve(out)
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        void done({ success: false, error: 'Tiempo de espera al avisar al asesor. Reintentá.' })
+      }, 12000)
+
+      ch.subscribe((status) => {
+        if (settled) return
+        if (status === 'SUBSCRIBED') {
+          void ch
+            .send({
+              type: 'broadcast',
+              event: TOTEM_SOLICITUD_ASESOR_EVENT,
               payload
             })
             .then((sendResult) => {

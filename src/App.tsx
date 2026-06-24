@@ -28,6 +28,8 @@ const TotemAutogestionCheckoutPage = lazy(() => import('./pages/TotemAutogestion
 const TotemAutogestionImprimirPage = lazy(() => import('./pages/TotemAutogestionImprimirPage'))
 const TotemSubirArchivoQrPage = lazy(() => import('./pages/TotemSubirArchivoQrPage'))
 const TotemConsultaClientePage = lazy(() => import('./pages/TotemConsultaClientePage'))
+const TotemConsultaEntradaTallerPage = lazy(() => import('./pages/TotemConsultaEntradaTallerPage'))
+const TotemAsesorTabletPage = lazy(() => import('./pages/TotemAsesorTabletPage'))
 const TotemPantallaPage = lazy(() => import('./pages/TotemPantallaPage'))
 const ClienteConsultaPage = lazy(() => import('./pages/ClienteConsultaPage'))
 const DashboardPantallasPage = lazy(() => import('./pages/DashboardPantallasPage'))
@@ -221,6 +223,22 @@ function AppInner() {
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
                 <TotemConsultaClientePage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/totem/consulta-cliente/entrada-taller"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
+                <TotemConsultaEntradaTallerPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/asesor"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando panel asesor…</div>}>
+                <TotemAsesorTabletPage />
               </Suspense>
             }
           />

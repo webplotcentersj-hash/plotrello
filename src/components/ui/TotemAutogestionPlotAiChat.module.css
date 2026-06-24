@@ -336,13 +336,14 @@
 
 /* Input embebido: ancho completo y borde acorde al shell */
 .inputEmbed {
-  padding: 4px 0 0;
+  padding: 6px 0 0;
   max-width: 100%;
 }
 
 .inputEmbed > div {
   max-width: 100% !important;
   margin: 0 !important;
+  padding: 0 !important;
 }
 
 .inputEmbed > div > div {

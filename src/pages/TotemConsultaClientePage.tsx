@@ -5,6 +5,13 @@ import apiService from '../services/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { historialPorOrdenId, historialUnificadoMismoNumeroOp } from '../utils/consultaOpHistorial'
+import {
+  TOTEM_SOLICITUD_ASESOR_MARKER
+} from '../constants/totemSolicitudAsesor'
+import {
+  isOpEnAlmacenEntrega,
+  isOpFinalizadoEnTaller
+} from '../utils/totemConsultaOpEstado'
 import { TotemAutogestionPlotAiChat } from '@/components/ui/TotemAutogestionPlotAiChat'
 import './ClienteConsultaPage.css'
 import './TotemConsultaClientePage.css'
@@ -175,7 +182,11 @@ const TotemConsultaClientePage = () => {
     return () => clearInterval(id)
   }, [lastInteraction, ordenes.length, searchOp, step, selectedQueHacer])
 
-  const buscarOrdenes = async (filtro: (orden: OrdenTrabajo) => boolean, mensajeError: string) => {
+  const buscarOrdenes = async (
+    filtro: (orden: OrdenTrabajo) => boolean,
+    mensajeError: string,
+    opBuscada?: string
+  ) => {
     registrarInteraccion()
     setStep('search')
     setLoading(true)
@@ -202,6 +213,7 @@ const TotemConsultaClientePage = () => {
           .map((o) => o.id)
           .filter((id): id is number => typeof id === 'number' && id > 0)
 
+        let histMap: Record<number, HistorialMovimiento[]> = {}
         if (ids.length === 0) {
           setHistorial({})
         } else {
@@ -211,7 +223,19 @@ const TotemConsultaClientePage = () => {
           })
           const movimientos =
             histResponse.success && histResponse.data ? histResponse.data : []
-          setHistorial(historialPorOrdenId(movimientos, ids))
+          histMap = historialPorOrdenId(movimientos, ids)
+          setHistorial(histMap)
+        }
+
+        const tieneEntradaTaller = ordenesFiltradas.some((o) => isOpFinalizadoEnTaller(o.estado))
+        if (tieneEntradaTaller) {
+          const op =
+            opBuscada?.trim() ||
+            String(ordenesFiltradas[0]?.numero_op ?? '').trim()
+          navigate('/totem/consulta-cliente/entrada-taller', {
+            state: { ordenes: ordenesFiltradas, historial: histMap, searchOp: op }
+          })
+          return
         }
       } else {
         setError('Error al buscar pedidos. Por favor intenta nuevamente.')
@@ -238,7 +262,8 @@ const TotemConsultaClientePage = () => {
 
     await buscarOrdenes(
       (orden) => digitsOnly(orden.numero_op ?? '') === searchDigits,
-      'No se encontraron trabajos con ese número de OP.'
+      'No se encontraron trabajos con ese número de OP.',
+      term
     )
   }
 
@@ -252,11 +277,6 @@ const TotemConsultaClientePage = () => {
     const status = mapEstadoToStatus(estado)
     const column = BOARD_COLUMNS.find((col) => col.id === status)
     return column?.accent || '#6b7280'
-  }
-
-  const isReadyForPickup = (estado: string) => {
-    const status = mapEstadoToStatus(estado)
-    return status === 'finalizado-taller' || status === 'almacen-entrega'
   }
 
   const formatDate = (dateString: string) => {
@@ -307,20 +327,38 @@ const TotemConsultaClientePage = () => {
     registrarInteraccion()
     try {
       const nombre = primerOrden?.cliente || 'Cliente tótem'
+      const notas =
+        `${TOTEM_SOLICITUD_ASESOR_MARKER} Cliente pidió hablar con un asesor desde tótem de autoservicio. ` +
+        `Sector sugerido: ${sectorDestino}.`
       const res = await apiService.crearAtencionMostrador({
         cliente_nombre: nombre,
         tipo: 'consulta',
         usuario_id: 1,
         usuario_nombre: 'Totem autoservicio',
         orden_id: primerOrden?.id ?? undefined,
-        notas: `Cliente pidió ayuda desde tótem de autoservicio. Sector sugerido: ${sectorDestino}.`,
-        sector_destino: sectorDestino,
+        notas,
+        sector_destino: 'Asesor',
         orden_numero_op: primerOrden?.numero_op ?? undefined
       })
       if (!res.success) {
         setError(res.error || 'No se pudo avisar a un asesor. Avisá en mostrador.')
+        return
+      }
+
+      const broadcastRes = await apiService.broadcastTotemSolicitudAsesor({
+        atencionId: res.data,
+        clienteNombre: nombre,
+        numeroOp: primerOrden?.numero_op ? String(primerOrden.numero_op) : undefined,
+        sectorDestino,
+        notas
+      })
+
+      if (!broadcastRes.success) {
+        setMensaje(
+          '📞 Registramos tu solicitud. Si nadie viene enseguida, acercate a mostrador.'
+        )
       } else {
-        setMensaje('📞 Avisamos a un asesor que necesitás ayuda.')
+        setMensaje('📞 Avisamos a un asesor que necesitás ayuda. En breve te atienden.')
       }
     } catch (err) {
       console.error('Error llamando asesor desde tótem:', err)
@@ -372,12 +410,15 @@ const TotemConsultaClientePage = () => {
   }
 
   const ordenesActivas = useMemo(
-    () => ordenes.filter((o) => !isReadyForPickup(o.estado)),
+    () =>
+      ordenes.filter(
+        (o) => !isOpEnAlmacenEntrega(o.estado) && !isOpFinalizadoEnTaller(o.estado)
+      ),
     [ordenes]
   )
 
   const ordenesListas = useMemo(
-    () => ordenes.filter((o) => isReadyForPickup(o.estado)),
+    () => ordenes.filter((o) => isOpEnAlmacenEntrega(o.estado)),
     [ordenes]
   )
 

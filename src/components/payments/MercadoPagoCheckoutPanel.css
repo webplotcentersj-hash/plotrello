@@ -1,0 +1,134 @@
+.mp-checkout-pay {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 188, 212, 0.35);
+  background: linear-gradient(165deg, rgba(0, 188, 212, 0.1) 0%, rgba(15, 23, 42, 0.04) 100%);
+}
+
+.mp-checkout-pay-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.mp-checkout-pay-lead {
+  margin: 0;
+  color: var(--text-secondary, #64748b);
+  line-height: 1.45;
+}
+
+.mp-checkout-pay-muted {
+  margin: 0;
+  color: var(--text-secondary, #94a3b8);
+  font-weight: 600;
+}
+
+.mp-checkout-pay-error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(127, 29, 29, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.mp-checkout-pay-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.mp-checkout-pay-qr {
+  border-radius: 16px;
+  border: 3px solid #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.mp-checkout-pay-qrFallback {
+  width: 260px;
+  height: 260px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-secondary, #94a3b8);
+  font-weight: 700;
+}
+
+.mp-checkout-pay-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 220px;
+  flex: 1;
+}
+
+.mp-checkout-pay-step {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+  line-height: 1.4;
+}
+
+.mp-checkout-pay-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #00bcd4, #0097a7);
+  color: #042f2e;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.mp-checkout-pay-note {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #047857;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.mp-checkout-pay-ref {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #94a3b8);
+  word-break: break-all;
+}
+
+.mp-checkout-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.mp-checkout-modal {
+  width: min(640px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: var(--bg-primary, #fff);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
+}
+
+.mp-checkout-modal-close {
+  margin-top: 12px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: transparent;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}

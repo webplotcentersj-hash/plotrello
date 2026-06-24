@@ -23,6 +23,15 @@
   margin: 0;
 }
 
+/* Paso búsqueda: permitir scroll del formulario + resultados */
+.totem-consulta-page .consulta-container.totem-container.totem-step-search {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
 .totem-consulta-page--fs {
   padding: 0;
   background: #0b0d17;
@@ -790,7 +799,6 @@
   display: flex;
   flex-direction: column;
   max-width: none;
-  height: 100%;
 }
 
 .totem-consulta-chat-block--compact .totem-consulta-plotai [class*='shell'] {
@@ -805,6 +813,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .totem-consulta-chat-block--compact .totem-consulta-plotai [class*='head'] {
@@ -813,16 +822,65 @@
 }
 
 .totem-consulta-chat-block--compact .totem-consulta-plotai [class*='messages'] {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   max-height: none;
   margin: 0 8px 6px;
   padding: 8px 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='shellInner'] > [class*='error'] {
+  flex-shrink: 0;
 }
 
 .totem-consulta-chat-block--compact .totem-consulta-plotai [class*='inputSlot'] {
   flex-shrink: 0;
-  padding: 0 8px 8px;
+  padding: 4px 10px 10px;
+}
+
+/* Input PlotAI más legible en aside compacto del welcome */
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='inputEmbed'] {
+  padding-top: 4px;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='inputEmbed'] > div {
+  padding: 0 !important;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai #totem-plotai-input {
+  min-height: 56px !important;
+  padding: 14px 16px 12px !important;
+  font-size: 0.98rem !important;
+  line-height: 1.5 !important;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='placeholderOverlay'] {
+  top: 14px;
+  left: 16px;
+  font-size: 0.9rem;
+  width: min(240px, 70%);
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='growArea'] {
+  max-height: 132px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='toolbar'] {
+  min-height: 46px;
+  padding: 8px 10px;
+  gap: 10px;
+}
+
+.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='cardInner'] {
+  border-radius: 16px;
 }
 
 .totem-consulta-chat-block--compact .totem-consulta-plotai [class*='title'] {
@@ -1076,6 +1134,27 @@
   padding: 32px 40px 40px;
 }
 
+/* Cabecera de OP en resultados: panel claro para buen contraste */
+.totem-consulta-page .totem-results .orden-card .orden-header {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(241, 245, 249, 0.95) 100%);
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.14);
+}
+
+.totem-consulta-page .totem-results .orden-header .orden-op-label,
+.totem-consulta-page .totem-results .orden-header .orden-cliente,
+.totem-consulta-page .totem-results .orden-header .orden-dni-label,
+.totem-consulta-page .totem-results .orden-header .orden-dni-value {
+  color: #475569;
+}
+
+.totem-consulta-page .totem-results .orden-header .orden-op-numero {
+  color: #0f172a !important;
+}
+
 .totem-actions-row {
   display: flex;
   gap: 16px;
@@ -1171,11 +1250,6 @@
 
 .totem-footer {
   font-size: 1rem;
-}
-
-/* Forzar número de OP bien oscuro en modo tótem */
-.totem-consulta-page .orden-op-numero {
-  color: #000000 !important;
 }
 
 @media (max-width: 960px), (max-height: 720px) {
