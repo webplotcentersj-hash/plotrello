@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { ClienteRecord } from '@/types/api'
 import { TotemAutogestionKioskShell } from './TotemAutogestionKioskShell'
+import TotemPrintPreviewMonitor from '../components/totem/TotemPrintPreviewMonitor'
 import './TotemAutogestionImprimirPage.css'
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
@@ -46,10 +47,35 @@ export default function TotemAutogestionImprimirPage() {
   const pendriveInputRef = useRef<HTMLInputElement>(null)
   const pollRef = useRef<number | null>(null)
   const lastEmptyScrollAt = useRef(0)
+  const hojasEditadasManualRef = useRef(false)
+
+  const [hojasAutoDetectadas, setHojasAutoDetectadas] = useState(false)
 
   const [result, setResult] = useState<{ id: number; numeroVenta?: string | null } | null>(null)
 
   const dniDigits = useMemo(() => digitsOnly(clienteDni), [clienteDni])
+
+  const previewSource = useMemo(() => {
+    if (origenArchivo === 'Pendrive' && pendriveDataUrl) return pendriveDataUrl
+    if (origenArchivo === 'CelularQR' && archivoUrl.startsWith('http')) return archivoUrl
+    if (origenArchivo === 'Drive') {
+      const u = archivoUrl.trim()
+      if (u.startsWith('http://') || u.startsWith('https://')) return u
+    }
+    return null
+  }, [origenArchivo, pendriveDataUrl, archivoUrl])
+
+  const handlePageCountDetected = useCallback((n: number) => {
+    if (!hojasEditadasManualRef.current) {
+      setCantidadHojas(Math.max(1, Math.min(999, n)))
+      setHojasAutoDetectadas(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    hojasEditadasManualRef.current = false
+    setHojasAutoDetectadas(false)
+  }, [previewSource])
 
   useEffect(() => {
     if (step !== 'done') return
@@ -351,7 +377,8 @@ export default function TotemAutogestionImprimirPage() {
         <main className="totem-print-main">
           {step === 'form' && (
             <section className="totem-print-card">
-              <div className="totem-print-grid">
+              <div className="totem-print-body">
+                <div className="totem-print-grid">
                 <label className="totem-print-span2">
                   Nombre
                   <div className="totem-print-nombreWrap" ref={nombreWrapRef}>
@@ -398,8 +425,15 @@ export default function TotemAutogestionImprimirPage() {
                   <input
                     inputMode="numeric"
                     value={String(cantidadHojas)}
-                    onChange={(e) => setCantidadHojas(Math.max(1, Math.min(999, Number(e.target.value || '1'))))}
+                    onChange={(e) => {
+                      hojasEditadasManualRef.current = true
+                      setHojasAutoDetectadas(false)
+                      setCantidadHojas(Math.max(1, Math.min(999, Number(e.target.value || '1'))))
+                    }}
                   />
+                  {hojasAutoDetectadas && (
+                    <span className="totem-print-hojasHint">Detectado automáticamente del archivo</span>
+                  )}
                 </label>
                 <label>
                   Tipo de impresión
@@ -525,6 +559,16 @@ export default function TotemAutogestionImprimirPage() {
                   Valor estimado (opcional)
                   <input inputMode="decimal" value={valorTotal} onChange={(e) => setValorTotal(e.target.value)} placeholder="0" />
                 </label>
+              </div>
+
+              <aside className="totem-print-previewAside">
+                <TotemPrintPreviewMonitor
+                  source={previewSource}
+                  fileName={archivoNombre}
+                  tipoImpresion={tipoImpresion}
+                  onPageCount={handlePageCountDetected}
+                />
+              </aside>
               </div>
 
               {error && <div className="totem-print-error">{error}</div>}
