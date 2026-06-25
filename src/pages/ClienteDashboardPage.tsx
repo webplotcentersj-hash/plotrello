@@ -11,7 +11,6 @@ import {
   Megaphone,
   MessageCircle,
   Palette,
-  Plus,
   ShoppingCart,
   Store,
   Wallet
@@ -321,13 +320,9 @@ export default function ClienteDashboardPage() {
           </h1>
           <p className="cliente-dashboard-hero-sub">{cliente?.empresa || 'Seguí tus pedidos y OP en un solo lugar'}</p>
           <div className="cliente-dashboard-hero-cta">
-            <button type="button" className="cliente-btn-primary" onClick={() => navigate('/cliente/nuevo-pedido')}>
-              <Plus size={18} strokeWidth={2.5} aria-hidden />
-              Nuevo pedido
-            </button>
-            <button type="button" className="cliente-btn-outline" onClick={() => navigate('/cliente/catalogo')}>
+            <button type="button" className="cliente-btn-primary" onClick={() => navigate('/cliente/catalogo')}>
               <Store size={18} strokeWidth={2.25} aria-hidden />
-              Ver catálogo
+              Explorar catálogo
             </button>
           </div>
         </section>

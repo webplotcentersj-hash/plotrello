@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../hooks/useClienteAuth'
+import { notifyClienteCarritoUpdated } from '../hooks/useClienteCarritoBadge'
 import apiService from '../services/api'
 import { cantidadMaximaVendible } from '../services/commerceCatalogService'
 import type { CarritoClientePayload } from '../services/commerceCartService'
@@ -50,6 +51,7 @@ export default function ClienteCarritoPage() {
     const r = await apiService.setCarritoItemCliente(cliente.id, idArticulo, cantidad)
     if (r.success && r.data) {
       setCarrito(r.data)
+      notifyClienteCarritoUpdated()
     } else {
       setError(r.error || 'No se pudo actualizar')
     }
@@ -59,8 +61,10 @@ export default function ClienteCarritoPage() {
   const vaciar = async () => {
     if (!cliente || !confirm('¿Vaciar el carrito?')) return
     const r = await apiService.vaciarCarritoCliente(cliente.id)
-    if (r.success) await load()
-    else setError(r.error || 'Error al vaciar')
+    if (r.success) {
+      await load()
+      notifyClienteCarritoUpdated()
+    } else setError(r.error || 'Error al vaciar')
   }
 
   if (authLoading || loading) {

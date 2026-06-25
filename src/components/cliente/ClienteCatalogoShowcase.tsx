@@ -1,11 +1,12 @@
-import { useMemo, useRef } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { ArticuloEmpresaRecord } from '../../types/api'
 import {
   getProductosDestacados,
   getProductosMasVendidos
 } from '../../utils/clienteCatalogoProductos'
 import './ClienteDashboardCatalogoSection.css'
+
+const AUTO_SCROLL_MS = 4500
 
 type Props = {
   articulos: ArticuloEmpresaRecord[]
@@ -27,6 +28,7 @@ export default function ClienteCatalogoShowcase({
   ocultarMasVendidos = false
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
+  const pauseAutoRef = useRef(false)
 
   const destacados = useMemo(() => getProductosDestacados(articulos, 14), [articulos])
   const masVendidos = useMemo(
@@ -38,8 +40,30 @@ export default function ClienteCatalogoShowcase({
     const el = trackRef.current
     if (!el) return
     const step = Math.min(el.clientWidth * 0.85, 320)
+    const atStart = el.scrollLeft <= 4
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 8
+
+    if (dir > 0 && atEnd) {
+      el.scrollTo({ left: 0, behavior: 'smooth' })
+      return
+    }
+    if (dir < 0 && atStart) {
+      el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' })
+      return
+    }
     el.scrollBy({ left: dir * step, behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    if (destacados.length < 2) return
+
+    const id = window.setInterval(() => {
+      if (pauseAutoRef.current) return
+      scrollTrack(1)
+    }, AUTO_SCROLL_MS)
+
+    return () => window.clearInterval(id)
+  }, [destacados.length])
 
   if (articulos.length === 0) return null
 
@@ -51,27 +75,17 @@ export default function ClienteCatalogoShowcase({
             <h2>{tituloCarrusel}</h2>
             <p className="section-desc">{subtituloCarrusel}</p>
           </div>
-          <div className="cliente-dash-catalogo__nav">
-            <button
-              type="button"
-              className="cliente-dash-catalogo__arrow"
-              onClick={() => scrollTrack(-1)}
-              aria-label="Anterior"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <button
-              type="button"
-              className="cliente-dash-catalogo__arrow"
-              onClick={() => scrollTrack(1)}
-              aria-label="Siguiente"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
         </div>
 
-        <div className="cliente-dash-catalogo__track-wrap">
+        <div
+          className="cliente-dash-catalogo__track-wrap"
+          onMouseEnter={() => {
+            pauseAutoRef.current = true
+          }}
+          onMouseLeave={() => {
+            pauseAutoRef.current = false
+          }}
+        >
           <div className="cliente-dash-catalogo__track" ref={trackRef}>
             {destacados.map((a) => (
               <button

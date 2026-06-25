@@ -1,5 +1,7 @@
 /** Metadatos por ítem de carrito (diseño propio, brief, archivos) hasta el checkout. */
 
+import type { ClienteBriefFormData } from '../constants/clienteBriefForm'
+
 export type CarritoArchivoRef = {
   nombre: string
   url: string
@@ -7,13 +9,7 @@ export type CarritoArchivoRef = {
   tamano: number
 }
 
-export type CarritoBriefProducto = {
-  objetivo: string
-  estilo: string
-  cantidades: string
-  referencias: string
-  notas: string
-}
+export type CarritoBriefProducto = ClienteBriefFormData
 
 export type CarritoItemExtra = {
   tieneDiseno: boolean
@@ -71,6 +67,21 @@ export function clearCarritoExtras(clienteId: number): void {
   localStorage.removeItem(storageKey(clienteId))
 }
 
+const MATERIAL_LABELS: Record<string, string> = {
+  si_pdf_eps_ai: 'Sí (PDF, EPS, AI)',
+  si_solo_imagen: 'Sí, solo imagen/captura',
+  no: 'No',
+  necesito_diseno: 'Necesita diseño',
+  si_definitivos: 'Textos definitivos',
+  necesito_redacten: 'Necesita redacción',
+  si_material_propio: 'Material propio',
+  usar_banco_imagenes: 'Banco de imágenes'
+}
+
+function labelMaterial(value: string): string {
+  return MATERIAL_LABELS[value] || value
+}
+
 export function buildDescripcionPersonalizada(extra: CarritoItemExtra, nombreArticulo: string): string {
   const lineas: string[] = []
 
@@ -83,12 +94,34 @@ export function buildDescripcionPersonalizada(extra: CarritoItemExtra, nombreArt
       }
     }
   } else if (extra.brief) {
+    const b = extra.brief
     lineas.push(`[${nombreArticulo}] Solicita diseño — brief del producto:`)
-    if (extra.brief.objetivo.trim()) lineas.push(`Objetivo: ${extra.brief.objetivo.trim()}`)
-    if (extra.brief.estilo.trim()) lineas.push(`Estilo: ${extra.brief.estilo.trim()}`)
-    if (extra.brief.cantidades.trim()) lineas.push(`Cantidades/medidas: ${extra.brief.cantidades.trim()}`)
-    if (extra.brief.referencias.trim()) lineas.push(`Referencias: ${extra.brief.referencias.trim()}`)
-    if (extra.brief.notas.trim()) lineas.push(`Notas: ${extra.brief.notas.trim()}`)
+
+    if (b.tipo_producto_servicio.length) {
+      lineas.push(`Tipos: ${b.tipo_producto_servicio.join(', ')}`)
+    }
+    if (b.tipo_producto_otro.trim()) lineas.push(`Otro tipo: ${b.tipo_producto_otro.trim()}`)
+    if (b.necesita_asesoramiento) lineas.push('Necesita asesoramiento')
+    if (b.donde_colocados.trim()) lineas.push(`Dónde colocados: ${b.donde_colocados.trim()}`)
+    if (b.digital_o_impresion.trim()) {
+      lineas.push(`Digital/impresión: ${b.digital_o_impresion.trim()}`)
+    }
+    if (b.cantidades.trim()) lineas.push(`Cantidades: ${b.cantidades.trim()}`)
+    if (b.objetivo_proyecto.trim()) lineas.push(`Objetivo: ${b.objetivo_proyecto.trim()}`)
+    if (b.material_logo) lineas.push(`Logo: ${labelMaterial(b.material_logo)}`)
+    if (b.material_textos) lineas.push(`Textos: ${labelMaterial(b.material_textos)}`)
+    if (b.material_imagenes) {
+      lineas.push(`Imágenes: ${labelMaterial(b.material_imagenes)}`)
+    }
+    if (b.tiene_referencias && b.referencias_links.trim()) {
+      lineas.push(`Referencias de estilo: ${b.referencias_links.trim()}`)
+    }
+    if (b.brief_publico.trim()) lineas.push(`Descripción: ${b.brief_publico.trim()}`)
+    if (b.estilo_diseno.trim()) lineas.push(`Estilo deseado: ${b.estilo_diseno.trim()}`)
+    if (b.referencias.trim()) lineas.push(`Referencias adicionales: ${b.referencias.trim()}`)
+    if (b.fecha_limite_brief.trim()) lineas.push(`Fecha límite: ${b.fecha_limite_brief.trim()}`)
+    if (b.es_urgencia) lineas.push('Marcado como URGENCIA')
+
     if (extra.archivos.length) {
       lineas.push(`Referencias adjuntas (${extra.archivos.length}):`)
       for (const a of extra.archivos) {

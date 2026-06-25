@@ -1,0 +1,43 @@
+.cliente-catalogo-brief {
+  padding: 0;
+  background: transparent;
+}
+
+.cliente-catalogo-brief__producto {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--cliente-muted);
+}
+
+.cliente-catalogo-brief .form-section {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--cliente-border, #e2e8f0);
+}
+
+.cliente-catalogo-brief .form-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.cliente-catalogo-brief .form-section h2,
+.cliente-catalogo-brief .form-section h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.35rem;
+}
+
+.cliente-catalogo-brief .section-description {
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.cliente-catalogo-brief .checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.cliente-catalogo-brief .checkbox-label {
+  font-size: 0.78rem;
+}

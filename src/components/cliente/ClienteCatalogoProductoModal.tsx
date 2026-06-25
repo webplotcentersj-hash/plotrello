@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ArticuloEmpresaRecord, ArticuloEmpresaImagenRecord } from '../../types/api'
 import apiService from '../../services/api'
 import { getProductosRelacionados } from '../../utils/clienteCatalogoProductos'
+import { useClienteModalLock } from '../../hooks/useClienteModalLock'
 import ClienteCatalogoRelacionados from './ClienteCatalogoRelacionados'
 import './ClienteCatalogoProductoModal.css'
 
@@ -29,6 +31,8 @@ export default function ClienteCatalogoProductoModal({
   const [galeria, setGaleria] = useState<ArticuloEmpresaImagenRecord[]>([])
   const [imagenActiva, setImagenActiva] = useState(0)
   const [cargandoGaleria, setCargandoGaleria] = useState(true)
+
+  useClienteModalLock(true)
 
   useEffect(() => {
     let cancel = false
@@ -71,11 +75,11 @@ export default function ClienteCatalogoProductoModal({
   const imgPrincipal = imagenes[imagenActiva] || null
 
   const relacionados = useMemo(
-    () => getProductosRelacionados(articulo, catalogo, masVendidosIds, 8),
+    () => getProductosRelacionados(articulo, catalogo, masVendidosIds, 6),
     [articulo, catalogo, masVendidosIds]
   )
 
-  return (
+  const modal = (
     <div className="ccp-modal-overlay" role="presentation" onClick={onClose}>
       <div
         className="ccp-modal"
@@ -137,7 +141,7 @@ export default function ClienteCatalogoProductoModal({
             {articulo.descripcion ? (
               <div className="ccp-modal__descripcion">
                 <h3>Descripción</h3>
-                <p>{articulo.descripcion}</p>
+                <p title={articulo.descripcion}>{articulo.descripcion}</p>
               </div>
             ) : (
               <p className="ccp-modal__sin-desc">Sin descripción detallada.</p>
@@ -151,16 +155,19 @@ export default function ClienteCatalogoProductoModal({
             >
               {sinStock ? 'Sin stock' : agregando ? 'Agregando…' : 'Agregar al carrito'}
             </button>
-
-            {relacionados.length > 0 && onVerProducto && (
-              <ClienteCatalogoRelacionados
-                productos={relacionados}
-                onProductClick={onVerProducto}
-              />
-            )}
           </div>
         </div>
+
+        {relacionados.length > 0 && onVerProducto && (
+          <ClienteCatalogoRelacionados
+            productos={relacionados}
+            onProductClick={onVerProducto}
+            compact
+          />
+        )}
       </div>
     </div>
   )
+
+  return createPortal(modal, document.body)
 }

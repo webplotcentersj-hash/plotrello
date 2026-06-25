@@ -1,22 +1,27 @@
 import type { LucideIcon } from 'lucide-react'
 import {
+  Bell,
   HelpCircle,
   Home,
-  PackagePlus,
   Search,
-  ShoppingBag
+  ShoppingBag,
+  ShoppingCart
 } from 'lucide-react'
+
+export type ClienteNavBadge = 'carrito' | 'notificaciones'
 
 export type ClienteNavItem = {
   label: string
   href: string
   Icon: LucideIcon
+  badge?: ClienteNavBadge
 }
 
 export const CLIENTE_NAV_ITEMS: ClienteNavItem[] = [
   { label: 'Inicio', href: '/cliente/dashboard', Icon: Home },
   { label: 'Catálogo', href: '/cliente/catalogo', Icon: ShoppingBag },
-  { label: 'Pedidos', href: '/cliente/nuevo-pedido', Icon: PackagePlus },
+  { label: 'Carrito', href: '/cliente/carrito', Icon: ShoppingCart, badge: 'carrito' },
   { label: 'Buscar OP', href: '/cliente/buscar-op', Icon: Search },
+  { label: 'Notificaciones', href: '/cliente/notificaciones', Icon: Bell, badge: 'notificaciones' },
   { label: 'Ayuda', href: '/cliente/ayuda', Icon: HelpCircle }
 ]

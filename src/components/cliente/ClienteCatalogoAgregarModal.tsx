@@ -1,12 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ArticuloEmpresaRecord } from '../../types/api'
 import apiService from '../../services/api'
+import {
+  emptyClienteBriefForm,
+  inferTiposProductoBrief,
+  type ClienteBriefFormData
+} from '../../constants/clienteBriefForm'
+import { useClienteModalLock } from '../../hooks/useClienteModalLock'
+import { notifyClienteCarritoUpdated } from '../../hooks/useClienteCarritoBadge'
 import {
   type CarritoArchivoRef,
   type CarritoBriefProducto,
   type CarritoItemExtra,
   setCarritoItemExtra
 } from '../../services/clienteCarritoExtras'
+import ClienteCatalogoBriefForm from './ClienteCatalogoBriefForm'
 import './ClienteCatalogoAgregarModal.css'
 
 const MAX_ARCHIVOS = 8
@@ -19,12 +28,10 @@ type Props = {
   onConfirmado: () => void
 }
 
-const BRIEF_VACIO: CarritoBriefProducto = {
-  objetivo: '',
-  estilo: '',
-  cantidades: '',
-  referencias: '',
-  notas: ''
+function briefInicial(articulo: ArticuloEmpresaRecord): CarritoBriefProducto {
+  const base = emptyClienteBriefForm()
+  const tipos = inferTiposProductoBrief(articulo)
+  return { ...base, tipo_producto_servicio: tipos }
 }
 
 export default function ClienteCatalogoAgregarModal({
@@ -39,7 +46,17 @@ export default function ClienteCatalogoAgregarModal({
   const [subiendo, setSubiendo] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
-  const [brief, setBrief] = useState<CarritoBriefProducto>({ ...BRIEF_VACIO })
+  const [brief, setBrief] = useState<CarritoBriefProducto>(() => briefInicial(articulo))
+
+  useClienteModalLock(true)
+
+  useEffect(() => {
+    setBrief(briefInicial(articulo))
+    setPaso('diseno')
+    setTieneDiseno(null)
+    setArchivos([])
+    setError('')
+  }, [articulo.id])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -48,6 +65,12 @@ export default function ClienteCatalogoAgregarModal({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, subiendo, guardando])
+
+  const esPasoBrief = paso === 'brief' && tieneDiseno === false
+  const modalClass = useMemo(
+    () => `cca-modal${esPasoBrief ? ' cca-modal--brief' : ''}`,
+    [esPasoBrief]
+  )
 
   const elegirDiseno = (valor: boolean) => {
     setTieneDiseno(valor)
@@ -94,6 +117,13 @@ export default function ClienteCatalogoAgregarModal({
     setArchivos((prev) => prev.filter((_, i) => i !== idx))
   }
 
+  const validarBrief = (data: ClienteBriefFormData): string | null => {
+    if (data.tipo_producto_servicio.length === 0 && !data.necesita_asesoramiento) {
+      return 'Seleccioná al menos un tipo de producto o marcá que necesitás asesoramiento'
+    }
+    return null
+  }
+
   const validarYGuardar = async () => {
     setError('')
 
@@ -108,8 +138,9 @@ export default function ClienteCatalogoAgregarModal({
         return
       }
     } else {
-      if (!brief.objetivo.trim()) {
-        setError('Completá el objetivo del diseño')
+      const briefError = validarBrief(brief)
+      if (briefError) {
+        setError(briefError)
         return
       }
     }
@@ -132,16 +163,17 @@ export default function ClienteCatalogoAgregarModal({
         brief: tieneDiseno ? undefined : { ...brief }
       }
       setCarritoItemExtra(clienteId, articulo.id, extra)
+      notifyClienteCarritoUpdated()
       onConfirmado()
     } finally {
       setGuardando(false)
     }
   }
 
-  return (
+  const modal = (
     <div className="cca-modal-overlay" role="presentation" onClick={onClose}>
       <div
-        className="cca-modal"
+        className={modalClass}
         role="dialog"
         aria-modal="true"
         aria-labelledby="cca-modal-title"
@@ -158,9 +190,11 @@ export default function ClienteCatalogoAgregarModal({
         </button>
 
         <h2 id="cca-modal-title">Agregar: {articulo.nombre}</h2>
-        <p className="cca-modal__sub">
-          Indicá si aportás diseño o si necesitás que lo hagamos nosotros.
-        </p>
+        {!esPasoBrief && (
+          <p className="cca-modal__sub">
+            Indicá si aportás diseño o si necesitás que lo hagamos nosotros.
+          </p>
+        )}
 
         {error && <div className="cliente-page-alert cliente-page-alert--error">{error}</div>}
 
@@ -174,7 +208,7 @@ export default function ClienteCatalogoAgregarModal({
               </button>
               <button type="button" className="cca-opcion" onClick={() => elegirDiseno(false)}>
                 <strong>No, necesito diseño</strong>
-                <span>Completás un brief y lo adjuntamos al pedido</span>
+                <span>Completás el brief como en el resto del sistema</span>
               </button>
             </div>
           </div>
@@ -224,62 +258,19 @@ export default function ClienteCatalogoAgregarModal({
           </div>
         )}
 
-        {paso === 'brief' && tieneDiseno === false && (
-          <div className="cca-paso">
+        {esPasoBrief && (
+          <div className="cca-paso cca-paso--brief">
             <button type="button" className="cca-back" onClick={() => setPaso('diseno')}>
               ← Volver
             </button>
-            <p className="cca-paso__pregunta">Brief de diseño — {articulo.nombre}</p>
 
-            <label className="cca-field">
-              <span>Objetivo del pie *</span>
-              <textarea
-                rows={2}
-                value={brief.objetivo}
-                onChange={(e) => setBrief({ ...brief, objetivo: e.target.value })}
-                placeholder="¿Para qué lo vas a usar? ¿Qué mensaje debe comunicar?"
+            <div className="cca-brief-scroll">
+              <ClienteCatalogoBriefForm
+                value={brief}
+                onChange={setBrief}
+                productoNombre={articulo.nombre}
               />
-            </label>
-
-            <label className="cca-field">
-              <span>Estilo / colores</span>
-              <input
-                type="text"
-                value={brief.estilo}
-                onChange={(e) => setBrief({ ...brief, estilo: e.target.value })}
-                placeholder="Moderno, corporativo, colores de marca…"
-              />
-            </label>
-
-            <label className="cca-field">
-              <span>Cantidades y medidas</span>
-              <input
-                type="text"
-                value={brief.cantidades}
-                onChange={(e) => setBrief({ ...brief, cantidades: e.target.value })}
-                placeholder="Ej: 100 unidades, 3x2 m, A4…"
-              />
-            </label>
-
-            <label className="cca-field">
-              <span>Referencias (links o descripción)</span>
-              <textarea
-                rows={2}
-                value={brief.referencias}
-                onChange={(e) => setBrief({ ...brief, referencias: e.target.value })}
-                placeholder="Enlaces, marcas de referencia, ejemplos que te gusten…"
-              />
-            </label>
-
-            <label className="cca-field">
-              <span>Notas adicionales</span>
-              <textarea
-                rows={2}
-                value={brief.notas}
-                onChange={(e) => setBrief({ ...brief, notas: e.target.value })}
-                placeholder="Cualquier detalle extra para el equipo de diseño"
-              />
-            </label>
+            </div>
 
             <label className="cca-upload-zone cca-upload-zone--secondary">
               <input
@@ -307,7 +298,7 @@ export default function ClienteCatalogoAgregarModal({
             <button
               type="button"
               className="cliente-btn-primary"
-              disabled={guardando || subiendo || !brief.objetivo.trim()}
+              disabled={guardando || subiendo}
               onClick={() => void validarYGuardar()}
             >
               {guardando ? 'Agregando…' : 'Agregar al carrito con brief'}
@@ -317,4 +308,6 @@ export default function ClienteCatalogoAgregarModal({
       </div>
     </div>
   )
+
+  return createPortal(modal, document.body)
 }

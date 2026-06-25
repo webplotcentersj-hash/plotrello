@@ -87,7 +87,7 @@ export const CLIENTE_FAQ_CATEGORIAS: ClienteFaqCategoria[] = [
         id: 'ped-1',
         pregunta: '¿Cómo compro o pido algo?',
         respuesta:
-          'Catálogo → elegí artículos y cantidades → Carrito → revisá totales → Nuevo pedido (o checkout). Completá especificación, ubicación del trabajo, archivos si tenés, y confirmá. Recibirás número de pedido web.'
+          'Catálogo → elegí productos → Agregar al carrito (con diseño propio o brief) → Carrito → Checkout. Revisá totales, fecha límite y delivery si aplica, y confirmá. Recibirás número de pedido web.'
       },
       {
         id: 'ped-2',
@@ -99,7 +99,7 @@ export const CLIENTE_FAQ_CATEGORIAS: ClienteFaqCategoria[] = [
         id: 'ped-3',
         pregunta: '¿Cómo agrego archivos a mi pedido?',
         respuesta:
-          'En Nuevo pedido podés subir tu archivo original (logo, PDF, fotos). También se guarda automáticamente una vista previa (mockup) del panel lateral al crear el pedido, para que diseño vea tu idea.'
+          'Al agregar un producto al carrito podés subir tus archivos de diseño o completar el brief integrado (mismo formulario que en el resto del portal). Esos datos se adjuntan al pedido en el checkout.'
       },
       {
         id: 'ped-4',
@@ -141,7 +141,7 @@ export const CLIENTE_FAQ_CATEGORIAS: ClienteFaqCategoria[] = [
         id: 'mock-2',
         pregunta: '¿Qué es el mockup (vista previa)?',
         respuesta:
-          'Panel a la derecha en Nuevo pedido que simula cómo podría verse tu producto (banner, vidriera, vehículo, etc.) según el artículo y la ubicación que elijas. Al enviar el pedido se guarda una imagen para el equipo.'
+          'Al elegir un producto en el catálogo ves fotos, descripción y precio en el detalle. Si necesitás diseño, el brief del producto incluye ubicación, cantidades y referencias para que diseño entienda el contexto.'
       },
       {
         id: 'mock-3',

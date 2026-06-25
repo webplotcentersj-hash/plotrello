@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Bell, LogOut, Menu, MessageCircle, X } from 'lucide-react'
+import { LogOut, Menu, MessageCircle, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useClienteAuth } from '../../hooks/useClienteAuth'
+import { useClienteCarritoBadge } from '../../hooks/useClienteCarritoBadge'
 import { useClienteNotificacionesBadge } from '../../hooks/useClienteNotificacionesBadge'
 import { useClienteMensajesBadge } from '../../hooks/useClienteMensajesBadge'
-import { CLIENTE_NAV_ITEMS } from './clienteNavConfig'
+import { CLIENTE_NAV_ITEMS, type ClienteNavBadge } from './clienteNavConfig'
 import ClienteThemeToggle from './ClienteThemeToggle'
 import './ClientePillNav.css'
 
@@ -14,14 +15,22 @@ export default function ClientePillNav() {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout, cliente } = useClienteAuth()
-  const { noLeidas, tieneNoLeidas } = useClienteNotificacionesBadge()
+  const { noLeidas } = useClienteNotificacionesBadge()
+  const { cantidadItems } = useClienteCarritoBadge()
   const { noLeidos: mensajesNoLeidos, tieneNoLeidas: tieneMensajesNoLeidos } =
     useClienteMensajesBadge()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const notifLabel =
-    noLeidas > 0
-      ? `Notificaciones, ${noLeidas} sin leer`
-      : 'Notificaciones'
+
+  const navBadgeCount = (badge?: ClienteNavBadge): number => {
+    if (badge === 'carrito') return cantidadItems
+    if (badge === 'notificaciones') return noLeidas
+    return 0
+  }
+
+  const navBadgeLabel = (badge: ClienteNavBadge, count: number): string => {
+    if (badge === 'carrito') return count > 0 ? `Carrito, ${count} productos` : 'Carrito'
+    return count > 0 ? `Notificaciones, ${count} sin leer` : 'Notificaciones'
+  }
   const mensajesLabel =
     mensajesNoLeidos > 0
       ? `Mensajes, ${mensajesNoLeidos} sin leer`
@@ -30,6 +39,11 @@ export default function ClientePillNav() {
   const isActive = (href: string) => {
     if (href === '/cliente/dashboard') {
       return location.pathname === '/cliente/dashboard' || location.pathname === '/cliente'
+    }
+    if (href === '/cliente/carrito') {
+      return (
+        location.pathname === '/cliente/carrito' || location.pathname === '/cliente/checkout'
+      )
     }
     return location.pathname.startsWith(href)
   }
@@ -45,15 +59,26 @@ export default function ClientePillNav() {
           {CLIENTE_NAV_ITEMS.map((item) => {
             const Icon = item.Icon
             const active = isActive(item.href)
+            const badgeCount = navBadgeCount(item.badge)
+            const ariaLabel =
+              item.badge && badgeCount > 0
+                ? navBadgeLabel(item.badge, badgeCount)
+                : item.label
             return (
               <li key={item.href} role="none">
                 <Link
                   to={item.href}
                   role="menuitem"
-                  className={`cliente-pill-link ${active ? 'active' : ''}`}
+                  className={`cliente-pill-link${active ? ' active' : ''}${badgeCount > 0 ? ' cliente-pill-link--badged' : ''}`}
+                  aria-label={ariaLabel}
                 >
                   <Icon className="cliente-pill-link__icon" size={15} strokeWidth={2.25} aria-hidden />
                   <span className="cliente-pill-link__text">{item.label}</span>
+                  {badgeCount > 0 && (
+                    <span className="cliente-pill-link__badge" aria-hidden>
+                      {badgeCount > 9 ? '9+' : badgeCount}
+                    </span>
+                  )}
                 </Link>
               </li>
             )
@@ -73,20 +98,6 @@ export default function ClientePillNav() {
             {mensajesNoLeidos > 0 && (
               <span className="cliente-pill-notif-badge" aria-hidden>
                 {mensajesNoLeidos > 9 ? '9+' : mensajesNoLeidos}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`cliente-pill-icon-btn cliente-pill-notif-btn${tieneNoLeidas ? ' cliente-pill-notif-btn--alert' : ''}`}
-            title={notifLabel}
-            aria-label={notifLabel}
-            onClick={() => navigate('/cliente/notificaciones')}
-          >
-            <Bell size={18} strokeWidth={2.25} />
-            {noLeidas > 0 && (
-              <span className="cliente-pill-notif-badge" aria-hidden>
-                {noLeidas > 9 ? '9+' : noLeidas}
               </span>
             )}
           </button>
@@ -119,15 +130,21 @@ export default function ClientePillNav() {
           <ul>
             {CLIENTE_NAV_ITEMS.map((item) => {
               const Icon = item.Icon
+              const badgeCount = navBadgeCount(item.badge)
               return (
                 <li key={item.href}>
                   <Link
                     to={item.href}
-                    className={isActive(item.href) ? 'active' : ''}
+                    className={`${isActive(item.href) ? 'active' : ''}${badgeCount > 0 ? ' has-badge' : ''}`}
                     onClick={() => setMobileOpen(false)}
                   >
                     <Icon size={18} strokeWidth={2.25} aria-hidden />
                     {item.label}
+                    {badgeCount > 0 && (
+                      <span className="cliente-pill-mobile__badge" aria-hidden>
+                        {badgeCount > 9 ? '9+' : badgeCount}
+                      </span>
+                    )}
                   </Link>
                 </li>
               )

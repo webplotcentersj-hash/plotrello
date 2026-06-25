@@ -312,9 +312,9 @@ export default function ClienteCheckoutPage() {
         )}
 
         <p className="cliente-checkout-note">
-          ¿Proyecto con diseño a medida?{' '}
-          <button type="button" className="link-btn" onClick={() => navigate('/cliente/nuevo-pedido')}>
-            Pedido avanzado con brief
+          ¿Proyecto de diseño independiente?{' '}
+          <button type="button" className="link-btn" onClick={() => navigate('/cliente/disenos')}>
+            Ver mis briefs de diseño
           </button>
         </p>
 

@@ -1,44 +1,50 @@
 .ccp-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 9999;
   background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
+  overflow: hidden;
 }
 
 .ccp-modal {
   position: relative;
   width: min(920px, 100%);
-  max-height: min(92vh, 780px);
-  overflow: auto;
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: var(--cliente-surface, #fff);
   border-radius: 16px;
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
-  padding: 1.25rem;
+  padding: 1rem 1.15rem;
 }
 
 .ccp-modal__close {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
+  top: 0.65rem;
+  right: 0.65rem;
   z-index: 2;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border: none;
   border-radius: 50%;
   background: rgba(15, 23, 42, 0.08);
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   line-height: 1;
   cursor: pointer;
 }
 
 .ccp-modal__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
+  grid-template-columns: minmax(0, 42%) minmax(0, 1fr);
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+  align-items: start;
 }
 
 @media (max-width: 768px) {
@@ -47,10 +53,15 @@
   }
 }
 
+.ccp-modal__media {
+  min-width: 0;
+}
+
 .ccp-modal__hero {
   width: 100%;
+  max-height: min(34vh, 240px);
   aspect-ratio: 4/3;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 12px;
   background: var(--cliente-bg, #f1f5f9);
 }
@@ -65,18 +76,18 @@
 
 .ccp-modal__thumbs {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  overflow-x: auto;
-  padding-bottom: 0.25rem;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  flex-wrap: wrap;
 }
 
 .ccp-modal__thumb {
-  flex: 0 0 72px;
-  height: 54px;
+  flex: 0 0 56px;
+  height: 42px;
   padding: 0;
   border: 2px solid transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
   background: none;
@@ -93,50 +104,63 @@
 }
 
 .ccp-modal__galeria-hint {
-  margin: 0.5rem 0 0;
-  font-size: 0.8rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
   color: var(--cliente-muted);
+}
+
+.ccp-modal__info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .ccp-modal__categoria {
   display: inline-block;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 0.2rem 0.55rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 999px;
   background: var(--cliente-brand-soft);
   color: var(--cliente-brand);
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.25rem;
 }
 
 .ccp-modal__info h2 {
-  margin: 0 0 0.75rem;
-  font-size: 1.35rem;
-  line-height: 1.25;
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
+  line-height: 1.2;
   padding-right: 2rem;
 }
 
 .ccp-modal__precio-row {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .ccp-modal__precio {
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--cliente-brand);
 }
 
 .ccp-modal__tiempo {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--cliente-muted);
 }
 
+.ccp-modal__descripcion {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0.5rem;
+}
+
 .ccp-modal__descripcion h3 {
-  margin: 0 0 0.35rem;
-  font-size: 0.85rem;
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--cliente-muted);
@@ -144,21 +168,42 @@
 
 .ccp-modal__descripcion p {
   margin: 0;
-  line-height: 1.55;
-  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 0.88rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .ccp-modal__sin-desc {
-  margin: 0 0 1rem;
+  margin: 0 0 0.5rem;
   color: var(--cliente-muted);
   font-style: italic;
+  font-size: 0.88rem;
 }
 
 .ccp-modal__btn-agregar {
   width: 100%;
-  margin-top: 1rem;
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
-.ccp-modal__media .articulo-imagen {
-  cursor: pointer;
+.ccp-modal .cliente-relacionados {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--cliente-border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.ccp-modal .cliente-relacionados--compact .cliente-relacionados__head h3 {
+  font-size: 0.8rem;
+}
+
+.ccp-modal .cliente-relacionados--compact .cliente-relacionados__card {
+  flex: 0 0 100px;
+}
+
+.ccp-modal .cliente-relacionados--compact .cliente-relacionados__img {
+  height: 56px;
 }

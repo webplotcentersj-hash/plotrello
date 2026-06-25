@@ -6,7 +6,6 @@ import ClientePortalShell from '../components/cliente/ClientePortalShell'
 const ClienteDashboardPage = lazy(() => import('../pages/ClienteDashboardPage'))
 const ClienteBuscarOpPage = lazy(() => import('../pages/ClienteBuscarOpPage'))
 const ClienteMensajesPage = lazy(() => import('../pages/ClienteMensajesPage'))
-const ClienteNuevoPedidoPage = lazy(() => import('../pages/ClienteNuevoPedidoPage'))
 const ClientePedidoDetallePage = lazy(() => import('../pages/ClientePedidoDetallePage'))
 const ClienteCatalogoPage = lazy(() => import('../pages/ClienteCatalogoPage'))
 const ClienteCarritoPage = lazy(() => import('../pages/ClienteCarritoPage'))
@@ -35,7 +34,7 @@ export default function ClientePortalRoutes() {
             <Route path="catalogo" element={<ClienteCatalogoPage />} />
             <Route path="carrito" element={<ClienteCarritoPage />} />
             <Route path="checkout" element={<ClienteCheckoutPage />} />
-            <Route path="nuevo-pedido" element={<ClienteNuevoPedidoPage />} />
+            <Route path="nuevo-pedido" element={<Navigate to="/cliente/catalogo" replace />} />
             <Route path="pedido/:id" element={<ClientePedidoDetallePage />} />
             <Route path="presupuestos" element={<ClientePresupuestosPage />} />
             <Route path="presupuesto/nuevo" element={<ClientePresupuestoFormPage />} />

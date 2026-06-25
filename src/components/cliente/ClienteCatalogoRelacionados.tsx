@@ -7,12 +7,14 @@ type Props = {
   titulo?: string
   productos: ArticuloEmpresaRecord[]
   onProductClick: (articulo: ArticuloEmpresaRecord) => void
+  compact?: boolean
 }
 
 export default function ClienteCatalogoRelacionados({
   titulo = 'Productos relacionados',
   productos,
-  onProductClick
+  onProductClick,
+  compact = false
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
 
@@ -25,7 +27,10 @@ export default function ClienteCatalogoRelacionados({
   }
 
   return (
-    <section className="cliente-relacionados" aria-label={titulo}>
+    <section
+      className={`cliente-relacionados${compact ? ' cliente-relacionados--compact' : ''}`}
+      aria-label={titulo}
+    >
       <div className="cliente-relacionados__head">
         <h3>{titulo}</h3>
         <div className="cliente-relacionados__nav">
