@@ -5,9 +5,8 @@ import apiService from '../services/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { historialPorOrdenId, historialUnificadoMismoNumeroOp } from '../utils/consultaOpHistorial'
-import {
-  TOTEM_SOLICITUD_ASESOR_MARKER
-} from '../constants/totemSolicitudAsesor'
+import { TOTEM_SOLICITUD_ASESOR_MARKER } from '../constants/totemSolicitudAsesor'
+import { TOTEM_FINALIZADO_TALLER_PATH } from '../constants/totemFinalizadoTaller'
 import {
   isOpEnAlmacenEntrega,
   isOpFinalizadoEnTaller
@@ -232,9 +231,7 @@ const TotemConsultaClientePage = () => {
           const op =
             opBuscada?.trim() ||
             String(ordenesFiltradas[0]?.numero_op ?? '').trim()
-          navigate('/totem/consulta-cliente/entrada-taller', {
-            state: { ordenes: ordenesFiltradas, historial: histMap, searchOp: op }
-          })
+          navigate(`${TOTEM_FINALIZADO_TALLER_PATH}?op=${encodeURIComponent(op)}`)
           return
         }
       } else {
