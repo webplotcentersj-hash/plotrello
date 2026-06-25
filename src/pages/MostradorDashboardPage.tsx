@@ -9,6 +9,7 @@ import type { OrdenTrabajo, Venta, PedidoClienteRecord } from '../types/api'
 import { supabase } from '../services/supabaseClient'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
+import { idVendedorParaConsulta } from '../utils/ventasCajaScope'
 import './MostradorDashboardPage.css'
 
 function NavTile({
@@ -103,7 +104,8 @@ function normalizarVentaDashboard(row: unknown): Venta | null {
 
 const MostradorDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, usuario, canAccessTotemImpresionPanel } = useAuth()
+  const { isAdmin, isPresupuestos, usuario, canAccessTotemImpresionPanel } = useAuth()
+  const idVendedorScope = idVendedorParaConsulta(isAdmin, isPresupuestos, usuario?.id)
   const [ordenesCreadasCount, setOrdenesCreadasCount] = useState(0)
   const [showFabMenu, setShowFabMenu] = useState(false)
   const [registrandoRapido, setRegistrandoRapido] = useState(false)
@@ -313,15 +315,15 @@ const MostradorDashboardPage = () => {
     const desdeStr = addCalendarDaysToYMD(hoyStr, -62)
 
     try {
-      let ventasResponse = await apiService.obtenerVentas(undefined, desdeStr, hoyStr)
+      let ventasResponse = await apiService.obtenerVentas(idVendedorScope, desdeStr, hoyStr)
       if (!ventasResponse.success) {
-        ventasResponse = await apiService.obtenerVentas()
+        ventasResponse = await apiService.obtenerVentas(idVendedorScope)
       }
       if (
         ventasResponse.success &&
         (!ventasResponse.data || ventasResponse.data.length === 0)
       ) {
-        const sinFecha = await apiService.obtenerVentas()
+        const sinFecha = await apiService.obtenerVentas(idVendedorScope)
         if (sinFecha.success && sinFecha.data && sinFecha.data.length > 0) {
           ventasResponse = sinFecha
         }
@@ -390,7 +392,7 @@ const MostradorDashboardPage = () => {
         ingresosPendientes: 0
       })
     }
-  }, [])
+  }, [idVendedorScope])
 
   const loadDashboardData = useCallback(async () => {
     setLoading(true)

@@ -583,8 +583,8 @@ const TotemConsultaClientePage = () => {
                     <span className="totem-kiosk-ico-ring totem-kiosk-ico-ring--emerald" aria-hidden>
                       <span className="totem-kiosk-ico">🛒</span>
                     </span>
-                    <span className="totem-kiosk-tile-title">Catálogo</span>
-                    <span className="totem-kiosk-tile-desc">Mismos productos que el portal</span>
+                    <span className="totem-kiosk-tile-title">Comprar</span>
+                    <span className="totem-kiosk-tile-desc">Compra Tu Producto</span>
                   </button>
                 </div>
 
@@ -619,7 +619,6 @@ const TotemConsultaClientePage = () => {
                           setAvisoVoyMotivo('')
                         }}
                       >
-                        <span className="totem-strip-icon" aria-hidden>{sector.icon}</span                      >
                         <span className="totem-strip-icon" aria-hidden>{sector.icon}</span>
                         <span className="totem-strip-text">{sector.label}</span>
                         <SectorDirectionArrows direction={sector.direction} />

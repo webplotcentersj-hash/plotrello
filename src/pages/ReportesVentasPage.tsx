@@ -5,12 +5,14 @@ import apiService from '../services/api'
 import type { Venta } from '../types/api'
 import { formatArgentinaDate } from '../utils/dateUtils'
 import { VENTAS } from '../utils/ventasRoutes'
+import { idVendedorParaConsulta } from '../utils/ventasCajaScope'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './ReportesVentasPage.css'
 
 const ReportesVentasPage = () => {
   const navigate = useNavigate()
-  const { canAccessMostradorViews, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, isAdmin, isPresupuestos, usuario, loading: authLoading } = useAuth()
+  const idVendedorScope = idVendedorParaConsulta(isAdmin, isPresupuestos, usuario?.id)
   const [loading, setLoading] = useState(true)
   const [ventas, setVentas] = useState<Venta[]>([])
   const [fechaDesde, setFechaDesde] = useState(() => {
@@ -40,16 +42,16 @@ const ReportesVentasPage = () => {
     if (canAccessMostradorViews) {
       loadVentas()
     }
-  }, [canAccessMostradorViews, fechaDesde, fechaHasta, authLoading])
+  }, [canAccessMostradorViews, fechaDesde, fechaHasta, authLoading, idVendedorScope])
 
   const loadVentas = async () => {
     setLoading(true)
     try {
       const response = await apiService.obtenerVentas(
-        undefined, // idVendedor
-        fechaDesde || undefined, // fechaDesde
-        fechaHasta || undefined, // fechaHasta
-        'todos' // estadoPago
+        idVendedorScope,
+        fechaDesde || undefined,
+        fechaHasta || undefined,
+        'todos'
       )
       
       if (response.success && response.data) {

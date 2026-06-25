@@ -10619,6 +10619,44 @@ class ApiService {
     }
   }
 
+  /** Subida de diseño para catálogo tótem (pendrive en la PC del kiosko). */
+  async subirArchivoTotemCatalogo(file: File): Promise<
+    ApiResponse<{ nombre: string; url: string; tipo: string; tamano: number }>
+  > {
+    const MAX_BYTES = 50 * 1024 * 1024
+    if (file.size > MAX_BYTES) {
+      return { success: false, error: 'El archivo no debe superar 50 MB' }
+    }
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const safeName = file.name.replace(/[^\w.\-() ]+/g, '_').slice(0, 120)
+    const filePath = `totem-catalogo-pendiente/${Date.now()}_${safeName}`
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('pedidos-clientes')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type || 'application/octet-stream'
+        })
+      if (uploadError) return { success: false, error: uploadError.message }
+      const { data: urlData } = supabase.storage.from('pedidos-clientes').getPublicUrl(filePath)
+      if (!urlData?.publicUrl) {
+        return { success: false, error: 'No se pudo obtener la URL del archivo' }
+      }
+      return {
+        success: true,
+        data: {
+          nombre: safeName,
+          url: urlData.publicUrl,
+          tipo: file.type || 'application/octet-stream',
+          tamano: file.size
+        }
+      }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al subir archivo' }
+    }
+  }
+
   /** Subida directa al bucket para pendrive / tótem (sin sesión QR). */
   async subirArchivoTotemImpresion(file: File): Promise<ApiResponse<{ url: string }>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }

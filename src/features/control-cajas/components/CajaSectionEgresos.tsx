@@ -36,17 +36,19 @@ export default function CajaSectionEgresos({ isAdmin, usuarioNombre, usuarioId }
   const [histLimit, setHistLimit] = useState(LIST_PAGE_SIZE)
 
   const reload = useCallback(async () => {
-    const [c, s] = await Promise.all([
-      listCajas(),
-      listEgresoSolicitudes(isAdmin ? { soloPendientes: false } : undefined)
-    ])
+    const egresoOpts = isAdmin
+      ? { soloPendientes: false as const }
+      : usuarioId != null
+        ? { solicitanteId: usuarioId }
+        : undefined
+    const [c, s] = await Promise.all([listCajas(), listEgresoSolicitudes(egresoOpts)])
     setCajas(c.filter((x) => x.slug !== 'admin' && x.slug !== 'vuelto'))
     setLista(s)
     if (c.length && !cajaSlug) {
       const op = c.find((x) => x.slug !== 'admin')?.slug ?? c[0].slug
       setCajaSlug(op)
     }
-  }, [isAdmin, cajaSlug])
+  }, [isAdmin, cajaSlug, usuarioId])
 
   useEffect(() => {
     void reload()

@@ -1,0 +1,116 @@
+.totem-cat-upload__origen {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.totem-cat-upload__tab {
+  flex: 1;
+  min-height: 48px;
+  border: 2px solid var(--totem-line, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--totem-text-soft, #cbd5e1);
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.totem-cat-upload__tab.active {
+  border-color: rgba(251, 146, 60, 0.65);
+  background: rgba(251, 146, 60, 0.14);
+  color: #fff7ed;
+}
+
+.totem-cat-upload__qr {
+  text-align: center;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px dashed rgba(251, 146, 60, 0.35);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.totem-cat-upload__qr-img {
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px;
+}
+
+.totem-cat-upload__zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 2px dashed rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.08);
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+}
+
+.totem-cat-upload__zone input {
+  display: none;
+}
+
+.totem-cat-upload__hint {
+  margin: 10px 0 0;
+  font-size: 0.88rem;
+  color: var(--totem-text-muted, #94a3b8);
+  line-height: 1.4;
+}
+
+.totem-cat-upload__hint--wait {
+  color: #fbbf24;
+}
+
+.totem-cat-upload__ok {
+  margin: 8px 0 0;
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.totem-cat-upload__error {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(127, 29, 29, 0.45);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+  font-size: 0.88rem;
+}
+
+.totem-cat-upload__list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.totem-cat-upload__list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--totem-line, rgba(255, 255, 255, 0.1));
+  font-size: 0.88rem;
+}
+
+.totem-cat-upload__remove {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(248, 113, 113, 0.15);
+  color: #fecaca;
+  font-size: 1.2rem;
+  cursor: pointer;
+}

@@ -6,6 +6,9 @@ import {
   validarCantidadVentaComercial
 } from '../services/commerceCatalogService'
 import type { ArticuloEmpresaRecord } from '../types/api'
+import TotemCatalogoAgregarModal from '../components/totem/TotemCatalogoAgregarModal'
+import type { CarritoItemExtra } from '../services/clienteCarritoExtras'
+import './TotemAutogestionCatalogoPage.css'
 import {
   addArticuloToCart,
   cartItemCount,
@@ -15,14 +18,17 @@ import {
   setItemCantidad,
   writeTotemCart
 } from './totemAutogestionCart'
-import './TotemAutogestionCatalogoPage.css'
 
 /** Mismo catálogo que el portal de clientes (`visible_portal`). */
 const CANAL_CATALOGO = 'portal' as const
-const BUSQUEDA_DEBOUNCE_MS = 350
 
 type CatalogoLocationState = {
   returnTo?: string
+}
+
+type CategoriaConConteo = {
+  nombre: string
+  count: number
 }
 
 export default function TotemAutogestionCatalogoPage() {
@@ -31,59 +37,61 @@ export default function TotemAutogestionCatalogoPage() {
   const returnTo =
     (location.state as CatalogoLocationState | null)?.returnTo ?? '/totem/autogestion'
 
-  const [articulos, setArticulos] = useState<ArticuloEmpresaRecord[]>([])
-  const [categorias, setCategorias] = useState<string[]>([])
-  const [total, setTotal] = useState(0)
+  const [todosArticulos, setTodosArticulos] = useState<ArticuloEmpresaRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [cartHint, setCartHint] = useState<string>('')
 
   const [busqueda, setBusqueda] = useState('')
-  const [debouncedBusqueda, setDebouncedBusqueda] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('')
 
   const [cart, setCart] = useState(() => readTotemCart())
   const [cartOpen, setCartOpen] = useState(false)
-
-  useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedBusqueda(busqueda.trim()), BUSQUEDA_DEBOUNCE_MS)
-    return () => window.clearTimeout(t)
-  }, [busqueda])
-
-  useEffect(() => {
-    void (async () => {
-      const r = await apiService.getCatalogoComercial({ canal: CANAL_CATALOGO, limite: 500 })
-      if (r.success && r.data) {
-        setCategorias(
-          Array.from(new Set(r.data.items.map((a) => a.categoria).filter(Boolean))) as string[]
-        )
-      }
-    })()
-  }, [])
+  const [modalArticulo, setModalArticulo] = useState<ArticuloEmpresaRecord | null>(null)
 
   const loadCatalogo = useCallback(async () => {
     setLoading(true)
     setError('')
     const r = await apiService.getCatalogoComercial({
       canal: CANAL_CATALOGO,
-      limite: 500,
-      busqueda: debouncedBusqueda || undefined,
-      categoria: categoriaFiltro || undefined
+      limite: 500
     })
     if (r.success && r.data) {
-      setArticulos(r.data.items)
-      setTotal(r.data.total)
+      setTodosArticulos(r.data.items)
     } else {
-      setArticulos([])
-      setTotal(0)
+      setTodosArticulos([])
       setError(r.error || 'Error al cargar catálogo')
     }
     setLoading(false)
-  }, [debouncedBusqueda, categoriaFiltro])
+  }, [])
 
   useEffect(() => {
     void loadCatalogo()
   }, [loadCatalogo])
+
+  const categorias = useMemo((): CategoriaConConteo[] => {
+    const counts = new Map<string, number>()
+    for (const articulo of todosArticulos) {
+      if (!articulo.categoria) continue
+      counts.set(articulo.categoria, (counts.get(articulo.categoria) || 0) + 1)
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'))
+      .map(([nombre, count]) => ({ nombre, count }))
+  }, [todosArticulos])
+
+  const articulos = useMemo(() => {
+    const termino = busqueda.trim().toLowerCase()
+    return todosArticulos.filter((articulo) => {
+      if (categoriaFiltro && articulo.categoria !== categoriaFiltro) return false
+      if (!termino) return true
+      return (
+        articulo.nombre.toLowerCase().includes(termino) ||
+        articulo.descripcion?.toLowerCase().includes(termino) ||
+        articulo.codigo?.toLowerCase().includes(termino)
+      )
+    })
+  }, [todosArticulos, busqueda, categoriaFiltro])
 
   useEffect(() => {
     writeTotemCart(cart)
@@ -94,9 +102,9 @@ export default function TotemAutogestionCatalogoPage() {
 
   const articuloById = useMemo(() => {
     const m = new Map<number, ArticuloEmpresaRecord>()
-    for (const a of articulos) m.set(a.id, a)
+    for (const a of todosArticulos) m.set(a.id, a)
     return m
-  }, [articulos])
+  }, [todosArticulos])
 
   const trySetCantidad = (id_articulo: number, cantidad: number) => {
     const articulo = articuloById.get(id_articulo)
@@ -114,7 +122,7 @@ export default function TotemAutogestionCatalogoPage() {
     return true
   }
 
-  const handleAdd = (articulo: ArticuloEmpresaRecord) => {
+  const abrirAgregar = (articulo: ArticuloEmpresaRecord) => {
     const enCarrito = cart.items.find((i) => i.id_articulo === articulo.id)
     const nuevaCantidad = (enCarrito?.cantidad || 0) + 1
     const v = validarCantidadVentaComercial(articulo, nuevaCantidad)
@@ -123,7 +131,18 @@ export default function TotemAutogestionCatalogoPage() {
       return
     }
     setCartHint('')
-    setCart((prev) => ({ items: addArticuloToCart(prev.items, articulo), updatedAt: Date.now() }))
+    setModalArticulo(articulo)
+  }
+
+  const confirmarAgregar = (extra: CarritoItemExtra) => {
+    if (!modalArticulo) return
+    setCart((prev) => ({
+      items: addArticuloToCart(prev.items, modalArticulo, extra),
+      updatedAt: Date.now()
+    }))
+    setModalArticulo(null)
+    setCartHint('Producto agregado al carrito')
+    window.setTimeout(() => setCartHint(''), 2500)
   }
 
   const goCheckout = () => {
@@ -138,8 +157,8 @@ export default function TotemAutogestionCatalogoPage() {
             <button type="button" className="totem-cat-back" onClick={() => navigate(returnTo)}>
               ← Volver
             </button>
-            <h1>Catálogo</h1>
-            <p>Productos y servicios del Portal de Clientes — buscá por nombre, código o categoría.</p>
+            <h1>Comprar</h1>
+            <p>Elegí tu producto, subí el diseño o completá el brief, y pagá con Mercado Pago.</p>
           </div>
 
           <button
@@ -158,33 +177,59 @@ export default function TotemAutogestionCatalogoPage() {
           {cartHint && <div className="totem-cat-error totem-cat-error--hint">{cartHint}</div>}
 
           <div className="totem-cat-filters">
-            <input
-              className="totem-cat-search"
-              type="search"
-              placeholder="🔍 Buscar productos…"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              autoComplete="off"
-            />
-            {categorias.length > 0 && (
-              <div className="totem-cat-cats">
+            <div className="totem-cat-search-wrap">
+              <input
+                className="totem-cat-search"
+                type="text"
+                inputMode="search"
+                enterKeyHint="search"
+                placeholder="Buscar por nombre, código o descripción…"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                autoComplete="off"
+                aria-label="Buscar productos"
+              />
+              {busqueda.trim() ? (
                 <button
                   type="button"
-                  className={`totem-cat-cat ${!categoriaFiltro ? 'active' : ''}`}
-                  onClick={() => setCategoriaFiltro('')}
+                  className="totem-cat-search-clear"
+                  onClick={() => setBusqueda('')}
+                  aria-label="Limpiar búsqueda"
                 >
-                  Todas
+                  ×
                 </button>
-                {categorias.map((c) => (
+              ) : null}
+            </div>
+
+            {categorias.length > 0 && (
+              <div className="totem-cat-cats-block">
+                <p className="totem-cat-cats-label">Categorías</p>
+                <div className="totem-cat-cats" role="tablist" aria-label="Filtrar por categoría">
                   <button
-                    key={c}
                     type="button"
-                    className={`totem-cat-cat ${categoriaFiltro === c ? 'active' : ''}`}
-                    onClick={() => setCategoriaFiltro(c)}
+                    role="tab"
+                    aria-selected={!categoriaFiltro}
+                    className={`totem-cat-cat ${!categoriaFiltro ? 'active' : ''}`}
+                    onClick={() => setCategoriaFiltro('')}
                   >
-                    {c}
+                    <span className="totem-cat-cat__label">Todas</span>
+                    <span className="totem-cat-cat__count">{todosArticulos.length}</span>
                   </button>
-                ))}
+                  {categorias.map((c) => (
+                    <button
+                      key={c.nombre}
+                      type="button"
+                      role="tab"
+                      aria-selected={categoriaFiltro === c.nombre}
+                      className={`totem-cat-cat ${categoriaFiltro === c.nombre ? 'active' : ''}`}
+                      onClick={() => setCategoriaFiltro(c.nombre)}
+                      title={c.nombre}
+                    >
+                      <span className="totem-cat-cat__label">{c.nombre}</span>
+                      <span className="totem-cat-cat__count">{c.count}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -212,7 +257,7 @@ export default function TotemAutogestionCatalogoPage() {
               <p className="totem-cat-results">
                 {articulos.length} producto{articulos.length !== 1 ? 's' : ''} encontrado
                 {articulos.length !== 1 ? 's' : ''}
-                {total > articulos.length ? ` de ${total}` : ''}
+                {todosArticulos.length > articulos.length ? ` de ${todosArticulos.length}` : ''}
               </p>
               <div className="totem-cat-grid">
                 {articulos.map((a) => (
@@ -251,7 +296,7 @@ export default function TotemAutogestionCatalogoPage() {
                         <button
                           type="button"
                           className="totem-cat-add"
-                          onClick={() => handleAdd(a)}
+                          onClick={() => abrirAgregar(a)}
                           disabled={cantidadMaximaVendible(a) === 0}
                         >
                           Agregar
@@ -276,6 +321,14 @@ export default function TotemAutogestionCatalogoPage() {
             Continuar
           </button>
         </footer>
+
+        {modalArticulo && (
+          <TotemCatalogoAgregarModal
+            articulo={modalArticulo}
+            onClose={() => setModalArticulo(null)}
+            onConfirmado={confirmarAgregar}
+          />
+        )}
 
         {cartOpen && (
           <div className="totem-cat-modal" role="presentation" onClick={() => setCartOpen(false)}>

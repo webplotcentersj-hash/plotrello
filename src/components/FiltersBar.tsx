@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import VentaRapidaModal from './VentaRapidaModal'
 import './FiltersBar.css'
 
 type FiltersBarProps = {
@@ -58,8 +59,9 @@ const FiltersBar = ({
   searchPlaceholder = 'Buscar: OP, cliente, descripción, etiquetas, contacto, materiales…',
   compactPhone = false
 }: FiltersBarProps) => {
-  const { isAdmin, isDiseno, usuario } = useAuth()
+  const { isAdmin, isDiseno, canAccessMostradorViews, usuario } = useAuth()
   const [copiandoBrief, setCopiandoBrief] = useState(false)
+  const [showVentaRapida, setShowVentaRapida] = useState(false)
   const [sectorPickerOpen, setSectorPickerOpen] = useState(false)
   const sectorPickerWrapRef = useRef<HTMLDivElement>(null)
 
@@ -181,11 +183,23 @@ const FiltersBar = ({
             </button>
           </div>
         )}
+        {canAccessMostradorViews && usuario && (
+          <div className="filters-bar-phone-row">
+            <button
+              type="button"
+              className="venta-rapida-button filters-bar-phone-add"
+              onClick={() => setShowVentaRapida(true)}
+            >
+              💰 Venta rápida
+            </button>
+          </div>
+        )}
       </section>
     )
   }
 
   return (
+    <>
     <section className="filters-bar">
       <div className="search-filter">
         <input
@@ -254,6 +268,16 @@ const FiltersBar = ({
             </div>
           )}
           <div className="library-button-container">
+          {canAccessMostradorViews && usuario && (
+            <button
+              type="button"
+              className="venta-rapida-button"
+              onClick={() => setShowVentaRapida(true)}
+              title="Registrar una venta sin salir del tablero"
+            >
+              💰 Venta rápida
+            </button>
+          )}
           {onAddNewOrder && (
             <button
               type="button"
@@ -316,6 +340,17 @@ const FiltersBar = ({
         </button>
       </div>
     </section>
+
+    {showVentaRapida && usuario && (
+      <VentaRapidaModal
+        uiVariant="mostrador"
+        usuarioId={usuario.id}
+        usuarioNombre={usuario.nombre}
+        onClose={() => setShowVentaRapida(false)}
+        onSuccess={() => setShowVentaRapida(false)}
+      />
+    )}
+    </>
   )
 }
 

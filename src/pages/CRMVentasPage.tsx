@@ -14,7 +14,7 @@ import type {
   EstadoPresupuestoCliente
 } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
-import { formatArgentinaDate, getArgentinaDateString } from '../utils/dateUtils'
+import { formatArgentinaDate, getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
 import {
   exportarVentasPDF,
   exportarVentasExcel,
@@ -35,6 +35,11 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
 import CajaCobroVentaModal from '../features/control-cajas/components/CajaCobroVentaModal'
+import CajaSectionEgresos from '../features/control-cajas/components/CajaSectionEgresos'
+import CajaSectionHistorial from '../features/control-cajas/components/CajaSectionHistorial'
+import { getParams } from '../features/control-cajas/cajaRepository'
+import { resolveUsuarioCajaEtiqueta } from '../features/control-cajas/cajaUsuarioDisplay'
+import { DEFAULT_CAJERAS } from '../features/control-cajas/constants'
 import MercadoPagoCheckoutPanel from '../components/payments/MercadoPagoCheckoutPanel'
 import { forceResyncVenta } from '../features/control-cajas/plotlabVentaCajaSync'
 import VentaRapidaModal from '../components/VentaRapidaModal'
@@ -48,12 +53,25 @@ import {
 } from '../utils/presupuestoVentaPdf'
 import { CLIENTES_AGREGAR, CLIENTES_CUENTA_CORRIENTE, clientesPerfil } from '../utils/clientesRoutes'
 import { VENTAS_REPORTES } from '../utils/ventasRoutes'
+import { esVistaVentasPropiaVendedor, idVendedorParaConsulta } from '../utils/ventasCajaScope'
 import './CRMVentasPage.css'
+import './CajaDashboardPage.css'
 
 const VENTAS_TAB_KEY = 'ventasActiveTab'
 const VENTAS_TAB_KEY_LEGACY = 'crmVentasActiveTab'
 
 const VENTA_PIPELINE_ESTADOS = ['Pendiente', 'Parcial', 'Pagado', 'Cancelado'] as const
+
+function ventaDiaArgentina(venta: Venta): string {
+  if (!venta.fecha_venta) return ''
+  return isoToArgentinaDateKey(String(venta.fecha_venta))
+}
+
+function compararVentasRecientes(a: Venta, b: Venta): number {
+  const byFecha = ventaDiaArgentina(b).localeCompare(ventaDiaArgentina(a))
+  if (byFecha !== 0) return byFecha
+  return (b.id ?? 0) - (a.id ?? 0)
+}
 
 const PRESUPUESTO_PIPELINE_ESTADOS: EstadoPresupuestoCliente[] = [
   'borrador',
@@ -193,13 +211,24 @@ function aplicarClienteAOportunidadForm(
   }
 }
 
-const VENTAS_TAB_IDS = ['ventas', 'lista-precios', 'presupuestos', 'oportunidades'] as const
+const VENTAS_TAB_IDS_BASE = ['ventas', 'lista-precios', 'presupuestos', 'oportunidades'] as const
+const VENTAS_TAB_IDS_VENDEDOR = [...VENTAS_TAB_IDS_BASE, 'arqueos', 'egresos'] as const
+const VENTAS_TAB_IDS = VENTAS_TAB_IDS_VENDEDOR
 type VentasTabId = (typeof VENTAS_TAB_IDS)[number]
+
+function tabIdsPermitidos(vistaPropia: boolean): readonly string[] {
+  return vistaPropia ? VENTAS_TAB_IDS_VENDEDOR : VENTAS_TAB_IDS_BASE
+}
 
 const CRMVentasPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { canAccessMostradorViews, usuario, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, usuario, isAdmin, isPresupuestos, loading: authLoading } = useAuth()
+  const vistaPropia = esVistaVentasPropiaVendedor(isAdmin, isPresupuestos)
+  const idVendedorScope = idVendedorParaConsulta(isAdmin, isPresupuestos, usuario?.id)
+  const [usuarioEtiquetaCaja, setUsuarioEtiquetaCaja] = useState(() =>
+    resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario')
+  )
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<VentasTabId>(() => {
     try {
@@ -212,6 +241,19 @@ const CRMVentasPage = () => {
     return 'ventas'
   })
   const [showVentaRapida, setShowVentaRapida] = useState(false)
+
+  useEffect(() => {
+    void getParams().then((p) => {
+      const cajeras = p.cajeras?.length ? p.cajeras : DEFAULT_CAJERAS
+      setUsuarioEtiquetaCaja(resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario', cajeras))
+    })
+  }, [usuario?.nombre])
+
+  useEffect(() => {
+    if (!vistaPropia && (activeTab === 'arqueos' || activeTab === 'egresos')) {
+      setActiveTab('ventas')
+    }
+  }, [vistaPropia, activeTab])
   
   // Oportunidades
   const [oportunidades, setOportunidades] = useState<OportunidadVenta[]>([])
@@ -231,8 +273,8 @@ const CRMVentasPage = () => {
   const [filtroMetodoPago, setFiltroMetodoPago] = useState<string>('todos')
   const [filtroVendedor, setFiltroVendedor] = useState<string>('todos')
   const [busquedaVenta, setBusquedaVenta] = useState('')
-  const [fechaDesde, setFechaDesde] = useState('')
-  const [fechaHasta, setFechaHasta] = useState('')
+  const [fechaDesde, setFechaDesde] = useState(() => getArgentinaDateString())
+  const [fechaHasta, setFechaHasta] = useState(() => getArgentinaDateString())
   const [mostrarFiltrosAvanzados, setMostrarFiltrosAvanzados] = useState(false)
   const [estadisticas, setEstadisticas] = useState({
     totalVentas: 0,
@@ -447,6 +489,9 @@ const CRMVentasPage = () => {
         map.Pendiente.push(venta)
       }
     }
+    for (const estado of VENTA_PIPELINE_ESTADOS) {
+      map[estado].sort(compararVentasRecientes)
+    }
     return map
   }, [ventasFiltradas])
 
@@ -531,7 +576,7 @@ const CRMVentasPage = () => {
     const nueva = searchParams.get('nueva')
     const tabParam = searchParams.get('tab')
 
-    if (tabParam && (VENTAS_TAB_IDS as readonly string[]).includes(tabParam)) {
+    if (tabParam && tabIdsPermitidos(vistaPropia).includes(tabParam)) {
       setActiveTab(tabParam as VentasTabId)
       if (tabParam === 'presupuestos') {
         setMostrarModalPresupuesto(true)
@@ -753,15 +798,15 @@ const CRMVentasPage = () => {
       let valorTotalPresupuestos = 0
       let tasaAceptacionPresupuestos = 0
 
-      // Cargar oportunidades
-      const oppResponse = await apiService.obtenerOportunidadesVenta()
+      // Cargar oportunidades (solo las del vendedor en vista propia)
+      const oppResponse = await apiService.obtenerOportunidadesVenta(idVendedorScope)
       if (oppResponse.success && oppResponse.data) {
         setOportunidades(oppResponse.data)
         setOportunidadesFiltradas(oppResponse.data)
       }
       
-      // Cargar ventas (sin filtros para obtener todas)
-      const ventasResponse = await apiService.obtenerVentas()
+      // Cargar ventas (vista propia: solo las del vendedor, igual que /caja)
+      const ventasResponse = await apiService.obtenerVentas(idVendedorScope)
       if (ventasResponse.success && ventasResponse.data) {
         console.log('Ventas cargadas en CRM:', ventasResponse.data.length)
         setVentas(ventasResponse.data)
@@ -866,7 +911,9 @@ const CRMVentasPage = () => {
       }
       
       // Cargar presupuestos de ventas presenciales
-      const presupuestosResponse = await apiService.getPresupuestosVentasAdmin()
+      const presupuestosResponse = await apiService.getPresupuestosVentasAdmin(
+        idVendedorScope != null ? { id_vendedor: idVendedorScope } : undefined
+      )
       if (presupuestosResponse.success && presupuestosResponse.data) {
         // Filtrar solo presupuestos de ventas presenciales (no clientes web)
         // Por ahora usamos todos, pero se puede filtrar por algún campo que identifique ventas presenciales
@@ -1003,14 +1050,13 @@ const CRMVentasPage = () => {
       filtradas = filtradas.filter(v => v.nombre_vendedor === filtroVendedor)
     }
     
-    // Filtro por fecha desde
+    // Filtro por fecha (día calendario Argentina)
     if (fechaDesde) {
-      filtradas = filtradas.filter(v => v.fecha_venta >= fechaDesde)
+      filtradas = filtradas.filter((v) => ventaDiaArgentina(v) >= fechaDesde)
     }
-    
-    // Filtro por fecha hasta
+
     if (fechaHasta) {
-      filtradas = filtradas.filter(v => v.fecha_venta <= fechaHasta)
+      filtradas = filtradas.filter((v) => ventaDiaArgentina(v) <= fechaHasta)
     }
     
     // Búsqueda de texto
@@ -1529,7 +1575,7 @@ const CRMVentasPage = () => {
       if (response.success) {
         await loadData()
         // Recargar la venta actualizada
-        const ventasResponse = await apiService.obtenerVentas()
+        const ventasResponse = await apiService.obtenerVentas(idVendedorScope)
         if (ventasResponse.success && ventasResponse.data) {
           const ventaActualizada = ventasResponse.data.find(v => v.id === ventaEditando.id)
           if (ventaActualizada) {
@@ -1558,7 +1604,7 @@ const CRMVentasPage = () => {
       if (response.success) {
         await loadData()
         // Recargar la venta actualizada
-        const ventasResponse = await apiService.obtenerVentas()
+        const ventasResponse = await apiService.obtenerVentas(idVendedorScope)
         if (ventasResponse.success && ventasResponse.data) {
           const ventaActualizada = ventasResponse.data.find(v => v.id === ventaEditando.id)
           if (ventaActualizada) {
@@ -1860,9 +1906,11 @@ const CRMVentasPage = () => {
             <div>
               <h1>Ventas</h1>
               <p className="crm-header__meta">
-                {lastDataRefresh
-                  ? `Actualizado ${lastDataRefresh.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · Ctrl+K buscar`
-                  : 'Pipeline de cobros · Ctrl+K enfoca la búsqueda'}
+                {vistaPropia
+                  ? 'Tus ventas, arqueos y egresos · mismo criterio que tu caja'
+                  : lastDataRefresh
+                    ? `Actualizado ${lastDataRefresh.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · Ctrl+K buscar`
+                    : 'Pipeline de cobros · Ctrl+K enfoca la búsqueda'}
               </p>
             </div>
           </div>
@@ -2158,7 +2206,11 @@ const CRMVentasPage = () => {
         </button>
       </section>
 
-      {activeTab !== 'ventas' && activeTab !== 'lista-precios' && activeTab !== 'presupuestos' && (
+      {activeTab !== 'ventas' &&
+        activeTab !== 'lista-precios' &&
+        activeTab !== 'presupuestos' &&
+        activeTab !== 'arqueos' &&
+        activeTab !== 'egresos' && (
       <div className="crm-insights">
         {/* Gráficos de Tendencias */}
         {activeTab === 'oportunidades' && oportunidades.length > 0 && (
@@ -2365,6 +2417,30 @@ const CRMVentasPage = () => {
           🎯 Oportunidades ({oportunidadesFiltradas.length}
           {chatLeadsSinLeer > 0 ? ` · ${chatLeadsSinLeer} chat` : ''})
         </button>
+        {vistaPropia ? (
+          <>
+            <button
+              type="button"
+              role="tab"
+              id="crm-tab-arqueos"
+              aria-selected={activeTab === 'arqueos'}
+              className={`tab-button ${activeTab === 'arqueos' ? 'active' : ''}`}
+              onClick={() => setActiveTab('arqueos')}
+            >
+              🧮 Mis arqueos
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="crm-tab-egresos"
+              aria-selected={activeTab === 'egresos'}
+              className={`tab-button ${activeTab === 'egresos' ? 'active' : ''}`}
+              onClick={() => setActiveTab('egresos')}
+            >
+              📤 Mis egresos
+            </button>
+          </>
+        ) : null}
       </div>
 
       {activeTab === 'lista-precios' && (
@@ -2627,23 +2703,52 @@ const CRMVentasPage = () => {
                   <option value="Cancelado">Cancelado</option>
                 </select>
               </div>
-              <div className="filtro-group">
-                <label>Desde:</label>
-                <input
-                  type="date"
-                  value={fechaDesde}
-                  onChange={(e) => setFechaDesde(e.target.value)}
-                  className="filtro-input"
-                />
-              </div>
-              <div className="filtro-group">
-                <label>Hasta:</label>
-                <input
-                  type="date"
-                  value={fechaHasta}
-                  onChange={(e) => setFechaHasta(e.target.value)}
-                  className="filtro-input"
-                />
+              <div className="filtro-group ventas-filtro-fecha">
+                <label>Período</label>
+                <div className="ventas-filtro-fecha__row">
+                  <input
+                    type="date"
+                    value={fechaDesde}
+                    onChange={(e) => setFechaDesde(e.target.value)}
+                    className="filtro-input"
+                    aria-label="Desde"
+                  />
+                  <span className="ventas-filtro-fecha__sep">—</span>
+                  <input
+                    type="date"
+                    value={fechaHasta}
+                    onChange={(e) => setFechaHasta(e.target.value)}
+                    className="filtro-input"
+                    aria-label="Hasta"
+                  />
+                </div>
+                <div className="ventas-filtro-fecha__presets">
+                  <button
+                    type="button"
+                    className={`ventas-filtro-preset${
+                      fechaDesde === getArgentinaDateString() && fechaHasta === getArgentinaDateString()
+                        ? ' active'
+                        : ''
+                    }`}
+                    onClick={() => {
+                      const hoy = getArgentinaDateString()
+                      setFechaDesde(hoy)
+                      setFechaHasta(hoy)
+                    }}
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    type="button"
+                    className={`ventas-filtro-preset${!fechaDesde && !fechaHasta ? ' active' : ''}`}
+                    onClick={() => {
+                      setFechaDesde('')
+                      setFechaHasta('')
+                    }}
+                  >
+                    Todo
+                  </button>
+                </div>
               </div>
               <div className="filtro-group" style={{ flex: 1, minWidth: '300px' }}>
                 <label>🔍 Buscar:</label>
@@ -2693,19 +2798,21 @@ const CRMVentasPage = () => {
                     <option value="Otro">Otro</option>
                   </select>
                 </div>
-                <div className="filtro-group">
-                  <label>Vendedor:</label>
-                  <select
-                    value={filtroVendedor}
-                    onChange={(e) => setFiltroVendedor(e.target.value)}
-                    className="filtro-select"
-                  >
-                    <option value="todos">Todos</option>
-                    {Array.from(new Set(ventas.map(v => v.nombre_vendedor).filter(Boolean))).map(vendedor => (
-                      <option key={vendedor} value={vendedor}>{vendedor}</option>
-                    ))}
-                  </select>
-                </div>
+                {!vistaPropia ? (
+                  <div className="filtro-group">
+                    <label>Vendedor:</label>
+                    <select
+                      value={filtroVendedor}
+                      onChange={(e) => setFiltroVendedor(e.target.value)}
+                      className="filtro-select"
+                    >
+                      <option value="todos">Todos</option>
+                      {Array.from(new Set(ventas.map(v => v.nombre_vendedor).filter(Boolean))).map(vendedor => (
+                        <option key={vendedor} value={vendedor}>{vendedor}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
                 <div className="filtro-group" style={{ flex: 1 }}>
                   <button
                     className="btn-secondary"
@@ -2713,8 +2820,9 @@ const CRMVentasPage = () => {
                       setFiltroEstadoPago('todos')
                       setFiltroMetodoPago('todos')
                       setFiltroVendedor('todos')
-                      setFechaDesde('')
-                      setFechaHasta('')
+                      const hoy = getArgentinaDateString()
+                      setFechaDesde(hoy)
+                      setFechaHasta(hoy)
                       setBusquedaVenta('')
                     }}
                     style={{ padding: '10px 16px', fontSize: '0.875rem' }}
@@ -2854,75 +2962,59 @@ const CRMVentasPage = () => {
                   </div>
 
                   {ventaModal.items && ventaModal.items.length > 0 ? (
-                    <div className="items-section">
-                      <strong>Items ({ventaModal.items.length}):</strong>
-                      {ventaModal.items.map((item) => (
-                        <div key={item.id} className="item-venta">
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              marginBottom: '4px'
-                            }}
-                          >
-                            <div style={{ flex: 1 }}>
-                              <strong>{item.cantidad}x</strong> {item.descripcion}
-                              {item.codigo_articulo ? (
-                                <span
-                                  style={{
-                                    color: 'var(--text-secondary)',
-                                    fontSize: '0.75rem',
-                                    marginLeft: '8px'
-                                  }}
-                                >
-                                  ({item.codigo_articulo})
+                    <div className="venta-detail-block venta-detail-block--items">
+                      <h3 className="venta-detail-block__title">
+                        Ítems <span className="venta-detail-block__count">{ventaModal.items.length}</span>
+                      </h3>
+                      <ul className="venta-detail-item-list">
+                        {ventaModal.items.map((item) => (
+                          <li key={item.id} className="venta-detail-item">
+                            <div className="venta-detail-item__main">
+                              <div className="venta-detail-item__copy">
+                                <p className="venta-detail-item__desc">
+                                  <span className="venta-detail-item__qty">{item.cantidad}×</span>{' '}
+                                  {item.descripcion}
+                                </p>
+                                {item.codigo_articulo ? (
+                                  <span className="venta-detail-item__code">{item.codigo_articulo}</span>
+                                ) : null}
+                              </div>
+                              <span className="venta-detail-item__price">
+                                $
+                                {Number(item.precio_total).toLocaleString('es-AR', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                })}
+                              </span>
+                            </div>
+                            <div className="venta-detail-item__meta">
+                              <span>
+                                Unit. $
+                                {Number(item.precio_unitario).toLocaleString('es-AR', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                })}
+                              </span>
+                              {item.descuento && item.descuento > 0 ? (
+                                <span className="venta-detail-item__discount">
+                                  Desc. $
+                                  {Number(item.descuento).toLocaleString('es-AR', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                  })}
                                 </span>
                               ) : null}
                             </div>
-                            <div style={{ fontWeight: 600, color: '#10b981', marginLeft: '12px' }}>
-                              ${item.precio_total.toLocaleString()}
-                            </div>
-                          </div>
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              fontSize: '0.75rem',
-                              color: 'var(--text-secondary)'
-                            }}
-                          >
-                            <span>Precio unitario: ${item.precio_unitario.toLocaleString()}</span>
-                            {item.descuento && item.descuento > 0 ? (
-                              <span style={{ color: '#f59e0b' }}>
-                                Descuento: ${item.descuento.toLocaleString()}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   ) : null}
 
                   {ventaModal.observaciones ? (
-                    <div
-                      className="items-section"
-                      style={{
-                        background: 'rgba(139, 92, 246, 0.1)',
-                        borderColor: 'rgba(139, 92, 246, 0.2)'
-                      }}
-                    >
-                      <strong>Observaciones:</strong>
-                      <p
-                        style={{
-                          margin: '8px 0 0 0',
-                          fontSize: '0.85rem',
-                          color: 'var(--text-primary)',
-                          lineHeight: '1.5'
-                        }}
-                      >
-                        {ventaModal.observaciones}
-                      </p>
+                    <div className="venta-detail-block venta-detail-block--notes">
+                      <h3 className="venta-detail-block__title">Observaciones</h3>
+                      <p className="venta-detail-block__text">{ventaModal.observaciones}</p>
                     </div>
                   ) : null}
                 </div>
@@ -3078,6 +3170,26 @@ const CRMVentasPage = () => {
               <p>No hay ventas que coincidan con los filtros</p>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'arqueos' && vistaPropia && usuario && (
+        <div className="crm-section ventas-caja-embed" role="tabpanel" aria-labelledby="crm-tab-arqueos">
+          <CajaSectionHistorial
+            usuarioNombre={usuarioEtiquetaCaja}
+            usuarioId={usuario.id}
+            soloArqueos
+          />
+        </div>
+      )}
+
+      {activeTab === 'egresos' && vistaPropia && usuario && (
+        <div className="crm-section ventas-caja-embed" role="tabpanel" aria-labelledby="crm-tab-egresos">
+          <CajaSectionEgresos
+            isAdmin={false}
+            usuarioNombre={usuarioEtiquetaCaja}
+            usuarioId={usuario.id}
+          />
         </div>
       )}
 
@@ -3323,43 +3435,66 @@ const CRMVentasPage = () => {
                   {presupuestoModalLoading ? (
                     <p className="presupuesto-detail-loading">Cargando ítems…</p>
                   ) : presupuestoModalItems.length > 0 ? (
-                    <div className="items-section">
-                      <strong>Ítems ({presupuestoModalItems.length})</strong>
-                      {presupuestoModalItems.map((item) => (
-                        <div key={item.id} className="item-venta">
-                          <div className="presupuesto-item-row">
-                            <div>
-                              <strong>{item.cantidad}x</strong> {item.descripcion}
-                              {item.codigo_articulo ? (
-                                <span className="presupuesto-item-codigo">({item.codigo_articulo})</span>
+                    <div className="venta-detail-block venta-detail-block--items">
+                      <h3 className="venta-detail-block__title">
+                        Ítems <span className="venta-detail-block__count">{presupuestoModalItems.length}</span>
+                      </h3>
+                      <ul className="venta-detail-item-list">
+                        {presupuestoModalItems.map((item) => (
+                          <li key={item.id} className="venta-detail-item">
+                            <div className="venta-detail-item__main">
+                              <div className="venta-detail-item__copy">
+                                <p className="venta-detail-item__desc">
+                                  <span className="venta-detail-item__qty">{item.cantidad}×</span>{' '}
+                                  {item.descripcion}
+                                </p>
+                                {item.codigo_articulo ? (
+                                  <span className="venta-detail-item__code">{item.codigo_articulo}</span>
+                                ) : null}
+                              </div>
+                              <span className="venta-detail-item__price">
+                                $
+                                {Number(item.precio_total).toLocaleString('es-AR', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                })}
+                              </span>
+                            </div>
+                            <div className="venta-detail-item__meta">
+                              <span>
+                                Unit. $
+                                {Number(item.precio_unitario).toLocaleString('es-AR', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                })}
+                              </span>
+                              {item.descuento > 0 ? (
+                                <span className="venta-detail-item__discount">
+                                  Desc. $
+                                  {Number(item.descuento).toLocaleString('es-AR', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                  })}
+                                </span>
                               ) : null}
                             </div>
-                            <div className="presupuesto-item-total">
-                              ${item.precio_total.toLocaleString()}
-                            </div>
-                          </div>
-                          <div className="presupuesto-item-meta">
-                            <span>P. unit.: ${item.precio_unitario.toLocaleString()}</span>
-                            {item.descuento > 0 ? (
-                              <span>Desc.: ${item.descuento.toLocaleString()}</span>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   ) : null}
 
                   {presupuestoModal.observaciones_cliente ? (
-                    <div className="items-section presupuesto-obs presupuesto-obs--cliente">
-                      <strong>Observaciones cliente</strong>
-                      <p>{presupuestoModal.observaciones_cliente}</p>
+                    <div className="venta-detail-block venta-detail-block--notes venta-detail-block--notes-client">
+                      <h3 className="venta-detail-block__title">Observaciones cliente</h3>
+                      <p className="venta-detail-block__text">{presupuestoModal.observaciones_cliente}</p>
                     </div>
                   ) : null}
 
                   {presupuestoModal.observaciones_internas ? (
-                    <div className="items-section presupuesto-obs presupuesto-obs--interna">
-                      <strong>Observaciones internas</strong>
-                      <p>{presupuestoModal.observaciones_internas}</p>
+                    <div className="venta-detail-block venta-detail-block--notes venta-detail-block--notes-internal">
+                      <h3 className="venta-detail-block__title">Observaciones internas</h3>
+                      <p className="venta-detail-block__text">{presupuestoModal.observaciones_internas}</p>
                     </div>
                   ) : null}
                 </div>

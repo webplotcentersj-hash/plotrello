@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import MercadoPagoCheckoutPanel from '../components/payments/MercadoPagoCheckoutPanel'
 import apiService from '../services/api'
 import { validarCantidadVentaComercial } from '../services/commerceCatalogService'
-import { cartItemCount, cartTotal, clearTotemCart, readTotemCart } from './totemAutogestionCart'
+import {
+  cartItemCount,
+  cartTotal,
+  clearTotemCart,
+  descripcionPersonalizadaTotem,
+  readTotemCart
+} from './totemAutogestionCart'
 import './TotemAutogestionCheckoutPage.css'
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
-type Step = 'review' | 'identify' | 'creating' | 'done'
+type Step = 'review' | 'identify' | 'pay' | 'done'
 
 export default function TotemAutogestionCheckoutPage() {
   const navigate = useNavigate()
@@ -20,10 +27,15 @@ export default function TotemAutogestionCheckoutPage() {
   const [dniCuit, setDniCuit] = useState('')
   const [telefono, setTelefono] = useState('')
   const [nombre, setNombre] = useState('')
+  const [clienteId, setClienteId] = useState<number | null>(null)
   const [needsDetails, setNeedsDetails] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [checkoutPayload, setCheckoutPayload] = useState<Record<string, unknown> | null>(null)
 
-  const [result, setResult] = useState<{ pedidoId: number; stockWarning?: string } | null>(null)
+  const [result, setResult] = useState<{
+    pedidoId: number | null
+    mpPaymentId: string | null
+  } | null>(null)
 
   useEffect(() => {
     if (itemsCount === 0) {
@@ -33,15 +45,81 @@ export default function TotemAutogestionCheckoutPage() {
 
   const dniDigits = useMemo(() => digitsOnly(dniCuit), [dniCuit])
 
+  useEffect(() => {
+    if (dniDigits.length < 7) {
+      setClienteId(null)
+      return
+    }
+    let cancelled = false
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const search = await apiService.buscarClientes(dniDigits)
+        if (cancelled) return
+        if (search.success && search.data) {
+          const match = search.data.find((c) => digitsOnly(c.dni_cuit ?? '') === dniDigits)
+          if (match) {
+            setClienteId(match.id)
+            const nombreCompleto = [match.nombre, match.apellido].filter(Boolean).join(' ').trim()
+            if (nombreCompleto) setNombre(nombreCompleto)
+            if (match.telefono) setTelefono(match.telefono)
+            setNeedsDetails(false)
+            return
+          }
+        }
+        setClienteId(null)
+      })()
+    }, 400)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [dniDigits])
+
   const validateIdentify = () => {
     if (!dniDigits) return 'Ingresá un DNI/CUIT.'
     if (dniDigits.length < 7) return 'DNI/CUIT inválido.'
-    if (!needsDetails) return null
-    if (!nombre.trim()) return 'Ingresá tu nombre.'
+    if (!clienteId && !needsDetails) return null
+    if (!clienteId && needsDetails && !nombre.trim()) return 'Ingresá tu nombre.'
     return null
   }
 
-  const handleConfirm = async () => {
+  const resolverCliente = async (): Promise<number | null> => {
+    if (clienteId) return clienteId
+
+    if (!nombre.trim()) {
+      setNeedsDetails(true)
+      setError('Ingresá tu nombre para continuar.')
+      return null
+    }
+
+    const r = await apiService.buscarOCrearCliente({
+      nombre: nombre.trim(),
+      dni_cuit: dniDigits,
+      telefono: telefono.trim() || undefined
+    })
+    if (!r.success || !r.data) {
+      setError(r.error || 'No se pudo registrar el cliente.')
+      return null
+    }
+    return r.data.id
+  }
+
+  const validarCarrito = async (): Promise<string | null> => {
+    const catalogo = await apiService.getCatalogoComercial({ canal: 'portal', limite: 500 })
+    if (!catalogo.success || !catalogo.data) {
+      return catalogo.error || 'No se pudo validar el catálogo.'
+    }
+    const porId = new Map(catalogo.data.items.map((a) => [a.id, a]))
+    for (const it of cart.items) {
+      const art = porId.get(it.id_articulo)
+      if (!art) return 'Hay productos en el carrito que ya no están disponibles.'
+      const v = validarCantidadVentaComercial(art, it.cantidad || 1)
+      if (!v.ok) return v.error
+    }
+    return null
+  }
+
+  const handleContinuarPago = async () => {
     setError(null)
     const v = validateIdentify()
     if (v) {
@@ -49,107 +127,39 @@ export default function TotemAutogestionCheckoutPage() {
       return
     }
 
-    setStep('creating')
-
-    try {
-      const catalogo = await apiService.getCatalogoComercial({ canal: 'totem', limite: 500 })
-      if (!catalogo.success || !catalogo.data) {
-        setStep('identify')
-        setError(catalogo.error || 'No se pudo validar el catálogo.')
-        return
-      }
-      const porId = new Map(catalogo.data.items.map((a) => [a.id, a]))
-      for (const it of cart.items) {
-        const art = porId.get(it.id_articulo)
-        if (!art) {
-          setStep('identify')
-          setError('Hay productos en el carrito que ya no están disponibles.')
-          return
-        }
-        const v = validarCantidadVentaComercial(art, it.cantidad || 1)
-        if (!v.ok) {
-          setStep('identify')
-          setError(v.error)
-          return
-        }
-      }
-
-      // 1) Intentar resolver cliente existente por DNI/CUIT exacto
-      const search = await apiService.buscarClientes(dniDigits)
-      let clienteId: number | null = null
-
-      if (search.success && search.data) {
-        const match = search.data.find((c) => digitsOnly((c as any).dni_cuit) === dniDigits)
-        if (match && typeof (match as any).id === 'number') {
-          clienteId = (match as any).id as number
-        }
-      }
-
-      // 2) Si no existe, crear mínimo (pedimos nombre y teléfono)
-      if (!clienteId) {
-        if (!nombre.trim()) {
-          setNeedsDetails(true)
-          setStep('identify')
-          setError('Ingresá tu nombre para continuar.')
-          return
-        }
-        const r = await apiService.buscarOCrearCliente({
-          nombre: nombre.trim(),
-          dni_cuit: dniDigits,
-          telefono: telefono.trim() || undefined
-        })
-        if (!r.success || !r.data) {
-          setStep('identify')
-          setError(r.error || 'No se pudo registrar el cliente.')
-          return
-        }
-        clienteId = (r.data as any).id as number
-      }
-
-      if (!clienteId) {
-        setStep('identify')
-        setError('No se pudo resolver el cliente. Intentá nuevamente.')
-        return
-      }
-
-      // 3) Crear pedido cliente (cola)
-      const resp = await apiService.crearPedidoCliente({
-        id_cliente: clienteId,
-        observaciones_cliente: 'Creado desde tótem de autogestión.',
-        items: cart.items.map((it) => ({
-          id_articulo: it.id_articulo,
-          cantidad: it.cantidad,
-          precio_unitario: it.precio_unitario,
-          precio_total: it.precio_total,
-          descripcion_personalizada: undefined
-        }))
-      })
-
-      if (!resp.success || !resp.data) {
-        setStep('identify')
-        setError(resp.error || 'No se pudo crear el pedido.')
-        return
-      }
-
-      const pedidoId = (resp.data as { id: number }).id
-      const stockResp = await apiService.aplicarStockPedidoCliente(pedidoId, 'totem')
-      const ventaResp = await apiService.crearVentaDesdePedidoCliente(pedidoId)
-      const stockWarning =
-        !stockResp.success
-          ? stockResp.error
-          : stockResp.data?.errores?.length
-            ? stockResp.data.errores.join('; ')
-            : !ventaResp.success
-              ? ventaResp.error
-              : undefined
-
-      setResult({ pedidoId, stockWarning })
-      clearTotemCart()
-      setStep('done')
-    } catch (e) {
-      setStep('identify')
-      setError(e instanceof Error ? e.message : 'Error inesperado')
+    const stockErr = await validarCarrito()
+    if (stockErr) {
+      setError(stockErr)
+      return
     }
+
+    const idCliente = await resolverCliente()
+    if (!idCliente) return
+
+    if (total < 1) {
+      setError('El total debe ser al menos $1 para pagar con Mercado Pago.')
+      return
+    }
+
+    const payload: Record<string, unknown> = {
+      id_cliente: idCliente,
+      tipo_intencion: 'compra',
+      amount: total,
+      observaciones_cliente: 'Origen: tótem catálogo (autogestión). Venta tótem.',
+      items: cart.items.map((it) => ({
+        id_articulo: it.id_articulo,
+        cantidad: it.cantidad,
+        precio_unitario: it.precio_unitario,
+        precio_total: it.precio_total,
+        descripcion_personalizada:
+          it.descripcion_personalizada ||
+          descripcionPersonalizadaTotem(it.id_articulo, it.nombre_articulo || '') ||
+          null
+      }))
+    }
+
+    setCheckoutPayload(payload)
+    setStep('pay')
   }
 
   return (
@@ -159,8 +169,8 @@ export default function TotemAutogestionCheckoutPage() {
           ← Volver
         </button>
         <div>
-          <h1>Confirmar</h1>
-          <p>Tu solicitud queda en cola. Se paga en caja/mostrador.</p>
+          <h1>Confirmar compra</h1>
+          <p>Identificate y pagá con Mercado Pago. El pedido entra a mostrador como venta tótem.</p>
         </div>
       </header>
 
@@ -168,6 +178,16 @@ export default function TotemAutogestionCheckoutPage() {
         {step === 'review' && (
           <section className="totem-checkout-card">
             <h2>Resumen</h2>
+            <ul className="totem-checkout-items">
+              {cart.items.map((it) => (
+                <li key={it.id_articulo}>
+                  <span>
+                    {it.cantidad}× {it.nombre_articulo ?? `#${it.id_articulo}`}
+                  </span>
+                  <strong>${Number(it.precio_total || 0).toFixed(2)}</strong>
+                </li>
+              ))}
+            </ul>
             <div className="totem-checkout-kv">
               <div>
                 <span>Ítems</span>
@@ -198,9 +218,17 @@ export default function TotemAutogestionCheckoutPage() {
               />
             </label>
 
-            <div className="totem-checkout-hint">Si el DNI no existe, te pedimos nombre para registrarte.</div>
+            {clienteId ? (
+              <p className="totem-checkout-hint totem-checkout-hint--ok">
+                Cliente encontrado{nombre ? `: ${nombre}` : ''}. Datos cargados automáticamente.
+              </p>
+            ) : (
+              <div className="totem-checkout-hint">
+                Si el DNI no está registrado, completá nombre y teléfono.
+              </div>
+            )}
 
-            {needsDetails && (
+            {(!clienteId || needsDetails) && (
               <div className="totem-checkout-details">
                 <label className="totem-checkout-label">
                   Nombre
@@ -229,37 +257,58 @@ export default function TotemAutogestionCheckoutPage() {
             {error && <div className="totem-checkout-error">{error}</div>}
 
             <div className="totem-checkout-actions">
-              <button type="button" className="totem-checkout-secondary" onClick={() => setNeedsDetails((v) => !v)}>
-                {needsDetails ? 'No crear cliente nuevo' : 'No encuentro mi DNI: cargar datos'}
-              </button>
-              <button type="button" className="totem-checkout-primary" onClick={handleConfirm}>
-                Confirmar
+              {!clienteId && (
+                <button type="button" className="totem-checkout-secondary" onClick={() => setNeedsDetails((v) => !v)}>
+                  {needsDetails ? 'Ocultar datos nuevos' : 'Soy cliente nuevo'}
+                </button>
+              )}
+              <button type="button" className="totem-checkout-primary" onClick={() => void handleContinuarPago()}>
+                Pagar con Mercado Pago
               </button>
             </div>
           </section>
         )}
 
-        {step === 'creating' && (
-          <section className="totem-checkout-card">
-            <h2>Creando…</h2>
-            <p>Estamos registrando tu solicitud.</p>
+        {step === 'pay' && checkoutPayload && (
+          <section className="totem-checkout-card totem-checkout-card--pay">
+            <MercadoPagoCheckoutPanel
+              tipo="pedido_portal"
+              payload={checkoutPayload}
+              amountHint={total}
+              title="Pagar compra del tótem"
+              note="Escaneá el QR con Mercado Pago. Al confirmarse el pago registramos tu pedido y la venta en mostrador."
+              onPaid={({ pedidoId, mpPaymentId }) => {
+                clearTotemCart()
+                setResult({ pedidoId: pedidoId ?? null, mpPaymentId: mpPaymentId ?? null })
+                setStep('done')
+              }}
+            />
+            <button type="button" className="totem-checkout-secondary" onClick={() => setStep('identify')}>
+              ← Volver
+            </button>
           </section>
         )}
 
         {step === 'done' && result && (
           <section className="totem-checkout-card totem-checkout-card--done">
-            <h2>Listo</h2>
+            <h2>¡Pago confirmado!</h2>
             <p className="totem-checkout-success">
-              Pedido creado. Número interno: <strong>#{result.pedidoId}</strong>
+              Tu compra quedó registrada
+              {result.pedidoId ? (
+                <>
+                  {' '}
+                  — pedido <strong>#{result.pedidoId}</strong>
+                </>
+              ) : null}
             </p>
-            {result.stockWarning && (
-              <p className="totem-checkout-stock-warn" role="alert">
-                Aviso stock: {result.stockWarning}. Mostrador revisará el pedido.
-              </p>
-            )}
-            <p className="totem-checkout-hint">Acercate a caja/mostrador para pagar y coordinar.</p>
+            {result.mpPaymentId ? (
+              <p className="totem-checkout-hint">Mercado Pago — Pago: {result.mpPaymentId}</p>
+            ) : null}
+            <p className="totem-checkout-hint">
+              El equipo de mostrador e imprenta verá la venta tótem en el sistema.
+            </p>
             <div className="totem-checkout-actions">
-              <button type="button" className="totem-checkout-primary" onClick={() => navigate('/totem/autogestion')}>
+              <button type="button" className="totem-checkout-primary" onClick={() => navigate('/totem/consulta-cliente')}>
                 Volver al inicio
               </button>
             </div>
@@ -269,4 +318,3 @@ export default function TotemAutogestionCheckoutPage() {
     </div>
   )
 }
-

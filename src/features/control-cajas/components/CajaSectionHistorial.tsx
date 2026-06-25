@@ -5,9 +5,14 @@ import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
 import type { CajaArqueo, CajaMovimiento, CajaRegistro } from '../types'
 import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
 
-type Props = { usuarioNombre: string; usuarioId?: number }
+type Props = {
+  usuarioNombre: string
+  usuarioId?: number
+  /** En /ventas solo se listan arqueos propios (sin movimientos). */
+  soloArqueos?: boolean
+}
 
-export default function CajaSectionHistorial({ usuarioNombre, usuarioId }: Props) {
+export default function CajaSectionHistorial({ usuarioNombre, usuarioId, soloArqueos = false }: Props) {
   const [arqueos, setArqueos] = useState<CajaArqueo[]>([])
   const [movimientos, setMovimientos] = useState<CajaMovimiento[]>([])
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
@@ -19,14 +24,14 @@ export default function CajaSectionHistorial({ usuarioNombre, usuarioId }: Props
   useEffect(() => {
     void Promise.all([
       listArqueos({ usuario: usuarioNombre, usuarioId }),
-      listMovimientos({ usuario: usuarioNombre, usuarioId }),
+      soloArqueos ? Promise.resolve([] as CajaMovimiento[]) : listMovimientos({ usuario: usuarioNombre, usuarioId }),
       listCajas()
     ]).then(([a, m, c]) => {
       setArqueos(a)
       setMovimientos(m)
       setCajas(c)
     })
-  }, [usuarioNombre, usuarioId])
+  }, [usuarioNombre, usuarioId, soloArqueos])
 
   const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
 
@@ -65,7 +70,7 @@ export default function CajaSectionHistorial({ usuarioNombre, usuarioId }: Props
   )
 
   return (
-    <div className="caja-cc-grid-2 caja-cc-historial-grid">
+    <div className={soloArqueos ? 'caja-cc-historial-solo-arqueos' : 'caja-cc-grid-2 caja-cc-historial-grid'}>
       <CajaCollapsibleCard
         title="Últimos arqueos"
         count={arqueosFiltrados.length}
@@ -109,48 +114,50 @@ export default function CajaSectionHistorial({ usuarioNombre, usuarioId }: Props
         )}
       </CajaCollapsibleCard>
 
-      <CajaCollapsibleCard
-        title="Últimos movimientos"
-        count={movsFiltrados.length}
-        toolbar={toolbarMovs}
-        bodyClassName="caja-cc-card-body-scroll"
-      >
-        {movsVisibles.length === 0 ? (
-          <p className="caja-cc-empty">{qMovs ? 'Sin coincidencias.' : 'Sin movimientos'}</p>
-        ) : (
-          <>
-            <div className="caja-cc-table-scroll">
-              <table className="caja-cc-table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Concepto</th>
-                    <th className="num">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movsVisibles.map((m) => (
-                    <tr key={m.id}>
-                      <td>{fmtDateAr(m.fecha)}</td>
-                      <td>{m.concepto}</td>
-                      <td className="num">$ {fmtArs(montoVisibleMovimiento(m))}</td>
+      {!soloArqueos ? (
+        <CajaCollapsibleCard
+          title="Últimos movimientos"
+          count={movsFiltrados.length}
+          toolbar={toolbarMovs}
+          bodyClassName="caja-cc-card-body-scroll"
+        >
+          {movsVisibles.length === 0 ? (
+            <p className="caja-cc-empty">{qMovs ? 'Sin coincidencias.' : 'Sin movimientos'}</p>
+          ) : (
+            <>
+              <div className="caja-cc-table-scroll">
+                <table className="caja-cc-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Concepto</th>
+                      <th className="num">Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {movsFiltrados.length > limitMov && (
-              <button
-                type="button"
-                className="btn-link caja-cc-show-more"
-                onClick={() => setLimitMov((n) => n + LIST_PAGE_SIZE)}
-              >
-                Ver más ({movsFiltrados.length - limitMov} restantes)
-              </button>
-            )}
-          </>
-        )}
-      </CajaCollapsibleCard>
+                  </thead>
+                  <tbody>
+                    {movsVisibles.map((m) => (
+                      <tr key={m.id}>
+                        <td>{fmtDateAr(m.fecha)}</td>
+                        <td>{m.concepto}</td>
+                        <td className="num">$ {fmtArs(montoVisibleMovimiento(m))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {movsFiltrados.length > limitMov && (
+                <button
+                  type="button"
+                  className="btn-link caja-cc-show-more"
+                  onClick={() => setLimitMov((n) => n + LIST_PAGE_SIZE)}
+                >
+                  Ver más ({movsFiltrados.length - limitMov} restantes)
+                </button>
+              )}
+            </>
+          )}
+        </CajaCollapsibleCard>
+      ) : null}
     </div>
   )
 }

@@ -730,6 +730,7 @@ export async function listEgresoSolicitudes(opts?: {
   fecha?: string
   cajaSlug?: string
   soloPendientes?: boolean
+  solicitanteId?: number
 }): Promise<CajaEgresoSolicitud[]> {
   const local = readLocal().egreso_solicitudes
   let remote: CajaEgresoSolicitud[] = []
@@ -740,6 +741,7 @@ export async function listEgresoSolicitudes(opts?: {
       .order('created_at', { ascending: false })
     if (opts?.fecha) q = q.eq('fecha', opts.fecha)
     if (opts?.soloPendientes) q = q.eq('estado', 'pendiente')
+    if (opts?.solicitanteId != null) q = q.eq('solicitante_id', opts.solicitanteId)
     const { data, error } = await q
     if (!error && data) remote = data.map((r) => mapEgresoRow(r))
   }
@@ -747,6 +749,9 @@ export async function listEgresoSolicitudes(opts?: {
   if (opts?.fecha) list = list.filter((s) => s.fecha === opts.fecha)
   if (opts?.cajaSlug) list = list.filter((s) => mismoCajaSlug(s.caja_slug, opts.cajaSlug!))
   if (opts?.soloPendientes) list = list.filter((s) => s.estado === 'pendiente')
+  if (opts?.solicitanteId != null) {
+    list = list.filter((s) => s.solicitante_id === opts.solicitanteId)
+  }
   return [...list].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
 }
 

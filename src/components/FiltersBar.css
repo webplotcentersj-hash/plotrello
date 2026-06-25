@@ -89,7 +89,8 @@
 
 .library-button-container .brand-button,
 .library-button-container .library-button,
-.library-button-container .brief-link-button {
+.library-button-container .brief-link-button,
+.library-button-container .venta-rapida-button {
   height: 32px;
   min-width: 0;
   padding: 0 10px;
@@ -149,6 +150,18 @@
   border-color: rgba(16, 185, 129, 0.45);
   color: #a7f3d0;
   transform: translateY(-1px);
+}
+
+.library-button-container .venta-rapida-button {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.85), rgba(5, 150, 105, 0.9));
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.28);
+}
+
+.library-button-container .venta-rapida-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.38);
 }
 
 .filter-control label {
@@ -494,4 +507,10 @@
   min-height: 44px;
 }
 
+.filters-bar--phone .venta-rapida-button {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.95));
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 700;
+}
 
