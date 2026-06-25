@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import { generateContent } from '../services/plotAIService'
 import type {
   ArticuloEmpresaRecord,
   ArticuloEmpresaImagenRecord,
@@ -74,6 +75,7 @@ const ArticulosEmpresaPage = () => {
   const [imagenesArticulo, setImagenesArticulo] = useState<ArticuloEmpresaImagenRecord[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [generandoDescripcionIA, setGenerandoDescripcionIA] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -245,7 +247,10 @@ const ArticulosEmpresaPage = () => {
     setCategoriaInputValue('')
     setSubcategoriaInputValue('')
     setImagenFile(null)
+    setImagenFiles([])
     setImagenPreview(null)
+    setImagenPreviews([])
+    setImagenesArticulo([])
     setError('')
     setShowCreateModal(true)
   }
@@ -287,10 +292,8 @@ const ArticulosEmpresaPage = () => {
     const imagenesResponse = await apiService.obtenerImagenesArticuloEmpresa(articulo.id)
     if (imagenesResponse.success && imagenesResponse.data) {
       setImagenesArticulo(imagenesResponse.data)
-      setImagenPreviews(imagenesResponse.data.map(img => img.imagen_url))
     } else {
       setImagenesArticulo([])
-      setImagenPreviews([])
     }
   }
 
@@ -363,6 +366,73 @@ const ArticulosEmpresaPage = () => {
     }
   }
 
+  const completarDescripcionConIA = async () => {
+    if (!formData.nombre.trim()) {
+      setError('Completá al menos el nombre del artículo antes de usar la IA')
+      return
+    }
+
+    setGenerandoDescripcionIA(true)
+    setError('')
+
+    try {
+      const prompt = `Sos redactor comercial de una imprenta / gráfica en Argentina.
+Redactá una descripción de producto para catálogo online (portal y tótem).
+
+Datos del artículo:
+- Nombre: ${formData.nombre.trim()}
+- Categoría: ${formData.categoria.trim() || '—'}
+- Subcategoría: ${formData.subcategoria.trim() || '—'}
+- Precio base: ${formData.precio_base ? `$${formData.precio_base}` : '—'}
+- Tiempo estimado: ${formData.tiempo_estimado_dias ? `${formData.tiempo_estimado_dias} días` : '—'}
+
+Reglas:
+- Español rioplatense, tono profesional y claro
+- 2 a 4 oraciones, sin título ni viñetas
+- Destacá beneficios y usos típicos del producto
+- No inventes especificaciones técnicas que no estén en los datos
+- Solo devolvé el texto de la descripción, sin comillas ni markdown`
+
+      const text = await generateContent({
+        contents: prompt,
+        model: 'gemini-2.5-flash',
+        useCompleteContext: false,
+        useMemory: false,
+        learnFromResponse: false,
+        includeAppManual: false
+      })
+
+      setFormData((prev) => ({ ...prev, descripcion: text.trim() }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo generar la descripción con IA')
+    } finally {
+      setGenerandoDescripcionIA(false)
+    }
+  }
+
+  const establecerPortada = (url: string) => {
+    setFormData((prev) => ({ ...prev, imagen_url: url }))
+    setImagenPreview(url)
+    setImagenFile(null)
+    setError('')
+  }
+
+  const quitarPortada = () => {
+    setFormData((prev) => ({ ...prev, imagen_url: '' }))
+    setImagenPreview(null)
+    setImagenFile(null)
+  }
+
+  const usarPreviewComoPortada = (index: number) => {
+    const file = imagenFiles[index]
+    const preview = imagenPreviews[index]
+    if (!file || !preview) return
+    setImagenFile(file)
+    setImagenPreview(preview)
+    setFormData((prev) => ({ ...prev, imagen_url: '' }))
+    setError('')
+  }
+
   const handleSubirImagen = async () => {
     if (!imagenFile) return
 
@@ -376,7 +446,8 @@ const ArticulosEmpresaPage = () => {
       )
 
       if (response.success && response.data) {
-        setFormData({ ...formData, imagen_url: response.data })
+        setFormData((prev) => ({ ...prev, imagen_url: response.data! }))
+        setImagenPreview(response.data)
         setImagenFile(null)
         setError('')
       } else {
@@ -524,9 +595,9 @@ const ArticulosEmpresaPage = () => {
       }
     }
 
-    // Si hay una imagen nueva sin subir, subirla primero
+    // Si hay una imagen de portada nueva sin subir, subirla primero
     let imagenUrlFinal = formData.imagen_url
-    if (imagenFile && !formData.imagen_url) {
+    if (imagenFile) {
       setUploadingImage(true)
       try {
         const uploadResponse = await apiService.uploadImagenArticuloEmpresa(
@@ -587,6 +658,7 @@ const ArticulosEmpresaPage = () => {
         // Si se creó exitosamente y hay imágenes para subir, subirlas a la galería
         if (response.success && response.data && imagenFiles.length > 0) {
           const nuevoArticuloId = response.data.id
+          let primeraUrlGaleria = ''
           for (let i = 0; i < imagenFiles.length; i++) {
             const file = imagenFiles[i]
             const uploadResponse = await apiService.uploadImagenArticuloEmpresa(
@@ -595,12 +667,18 @@ const ArticulosEmpresaPage = () => {
             )
 
             if (uploadResponse.success && uploadResponse.data) {
+              if (!primeraUrlGaleria) primeraUrlGaleria = uploadResponse.data
               await apiService.agregarImagenArticuloEmpresa(
                 nuevoArticuloId,
                 uploadResponse.data,
                 i
               )
             }
+          }
+          if (!imagenUrlFinal.trim() && primeraUrlGaleria) {
+            await apiService.actualizarArticuloEmpresa(nuevoArticuloId, {
+              imagen_url: primeraUrlGaleria
+            })
           }
         }
       }
@@ -922,13 +1000,27 @@ const ArticulosEmpresaPage = () => {
                 </div>
 
                 <div className="form-group full-width">
-                  <label>Descripción</label>
+                  <div className="cae-desc-header">
+                    <label>Descripción</label>
+                    <button
+                      type="button"
+                      className="cae-btn-ia"
+                      onClick={() => void completarDescripcionConIA()}
+                      disabled={generandoDescripcionIA || !formData.nombre.trim()}
+                      title={!formData.nombre.trim() ? 'Completá el nombre primero' : 'Generar descripción con IA'}
+                    >
+                      {generandoDescripcionIA ? 'Generando…' : '✨ Completar con IA'}
+                    </button>
+                  </div>
                   <textarea
                     value={formData.descripcion}
                     onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                     placeholder="Descripción detallada del artículo"
                     rows={3}
                   />
+                  <small className="input-hint">
+                    La IA usa nombre, categoría y precio para redactar una descripción comercial.
+                  </small>
                 </div>
 
                 <div className="form-group">
@@ -993,8 +1085,72 @@ const ArticulosEmpresaPage = () => {
                   />
                 </div>
 
+                <div className="form-group full-width cae-portada-section">
+                  <label>Imagen de portada</label>
+                  <small className="input-hint">
+                    Se muestra en el catálogo del portal y el tótem. Podés subir un archivo o elegir una imagen de la galería.
+                  </small>
+
+                  {(imagenPreview || formData.imagen_url) && (
+                    <div className="cae-portada-preview">
+                      <img
+                        src={imagenPreview || formData.imagen_url}
+                        alt="Vista previa de portada"
+                        className="imagen-preview"
+                      />
+                      <span className="cae-portada-badge">Portada</span>
+                      {imagenFile && (
+                        <span className="cae-portada-pending">Pendiente de subir al guardar</span>
+                      )}
+                      <button type="button" className="cae-btn-quitar-portada" onClick={quitarPortada}>
+                        Quitar portada
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="file-upload-section">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="file-input"
+                      id="portada-articulo"
+                    />
+                    <label htmlFor="portada-articulo" className="file-input-label">
+                      🖼️ {imagenFile ? imagenFile.name : 'Seleccionar foto de portada'}
+                    </label>
+                    {imagenFile && editingArticulo && (
+                      <button
+                        type="button"
+                        className="btn-upload-image"
+                        onClick={() => void handleSubirImagen()}
+                        disabled={uploadingImage}
+                      >
+                        {uploadingImage ? 'Subiendo…' : '⬆️ Subir portada'}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="url-alternative">
+                    <p className="url-label">O ingresa URL de portada:</p>
+                    <input
+                      type="url"
+                      value={formData.imagen_url}
+                      onChange={(e) => {
+                        const url = e.target.value
+                        setFormData({ ...formData, imagen_url: url })
+                        if (!imagenFile) {
+                          setImagenPreview(url || null)
+                        }
+                      }}
+                      placeholder="https://..."
+                      disabled={!!imagenFile}
+                    />
+                  </div>
+                </div>
+
                 <div className="form-group full-width">
-                  <label>Galería de Imágenes del Artículo</label>
+                  <label>Galería (imágenes adicionales)</label>
                   
                   {/* Galería de imágenes existentes */}
                   {editingArticulo && imagenesArticulo.length > 0 && (
@@ -1008,6 +1164,18 @@ const ArticulosEmpresaPage = () => {
                               alt={`Imagen ${index + 1}`} 
                               className="galeria-imagen"
                             />
+                            {formData.imagen_url === imagen.imagen_url ? (
+                              <span className="cae-galeria-portada-badge">Portada</span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn-set-portada"
+                                onClick={() => establecerPortada(imagen.imagen_url)}
+                                title="Usar como imagen de portada"
+                              >
+                                ★ Portada
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="btn-remove-galeria-image"
@@ -1036,6 +1204,14 @@ const ArticulosEmpresaPage = () => {
                             />
                             <button
                               type="button"
+                              className="btn-set-portada"
+                              onClick={() => usarPreviewComoPortada(index)}
+                              title="Usar como imagen de portada"
+                            >
+                              ★ Portada
+                            </button>
+                            <button
+                              type="button"
                               className="btn-remove-galeria-image"
                               onClick={() => handleEliminarImagenPreview(index)}
                               title="Remover de la lista"
@@ -1048,30 +1224,7 @@ const ArticulosEmpresaPage = () => {
                     </div>
                   )}
 
-                  {/* Preview de imagen única (solo si no hay galería) */}
-                  {(imagenPreview || formData.imagen_url) && imagenPreviews.length === 0 && (
-                    <div className="imagen-preview-container">
-                      <img 
-                        src={imagenPreview || formData.imagen_url} 
-                        alt="Preview" 
-                        className="imagen-preview"
-                      />
-                      {imagenFile && (
-                        <button
-                          type="button"
-                          className="btn-remove-image"
-                          onClick={() => {
-                            setImagenFile(null)
-                            setImagenPreview(formData.imagen_url || null)
-                          }}
-                        >
-                          ✕ Remover imagen nueva
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Input para subir múltiples archivos (siempre disponible) */}
+                  {/* Input para subir múltiples archivos */}
                   <div className="file-upload-section">
                     <input
                       type="file"
@@ -1095,51 +1248,6 @@ const ArticulosEmpresaPage = () => {
                       </button>
                     )}
                   </div>
-
-                  {/* Input para subir archivo único (alternativa) */}
-                  {!editingArticulo && (
-                    <div className="file-upload-section" style={{ marginTop: '12px' }}>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="file-input"
-                        id="imagen-articulo"
-                      />
-                      <label htmlFor="imagen-articulo" className="file-input-label">
-                        📷 {imagenFile ? imagenFile.name : 'O seleccionar una sola imagen'}
-                      </label>
-                      {imagenFile && !formData.imagen_url && (
-                        <button
-                          type="button"
-                          className="btn-upload-image"
-                          onClick={handleSubirImagen}
-                          disabled={uploadingImage}
-                        >
-                          {uploadingImage ? 'Subiendo...' : '⬆️ Subir Imagen'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* O usar URL */}
-                  {!editingArticulo && (
-                    <div className="url-alternative">
-                      <p className="url-label">O ingresa una URL:</p>
-                      <input
-                        type="url"
-                        value={formData.imagen_url}
-                        onChange={(e) => {
-                          setFormData({ ...formData, imagen_url: e.target.value })
-                          if (!imagenFile && imagenPreviews.length === 0) {
-                            setImagenPreview(e.target.value || null)
-                          }
-                        }}
-                        placeholder="https://..."
-                        disabled={!!imagenFile || imagenPreviews.length > 0}
-                      />
-                    </div>
-                  )}
                 </div>
 
                 <div className="form-group">

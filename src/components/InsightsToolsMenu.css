@@ -1,6 +1,7 @@
 .insights-tools-menu {
   position: relative;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .insights-tools-trigger {

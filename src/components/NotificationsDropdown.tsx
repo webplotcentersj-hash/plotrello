@@ -5,40 +5,16 @@ import { useAuth } from '../hooks/useAuth'
 import { operarioExternoHomeRoute } from '../features/work-pool/workPoolOperarioExterno'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
-import type { Notification, UserRole } from '../types/api'
+import type { Notification } from '../types/api'
 import { ventasConOportunidadId, ventasConVentaId } from '../utils/ventasRoutes'
 import './NotificationsDropdown.css'
 
-/** Mismo título que `crear_atencion_mostrador` en SQL (tótem / mostrador). */
-function notificationIsTotemAtencionMostrador(n: Pick<Notification, 'title'>): boolean {
-  return (n.title ?? '').trim() === 'Cliente en tótem esperando atención'
-}
-
-/** Canal del chat interno (#) acorde al rol del usuario que recibe la notificación. */
-function mapRolToChatCanal(rol: UserRole | string | undefined): string {
-  switch (rol) {
-    case 'diseno':
-      return 'diseno'
-    case 'recursos-humanos':
-      return 'recursos-humanos'
-    case 'metalurgica':
-      return 'metalurgica'
-    case 'taller-grafico':
-    case 'imprenta':
-      return 'taller-grafico'
-    case 'mostrador':
-    case 'caja':
-    case 'presupuestos':
-    case 'instalaciones':
-    case 'compras':
-    case 'asesor-tecnico':
-    case 'administracion':
-    case 'gerencia':
-      return 'mostrador'
-    default:
-      return 'mostrador'
-  }
-}
+import {
+  formatNotificationForDisplay,
+  getTotemNotificationNavigatePath,
+  notificationIsTotemAtencionMostrador,
+  notificationIsTotemSolicitudAsesor,
+} from '../utils/totemNotifications'
 
 function notificationIsWorkPoolBolsa(n: Pick<Notification, 'title'>): boolean {
   const title = (n.title ?? '').trim()
@@ -281,21 +257,6 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
     }).format(time)
   }
 
-  const getNotificationIcon = (type: Notification['type']) => {
-    switch (type) {
-      case 'success':
-        return '✅'
-      case 'warning':
-        return '⚠️'
-      case 'error':
-        return '❌'
-      case 'mention':
-        return '💬'
-      default:
-        return 'ℹ️'
-    }
-  }
-
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
       markAsRead(notification.id)
@@ -331,17 +292,14 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         navigate('/menu-diario')
         return
       }
-      // Tótem / atención mostrador: iba a /chat como "mención" y caía en # General; abrimos el canal del sector del usuario
+      // Tótem: solicitud de asesor → panel /asesor
+      if (notificationIsTotemSolicitudAsesor(notification)) {
+        navigate('/asesor')
+        return
+      }
+      // Tótem / atención mostrador: canal del sector del usuario
       if (notificationIsTotemAtencionMostrador(notification)) {
-        const canalRaw = notification.chat_canal?.trim()
-        const canalValido =
-          canalRaw &&
-          ['general', 'diseno', 'recursos-humanos', 'metalurgica', 'mostrador', 'taller-grafico', 'random'].includes(
-            canalRaw
-          )
-            ? canalRaw
-            : mapRolToChatCanal(usuario?.rol)
-        navigate(`/chat?canal=${encodeURIComponent(canalValido)}`)
+        navigate(getTotemNotificationNavigatePath(notification, usuario?.rol))
         return
       }
       // Menciones en el chat (@usuario)
@@ -409,23 +367,30 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         ) : notifications.length === 0 ? (
           <div className="notifications-empty">No hay notificaciones</div>
         ) : (
-          notifications.map((notification) => (
+          notifications.map((notification) => {
+            const display = formatNotificationForDisplay(notification)
+            return (
             <div
               key={notification.id}
-              className={`notification-item ${!notification.is_read ? 'unread' : ''} ${notification.type}`}
+              className={`notification-item ${!notification.is_read ? 'unread' : ''} ${notification.type}${
+                notificationIsTotemSolicitudAsesor(notification) ? ' totem-asesor' : ''
+              }${notificationIsTotemAtencionMostrador(notification) ? ' totem-atencion' : ''}`}
               onClick={() => handleNotificationClick(notification)}
             >
-              <div className="notification-icon">{getNotificationIcon(notification.type)}</div>
+              <div className="notification-icon">{display.icon}</div>
               <div className="notification-content">
-                <div className="notification-title">{notification.title}</div>
-                {notification.description && (
-                  <div className="notification-description">{notification.description}</div>
+                <div className="notification-title">{display.title}</div>
+                {display.description && (
+                  <div className="notification-description">{display.description}</div>
+                )}
+                {'actionLabel' in display && display.actionLabel && (
+                  <div className="notification-action-hint">{display.actionLabel}</div>
                 )}
                 <div className="notification-time">{formatTimeAgo(notification.timestamp)}</div>
               </div>
               {!notification.is_read && <div className="notification-dot"></div>}
             </div>
-          ))
+          )})
         )}
       </div>
     </>

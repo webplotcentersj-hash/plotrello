@@ -1,0 +1,198 @@
+/* Tarjetas táctiles compartidas (consulta-cliente + autogestión) */
+.totem-kiosk-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(14px, 2vw, 20px);
+  width: 100%;
+}
+
+.totem-kiosk-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(18px, 2.5vw, 24px);
+  border-radius: var(--totem-radius-xl);
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+  min-height: clamp(148px, 20vh, 200px);
+  border: 1px solid transparent;
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 55%, rgba(0, 0, 0, 0.12) 100%)
+      padding-box,
+    linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04)) border-box;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.totem-kiosk-tile:hover {
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.42);
+}
+
+.totem-kiosk-tile:active {
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%) padding-box,
+    linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.03)) border-box;
+}
+
+.totem-kiosk-tile--search {
+  background:
+    linear-gradient(155deg, rgba(249, 115, 22, 0.14) 0%, rgba(255, 255, 255, 0.02) 60%) padding-box,
+    linear-gradient(145deg, rgba(251, 146, 60, 0.45), rgba(255, 255, 255, 0.06)) border-box;
+}
+
+.totem-kiosk-tile--print {
+  background:
+    linear-gradient(155deg, rgba(56, 189, 248, 0.12) 0%, rgba(255, 255, 255, 0.02) 60%) padding-box,
+    linear-gradient(145deg, rgba(56, 189, 248, 0.4), rgba(255, 255, 255, 0.06)) border-box;
+}
+
+.totem-kiosk-tile--catalog {
+  background:
+    linear-gradient(155deg, rgba(52, 211, 153, 0.12) 0%, rgba(255, 255, 255, 0.02) 60%) padding-box,
+    linear-gradient(145deg, rgba(52, 211, 153, 0.42), rgba(255, 255, 255, 0.06)) border-box;
+}
+
+.totem-kiosk-ico-ring {
+  flex-shrink: 0;
+  width: clamp(52px, 8vw, 60px);
+  height: clamp(52px, 8vw, 60px);
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--totem-line-bright);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+
+.totem-kiosk-ico-ring--orange {
+  box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.2), 0 12px 32px rgba(249, 115, 22, 0.2);
+}
+
+.totem-kiosk-ico-ring--blue {
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2), 0 12px 32px rgba(56, 189, 248, 0.18);
+}
+
+.totem-kiosk-ico-ring--emerald {
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.2), 0 12px 32px rgba(52, 211, 153, 0.18);
+}
+
+.totem-kiosk-ico {
+  font-size: clamp(1.5rem, 3vw, 1.75rem);
+  line-height: 1;
+}
+
+.totem-kiosk-tile-title {
+  font-size: clamp(0.95rem, 1.7vw, 1.12rem);
+  font-weight: 800;
+  color: var(--totem-text);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.totem-kiosk-tile-desc {
+  font-size: clamp(0.78rem, 1.3vw, 0.88rem);
+  color: var(--totem-text-soft);
+  line-height: 1.35;
+  flex: 1;
+}
+
+.totem-kiosk-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: clamp(14px, 2vw, 20px) clamp(18px, 2.5vw, 24px);
+  border-radius: var(--totem-radius-xl);
+  border: 1px solid var(--totem-line);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--totem-shadow-drop);
+}
+
+.totem-kiosk-header-brand {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 18px);
+  min-width: 0;
+}
+
+.totem-kiosk-logo-ring {
+  flex-shrink: 0;
+  width: clamp(56px, 8vw, 72px);
+  height: clamp(56px, 8vw, 72px);
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--totem-line-bright);
+  box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.12), 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+.totem-kiosk-logo-ring img {
+  width: 68%;
+  height: 68%;
+  object-fit: contain;
+}
+
+.totem-kiosk-eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--totem-orange);
+}
+
+.totem-kiosk-lead {
+  margin: 0;
+  font-size: clamp(0.88rem, 1.5vw, 1.02rem);
+  color: var(--totem-text-soft);
+  line-height: 1.35;
+  max-width: 46ch;
+}
+
+.totem-kiosk-panel {
+  padding: clamp(12px, 1.6vh, 16px);
+  border-radius: var(--totem-radius-lg);
+  border: 1px solid var(--totem-line);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+}
+
+.totem-kiosk-fs-btn {
+  flex-shrink: 0;
+  padding: 11px 16px;
+  border-radius: var(--totem-radius-pill);
+  border: 1px solid var(--totem-line-bright);
+  background: var(--totem-glass);
+  color: var(--totem-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.totem-kiosk-fs-btn:hover {
+  background: var(--totem-glass-hover);
+  border-color: rgba(251, 146, 60, 0.35);
+}
+
+@media (max-width: 960px) {
+  .totem-kiosk-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .totem-kiosk-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .totem-kiosk-tile {
+    min-height: 0;
+  }
+}

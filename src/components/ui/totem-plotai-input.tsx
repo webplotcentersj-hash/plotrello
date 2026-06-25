@@ -9,6 +9,7 @@ export type TotemPlotAiInputProps = {
   onSend: (text: string) => void | Promise<void>
   disabled?: boolean
   className?: string
+  compact?: boolean
 }
 
 interface UseAutoResizeTextareaProps {
@@ -52,9 +53,10 @@ function useAutoResizeTextarea({ minHeight, maxHeight }: UseAutoResizeTextareaPr
 }
 
 const MIN_HEIGHT = 52
+const MIN_HEIGHT_COMPACT = 64
 const MAX_HEIGHT = 164
 
-function AnimatedPlaceholder({ showSearch }: { showSearch: boolean }) {
+function AnimatedPlaceholder({ showSearch, className }: { showSearch: boolean; className?: string }) {
   return (
     <AnimatePresence mode="wait">
       <motion.p
@@ -63,7 +65,7 @@ function AnimatedPlaceholder({ showSearch }: { showSearch: boolean }) {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -5 }}
         transition={{ duration: 0.1 }}
-        className={styles.placeholderOverlay}
+        className={cn(styles.placeholderOverlay, className)}
       >
         {showSearch ? 'Buscá en la web…' : 'Preguntá a PlotAI…'}
       </motion.p>
@@ -71,10 +73,11 @@ function AnimatedPlaceholder({ showSearch }: { showSearch: boolean }) {
   )
 }
 
-export function TotemPlotAiInput({ onSend, disabled, className }: TotemPlotAiInputProps) {
+export function TotemPlotAiInput({ onSend, disabled, className, compact = false }: TotemPlotAiInputProps) {
   const [value, setValue] = useState('')
+  const minHeight = compact ? MIN_HEIGHT_COMPACT : MIN_HEIGHT
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-    minHeight: MIN_HEIGHT,
+    minHeight,
     maxHeight: MAX_HEIGHT
   })
   const [showSearch, setShowSearch] = useState(false)
@@ -129,16 +132,16 @@ export function TotemPlotAiInput({ onSend, disabled, className }: TotemPlotAiInp
   }, [imagePreview])
 
   return (
-    <div className={cn(styles.wrap, className)}>
-      <div className={styles.cardOuter}>
-        <div className={styles.cardInner}>
+    <div className={cn(styles.wrap, compact && styles.wrapCompact, className)}>
+      <div className={cn(styles.cardOuter, compact && styles.cardOuterCompact)}>
+        <div className={cn(styles.cardInner, compact && styles.cardInnerCompact)}>
           <div className={styles.growArea}>
-            <div className={styles.taWrap}>
+            <div className={cn(styles.taWrap, compact && styles.taWrapCompact)}>
               <Textarea
                 id="totem-plotai-input"
                 value={value}
                 placeholder=""
-                className={styles.textarea}
+                className={cn(styles.textarea, compact && styles.textareaCompact)}
                 ref={textareaRef}
                 disabled={disabled}
                 onKeyDown={(e) => {
@@ -153,11 +156,13 @@ export function TotemPlotAiInput({ onSend, disabled, className }: TotemPlotAiInp
                   adjustHeight()
                 }}
               />
-              {!value && <AnimatedPlaceholder showSearch={showSearch} />}
+              {!value && (
+                <AnimatedPlaceholder showSearch={showSearch} className={compact ? styles.placeholderCompact : undefined} />
+              )}
             </div>
           </div>
 
-          <div className={styles.toolbar}>
+          <div className={cn(styles.toolbar, compact && styles.toolbarCompact)}>
             <div className={styles.toolbarLeft}>
               <label
                 className={cn(

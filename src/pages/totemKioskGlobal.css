@@ -1,0 +1,22 @@
+@import './totemAutogestionTheme.css';
+
+html.totem-kiosk-mode,
+html.totem-kiosk-mode body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.totem-kiosk-mode #app {
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+html.totem-kiosk-mode .trello-plot-app {
+  padding: 0 !important;
+  min-height: 100dvh;
+  height: 100dvh;
+  background: transparent !important;
+}

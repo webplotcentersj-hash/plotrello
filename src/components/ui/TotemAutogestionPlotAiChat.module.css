@@ -366,6 +366,73 @@
   background: rgba(255, 255, 255, 0.05) !important;
 }
 
+/* Variante compacta: sin doble marco ni blur */
+.shellCompact {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.shellCompact .shellInner {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.compactHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 0 8px;
+  flex-shrink: 0;
+}
+
+.compactHeadLabel {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f97316;
+}
+
+.messagesCompact {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  min-height: 100px;
+  max-height: none;
+  flex: 1;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: #0f172a;
+  box-shadow: none;
+}
+
+.inputSlotCompact {
+  padding: 0;
+}
+
+.shellCompact .inputEmbed > div > div {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.shellCompact .inputEmbed > div > div > div {
+  border: none;
+  background: transparent;
+  backdrop-filter: none;
+  border-radius: 0;
+}
+
+.shellCompact .inputEmbed textarea {
+  background: transparent !important;
+}
+
 @media (min-width: 1400px) {
   .messages {
     max-height: min(400px, 38vh);

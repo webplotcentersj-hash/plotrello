@@ -4,9 +4,7 @@ import { supabase } from '../services/supabaseClient'
 import type { Notification } from '../types/api'
 import { useAuth } from './useAuth'
 
-function notificationIsTotemAtencionMostrador(n: Pick<Notification, 'title'>): boolean {
-  return (n.title ?? '').trim() === 'Cliente en tótem esperando atención'
-}
+import { notificationIsTotemAtencionMostrador, notificationIsTotemSolicitudAsesor } from '../utils/totemNotifications'
 
 function countBadgesFromNotifications(notifications: Notification[]): Record<string, number> {
   const unread = notifications.filter((n) => !n.is_read)
@@ -16,7 +14,8 @@ function countBadgesFromNotifications(notifications: Notification[]): Record<str
     (n) =>
       n.reclamo_id != null ||
       n.solicitud_chat_id != null ||
-      notificationIsTotemAtencionMostrador(n)
+      notificationIsTotemAtencionMostrador(n) ||
+      notificationIsTotemSolicitudAsesor(n)
   ).length
   const pedidosNotifs = unread.filter((n) => n.pedido_id != null).length
 
@@ -113,7 +112,8 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
             } else if (
               n.reclamo_id != null ||
               n.solicitud_chat_id != null ||
-              notificationIsTotemAtencionMostrador(n)
+              notificationIsTotemAtencionMostrador(n) ||
+              notificationIsTotemSolicitudAsesor(n)
             ) {
               new Notification(n.title || 'Atención al público', {
                 body: n.description || 'Nueva novedad en atención',

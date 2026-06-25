@@ -14,7 +14,6 @@ import {
   type PrintColorDetection,
   type PrintFormat
 } from '@/utils/totemPrintDocument'
-import { TotemAutogestionKioskShell } from './TotemAutogestionKioskShell'
 import TotemPrintPreviewMonitor from '../components/totem/TotemPrintPreviewMonitor'
 import TotemMercadoPagoPayPanel from '../components/totem/TotemMercadoPagoPayPanel'
 import type { TotemImpresionCheckoutDraft } from '../services/totemMpApi'
@@ -469,7 +468,6 @@ export default function TotemAutogestionImprimirPage() {
   const showCelularQrBlock = origenArchivo === 'CelularQR'
 
   return (
-    <TotemAutogestionKioskShell>
       <div className="totem-print-page">
         <header className="totem-print-header">
           <button type="button" className="totem-print-back" onClick={() => navigate('/totem/consulta-cliente')}>
@@ -749,6 +747,5 @@ export default function TotemAutogestionImprimirPage() {
           )}
         </main>
       </div>
-    </TotemAutogestionKioskShell>
   )
 }

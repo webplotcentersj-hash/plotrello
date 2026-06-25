@@ -826,6 +826,113 @@
   position: relative;
 }
 
+.cae-page .cae-desc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.cae-page .cae-desc-header > label {
+  margin-bottom: 0;
+}
+
+.cae-page .cae-btn-ia {
+  flex-shrink: 0;
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(59, 130, 246, 0.1));
+  color: #5b21b6;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cae-page .cae-btn-ia:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.16));
+}
+
+.cae-page .cae-btn-ia:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cae-page .cae-portada-section {
+  padding: 14px;
+  border: 1px solid var(--cae-border);
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.6);
+}
+
+.cae-page .cae-portada-preview {
+  position: relative;
+  margin: 10px 0 12px;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.cae-page .cae-portada-badge,
+.cae-page .cae-galeria-portada-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(251, 146, 60, 0.95);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+.cae-page .cae-galeria-portada-badge {
+  top: auto;
+  bottom: 8px;
+  left: 8px;
+}
+
+.cae-page .cae-portada-pending {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--cae-muted);
+  font-style: italic;
+}
+
+.cae-page .cae-btn-quitar-portada {
+  display: block;
+  margin-top: 8px;
+  background: transparent;
+  border: 1px solid rgba(185, 28, 28, 0.35);
+  color: #b91c1c;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cae-page .btn-set-portada {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #fbbf24;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+
+.cae-page .btn-set-portada:hover {
+  background: rgba(15, 23, 42, 0.95);
+}
+
 .cae-page .imagen-preview {
   width: 100%;
   max-width: 360px;

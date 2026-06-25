@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TotemAutogestionPlotAiChat } from '@/components/ui/TotemAutogestionPlotAiChat'
-import { TotemAutogestionKioskShell } from './TotemAutogestionKioskShell'
 import './TotemAutogestionHomePage.css'
 
 const IDLE_MS = 90_000
@@ -25,8 +24,7 @@ export default function TotemAutogestionHomePage() {
   const idleSeconds = useMemo(() => Math.max(0, Math.floor((IDLE_MS - (Date.now() - lastInteraction)) / 1000)), [lastInteraction])
 
   return (
-    <TotemAutogestionKioskShell>
-      <div className="totem-auto-page" onClick={touch} onTouchStart={touch}>
+    <div className="totem-auto-page" onClick={touch} onTouchStart={touch}>
         <header className="totem-auto-header">
           <div className="totem-auto-brand">
             <div className="totem-auto-logo-ring">
@@ -87,7 +85,6 @@ export default function TotemAutogestionHomePage() {
           <TotemAutogestionPlotAiChat />
         </footer>
       </div>
-    </TotemAutogestionKioskShell>
   )
 }
 

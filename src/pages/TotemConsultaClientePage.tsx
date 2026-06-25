@@ -12,6 +12,7 @@ import {
   isOpFinalizadoEnTaller
 } from '../utils/totemConsultaOpEstado'
 import { TotemAutogestionPlotAiChat } from '@/components/ui/TotemAutogestionPlotAiChat'
+import { requestTotemKioskFullscreen, useTotemKioskFullscreen } from '../hooks/useTotemKioskMode'
 import './ClienteConsultaPage.css'
 import './TotemConsultaClientePage.css'
 
@@ -26,6 +27,7 @@ type SectorDirection = 'planta-baja' | 'primer-piso'
 const TOTEM_SECTORS_QUEHACER: Array<{
   id: string
   label: string
+  icon: string
   sectorDestino: string
   bg: string
   textColor: string
@@ -34,6 +36,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'presupuestos',
     label: 'PRESUPUESTOS Y ASESORAMIENTO',
+    icon: '📋',
     sectorDestino: 'Presupuestos y asesoramiento',
     bg: '#7dd3fc',
     textColor: '#0f172a',
@@ -42,6 +45,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'recepcion',
     label: 'RECEPCIÓN DE PEDIDOS',
+    icon: '📦',
     sectorDestino: 'Recepción de pedidos',
     bg: '#facc15',
     textColor: '#0f172a',
@@ -50,6 +54,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'diseno',
     label: 'DISEÑO GRÁFICO',
+    icon: '🎨',
     sectorDestino: 'Diseño gráfico',
     bg: '#ec4899',
     textColor: '#fff',
@@ -58,6 +63,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'caja',
     label: 'CAJA / ENTREGA DE PEDIDOS',
+    icon: '💳',
     sectorDestino: 'Caja / Entrega de pedidos',
     bg: '#1f2937',
     textColor: '#fff',
@@ -66,6 +72,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'base_operaciones',
     label: 'BASE DE OPERACIONES',
+    icon: '⚙️',
     sectorDestino: 'Base de operaciones',
     bg: '#f97316',
     textColor: '#0f172a',
@@ -74,6 +81,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'marketing',
     label: 'MARKETING Y COMUNICACIÓN',
+    icon: '📣',
     sectorDestino: 'Marketing y comunicación',
     bg: '#ffffff',
     textColor: '#0f172a',
@@ -81,23 +89,12 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   }
 ]
 
-function TotemAmbientBackdrop() {
-  return (
-    <div className="totem-ambient" aria-hidden>
-      <span className="totem-orb totem-orb--1" />
-      <span className="totem-orb totem-orb--2" />
-      <span className="totem-orb totem-orb--3" />
-      <span className="totem-shine" />
-    </div>
-  )
-}
-
 function SectorDirectionArrows({ direction }: { direction: SectorDirection }) {
   if (direction === 'primer-piso') {
     return (
       <span className="totem-strip-direction totem-strip-direction--up" aria-label="Subir al primer piso">
         <span className="totem-strip-floor-badge">1° piso</span>
-        <span className="totem-strip-arrows-up totem-arrows-up-motion" aria-hidden>
+        <span className="totem-strip-arrows-up" aria-hidden>
           ↑ ↑ ↑
         </span>
       </span>
@@ -105,7 +102,7 @@ function SectorDirectionArrows({ direction }: { direction: SectorDirection }) {
   }
   return (
     <span className="totem-strip-direction totem-strip-direction--ahead" aria-hidden>
-      <span className="totem-strip-arrows totem-arrows-ahead-motion">&gt;&gt;&gt;</span>
+      <span className="totem-strip-arrows">&gt;&gt;&gt;</span>
     </span>
   )
 }
@@ -126,9 +123,17 @@ const TotemConsultaClientePage = () => {
   const [enviandoAvisoVoy, setEnviandoAvisoVoy] = useState(false)
   const [lastInteraction, setLastInteraction] = useState<number>(() => Date.now())
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const { toggle: toggleKioskFullscreen } = useTotemKioskFullscreen()
   const pageRef = useRef<HTMLDivElement>(null)
 
   const registrarInteraccion = () => setLastInteraction(Date.now())
+
+  const registrarInteraccionKiosk = () => {
+    registrarInteraccion()
+    if (!document.fullscreenElement && pageRef.current) {
+      void requestTotemKioskFullscreen(pageRef.current)
+    }
+  }
 
   const volverAWelcome = () => {
     registrarInteraccion()
@@ -145,15 +150,7 @@ const TotemConsultaClientePage = () => {
     registrarInteraccion()
     const el = pageRef.current
     if (!el) return
-    try {
-      if (!document.fullscreenElement) {
-        await el.requestFullscreen()
-      } else {
-        await document.exitFullscreen()
-      }
-    } catch {
-      /* navegador sin soporte o bloqueado */
-    }
+    await toggleKioskFullscreen(el)
   }
 
   useEffect(() => {
@@ -324,9 +321,7 @@ const TotemConsultaClientePage = () => {
     registrarInteraccion()
     try {
       const nombre = primerOrden?.cliente || 'Cliente tótem'
-      const notas =
-        `${TOTEM_SOLICITUD_ASESOR_MARKER} Cliente pidió hablar con un asesor desde tótem de autoservicio. ` +
-        `Sector sugerido: ${sectorDestino}.`
+      const notas = `Sector sugerido: ${sectorDestino}. ${TOTEM_SOLICITUD_ASESOR_MARKER}`
       const res = await apiService.crearAtencionMostrador({
         cliente_nombre: nombre,
         tipo: 'consulta',
@@ -477,48 +472,60 @@ const TotemConsultaClientePage = () => {
         if (step === 'idle') {
           setStep('welcome')
         }
-        registrarInteraccion()
+        registrarInteraccionKiosk()
       }}
       onKeyDown={registrarInteraccion}
     >
       <div className={`consulta-container totem-container totem-step-${step}`}>
         {step === 'idle' && (
-          <div className="totem-idle totem-screen-enter">
-            <TotemAmbientBackdrop />
-            <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
-              alt="Plot Center"
-              className="totem-idle-logo"
-            />
-            <p className="totem-idle-cta">
-              <span className="totem-idle-cta-text">Tocá la pantalla para comenzar</span>
-            </p>
-            <div className="totem-idle-horarios totem-idle-horarios--glow">
-              <p className="totem-idle-horarios-title">Horarios de atención</p>
-              <p className="totem-idle-horario">Lunes a Viernes: 7:00 a 21:30 hs</p>
-              <p className="totem-idle-horario">Sábado: 8:00 a 20:00 hs</p>
+          <div className="totem-idle">
+            <div className="totem-idle-inner">
+              <div className="totem-kiosk-logo-ring totem-idle-logo-ring">
+                <img
+                  src="https://trello.plotcenter.com.ar/Group%20187.png"
+                  alt="Plot Center"
+                  className="totem-idle-logo"
+                />
+              </div>
+              <p className="totem-idle-kicker">Plot Center · Tótem</p>
+              <p className="totem-idle-tagline">Impresión · Diseño · Comunicación visual</p>
+              <p className="totem-idle-cta-text">Tocá la pantalla para comenzar</p>
+              <div className="totem-idle-horarios">
+                <p className="totem-idle-horarios-title">Horarios de atención</p>
+                <p className="totem-idle-horario">
+                  <span className="totem-idle-horario-day">Lun – Vie</span>
+                  <span className="totem-idle-horario-time">7:00 – 21:30 hs</span>
+                </p>
+                <p className="totem-idle-horario">
+                  <span className="totem-idle-horario-day">Sábado</span>
+                  <span className="totem-idle-horario-time">8:00 – 20:00 hs</span>
+                </p>
+              </div>
             </div>
           </div>
         )}
 
         {step === 'welcome' && (
-          <div className="totem-welcome-screen totem-screen-enter" onClick={(e) => e.stopPropagation()}>
-            <TotemAmbientBackdrop />
-            <header className="totem-welcome-top totem-animate-in" style={{ animationDelay: '0.05s' }}>
-              <div className="totem-welcome-top-brand">
-                <img
-                  src="https://trello.plotcenter.com.ar/Group%20187.png"
-                  alt="Plot Center"
-                  className="totem-welcome-top-logo"
-                />
+          <div className="totem-welcome-screen" onClick={(e) => e.stopPropagation()}>
+            <header className="totem-kiosk-header totem-welcome-top">
+              <div className="totem-kiosk-header-brand">
+                <div className="totem-kiosk-logo-ring">
+                  <img
+                    src="https://trello.plotcenter.com.ar/Group%20187.png"
+                    alt="Plot Center"
+                    className="totem-welcome-top-logo"
+                  />
+                </div>
                 <div>
-                  <h1 className="totem-welcome-top-title">Plot Center</h1>
-                  <p className="totem-welcome-top-lead">Consultá tu OP, imprimí o preguntá por nuestros servicios</p>
+                  <p className="totem-kiosk-eyebrow">Autogestión en mostrador</p>
+                  <p className="totem-kiosk-lead">
+                    Consultá tu OP, imprimí o elegí productos del catálogo
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
-                className="totem-fullscreen-btn"
+                className="totem-kiosk-fs-btn"
                 onClick={(e) => {
                   e.stopPropagation()
                   void toggleFullscreen()
@@ -529,53 +536,79 @@ const TotemConsultaClientePage = () => {
               </button>
             </header>
 
-            <div className="totem-welcome-grid totem-animate-in" style={{ animationDelay: '0.12s' }}>
+            <div className="totem-welcome-grid">
               <div className="totem-welcome-main">
-                <div className="totem-welcome-actions totem-animate-in" style={{ animationDelay: '0.18s' }}>
+                <div className="totem-kiosk-actions">
                   <button
-                    className="totem-welcome-button"
+                    className="totem-kiosk-tile totem-kiosk-tile--search"
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      registrarInteraccion()
+                      registrarInteraccionKiosk()
                       setStep('search')
                     }}
                   >
-                    🔍 Buscar mi trabajo
+                    <span className="totem-kiosk-ico-ring totem-kiosk-ico-ring--orange" aria-hidden>
+                      <span className="totem-kiosk-ico">🔍</span>
+                    </span>
+                    <span className="totem-kiosk-tile-title">Buscar mi trabajo</span>
+                    <span className="totem-kiosk-tile-desc">Estado de tu OP en tiempo real</span>
                   </button>
                   <button
-                    className="totem-welcome-button totem-welcome-button--print"
+                    className="totem-kiosk-tile totem-kiosk-tile--print"
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      registrarInteraccion()
+                      registrarInteraccionKiosk()
                       navigate('/totem/autogestion/imprimir')
                     }}
                   >
-                    🖨️ Imprimir
+                    <span className="totem-kiosk-ico-ring totem-kiosk-ico-ring--blue" aria-hidden>
+                      <span className="totem-kiosk-ico">🖨️</span>
+                    </span>
+                    <span className="totem-kiosk-tile-title">Imprimir</span>
+                    <span className="totem-kiosk-tile-desc">Fotos, documentos y más</span>
+                  </button>
+                  <button
+                    className="totem-kiosk-tile totem-kiosk-tile--catalog"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      registrarInteraccionKiosk()
+                      navigate('/totem/autogestion/catalogo', {
+                        state: { returnTo: '/totem/consulta-cliente' }
+                      })
+                    }}
+                  >
+                    <span className="totem-kiosk-ico-ring totem-kiosk-ico-ring--emerald" aria-hidden>
+                      <span className="totem-kiosk-ico">🛒</span>
+                    </span>
+                    <span className="totem-kiosk-tile-title">Catálogo</span>
+                    <span className="totem-kiosk-tile-desc">Mismos productos que el portal</span>
                   </button>
                 </div>
 
-                <div
-                  className="totem-senaletica-block totem-senaletica-block--compact totem-animate-in"
-                  style={{ animationDelay: '0.24s' }}
-                >
-                  <h2 className="totem-senaletica-title">¿Hacia dónde te dirigís?</h2>
-                  <p className="totem-senaletica-subtitle">Diseño y Marketing → 1° piso (↑)</p>
-                  <div className="totem-senaletica-strips">
-                    {TOTEM_SECTORS_QUEHACER.map((sector, index) => (
+                <div className="totem-senaletica-block totem-senaletica-block--compact totem-kiosk-panel">
+                  <div className="totem-senaletica-head">
+                    <h2 className="totem-senaletica-title">¿Hacia dónde te dirigís?</h2>
+                    <p className="totem-senaletica-subtitle">
+                      <span className="totem-senaletica-badge">1° piso ↑</span>
+                      Diseño y Marketing
+                    </p>
+                  </div>
+                  <div className="totem-senaletica-strips totem-senaletica-strips--modern">
+                    {TOTEM_SECTORS_QUEHACER.map((sector) => (
                       <button
                         key={sector.id}
                         type="button"
-                        className={`totem-senaletica-strip totem-strip-animate-in${sector.direction === 'primer-piso' ? ' totem-senaletica-strip--upstairs' : ''}`}
+                        className={`totem-senaletica-strip${sector.direction === 'primer-piso' ? ' totem-senaletica-strip--upstairs' : ''}`}
                         style={{
                           backgroundColor: sector.bg,
                           color: sector.textColor,
                           borderColor:
                             sector.textColor === '#fff'
                               ? 'rgba(255,255,255,0.4)'
-                              : 'rgba(0,0,0,0.15)',
-                          animationDelay: `${0.32 + index * 0.07}s`
+                              : 'rgba(0,0,0,0.15)'
                         }}
                         onClick={() => {
                           registrarInteraccion()
@@ -586,6 +619,8 @@ const TotemConsultaClientePage = () => {
                           setAvisoVoyMotivo('')
                         }}
                       >
+                        <span className="totem-strip-icon" aria-hidden>{sector.icon}</span                      >
+                        <span className="totem-strip-icon" aria-hidden>{sector.icon}</span>
                         <span className="totem-strip-text">{sector.label}</span>
                         <SectorDirectionArrows direction={sector.direction} />
                       </button>
@@ -594,15 +629,17 @@ const TotemConsultaClientePage = () => {
                 </div>
               </div>
 
-              <aside className="totem-welcome-aside totem-animate-in" style={{ animationDelay: '0.55s' }}>
-                <div className="totem-consulta-chat-block totem-consulta-chat-block--compact totem-chat-glow">
-                  <h2 className="totem-senaletica-title">¿Qué servicios ofrecemos?</h2>
+              <aside className="totem-welcome-aside">
+                <div className="totem-consulta-chat-block totem-consulta-chat-block--compact totem-kiosk-panel">
+                  <div className="totem-senaletica-head">
+                    <h2 className="totem-senaletica-title">¿Qué servicios ofrecemos?</h2>
+                    <p className="totem-senaletica-subtitle">Preguntale a PlotAI en pantalla</p>
+                  </div>
                   <TotemAutogestionPlotAiChat
                     className="totem-consulta-plotai"
+                    compact
                     modo="totem_consulta_cliente"
                     conversationStorageKey="plotrello_totem_consulta_cliente_plotai_conv"
-                    title="PlotAI"
-                    titleSub="Consultá en pantalla"
                     emptyHint="Ej: ¿Hacen vinilos? ¿Horarios?"
                   />
                 </div>

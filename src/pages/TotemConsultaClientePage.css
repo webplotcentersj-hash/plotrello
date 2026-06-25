@@ -1,5 +1,8 @@
+@import './totemAutogestionTheme.css';
+@import './totemKioskShared.css';
+
 .totem-consulta-page {
-  padding: 0;
+  padding: clamp(16px, 3vw, 32px);
   min-height: 100dvh;
   height: 100dvh;
   max-height: 100dvh;
@@ -8,7 +11,10 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  background: #0a0e1a;
+  background: transparent;
+  color: var(--totem-text);
+  font-family: var(--totem-font);
+  -webkit-font-smoothing: antialiased;
 }
 
 .totem-consulta-page .consulta-container.totem-container {
@@ -44,132 +50,6 @@
   min-height: 100dvh;
 }
 
-/* ——— Ambiente animado (orbes + brillo) ——— */
-.totem-ambient {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.totem-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(48px);
-  opacity: 0.55;
-  animation: totem-orb-float 14s ease-in-out infinite;
-}
-
-.totem-orb--1 {
-  width: min(42vw, 420px);
-  height: min(42vw, 420px);
-  top: -12%;
-  left: -8%;
-  background: radial-gradient(circle, rgba(249, 115, 22, 0.55) 0%, transparent 68%);
-  animation-duration: 16s;
-}
-
-.totem-orb--2 {
-  width: min(36vw, 360px);
-  height: min(36vw, 360px);
-  bottom: -8%;
-  right: -6%;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, transparent 70%);
-  animation-duration: 18s;
-  animation-delay: -4s;
-}
-
-.totem-orb--3 {
-  width: min(28vw, 280px);
-  height: min(28vw, 280px);
-  top: 38%;
-  left: 42%;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.45) 0%, transparent 72%);
-  animation-duration: 12s;
-  animation-delay: -7s;
-}
-
-.totem-shine {
-  position: absolute;
-  inset: -50%;
-  background: conic-gradient(
-    from 0deg at 50% 50%,
-    transparent 0deg,
-    rgba(255, 255, 255, 0.04) 40deg,
-    transparent 80deg,
-    rgba(251, 146, 60, 0.06) 120deg,
-    transparent 200deg
-  );
-  animation: totem-shine-spin 28s linear infinite;
-}
-
-@keyframes totem-orb-float {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(3%, 4%) scale(1.06);
-  }
-  66% {
-    transform: translate(-2%, 2%) scale(0.96);
-  }
-}
-
-@keyframes totem-shine-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.totem-screen-enter {
-  animation: totem-screen-fade-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes totem-screen-fade-in {
-  from {
-    opacity: 0;
-    transform: scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.totem-animate-in {
-  opacity: 0;
-  animation: totem-slide-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.totem-strip-animate-in {
-  opacity: 0;
-  animation: totem-strip-reveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes totem-slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes totem-strip-reveal {
-  from {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 /* ——— Pantalla en espera / modo kiosk ——— */
 .totem-idle {
   position: relative;
@@ -180,100 +60,110 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(16px, 3vh, 32px);
-  padding: clamp(16px, 3vh, 48px) 24px;
-  background: radial-gradient(ellipse at center, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.92) 100%);
-  border-radius: 16px;
+  padding: clamp(20px, 4vh, 48px);
   cursor: pointer;
 }
 
+.totem-idle-inner {
+  width: 100%;
+  max-width: min(560px, 92vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(16px, 2.5vh, 24px);
+  padding: clamp(36px, 5vh, 52px) clamp(28px, 4vw, 40px);
+  border-radius: var(--totem-radius-xl);
+  border: 1px solid var(--totem-line);
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--totem-shadow-drop);
+  text-align: center;
+}
+
+.totem-idle-logo-ring {
+  width: clamp(100px, 18vw, 128px);
+  height: clamp(100px, 18vw, 128px);
+  border-radius: 24px;
+}
+
 .totem-idle-logo {
-  height: 100px;
-  width: auto;
-  position: relative;
-  z-index: 1;
-  animation: totem-logo-float 4s ease-in-out infinite;
-  filter: drop-shadow(0 12px 32px rgba(249, 115, 22, 0.35));
+  width: 68%;
+  height: 68%;
+  object-fit: contain;
 }
 
-@keyframes totem-logo-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.totem-idle-cta {
+.totem-idle-kicker {
   margin: 0;
-  position: relative;
-  z-index: 1;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--totem-orange);
+}
+
+.totem-idle-tagline {
+  margin: 0;
+  font-size: clamp(0.9rem, 1.8vw, 1.05rem);
+  font-weight: 600;
+  color: var(--totem-text-soft);
+  letter-spacing: 0.06em;
 }
 
 .totem-idle-cta-text {
-  display: inline-block;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: rgba(248, 250, 252, 0.95);
+  margin: 0;
+  display: block;
+  width: 100%;
+  font-size: clamp(1.1rem, 2.2vw, 1.35rem);
+  font-weight: 800;
+  color: var(--totem-cta-text);
   text-align: center;
-  letter-spacing: 0.02em;
-  padding: 12px 28px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(236, 72, 153, 0.2));
+  padding: 16px 24px;
+  border-radius: var(--totem-radius-pill);
+  background: linear-gradient(135deg, var(--totem-orange) 0%, var(--totem-orange-deep) 100%);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
-  animation: totem-cta-pulse 2.2s ease-in-out infinite;
-}
-
-@keyframes totem-cta-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.35);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 0 28px 6px rgba(249, 115, 22, 0.25);
-    transform: scale(1.03);
-  }
+  box-shadow: 0 12px 36px rgba(249, 115, 22, 0.35);
 }
 
 .totem-idle-horarios {
-  margin-top: 16px;
-  padding: 24px 32px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  position: relative;
-  z-index: 1;
-  animation: totem-slide-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both;
-}
-
-.totem-idle-horarios--glow {
-  box-shadow: 0 0 40px rgba(56, 189, 248, 0.12);
+  width: 100%;
+  padding: 18px 20px;
+  border-radius: var(--totem-radius-md);
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--totem-line);
 }
 
 .totem-idle-horarios-title {
-  margin: 0 0 12px 0;
-  font-size: 1rem;
-  font-weight: 700;
-  color: rgba(226, 232, 240, 0.9);
+  margin: 0 0 10px 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgba(226, 232, 240, 0.65);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-align: center;
 }
 
 .totem-idle-horario {
-  margin: 0 0 4px 0;
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: #f8fafc;
-  text-align: center;
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: clamp(0.9rem, 1.6vw, 1.05rem);
 }
 
 .totem-idle-horario:last-child {
   margin-bottom: 0;
+}
+
+.totem-idle-horario-day {
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.8);
+}
+
+.totem-idle-horario-time {
+  font-weight: 800;
+  color: #f8fafc;
+  white-space: nowrap;
 }
 
 .totem-header {
@@ -331,52 +221,51 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: radial-gradient(circle at top, rgba(235, 103, 27, 0.14), transparent 50%),
-    radial-gradient(circle at bottom, rgba(59, 130, 246, 0.12), transparent 50%),
-    rgba(15, 23, 42, 0.88);
-}
-
-.totem-welcome-screen > *:not(.totem-ambient) {
-  position: relative;
-  z-index: 1;
+  gap: clamp(10px, 1.5vh, 14px);
+  background: transparent;
 }
 
 .totem-welcome-top {
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: clamp(8px, 1.2vh, 14px) clamp(12px, 2vw, 20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 0;
 }
 
 .totem-welcome-top-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: clamp(12px, 1.5vw, 16px);
   min-width: 0;
 }
 
-.totem-welcome-top-logo {
-  height: clamp(40px, 6vh, 56px);
-  width: auto;
+.totem-welcome-top-logo-wrap {
   flex-shrink: 0;
+  padding: 6px;
+  border-radius: 12px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.totem-welcome-top-title {
-  margin: 0;
-  font-size: clamp(1.1rem, 2.2vw, 1.45rem);
-  font-weight: 800;
-  color: #f8fafc;
-  letter-spacing: 0.02em;
+.totem-welcome-top-logo {
+  height: clamp(44px, 6.5vh, 60px);
+  width: auto;
+  display: block;
+}
+
+.totem-welcome-top-eyebrow {
+  margin: 0 0 2px;
+  font-size: clamp(0.65rem, 1.1vw, 0.75rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(251, 146, 60, 0.9);
 }
 
 .totem-welcome-top-lead {
   margin: 2px 0 0;
-  font-size: clamp(0.78rem, 1.4vw, 0.92rem);
-  color: rgba(226, 232, 240, 0.78);
-  line-height: 1.25;
+  font-size: clamp(0.88rem, 1.6vw, 1.05rem);
+  color: rgba(226, 232, 240, 0.88);
+  line-height: 1.35;
+  max-width: 42ch;
 }
 
 .totem-fullscreen-btn {
@@ -444,6 +333,148 @@
 .totem-welcome-screen .totem-welcome-actions {
   flex-shrink: 0;
   margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(10px, 1.4vw, 14px);
+}
+
+/* Tarjetas de acción principales */
+.totem-action-card {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.4vw, 14px);
+  padding: clamp(14px, 2vh, 20px) clamp(14px, 2vw, 20px);
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: #111827;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  min-width: 0;
+}
+
+.totem-action-card--search {
+  border-color: rgba(249, 115, 22, 0.45);
+  background: linear-gradient(180deg, #1c1917 0%, #111827 100%);
+}
+
+.totem-action-card--print {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: linear-gradient(180deg, #0c1929 0%, #111827 100%);
+}
+
+.totem-action-card--catalog {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: linear-gradient(180deg, #0a1f17 0%, #111827 100%);
+}
+
+.totem-action-card:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: #1a2332;
+}
+
+.totem-action-card:active {
+  background: #0f172a;
+}
+
+.totem-action-card-icon {
+  flex-shrink: 0;
+  width: clamp(44px, 6vw, 52px);
+  height: clamp(44px, 6vw, 52px);
+  display: grid;
+  place-items: center;
+  font-size: clamp(1.35rem, 2.5vw, 1.65rem);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.totem-action-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.totem-action-card-title {
+  font-size: clamp(0.88rem, 1.6vw, 1.05rem);
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.totem-action-card-desc {
+  font-size: clamp(0.72rem, 1.2vw, 0.82rem);
+  color: rgba(226, 232, 240, 0.72);
+  line-height: 1.25;
+}
+
+.totem-action-card-arrow {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Panel sólido reutilizable */
+.totem-panel {
+  padding: clamp(12px, 1.6vh, 16px);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #111827;
+}
+
+.totem-senaletica-head {
+  flex-shrink: 0;
+  margin-bottom: clamp(6px, 1vh, 10px);
+}
+
+.totem-senaletica-badge {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(236, 72, 153, 0.25);
+  border: 1px solid rgba(236, 72, 153, 0.45);
+  color: #fbcfe8;
+  vertical-align: middle;
+}
+
+.totem-senaletica-strips--modern {
+  gap: 5px;
+  border-radius: 0;
+  overflow: visible;
+  box-shadow: none;
+  background: transparent;
+}
+
+.totem-strip-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.15);
+  margin-right: 8px;
+}
+
+.totem-senaletica-strip--upstairs .totem-strip-icon {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.totem-welcome-screen .totem-senaletica-strip {
+  border-radius: 10px;
+  border: none;
+  box-shadow: none;
 }
 
 .totem-welcome-screen .totem-welcome-button {
@@ -526,10 +557,9 @@
 }
 
 .totem-welcome-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(10px, 1.4vw, 16px);
   width: 100%;
 }
 
@@ -571,13 +601,16 @@
 }
 
 .totem-welcome-screen .totem-senaletica-title {
-  margin: 0 0 2px;
-  font-size: clamp(0.85rem, 1.6vw, 1.1rem);
+  margin: 0 0 4px;
+  font-size: clamp(0.9rem, 1.7vw, 1.15rem);
+  text-align: left;
 }
 
 .totem-welcome-screen .totem-senaletica-subtitle {
-  margin: 0 0 clamp(4px, 0.8vh, 8px);
+  margin: 0;
   font-size: clamp(0.72rem, 1.2vw, 0.85rem);
+  text-align: left;
+  color: rgba(226, 232, 240, 0.72);
 }
 
 .totem-senaletica-title {
@@ -626,11 +659,9 @@
   padding: 16px 20px;
   box-sizing: border-box;
   border: none;
-  border-top: 2px solid rgba(0, 0, 0, 0.08);
-  border-bottom: 2px solid rgba(0, 0, 0, 0.06);
   font-size: 1rem;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-align: left;
   cursor: pointer;
   transition:
@@ -644,61 +675,20 @@
 }
 
 .totem-senaletica-strip:hover {
-  filter: brightness(1.1);
-  transform: scale(1.015);
-  z-index: 2;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.06);
 }
 
 .totem-senaletica-strip:active {
-  filter: brightness(0.96);
-  transform: scale(0.99);
+  filter: brightness(0.94);
 }
 
-.totem-arrows-ahead-motion {
-  display: inline-block;
-  animation: totem-arrows-slide 1.4s ease-in-out infinite;
-}
-
+.totem-arrows-ahead-motion,
 .totem-arrows-up-motion {
   display: inline-block;
-  animation: totem-arrows-bounce-up 1.2s ease-in-out infinite;
-}
-
-@keyframes totem-arrows-slide {
-  0%,
-  100% {
-    transform: translateX(0);
-    opacity: 0.85;
-  }
-  50% {
-    transform: translateX(6px);
-    opacity: 1;
-  }
-}
-
-@keyframes totem-arrows-bounce-up {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
 }
 
 .totem-chat-glow {
-  animation: totem-chat-border-pulse 3s ease-in-out infinite;
-}
-
-@keyframes totem-chat-border-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(251, 146, 60, 0);
-  }
-  50% {
-    box-shadow: 0 0 24px 2px rgba(251, 146, 60, 0.15);
-  }
+  /* sin animación */
 }
 
 .totem-strip-text {
@@ -789,7 +779,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
 .totem-consulta-chat-block--compact .totem-consulta-plotai > section,
@@ -816,85 +806,18 @@
   overflow: hidden;
 }
 
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='head'] {
-  padding: 8px 12px 6px;
-  flex-shrink: 0;
-}
-
 .totem-consulta-chat-block--compact .totem-consulta-plotai [class*='messages'] {
   flex: 1 1 0;
   min-height: 0;
   max-height: none;
-  margin: 0 8px 6px;
-  padding: 8px 10px;
   overflow-y: auto;
-  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y;
 }
 
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='shellInner'] > [class*='error'] {
-  flex-shrink: 0;
-}
-
 .totem-consulta-chat-block--compact .totem-consulta-plotai [class*='inputSlot'] {
   flex-shrink: 0;
-  padding: 4px 10px 10px;
-}
-
-/* Input PlotAI más legible en aside compacto del welcome */
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='inputEmbed'] {
-  padding-top: 4px;
-}
-
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='inputEmbed'] > div {
-  padding: 0 !important;
-}
-
-.totem-consulta-chat-block--compact .totem-consulta-plotai #totem-plotai-input {
-  min-height: 56px !important;
-  padding: 14px 16px 12px !important;
-  font-size: 0.98rem !important;
-  line-height: 1.5 !important;
-}
-
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='placeholderOverlay'] {
-  top: 14px;
-  left: 16px;
-  font-size: 0.9rem;
-  width: min(240px, 70%);
-}
-
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='growArea'] {
-  max-height: 132px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
-}
-
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='toolbar'] {
-  min-height: 46px;
-  padding: 8px 10px;
-  gap: 10px;
-}
-
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='cardInner'] {
-  border-radius: 16px;
-}
-
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='title'] {
-  font-size: 0.88rem;
-}
-
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='titleSub'] {
-  display: none;
-}
-
-.totem-consulta-chat-block--compact .totem-consulta-plotai [class*='titleIcon'] {
-  width: 32px;
-  height: 32px;
-  font-size: 0.85rem;
 }
 
 .totem-consulta-plotai {
@@ -1260,6 +1183,26 @@
 
   .totem-welcome-aside {
     min-height: 0;
+  }
+
+  .totem-welcome-screen .totem-welcome-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .totem-welcome-screen .totem-welcome-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .totem-idle-horarios {
+    text-align: center;
+  }
+
+  .totem-idle-horario {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
   }
 }
 

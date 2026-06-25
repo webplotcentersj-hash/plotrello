@@ -320,6 +320,27 @@
   font-size: 0.85rem;
   line-height: 1.5;
   opacity: 0.9;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.notification-action-hint {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6ee7b7;
+  margin-top: 2px;
+}
+
+.notification-item.totem-asesor {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.notification-item.totem-asesor.unread {
+  border-color: rgba(251, 191, 36, 0.85);
+  background: rgba(251, 191, 36, 0.2);
 }
 
 .notification-time {

@@ -212,3 +212,67 @@
   height: 18px;
   flex-shrink: 0;
 }
+
+/* ——— Variante compacta (tótem welcome) ——— */
+.wrapCompact {
+  padding: 0;
+}
+
+.cardOuterCompact {
+  padding: 0;
+  max-width: 100%;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+  box-shadow: none;
+}
+
+.cardInnerCompact {
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.taWrapCompact {
+  min-height: 64px;
+}
+
+.textareaCompact {
+  min-height: 64px;
+  padding: 18px 16px 14px;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  background: transparent;
+  border-radius: 12px 12px 0 0;
+  color: #f8fafc;
+}
+
+.placeholderCompact {
+  top: 18px;
+  left: 16px;
+  font-size: 1rem;
+  color: rgba(226, 232, 240, 0.5);
+}
+
+.toolbarCompact {
+  min-height: 52px;
+  padding: 10px 12px;
+  background: #1a2332;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0 0 10px 10px;
+}
+
+.toolbarCompact .iconBtn {
+  width: 40px;
+  height: 40px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.toolbarCompact .globeBtn {
+  height: 40px;
+  padding: 0 12px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}

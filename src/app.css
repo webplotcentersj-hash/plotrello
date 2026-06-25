@@ -36,6 +36,11 @@
 
 .insights-panel--compact {
   gap: 12px;
+  overflow: visible;
+}
+
+.insights-panel--compact .insights-toggle-row {
+  overflow: visible;
 }
 
 /* Iconos en fila dentro de una pastilla compacta */

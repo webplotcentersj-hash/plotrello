@@ -24,7 +24,8 @@
 .totem-kiosk-inner > .totem-cat-page,
 .totem-kiosk-inner > .totem-checkout-page,
 .totem-kiosk-inner > .totem-print-page,
-.totem-kiosk-inner > .totem-bo-page {
+.totem-kiosk-inner > .totem-bo-page,
+.totem-kiosk-inner > .totem-consulta-page {
   background: transparent !important;
   flex: 1;
   display: flex;

@@ -23,6 +23,7 @@ const EmbedChatPage = lazy(() => import('./pages/EmbedChatPage'))
 const EmbedChatWidgetPage = lazy(() => import('./pages/EmbedChatWidgetPage'))
 const TotemChatPage = lazy(() => import('./pages/TotemChatPage'))
 const TotemAutogestionHomePage = lazy(() => import('./pages/TotemAutogestionHomePage'))
+const TotemKioskLayout = lazy(() => import('./pages/TotemKioskLayout'))
 const TotemAutogestionCatalogoPage = lazy(() => import('./pages/TotemAutogestionCatalogoPage'))
 const TotemAutogestionCheckoutPage = lazy(() => import('./pages/TotemAutogestionCheckoutPage'))
 const TotemAutogestionImprimirPage = lazy(() => import('./pages/TotemAutogestionImprimirPage'))
@@ -178,66 +179,106 @@ function AppInner() {
             }
           />
           <Route
-            path="/totem/autogestion"
             element={
-              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
-                <TotemAutogestionHomePage />
+              <Suspense
+                fallback={
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando tótem…</div>
+                }
+              >
+                <TotemKioskLayout />
               </Suspense>
             }
-          />
-          <Route path="/totem/autogestion/op" element={<Navigate to="/totem/consulta-cliente" replace />} />
-          <Route
-            path="/totem/autogestion/catalogo"
-            element={
-              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
-                <TotemAutogestionCatalogoPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/totem/autogestion/checkout"
-            element={
-              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
-                <TotemAutogestionCheckoutPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/totem/autogestion/imprimir"
-            element={
-              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
-                <TotemAutogestionImprimirPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/totem/subir-archivo/:sessionId"
-            element={
-              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando…</div>}>
-                <TotemSubirArchivoQrPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/totem/consulta-cliente"
-            element={
-              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
-                <TotemConsultaClientePage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/totem/finalizado-taller"
-            element={
-              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
-                <TotemFinalizadoTallerPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/totem/consulta-cliente/entrada-taller"
-            element={<Navigate to="/totem/finalizado-taller" replace />}
-          />
+          >
+            <Route
+              path="/totem/autogestion"
+              element={
+                <Suspense
+                  fallback={
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>
+                  }
+                >
+                  <TotemAutogestionHomePage />
+                </Suspense>
+              }
+            />
+            <Route path="/totem/autogestion/op" element={<Navigate to="/totem/consulta-cliente" replace />} />
+            <Route
+              path="/totem/autogestion/catalogo"
+              element={
+                <Suspense
+                  fallback={
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>
+                  }
+                >
+                  <TotemAutogestionCatalogoPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/totem/autogestion/checkout"
+              element={
+                <Suspense
+                  fallback={
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>
+                  }
+                >
+                  <TotemAutogestionCheckoutPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/totem/autogestion/imprimir"
+              element={
+                <Suspense
+                  fallback={
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>
+                  }
+                >
+                  <TotemAutogestionImprimirPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/totem/subir-archivo/:sessionId"
+              element={
+                <Suspense
+                  fallback={
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando…</div>
+                  }
+                >
+                  <TotemSubirArchivoQrPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/totem/consulta-cliente"
+              element={
+                <Suspense
+                  fallback={
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>
+                  }
+                >
+                  <TotemConsultaClientePage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/totem/finalizado-taller"
+              element={
+                <Suspense
+                  fallback={
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>
+                  }
+                >
+                  <TotemFinalizadoTallerPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/totem/consulta-cliente/entrada-taller"
+              element={<Navigate to="/totem/finalizado-taller" replace />}
+            />
+          </Route>
           <Route
             path="/asesor"
             element={

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { TotemPlotAiInput } from '@/components/ui/totem-plotai-input'
 import { plotLabApiUrl } from '@/utils/plotLabApiOrigin'
+import { cn } from '@/lib/utils'
 import styles from './TotemAutogestionPlotAiChat.module.css'
 
 const CHAT_API_PATH = '/api/plotai/chat-public'
@@ -15,6 +16,8 @@ export type TotemPlotAiChatProps = {
   titleSub?: string
   emptyHint?: string
   className?: string
+  /** Sin cabecera duplicada ni marco decorativo (p. ej. aside del tótem welcome). */
+  compact?: boolean
 }
 
 type ChatPart = { text: string }
@@ -47,7 +50,8 @@ export function TotemAutogestionPlotAiChat({
   title = 'PlotAI',
   titleSub = 'Chat en pantalla · distinto al asistente por voz',
   emptyHint = 'Escribí abajo para hablar con PlotAI. Tus mensajes quedan en esta sesión del tótem.',
-  className
+  className,
+  compact = false
 }: TotemPlotAiChatProps = {}) {
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -134,24 +138,35 @@ export function TotemAutogestionPlotAiChat({
 
   return (
     <section className={rootClass} aria-label="Chat PlotAI">
-      <div className={styles.shell}>
+      <div className={cn(styles.shell, compact && styles.shellCompact)}>
         <div className={styles.shellInner}>
-          <div className={styles.head}>
-            <div className={styles.titleRow}>
-              <div className={styles.titleIcon} aria-hidden>
-                AI
+          {!compact && (
+            <div className={styles.head}>
+              <div className={styles.titleRow}>
+                <div className={styles.titleIcon} aria-hidden>
+                  AI
+                </div>
+                <h2 className={styles.title}>
+                  <span className={styles.titleBrand}>{title}</span> — consultas
+                  <span className={styles.titleSub}>{titleSub}</span>
+                </h2>
               </div>
-              <h2 className={styles.title}>
-                <span className={styles.titleBrand}>{title}</span> — consultas
-                <span className={styles.titleSub}>{titleSub}</span>
-              </h2>
+              <button type="button" className={styles.newChat} onClick={resetChat} disabled={loading}>
+                Nuevo chat
+              </button>
             </div>
-            <button type="button" className={styles.newChat} onClick={resetChat} disabled={loading}>
-              Nuevo chat
-            </button>
-          </div>
+          )}
 
-          <div className={styles.messages} role="log" aria-live="polite">
+          {compact && (
+            <div className={styles.compactHead}>
+              <span className={styles.compactHeadLabel}>PlotAI</span>
+              <button type="button" className={styles.newChat} onClick={resetChat} disabled={loading}>
+                Nuevo chat
+              </button>
+            </div>
+          )}
+
+          <div className={cn(styles.messages, compact && styles.messagesCompact)} role="log" aria-live="polite">
             {messages.length === 0 && !loading && <p className={styles.emptyHint}>{emptyHint}</p>}
             {messages.map((m, i) => {
               const t = m.parts[0]?.text ?? ''
@@ -186,8 +201,13 @@ export function TotemAutogestionPlotAiChat({
 
           {error && <div className={styles.error}>{error}</div>}
 
-          <div className={styles.inputSlot}>
-            <TotemPlotAiInput className={styles.inputEmbed} onSend={sendMessage} disabled={loading} />
+          <div className={cn(styles.inputSlot, compact && styles.inputSlotCompact)}>
+            <TotemPlotAiInput
+              className={styles.inputEmbed}
+              compact={compact}
+              onSend={sendMessage}
+              disabled={loading}
+            />
           </div>
         </div>
       </div>

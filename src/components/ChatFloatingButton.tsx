@@ -1,8 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../services/supabaseClient'
 import apiService from '../services/api'
 import type { Notification } from '../types/api'
+import {
+  formatNotificationForDisplay,
+  getTotemNotificationNavigatePath,
+  isChatPanelNotification,
+  notificationIsTotemAtencionMostrador,
+  notificationIsTotemSolicitudAsesor
+} from '../utils/totemNotifications'
 import './ChatFloatingButton.css'
 
 type ChatFloatingButtonBaseProps = {
@@ -32,6 +40,7 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
   const { onNavigateToChat, onUnreadChange } = props
   const insights = isInsightsVariant(props)
   const { usuario } = useAuth()
+  const navigate = useNavigate()
   const [internalOpen, setInternalOpen] = useState(false)
   const isOpen = insights ? props.isOpen : internalOpen
   const setIsOpen = insights ? props.onOpenChange : setInternalOpen
@@ -40,6 +49,12 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
   const [unreadCount, setUnreadCount] = useState(0)
   const [chatUnreadCount, setChatUnreadCount] = useState(0)
 
+  const applyChatNotifications = useCallback((data: Notification[]) => {
+    const chatNotifications = data.filter(isChatPanelNotification)
+    setNotifications(chatNotifications)
+    setUnreadCount(chatNotifications.filter((n) => !n.is_read).length)
+  }, [])
+
   useEffect(() => {
     if (!usuario?.id) return
 
@@ -47,13 +62,7 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
       try {
         const response = await apiService.getUserNotifications(usuario.id)
         if (response.success && response.data) {
-          const chatNotifications = response.data.filter(
-            (n) =>
-              n.type === 'mention' ||
-              (n.description && (n.description.includes('chat') || n.description.includes('mencionó')))
-          )
-          setNotifications(chatNotifications)
-          setUnreadCount(chatNotifications.filter((n) => !n.is_read).length)
+          applyChatNotifications(response.data)
         }
       } catch (error) {
         console.error('Error cargando notificaciones del chat:', error)
@@ -64,10 +73,18 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
     const interval = setInterval(loadNotifications, 30000)
 
     return () => clearInterval(interval)
-  }, [usuario?.id])
+  }, [usuario?.id, applyChatNotifications])
 
   useEffect(() => {
     if (!supabase || !usuario?.id) return
+
+    const reload = () => {
+      apiService.getUserNotifications(usuario.id).then((response) => {
+        if (response.success && response.data) {
+          applyChatNotifications(response.data)
+        }
+      })
+    }
 
     const channel = supabase
       .channel(`chat-notifications:${usuario.id}`)
@@ -76,22 +93,20 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'notifications',
+          table: 'user_notifications',
           filter: `user_id=eq.${usuario.id}`
         },
-        () => {
-          apiService.getUserNotifications(usuario.id).then((response) => {
-            if (response.success && response.data) {
-              const chatNotifications = response.data.filter(
-                (n) =>
-                  n.type === 'mention' ||
-                  (n.description && (n.description.includes('chat') || n.description.includes('mencionó')))
-              )
-              setNotifications(chatNotifications)
-              setUnreadCount(chatNotifications.filter((n) => !n.is_read).length)
-            }
-          })
-        }
+        reload
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'user_notifications',
+          filter: `user_id=eq.${usuario.id}`
+        },
+        reload
       )
       .subscribe()
 
@@ -100,7 +115,7 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
         supabase.removeChannel(channel)
       }
     }
-  }, [usuario?.id])
+  }, [usuario?.id, applyChatNotifications])
 
   useEffect(() => {
     if (!supabase || !usuario?.id) return
@@ -178,7 +193,13 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
         prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
       )
     }
-    onNavigateToChat()
+    if (notificationIsTotemSolicitudAsesor(notification)) {
+      navigate('/asesor')
+    } else if (notificationIsTotemAtencionMostrador(notification)) {
+      navigate(getTotemNotificationNavigatePath(notification, usuario?.rol))
+    } else {
+      onNavigateToChat()
+    }
     setIsOpen(false)
   }
 
@@ -212,28 +233,33 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
       {notifications.length > 0 ? (
         <div className="chat-notifications-section">
           <div className="section-header">
-            <span>Notificaciones del Chat</span>
+            <span>Notificaciones</span>
             {unreadCount > 0 && <span className="section-badge">{unreadCount}</span>}
           </div>
           <div className="notifications-list">
-            {notifications.slice(0, 5).map((notification) => (
+            {notifications.slice(0, 5).map((notification) => {
+              const display = formatNotificationForDisplay(notification)
+              return (
               <div
                 key={notification.id}
-                className={`notification-item ${!notification.is_read ? 'unread' : ''}`}
+                className={`notification-item ${!notification.is_read ? 'unread' : ''}${
+                  notificationIsTotemSolicitudAsesor(notification) ? ' totem-asesor' : ''
+                }${notificationIsTotemAtencionMostrador(notification) ? ' totem-atencion' : ''}`}
                 onClick={() => handleNotificationClick(notification)}
               >
-                <div className="notification-icon">
-                  {notification.type === 'mention' ? '👤' : '🔔'}
-                </div>
+                <div className="notification-icon">{display.icon}</div>
                 <div className="notification-content">
-                  <div className="notification-title">{notification.title}</div>
-                  {notification.description && (
-                    <div className="notification-description">{notification.description}</div>
+                  <div className="notification-title">{display.title}</div>
+                  {display.description && (
+                    <div className="notification-description">{display.description}</div>
+                  )}
+                  {'actionLabel' in display && display.actionLabel && (
+                    <div className="notification-action-hint">{display.actionLabel}</div>
                   )}
                 </div>
                 {!notification.is_read && <div className="notification-dot"></div>}
               </div>
-            ))}
+            )})}
             {notifications.length > 5 && (
               <button
                 type="button"
