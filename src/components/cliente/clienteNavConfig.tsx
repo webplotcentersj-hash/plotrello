@@ -22,6 +22,6 @@ export const CLIENTE_NAV_ITEMS: ClienteNavItem[] = [
   { label: 'Catálogo', href: '/cliente/catalogo', Icon: ShoppingBag },
   { label: 'Carrito', href: '/cliente/carrito', Icon: ShoppingCart, badge: 'carrito' },
   { label: 'Buscar OP', href: '/cliente/buscar-op', Icon: Search },
-  { label: 'Notificaciones', href: '/cliente/notificaciones', Icon: Bell, badge: 'notificaciones' },
+  { label: 'Avisos', href: '/cliente/notificaciones', Icon: Bell, badge: 'notificaciones' },
   { label: 'Ayuda', href: '/cliente/ayuda', Icon: HelpCircle }
 ]

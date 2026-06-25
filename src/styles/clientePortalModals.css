@@ -1,0 +1,96 @@
+/* Modales en document.body — heredan tema vía ClienteModalPortal */
+
+.cliente-modal-portal {
+  color: var(--cliente-text, #111118);
+  font-family: var(--cliente-font-sans, system-ui, sans-serif);
+}
+
+.cliente-modal-portal .ccp-modal,
+.cliente-modal-portal .cca-modal {
+  color: var(--cliente-text);
+  background: var(--cliente-surface);
+  border: 1px solid var(--cliente-border);
+}
+
+.cliente-modal-portal .ccp-modal__close,
+.cliente-modal-portal .cca-modal__close {
+  color: var(--cliente-text);
+  background: color-mix(in srgb, var(--cliente-text) 8%, transparent);
+}
+
+.cliente-modal-portal .ccp-modal__info h2,
+.cliente-modal-portal .ccp-modal__descripcion p,
+.cliente-modal-portal .cca-modal h2,
+.cliente-modal-portal .cca-paso__pregunta,
+.cliente-modal-portal .cca-opcion strong,
+.cliente-modal-portal .cca-archivos-list li {
+  color: var(--cliente-text);
+}
+
+.cliente-modal-portal .ccp-modal__btn-agregar,
+.cliente-modal-portal .cca-modal .cliente-btn-primary {
+  background: linear-gradient(
+    135deg,
+    var(--cliente-brand-light) 0%,
+    var(--cliente-brand) 50%,
+    var(--cliente-brand-dark) 100%
+  );
+  color: #fff !important;
+  border: none;
+  box-shadow: var(--cliente-shadow-glow);
+}
+
+.cliente-modal-portal .ccp-modal__btn-agregar:hover:not(:disabled),
+.cliente-modal-portal .cca-modal .cliente-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 12px 40px var(--cliente-brand-glow);
+}
+
+.cliente-modal-portal .cca-opcion {
+  background: var(--cliente-bg);
+  border-color: var(--cliente-border);
+  color: var(--cliente-text);
+}
+
+.cliente-modal-portal .cca-opcion:hover {
+  background: var(--cliente-surface-hover);
+  border-color: var(--cliente-brand);
+}
+
+.cliente-modal-portal .cca-opcion span {
+  color: var(--cliente-muted);
+}
+
+.cliente-modal-portal .cca-upload-zone {
+  color: var(--cliente-muted);
+  border-color: var(--cliente-border-strong);
+  background: var(--cliente-bg);
+}
+
+.cliente-modal-portal .cca-archivos-list li {
+  background: var(--cliente-bg);
+}
+
+/* Relacionados dentro del modal producto */
+.cliente-modal-portal .cliente-relacionados__head h3,
+.cliente-modal-portal .cliente-relacionados__nombre {
+  color: var(--cliente-text);
+}
+
+.cliente-modal-portal .cliente-relacionados__card {
+  background: var(--cliente-surface);
+  border-color: var(--cliente-border);
+}
+
+.cliente-modal-portal .cliente-relacionados__img {
+  background: var(--cliente-bg);
+}
+
+.cliente-modal-portal .cliente-relacionados__img span {
+  color: var(--cliente-muted);
+}
+
+.cliente-modal-portal .cliente-relacionados__nav button {
+  background: var(--cliente-bg);
+  border-color: var(--cliente-border);
+  color: var(--cliente-muted);
+}

@@ -29,7 +29,7 @@ export default function ClientePillNav() {
 
   const navBadgeLabel = (badge: ClienteNavBadge, count: number): string => {
     if (badge === 'carrito') return count > 0 ? `Carrito, ${count} productos` : 'Carrito'
-    return count > 0 ? `Notificaciones, ${count} sin leer` : 'Notificaciones'
+    return count > 0 ? `Avisos, ${count} sin leer` : 'Avisos'
   }
   const mensajesLabel =
     mensajesNoLeidos > 0

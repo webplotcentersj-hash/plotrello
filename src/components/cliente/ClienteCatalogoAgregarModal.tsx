@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import type { ArticuloEmpresaRecord } from '../../types/api'
 import apiService from '../../services/api'
 import {
@@ -16,6 +15,7 @@ import {
   setCarritoItemExtra
 } from '../../services/clienteCarritoExtras'
 import ClienteCatalogoBriefForm from './ClienteCatalogoBriefForm'
+import ClienteModalPortal from './ClienteModalPortal'
 import './ClienteCatalogoAgregarModal.css'
 
 const MAX_ARCHIVOS = 8
@@ -309,5 +309,5 @@ export default function ClienteCatalogoAgregarModal({
     </div>
   )
 
-  return createPortal(modal, document.body)
+  return <ClienteModalPortal>{modal}</ClienteModalPortal>
 }

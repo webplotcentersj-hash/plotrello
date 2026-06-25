@@ -1,6 +1,5 @@
 import type { ClienteBriefFormData } from '../../constants/clienteBriefForm'
 import { TIPOS_PRODUCTO_BRIEF } from '../../constants/clienteBriefForm'
-import '../../pages/BriefPublicoPage.css'
 import './ClienteCatalogoBriefForm.css'
 
 type Props = {
@@ -22,7 +21,7 @@ export default function ClienteCatalogoBriefForm({ value, onChange, productoNomb
   }
 
   return (
-    <div className="cliente-catalogo-brief brief-publico-page brief-publico-page--cliente">
+    <div className="cliente-catalogo-brief">
       <p className="cliente-catalogo-brief__producto">
         Producto del catálogo: <strong>{productoNombre}</strong>
       </p>

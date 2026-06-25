@@ -1,6 +1,7 @@
 .cliente-catalogo-brief {
   padding: 0;
   background: transparent;
+  color: var(--cliente-text, #111118);
 }
 
 .cliente-catalogo-brief__producto {
@@ -24,11 +25,61 @@
 .cliente-catalogo-brief .form-section h3 {
   font-size: 0.95rem;
   margin: 0 0 0.35rem;
+  color: var(--cliente-text);
+  border-bottom: 1px solid color-mix(in srgb, var(--cliente-brand) 35%, var(--cliente-border));
+  padding-bottom: 0.35rem;
 }
 
 .cliente-catalogo-brief .section-description {
   font-size: 0.8rem;
   margin-bottom: 0.5rem;
+  color: var(--cliente-muted);
+}
+
+.cliente-catalogo-brief .form-group {
+  margin-bottom: 0.65rem;
+}
+
+.cliente-catalogo-brief .form-group label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--cliente-text);
+}
+
+.cliente-catalogo-brief .form-group input,
+.cliente-catalogo-brief .form-group textarea,
+.cliente-catalogo-brief .form-group select {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--cliente-border);
+  border-radius: 8px;
+  background: var(--cliente-bg-elevated, var(--cliente-bg));
+  color: var(--cliente-text);
+  font: inherit;
+  font-size: 0.88rem;
+  box-sizing: border-box;
+}
+
+.cliente-catalogo-brief .form-group input:focus,
+.cliente-catalogo-brief .form-group textarea:focus,
+.cliente-catalogo-brief .form-group select:focus {
+  outline: none;
+  border-color: var(--cliente-brand);
+  box-shadow: 0 0 0 2px var(--cliente-brand-soft);
+}
+
+.cliente-catalogo-brief .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+@media (max-width: 560px) {
+  .cliente-catalogo-brief .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .cliente-catalogo-brief .checkbox-grid {
@@ -39,5 +90,39 @@
 }
 
 .cliente-catalogo-brief .checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--cliente-border);
+  border-radius: 8px;
+  background: var(--cliente-bg);
   font-size: 0.78rem;
+  cursor: pointer;
+  color: var(--cliente-text);
+}
+
+.cliente-catalogo-brief .checkbox-label:hover {
+  border-color: color-mix(in srgb, var(--cliente-brand) 50%, var(--cliente-border));
+  background: var(--cliente-brand-soft);
+}
+
+.cliente-catalogo-brief .checkbox-label input {
+  margin-top: 0.15rem;
+  accent-color: var(--cliente-brand);
+}
+
+.cliente-catalogo-brief .checkbox-label span {
+  color: var(--cliente-text);
+}
+
+.cliente-catalogo-brief .urgent-label span {
+  color: var(--cliente-text);
+}
+
+.cliente-catalogo-brief .urgent-warning {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--cliente-error-text, #b91c1c);
 }

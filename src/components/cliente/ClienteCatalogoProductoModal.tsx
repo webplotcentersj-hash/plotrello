@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import type { ArticuloEmpresaRecord, ArticuloEmpresaImagenRecord } from '../../types/api'
 import apiService from '../../services/api'
 import { getProductosRelacionados } from '../../utils/clienteCatalogoProductos'
 import { useClienteModalLock } from '../../hooks/useClienteModalLock'
 import ClienteCatalogoRelacionados from './ClienteCatalogoRelacionados'
+import ClienteModalPortal from './ClienteModalPortal'
 import './ClienteCatalogoProductoModal.css'
 
 type Props = {
@@ -169,5 +169,5 @@ export default function ClienteCatalogoProductoModal({
     </div>
   )
 
-  return createPortal(modal, document.body)
+  return <ClienteModalPortal>{modal}</ClienteModalPortal>
 }
