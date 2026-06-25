@@ -4,6 +4,7 @@ import { useClienteAuth } from '../hooks/useClienteAuth'
 import apiService from '../services/api'
 import { cantidadMaximaVendible } from '../services/commerceCatalogService'
 import type { CarritoClientePayload } from '../services/commerceCartService'
+import { getCarritoExtras, removeCarritoItemExtra } from '../services/clienteCarritoExtras'
 import ClientePageHeader from '../components/cliente/ClientePageHeader'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import ClientePageLoading from '../components/cliente/ClientePageLoading'
@@ -43,6 +44,9 @@ export default function ClienteCarritoPage() {
     if (!cliente) return
     setBusyId(idArticulo)
     setError('')
+    if (cantidad <= 0) {
+      removeCarritoItemExtra(cliente.id, idArticulo)
+    }
     const r = await apiService.setCarritoItemCliente(cliente.id, idArticulo, cantidad)
     if (r.success && r.data) {
       setCarrito(r.data)
@@ -64,6 +68,7 @@ export default function ClienteCarritoPage() {
   }
 
   const items = carrito?.items ?? []
+  const extras = cliente ? getCarritoExtras(cliente.id) : {}
 
   return (
     <ClientePageLayout className="cliente-carrito-page">
@@ -92,11 +97,19 @@ export default function ClienteCarritoPage() {
             <ul className="cliente-carrito-list">
               {items.map((it) => {
                 const max = cantidadMaximaVendible(it.articulo)
+                const extra = extras[it.id_articulo]
                 return (
                   <li key={it.id} className="cliente-page-card cliente-carrito-row">
                     <div className="cliente-carrito-row__info">
                       <strong>{it.articulo.nombre}</strong>
                       <span>${it.precio_unitario.toFixed(2)} c/u</span>
+                      {extra && (
+                        <span className="cliente-carrito-row__extra">
+                          {extra.tieneDiseno
+                            ? `✓ Diseño propio (${extra.archivos.length} archivo${extra.archivos.length !== 1 ? 's' : ''})`
+                            : '✎ Brief de diseño adjunto'}
+                        </span>
+                      )}
                       {max != null && (
                         <span className="cliente-carrito-row__stock">
                           {max === 0 ? 'Sin stock' : `Máx. ${max} u.`}

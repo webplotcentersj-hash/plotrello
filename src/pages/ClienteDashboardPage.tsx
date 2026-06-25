@@ -18,7 +18,11 @@ import {
 } from 'lucide-react'
 import ClientePageLayout from '../components/cliente/ClientePageLayout'
 import ClienteStatusBadge from '../components/cliente/ClienteStatusBadge'
+import ClienteDashboardCatalogoSection from '../components/cliente/ClienteDashboardCatalogoSection'
 import './ClienteDashboardPage.css'
+
+const PREVIEW_OPS = 4
+const PREVIEW_PEDIDOS = 5
 
 type BriefResumen = {
   id: number
@@ -48,6 +52,9 @@ export default function ClienteDashboardPage() {
   const [satisfaccionPorOp, setSatisfaccionPorOp] = useState<
     Record<string, { rating: number; comentario: string | null }>
   >({})
+  const [verMasOps, setVerMasOps] = useState(false)
+  const [verMasPedidos, setVerMasPedidos] = useState(false)
+  const [repetirBusyId, setRepetirBusyId] = useState<number | null>(null)
 
   const loadOpsListosYSatisfaccion = useCallback(
     async (pedidosData: PedidoClienteRecord[], briefsData: BriefResumen[]) => {
@@ -245,9 +252,10 @@ export default function ClienteDashboardPage() {
 
   const handleSearchPedido = () => {
     if (searchPedido.trim()) {
-      const pedido = pedidos.find(p => 
-        p.numero_pedido.toLowerCase().includes(searchPedido.toLowerCase()) ||
-        p.id.toString() === searchPedido.trim()
+      const pedido = pedidos.find(
+        (p) =>
+          p.numero_pedido.toLowerCase().includes(searchPedido.toLowerCase()) ||
+          p.id.toString() === searchPedido.trim()
       )
       if (pedido) {
         navigate(`/cliente/pedido/${pedido.id}`)
@@ -256,6 +264,43 @@ export default function ClienteDashboardPage() {
       }
     }
   }
+
+  const volverAPedir = async (pedidoId: number) => {
+    if (!cliente) return
+    setRepetirBusyId(pedidoId)
+    setError('')
+    try {
+      const det = await apiService.getDetallePedidoCliente(pedidoId)
+      if (!det.success || !det.data?.items.length) {
+        setError(det.error || 'No se pudieron cargar los productos del pedido')
+        return
+      }
+      for (const item of det.data.items) {
+        if (!item.id_articulo) continue
+        const carrito = await apiService.getCarritoCliente(cliente.id)
+        const enCarrito = carrito.data?.items.find((i) => i.id_articulo === item.id_articulo)
+        const nuevaCantidad = (enCarrito?.cantidad || 0) + item.cantidad
+        const r = await apiService.setCarritoItemCliente(
+          cliente.id,
+          item.id_articulo,
+          nuevaCantidad
+        )
+        if (!r.success) {
+          setError(r.error || 'No se pudo agregar un producto al carrito')
+          return
+        }
+      }
+      navigate('/cliente/carrito')
+    } catch {
+      setError('Error al repetir el pedido')
+    } finally {
+      setRepetirBusyId(null)
+    }
+  }
+
+  const pedidosConOp = pedidos.filter((p) => p.id_op_asociada)
+  const pedidosConOpVisibles = verMasOps ? pedidosConOp : pedidosConOp.slice(0, PREVIEW_OPS)
+  const pedidosVisibles = verMasPedidos ? pedidos : pedidos.slice(0, PREVIEW_PEDIDOS)
 
   const quickLinks = [
     { label: 'Presupuestos', Icon: Wallet, path: '/cliente/presupuestos' },
@@ -314,6 +359,8 @@ export default function ClienteDashboardPage() {
         </nav>
 
       <div className="cliente-dashboard-body">
+        <ClienteDashboardCatalogoSection />
+
         <div className="cliente-card cliente-search-section">
           <h3>🔍 Buscar</h3>
           <div className="search-input-group">
@@ -474,14 +521,12 @@ export default function ClienteDashboardPage() {
           </div>
         )}
 
-        {pedidos.some(p => p.id_op_asociada) && (
+        {pedidosConOp.length > 0 && (
           <div className="cliente-ops-section">
             <h2>Seguimiento de OP</h2>
             <p className="section-desc">Tus órdenes de producción generadas desde el portal</p>
             <div className="cliente-ops-list">
-              {pedidos
-                .filter(p => p.id_op_asociada)
-                .map((pedido) => (
+              {pedidosConOpVisibles.map((pedido) => (
                   <div
                     key={pedido.id}
                     className="cliente-card cliente-op-card"
@@ -500,6 +545,17 @@ export default function ClienteDashboardPage() {
                   </div>
                 ))}
             </div>
+            {pedidosConOp.length > PREVIEW_OPS && (
+              <div className="cliente-section-footer">
+                <button
+                  type="button"
+                  className="btn-leer-mas"
+                  onClick={() => setVerMasOps((v) => !v)}
+                >
+                  {verMasOps ? 'Ver menos' : `Leer más (${pedidosConOp.length - PREVIEW_OPS} más)`}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -518,13 +574,22 @@ export default function ClienteDashboardPage() {
               </button>
             </div>
           ) : (
+            <>
             <div className="cliente-pedidos-list">
-              {pedidos.map((pedido) => (
+              {pedidosVisibles.map((pedido) => (
                 <div 
                   key={pedido.id} 
                   className={`cliente-card cliente-pedido-card ${pedido.es_urgente ? 'urgente' : ''}`}
-                  onClick={() => navigate(`/cliente/pedido/${pedido.id}`)}
                 >
+                  <div
+                    className="pedido-card-clickable"
+                    onClick={() => navigate(`/cliente/pedido/${pedido.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') navigate(`/cliente/pedido/${pedido.id}`)
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
                   <div className="pedido-card-header">
                     <div className="pedido-card-identity">
                       <span className="pedido-card-num">{pedido.numero_pedido}</span>
@@ -579,9 +644,41 @@ export default function ClienteDashboardPage() {
                       )}
                     </div>
                   </div>
+                  </div>
+                  <div className="pedido-card-actions">
+                    <button
+                      type="button"
+                      className="btn-volver-pedir"
+                      disabled={repetirBusyId === pedido.id}
+                      onClick={() => void volverAPedir(pedido.id)}
+                    >
+                      {repetirBusyId === pedido.id ? 'Agregando…' : '↻ Volver a pedir'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ver-detalle-pedido"
+                      onClick={() => navigate(`/cliente/pedido/${pedido.id}`)}
+                    >
+                      Ver detalle
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
+            {pedidos.length > PREVIEW_PEDIDOS && (
+              <div className="cliente-section-footer">
+                <button
+                  type="button"
+                  className="btn-leer-mas"
+                  onClick={() => setVerMasPedidos((v) => !v)}
+                >
+                  {verMasPedidos
+                    ? 'Ver menos'
+                    : `Leer más (${pedidos.length - PREVIEW_PEDIDOS} pedidos más)`}
+                </button>
+              </div>
+            )}
+            </>
           )}
         </div>
       </div>

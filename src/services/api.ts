@@ -137,6 +137,11 @@ import {
   type CarritoClientePayload
 } from './commerceCartService'
 import {
+  buildDescripcionPersonalizada,
+  clearCarritoExtras,
+  getCarritoExtras
+} from './clienteCarritoExtras'
+import {
   TALLER_GRAFICO_PEDIDO_ENTREGA_CHANNEL,
   TALLER_GRAFICO_PEDIDO_ENTREGA_EVENT,
   type TallerGraficoPedidoEntregaInput
@@ -13497,6 +13502,105 @@ class ApiService {
     }
   }
 
+  /**
+   * IDs de artículos más vendidos en pedidos portal (filtro catálogo).
+   */
+  async getArticulosMasVendidosPortal(limite = 24): Promise<ApiResponse<number[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('obtener_articulos_mas_vendidos_portal', {
+        p_limite: limite
+      })
+      if (error) {
+        return { success: true, data: [] }
+      }
+      const ids = (data || [])
+        .map((row: { id_articulo?: number }) => row.id_articulo)
+        .filter((id: number | undefined): id is number => typeof id === 'number')
+      return { success: true, data: ids }
+    } catch {
+      return { success: true, data: [] }
+    }
+  }
+
+  /**
+   * Galería de imágenes de un artículo visible en portal.
+   */
+  async obtenerImagenesArticuloPortal(
+    idArticulo: number
+  ): Promise<ApiResponse<ArticuloEmpresaImagenRecord[]>> {
+    if (supabase) {
+      try {
+        const rpc = await supabase.rpc('obtener_imagenes_articulo_empresa', {
+          p_id_articulo: idArticulo
+        })
+        if (!rpc.error && rpc.data) {
+          return { success: true, data: rpc.data as ArticuloEmpresaImagenRecord[] }
+        }
+        const { data, error } = await supabase
+          .from('articulos_empresa_imagenes')
+          .select('id, id_articulo, imagen_url, orden, created_at')
+          .eq('id_articulo', idArticulo)
+          .order('orden', { ascending: true })
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: (data || []) as ArticuloEmpresaImagenRecord[] }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  /**
+   * Subir archivo grande asociado a un ítem del carrito (antes del pedido).
+   */
+  async uploadArchivoCarritoPendienteCliente(
+    file: File,
+    idCliente: number,
+    idArticulo: number
+  ): Promise<
+    ApiResponse<{ nombre: string; url: string; tipo: string; tamano: number }>
+  > {
+    const MAX_BYTES = 50 * 1024 * 1024
+    if (file.size > MAX_BYTES) {
+      return { success: false, error: 'El archivo no debe superar 50 MB' }
+    }
+    if (supabase) {
+      try {
+        const safeName = file.name.replace(/[^\w.\-() ]+/g, '_').slice(0, 120)
+        const filePath = `carrito-pendiente/${idCliente}/${idArticulo}/${Date.now()}_${safeName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('pedidos-clientes')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type || 'application/octet-stream'
+          })
+
+        if (uploadError) return { success: false, error: uploadError.message }
+
+        const { data: urlData } = supabase.storage.from('pedidos-clientes').getPublicUrl(filePath)
+        if (!urlData?.publicUrl) {
+          return { success: false, error: 'No se pudo obtener la URL del archivo' }
+        }
+
+        return {
+          success: true,
+          data: {
+            nombre: safeName,
+            url: urlData.publicUrl,
+            tipo: file.type || 'application/octet-stream',
+            tamano: file.size
+          }
+        }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+      }
+    }
+    return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
   /** Valida cantidad contra stock del catálogo (usa helpers de commerceCatalogService). */
   validarStockCatalogoComercial(articulo: ArticuloEmpresaRecord, cantidad: number) {
     return validarCantidadVentaComercial(articulo, cantidad)
@@ -13522,6 +13626,7 @@ class ApiService {
 
   async vaciarCarritoCliente(idCliente: number): Promise<ApiResponse<void>> {
     const r = await vaciarCarritoCliente(idCliente)
+    if (r.success) clearCarritoExtras(idCliente)
     return r.success ? { success: true } : { success: false, error: r.error }
   }
 
@@ -14235,12 +14340,21 @@ class ApiService {
       return { success: false, error: 'El carrito está vacío' }
     }
 
-    const items = carrito.data.items.map((it) => ({
-      id_articulo: it.id_articulo,
-      cantidad: it.cantidad,
-      precio_unitario: it.precio_unitario,
-      precio_total: it.precio_total
-    }))
+    const extras = getCarritoExtras(input.id_cliente)
+
+    const items = carrito.data.items.map((it) => {
+      const extra = extras[it.id_articulo]
+      const descripcion_personalizada = extra
+        ? buildDescripcionPersonalizada(extra, it.articulo.nombre)
+        : undefined
+      return {
+        id_articulo: it.id_articulo,
+        cantidad: it.cantidad,
+        precio_unitario: it.precio_unitario,
+        precio_total: it.precio_total,
+        descripcion_personalizada: descripcion_personalizada || undefined
+      }
+    })
 
     const resp = await this.crearPedidoCliente({
       id_cliente: input.id_cliente,
@@ -14252,6 +14366,30 @@ class ApiService {
       requiere_delivery: input.requiere_delivery,
       direccion_delivery: input.direccion_delivery
     })
+
+    if (resp.success && resp.data?.id) {
+      const idPedido = resp.data.id
+      const detalle = await this.getDetallePedidoCliente(idPedido)
+      const itemsPedido = detalle.success && detalle.data ? detalle.data.items : []
+
+      if (supabase) {
+        for (const it of carrito.data.items) {
+          const extra = extras[it.id_articulo]
+          if (!extra?.archivos?.length) continue
+          const itemPedido = itemsPedido.find((ip) => ip.id_articulo === it.id_articulo)
+          for (const arch of extra.archivos) {
+            await supabase.from('pedidos_clientes_archivos').insert({
+              id_pedido: idPedido,
+              id_item: itemPedido?.id ?? null,
+              url: arch.url,
+              nombre_archivo: arch.nombre,
+              tipo: arch.tipo,
+              tamaño: arch.tamano
+            })
+          }
+        }
+      }
+    }
 
     if (resp.success && resp.data?.id && input.tipo_intencion === 'compra') {
       await this.aplicarStockPedidoCliente(resp.data.id, 'portal')
@@ -14267,6 +14405,7 @@ class ApiService {
     }
 
     if (resp.success) {
+      clearCarritoExtras(input.id_cliente)
       await this.vaciarCarritoCliente(input.id_cliente)
     }
 

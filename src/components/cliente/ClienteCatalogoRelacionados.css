@@ -1,0 +1,130 @@
+.cliente-relacionados {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--cliente-border, #e2e8f0);
+}
+
+.cliente-relacionados__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cliente-relacionados__head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cliente-text);
+}
+
+.cliente-relacionados__nav {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.cliente-relacionados__nav button {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--cliente-border);
+  background: var(--cliente-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--cliente-muted);
+}
+
+.cliente-relacionados__nav button:hover {
+  border-color: var(--cliente-brand);
+  color: var(--cliente-brand);
+}
+
+.cliente-relacionados__track {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 0.35rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cliente-relacionados__card {
+  flex: 0 0 130px;
+  scroll-snap-align: start;
+  border: 1px solid var(--cliente-border);
+  border-radius: 10px;
+  background: var(--cliente-surface);
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.cliente-relacionados__card:hover {
+  border-color: var(--cliente-brand);
+  transform: translateY(-2px);
+}
+
+.cliente-relacionados__img {
+  aspect-ratio: 1;
+  background: var(--cliente-bg);
+  overflow: hidden;
+}
+
+.cliente-relacionados__img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cliente-relacionados__img span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.75rem;
+  color: var(--cliente-muted);
+}
+
+.cliente-relacionados__nombre {
+  display: block;
+  padding: 0.4rem 0.45rem 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cliente-relacionados__precio {
+  display: block;
+  padding: 0.15rem 0.45rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--cliente-brand);
+}
+
+.cliente-catalogo-link-btn {
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  border: none;
+  background: none;
+  color: var(--cliente-brand);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cliente-catalogo-link-btn:hover {
+  text-decoration: underline;
+}

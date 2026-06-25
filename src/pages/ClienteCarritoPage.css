@@ -30,6 +30,12 @@
   color: var(--cliente-brand) !important;
 }
 
+.cliente-carrito-row__extra {
+  font-size: 0.78rem !important;
+  color: #5b21b6 !important;
+  font-weight: 600;
+}
+
 .cliente-carrito-row__actions {
   display: flex;
   align-items: center;
