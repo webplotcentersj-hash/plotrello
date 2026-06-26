@@ -2,7 +2,7 @@ import { getArgentinaTime } from '../../utils/dateUtils'
 import { calcularTotalesCoherentesDia } from './cajaCoherencia'
 import { calcularTeoricoFisicoCaja } from './arqueoCalculations'
 import { fondoFijoEfectivo, requiereFondoMinimo } from './fondoCaja'
-import { resumenPlotlabVentasCaja } from './plotlabVentasCajaData'
+import { resumenPlotlabVentasCaja, type ResumenPlotlabVentasCaja } from './plotlabVentasCajaData'
 import { montoVisibleMovimiento } from './format'
 import type { CajaArqueo, CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from './types'
 
@@ -77,17 +77,25 @@ export function progresoDiaCaja(input: {
 export function efectivoTeoricoDia(
   movimientos: CajaMovimiento[],
   fecha: string,
-  caja: Pick<CajaRegistro, 'slug' | 'fondo_fijo'> | null
+  caja: Pick<CajaRegistro, 'slug' | 'fondo_fijo'> | null,
+  resumenPlotlab?: ResumenPlotlabVentasCaja | null
 ): number | null {
   if (!caja) return null
-  const t = calcularTeoricoFisicoCaja(
-    movimientos,
-    caja.slug,
-    fecha,
-    fecha,
-    fondoFijoEfectivo(caja)
-  )
-  return t.teorico
+  const fondo = fondoFijoEfectivo(caja)
+  const t = calcularTeoricoFisicoCaja(movimientos, caja.slug, fecha, fecha, fondo)
+  const ingresosFisicos = Math.max(t.ingresos_fisicos, resumenPlotlab?.efectivo ?? 0)
+  return fondo + ingresosFisicos - t.egresos_fisicos
+}
+
+/** Efectivo en billetes a contar según ventas Plot Lab (fondo + cobros en efectivo − egresos físicos). */
+export function efectivoObjetivoArqueoPlotLab(
+  movimientos: CajaMovimiento[],
+  fecha: string,
+  caja: Pick<CajaRegistro, 'slug' | 'fondo_fijo'> | null,
+  resumenPlotlab: ResumenPlotlabVentasCaja | null
+): number | null {
+  if (!caja || !resumenPlotlab || resumenPlotlab.efectivo <= 0) return null
+  return efectivoTeoricoDia(movimientos, fecha, caja, resumenPlotlab)
 }
 
 export function etiquetaMedioMovimiento(m: CajaMovimiento): string {

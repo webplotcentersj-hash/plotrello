@@ -95,7 +95,7 @@ export default function CajaMenuResumenDia({ estado, cargando, enVivo, onNavigat
           Turno: <strong>{estado.turnoActivo}</strong>
         </span>
         {enVivo ? (
-          <span className="caja-cc-menu-vivo" title="Ventas Plot Lab se sincronizan solas">
+          <span className="caja-cc-menu-vivo" title="Ventas Plot Lab al instante">
             <span className="caja-cc-menu-vivo-dot" aria-hidden />
             En vivo
           </span>
@@ -127,18 +127,25 @@ export default function CajaMenuResumenDia({ estado, cargando, enVivo, onNavigat
         </ul>
       </div>
 
-      {estado.cajaNombre && estado.resumenPlotlab ? (
-        <CajaPlotlabVentasPanel resumen={estado.resumenPlotlab} cajaNombre={estado.cajaNombre} />
+      {estado.cajaNombre ? (
+        <CajaPlotlabVentasPanel
+          resumen={estado.resumenPlotlab ?? { count: 0, efectivo: 0, tarjetas: 0, transferencia: 0, ctaCte: 0, otros: 0, total: 0 }}
+          cajaNombre={estado.cajaNombre}
+        />
       ) : null}
 
       {estado.efectivoTeorico != null ? (
         <div className="caja-cc-menu-teorico">
           <div>
-            <small>Efectivo teórico en caja (fondo + movimientos físicos)</small>
+            <small>
+              {estado.resumenPlotlab && estado.resumenPlotlab.efectivo > 0
+                ? 'Efectivo a contar (fondo + ventas en efectivo Plot Lab)'
+                : 'Efectivo teórico en caja (fondo + movimientos físicos)'}
+            </small>
             <strong>$ {fmtArs(estado.efectivoTeorico)}</strong>
           </div>
           <button type="button" className="btn-link" onClick={() => onNavigate('arqueo')}>
-            Ir a contar billetes →
+            Contar billetes →
           </button>
         </div>
       ) : null}

@@ -2,6 +2,9 @@ import { getArgentinaDateString } from '../../utils/dateUtils'
 import { notifyCajaSync } from './cajaSyncNotify'
 import { obtenerCajaOperativa } from './cajaOperativa'
 import {
+  type ResumenPlotlabVentasCaja
+} from './plotlabVentasCajaData'
+import {
   listCajas,
   listMovimientos,
   resolveCajaSlugForUsuario,
@@ -58,6 +61,108 @@ export type VentaCajaSyncRecord = {
 }
 
 /** Ventas portal/tótem quedan Pendiente hasta cobro en mostrador; CC pendiente sí impacta caja. */
+const RESUMEN_PLOTLAB_VACIO: ResumenPlotlabVentasCaja = {
+  count: 0,
+  efectivo: 0,
+  tarjetas: 0,
+  transferencia: 0,
+  ctaCte: 0,
+  otros: 0,
+  total: 0
+}
+
+export function ventaPerteneceCaja(
+  venta: VentaCajaSyncRecord,
+  cajaSlug: string,
+  usuarioId?: number
+): boolean {
+  const slug = venta.caja_slug_cobro?.trim()
+  if (slug) return slug === cajaSlug
+  if (usuarioId != null && venta.id_vendedor === usuarioId) return true
+  return false
+}
+
+function montoVentaParaResumen(venta: VentaCajaSyncRecord): number {
+  const pagado = Number(venta.monto_pagado) || 0
+  if (pagado > 0) return pagado
+  return Number(venta.valor_total) || 0
+}
+
+export function resumenDesdeVentasPlotLab(
+  ventas: VentaCajaSyncRecord[],
+  fecha: string,
+  cajaSlug: string,
+  usuarioId?: number
+): ResumenPlotlabVentasCaja {
+  const out: ResumenPlotlabVentasCaja = { ...RESUMEN_PLOTLAB_VACIO }
+
+  for (const venta of ventas) {
+    const record: VentaCajaSyncRecord = {
+      ...venta,
+      fecha_venta: (venta.fecha_venta || fecha).slice(0, 10)
+    }
+    if (record.fecha_venta !== fecha) continue
+    if (!ventaDebeSincronizarCaja(record)) continue
+    if (!ventaPerteneceCaja(record, cajaSlug, usuarioId)) continue
+
+    const monto = montoVentaParaResumen(record)
+    const medios = metodoPagoPlotLabAMedios(
+      normalizarMetodoPago(record.metodo_pago),
+      monto,
+      (record.estado_pago as PlotLabVentaCajaSyncInput['estadoPago']) || 'Pagado'
+    )
+    if (!medios) continue
+
+    out.count++
+    out.efectivo += medios.efectivo || 0
+    out.tarjetas += medios.tarjeta || 0
+    out.transferencia += medios.transferencia_bancaria || 0
+    out.ctaCte += medios.cuenta_corriente || 0
+    out.otros += medios.otros || 0
+    out.total += medios.total || monto
+  }
+
+  return out
+}
+
+export function combinarResumenPlotlab(
+  primario: ResumenPlotlabVentasCaja,
+  secundario: ResumenPlotlabVentasCaja
+): ResumenPlotlabVentasCaja {
+  return primario.total >= secundario.total ? primario : secundario
+}
+
+/** Ventas cobradas hoy en Plot Lab (sin depender de movimientos ya importados). */
+export async function resumenPlotlabVentasDesdeApi(
+  fecha: string,
+  cajaSlug: string,
+  usuarioId?: number
+): Promise<ResumenPlotlabVentasCaja> {
+  const { default: apiService } = await import('../../services/api')
+  const res = await apiService.obtenerVentas(usuarioId, fecha, fecha)
+  if (!res.success || !res.data?.length) return { ...RESUMEN_PLOTLAB_VACIO }
+
+  return resumenDesdeVentasPlotLab(
+    res.data.map((v) => ({
+      id: v.id,
+      numero_venta: v.numero_venta,
+      cliente_nombre: v.cliente_nombre,
+      valor_total: v.valor_total,
+      metodo_pago: v.metodo_pago,
+      estado_pago: v.estado_pago,
+      fecha_venta: v.fecha_venta,
+      id_vendedor: v.id_vendedor,
+      nombre_vendedor: v.nombre_vendedor,
+      id_pedido_cliente: v.id_pedido_cliente,
+      monto_pagado: v.monto_pagado,
+      caja_slug_cobro: v.caja_slug_cobro
+    })),
+    fecha,
+    cajaSlug,
+    usuarioId
+  )
+}
+
 export function ventaDebeSincronizarCaja(venta: VentaCajaSyncRecord): boolean {
   const estado = venta.estado_pago || 'Pendiente'
   const metodo = (venta.metodo_pago || '').trim()

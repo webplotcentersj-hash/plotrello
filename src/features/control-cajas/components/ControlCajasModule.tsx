@@ -298,19 +298,20 @@ export default function ControlCajasModule() {
             )
           )}
           <div className="caja-cc-sidebar-foot">
-            <CajaVolverPlotLab block />
+            <button type="button" className="btn-secondary btn-small caja-cc-sidebar-erp" onClick={() => navigate('/erp')}>
+              ERP
+            </button>
           </div>
         </nav>
 
         <main className="caja-cc-content" key={refreshKey}>
-          <div className="caja-cc-content-plotlab-bar">
-            {!enVistaAdmin && section !== 'menu' ? (
+          {!enVistaAdmin && section !== 'menu' ? (
+            <div className="caja-cc-content-plotlab-bar">
               <button type="button" className="btn-link caja-cc-volver-menu" onClick={() => goSection('menu')}>
-                ← Volver al menú
+                ← Volver a caja
               </button>
-            ) : null}
-            <CajaVolverPlotLab small />
-          </div>
+            </div>
+          ) : null}
           {showIntelBar && (
             <CajaInteligenciaBar
               isAdmin={isAdmin}
@@ -323,7 +324,6 @@ export default function ControlCajasModule() {
           {showPageTitle && (
             <div className="caja-cc-page-head compact">
               <h2>{SECTION_TITLES[section]}</h2>
-              <CajaVolverPlotLab small />
             </div>
           )}
 

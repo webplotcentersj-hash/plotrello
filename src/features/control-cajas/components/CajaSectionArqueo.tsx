@@ -4,6 +4,12 @@ import { useCajaOperativa } from '../../../hooks/useCajaOperativa'
 import { BILLETE_DENOMINACIONES, TURNOS_CAJA } from '../constants'
 import { listCajas, listMovimientos, listPlanillas, saveArqueo } from '../cajaRepository'
 import { alertaDobleFuenteCaja, resumenPlotlabVentasCaja } from '../plotlabVentasCajaData'
+import {
+  combinarResumenPlotlab,
+  resumenPlotlabVentasDesdeApi
+} from '../plotlabVentaCajaSync'
+import { efectivoObjetivoArqueoPlotLab } from '../cajaMenuOperativaData'
+import type { ResumenPlotlabVentasCaja } from '../plotlabVentasCajaData'
 import CajaPlotlabVentasPanel from './CajaPlotlabVentasPanel'
 import { calcularTeoricoFisicoCaja } from '../arqueoCalculations'
 import { estadoArqueo } from '../movimientoCaja'
@@ -56,6 +62,7 @@ export default function CajaSectionArqueo({
   const [msg, setMsg] = useState<string | null>(null)
   const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
   const [planillas, setPlanillas] = useState<Awaited<ReturnType<typeof listPlanillas>>>([])
+  const [resumenPlotlabApi, setResumenPlotlabApi] = useState<ResumenPlotlabVentasCaja | null>(null)
 
   useEffect(() => {
     if (!cajaSlug || !fecha) return
@@ -66,12 +73,24 @@ export default function CajaSectionArqueo({
   }, [cajaSlug, fecha, movimientosRefreshKey])
 
   useEffect(() => {
+    if (!cajaSlug || !fecha) return
+    void resumenPlotlabVentasDesdeApi(fecha, cajaSlug, usuarioId).then(setResumenPlotlabApi)
+  }, [cajaSlug, fecha, usuarioId, movimientosRefreshKey])
+
+  useEffect(() => {
     const onRefresh = () => {
       void listMovimientos().then(setMovimientos)
+      if (cajaSlug && fecha) {
+        void resumenPlotlabVentasDesdeApi(fecha, cajaSlug, usuarioId).then(setResumenPlotlabApi)
+      }
     }
     window.addEventListener('caja-datos-actualizados', onRefresh)
-    return () => window.removeEventListener('caja-datos-actualizados', onRefresh)
-  }, [])
+    window.addEventListener('plotlab-sync-caja', onRefresh as EventListener)
+    return () => {
+      window.removeEventListener('caja-datos-actualizados', onRefresh)
+      window.removeEventListener('plotlab-sync-caja', onRefresh as EventListener)
+    }
+  }, [cajaSlug, fecha, usuarioId])
 
   useEffect(() => {
     if (!planillaActiva) return
@@ -127,10 +146,20 @@ export default function CajaSectionArqueo({
   const diferenciaPlanilla =
     efectivoQuedaPlanilla != null && total > 0 ? total - efectivoQuedaPlanilla : null
 
-  const resumenPlotlab = useMemo(
-    () => (cajaSlug && fecha ? resumenPlotlabVentasCaja(movimientos, fecha, cajaSlug) : null),
-    [movimientos, fecha, cajaSlug]
-  )
+  const resumenPlotlab = useMemo(() => {
+    if (!cajaSlug || !fecha) return null
+    const desdeMovs = resumenPlotlabVentasCaja(movimientos, fecha, cajaSlug)
+    if (!resumenPlotlabApi) return desdeMovs
+    return combinarResumenPlotlab(resumenPlotlabApi, desdeMovs)
+  }, [movimientos, fecha, cajaSlug, resumenPlotlabApi])
+
+  const efectivoObjetivoPlotlab =
+    cajaActiva && resumenPlotlab
+      ? efectivoObjetivoArqueoPlotLab(movimientos, fecha, cajaActiva, resumenPlotlab)
+      : null
+
+  const diferenciaPlotlab =
+    efectivoObjetivoPlotlab != null && total > 0 ? total - efectivoObjetivoPlotlab : null
   const alertaDoble = useMemo(
     () =>
       cajaSlug && fecha
@@ -161,6 +190,17 @@ export default function CajaSectionArqueo({
     if (efectivoQuedaPlanilla != null && total > 0 && Math.abs(total - efectivoQuedaPlanilla) > 0.02) {
       setMsg(
         `El conteo ($ ${fmtArs(total)}) no coincide con el efectivo de la planilla ($ ${fmtArs(efectivoQuedaPlanilla)}). Revisá billetes.`
+      )
+      return
+    }
+    if (
+      efectivoQuedaPlanilla == null &&
+      efectivoObjetivoPlotlab != null &&
+      total > 0 &&
+      Math.abs(total - efectivoObjetivoPlotlab) > 0.02
+    ) {
+      setMsg(
+        `El conteo ($ ${fmtArs(total)}) no coincide con el efectivo vendido en Plot Lab ($ ${fmtArs(efectivoObjetivoPlotlab)}). Revisá billetes.`
       )
       return
     }
@@ -229,6 +269,14 @@ export default function CajaSectionArqueo({
         </div>
       )}
 
+      {efectivoQuedaPlanilla == null && efectivoObjetivoPlotlab != null && (
+        <div className="caja-cc-planilla-arqueo-hint caja-cc-planilla-arqueo-hint--plotlab">
+          <strong>Según ventas Plot Lab en efectivo (fondo + cobros del día):</strong>{' '}
+          <strong>$ {fmtArs(efectivoObjetivoPlotlab)}</strong>. Contá billetes hasta ese monto; tarjetas, transferencias
+          y cuenta corriente no van en el arqueo.
+        </div>
+      )}
+
       {cajaOperativaError && fijarCajaUsuario && (
         <p className="caja-cc-error" role="alert">
           {cajaOperativaError}
@@ -236,8 +284,8 @@ export default function CajaSectionArqueo({
       )}
 
       <div className="caja-cc-help">
-        Subí arriba el PDF del día: ahí está el <strong>efectivo que queda</strong> en caja. Contá solo billetes y
-        monedas hasta ese monto; no incluyas tarjetas, transferencias ni cuenta corriente (eso se concilia aparte).
+        Contá solo billetes y monedas según las ventas en efectivo de Plot Lab del día (más el fondo de caja). No
+        incluyas tarjetas, transferencias ni cuenta corriente.
         {cajaActiva && otraCajaOperativa && (
           <>
             {' '}
@@ -325,21 +373,29 @@ export default function CajaSectionArqueo({
           <strong>$ {fmtArs(efectivoQuedaPlanilla)}</strong>
         </div>
       )}
-      {teorico != null && efectivoQuedaPlanilla == null && (
+      {teorico != null && efectivoQuedaPlanilla == null && efectivoObjetivoPlotlab == null && (
         <div className="caja-cc-result neutral">
           <span>Efectivo teórico según movimientos del día</span>
           <strong>$ {fmtArs(teorico.teorico)}</strong>
+        </div>
+      )}
+      {efectivoObjetivoPlotlab != null && efectivoQuedaPlanilla == null && (
+        <div className="caja-cc-result neutral">
+          <span>Objetivo según Plot Lab (fondo + efectivo cobrado)</span>
+          <strong>$ {fmtArs(efectivoObjetivoPlotlab)}</strong>
         </div>
       )}
       <div
         className={`caja-cc-result ${
           diferenciaPlanilla != null && Math.abs(diferenciaPlanilla) > 0.02
             ? 'bad'
-            : diferenciaFisica != null && Math.abs(diferenciaFisica) > 0.02
+            : diferenciaPlotlab != null && Math.abs(diferenciaPlotlab) > 0.02
               ? 'bad'
-              : total > 0
-                ? 'ok'
-                : 'neutral'
+              : diferenciaFisica != null && Math.abs(diferenciaFisica) > 0.02
+                ? 'bad'
+                : total > 0
+                  ? 'ok'
+                  : 'neutral'
         }`}
       >
         <span>Total contado (solo billetes)</span>
@@ -351,7 +407,14 @@ export default function CajaSectionArqueo({
               : `Δ vs planilla $ ${fmtArs(diferenciaPlanilla)}`}
           </span>
         )}
-        {diferenciaPlanilla == null && diferenciaFisica != null && total > 0 && (
+        {diferenciaPlanilla == null && diferenciaPlotlab != null && total > 0 && (
+          <span className="caja-cc-field-hint">
+            {Math.abs(diferenciaPlotlab) <= 0.02
+              ? 'Cuadra con Plot Lab'
+              : `Δ vs Plot Lab $ ${fmtArs(diferenciaPlotlab)}`}
+          </span>
+        )}
+        {diferenciaPlanilla == null && diferenciaPlotlab == null && diferenciaFisica != null && total > 0 && (
           <span className="caja-cc-field-hint">
             {diferenciaFisica === 0
               ? 'Cuadra con teórico'

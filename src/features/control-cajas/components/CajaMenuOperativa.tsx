@@ -7,7 +7,6 @@ import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaSectionId } from '../types'
 import CajaMenuResumenDia from './CajaMenuResumenDia'
 import CajaSubidaInteligente from './CajaSubidaInteligente'
-import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 type Paso = {
   section: CajaSectionId
@@ -156,26 +155,24 @@ export default function CajaMenuOperativa({
 
   return (
     <div className="caja-cc-menu-operativa">
-      <div className="caja-cc-page-head">
+      <div className="caja-cc-page-head caja-cc-page-head--caja">
         <div>
-          <h2>Menú — {fmtDateAr(hoy)}</h2>
+          <h2>Caja — {fmtDateAr(hoy)}</h2>
           <p className="caja-cc-sub">
-            Hola <strong>{usuarioNombre}</strong>
+            <strong>{usuarioNombre}</strong>
             {estado?.cajaNombre ? (
               <>
                 {' '}
-                · Caja <strong>{estado.cajaNombre}</strong>
+                · <strong>{estado.cajaNombre}</strong>
               </>
             ) : null}
-            . Acá ves lo que vendiste en Plot Lab, tus movimientos y el estado del arqueo y cierre.
           </p>
           {cargando ? (
-            <p className="caja-cc-menu-estado-line">Cargando estado del día…</p>
+            <p className="caja-cc-menu-estado-line">Cargando…</p>
           ) : estado ? (
             <p className="caja-cc-menu-estado-line">{resumenDia(estado)}</p>
           ) : null}
         </div>
-        <CajaVolverPlotLab small />
       </div>
 
       <CajaMenuResumenDia

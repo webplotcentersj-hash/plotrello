@@ -19,6 +19,10 @@ import {
 import type { CajaMovimiento, CajaSectionId } from './types'
 import type { ResumenPlotlabVentasCaja } from './plotlabVentasCajaData'
 import { resumenPlotlabVentasCaja } from './plotlabVentasCajaData'
+import {
+  combinarResumenPlotlab,
+  resumenPlotlabVentasDesdeApi
+} from './plotlabVentaCajaSync'
 
 export type EstadoPasoCaja = 'hecho' | 'pendiente' | 'opcional' | 'alerta'
 
@@ -72,14 +76,27 @@ export async function loadEstadoOperativaHoy(
         }
       : null
 
-  const resumenPlotlab =
+  let resumenPlotlab =
     cajaSlug != null ? resumenPlotlabVentasCaja(movimientos, fecha, cajaSlug) : null
+  if (cajaSlug != null) {
+    try {
+      const desdeApi = await resumenPlotlabVentasDesdeApi(fecha, cajaSlug, usuarioId)
+      resumenPlotlab = combinarResumenPlotlab(
+        desdeApi,
+        resumenPlotlab ?? { count: 0, efectivo: 0, tarjetas: 0, transferencia: 0, ctaCte: 0, otros: 0, total: 0 }
+      )
+    } catch {
+      /* mantener resumen desde movimientos */
+    }
+  }
 
   const cajaRegistro = cajaSlug ? cajas.find((c) => c.slug === cajaSlug) ?? null : null
   const ultimosMovimientos =
     cajaSlug != null ? ultimosMovimientosDia(movimientos, fecha, cajaSlug, 8) : []
   const efectivoTeorico =
-    cajaRegistro != null ? efectivoTeoricoDia(movimientos, fecha, cajaRegistro) : null
+    cajaRegistro != null
+      ? efectivoTeoricoDia(movimientos, fecha, cajaRegistro, resumenPlotlab)
+      : null
   const turnoActivo = inferirTurnoActivo(fecha, cajaSlug, arqueos)
 
   const arqueoHecho =

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { loadEstadoOperativaHoy, type CajaEstadoOperativaHoy } from './cajaOperativaHoy'
 import { sincronizarVentasPlotLabRango } from './plotlabVentaCajaSync'
 
-const SYNC_INTERVAL_MS = 25_000
+const SYNC_INTERVAL_MS = 15_000
 
 type Options = {
   usuarioId?: number
@@ -44,6 +44,8 @@ export function useCajaMenuRealtime({
     const onDatos = () => {
       void recargar()
     }
+
+    void recargar()
 
     window.addEventListener('caja-datos-actualizados', onDatos)
     window.addEventListener('plotlab-sync-caja', onDatos as EventListener)
