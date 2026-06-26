@@ -7,6 +7,12 @@ import {
   type ReactNode
 } from 'react'
 import { isOperarioExternoRol, operarioExternoHomeRoute } from '../features/work-pool/workPoolOperarioExterno'
+import { esUsuarioCajaOperativa } from '../utils/ventasCajaScope'
+import {
+  enrichUsuarioConNombreLegajo,
+  nombreVisibleUsuario,
+  persistUsuarioNombreVisible
+} from '../utils/usuarioDisplayName'
 import {
   getSessionKind,
   PLOTLAB_SESSION_KIND_KEY,
@@ -19,7 +25,10 @@ import {
 
 export type Usuario = {
   id: number
+  /** Login / identificador (suele ser email). No usar para mostrar en UI. */
   nombre: string
+  /** Nombre y apellido del legajo para mostrar en toda la app. */
+  nombreVisible?: string
   rol:
     | 'administracion'
     | 'gerencia'
@@ -61,11 +70,15 @@ function resolveUsuarioForContext(): Usuario | null {
 
 type AuthContextValue = {
   usuario: Usuario | null
+  /** Nombre del legajo para UI (nunca el email de login). */
+  nombreVisible: string
   setUsuario: (usuario: Usuario | null) => void
   loading: boolean
   isAdmin: boolean
   isMostrador: boolean
   isCaja: boolean
+  /** Mostrador y caja comparten operación diaria (ventas, arqueos, cierres propios). */
+  isCajaOperativa: boolean
   isTallerGrafico: boolean
   isInstalaciones: boolean
   isCompras: boolean
@@ -165,6 +178,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (!usuario || loading) return
+    void import('../features/control-cajas/cajaOperativa').then(({ prepararCajaOperativaEnLogin }) =>
+      prepararCajaOperativaEnLogin(
+        usuario.id,
+        nombreVisibleUsuario(usuario),
+        usuario.rol
+      )
+    )
+  }, [usuario?.id, usuario?.nombre, usuario?.nombreVisible, usuario?.rol, loading])
+
+  useEffect(() => {
+    if (!usuario?.id || usuario.nombreVisible) return
+    let cancelled = false
+    void enrichUsuarioConNombreLegajo(usuario).then((enriched) => {
+      if (cancelled || !enriched.nombreVisible) return
+      setUsuario(enriched)
+      persistUsuarioNombreVisible(enriched)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [usuario?.id, usuario?.nombreVisible])
+
+  useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.storageArea !== localStorage) return
       if (
@@ -186,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isGerencia = usuario?.rol === 'gerencia'
     const isMostrador = usuario?.rol === 'mostrador'
     const isCaja = usuario?.rol === 'caja'
+    const isCajaOperativa = !!usuario && esUsuarioCajaOperativa(usuario.rol)
     const isTallerGrafico = usuario?.rol === 'taller-grafico'
     const isInstalaciones = usuario?.rol === 'instalaciones'
     const isCompras = usuario?.rol === 'compras'
@@ -196,14 +234,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAsesorTecnico = usuario?.rol === 'asesor-tecnico'
     const isPresupuestos = usuario?.rol === 'presupuestos'
     const canAccessMostradorViews =
-      !!usuario && (isMostrador || isCaja || isPresupuestos || isAdmin)
+      !!usuario && (isCajaOperativa || isPresupuestos || isAdmin)
     const canManageImpresoras =
       !!usuario && (usuario.rol === 'taller-grafico' || usuario.rol === 'administracion')
     const canManageCompras =
       !!usuario && (usuario.rol === 'compras' || usuario.rol === 'administracion')
     const canViewPedidoCompraDetalle =
       !!usuario && (usuario.rol === 'compras' || usuario.rol === 'administracion' || isGerencia)
-    const canManageCaja = !!usuario && (usuario.rol === 'caja' || isAdmin)
+    const canManageCaja = !!usuario && (isCajaOperativa || isAdmin)
     const canManageInstalaciones =
       !!usuario && (usuario.rol === 'instalaciones' || usuario.rol === 'administracion')
     const canManageTallerImprenta =
@@ -230,7 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         usuario.rol === 'mostrador' ||
         usuario.rol === 'caja' ||
         usuario.rol === 'taller-grafico')
-    const canMarcarPagoTotemImpresion = !!usuario && (usuario.rol === 'caja' || isAdmin)
+    const canMarcarPagoTotemImpresion = !!usuario && (isCajaOperativa || isAdmin)
     const canManageWorkPool =
       !!usuario && (usuario.rol === 'administracion' || usuario.rol === 'presupuestos')
     const isOperarioExternoDiseno = usuario?.rol === 'operario-diseno'
@@ -253,11 +291,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return {
       usuario,
+      nombreVisible: nombreVisibleUsuario(usuario),
       setUsuario,
       loading,
       isAdmin,
       isMostrador,
       isCaja,
+      isCajaOperativa,
       isTallerGrafico,
       isInstalaciones,
       isCompras,

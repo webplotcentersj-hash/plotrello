@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import apiService from '../services/api'
 import type { RrhhBajaAdjunto, UsuarioRecord } from '../types/api'
 import {
@@ -73,7 +74,7 @@ const DarDeBajaEmpleadoModal = ({
       if (response.success) {
         onSuccess()
         onClose()
-        alert(`${usuario.nombre} fue dado de baja. El legajo e historial se conservan en Personal de baja.`)
+        alert(`${nombreVisibleDesdeRecord(usuario)} fue dado de baja. El legajo e historial se conservan en Personal de baja.`)
       } else {
         alert(`Error: ${response.error}`)
       }
@@ -99,7 +100,7 @@ const DarDeBajaEmpleadoModal = ({
           <div>
             <h3>Dar de baja colaborador</h3>
             <p className="dar-baja-subtitle">
-              {usuario.nombre} · Legajo #{usuario.id}
+              {nombreVisibleDesdeRecord(usuario)} · Legajo #{usuario.id}
             </p>
           </div>
           <button

@@ -75,7 +75,7 @@ const ChatPage = ({
   tasks: Task[]
   activity: ActivityEvent[]
 }) => {
-  const { usuario } = useAuth()
+  const { usuario, nombreVisible } = useAuth()
   const [searchParams] = useSearchParams()
   const resolvedMembers =
     teamMembers.length > 0
@@ -83,9 +83,9 @@ const ChatPage = ({
       : [
           {
             id: usuario?.id.toString() || 'user1',
-            name: usuario?.nombre || 'Usuario',
+            name: nombreVisible,
             role: 'Miembro',
-            avatar: (usuario?.nombre || 'U').charAt(0).toUpperCase(),
+            avatar: nombreVisible.charAt(0).toUpperCase(),
             productivity: 0
           }
         ]
@@ -198,7 +198,7 @@ const ChatPage = ({
         .map((msg) => `${msg.userName}: ${msg.content}`)
         .join('\n\n')
 
-      const nombreUsuario = usuario?.nombre || undefined
+      const nombreUsuario = nombreVisible || undefined
 
       const prompt = `Estás participando en el canal de chat interno "#${currentChannel}" de un equipo de producción gráfica.\n` +
         `Responde como PlotAI dentro de la conversación, en tono profesional pero cercano, SIEMPRE en español argentino.\n\n` +
@@ -412,7 +412,7 @@ const ChatPage = ({
       try {
         await supabase.rpc('marcar_usuario_online', {
           p_user_id: usuario.id,
-          p_user_nombre: usuario.nombre || 'Usuario'
+          p_user_nombre: nombreVisible
         })
       } catch (error) {
         console.error('Error marcando usuario online:', error)
@@ -690,8 +690,8 @@ const ChatPage = ({
     const optimistic: ChatMessage = {
       id: tempId,
       userId: usuario.id.toString(),
-      userName: usuario.nombre || 'Yo',
-      userAvatar: (usuario.nombre || 'Y').charAt(0).toUpperCase(),
+      userName: nombreVisible || 'Yo',
+      userAvatar: (nombreVisible || 'Y').charAt(0).toUpperCase(),
       content: finalContent || (mode === 'alert' ? '¡Atención! Revisar esto de inmediato.' : ''),
       timestamp: new Date(),
       channel: currentChannel,
@@ -807,7 +807,7 @@ const ChatPage = ({
     realtimeSubscriptionRef.current.send({
       type: 'broadcast',
       event: 'typing',
-      payload: { userId: usuario.id, userName: usuario.nombre || 'Usuario', channel: currentChannel }
+      payload: { userId: usuario.id, userName: nombreVisible, channel: currentChannel }
     })
   }
 
@@ -1365,7 +1365,7 @@ const ChatPage = ({
                 <p className="empty-hint">Sé el primero en escribir algo 👋</p>
                 {usuario?.id && (
                   <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '8px' }}>
-                    Usuario: {usuario.nombre} (ID: {usuario.id})
+                    Usuario: {nombreVisible} (ID: {usuario.id})
                   </p>
                 )}
               </div>

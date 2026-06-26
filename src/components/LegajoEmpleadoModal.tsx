@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import apiService from '../services/api'
 import type { LegajoEmpleado, UsuarioRecord } from '../types/api'
 import { isoToArgentinaDateKey } from '../utils/dateUtils'
@@ -210,7 +211,7 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
     >
       <div className="legajo-modal-content" onClick={(e) => e.stopPropagation()}>
         <header className="legajo-modal-header">
-          <h2>📋 Legajo de Empleado - {usuario.nombre}</h2>
+          <h2>📋 Legajo de Empleado - {nombreVisibleDesdeRecord(usuario)}</h2>
           <button className="legajo-modal-close" onClick={onClose}>×</button>
         </header>
 

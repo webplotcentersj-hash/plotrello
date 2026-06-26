@@ -104,7 +104,7 @@ function normalizarVentaDashboard(row: unknown): Venta | null {
 
 const MostradorDashboardPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isPresupuestos, usuario, canAccessTotemImpresionPanel } = useAuth()
+  const { isAdmin, isPresupuestos, usuario, nombreVisible, canAccessTotemImpresionPanel } = useAuth()
   const idVendedorScope = idVendedorParaConsulta(isAdmin, isPresupuestos, usuario?.id)
   const [ordenesCreadasCount, setOrdenesCreadasCount] = useState(0)
   const [showFabMenu, setShowFabMenu] = useState(false)
@@ -473,7 +473,7 @@ const MostradorDashboardPage = () => {
           cliente_nombre: 'Cliente mostrador',
           tipo,
           usuario_id: Number(usuario.id),
-          usuario_nombre: usuario.nombre || 'Mostrador',
+          usuario_nombre: nombreVisible || 'Mostrador',
           notas: 'Registro rápido'
         })
         if (!resp.success) {
@@ -799,7 +799,7 @@ const MostradorDashboardPage = () => {
             <div>
               <h1>Dashboard de mostrador</h1>
               <p>
-                {usuario?.nombre ? `Hola, ${usuario.nombre} · ` : ''}
+                {nombreVisible ? `Hola, ${nombreVisible} · ` : ''}
                 Acciones del día y estado del sector
               </p>
             </div>

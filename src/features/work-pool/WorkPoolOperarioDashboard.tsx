@@ -4,6 +4,7 @@ import type { Notification } from '../../types/api'
 import type { WorkPoolJob, WorkPoolProduct, WorkPoolSaldoOperario } from '../../types/workPool'
 import { WORK_POOL_ESTADO_LABELS } from '../../types/workPool'
 import apiService from '../../services/api'
+import { nombreVisibleDesdeRecord } from '../../utils/usuarioDisplayName'
 import { PHI_PUBLIC_URL } from '../../utils/phiPublicUrl'
 import { WORK_POOL_PRODUCT_CONFIG } from './workPoolConfig'
 import { jobPedidoLabel, maskJobForOperarioExterno } from './workPoolOperarioExterno'
@@ -352,7 +353,7 @@ export default function WorkPoolOperarioDashboard({
             <div>
               <p className="wp-operario-dash__brand-eyebrow">phi (φ) · {cfg.label}</p>
               <p className="wp-operario-dash__brand-title">Panel externo</p>
-              <p className="wp-operario-dash__brand-sub">{usuario.nombre}</p>
+              <p className="wp-operario-dash__brand-sub">{nombreVisibleDesdeRecord(usuario)}</p>
             </div>
           </div>
 

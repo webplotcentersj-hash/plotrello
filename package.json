@@ -26,7 +26,8 @@
     "import:lista-precios": "node scripts/import-lista-precios-flexxus.mjs",
     "migrate:postulantes:db": "node scripts/importar-postulantes-anon.mjs",
     "migrate:postulantes:cvs": "node scripts/subir-cvs-legacy.mjs",
-    "manual:pdf:espejo": "node scripts/print-manual-espejo-pdf.mjs"
+    "manual:pdf:espejo": "node scripts/print-manual-espejo-pdf.mjs",
+    "test:caja": "npx tsx --test src/features/control-cajas/cajaOperativa.node.test.ts"
   },
   "devDependencies": {
     "@types/dotenv": "^6.1.1",

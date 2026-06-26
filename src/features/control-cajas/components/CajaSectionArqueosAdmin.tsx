@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { deleteArqueo, getParams, listArqueos, listCajas, mismoCajaSlug } from '../cajaRepository'
+import { deleteArqueo, listArqueos, listCajas, mismoCajaSlug } from '../cajaRepository'
 import { resolveUsuarioCajaEtiqueta } from '../cajaUsuarioDisplay'
-import { DEFAULT_CAJERAS, TURNOS_CAJA } from '../constants'
+import { TURNOS_CAJA } from '../constants'
 import { fmtArs, fmtDateAr } from '../format'
 import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
-import type { CajaArqueo, CajaCajera, CajaRegistro } from '../types'
+import type { CajaArqueo, CajaRegistro } from '../types'
 import { downloadArqueoPdf } from '../exportArqueoPdf'
 import CajaArqueoDetalleModal from './CajaArqueoDetalleModal'
 import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
@@ -14,20 +14,18 @@ export default function CajaSectionArqueosAdmin() {
   const [arqueos, setArqueos] = useState<CajaArqueo[]>([])
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [detalle, setDetalle] = useState<CajaArqueo | null>(null)
-  const [cajeras, setCajeras] = useState<CajaCajera[]>(DEFAULT_CAJERAS)
   const [listSearch, setListSearch] = useState('')
   const [filtCaja, setFiltCaja] = useState('')
   const [filtTurno, setFiltTurno] = useState('')
-  const [filtCajera, setFiltCajera] = useState('')
+  const [filtOperador, setFiltOperador] = useState('')
   const [filtDesde, setFiltDesde] = useState('')
   const [filtHasta, setFiltHasta] = useState('')
   const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE)
 
   const reload = () => {
-    void Promise.all([listArqueos(), listCajas(), getParams()]).then(([a, c, p]) => {
+    void Promise.all([listArqueos(), listCajas()]).then(([a, c]) => {
       setArqueos(a)
       setCajas(c)
-      setCajeras(p.cajeras?.length ? p.cajeras : DEFAULT_CAJERAS)
     })
   }
 
@@ -37,19 +35,19 @@ export default function CajaSectionArqueosAdmin() {
 
   const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
 
-  const cajeraLabel = (a: CajaArqueo) =>
-    resolveUsuarioCajaEtiqueta(a.usuario_nombre ?? '', cajeras)
+  const operadorLabel = (a: CajaArqueo) =>
+    resolveUsuarioCajaEtiqueta(a.usuario_nombre ?? '')
 
-  const cajerasEnLista = useMemo(() => {
-    const labels = arqueos.map((a) => cajeraLabel(a)).filter(Boolean)
+  const operadoresEnLista = useMemo(() => {
+    const labels = arqueos.map((a) => operadorLabel(a)).filter(Boolean)
     return [...new Set(labels)].sort((a, b) => a.localeCompare(b, 'es'))
-  }, [arqueos, cajeras])
+  }, [arqueos])
 
   const arqueosFiltrados = useMemo(() => {
     return arqueos.filter((a) => {
       if (filtCaja && !mismoCajaSlug(a.caja_slug, filtCaja)) return false
       if (filtTurno && a.turno !== filtTurno) return false
-      if (filtCajera && cajeraLabel(a) !== filtCajera) return false
+      if (filtOperador && operadorLabel(a) !== filtOperador) return false
       if (filtDesde && a.fecha < filtDesde) return false
       if (filtHasta && a.fecha > filtHasta) return false
       return matchSearchQuery(listSearch, [
@@ -58,17 +56,17 @@ export default function CajaSectionArqueosAdmin() {
         cajaNombre(a.caja_slug),
         a.caja_slug,
         a.turno,
-        cajeraLabel(a),
+        operadorLabel(a),
         a.usuario_nombre,
         fmtArs(a.total)
       ])
     })
-  }, [arqueos, listSearch, filtCaja, filtTurno, filtCajera, filtDesde, filtHasta, cajas, cajeras])
+  }, [arqueos, listSearch, filtCaja, filtTurno, filtOperador, filtDesde, filtHasta, cajas])
 
   const arqueosVisibles = arqueosFiltrados.slice(0, listLimit)
 
   const hayFiltrosActivos =
-    Boolean(listSearch || filtCaja || filtTurno || filtCajera || filtDesde || filtHasta)
+    Boolean(listSearch || filtCaja || filtTurno || filtOperador || filtDesde || filtHasta)
 
   const listaToolbar = (
     <div className="caja-cc-card-toolbar caja-cc-card-toolbar--stack">
@@ -78,7 +76,7 @@ export default function CajaSectionArqueosAdmin() {
           setListSearch(v)
           setListLimit(LIST_PAGE_SIZE)
         }}
-        placeholder="Buscar fecha, caja, cajera, turno, monto…"
+        placeholder="Buscar fecha, caja, operador, turno, monto…"
       />
       <div className="caja-cc-filters-row">
         <label className="caja-cc-filter-chip">
@@ -116,16 +114,16 @@ export default function CajaSectionArqueosAdmin() {
           </select>
         </label>
         <label className="caja-cc-filter-chip">
-          <span>Cajera</span>
+          <span>Operador</span>
           <select
-            value={filtCajera}
+            value={filtOperador}
             onChange={(e) => {
-              setFiltCajera(e.target.value)
+              setFiltOperador(e.target.value)
               setListLimit(LIST_PAGE_SIZE)
             }}
           >
-            <option value="">Todas</option>
-            {cajerasEnLista.map((n) => (
+            <option value="">Todos</option>
+            {operadoresEnLista.map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
@@ -162,7 +160,7 @@ export default function CajaSectionArqueosAdmin() {
               setListSearch('')
               setFiltCaja('')
               setFiltTurno('')
-              setFiltCajera('')
+              setFiltOperador('')
               setFiltDesde('')
               setFiltHasta('')
               setListLimit(LIST_PAGE_SIZE)
@@ -182,7 +180,7 @@ export default function CajaSectionArqueosAdmin() {
       </div>
 
       <CajaCollapsibleCard
-        title="Arqueos firmados por cajeras"
+        title="Arqueos firmados"
         count={arqueosFiltrados.length}
         defaultOpen={arqueos.length > 0 && arqueos.length <= 8}
         toolbar={listaToolbar}
@@ -193,7 +191,7 @@ export default function CajaSectionArqueosAdmin() {
         </p>
         {arqueosVisibles.length === 0 ? (
           <p className="caja-cc-empty">
-            {hayFiltrosActivos ? 'Sin coincidencias con los filtros.' : 'Las cajeras todavía no cargaron arqueos.'}
+            {hayFiltrosActivos ? 'Sin coincidencias con los filtros.' : 'Todavía no hay arqueos cargados.'}
           </p>
         ) : (
           <>
@@ -204,7 +202,7 @@ export default function CajaSectionArqueosAdmin() {
                     <th>Fecha</th>
                     <th>Caja</th>
                     <th>Turno</th>
-                    <th>Cajera</th>
+                    <th>Operador</th>
                     <th className="num">Total</th>
                     <th>Firma</th>
                     <th />
@@ -229,7 +227,7 @@ export default function CajaSectionArqueosAdmin() {
                       <td>{fmtDateAr(a.fecha)}</td>
                       <td>{cajaNombre(a.caja_slug)}</td>
                       <td>{a.turno}</td>
-                      <td>{cajeraLabel(a)}</td>
+                      <td>{operadorLabel(a)}</td>
                       <td className="num">$ {fmtArs(a.total)}</td>
                       <td>
                         {a.firma_data_url ? (
@@ -247,7 +245,7 @@ export default function CajaSectionArqueosAdmin() {
                           className="btn-small"
                           title="Descargar PDF"
                           onClick={() =>
-                            downloadArqueoPdf(a, cajaNombre(a.caja_slug), cajeraLabel(a))
+                            downloadArqueoPdf(a, cajaNombre(a.caja_slug), operadorLabel(a))
                           }
                         >
                           PDF
@@ -289,7 +287,7 @@ export default function CajaSectionArqueosAdmin() {
         <CajaArqueoDetalleModal
           arqueo={detalle}
           cajaNombre={cajaNombre(detalle.caja_slug)}
-          cajeraNombre={cajeraLabel(detalle)}
+          cajeraNombre={operadorLabel(detalle)}
           onClose={() => setDetalle(null)}
           onDelete={() => {
             void deleteArqueo(detalle.id).then(() => {

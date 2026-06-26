@@ -9,7 +9,7 @@ import './CrearPedidoCompraPage.css'
 
 const CrearPedidoCompraPage = () => {
   const navigate = useNavigate()
-  const { canManageCompras, usuario, loading: authLoading } = useAuth()
+  const { canManageCompras, usuario, nombreVisible, loading: authLoading } = useAuth()
   const [saving, setSaving] = useState(false)
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [loadingProveedores, setLoadingProveedores] = useState(false)
@@ -171,7 +171,7 @@ const CrearPedidoCompraPage = () => {
 
       const response = await apiService.crearPedidoCompra({
         id_solicitante: usuario.id,
-        nombre_solicitante: usuario.nombre,
+        nombre_solicitante: nombreVisible,
         sector_solicitante: formData.sector_solicitante.trim(),
         id_proveedor: parseInt(formData.id_proveedor),
         motivo: formData.motivo.trim() || undefined,
@@ -206,7 +206,7 @@ const CrearPedidoCompraPage = () => {
           pdf.setFont('helvetica', 'normal')
           addLine(`N° Pedido: ${pedido?.numero_pedido || pedido?.numero || pedido?.id || ''}`, 12, 6)
           addLine(`Fecha: ${new Date().toLocaleString('es-AR')}`, 11, 6)
-          addLine(`Solicitante: ${usuario.nombre}`, 11, 6)
+          addLine(`Solicitante: ${nombreVisible}`, 11, 6)
           addLine(`Sector: ${formData.sector_solicitante}`, 11, 6)
           addLine(`Proveedor: ${proveedorSeleccionado?.nombre || ''}`, 11, 6)
           if (proveedorSeleccionado?.razon_social) addLine(`Razón social: ${proveedorSeleccionado.razon_social}`, 11, 6)
@@ -314,7 +314,7 @@ const CrearPedidoCompraPage = () => {
               <label>Solicitante</label>
               <input
                 type="text"
-                value={usuario.nombre}
+                value={nombreVisible}
                 disabled
                 className="disabled-input"
               />

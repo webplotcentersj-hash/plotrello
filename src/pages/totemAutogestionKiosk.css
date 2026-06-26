@@ -1,8 +1,10 @@
 /* Kiosko / pantalla grande: contenedor sobre fondo animado */
 .totem-kiosk-shell {
   width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .totem-kiosk-inner {

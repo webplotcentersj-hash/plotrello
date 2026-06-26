@@ -1,21 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  getParams,
-  getUltimoArqueoCaja,
-  listCajas,
-  listMovimientos,
-  listPlanillas,
-  resolveCajaSlugForUsuario,
-  resolveCajaSlugFromHistorial,
-  saveMovimiento
-} from '../cajaRepository'
+import { useCajaOperativa } from '../../../hooks/useCajaOperativa'
+import { getUltimoArqueoCaja, listCajas, listMovimientos, listPlanillas, saveMovimiento } from '../cajaRepository'
 import {
   buscarPlanillaCaja,
   montosCajaDesdeFuentes,
   sugerirMontoPase
 } from '../paseCajaMontos'
-import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
-import { DEFAULT_CAJERAS } from '../constants'
 import { fmtArs, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { calcularPaseTrazabilidad, validarPaseCaja } from '../paseCaja'
@@ -35,13 +25,14 @@ export default function CajaSectionPaseCaja({
   usuarioId,
   soloMisPases = false
 }: Props) {
+  const { slug: cajaSlugOp, loading: cajaOperativaLoading } = useCajaOperativa({
+    enabled: soloMisPases
+  })
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [pases, setPases] = useState<CajaMovimiento[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-  const [cajaResolviendo, setCajaResolviendo] = useState(soloMisPases)
-  const [cajaAutoAsignada, setCajaAutoAsignada] = useState(false)
   const [historialOpen, setHistorialOpen] = useState(false)
   const [detalleMovimiento, setDetalleMovimiento] = useState<CajaMovimiento | null>(null)
 
@@ -82,51 +73,19 @@ export default function CajaSectionPaseCaja({
   }, [reload])
 
   useEffect(() => {
-    if (!soloMisPases) {
-      setCajaResolviendo(false)
-      return
-    }
-    let cancelled = false
-    setCajaResolviendo(true)
-
-    void Promise.all([listCajas(), getParams()]).then(async ([list, params]) => {
-      const operativas = list.filter((x) => x.slug !== 'vuelto' && x.slug !== 'admin')
-      if (cancelled) return
-
-      const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
-      let slug =
-        resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ?? ''
-
-      if (!slug && usuarioId) {
-        slug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? ''
-      }
-
-      if (cancelled) return
-      if (slug) {
-        setOrigen(slug)
-        setCajaAutoAsignada(true)
-        if (usuarioId) setStoredCajaSlug(usuarioId, slug)
-        setDestino((prev) => {
-          if (prev && prev !== slug) return prev
-          const admin = list.find((x) => x.slug === 'admin')?.slug
-          if (admin) return admin
-          return operativas.find((c) => c.slug !== slug)?.slug ?? ''
-        })
-      } else {
-        setCajaAutoAsignada(false)
-        if (operativas.length) {
-          const first = operativas[0].slug
-          setOrigen((prev) => prev || first)
-          setDestino((prev) => prev || (list.find((x) => x.slug === 'admin')?.slug ?? operativas[1]?.slug ?? ''))
-        }
-      }
-      setCajaResolviendo(false)
+    if (!soloMisPases || !cajaSlugOp) return
+    setOrigen(cajaSlugOp)
+    const admin = cajas.find((x) => x.slug === 'admin')?.slug
+    setDestino((prev) => {
+      if (prev && prev !== cajaSlugOp) return prev
+      if (admin) return admin
+      const operativas = cajas.filter((x) => x.slug !== 'vuelto' && x.slug !== 'admin')
+      return operativas.find((c) => c.slug !== cajaSlugOp)?.slug ?? ''
     })
+  }, [soloMisPases, cajaSlugOp, cajas])
 
-    return () => {
-      cancelled = true
-    }
-  }, [soloMisPases, usuarioNombre, usuarioId])
+  const cajaResolviendo = soloMisPases && cajaOperativaLoading
+  const cajaAutoAsignada = soloMisPases && Boolean(cajaSlugOp)
 
   useEffect(() => {
     if (soloMisPases) return
@@ -303,7 +262,6 @@ export default function CajaSectionPaseCaja({
 
   const onOrigenManual = (slug: string) => {
     setOrigen(slug)
-    if (usuarioId && slug) setStoredCajaSlug(usuarioId, slug)
   }
 
   return (

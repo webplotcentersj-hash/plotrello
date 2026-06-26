@@ -193,7 +193,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
         <div>
           <h2>{tituloDia}</h2>
           <p className="caja-cc-sub">
-            Fondo entre cajas ({fondosTxt}, editable por cajeras): una caja (Rosa o Noelia) lo traspasa a la otra;
+            Fondo en cajas de mostrador ({fondosTxt}, editable en cierre de turno): cada operador deja el fondo en su caja o lo traspasa a otra operativa;
             el resto ingresa a administración.
           </p>
         </div>
@@ -321,8 +321,8 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
               <h3>Regla del cierre de turno</h3>
               <ol className="caja-cc-steps-simple">
                 <li>
-                  <strong>Fondo</strong> (recomendado $ {fmtArs(resumen.fondoRecomendado)}, editable por la cajera) —
-                  se traspasa a la otra caja operativa (ej. Rosa → Noelia).
+                  <strong>Fondo</strong> (recomendado $ {fmtArs(resumen.fondoRecomendado)}, editable en cierre de turno) —
+                  se traspasa a otra caja operativa si corresponde.
                 </li>
                 <li>
                   <strong>Resto del arqueo</strong> (menos egresos del día) — va a <strong>Caja Administración</strong>.

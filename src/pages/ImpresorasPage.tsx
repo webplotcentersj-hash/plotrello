@@ -12,6 +12,8 @@ import {
 } from 'recharts'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
+import { useUsuariosDisplay } from '../hooks/useUsuariosDisplay'
 import { getArgentinaDateString } from '../utils/dateUtils'
 import { downloadImpresoraMetrosHorasPdf } from '../utils/impresoraMetrosReportPdf'
 import './ImpresorasPage.css'
@@ -86,6 +88,7 @@ type TrabajoActivo = {
 }
 
 const ImpresorasPage = () => {
+  useUsuariosDisplay()
   const navigate = useNavigate()
   const { loading: authLoading, usuario, canManageImpresoras, canAccessTotemImpresionPanel } = useAuth()
   const [impresoras, setImpresoras] = useState<ImpresoraOcupacion[]>([])
@@ -1016,7 +1019,7 @@ const ImpresorasPage = () => {
                             {item.estado_nuevo}
                           </span>
                         </td>
-                        <td>{item.usuario_nombre || '-'}</td>
+                        <td>{etiquetaUsuarioNombre(item.usuario_nombre)}</td>
                         <td>{item.motivo || '-'}</td>
                       </tr>
                     ))}

@@ -4,9 +4,8 @@ import { useAuth } from '../../../hooks/useAuth'
 import { NAV_ADMIN, NAV_CAJA } from '../constants'
 import { VENTAS } from '../../../utils/ventasRoutes'
 import type { CajaSectionId } from '../types'
-import { getParams, usesRemoteStorage } from '../cajaRepository'
+import { usesRemoteStorage } from '../cajaRepository'
 import { resolveUsuarioCajaEtiqueta } from '../cajaUsuarioDisplay'
-import { DEFAULT_CAJERAS } from '../constants'
 import CajaMenuOperativa from './CajaMenuOperativa'
 import CajaSectionTablero from './CajaSectionTablero'
 import CajaTableroAdmin from './CajaTableroAdmin'
@@ -77,23 +76,16 @@ export default function ControlCajasModule() {
   const location = useLocation()
   const {
     usuario,
+    nombreVisible,
     isAdmin,
     canManageCaja,
     canAccessTotemImpresionPanel,
+    isMostrador,
     loading: authLoading
   } = useAuth()
   const canViewIngresos = isAdmin
   const usuarioId = usuario?.id
-  const [usuarioEtiqueta, setUsuarioEtiqueta] = useState(
-    () => resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario')
-  )
-
-  useEffect(() => {
-    void getParams().then((p) => {
-      const cajeras = p.cajeras?.length ? p.cajeras : DEFAULT_CAJERAS
-      setUsuarioEtiqueta(resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario', cajeras))
-    })
-  }, [usuario?.nombre])
+  const usuarioEtiqueta = nombreVisible || resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario')
 
   const pathVista = useMemo(() => vistaDesdePath(location.pathname), [location.pathname])
   const [vista, setVista] = useState<VistaCajaModulo>(() => {
@@ -132,10 +124,10 @@ export default function ControlCajasModule() {
   }, [authLoading, canManageCaja, navigate])
 
   useEffect(() => {
-    if (authLoading || !canManageCaja || !isAdmin) return
+    if (authLoading || !canManageCaja) return
     const p = location.pathname.replace(/\/$/, '')
     if (p === '/caja/dashboard') {
-      navigate('/caja/dashboard/admin', { replace: true })
+      navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja', { replace: true })
     }
   }, [authLoading, canManageCaja, isAdmin, location.pathname, navigate])
 
@@ -228,7 +220,7 @@ export default function ControlCajasModule() {
             <h1>Control de Cajas</h1>
             <p className="caja-header-lead">
               {enVistaAdmin
-                ? 'Fondo recomendado $100.000 entre cajas (editable por cajeras), resto a administración, egresos e ingresos de hoy.'
+                ? 'Fondo recomendado $100.000 en tu caja (editable en cierre de turno), resto a administración, egresos e ingresos de hoy.'
                 : 'Arqueo y cierre de turno. Podés ajustar el fondo de caja en cada cierre (recomendado $100.000).'}
             </p>
             {remote === false && (
@@ -256,7 +248,10 @@ export default function ControlCajasModule() {
 
       <div className={`caja-cc-role-banner ${enVistaAdmin ? 'admin' : 'caja'}`}>
         <span>
-          <strong>{enVistaAdmin ? 'Administración' : 'Caja'}</strong> — {usuarioEtiqueta}
+          <strong>
+            {enVistaAdmin ? 'Administración' : isMostrador ? 'Mostrador · Mi caja' : 'Caja'}
+          </strong>{' '}
+          — {usuarioEtiqueta}
           {!canViewIngresos && enVistaAdmin && ' · Los ingresos del tablero ERP solo los ve administración.'}
         </span>
         {isAdmin && (

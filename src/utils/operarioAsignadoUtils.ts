@@ -9,7 +9,7 @@ export function normalizePersonNameKey(value: string | null | undefined): string
 }
 
 export function matchesOperarioAsignado(
-  usuario: { id: number; nombre: string } | null | undefined,
+  usuario: { id: number; nombre: string; nombreVisible?: string } | null | undefined,
   operarioAsignado: string | null | undefined
 ): boolean {
   if (!usuario) return false
@@ -17,7 +17,7 @@ export function matchesOperarioAsignado(
   if (!raw || raw === 'sin-asignar') return false
   const myIdStr = String(usuario.id)
   if (myIdStr && raw === myIdStr) return true
-  const me = normalizePersonNameKey(usuario.nombre)
+  const me = normalizePersonNameKey(usuario.nombreVisible ?? usuario.nombre)
   if (me && normalizePersonNameKey(raw) === me) return true
   return false
 }

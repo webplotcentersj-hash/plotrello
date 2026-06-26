@@ -5,6 +5,7 @@ import ErrorBoundary from '../components/ErrorBoundary'
 import PwaRefreshGate from '../components/PwaRefreshGate'
 import { PwaUpdateProvider } from '../contexts/PwaUpdateContext'
 import { AuthProvider } from '../hooks/useAuth'
+import { UsuariosDisplayProvider } from '../hooks/useUsuariosDisplay'
 import '../style.css'
 
 // Manejo global de errores no capturados
@@ -34,11 +35,13 @@ try {
     <React.StrictMode>
       <ErrorBoundary>
         <AuthProvider>
-          <PwaUpdateProvider>
-            <PwaRefreshGate>
-              <App />
-            </PwaRefreshGate>
-          </PwaUpdateProvider>
+          <UsuariosDisplayProvider>
+            <PwaUpdateProvider>
+              <PwaRefreshGate>
+                <App />
+              </PwaRefreshGate>
+            </PwaUpdateProvider>
+          </UsuariosDisplayProvider>
         </AuthProvider>
       </ErrorBoundary>
     </React.StrictMode>

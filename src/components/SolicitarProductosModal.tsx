@@ -19,7 +19,7 @@ type ItemSolicitud = {
 }
 
 const SolicitarProductosModal = ({ onClose, onSuccess }: SolicitarProductosModalProps) => {
-  const { usuario } = useAuth()
+  const { usuario, nombreVisible } = useAuth()
   const [busqueda, setBusqueda] = useState('')
   const [articulos, setArticulos] = useState<ArticuloStock[]>([])
   const [buscando, setBuscando] = useState(false)
@@ -170,14 +170,14 @@ const SolicitarProductosModal = ({ onClose, onSuccess }: SolicitarProductosModal
 
       console.log('📦 Creando pedido con datos:', {
         id_solicitante: usuario.id,
-        nombre_solicitante: usuario.nombre,
+        nombre_solicitante: nombreVisible,
         sector_solicitante: sectorSolicitante,
         items: items.length
       })
 
       const response = await apiService.crearPedidoCompra({
         id_solicitante: usuario.id || 0, // Enviar 0 si no hay ID, el backend lo manejará
-        nombre_solicitante: usuario.nombre,
+        nombre_solicitante: nombreVisible,
         sector_solicitante: sectorSolicitante,
         prioridad,
         motivo: motivo.trim(),

@@ -6,6 +6,8 @@ import AdminReports from './pages/AdminReports'
 import AdminDeletedOpsPage from './pages/AdminDeletedOpsPage'
 import './pages/AdminDashboard.css'
 import { useAuth } from '../hooks/useAuth'
+import { useUsuariosDisplayBootstrap } from '../hooks/useUsuariosDisplay'
+import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import type { Task, TeamMember, ActivityEvent } from '../types/board'
 import type {
   FacturaVentaRecord,
@@ -21,20 +23,24 @@ import '../app.css'
 import './App.css'
 
 const mapUsuariosToTeamMembers = (usuarios: UsuarioRecord[]): TeamMember[] =>
-  usuarios.map((usuario) => ({
-    id: usuario.id.toString(),
-    name: usuario.nombre,
-    role: usuario.rol,
-    avatar: usuario.nombre
-      .split(' ')
-      .map((part) => part.charAt(0))
-      .join('')
-      .slice(0, 2)
-      .toUpperCase(),
-    productivity: 0
-  }))
+  usuarios.map((usuario) => {
+    const display = nombreVisibleDesdeRecord(usuario)
+    return {
+      id: usuario.id.toString(),
+      name: display,
+      role: usuario.rol,
+      avatar: display
+        .split(' ')
+        .map((part) => part.charAt(0))
+        .join('')
+        .slice(0, 2)
+        .toUpperCase(),
+      productivity: 0
+    }
+  })
 
 function AdminApp() {
+  useUsuariosDisplayBootstrap()
   const [tasks, setTasks] = useState<Task[]>([])
   const [activity, setActivity] = useState<ActivityEvent[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])

@@ -62,7 +62,7 @@ const TIPOS_NOVEDAD: { value: TipoNovedad; label: string; color: string }[] = [
 export default function LibroActasSectorPage() {
   const { sectorId } = useParams<{ sectorId: string }>()
   const navigate = useNavigate()
-  const { usuario, loading: authLoading } = useAuth()
+  const { usuario, nombreVisible, loading: authLoading } = useAuth()
   const [sector, setSector] = useState<SectorRecord | null>(null)
   const [actas, setActas] = useState<ActaSectorRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -284,7 +284,7 @@ export default function LibroActasSectorPage() {
       const response = await apiService.crearActaSector({
         id_sector: parseInt(sectorId),
         usuario_id: usuario.id,
-        usuario_nombre: usuario.nombre || 'Usuario',
+        usuario_nombre: nombreVisible,
         titulo: formData.titulo.trim(),
         contenido: formData.contenido.trim(),
         tipo_novedad: formData.tipo_novedad,

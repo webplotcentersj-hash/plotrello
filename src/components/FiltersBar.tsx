@@ -59,7 +59,7 @@ const FiltersBar = ({
   searchPlaceholder = 'Buscar: OP, cliente, descripción, etiquetas, contacto, materiales…',
   compactPhone = false
 }: FiltersBarProps) => {
-  const { isAdmin, isDiseno, canAccessMostradorViews, usuario } = useAuth()
+  const { isAdmin, isDiseno, canAccessMostradorViews, usuario, nombreVisible } = useAuth()
   const [copiandoBrief, setCopiandoBrief] = useState(false)
   const [showVentaRapida, setShowVentaRapida] = useState(false)
   const [sectorPickerOpen, setSectorPickerOpen] = useState(false)
@@ -345,7 +345,7 @@ const FiltersBar = ({
       <VentaRapidaModal
         uiVariant="mostrador"
         usuarioId={usuario.id}
-        usuarioNombre={usuario.nombre}
+        usuarioNombre={nombreVisible}
         onClose={() => setShowVentaRapida(false)}
         onSuccess={() => setShowVentaRapida(false)}
       />

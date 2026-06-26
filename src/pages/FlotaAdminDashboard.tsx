@@ -22,7 +22,7 @@ const OPCIONES_ESTADO_PARQUE: { value: VehiculoEstadoParque; label: string }[] =
 
 const FlotaAdminDashboard = () => {
   const navigate = useNavigate()
-  const { isAdmin, isCaja, usuario, loading: authLoading } = useAuth()
+  const { isAdmin, isCajaOperativa, usuario, nombreVisible, loading: authLoading } = useAuth()
   const [estadisticas, setEstadisticas] = useState<{
     total_salidas: number
     vehiculos_en_uso: number
@@ -171,7 +171,7 @@ const FlotaAdminDashboard = () => {
     if (!confirm('¿Aprobar esta reserva? Ese vehículo quedará asignado a esa persona para ese día.')) return
     setReservaAccionId(id)
     try {
-      const res = await apiService.aprobarReservaVehiculoFlota(id, usuario.id, usuario.nombre || 'Caja/Admin')
+      const res = await apiService.aprobarReservaVehiculoFlota(id, usuario.id, nombreVisible || 'Caja/Admin')
       if (res.success) await loadReservasPendientes()
       else alert(res.error || 'No se pudo aprobar')
     } finally {
@@ -196,7 +196,7 @@ const FlotaAdminDashboard = () => {
       const res = await apiService.autorizarRegistroSalidaVehiculo(
         id,
         usuario.id,
-        usuario.nombre || 'Caja/Admin'
+        nombreVisible || 'Caja/Admin'
       )
       if (res.success) {
         await loadSolicitudesSalidaPendientes()
@@ -217,7 +217,7 @@ const FlotaAdminDashboard = () => {
     if (!confirm('¿Rechazar esta solicitud de reserva?')) return
     setReservaAccionId(id)
     try {
-      const res = await apiService.rechazarReservaVehiculoFlota(id, usuario.id, usuario.nombre || 'Caja/Admin')
+      const res = await apiService.rechazarReservaVehiculoFlota(id, usuario.id, nombreVisible || 'Caja/Admin')
       if (res.success) await loadReservasPendientes()
       else alert(res.error || 'No se pudo rechazar')
     } finally {
@@ -242,7 +242,7 @@ const FlotaAdminDashboard = () => {
 
   useEffect(() => {
     if (authLoading) return
-    if (!isAdmin && !isCaja) {
+    if (!isAdmin && !isCajaOperativa) {
       navigate('/flota')
       return
     }
@@ -270,7 +270,7 @@ const FlotaAdminDashboard = () => {
     loadReservasPendientes,
     loadSolicitudesSalidaPendientes,
     isAdmin,
-    isCaja,
+    isCajaOperativa,
     navigate
   ])
 
@@ -282,7 +282,7 @@ const FlotaAdminDashboard = () => {
     )
   }
 
-  if (!isAdmin && !isCaja) {
+  if (!isAdmin && !isCajaOperativa) {
     return null
   }
 

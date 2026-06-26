@@ -183,3 +183,29 @@ export function totalPorcentajeAjustes(config: ConfigAjustesPreciosVentas): numb
   }
   return t
 }
+
+/** Prioridad en venta rápida — recargo sobre precio de lista ya ajustado. */
+export type PrioridadVentaRapida = 'Baja' | 'Normal' | 'Alta' | 'Urgente'
+
+export function recargoPorcentajePrioridad(prioridad: PrioridadVentaRapida): number {
+  switch (prioridad) {
+    case 'Alta':
+      return 10
+    case 'Urgente':
+      return 45
+    default:
+      return 0
+  }
+}
+
+export function aplicarRecargoPrioridad(precio: number, prioridad: PrioridadVentaRapida): number {
+  const pct = recargoPorcentajePrioridad(prioridad)
+  if (pct <= 0 || !Number.isFinite(precio)) return precio
+  return round2(precio * (1 + pct / 100))
+}
+
+export function labelRecargoPrioridad(prioridad: PrioridadVentaRapida): string | null {
+  const pct = recargoPorcentajePrioridad(prioridad)
+  if (pct <= 0) return null
+  return `+${pct}% por prioridad ${prioridad.toLowerCase()}`
+}

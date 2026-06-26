@@ -1,13 +1,6 @@
 import { useRef, useState } from 'react'
-import {
-  getParams,
-  listCajas,
-  resolveCajaSlugForUsuario,
-  resolveCajaSlugFromHistorial,
-  saveMovimientosBulk
-} from '../cajaRepository'
-import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
-import { DEFAULT_CAJERAS } from '../constants'
+import { obtenerCajaOperativa } from '../cajaOperativa'
+import { listCajas, saveMovimientosBulk } from '../cajaRepository'
 import { fmtArs, fmtDateAr, montoVisibleMovimiento } from '../format'
 import {
   comprobantesToMovimientos,
@@ -90,19 +83,15 @@ export default function CajaImportComprobantesMedios({
     setErr(null)
     setMsg(null)
     try {
-      const [cajas, params] = await Promise.all([listCajas(), getParams()])
-      const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
-      const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
-
-      let cajaSlug =
-        resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ?? ''
-      if (!cajaSlug && usuarioId) {
-        cajaSlug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? ''
+      let cajaSlug = ''
+      if (usuarioId) {
+        const op = await obtenerCajaOperativa(usuarioId, usuarioNombre)
+        cajaSlug = op.slug
       }
+      const cajas = await listCajas()
+      const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
       if (!cajaSlug) cajaSlug = operativas[0]?.slug ?? ''
       if (!cajaSlug) throw new Error('No se pudo determinar tu caja.')
-
-      if (usuarioId) setStoredCajaSlug(usuarioId, cajaSlug)
 
       const movs = comprobantesToMovimientos(
         preview,

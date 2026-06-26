@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
+import { etiquetaOperarioAsignado } from '../utils/etiquetaUsuarioNombre'
 import type { OrdenTrabajo } from '../types/api'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './DisenoDashboardPage.css'
@@ -76,7 +77,9 @@ const DisenoDashboardPage = () => {
         // Calcular métricas
         const proyectosPorDiseñador: Record<string, number> = {}
         ordenesDisenoFiltradas.forEach((orden) => {
-          const diseñador = orden.operario_asignado || orden.usuario_trabajando_nombre || 'Sin asignar'
+          const diseñador = etiquetaOperarioAsignado(
+            orden.operario_asignado || orden.usuario_trabajando_nombre
+          )
           proyectosPorDiseñador[diseñador] = (proyectosPorDiseñador[diseñador] || 0) + 1
         })
 
@@ -337,7 +340,7 @@ const DisenoDashboardPage = () => {
                 <div className="proyecto-cliente">{orden.cliente}</div>
                 {orden.operario_asignado && (
                   <div className="proyecto-diseñador">
-                    Diseñador: {orden.operario_asignado}
+                    Diseñador: {etiquetaOperarioAsignado(orden.operario_asignado)}
                   </div>
                 )}
                 <button 

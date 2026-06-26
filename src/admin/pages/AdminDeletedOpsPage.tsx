@@ -19,7 +19,7 @@ type DeletedOpRow = {
 }
 
 export default function AdminDeletedOpsPage() {
-  const { usuario } = useAuth()
+  const { usuario, nombreVisible } = useAuth()
   const [rows, setRows] = useState<DeletedOpRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,7 +50,7 @@ export default function AdminDeletedOpsPage() {
           <div className="admin-header-right">
             {usuario && (
               <div className="admin-user-info">
-                <span>👤 {usuario.nombre}</span>
+                <span>👤 {nombreVisible}</span>
                 <span className="admin-user-role">{usuario.rol}</span>
               </div>
             )}

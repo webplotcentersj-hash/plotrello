@@ -1,6 +1,10 @@
 import { supabase } from '../../services/supabaseClient'
 import { DEFAULT_CAJAS, DEFAULT_PARAMS, LS_KEY } from './constants'
-import { getPlotlabLoginKeys, getStoredCajaSlug } from './cajaUsuarioDisplay'
+import {
+  buildCajaRegistroUsuario,
+  cajaSlugForUsuario
+} from './cajaPorUsuario'
+import { fetchNombreDisplayUsuario, usuarioCajaActivo } from './cajaUsuarioDb'
 import { cierreFromCalculado } from './cierreCalculations'
 import { newId } from './format'
 import {
@@ -14,7 +18,6 @@ import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
 import { datosJsonToPlanilla, planillaToDatosJson } from './planillaMovimientos'
 import type {
   CajaArqueo,
-  CajaCajera,
   CajaCierre,
   CajaConcilBanco,
   CajaConcilMP,
@@ -173,7 +176,7 @@ function readLocal(): LocalStore {
     diferencias: [],
     transferencia_lotes: [],
     egreso_solicitudes: [],
-    params: { ...DEFAULT_PARAMS, cajeras: [...DEFAULT_PARAMS.cajeras] }
+    params: { ...DEFAULT_PARAMS }
   }
 }
 
@@ -194,12 +197,14 @@ function mapCajaRegistro(r: {
   nombre: string
   fondo_fijo: unknown
   activa: boolean
+  id_usuario?: number | null
 }): CajaRegistro {
   return {
     slug: r.slug,
     nombre: r.nombre,
     fondo_fijo: Number(r.fondo_fijo) || 0,
-    activa: !!r.activa
+    activa: !!r.activa,
+    id_usuario: r.id_usuario ?? null
   }
 }
 
@@ -207,7 +212,7 @@ export async function listCajas(): Promise<CajaRegistro[]> {
   if (await checkRemote()) {
     const { data, error } = await supabase!
       .from('control_caja_cajas')
-      .select('slug, nombre, fondo_fijo, activa')
+      .select('slug, nombre, fondo_fijo, activa, id_usuario')
       .order('nombre')
     if (!error && data?.length) {
       return data.map((r) => mapCajaRegistro(r))
@@ -1013,77 +1018,121 @@ export function resolveCajaSlug(nombre: string, cajas: CajaRegistro[]): string |
   return partial?.slug ?? null
 }
 
-function slugFromCajeraNombre(cajeraNombre: string, cajas: CajaRegistro[]): string | null {
-  const first = cajeraNombre.trim().split(/\s+/)[0]?.toLowerCase()
-  if (!first) return null
-  const bySlug = cajas.find((c) => c.slug === first)
-  if (bySlug) return bySlug.slug
-  return (
-    cajas.find(
-      (c) =>
-        c.slug !== 'admin' &&
-        c.slug !== 'vuelto' &&
-        c.nombre.toLowerCase().replace(/^caja\s+/, '').startsWith(first)
-    )?.slug ?? null
-  )
+
+const ensureCajaUsuarioPending = new Map<number, Promise<CajaRegistro>>()
+
+/** Crea o actualiza la caja operativa del usuario mostrador (slug u-{id}, nombre "Caja {usuario}"). */
+export async function ensureCajaOperativaUsuario(
+  usuarioId: number,
+  usuarioNombre: string
+): Promise<CajaRegistro> {
+  const pending = ensureCajaUsuarioPending.get(usuarioId)
+  if (pending) return pending
+
+  const task = (async () => {
+    const activo = await usuarioCajaActivo(usuarioId)
+    const nombreDb = await fetchNombreDisplayUsuario(usuarioId)
+    const nombreDisplay = nombreDb ?? usuarioNombre
+    const reg = buildCajaRegistroUsuario(usuarioId, nombreDisplay)
+    reg.id_usuario = usuarioId
+
+    if (!activo) {
+      if (await checkRemote()) {
+        await supabase!
+          .from('control_caja_cajas')
+          .update({ activa: false, updated_at: new Date().toISOString() })
+          .eq('slug', reg.slug)
+      } else {
+        const storeOff = readLocal()
+        const idxOff = storeOff.cajas.findIndex((c) => c.slug === reg.slug)
+        if (idxOff >= 0) {
+          storeOff.cajas[idxOff] = { ...storeOff.cajas[idxOff], activa: false }
+          writeLocal(storeOff)
+        }
+      }
+      throw new Error('Tu usuario está inactivo. Contactá a administración.')
+    }
+
+    if (await checkRemote()) {
+      const { data: existing } = await supabase!
+        .from('control_caja_cajas')
+        .select('slug, nombre, fondo_fijo, activa, id_usuario')
+        .eq('slug', reg.slug)
+        .maybeSingle()
+      if (existing) {
+        const mapped = mapCajaRegistro(existing)
+        const updates: Record<string, unknown> = { activa: true, id_usuario: usuarioId }
+        if (mapped.nombre !== reg.nombre) updates.nombre = reg.nombre
+        if (Object.keys(updates).length > 1) {
+          updates.updated_at = new Date().toISOString()
+          await supabase!.from('control_caja_cajas').update(updates).eq('slug', reg.slug)
+        }
+        return {
+          ...mapped,
+          nombre: (updates.nombre as string) ?? mapped.nombre,
+          activa: true,
+          id_usuario: usuarioId
+        }
+      }
+      const { error } = await supabase!.from('control_caja_cajas').upsert({
+        slug: reg.slug,
+        nombre: reg.nombre,
+        fondo_fijo: reg.fondo_fijo,
+        activa: true,
+        id_usuario: usuarioId,
+        updated_at: new Date().toISOString()
+      })
+      if (error) throw new Error(error.message)
+      return reg
+    }
+    const store = readLocal()
+    const idx = store.cajas.findIndex((c) => c.slug === reg.slug)
+    if (idx >= 0) {
+      store.cajas[idx] = {
+        ...store.cajas[idx],
+        nombre: reg.nombre,
+        activa: true,
+        id_usuario: usuarioId
+      }
+      writeLocal(store)
+      return mapCajaRegistro(store.cajas[idx])
+    }
+    store.cajas.push(reg)
+    writeLocal(store)
+    return reg
+  })()
+
+  ensureCajaUsuarioPending.set(usuarioId, task)
+  try {
+    return await task
+  } finally {
+    ensureCajaUsuarioPending.delete(usuarioId)
+  }
 }
 
-/** Asocia el usuario logueado a su caja (maestros, login, preferencia guardada). */
+/** Slug de caja operativa por usuario (sync). Usar obtenerCajaOperativa para persistir. */
 export function resolveCajaSlugForUsuario(
   usuarioNombre: string,
-  cajas: CajaRegistro[],
-  cajeras: CajaCajera[] = [],
+  cajas: CajaRegistro[] = [],
   opts?: { usuarioId?: number }
 ): string | null {
+  if (opts?.usuarioId != null) {
+    return cajaSlugForUsuario(opts.usuarioId)
+  }
+
   const norm = usuarioNombre.trim().toLowerCase()
+  if (norm.includes('administr') || norm === 'admin') return 'admin'
+
   const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
-  if (!operativas.length) return null
-
-  if (opts?.usuarioId) {
-    const stored = getStoredCajaSlug(opts.usuarioId)
-    if (stored && operativas.some((c) => c.slug === stored)) return stored
-  }
-
-  const loginKeys = getPlotlabLoginKeys(usuarioNombre)
-
-  for (const cajera of cajeras) {
-    const cn = cajera.nombre.trim().toLowerCase()
-    const cu = cajera.usuario.trim().toLowerCase()
-    if (loginKeys.some((k) => k === cu) || norm === cn || norm === cu) {
-      const slug = slugFromCajeraNombre(cajera.nombre, cajas)
-      if (slug) return slug
-    }
-    const first = cn.split(/\s+/)[0]
-    if (first && first.length >= 3 && (norm.includes(first) || loginKeys.some((k) => k.includes(first)))) {
-      const slug = slugFromCajeraNombre(cajera.nombre, cajas)
-      if (slug) return slug
-    }
-  }
-
-  for (const key of loginKeys) {
-    const bySlug = operativas.find((c) => c.slug === key)
-    if (bySlug) return bySlug.slug
-  }
-
-  const fromNombre = resolveCajaSlug(usuarioNombre, operativas)
-  if (fromNombre) return fromNombre
-
-  const first = norm.split(/\s+/)[0]
-  if (first.length >= 2) {
-    return operativas.find((c) => c.slug === first)?.slug ?? null
-  }
-  return null
+  return resolveCajaSlug(usuarioNombre, operativas)
 }
 
-/** Última caja usada por el usuario en arqueos previos. */
+/** @deprecated Usar obtenerCajaOperativa / resolveCajaOperativaSlug */
 export async function resolveCajaSlugFromHistorial(
   usuarioId: number,
-  cajas: CajaRegistro[]
+  _cajas: CajaRegistro[] = []
 ): Promise<string | null> {
-  const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
-  const arqueos = await listArqueos({ usuarioId })
-  const slug = arqueos.find((a) => operativas.some((c) => c.slug === a.caja_slug))?.caja_slug
-  return slug ?? null
+  return cajaSlugForUsuario(usuarioId)
 }
 
 export async function usesRemoteStorage(): Promise<boolean> {
@@ -1329,6 +1378,7 @@ export async function saveCajasMaestro(cajas: CajaRegistro[]): Promise<void> {
         nombre: c.nombre,
         fondo_fijo: c.fondo_fijo,
         activa: c.activa,
+        id_usuario: c.id_usuario ?? null,
         updated_at: new Date().toISOString()
       })
     }
@@ -1340,7 +1390,8 @@ export async function saveCajasMaestro(cajas: CajaRegistro[]): Promise<void> {
 }
 
 export async function getParams(): Promise<CajaParams> {
-  return readLocal().params
+  const p = readLocal().params
+  return { tolerancia: p?.tolerancia ?? DEFAULT_PARAMS.tolerancia }
 }
 
 export async function saveParams(params: CajaParams): Promise<void> {

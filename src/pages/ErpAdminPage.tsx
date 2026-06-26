@@ -18,6 +18,36 @@ export default function ErpAdminPage() {
         </div>
       </div>
 
+      <div className="erp-panel" style={{ marginBottom: 20 }}>
+        <h2>Configuración operativa</h2>
+        <div className="erp-section-grid" style={{ marginTop: 12 }}>
+          <button
+            type="button"
+            className="erp-module-card"
+            style={{ textAlign: 'left', cursor: 'pointer' }}
+            onClick={() => navigate('/erp/admin/condiciones-venta')}
+          >
+            <span style={{ fontSize: '1.5rem' }}>💳</span>
+            <strong>Condiciones de venta</strong>
+            <p className="erp-muted" style={{ margin: '6px 0 0', fontSize: '0.85rem' }}>
+              Medios de pago, bancos para transferencia, cheques/eCheq y Mercado Pago (QR)
+            </p>
+          </button>
+          <button
+            type="button"
+            className="erp-module-card"
+            style={{ textAlign: 'left', cursor: 'pointer' }}
+            onClick={() => navigate('/erp/configuracion-afip')}
+          >
+            <span style={{ fontSize: '1.5rem' }}>🏛️</span>
+            <strong>Configuración AFIP</strong>
+            <p className="erp-muted" style={{ margin: '6px 0 0', fontSize: '0.85rem' }}>
+              Certificados, punto de venta y facturación electrónica
+            </p>
+          </button>
+        </div>
+      </div>
+
       <div className="erp-section-grid">
         <div className="erp-panel">
           <h2>Mapa de circuitos</h2>

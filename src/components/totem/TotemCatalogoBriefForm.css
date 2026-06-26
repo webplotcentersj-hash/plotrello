@@ -1,0 +1,247 @@
+.totem-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--totem-text, #f1f5f9);
+}
+
+.totem-brief__hero {
+  text-align: center;
+  padding: 14px 12px 6px;
+}
+
+.totem-brief__badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(251, 146, 60, 0.2);
+  border: 1px solid rgba(251, 146, 60, 0.45);
+  color: #ffedd5;
+  margin-bottom: 10px;
+}
+
+.totem-brief__producto {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--totem-text-soft, #cbd5e1);
+}
+
+.totem-brief__producto strong {
+  color: #fff7ed;
+}
+
+.totem-brief__hint,
+.totem-brief__help {
+  margin: 8px 0 0;
+  font-size: 0.88rem;
+  color: var(--totem-text-muted, #94a3b8);
+  line-height: 1.4;
+}
+
+.totem-brief__section {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--totem-line, rgba(255, 255, 255, 0.1));
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.totem-brief__section--asesor {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.totem-brief__title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.totem-brief__step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: #0b1120;
+  font-size: 0.82rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.totem-brief__sub {
+  margin: 12px 0 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--totem-text-soft, #cbd5e1);
+}
+
+.totem-brief__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.totem-brief__chips--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+}
+
+.totem-brief__chips--digital {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.totem-brief-chip {
+  min-height: 52px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 2px solid var(--totem-line, rgba(255, 255, 255, 0.14));
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--totem-text-soft, #e2e8f0);
+  font-weight: 700;
+  font-size: 0.88rem;
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.12s ease,
+    box-shadow 0.15s ease;
+}
+
+.totem-brief-chip:hover {
+  border-color: rgba(251, 146, 60, 0.45);
+  background: rgba(251, 146, 60, 0.08);
+}
+
+.totem-brief-chip:active {
+  transform: scale(0.98);
+}
+
+.totem-brief-chip--active {
+  border-color: rgba(251, 146, 60, 0.85);
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.28), rgba(249, 115, 22, 0.14));
+  color: #fff7ed;
+  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.22);
+}
+
+.totem-brief-chip--large {
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.92rem;
+}
+
+.totem-brief-chip--urgent.totem-brief-chip--active {
+  border-color: rgba(248, 113, 113, 0.75);
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.25), rgba(185, 28, 28, 0.15));
+  color: #fecaca;
+}
+
+.totem-brief__asesor-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 88px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 2px solid rgba(56, 189, 248, 0.45);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.12));
+  color: #e0f2fe;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.totem-brief__asesor-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 40px rgba(56, 189, 248, 0.25);
+}
+
+.totem-brief__asesor-btn--active,
+.totem-brief__asesor-btn:disabled {
+  border-color: rgba(74, 222, 128, 0.55);
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.2), rgba(22, 163, 74, 0.12));
+  cursor: default;
+}
+
+.totem-brief__asesor-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.totem-brief__asesor-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.totem-brief__asesor-text strong {
+  font-size: 1.05rem;
+}
+
+.totem-brief__asesor-text small {
+  font-size: 0.86rem;
+  color: var(--totem-text-muted, #94a3b8);
+  font-weight: 600;
+}
+
+.totem-brief__asesor-ok,
+.totem-brief__asesor-loading {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #86efac;
+  white-space: nowrap;
+}
+
+.totem-brief__asesor-msg {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  color: #bbf7d0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.totem-brief__urgente {
+  margin-top: 12px;
+}
+
+.totem-brief__footer-hint {
+  margin: 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #bae6fd;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .totem-brief__chips--digital {
+    grid-template-columns: 1fr;
+  }
+}

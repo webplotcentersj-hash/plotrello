@@ -1,7 +1,7 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
 import { calcularTotalesCoherentesDia, contarPlanillasDelDia, type TotalesCajaDia } from './cajaCoherencia'
+import { obtenerCajaOperativa } from './cajaOperativa'
 import {
-  getParams,
   listArqueos,
   listCajas,
   listEgresoSolicitudes,
@@ -9,10 +9,8 @@ import {
   listPlanillas,
   listTransferenciaLotes,
   listTraspasos,
-  resolveCajaSlugForUsuario,
-  resolveCajaSlugFromHistorial
+  resolveCajaSlugForUsuario
 } from './cajaRepository'
-import { DEFAULT_CAJERAS } from './constants'
 import type { CajaSectionId } from './types'
 
 export type EstadoPasoCaja = 'hecho' | 'pendiente' | 'opcional' | 'alerta'
@@ -35,9 +33,11 @@ export async function loadEstadoOperativaHoy(
   usuarioNombre: string,
   fecha = getArgentinaDateString()
 ): Promise<CajaEstadoOperativaHoy> {
-  const [cajas, params, planillas, arqueos, lotes, egresos, traspasos, movimientos] = await Promise.all([
-    listCajas(),
-    getParams(),
+  const [cajas, planillas, arqueos, lotes, egresos, traspasos, movimientos] = await Promise.all([
+    (async () => {
+      await obtenerCajaOperativa(usuarioId, usuarioNombre)
+      return listCajas()
+    })(),
     listPlanillas(80),
     listArqueos({ usuarioId }),
     listTransferenciaLotes(50),
@@ -47,12 +47,7 @@ export async function loadEstadoOperativaHoy(
   ])
 
   const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
-  const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
-  let cajaSlug =
-    resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ?? null
-  if (!cajaSlug) {
-    cajaSlug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? null
-  }
+  const cajaSlug = resolveCajaSlugForUsuario(usuarioNombre, operativas, { usuarioId }) ?? null
   const cajaNombre = cajaSlug ? (cajas.find((c) => c.slug === cajaSlug)?.nombre ?? cajaSlug) : null
 
   const planillasDelDia = contarPlanillasDelDia(planillas, fecha, cajaSlug, usuarioId)

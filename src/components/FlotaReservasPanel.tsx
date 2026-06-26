@@ -69,7 +69,7 @@ const MESES = [
 ]
 
 export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: Props) {
-  const { usuario } = useAuth()
+  const { usuario, nombreVisible } = useAuth()
   const [yearMonth, setYearMonth] = useState(() => getArgentinaDateString().slice(0, 7))
   const [reservas, setReservas] = useState<ReservaVehiculoFlota[]>([])
   const [loading, setLoading] = useState(false)
@@ -159,7 +159,7 @@ export default function FlotaReservasPanel({ itemsParque, onReservasChanged }: P
       const res = await apiService.crearReservaVehiculoFlota({
         id_vehiculo: vid,
         id_usuario: usuario.id,
-        nombre_usuario: usuario.nombre || `Usuario ${usuario.id}`,
+        nombre_usuario: nombreVisible || `Usuario ${usuario.id}`,
         fecha: fechaSel,
         hora_desde: horaDesde,
         hora_hasta: horaHasta,

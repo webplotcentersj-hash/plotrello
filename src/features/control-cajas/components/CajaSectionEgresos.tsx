@@ -195,7 +195,7 @@ export default function CajaSectionEgresos({ isAdmin, usuarioNombre, usuarioId }
           <h2>Egresos de caja</h2>
           <p>
             {isAdmin
-              ? 'Aprobá o rechazá egresos solicitados por las cajeras. Sin aprobación no se ejecutan.'
+              ? 'Aprobá o rechazá egresos solicitados por los operadores de mostrador. Sin aprobación no se ejecutan.'
               : 'Cada egreso requiere permiso de administración antes de descontarse del arqueo y del cierre.'}
           </p>
         </div>

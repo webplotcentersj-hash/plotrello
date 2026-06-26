@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CLIENTES_CUENTA_CORRIENTE, clientesPerfil } from '../utils/clientesRoutes'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import CuentaCorrienteScoreBadge from '../components/CuentaCorrienteScoreBadge'
 import CuentaCorrienteScoringPanel from '../components/CuentaCorrienteScoringPanel'
 import CuentaCorrienteInteresesPanel from '../components/CuentaCorrienteInteresesPanel'
@@ -480,7 +481,9 @@ export default function CuentaCorrientePerfilPage() {
               <div className="cc-perfil-ventas-vendedores__grid">
                 {ventasPorVendedor.map((v) => (
                   <article key={v.id_vendedor ?? v.nombre_vendedor} className="cc-perfil-vendedor-chip">
-                    <span className="cc-perfil-vendedor-chip__name">{v.nombre_vendedor}</span>
+                    <span className="cc-perfil-vendedor-chip__name">
+                      {etiquetaUsuarioNombre(v.nombre_vendedor, v.id_vendedor ?? undefined)}
+                    </span>
                     <strong>{formatMontoArs(v.monto_pendiente)}</strong>
                     <span>{v.ventas_pendientes} venta{v.ventas_pendientes !== 1 ? 's' : ''}</span>
                   </article>
@@ -741,8 +744,8 @@ function VentaRow({
       </td>
       <td>{venta.numero_venta}</td>
       <td>
-        <span className="cc-perfil-vendedor" title={venta.nombre_vendedor || 'Sin vendedor'}>
-          {venta.nombre_vendedor || 'Sin vendedor'}
+        <span className="cc-perfil-vendedor" title={etiquetaUsuarioNombre(venta.nombre_vendedor, venta.id_vendedor ?? undefined)}>
+          {etiquetaUsuarioNombre(venta.nombre_vendedor, venta.id_vendedor ?? undefined)}
         </span>
       </td>
       <td className="num">{formatMontoArs(venta.valor_total)}</td>

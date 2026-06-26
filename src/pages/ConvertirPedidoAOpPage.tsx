@@ -12,7 +12,7 @@ import './ConvertirPedidoAOpPage.css'
 export default function ConvertirPedidoAOpPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { canAccessMostradorViews, usuario, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, usuario, nombreVisible, loading: authLoading } = useAuth()
   const [detalle, setDetalle] = useState<PedidoClienteDetalle | null>(null)
   const [loading, setLoading] = useState(true)
   const [convirtiendo, setConvirtiendo] = useState(false)
@@ -87,7 +87,7 @@ export default function ConvertirPedidoAOpPage() {
       const response = await apiService.convertirPedidoAOp({
         id_pedido: parseInt(id),
         id_usuario_convertidor: usuario.id,
-        nombre_usuario_convertidor: usuario.nombre || 'Usuario',
+        nombre_usuario_convertidor: nombreVisible,
         sector_inicial: formData.sector_inicial,
         observaciones: formData.observaciones || undefined
       })

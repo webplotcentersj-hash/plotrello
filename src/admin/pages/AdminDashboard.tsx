@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { plotLabFetch } from '../../utils/plotLabApiOrigin'
+import { etiquetaUsuarioNombre } from '../../utils/etiquetaUsuarioNombre'
 import type { Task, TeamMember, ActivityEvent } from '../../types/board'
 import PlotAIChat from '../../components/PlotAIChat'
 import { useAuth } from '../../hooks/useAuth'
@@ -41,7 +42,7 @@ export default function AdminDashboard({
   loading,
   onRefresh
 }: AdminDashboardProps) {
-  const { usuario } = useAuth()
+  const { usuario, nombreVisible } = useAuth()
   const navigate = useNavigate()
   const [isPlotAIOpen, setIsPlotAIOpen] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
@@ -246,7 +247,7 @@ export default function AdminDashboard({
       const ts = new Date(r.timestamp).getTime()
       if (!Number.isFinite(ts)) continue
       const op = (r.id_orden || '').toString()
-      const who = r.nombre_usuario ? ` · ${r.nombre_usuario}` : ''
+      const who = r.nombre_usuario ? ` · ${etiquetaUsuarioNombre(r.nombre_usuario, r.id_usuario)}` : ''
       const label = `${op ? `OP ${op} · ` : ''}${r.accion_tipo || 'reclamo'}${who}${r.comentario ? ` · ${r.comentario}` : ''}`
       items.push({ ts, label, kind: 'reclamo' })
     }
@@ -271,7 +272,9 @@ export default function AdminDashboard({
     for (const m of movimientosStock || []) {
       const ts = new Date((m as any).created_at ?? '').getTime()
       if (!Number.isFinite(ts)) continue
-      const who = (m as any).nombre_usuario ? ` · ${(m as any).nombre_usuario}` : ''
+      const who = (m as any).nombre_usuario
+        ? ` · ${etiquetaUsuarioNombre((m as any).nombre_usuario, (m as any).id_usuario)}`
+        : ''
       const op = (m as any).id_orden_trabajo ? ` · OP ${(m as any).id_orden_trabajo}` : ''
       const label = `Stock · ${(m as any).tipo_movimiento ?? 'mov'} · ${(m as any).descripcion ?? '—'} · ${(m as any).cantidad ?? ''}${who}${op}`
       items.push({ ts, label, kind: 'stock' })
@@ -417,7 +420,7 @@ export default function AdminDashboard({
           <div className="admin-header-right">
             {usuario && (
               <div className="admin-user-info" title="Sesión activa">
-                <span>👤 {usuario.nombre}</span>
+                <span>👤 {nombreVisible}</span>
                 <span className="admin-user-role">{usuario.rol}</span>
               </div>
             )}

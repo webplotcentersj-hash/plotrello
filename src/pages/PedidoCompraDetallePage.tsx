@@ -12,7 +12,7 @@ const PedidoCompraDetallePage = () => {
   const [searchParams] = useSearchParams()
   const fromErp = searchParams.get('from') === 'erp'
   const volverHref = fromErp ? '/erp/compras' : '/compras/dashboard'
-  const { usuario, canManageCompras, canViewPedidoCompraDetalle, loading: authLoading } = useAuth()
+  const { usuario, nombreVisible, canManageCompras, canViewPedidoCompraDetalle, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [pedido, setPedido] = useState<PedidoCompra | null>(null)
   const [nuevoComentario, setNuevoComentario] = useState('')
@@ -88,7 +88,7 @@ const PedidoCompraDetallePage = () => {
     try {
       const response = await apiService.agregarComentarioPedido(pedido.id, {
         id_usuario: usuario.id,
-        nombre_usuario: usuario.nombre,
+        nombre_usuario: nombreVisible,
         comentario: nuevoComentario.trim(),
         es_interno: esComentarioInterno
       })
@@ -121,7 +121,7 @@ const PedidoCompraDetallePage = () => {
 
       const response = await apiService.aprobarPedidoCompra(pedido.id, {
         id: usuario.id,
-        nombre: usuario.nombre
+        nombre: nombreVisible
       }, itemsAprobados)
 
       if (response.success) {
@@ -152,7 +152,7 @@ const PedidoCompraDetallePage = () => {
     try {
       const response = await apiService.rechazarPedidoCompra(pedido.id, {
         id: usuario.id,
-        nombre: usuario.nombre
+        nombre: nombreVisible
       }, motivoRechazo.trim())
 
       if (response.success) {

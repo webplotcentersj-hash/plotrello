@@ -1,9 +1,17 @@
-/** Si el valor parece email, solo la parte antes de @; si no, el texto recortado. */
-export function etiquetaUsuarioNombre(raw: string | null | undefined): string {
+import {
+  resolveDisplayNombre,
+  resolveOperarioAsignadoLabel
+} from './legajoDisplayRegistry'
+
+/** Nombre visible de un usuario (legajo si existe; nunca email completo). */
+export function etiquetaUsuarioNombre(
+  raw: string | null | undefined,
+  id?: number | null
+): string {
   if (raw == null) return '—'
   const s = String(raw).trim()
   if (!s) return '—'
-  const i = s.indexOf('@')
-  if (i > 0) return s.slice(0, i)
-  return s
+  return resolveDisplayNombre(s, id)
 }
+
+export { resolveOperarioAsignadoLabel as etiquetaOperarioAsignado }

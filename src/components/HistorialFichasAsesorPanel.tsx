@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
+import { useUsuariosDisplay } from '../hooks/useUsuariosDisplay'
 import type { FichaHistorialItem } from '../types/api'
 import type { Task } from '../types/board'
 
@@ -32,6 +34,7 @@ const HistorialFichasAsesorPanel = ({
   onEditTask,
   onRefrescarTablero
 }: HistorialFichasAsesorPanelProps) => {
+  useUsuariosDisplay()
   const navigate = useNavigate()
   const [rows, setRows] = useState<FichaHistorialItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -185,7 +188,7 @@ const HistorialFichasAsesorPanel = ({
                       </span>
                     </td>
                     <td>{formatFecha(r.fecha_creacion)}</td>
-                    <td>{r.nombre_creador || '—'}</td>
+                    <td>{etiquetaUsuarioNombre(r.nombre_creador)}</td>
                     <td className="ap-historial-actions-cell">
                       <button
                         type="button"

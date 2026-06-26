@@ -118,7 +118,7 @@ const BoardPage = ({
   sectores,
   materialesCatalog
 }: BoardPageProps) => {
-  const { usuario, isAdmin, isDiseno } = useAuth()
+  const { usuario, nombreVisible, isAdmin, isDiseno } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
@@ -150,9 +150,9 @@ const BoardPage = ({
   const sessionActor = useMemo(
     () => ({
       id: usuario?.id != null ? String(usuario.id) : '',
-      name: usuario?.nombre?.trim() || null
+      name: nombreVisible?.trim() || null
     }),
-    [usuario?.id, usuario?.nombre]
+    [usuario?.id, nombreVisible]
   )
 
   const sidebarCompact =
@@ -221,7 +221,7 @@ const BoardPage = ({
 
   const isTaskAssignedToMe = useCallback(
     (task: Task) => {
-      const me = normalizePersonNameKey(usuario?.nombre)
+      const me = normalizePersonNameKey(nombreVisible || usuario?.nombre)
       const myIdStr = usuario?.id != null ? String(usuario.id) : ''
 
       // operario_asignado suele guardarse como id de usuario (select en crear/editar ficha)
@@ -251,6 +251,7 @@ const BoardPage = ({
   )
 
   const resolveCurrentUserName = () => {
+    if (nombreVisible) return nombreVisible
     const preferred = sanitizeWorkerName(usuario?.nombre) ?? usuario?.nombre
     if (preferred) return preferred
     if (typeof window !== 'undefined') {
@@ -1011,7 +1012,7 @@ const BoardPage = ({
       const response = await apiService.deleteOrden(ordenId, {
         motivo: motivo.trim(),
         usuarioId: usuario?.id ?? null,
-        usuarioNombre: usuario?.nombre || null,
+        usuarioNombre: nombreVisible || null,
         estadoAnterior: task?.status ?? null
       })
 

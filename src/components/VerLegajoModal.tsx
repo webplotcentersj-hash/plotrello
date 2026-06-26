@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { addMonths, format } from 'date-fns'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { nombreCompletoLegajo, nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import apiService from '../services/api'
 import type {
   Capacitacion,
@@ -69,6 +70,10 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
 
   const [loading, setLoading] = useState(false)
   const [legajo, setLegajo] = useState<LegajoEmpleado | null>(null)
+  const empleadoNombre = useMemo(
+    () => nombreCompletoLegajo(legajo) || nombreVisibleDesdeRecord(usuario),
+    [legajo, usuario]
+  )
   const [tab, setTab] = useState<LegajoTabId>('legajo')
   const [pdfGenerating, setPdfGenerating] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
@@ -373,7 +378,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
       const margin = 48
       let y = 54
 
-      const title = `Legajo · ${usuario.nombre} (ID ${usuario.id})`
+      const title = `Legajo · ${empleadoNombre} (ID ${usuario.id})`
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(16)
       doc.text(title, margin, y)
@@ -406,7 +411,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
       }
 
       section('Datos personales')
-      kv('Nombre', legajo.nombre || usuario.nombre || '—')
+      kv('Nombre', legajo.nombre || empleadoNombre || '—')
       kv('Apellido', legajo.apellido || '—')
       kv('DNI', legajo.dni || '—')
       kv('Teléfono', legajo.telefono || '—')
@@ -445,7 +450,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
         kv('Notas', legajo.observaciones)
       }
 
-      const safeName = (usuario.nombre || 'usuario').replace(/[^\p{L}\p{N}_-]+/gu, '_')
+      const safeName = (empleadoNombre || 'usuario').replace(/[^\p{L}\p{N}_-]+/gu, '_')
       doc.save(`legajo_${usuario.id}_${safeName}.pdf`)
     } catch (e) {
       setPdfError(e instanceof Error ? e.message : 'No se pudo generar el PDF')
@@ -563,7 +568,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
                 <div className="ver-legajo-mini">
                   <div>
                     <span className="ver-legajo-label">Usuario</span>
-                    <div className="ver-legajo-value">{usuario.nombre}</div>
+                    <div className="ver-legajo-value">{empleadoNombre}</div>
                   </div>
                   <div>
                     <span className="ver-legajo-label">ID</span>
@@ -860,7 +865,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
               <div className="ver-legajo-photo-section">
                 <img 
                   src={legajo.foto_url} 
-                  alt={`Foto de ${legajo.nombre || usuario.nombre}`}
+                  alt={`Foto de ${legajo.nombre || empleadoNombre}`}
                   className="ver-legajo-photo"
                 />
               </div>
@@ -998,7 +1003,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
                 </div>
                 <div className="ver-legajo-info-item">
                   <span className="ver-legajo-label">Usuario:</span>
-                  <span className="ver-legajo-value">{usuario.nombre}</span>
+                  <span className="ver-legajo-value">{empleadoNombre}</span>
                 </div>
                 {legajo.created_at && (
                   <div className="ver-legajo-info-item">
@@ -1038,7 +1043,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
             {novedadDetail ? (
               <RrhhNovedadDetailModal
                 novedad={novedadDetail}
-                empleadoNombre={usuario.nombre}
+                empleadoNombre={empleadoNombre}
                 onClose={() => setNovedadDetail(null)}
                 onNovedadUpdated={(actualizada) => {
                   setNovedadDetail(actualizada)

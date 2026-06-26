@@ -18,7 +18,7 @@ const RegistrarAtencionModal = ({
   clienteNombre: clienteNombreProp,
   ordenId: ordenIdProp
 }: RegistrarAtencionModalProps) => {
-  const { usuario } = useAuth()
+  const { usuario, nombreVisible } = useAuth()
   const [tipoAtencion, setTipoAtencion] = useState<TipoAtencion>('consulta')
   const [clienteNombre, setClienteNombre] = useState(clienteNombreProp || '')
   const [ordenId, setOrdenId] = useState(ordenIdProp?.toString() || '')
@@ -70,7 +70,7 @@ const RegistrarAtencionModal = ({
         cliente_nombre: clienteNombre.trim(),
         tipo: tipoAtencion,
         usuario_id: usuario.id,
-        usuario_nombre: usuario.nombre,
+        usuario_nombre: nombreVisible,
         orden_id: ordenId ? parseInt(ordenId) : undefined,
         notas: notas.trim() || undefined
       })

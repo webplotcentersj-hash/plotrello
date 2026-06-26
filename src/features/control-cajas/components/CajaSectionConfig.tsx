@@ -1,36 +1,69 @@
 import { useEffect, useState } from 'react'
-import { DEFAULT_CAJERAS } from '../constants'
-import { newId } from '../format'
-import { getParams, listCajasAll, saveCajasMaestro, saveParams } from '../cajaRepository'
-import type { CajaCajera, CajaRegistro } from '../types'
-import { FONDO_CAJA_RECOMENDADO } from '../fondoCaja'
+import {
+  listCajasOperativasUsuarios,
+  ultimoArqueoCajaOperativa
+} from '../cajaOperativa'
 import { fmtArs } from '../format'
+import { FONDO_CAJA_RECOMENDADO } from '../fondoCaja'
+import { getParams, listCajasAll, saveCajasMaestro, saveParams, updateCajaFondoFijo } from '../cajaRepository'
+import type { CajaRegistro } from '../types'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 
+const CAJAS_SISTEMA = new Set(['admin', 'vuelto'])
+
+type CajaOperativaRow = CajaRegistro & { ultimoArqueo?: string | null }
+
 export default function CajaSectionConfig() {
-  const [cajas, setCajas] = useState<CajaRegistro[]>([])
-  const [cajeras, setCajeras] = useState<CajaCajera[]>([])
+  const [cajasSistema, setCajasSistema] = useState<CajaRegistro[]>([])
+  const [cajasOperativas, setCajasOperativas] = useState<CajaOperativaRow[]>([])
   const [tolerancia, setTolerancia] = useState(0)
   const [msg, setMsg] = useState<string | null>(null)
 
+  const reload = () => {
+    void Promise.all([listCajasAll(), listCajasOperativasUsuarios(), getParams()]).then(
+      async ([todas, operativas, p]) => {
+        setCajasSistema(todas.filter((x) => CAJAS_SISTEMA.has(x.slug)))
+        const rows: CajaOperativaRow[] = []
+        for (const c of operativas) {
+          const ult = await ultimoArqueoCajaOperativa(c.slug)
+          rows.push({
+            ...c,
+            ultimoArqueo: ult ? `${ult.fecha} · $ ${fmtArs(ult.total)}` : null
+          })
+        }
+        rows.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+        setCajasOperativas(rows)
+        setTolerancia(p.tolerancia)
+      }
+    )
+  }
+
   useEffect(() => {
-    void Promise.all([listCajasAll(), getParams()]).then(([c, p]) => {
-      setCajas(c.length ? c : [])
-      setCajeras(p.cajeras.length ? p.cajeras : [...DEFAULT_CAJERAS])
-      setTolerancia(p.tolerancia)
-    })
+    reload()
   }, [])
 
   const guardar = async () => {
-    const invalida = cajas.find((c) => (c.fondo_fijo || 0) < 0)
+    const invalida = cajasSistema.find((c) => (c.fondo_fijo || 0) < 0)
     if (invalida) {
       setMsg(`Fondo de "${invalida.nombre}" no puede ser negativo.`)
       return
     }
-    await saveCajasMaestro(cajas)
-    await saveParams({ tolerancia, cajeras })
+    const todas = await listCajasAll()
+    const otrasOperativas = todas.filter(
+      (c) => !CAJAS_SISTEMA.has(c.slug) && !cajasOperativas.some((o) => o.slug === c.slug)
+    )
+    await saveCajasMaestro([...otrasOperativas, ...cajasOperativas, ...cajasSistema])
+    await saveParams({ tolerancia })
     setMsg('Configuración guardada')
+    reload()
+  }
+
+  const onFondoOperativa = async (slug: string, fondo: number) => {
+    await updateCajaFondoFijo(slug, fondo)
+    setCajasOperativas((prev) =>
+      prev.map((c) => (c.slug === slug ? { ...c, fondo_fijo: fondo } : c))
+    )
   }
 
   const resetDatos = () => {
@@ -44,35 +77,66 @@ export default function CajaSectionConfig() {
       <div className="caja-cc-inline-plotlab">
         <CajaVolverPlotLab small />
       </div>
+
       <div className="caja-cc-card">
-        <h3>Cajas y fondo de caja</h3>
+        <h3>Cajas de mostrador</h3>
         <p className="caja-cc-sub">
-          El fondo es el efectivo real que debe permanecer siempre en caja operativa. Recomendado:{' '}
-          $ {fmtArs(FONDO_CAJA_RECOMENDADO)} (Noelia / Rosa). Las cajeras también pueden ajustarlo en cierre de turno.
+          Se crean solas al iniciar sesión (<strong>Caja [usuario]</strong>, slug <code>u-{'{id}'}</code>).
+          Podés ajustar el fondo recomendado ($ {fmtArs(FONDO_CAJA_RECOMENDADO)}) por operador.
         </p>
+        {cajasOperativas.length === 0 ? (
+          <p className="caja-cc-empty">Todavía no hay cajas de mostrador registradas.</p>
+        ) : (
+          <table className="caja-cc-table">
+            <thead>
+              <tr>
+                <th>Caja</th>
+                <th>Usuario ID</th>
+                <th className="num">Fondo fijo</th>
+                <th>Último arqueo</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cajasOperativas.map((c) => (
+                <tr key={c.slug}>
+                  <td>{c.nombre}</td>
+                  <td>{c.id_usuario ?? '—'}</td>
+                  <td>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="caja-cc-table-input num"
+                      value={c.fondo_fijo}
+                      onChange={(e) =>
+                        void onFondoOperativa(c.slug, parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </td>
+                  <td>{c.ultimoArqueo ?? '—'}</td>
+                  <td>{c.activa ? 'Activa' : 'Inactiva'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="caja-cc-card">
+        <h3>Cajas de sistema</h3>
+        <p className="caja-cc-sub">Administración y vuelto.</p>
         <table className="caja-cc-table">
           <thead>
             <tr>
               <th>Caja</th>
               <th className="num">Fondo fijo</th>
               <th>Activa</th>
-              <th />
             </tr>
           </thead>
           <tbody>
-            {cajas.map((c) => (
+            {cajasSistema.map((c) => (
               <tr key={c.slug}>
-                <td>
-                  <input
-                    className="caja-cc-table-input"
-                    value={c.nombre}
-                    onChange={(e) =>
-                      setCajas((prev) =>
-                        prev.map((x) => (x.slug === c.slug ? { ...x, nombre: e.target.value } : x))
-                      )
-                    }
-                  />
-                </td>
+                <td>{c.nombre}</td>
                 <td>
                   <input
                     type="number"
@@ -80,7 +144,7 @@ export default function CajaSectionConfig() {
                     className="caja-cc-table-input num"
                     value={c.fondo_fijo}
                     onChange={(e) =>
-                      setCajas((prev) =>
+                      setCajasSistema((prev) =>
                         prev.map((x) =>
                           x.slug === c.slug ? { ...x, fondo_fijo: parseFloat(e.target.value) || 0 } : x
                         )
@@ -93,103 +157,16 @@ export default function CajaSectionConfig() {
                     type="checkbox"
                     checked={c.activa}
                     onChange={(e) =>
-                      setCajas((prev) =>
+                      setCajasSistema((prev) =>
                         prev.map((x) => (x.slug === c.slug ? { ...x, activa: e.target.checked } : x))
                       )
                     }
                   />
                 </td>
-                <td>
-                  <button
-                    type="button"
-                    className="btn-small danger"
-                    onClick={() => setCajas((prev) => prev.filter((x) => x.slug !== c.slug))}
-                  >
-                    Eliminar
-                  </button>
-                </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <button
-          type="button"
-          className="btn-secondary"
-          style={{ marginTop: 10 }}
-          onClick={() =>
-            setCajas((prev) => [
-              ...prev,
-              {
-                slug: newId().slice(0, 8),
-                nombre: 'Nueva caja',
-                fondo_fijo: FONDO_CAJA_RECOMENDADO,
-                activa: true
-              }
-            ])
-          }
-        >
-          Agregar caja
-        </button>
-      </div>
-
-      <div className="caja-cc-card">
-        <h3>Cajeras / usuarios</h3>
-        <table className="caja-cc-table">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Usuario</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {cajeras.map((c, i) => (
-              <tr key={i}>
-                <td>
-                  <input
-                    className="caja-cc-table-input"
-                    value={c.nombre}
-                    onChange={(e) => {
-                      const n = [...cajeras]
-                      n[i] = { ...n[i], nombre: e.target.value }
-                      setCajeras(n)
-                    }}
-                  />
-                </td>
-                <td>
-                  <input
-                    className="caja-cc-table-input"
-                    value={c.usuario}
-                    onChange={(e) => {
-                      const n = [...cajeras]
-                      n[i] = { ...n[i], usuario: e.target.value }
-                      setCajeras(n)
-                    }}
-                  />
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="btn-small danger"
-                    onClick={() => setCajeras((prev) => prev.filter((_, j) => j !== i))}
-                  >
-                    Eliminar
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <button
-          type="button"
-          className="btn-secondary"
-          style={{ marginTop: 10 }}
-          onClick={() =>
-            setCajeras((prev) => [...prev, { nombre: 'Nueva', usuario: `USER${prev.length}` }])
-          }
-        >
-          Agregar cajera
-        </button>
       </div>
 
       <div className="caja-cc-card">

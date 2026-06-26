@@ -3,17 +3,13 @@ import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { clasificarPlanillaPorContenido, TIPO_PLANILLA_LABEL } from '../cajaCoherencia'
 import { importarPlanillaAlSistema } from '../cajaPlanillaImport'
 import { resolverDestinoPlanilla } from '../cajaPlanillaRouter'
+import { resolverCajaSlugImport } from '../cajaOperativa'
 import {
-  getParams,
   getPlanillaById,
   listCajas,
   listPlanillas,
-  planillaYaImportada,
-  resolveCajaSlug,
-  resolveCajaSlugForUsuario,
-  resolveCajaSlugFromHistorial
+  planillaYaImportada
 } from '../cajaRepository'
-import { DEFAULT_CAJERAS } from '../constants'
 import {
   calcularTotalesDesdePlanilla,
   efectivoQuedaEnCajaDesdePlanilla,
@@ -103,17 +99,14 @@ export default function CajaImportPlanillaPdf({
   }
 
   const resolverCajaSlugPlanilla = async (parsed: PlanillaCajaParsed): Promise<string | null> => {
-    const [cajas, params] = await Promise.all([listCajas(), getParams()])
-    const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
-    const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
-    let cajaSlug =
-      resolveCajaSlug(parsed.caja_nombre, cajas) ??
-      resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ??
-      null
-    if (!cajaSlug && usuarioId) {
-      cajaSlug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? null
-    }
-    return cajaSlug ?? operativas[0]?.slug ?? null
+    const cajas = await listCajas()
+    return resolverCajaSlugImport({
+      usuarioId,
+      usuarioNombre,
+      cajaNombrePdf: parsed.caja_nombre,
+      cajas,
+      esAdmin: false
+    })
   }
 
   const handleFile = async (file: File) => {

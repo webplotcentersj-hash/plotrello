@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import { AuthProvider } from './hooks/useAuth'
+import { UsuariosDisplayProvider } from './hooks/useUsuariosDisplay'
 import { initPlotlabVentaCajaBridge } from './features/control-cajas/plotlabVentaCajaSync'
 import './style.css'
 
@@ -43,7 +44,9 @@ try {
     <React.StrictMode>
       <ErrorBoundary>
         <AuthProvider>
-          <App />
+          <UsuariosDisplayProvider>
+            <App />
+          </UsuariosDisplayProvider>
         </AuthProvider>
       </ErrorBoundary>
     </React.StrictMode>

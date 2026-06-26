@@ -16,6 +16,7 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
   const navigate = useNavigate()
   const {
     usuario,
+    nombreVisible,
     isAdmin,
     canAccessMostradorViews,
     canManageCaja,
@@ -66,7 +67,7 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
       {
         id: 'caja',
         title: 'Caja',
-        description: 'Movimientos, cuentas y cobranzas',
+        description: 'Arqueo, cierre de turno y movimientos propios',
         icon: '💳',
         path: '/caja/dashboard',
         enabled: isAdmin || canManageCaja
@@ -136,7 +137,7 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
         <div className="menu-only-user">
           {usuario ? (
             <>
-              <div className="menu-only-user-name">{usuario.nombre}</div>
+              <div className="menu-only-user-name">{nombreVisible}</div>
               <div className="menu-only-user-role">{usuario.rol}</div>
             </>
           ) : (

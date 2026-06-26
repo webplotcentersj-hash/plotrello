@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCajaOperativa } from '../../../hooks/useCajaOperativa'
 import {
   getCierreFechaCaja,
   getParams,
@@ -10,8 +11,6 @@ import {
   listPlanillas,
   listTransferenciaLotes,
   resolveCajaSlug,
-  resolveCajaSlugForUsuario,
-  resolveCajaSlugFromHistorial,
   saveMovimiento,
   saveMovimientosBulk,
   savePlanillaImport,
@@ -19,8 +18,6 @@ import {
   updateCajaFondoFijo
 } from '../cajaRepository'
 import { buscarPlanillaCaja, montosCajaDesdeFuentes } from '../paseCajaMontos'
-import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
-import { DEFAULT_CAJERAS } from '../constants'
 import { FONDO_CAJA_RECOMENDADO } from '../fondoCaja'
 import CajaAvisoPdfUnico from './CajaAvisoPdfUnico'
 import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
@@ -55,13 +52,12 @@ type Props = {
 }
 
 export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrSubirPdf }: Props) {
+  const { slug: cajaSlugOp, loading: cajaOperativaLoading } = useCajaOperativa()
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [lotes, setLotes] = useState<CajaTransferenciaLote[]>([])
   const [tolerancia, setTolerancia] = useState(0)
   const [msg, setMsg] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [cajaResolviendo, setCajaResolviendo] = useState(true)
-  const [cajaAutoAsignada, setCajaAutoAsignada] = useState(false)
   const [historialOpen, setHistorialOpen] = useState(false)
   const [detalleLote, setDetalleLote] = useState<CajaTransferenciaLote | null>(null)
 
@@ -91,46 +87,17 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
   }, [reload])
 
   useEffect(() => {
-    let cancelled = false
-    setCajaResolviendo(true)
-
-    void Promise.all([listCajas(), getParams()]).then(async ([list, params]) => {
-      const operativas = list.filter((x) => x.slug !== 'vuelto' && x.slug !== 'admin')
-      if (cancelled) return
-      setCajas(list.filter((x) => x.slug !== 'vuelto'))
-
-      const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
-      let slug =
-        resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ?? ''
-
-      if (!slug && usuarioId) {
-        slug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? ''
-      }
-
-      if (cancelled) return
-      if (slug) {
-        setOrigen(slug)
-        setCajaAutoAsignada(true)
-        if (usuarioId) setStoredCajaSlug(usuarioId, slug)
-        setCajaFondoDestino((prev) => {
-          if (prev && prev !== slug) return prev
-          return cajaFondoDestinoPorDefecto(slug, operativas)
-        })
-      } else {
-        setCajaAutoAsignada(false)
-        if (!origen && operativas.length) {
-          const first = operativas[0].slug
-          setOrigen(first)
-          setCajaFondoDestino(cajaFondoDestinoPorDefecto(first, operativas))
-        }
-      }
-      setCajaResolviendo(false)
+    if (!cajaSlugOp) return
+    const operativas = cajas.filter((x) => x.slug !== 'vuelto' && x.slug !== 'admin')
+    setOrigen(cajaSlugOp)
+    setCajaFondoDestino((prev) => {
+      if (prev && prev !== cajaSlugOp) return prev
+      return cajaFondoDestinoPorDefecto(cajaSlugOp, operativas)
     })
+  }, [cajaSlugOp, cajas])
 
-    return () => {
-      cancelled = true
-    }
-  }, [usuarioNombre, usuarioId])
+  const cajaResolviendo = cajaOperativaLoading
+  const cajaAutoAsignada = Boolean(cajaSlugOp)
 
   useEffect(() => {
     if (origen && cajaFondoDestino === origen) {
@@ -247,7 +214,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
 
   const onOrigenManual = (slug: string) => {
     setOrigen(slug)
-    if (usuarioId && slug) setStoredCajaSlug(usuarioId, slug)
     if (slug === cajaFondoDestino) {
       setCajaFondoDestino(cajaFondoDestinoPorDefecto(slug, operativas))
     }
@@ -263,7 +229,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
   const ejecutar = async () => {
     setMsg(null)
     if (!origen) {
-      setMsg('No se pudo identificar tu caja. Pedí a administración que te agreguen en Maestros → Cajeras.')
+      setMsg('No se pudo identificar tu caja. Volvé a iniciar sesión o contactá a administración.')
       return
     }
     if (origen === cajaFondoDestino) {
@@ -488,7 +454,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
                   ))}
                 </select>
                 <span className="caja-cc-field-hint">
-                  Tu usuario no está en Maestros; elegí la caja una vez y quedará guardada.
+                  Tu caja se asigna automáticamente según tu usuario de mostrador.
                 </span>
               </>
             )}

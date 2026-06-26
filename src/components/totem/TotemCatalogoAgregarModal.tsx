@@ -6,9 +6,10 @@ import {
   type ClienteBriefFormData
 } from '../../constants/clienteBriefForm'
 import type { CarritoBriefProducto, CarritoItemExtra } from '../../services/clienteCarritoExtras'
-import ClienteCatalogoBriefForm from '../cliente/ClienteCatalogoBriefForm'
+import TotemCatalogoBriefForm from './TotemCatalogoBriefForm'
 import TotemCatalogoArchivoUpload from './TotemCatalogoArchivoUpload'
 import './TotemCatalogoAgregarModal.css'
+import './TotemCatalogoBriefForm.css'
 
 type Props = {
   articulo: ArticuloEmpresaRecord
@@ -20,6 +21,12 @@ function briefInicial(articulo: ArticuloEmpresaRecord): CarritoBriefProducto {
   const base = emptyClienteBriefForm()
   const tipos = inferTiposProductoBrief(articulo)
   return { ...base, tipo_producto_servicio: tipos }
+}
+
+const PASO_LABEL: Record<'diseno' | 'archivos' | 'brief', string> = {
+  diseno: 'Paso 1 de 2',
+  archivos: 'Paso 2 de 2',
+  brief: 'Paso 2 de 2'
 }
 
 export default function TotemCatalogoAgregarModal({ articulo, onClose, onConfirmado }: Props) {
@@ -55,8 +62,9 @@ export default function TotemCatalogoAgregarModal({ articulo, onClose, onConfirm
 
   const esPasoBrief = paso === 'brief' && tieneDiseno === false
   const modalClass = useMemo(
-    () => `totem-cat-modal${esPasoBrief ? ' totem-cat-modal--brief' : ''}`,
-    [esPasoBrief]
+    () =>
+      `totem-cat-add-modal${esPasoBrief ? ' totem-cat-add-modal--brief' : ''}${paso === 'archivos' ? ' totem-cat-add-modal--upload' : ''}`,
+    [esPasoBrief, paso]
   )
 
   const elegirDiseno = (valor: boolean) => {
@@ -66,8 +74,9 @@ export default function TotemCatalogoAgregarModal({ articulo, onClose, onConfirm
   }
 
   const validarBrief = (data: ClienteBriefFormData): string | null => {
-    if (data.tipo_producto_servicio.length === 0 && !data.necesita_asesoramiento) {
-      return 'Seleccioná al menos un tipo de producto o marcá que necesitás asesoramiento'
+    if (data.necesita_asesoramiento) return null
+    if (data.tipo_producto_servicio.length === 0) {
+      return 'Elegí al menos un tipo de producto o pedí asesoramiento'
     }
     return null
   }
@@ -104,17 +113,17 @@ export default function TotemCatalogoAgregarModal({ articulo, onClose, onConfirm
   }
 
   return (
-    <div className="totem-cat-modal-overlay" role="presentation" onClick={onClose}>
+    <div className="totem-cat-add-overlay" role="presentation" onClick={onClose}>
       <div
         className={modalClass}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="totem-cat-modal-title"
+        aria-labelledby="totem-cat-add-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
-          className="totem-cat-modal__close"
+          className="totem-cat-add-modal__close"
           onClick={onClose}
           disabled={guardando}
           aria-label="Cerrar"
@@ -122,64 +131,96 @@ export default function TotemCatalogoAgregarModal({ articulo, onClose, onConfirm
           ×
         </button>
 
-        <h2 id="totem-cat-modal-title">Agregar: {articulo.nombre}</h2>
-        {!esPasoBrief && (
-          <p className="totem-cat-modal__sub">
-            Igual que en el portal: subí tu diseño o completá el brief para que lo hagamos nosotros.
-          </p>
-        )}
+        <div className="totem-cat-add-modal__head">
+          <span className="totem-cat-add-modal__step">{PASO_LABEL[paso]}</span>
+          <h2 id="totem-cat-add-modal-title">{articulo.nombre}</h2>
+          {paso === 'diseno' && (
+            <p className="totem-cat-add-modal__sub">
+              Subí tu diseño o contanos qué necesitás — te guiamos paso a paso.
+            </p>
+          )}
+        </div>
 
-        {error && <div className="totem-cat-modal__error">{error}</div>}
+        {error && <div className="totem-cat-add-modal__error">{error}</div>}
 
-        {paso === 'diseno' && (
-          <div className="totem-cat-modal__paso">
-            <p className="totem-cat-modal__pregunta">¿Tenés el diseño listo para este producto?</p>
-            <div className="totem-cat-modal__opciones">
-              <button type="button" className="totem-cat-modal__opcion" onClick={() => elegirDiseno(true)}>
-                <strong>Sí, tengo diseño</strong>
-                <span>Subilo por pendrive o con QR desde el celular</span>
+        <div className="totem-cat-add-modal__body">
+          {paso === 'diseno' && (
+            <div className="totem-cat-add-modal__paso totem-cat-add-modal__paso--center">
+              <p className="totem-cat-add-modal__pregunta">¿Tenés el diseño listo?</p>
+              <div className="totem-cat-add-modal__opciones">
+                <button
+                  type="button"
+                  className="totem-cat-add-modal__opcion totem-cat-add-modal__opcion--yes"
+                  onClick={() => elegirDiseno(true)}
+                >
+                  <span className="totem-cat-add-modal__opcion-icon" aria-hidden>
+                    📤
+                  </span>
+                  <strong>Sí, tengo diseño</strong>
+                  <span>Subilo por QR del celular o desde esta PC</span>
+                </button>
+                <button
+                  type="button"
+                  className="totem-cat-add-modal__opcion totem-cat-add-modal__opcion--no"
+                  onClick={() => elegirDiseno(false)}
+                >
+                  <span className="totem-cat-add-modal__opcion-icon" aria-hidden>
+                    ✏️
+                  </span>
+                  <strong>No, necesito diseño</strong>
+                  <span>Completás un brief rápido con botones</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {paso === 'archivos' && tieneDiseno && (
+            <div className="totem-cat-add-modal__paso totem-cat-add-modal__paso--center totem-cat-add-modal__paso--upload">
+              <button
+                type="button"
+                className="totem-cat-add-modal__back"
+                onClick={() => setPaso('diseno')}
+              >
+                ← Volver
               </button>
-              <button type="button" className="totem-cat-modal__opcion" onClick={() => elegirDiseno(false)}>
-                <strong>No, necesito diseño</strong>
-                <span>Completás el brief en pantalla</span>
+              <p className="totem-cat-add-modal__pregunta">Subí tu diseño</p>
+              <TotemCatalogoArchivoUpload archivos={archivos} onChange={setArchivos} disabled={guardando} />
+              <button
+                type="button"
+                className="totem-cat-add-modal__primary"
+                onClick={confirmar}
+                disabled={guardando || archivos.length === 0}
+              >
+                Agregar al carrito
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {paso === 'archivos' && tieneDiseno && (
-          <div className="totem-cat-modal__paso">
-            <button type="button" className="totem-cat-modal__back" onClick={() => setPaso('diseno')}>
-              ← Volver
-            </button>
-            <p className="totem-cat-modal__pregunta">Subí tu diseño</p>
-            <TotemCatalogoArchivoUpload archivos={archivos} onChange={setArchivos} disabled={guardando} />
-            <button
-              type="button"
-              className="totem-cat-modal__primary"
-              onClick={confirmar}
-              disabled={guardando || archivos.length === 0}
-            >
-              Agregar al carrito
-            </button>
-          </div>
-        )}
-
-        {paso === 'brief' && tieneDiseno === false && (
-          <div className="totem-cat-modal__paso totem-cat-modal__paso--brief">
-            <button type="button" className="totem-cat-modal__back" onClick={() => setPaso('diseno')}>
-              ← Volver
-            </button>
-            <ClienteCatalogoBriefForm
-              value={brief}
-              onChange={setBrief}
-              productoNombre={articulo.nombre}
-            />
-            <button type="button" className="totem-cat-modal__primary" onClick={confirmar} disabled={guardando}>
-              Agregar al carrito
-            </button>
-          </div>
-        )}
+          {paso === 'brief' && tieneDiseno === false && (
+            <div className="totem-cat-add-modal__paso totem-cat-add-modal__paso--brief">
+              <button
+                type="button"
+                className="totem-cat-add-modal__back"
+                onClick={() => setPaso('diseno')}
+              >
+                ← Volver
+              </button>
+              <TotemCatalogoBriefForm
+                value={brief}
+                onChange={setBrief}
+                productoNombre={articulo.nombre}
+              />
+              <button
+                type="button"
+                className="totem-cat-add-modal__primary"
+                onClick={confirmar}
+                disabled={guardando}
+              >
+                Agregar al carrito
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

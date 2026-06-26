@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import './AdminAlertButton.css'
 
 const AdminAlertButton = () => {
-  const { isAdmin, usuario } = useAuth()
+  const { isAdmin, usuario, nombreVisible } = useAuth()
   const [isSending, setIsSending] = useState(false)
 
   if (!isAdmin) return null
@@ -28,7 +28,7 @@ const AdminAlertButton = () => {
         payload: {
           active: true,
           message: 'ALERTA',
-          sentBy: usuario.nombre || 'Administrador',
+          sentBy: nombreVisible || 'Administrador',
           timestamp: new Date().toISOString()
         }
       })

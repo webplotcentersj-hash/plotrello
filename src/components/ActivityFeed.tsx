@@ -1,6 +1,8 @@
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { ActivityEvent, TeamMember } from '../types/board'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
+import { useUsuariosDisplay } from '../hooks/useUsuariosDisplay'
 import './ActivityFeed.css'
 
 type ActivityFeedProps = {
@@ -9,6 +11,7 @@ type ActivityFeedProps = {
 }
 
 const ActivityFeed = ({ activity, teamMembers }: ActivityFeedProps) => {
+  useUsuariosDisplay()
   const getMember = (id: string) => teamMembers.find((member) => member.id === id)
 
   return (
@@ -24,9 +27,10 @@ const ActivityFeed = ({ activity, teamMembers }: ActivityFeedProps) => {
       <ul>
         {activity.slice(0, 6).map((event) => {
           const member = getMember(event.actorId)
+          const actorIdNum = Number(event.actorId)
           const displayName =
             member?.name?.trim() ||
-            (event.actorName && event.actorName.trim()) ||
+            (event.actorName ? etiquetaUsuarioNombre(event.actorName, Number.isFinite(actorIdNum) ? actorIdNum : null) : null) ||
             (event.actorId && event.actorId !== '0' ? `Usuario #${event.actorId}` : null) ||
             'Equipo'
           const avatar =

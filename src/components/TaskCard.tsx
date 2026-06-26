@@ -9,6 +9,8 @@ import type { SectorRecord } from '../types/api'
 import apiService from '../services/api'
 import { parseTaskIdToOrdenId } from '../utils/dataMappers'
 import { useAuth } from '../hooks/useAuth'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
+import { useUsuariosDisplay } from '../hooks/useUsuariosDisplay'
 import { useTagColors } from '../hooks/useTagColors'
 import QRPrintView from './QRPrintView'
 import EtapaTallerGraficoSelector from './EtapaTallerGraficoSelector'
@@ -121,14 +123,6 @@ const compactDateTimeFormatter = new Intl.DateTimeFormat('es-AR', {
 })
 const formatCompactDateTime = (value: string) => compactDateTimeFormatter.format(new Date(value))
 
-const stripEmailDomain = (value?: string | null) => {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  const atIndex = trimmed.indexOf('@')
-  return atIndex > 0 ? trimmed.slice(0, atIndex) : trimmed
-}
-
 const TaskCardInner = ({
   task,
   index,
@@ -208,7 +202,8 @@ const TaskCardInner = ({
     return () => window.removeEventListener('board-dragging-changed', fn)
   }, [])
   const navigate = useNavigate()
-  const { usuario, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
+  useUsuariosDisplay()
+  const { nombreVisible, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
   const moveBlocked = Boolean(task.opBloqueada) && !isAdmin
   const etiquetaOrden = task.esFichaNoOP ? 'Ficha' : 'OP'
   const displayNumeroOrden = (() => {
@@ -440,10 +435,13 @@ const TaskCardInner = ({
     return null
   }
   const workerName =
-    stripEmailDomain(task.workingUser) ?? stripEmailDomain(owner?.name) ?? owner?.name
+    etiquetaUsuarioNombre(task.workingUser) !== '—'
+      ? etiquetaUsuarioNombre(task.workingUser)
+      : owner?.name?.trim() || null
   const workerDisplay = workerName ?? 'Sin asignar'
   const isWorkerAssigned = Boolean(workerName)
-  const creatorDisplay = stripEmailDomain(task.createdBy) ?? task.createdBy ?? 'Sistema'
+  const creatorDisplay =
+    task.createdBy === 'Sistema' ? 'Sistema' : etiquetaUsuarioNombre(task.createdBy)
 
   // Fuerza rerender al expirar el "NEW"
   const [, setNowTick] = useState(0)
@@ -802,7 +800,7 @@ const TaskCardInner = ({
                   if (detalle === null) return
                   setMarcandoReclamo(true)
                   try {
-                    const nombre = usuario?.nombre?.trim() || 'Usuario'
+                    const nombre = nombreVisible?.trim() || 'Usuario'
                     const r = await apiService.marcarReclamoOrden(
                       ordenId,
                       detalle.trim() || undefined,
@@ -835,7 +833,7 @@ const TaskCardInner = ({
                   if (!window.confirm('¿Quitar la marca de reclamo de esta ficha?')) return
                   setMarcandoReclamo(true)
                   try {
-                    const nombre = usuario?.nombre?.trim() || 'Usuario'
+                    const nombre = nombreVisible?.trim() || 'Usuario'
                     const r = await apiService.desmarcarReclamoOrden(ordenId, nombre)
                     if (!r.success) {
                       window.alert(r.error || 'No se pudo quitar el reclamo.')
@@ -1683,7 +1681,7 @@ const TaskCardInner = ({
                       const response = await apiService.asignarOrdenAImpresora(
                         impresoraSeleccionada,
                         ordenId,
-                        usuario?.nombre,
+                        nombreVisible,
                         metros
                       )
                       if (response.success) {

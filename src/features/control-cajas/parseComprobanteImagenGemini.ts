@@ -145,12 +145,7 @@ async function fileToBase64(file: File): Promise<{ mimeType: string; data: strin
   for (let i = 0; i < bytes.length; i += chunk) {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
   }
-  const mimeType =
-    file.type && file.type.startsWith('image/')
-      ? file.type
-      : file.name.toLowerCase().endsWith('.png')
-        ? 'image/png'
-        : 'image/jpeg'
+  const mimeType = mimeFromFile(file)
   return { mimeType, data: btoa(binary) }
 }
 
@@ -173,8 +168,25 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 export async function parseComprobanteImagenGemini(
   file: File
 ): Promise<ComprobanteMedioParsed> {
+  return parseComprobanteArchivoGemini(file)
+}
+
+function mimeFromFile(file: File): string {
+  if (file.type && file.type !== 'application/octet-stream') return file.type
+  const n = file.name.toLowerCase()
+  if (n.endsWith('.pdf')) return 'application/pdf'
+  if (n.endsWith('.png')) return 'image/png'
+  if (n.endsWith('.webp')) return 'image/webp'
+  if (n.endsWith('.gif')) return 'image/gif'
+  if (n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg'
+  return 'image/jpeg'
+}
+
+export async function parseComprobanteArchivoGemini(
+  file: File
+): Promise<ComprobanteMedioParsed> {
   const { mimeType, data } = await fileToBase64(file)
-  const prompt = `${SCHEMA}\n\nArchivo: ${file.name}\nTranscribí el comprobante de la imagen.`
+  const prompt = `${SCHEMA}\n\nArchivo: ${file.name}\nTranscribí el comprobante del archivo adjunto.`
 
   const text = await withTimeout(
     callGeminiGenerateContent({
@@ -190,11 +202,11 @@ export async function parseComprobanteImagenGemini(
       ]
     }),
     45_000,
-    'PlotAI tardó demasiado leyendo la foto del comprobante.'
+    'PlotAI tardó demasiado leyendo el comprobante.'
   )
   if (!text.trim()) throw new Error('PlotAI no devolvió datos del comprobante.')
   const parsed = comprobanteFromAiJson(parseJson(text), file.name)
-  parsed.warnings.push('Leído con PlotAI desde foto.')
+  parsed.warnings.push('Leído con PlotAI.')
   if (!parsed.monto && !parsed.lineas_resumen.length) {
     throw new Error('No se detectó monto en el comprobante. Probá otra foto más nítida.')
   }

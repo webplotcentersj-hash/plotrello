@@ -34,7 +34,7 @@ export default function SectorEtapaKanbanPage({
 }: Props) {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  const { usuario, isAdmin } = useAuth()
+  const { nombreVisible, isAdmin } = useAuth()
   const isPhoneBoard = usePhoneBoardLayout()
   const [error, setError] = useState<string | null>(null)
   const [moving, setMoving] = useState(false)
@@ -106,7 +106,7 @@ export default function SectorEtapaKanbanPage({
     })
   }, [filtered, config, campoOrdenIds])
 
-  const nombreUsuario = usuario?.nombre?.trim() || 'Usuario'
+  const nombreUsuario = nombreVisible?.trim() || 'Usuario'
 
   const persistEtapa = useCallback(
     async (cfg: SectorEtapaKanbanConfig, ordenId: number, nuevaEtapa: string) => {

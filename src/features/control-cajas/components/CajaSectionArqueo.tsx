@@ -1,21 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import SignaturePad from '../../../components/SignaturePad'
+import { useCajaOperativa } from '../../../hooks/useCajaOperativa'
 import { BILLETE_DENOMINACIONES, TURNOS_CAJA } from '../constants'
-import {
-  getParams,
-  listCajas,
-  listMovimientos,
-  listPlanillas,
-  resolveCajaSlugForUsuario,
-  resolveCajaSlugFromHistorial,
-  saveArqueo
-} from '../cajaRepository'
+import { listCajas, listMovimientos, listPlanillas, saveArqueo } from '../cajaRepository'
 import { alertaDobleFuenteCaja, resumenPlotlabVentasCaja } from '../plotlabVentasCajaData'
 import CajaPlotlabVentasPanel from './CajaPlotlabVentasPanel'
 import { calcularTeoricoFisicoCaja } from '../arqueoCalculations'
 import { estadoArqueo } from '../movimientoCaja'
-import { DEFAULT_CAJERAS } from '../constants'
-import { setStoredCajaSlug } from '../cajaUsuarioDisplay'
 import { fmtArs, fmtArs0, parseNum } from '../format'
 import { FONDO_CAJA_RECOMENDADO, fondoFijoEfectivo } from '../fondoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
@@ -46,11 +37,15 @@ export default function CajaSectionArqueo({
   planillaActiva = null,
   movimientosRefreshKey = 0
 }: Props) {
+  const {
+    slug: cajaSlugOperativa,
+    loading: cajaOperativaLoading,
+    error: cajaOperativaError
+  } = useCajaOperativa({ enabled: fijarCajaUsuario })
+
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [fecha, setFecha] = useState(getArgentinaDateString())
   const [cajaSlug, setCajaSlug] = useState('')
-  const [cajaAutoAsignada, setCajaAutoAsignada] = useState(false)
-  const [cajaResolviendo, setCajaResolviendo] = useState(fijarCajaUsuario)
   const [turno, setTurno] = useState<string>('Único')
   const [billetes, setBilletes] = useState<Record<string, number>>({})
   const [firmaDataUrl, setFirmaDataUrl] = useState<string | null>(null)
@@ -84,47 +79,23 @@ export default function CajaSectionArqueo({
   }, [planillaActiva?.archivo_nombre, planillaActiva?.fecha_desde, planillaActiva?.fecha_hasta])
 
   useEffect(() => {
-    let cancelled = false
-    setCajaResolviendo(fijarCajaUsuario)
-
-    void Promise.all([listCajas(), fijarCajaUsuario ? getParams() : Promise.resolve(null)]).then(
-      async ([list, params]) => {
-        const filtered = soloCajasOperativas
-          ? list.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
-          : list
-        if (cancelled) return
-        setCajas(filtered)
-
-        if (!fijarCajaUsuario) {
-          if (filtered.length) setCajaSlug((prev) => prev || filtered[0].slug)
-          setCajaAutoAsignada(false)
-          setCajaResolviendo(false)
-          return
-        }
-
-        const cajeras = params?.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
-        let slug =
-          resolveCajaSlugForUsuario(usuarioNombre, filtered, cajeras, { usuarioId }) ?? ''
-
-        if (!slug && usuarioId) {
-          slug = (await resolveCajaSlugFromHistorial(usuarioId, filtered)) ?? ''
-        }
-
-        if (cancelled) return
-        setCajaSlug(slug)
-        setCajaAutoAsignada(!!slug)
-        setCajaResolviendo(false)
+    void listCajas().then((list) => {
+      const filtered = soloCajasOperativas
+        ? list.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+        : list
+      setCajas(filtered)
+      if (!fijarCajaUsuario && filtered.length) {
+        setCajaSlug((prev) => prev || filtered[0].slug)
       }
-    )
+    })
+  }, [soloCajasOperativas, fijarCajaUsuario])
 
-    return () => {
-      cancelled = true
-    }
-  }, [soloCajasOperativas, fijarCajaUsuario, usuarioNombre, usuarioId])
+  useEffect(() => {
+    if (fijarCajaUsuario && cajaSlugOperativa) setCajaSlug(cajaSlugOperativa)
+  }, [fijarCajaUsuario, cajaSlugOperativa])
 
   const onCajaManual = (slug: string) => {
     setCajaSlug(slug)
-    if (usuarioId && slug) setStoredCajaSlug(usuarioId, slug)
   }
 
   const total = useMemo(() => {
@@ -177,7 +148,7 @@ export default function CajaSectionArqueo({
     if (!cajaSlug) {
       setMsg(
         fijarCajaUsuario
-          ? 'Elegí tu caja en el listado. Si no aparece, pedí a administración que te agregue en Maestros → Cajeras.'
+          ? 'No se pudo identificar tu caja. Volvé a iniciar sesión o contactá a administración.'
           : 'Elegí una caja.'
       )
       return
@@ -220,7 +191,6 @@ export default function CajaSectionArqueo({
           : null,
         firma_data_url: firmaDataUrl
       })
-      if (usuarioId) setStoredCajaSlug(usuarioId, cajaSlug)
       setMsg(`Arqueo guardado — total $ ${fmtArs(total)}`)
       setBilletes({})
       setFirmaDataUrl(null)
@@ -234,8 +204,8 @@ export default function CajaSectionArqueo({
   }
 
   const cajaAsignadaNombre = cajaActiva?.nombre ?? ''
-  const mostrarSelectorCaja =
-    fijarCajaUsuario && !cajaResolviendo && (!cajaAutoAsignada || !cajaSlug)
+  const cajaResolviendo = fijarCajaUsuario && cajaOperativaLoading
+  const mostrarSelectorCaja = !fijarCajaUsuario
 
   return (
     <form className="caja-cc-form" onSubmit={(e) => void handleSubmit(e)}>
@@ -257,6 +227,12 @@ export default function CajaSectionArqueo({
         </div>
       )}
 
+      {cajaOperativaError && fijarCajaUsuario && (
+        <p className="caja-cc-error" role="alert">
+          {cajaOperativaError}
+        </p>
+      )}
+
       <div className="caja-cc-help">
         Subí arriba el PDF del día: ahí está el <strong>efectivo que queda</strong> en caja. Contá solo billetes y
         monedas hasta ese monto; no incluyas tarjetas, transferencias ni cuenta corriente (eso se concilia aparte).
@@ -269,7 +245,7 @@ export default function CajaSectionArqueo({
             {fondoTraspaso > 0 && fondoTraspaso !== FONDO_CAJA_RECOMENDADO
               ? ` · configurado $ ${fmtArs(fondoTraspaso)}`
               : ''}
-            , editable por la cajera en el cierre.
+            , editable en el cierre de turno.
           </>
         )}
       </div>
@@ -299,7 +275,7 @@ export default function CajaSectionArqueo({
                   ))}
                 </select>
                 <span className="caja-cc-field-hint">
-                  Tu usuario no está en Maestros; elegí la caja una vez y quedará guardada.
+                  Tu caja se asigna automáticamente según tu usuario de mostrador.
                 </span>
               </>
             ) : (

@@ -47,6 +47,8 @@ export default function TotemAutogestionImprimirPage() {
   const [nombreSugerencias, setNombreSugerencias] = useState<ClienteRecord[]>([])
   const [nombreLoading, setNombreLoading] = useState(false)
   const [nombreMenuOpen, setNombreMenuOpen] = useState(false)
+  const [dniLoading, setDniLoading] = useState(false)
+  const [clienteId, setClienteId] = useState<number | null>(null)
 
   const [pendriveArchivos, setPendriveArchivos] = useState<TotemArchivoItem[]>([])
   const [pendriveSubiendo, setPendriveSubiendo] = useState(false)
@@ -282,6 +284,25 @@ export default function TotemAutogestionImprimirPage() {
     }
   }, [origenArchivo])
 
+  const applyClienteDetectado = useCallback((c: ClienteRecord) => {
+    const nom = [c.nombre, c.apellido].filter(Boolean).join(' ').trim()
+    setClienteId(c.id)
+    if (nom) setClienteNombre(nom)
+    const dni = digitsOnly(c.dni_cuit || '')
+    if (dni) setClienteDni(dni)
+    const tel = String(c.telefono ?? '').trim()
+    if (tel) setClienteTelefono(tel)
+    setNombreSugerencias([])
+    setNombreMenuOpen(false)
+  }, [])
+
+  const pickCliente = useCallback(
+    (c: ClienteRecord) => {
+      applyClienteDetectado(c)
+    },
+    [applyClienteDetectado]
+  )
+
   useEffect(() => {
     let cancelled = false
     const q = clienteNombre.trim()
@@ -303,10 +324,24 @@ export default function TotemAutogestionImprimirPage() {
           setNombreMenuOpen(false)
           return
         }
-        setNombreSugerencias(res.data)
-        setNombreMenuOpen(res.data.length > 0)
 
-        if (res.data.length === 0) {
+        const lista = res.data
+        const unico = lista.length === 1 ? lista[0]! : null
+        if (unico) {
+          const linea = [unico.nombre, unico.apellido].filter(Boolean).join(' ').trim()
+          const dniUnico = digitsOnly(unico.dni_cuit ?? '')
+          const coincideDni = dniDigits.length >= 7 && dniUnico === dniDigits
+          const coincideNombre = linea.toLowerCase() === q.toLowerCase()
+          if (coincideDni || coincideNombre) {
+            applyClienteDetectado(unico)
+            return
+          }
+        }
+
+        setNombreSugerencias(lista)
+        setNombreMenuOpen(lista.length > 0)
+
+        if (lista.length === 0) {
           const now = Date.now()
           if (now - lastEmptyScrollAt.current > 5000) {
             lastEmptyScrollAt.current = now
@@ -324,7 +359,40 @@ export default function TotemAutogestionImprimirPage() {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [clienteNombre])
+  }, [clienteNombre, dniDigits, applyClienteDetectado])
+
+  useEffect(() => {
+    if (dniDigits.length < 7) {
+      setDniLoading(false)
+      if (dniDigits.length === 0) setClienteId(null)
+      return
+    }
+
+    let cancelled = false
+    setDniLoading(true)
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const res = await apiService.buscarClientes(dniDigits)
+        if (cancelled) return
+        setDniLoading(false)
+        if (!res.success || !res.data) {
+          setClienteId(null)
+          return
+        }
+        const match = res.data.find((c) => digitsOnly(c.dni_cuit ?? '') === dniDigits)
+        if (match) {
+          applyClienteDetectado(match)
+          return
+        }
+        setClienteId(null)
+      })()
+    }, 420)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [dniDigits, applyClienteDetectado])
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -333,15 +401,6 @@ export default function TotemAutogestionImprimirPage() {
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
-  }, [])
-
-  const pickCliente = useCallback((c: ClienteRecord) => {
-    const nom = [c.nombre, c.apellido].filter(Boolean).join(' ').trim()
-    setClienteNombre(nom || c.nombre)
-    setClienteDni(digitsOnly(c.dni_cuit || ''))
-    setClienteTelefono(String(c.telefono ?? '').trim())
-    setNombreSugerencias([])
-    setNombreMenuOpen(false)
   }, [])
 
   const canSend = () => {
@@ -489,12 +548,16 @@ export default function TotemAutogestionImprimirPage() {
                   <div className="totem-print-nombreWrap" ref={nombreWrapRef}>
                     <input
                       value={clienteNombre}
-                      onChange={(e) => setClienteNombre(e.target.value)}
+                      onChange={(e) => {
+                        setClienteNombre(e.target.value)
+                        setClienteId(null)
+                      }}
                       onFocus={() => {
                         if (nombreSugerencias.length > 0) setNombreMenuOpen(true)
                       }}
                       autoComplete="off"
-                      placeholder="Nombre y apellido (3+ letras: buscamos en clientes)"
+                      placeholder="Nombre y apellido (buscamos en clientes)"
+                      className={clienteId != null ? 'totem-print-input--matched' : undefined}
                     />
                     {nombreLoading && clienteNombre.trim().length >= 3 && (
                       <div className="totem-print-nombreHint">Buscando en el sistema…</div>
@@ -517,13 +580,41 @@ export default function TotemAutogestionImprimirPage() {
                     )}
                   </div>
                 </label>
+                {clienteId != null && (
+                  <div className="totem-print-span2 totem-print-clienteOk" role="status">
+                    <span className="totem-print-clienteOk__icon" aria-hidden>
+                      ✓
+                    </span>
+                    <span>
+                      <strong>Cliente registrado</strong> — completamos nombre, DNI y teléfono automáticamente.
+                    </span>
+                  </div>
+                )}
                 <label>
                   DNI/CUIT
-                  <input inputMode="numeric" value={clienteDni} onChange={(e) => setClienteDni(e.target.value)} placeholder="Solo números" />
+                  <input
+                    inputMode="numeric"
+                    value={clienteDni}
+                    onChange={(e) => setClienteDni(e.target.value)}
+                    placeholder="Solo números (detectamos cliente)"
+                    className={clienteId != null ? 'totem-print-input--matched' : undefined}
+                  />
+                  {dniLoading && dniDigits.length >= 7 && (
+                    <span className="totem-print-hojasHint">Buscando cliente por DNI…</span>
+                  )}
                 </label>
                 <label>
                   Teléfono
-                  <input inputMode="tel" value={clienteTelefono} onChange={(e) => setClienteTelefono(e.target.value)} placeholder="Ej: 264..." />
+                  <input
+                    inputMode="tel"
+                    value={clienteTelefono}
+                    onChange={(e) => {
+                      setClienteTelefono(e.target.value)
+                      setClienteId(null)
+                    }}
+                    placeholder="Ej: 264..."
+                    className={clienteId != null ? 'totem-print-input--matched' : undefined}
+                  />
                 </label>
                 <label>
                   Cantidad de hojas

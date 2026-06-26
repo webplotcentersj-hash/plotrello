@@ -96,6 +96,15 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
           title: 'Dashboard Mostrador'
         })
       }
+      if (ctx.canManageCaja && ctx.onNavigateToCaja) {
+        push({
+          id: 'dashboard-caja',
+          label: 'Mi caja',
+          icon: '💰',
+          onClick: ctx.onNavigateToCaja,
+          title: 'Arqueo, cierre de turno y movimientos propios'
+        })
+      }
       break
     case 'caja':
       if (ctx.canManageCaja && ctx.onNavigateToCaja) {

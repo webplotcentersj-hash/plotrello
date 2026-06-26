@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { marked } from 'marked'
 import { sanitizeHtml } from '../utils/sanitizeHtml'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import type { Task, TeamMember } from '../types/board'
 import type {
   ComentarioOrden,
@@ -674,7 +675,9 @@ export default function TaskViewModal({
               <h3 className="task-view-panel-title">Equipo</h3>
               <dl className="task-view-kv">
                 <Kv label="Responsable">{owner?.name ?? viewTask.ownerId}</Kv>
-                <Kv label="Creado por">{createdByMember?.name ?? viewTask.createdBy}</Kv>
+                <Kv label="Creado por">
+                  {createdByMember?.name ?? etiquetaUsuarioNombre(viewTask.createdBy)}
+                </Kv>
                 <Kv label="Trabajando ahora">{viewTask.workingUser}</Kv>
               </dl>
             </section>

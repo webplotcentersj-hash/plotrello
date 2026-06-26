@@ -103,6 +103,7 @@ const ErpComprasPage = lazy(() => import('../pages/ErpComprasPage'))
 const ErpStockPage = lazy(() => import('../pages/ErpStockPage'))
 const ErpCrmPage = lazy(() => import('../pages/ErpCrmPage'))
 const ErpAdminPage = lazy(() => import('../pages/ErpAdminPage'))
+const ErpConfigCondicionesVentaPage = lazy(() => import('../pages/ErpConfigCondicionesVentaPage'))
 const ErpGastosPage = lazy(() => import('../pages/ErpGastosPage'))
 const TallerGraficoInventarioPage = lazy(() => import('../pages/TallerGraficoInventarioPage'))
 const MetalurgicaInventarioPage = lazy(() => import('../pages/MetalurgicaInventarioPage'))
@@ -123,6 +124,8 @@ const AsesorPresupuestosPage = lazy(() => import('../pages/AsesorPresupuestosPag
 const AdminBackLink = lazy(() => import('../components/AdminBackLink'))
 const TallerGraficoPedidoEntregaOverlay = lazy(() => import('../components/TallerGraficoPedidoEntregaOverlay'))
 import { useAuth } from '../hooks/useAuth'
+import { useUsuariosDisplayBootstrap } from '../hooks/useUsuariosDisplay'
+import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import { clearPlotlabAuthStorage } from '../utils/plotlabSession'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import type {
@@ -159,20 +162,24 @@ const DEFAULT_SECTORES: SectorRecord[] = [
 const normNumeroOp = (n: unknown) => String(n ?? '').trim().toLowerCase()
 
 const mapUsuariosToTeamMembers = (usuarios: UsuarioRecord[]): TeamMember[] =>
-  usuarios.map((usuario) => ({
-    id: usuario.id.toString(),
-    name: usuario.nombre,
-    role: usuario.rol,
-    avatar: usuario.nombre
-      .split(' ')
-      .map((part) => part.charAt(0))
-      .join('')
-      .slice(0, 2)
-      .toUpperCase(),
-    productivity: 0
-  }))
+  usuarios.map((usuario) => {
+    const display = nombreVisibleDesdeRecord(usuario)
+    return {
+      id: usuario.id.toString(),
+      name: display,
+      role: usuario.rol,
+      avatar: display
+        .split(' ')
+        .map((part) => part.charAt(0))
+        .join('')
+        .slice(0, 2)
+        .toUpperCase(),
+      productivity: 0
+    }
+  })
 
 export default function StaffAppHost() {
+  useUsuariosDisplayBootstrap()
   const navigate = useNavigate()
   const [tasks, setTasks] = useState<Task[]>([])
   const [activity, setActivity] = useState<ActivityEvent[]>([])
@@ -1369,6 +1376,10 @@ function AppRoutes({
       <Route
         path="/erp/admin"
         element={<ErpAdminPage />}
+      />
+      <Route
+        path="/erp/admin/condiciones-venta"
+        element={<ErpConfigCondicionesVentaPage />}
       />
       <Route
         path="/erp/plan-cuentas"

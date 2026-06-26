@@ -1,11 +1,10 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
 import { notifyCajaSync } from './cajaSyncNotify'
+import { obtenerCajaOperativa } from './cajaOperativa'
 import {
-  getParams,
   listCajas,
   listMovimientos,
   resolveCajaSlugForUsuario,
-  resolveCajaSlugFromHistorial,
   saveMovimiento
 } from './cajaRepository'
 import { mediosToPlanillaLinea, movimientoDesdeMedios, type MediosPagoInput } from './movimientoCaja'
@@ -125,14 +124,13 @@ async function resolverCajaSlugVenta(
   override?: string
 ): Promise<string | null> {
   if (override?.trim()) return override.trim()
-  const [cajas, params] = await Promise.all([listCajas(), getParams()])
-  const slug = resolveCajaSlugForUsuario(usuarioNombre, cajas, params.cajeras, { usuarioId })
-  if (slug) return slug
-  if (usuarioId) {
-    const hist = await resolveCajaSlugFromHistorial(usuarioId, cajas)
-    if (hist) return hist
+  if (usuarioId != null) {
+    const op = await obtenerCajaOperativa(usuarioId, usuarioNombre)
+    return op.slug
   }
-  return cajas.find((c) => c.slug !== 'admin' && c.slug !== 'vuelto' && c.activa)?.slug ?? null
+  const cajas = await listCajas()
+  const slug = resolveCajaSlugForUsuario(usuarioNombre, cajas)
+  return slug ?? cajas.find((c) => c.slug !== 'admin' && c.slug !== 'vuelto' && c.activa)?.slug ?? null
 }
 
 function refVentaPlotLab(ventaId: number): string {
@@ -266,7 +264,7 @@ export async function syncVentaPlotLabACaja(
       existente?.destino_slug ||
       (await resolverCajaSlugVenta(usuarioNombre, input.usuarioId, input.cajaSlug))
     if (!cajaSlug) {
-      return { ok: false, error: 'No se pudo determinar la caja operativa (revisá Maestros → Cajeras).' }
+      return { ok: false, error: 'No se pudo determinar la caja operativa del usuario mostrador.' }
     }
 
     const fecha = (input.fecha || getArgentinaDateString()).slice(0, 10)

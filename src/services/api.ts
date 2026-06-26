@@ -4033,7 +4033,10 @@ class ApiService {
       const { data, error } = await supabase.rpc('listar_usuarios')
 
       if (error) return { success: false, error: error.message }
-      return { success: true, data: (data as UsuarioRecord[]) ?? [] }
+      const raw = (data as UsuarioRecord[]) ?? []
+      const { enrichUsuariosRecordsConLegajo } = await import('../utils/usuarioDisplayName')
+      const enriched = await enrichUsuariosRecordsConLegajo(raw)
+      return { success: true, data: enriched }
     }
 
     if (hasLegacyBackend) {
@@ -4053,9 +4056,12 @@ class ApiService {
   /** Incluye usuarios inactivos (baja) para vincular planillas históricas del reloj. */
   async getUsuariosParaRelojMatch(): Promise<ApiResponse<UsuarioRecord[]>> {
     if (supabase) {
+      const { enrichUsuariosRecordsConLegajo } = await import('../utils/usuarioDisplayName')
       const { data, error } = await supabase.rpc('listar_usuarios_reloj')
       if (!error && Array.isArray(data)) {
-        return { success: true, data: filtrarUsuariosRrhhOperarios(data as UsuarioRecord[]) }
+        const filtered = filtrarUsuariosRrhhOperarios(data as UsuarioRecord[])
+        const enriched = await enrichUsuariosRecordsConLegajo(filtered)
+        return { success: true, data: enriched }
       }
 
       const { data: rows, error: selErr } = await supabase
@@ -4063,7 +4069,9 @@ class ApiService {
         .select('id, nombre, rol')
         .order('nombre')
       if (!selErr && Array.isArray(rows) && rows.length > 0) {
-        return { success: true, data: filtrarUsuariosRrhhOperarios(rows as UsuarioRecord[]) }
+        const filtered = filtrarUsuariosRrhhOperarios(rows as UsuarioRecord[])
+        const enriched = await enrichUsuariosRecordsConLegajo(filtered)
+        return { success: true, data: enriched }
       }
 
       console.warn('listar_usuarios_reloj no disponible, usando solo activos:', error?.message)
@@ -4102,7 +4110,9 @@ class ApiService {
         return { success: false, error: listErr.message }
       }
 
-      return { success: true, data: [...byId.values()] }
+      const { enrichUsuariosRecordsConLegajo } = await import('../utils/usuarioDisplayName')
+      const enriched = await enrichUsuariosRecordsConLegajo([...byId.values()])
+      return { success: true, data: enriched }
     }
     const all = await this.getUsuarios()
     if (!all.success || !all.data) return all
@@ -14117,6 +14127,43 @@ class ApiService {
     }
   }
 
+  async getConfiguracionCondicionesVenta(): Promise<
+    ApiResponse<import('../constants/ventasCondicionesPago').ConfigCondicionesVenta>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('get_configuracion_condiciones_venta')
+      if (error) return { success: false, error: error.message }
+      const { DEFAULT_CONFIG_CONDICIONES_VENTA, normalizarConfigCondicionesVenta } = await import(
+        '../constants/ventasCondicionesPago'
+      )
+      if (!data || typeof data !== 'object') {
+        return { success: true, data: DEFAULT_CONFIG_CONDICIONES_VENTA }
+      }
+      return { success: true, data: normalizarConfigCondicionesVenta(data) }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async guardarConfiguracionCondicionesVenta(
+    config: import('../constants/ventasCondicionesPago').ConfigCondicionesVenta
+  ): Promise<ApiResponse<import('../constants/ventasCondicionesPago').ConfigCondicionesVenta>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { normalizarConfigCondicionesVenta } = await import('../constants/ventasCondicionesPago')
+      const payload = normalizarConfigCondicionesVenta(config)
+      const { data, error } = await supabase.rpc('guardar_configuracion_condiciones_venta', {
+        p_payload: payload
+      })
+      if (error) return { success: false, error: error.message }
+      if (!data) return { success: false, error: 'No se recibió configuración guardada' }
+      return { success: true, data: normalizarConfigCondicionesVenta(data) }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   /**
    * Eliminar artículo de empresa (marcar como inactivo)
    */
@@ -18275,13 +18322,14 @@ class ApiService {
     cliente_empresa?: string
     cliente_direccion?: string
     valor_total: number
-    metodo_pago?: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
+    metodo_pago?: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Mercado Pago' | 'Otro'
     estado_pago?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
     fecha_venta?: string
     id_vendedor: number
     nombre_vendedor: string
     id_cliente?: number
     observaciones?: string
+    detalle_pago?: import('../constants/ventasCondicionesPago').VentaDetallePago | null
   }): Promise<ApiResponse<{ id: number; numero_venta: string }>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
@@ -18320,6 +18368,13 @@ class ApiService {
       }
 
       if (!ventaCreada) throw new Error('Formato de respuesta inesperado')
+
+      if (venta.detalle_pago && Object.keys(venta.detalle_pago).length > 0) {
+        await supabase
+          .from('ventas')
+          .update({ detalle_pago: venta.detalle_pago, updated_at: new Date().toISOString() })
+          .eq('id', ventaCreada.id)
+      }
 
       void syncCajaDesdeVentaApi({
         id: ventaCreada.id,
@@ -18400,11 +18455,58 @@ class ApiService {
         return { success: false, error: dbError.message }
       }
 
+      try {
+        const { extraerComprobantePagoDesdeArchivo } = await import('../utils/ventaComprobantePago')
+        const { isComprobanteAiAvailable } = await import(
+          '../features/control-cajas/parseComprobanteImagenGemini'
+        )
+        if (isComprobanteAiAvailable()) {
+          const { parsed, texto } = await extraerComprobantePagoDesdeArchivo(file)
+          await supabase
+            .from('ventas')
+            .update({
+              comprobante_pago_ia: parsed as unknown as Record<string, unknown>,
+              comprobante_pago_texto: texto,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', idVenta)
+        }
+      } catch (iaErr) {
+        console.warn('Lectura PlotAI del comprobante omitida:', iaErr)
+      }
+
       return { success: true, data: { url: publicUrl } }
     } catch (error: unknown) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Error al subir comprobante'
+      }
+    }
+  }
+
+  async guardarComprobantePagoIaVenta(
+    idVenta: number,
+    ia: import('../features/control-cajas/comprobanteMediosTypes').ComprobanteMedioParsed,
+    texto: string
+  ): Promise<ApiResponse<void>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { error } = await supabase
+        .from('ventas')
+        .update({
+          comprobante_pago_ia: ia as unknown as Record<string, unknown>,
+          comprobante_pago_texto: texto,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', idVenta)
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al guardar lectura del comprobante'
       }
     }
   }
@@ -18732,13 +18834,17 @@ class ApiService {
       id_op: number | null
       numero_op: string | null
       valor_total: number
-      metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
+      metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Mercado Pago' | 'Otro'
       estado_pago: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
       monto_pagado: number | null
       caja_slug_cobro: string | null
       fecha_venta: string
       observaciones: string
       comprobante_pago_url: string | null
+      comprobante_pago_texto: string | null
+      detalle_pago: import('../constants/ventasCondicionesPago').VentaDetallePago | null
+      mp_payment_id: string | null
+      mp_preference_id: string | null
     }>
   ): Promise<ApiResponse<{ success: boolean }>> {
     if (!supabase) {
@@ -18758,6 +18864,18 @@ class ApiService {
       if (venta.observaciones !== undefined) updateData.observaciones = venta.observaciones
       if (venta.comprobante_pago_url !== undefined) {
         updateData.comprobante_pago_url = venta.comprobante_pago_url
+      }
+      if (venta.comprobante_pago_texto !== undefined) {
+        updateData.comprobante_pago_texto = venta.comprobante_pago_texto
+      }
+      if (venta.detalle_pago !== undefined) {
+        updateData.detalle_pago = venta.detalle_pago
+      }
+      if (venta.mp_payment_id !== undefined) {
+        updateData.mp_payment_id = venta.mp_payment_id
+      }
+      if (venta.mp_preference_id !== undefined) {
+        updateData.mp_preference_id = venta.mp_preference_id
       }
       updateData.updated_at = new Date().toISOString()
 
@@ -21707,19 +21825,23 @@ class ApiService {
         void (async () => {
           try {
             const { syncEgresoDesdePagoPlotLab } = await import('../features/control-cajas/plotlabEgresosSync')
-            const { getParams, listCajas, resolveCajaSlugForUsuario } = await import(
+            const { obtenerCajaOperativa } = await import('../features/control-cajas/cajaOperativa')
+            const { listCajas, resolveCajaSlugForUsuario } = await import(
               '../features/control-cajas/cajaRepository'
             )
             const usuarioData = localStorage.getItem('usuario')
             const usuario = usuarioData ? JSON.parse(usuarioData) : null
-            const [cajas, params] = await Promise.all([listCajas(), getParams()])
-            const cajaSlug =
-              resolveCajaSlugForUsuario(
-                usuario?.nombre || 'Tesorería',
-                cajas,
-                params.cajeras,
-                { usuarioId: usuario?.id }
-              ) || cajas.find((c) => c.slug !== 'admin' && c.slug !== 'vuelto')?.slug
+            let cajaSlug: string | null = null
+            if (usuario?.id) {
+              const op = await obtenerCajaOperativa(usuario.id, usuario?.nombre || 'Tesorería')
+              cajaSlug = op.slug
+            } else {
+              const cajas = await listCajas()
+              cajaSlug =
+                resolveCajaSlugForUsuario(usuario?.nombre || 'Tesorería', cajas) ||
+                cajas.find((c) => c.slug !== 'admin' && c.slug !== 'vuelto')?.slug ||
+                null
+            }
             if (!cajaSlug) return
             let concepto = `Pago proveedor #${pago.id_cuenta_por_pagar}`
             if (supabase) {

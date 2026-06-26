@@ -24,7 +24,7 @@ function buildWhatsAppLink(phone?: string | null): string {
 const EntregaPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { usuario } = useAuth()
+  const { usuario, nombreVisible } = useAuth()
   const [loading, setLoading] = useState(true)
   const [orden, setOrden] = useState<OrdenTrabajo | null>(null)
   const [firmaDataUrl, setFirmaDataUrl] = useState<string | null>(null)
@@ -242,7 +242,7 @@ const EntregaPage = () => {
         numeroOp: String(orden.numero_op ?? '').trim(),
         cliente: String(orden.cliente ?? '').trim(),
         solicitanteId: usuario.id,
-        solicitanteNombre: usuario.nombre,
+        solicitanteNombre: nombreVisible,
         solicitanteRol: usuario.rol
       })
       if (!res.success) {
@@ -260,7 +260,7 @@ const EntregaPage = () => {
           const texto =
             `🖨️ Pedido a Taller Gráfico\n` +
             `OP #${String(orden.numero_op ?? '').trim()} · ${String(orden.cliente ?? '').trim()}\n` +
-            `Solicitante: ${usuario.nombre} (${usuario.rol})\n` +
+            `Solicitante: ${nombreVisible} (${usuario.rol})\n` +
             `Acción: revisar pedido desde Entrega.`
 
           let enviados = 0
@@ -342,7 +342,7 @@ const EntregaPage = () => {
         dniRetira: dniRetira.trim() || undefined,
         observaciones: observaciones.trim() || undefined,
         usuarioId: usuario.id,
-        usuarioNombre: usuario.nombre
+        usuarioNombre: nombreVisible
       })
 
       if (!response.success) {
@@ -658,7 +658,7 @@ const EntregaPage = () => {
             <div className="comprobante-footer">
               <p>Este comprobante certifica que la orden de trabajo ha sido entregada correctamente.</p>
               <p className="footer-small">
-                Generado el {new Date().toLocaleString('es-AR')} por {usuario?.nombre || 'Sistema'}
+                Generado el {new Date().toLocaleString('es-AR')} por {nombreVisible || 'Sistema'}
               </p>
             </div>
           </div>

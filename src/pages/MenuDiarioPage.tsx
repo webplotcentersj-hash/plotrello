@@ -43,7 +43,7 @@ function seatsForTurn(selecciones: MenuSeleccion[], turno: MenuTurnoAlmuerzoId) 
 
 const MenuDiarioPage = () => {
   const navigate = useNavigate()
-  const { usuario, loading: authLoading } = useAuth()
+  const { usuario, nombreVisible, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [menu, setMenu] = useState<MenuDiario | null>(null)
   const [miSeleccion, setMiSeleccion] = useState<MenuSeleccion | null>(null)
@@ -427,7 +427,7 @@ const MenuDiarioPage = () => {
     doc.setFontSize(11)
     doc.text(`Fecha: ${formatArgentinaDate(menu.fecha)}`, m, y)
     y += 7
-    doc.text(`Empleado/a: ${usuario.nombre}`, m, y)
+    doc.text(`Empleado/a: ${nombreVisible}`, m, y)
     y += 7
     doc.text(`Plato: ${miSeleccion.nombre_plato || '—'}`, m, y)
     y += 7
@@ -437,7 +437,7 @@ const MenuDiarioPage = () => {
     y += 7
     doc.text(`Registrado: ${formatArgentinaTime(miSeleccion.fecha_seleccion)}`, m, y)
 
-    doc.save(`pedido-menu-${menu.fecha}-${usuario.nombre.replace(/\s+/g, '-')}.pdf`)
+    doc.save(`pedido-menu-${menu.fecha}-${nombreVisible.replace(/\s+/g, '-')}.pdf`)
   }
 
   if (loading) {

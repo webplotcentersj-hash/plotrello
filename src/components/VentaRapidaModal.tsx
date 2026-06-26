@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { ArticuloEmpresaRecord, ClienteRecord, Venta } from '../types/api'
@@ -10,9 +11,25 @@ import {
   labelListaPrecio,
   labelAjustesPreciosActivos,
   resolvePrecioLista,
-  type TipoListaPrecioVentas
+  aplicarRecargoPrioridad,
+  labelRecargoPrioridad,
+  type TipoListaPrecioVentas,
+  type PrioridadVentaRapida
 } from '../constants/ventasListasPrecio'
 import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
+import { useConfigCondicionesVenta } from '../hooks/useConfigCondicionesVenta'
+import MercadoPagoCheckoutPanel from './payments/MercadoPagoCheckoutPanel'
+import VentaCondicionPagoFields, { validarDetallePago } from './ventas/VentaCondicionPagoFields'
+import type { CuentaBancariaRecord } from '../types/api'
+import {
+  esMercadoPago,
+  listaFromMedioPago,
+  mediosPagoActivos,
+  resumenDetallePago,
+  type MedioPagoCodigo,
+  type VentaDetallePago
+} from '../constants/ventasCondicionesPago'
+import './ventas/VentaCondicionPagoFields.css'
 import {
   ESTADO_CC_LABELS,
   normalizeEstadoCc,
@@ -47,12 +64,6 @@ interface ItemVenta {
   observaciones?: string
 }
 
-function listaFromCondicion(
-  condicion: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
-): TipoListaPrecioVentas {
-  return condicion === 'Cuenta Corriente' ? 'lista_2' : 'lista_1'
-}
-
 function formatArs(n: number): string {
   return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -66,6 +77,8 @@ const VentaRapidaModal = ({
 }: VentaRapidaModalProps) => {
   const navigate = useNavigate()
   const { ajustes: ajustesPrecios } = useConfigAjustesPreciosVentas()
+  const { config: configCondiciones } = useConfigCondicionesVenta()
+  const mediosActivos = useMemo(() => mediosPagoActivos(configCondiciones), [configCondiciones])
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
@@ -79,7 +92,11 @@ const VentaRapidaModal = ({
     direccion: ''
   })
 
-  const [condicionVenta, setCondicionVenta] = useState<'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'>('Efectivo')
+  const [condicionVenta, setCondicionVenta] = useState<MedioPagoCodigo>('Efectivo')
+  const [detallePago, setDetallePago] = useState<VentaDetallePago>({})
+  const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancariaRecord[]>([])
+  const [showMpCheckout, setShowMpCheckout] = useState(false)
+  const [mpVentaId, setMpVentaId] = useState<number | null>(null)
   const [esCuentaCorriente, setEsCuentaCorriente] = useState(false)
   const [clienteCcHabilitado, setClienteCcHabilitado] = useState<boolean | null>(null)
   const [clienteCcEstado, setClienteCcEstado] = useState<EstadoCuentaCorriente | 'sin_solicitud' | null>(
@@ -93,7 +110,7 @@ const VentaRapidaModal = ({
     limite_credito_sugerido: number | null
   } | null>(null)
   const [fechaVenta, setFechaVenta] = useState(() => getArgentinaDateString())
-  const [prioridad, setPrioridad] = useState<'Baja' | 'Normal' | 'Alta' | 'Urgente'>('Normal')
+  const [prioridad, setPrioridad] = useState<PrioridadVentaRapida>('Normal')
   const [observaciones, setObservaciones] = useState('')
 
   const [busquedaArticulo, setBusquedaArticulo] = useState('')
@@ -102,7 +119,26 @@ const VentaRapidaModal = ({
   const [loadingCatalogo, setLoadingCatalogo] = useState(false)
   const [itemsVenta, setItemsVenta] = useState<ItemVenta[]>([])
 
-  const tipoListaPrecio = useMemo(() => listaFromCondicion(condicionVenta), [condicionVenta])
+  const tipoListaPrecio = useMemo(
+    () => listaFromMedioPago(condicionVenta, configCondiciones),
+    [condicionVenta, configCondiciones]
+  )
+
+  const esMercadoPagoCondicion = esMercadoPago(condicionVenta)
+
+  useEffect(() => {
+    if (!mediosActivos.length) return
+    if (!mediosActivos.some((m) => m.codigo === condicionVenta)) {
+      setCondicionVenta(mediosActivos[0].codigo)
+    }
+  }, [mediosActivos, condicionVenta])
+
+  useEffect(() => {
+    void (async () => {
+      const res = await apiService.getCuentasBancarias({ activa: true })
+      if (res.success && res.data) setCuentasBancarias(res.data)
+    })()
+  }, [])
 
   const [guardando, setGuardando] = useState(false)
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
@@ -194,6 +230,17 @@ const VentaRapidaModal = ({
     })
   }, [catalogoArticulos, busquedaArticulo, categoriaArticulo])
 
+  const recargoPrioridadLabel = useMemo(() => labelRecargoPrioridad(prioridad), [prioridad])
+
+  const precioListaConPrioridad = useCallback(
+    (articulo: ArticuloEmpresaRecord) => {
+      const base = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+      if (base == null) return null
+      return aplicarRecargoPrioridad(base, prioridad)
+    },
+    [tipoListaPrecio, ajustesPrecios, prioridad]
+  )
+
   useEffect(() => {
     if (itemsVenta.length === 0 || catalogoArticulos.length === 0) return
     const lista = tipoListaPrecio
@@ -202,12 +249,13 @@ const VentaRapidaModal = ({
         if (!item.id_articulo_empresa) return item
         const art = catalogoArticulos.find((a) => a.id === item.id_articulo_empresa)
         if (!art) return item
-        const precio = resolvePrecioLista(art, lista, ajustesPrecios)
-        if (precio == null) return item
+        const precioBase = resolvePrecioLista(art, lista, ajustesPrecios)
+        if (precioBase == null) return item
+        const precio = aplicarRecargoPrioridad(precioBase, prioridad)
         return { ...item, precio_unitario: precio, precio_lista: lista }
       })
     )
-  }, [tipoListaPrecio, catalogoArticulos, ajustesPrecios])
+  }, [tipoListaPrecio, prioridad, catalogoArticulos, ajustesPrecios])
 
   const seleccionarCliente = (cliente: ClienteRecord) => {
     setClienteSeleccionado(cliente)
@@ -262,7 +310,7 @@ const VentaRapidaModal = ({
       return
     }
 
-    const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+    const precio = precioListaConPrioridad(articulo)
     if (precio == null) {
       alert(`Este artículo no tiene precio en ${labelListaPrecio(tipoListaPrecio)}.`)
       return
@@ -304,6 +352,64 @@ const VentaRapidaModal = ({
     }, 0)
   }
 
+  const finalizarVentaTrasMp = useCallback(
+    async (data: {
+      checkoutId: string
+      mpPaymentId: string | null
+      mpPreferenceId: string | null
+      ventaId?: number | null
+    }) => {
+      const ventaId = data.ventaId ?? mpVentaId
+      if (!ventaId) return
+
+      const detalle: VentaDetallePago = {
+        ...detallePago,
+        mp_checkout_id: data.checkoutId,
+        mp_payment_id: data.mpPaymentId ?? undefined,
+        mp_preference_id: data.mpPreferenceId ?? undefined
+      }
+
+      await apiService.actualizarVenta(ventaId, {
+        detalle_pago: detalle,
+        estado_pago: 'Pagado',
+        mp_payment_id: data.mpPaymentId,
+        mp_preference_id: data.mpPreferenceId,
+        comprobante_pago_texto: data.mpPaymentId
+          ? `Mercado Pago — Pago ${data.mpPaymentId}${
+              data.mpPreferenceId ? ` · Checkout ${data.mpPreferenceId}` : ''
+            }`
+          : undefined
+      })
+
+      setShowMpCheckout(false)
+      setShowCartelVentaRealizada(true)
+      setCartelAceptarEnabled(false)
+
+      try {
+        const ventasResponse = await apiService.obtenerVentas()
+        if (ventasResponse.success && ventasResponse.data) {
+          const ventaCompleta = ventasResponse.data.find((v) => v.id === ventaId)
+          if (ventaCompleta) setVentaCreada(ventaCompleta)
+          else if (ventaCreada) setVentaCreada({ ...ventaCreada, estado_pago: 'Pagado', detalle_pago: detalle })
+        }
+      } catch {
+        if (ventaCreada) setVentaCreada({ ...ventaCreada, estado_pago: 'Pagado', detalle_pago: detalle })
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('venta-creada', {
+          detail: { ventaId, numeroVenta: ventaCreada?.numero_venta }
+        })
+      )
+      try {
+        onSuccess?.()
+      } catch {
+        /* noop */
+      }
+    },
+    [detallePago, mpVentaId, ventaCreada, onSuccess]
+  )
+
   const handleGuardarVenta = async () => {
     if (!clienteSeleccionado && !crearNuevoCliente) {
       alert('Debes seleccionar o crear un cliente')
@@ -322,6 +428,26 @@ const VentaRapidaModal = ({
 
     if (esCuentaCorriente && condicionVenta !== 'Cuenta Corriente') {
       alert('Si marcas Cuenta Corriente, la condición de venta debe ser "Cuenta Corriente"')
+      return
+    }
+
+    const errDetalle = validarDetallePago(condicionVenta, configCondiciones, detallePago)
+    if (errDetalle) {
+      alert(errDetalle)
+      return
+    }
+
+    if (
+      condicionVenta === 'Transferencia' &&
+      configCondiciones.transferencia_requiere_comprobante &&
+      !comprobanteArchivo
+    ) {
+      alert('Adjuntá el comprobante de la transferencia.')
+      return
+    }
+
+    if (esMercadoPagoCondicion && calcularSubtotal() < 1) {
+      alert('El total debe ser al menos $1 para cobrar con Mercado Pago.')
       return
     }
 
@@ -364,9 +490,12 @@ const VentaRapidaModal = ({
 
       // Calcular total
       const valorTotal = calcularSubtotal()
+      const detalleResumen = resumenDetallePago(detallePago)
+      const obsBase = observaciones ? `Prioridad: ${prioridad}. ${observaciones}` : `Prioridad: ${prioridad}`
+      const observacionesFinal = detalleResumen ? `${obsBase}\nPago: ${detalleResumen}` : obsBase
+      const estadoPagoInicial =
+        esCuentaCorriente || esMercadoPagoCondicion ? 'Pendiente' : 'Pagado'
 
-      // Crear venta directamente (sin oportunidad ni OP)
-      // Usar id_cliente si el cliente existe en la base de datos
       const ventaResponse = await apiService.crearVentaDirecta({
         cliente_nombre: clienteFinal.nombre,
         cliente_telefono: clienteFinal.telefono || undefined,
@@ -376,12 +505,13 @@ const VentaRapidaModal = ({
         cliente_direccion: clienteFinal.direccion || undefined,
         valor_total: valorTotal,
         metodo_pago: condicionVenta,
-        estado_pago: esCuentaCorriente ? 'Pendiente' : 'Pagado',
+        estado_pago: estadoPagoInicial,
         fecha_venta: fechaVenta,
         id_vendedor: usuarioId,
         nombre_vendedor: usuarioNombre,
-        id_cliente: clienteFinal.id || undefined, // Asociar con cliente de la tabla clientes
-        observaciones: observaciones ? `Prioridad: ${prioridad}. ${observaciones}` : `Prioridad: ${prioridad}`
+        id_cliente: clienteFinal.id || undefined,
+        observaciones: observacionesFinal,
+        detalle_pago: Object.keys(detallePago).length ? detallePago : null
       })
 
       if (!ventaResponse.success || !ventaResponse.data) {
@@ -394,7 +524,6 @@ const VentaRapidaModal = ({
 
       const ventaData = ventaResponse.data
 
-      // Mostrar de inmediato "Venta realizada" y el cartel (no depender de obtenerVentas)
       const ahora = new Date().toISOString()
       const ventaMinima: Venta = {
         id: ventaData.id,
@@ -404,13 +533,14 @@ const VentaRapidaModal = ({
         cliente_nombre: clienteFinal.nombre,
         valor_total: calcularSubtotal(),
         fecha_venta: fechaVenta,
-        estado_pago: esCuentaCorriente ? 'Pendiente' : 'Pagado',
+        estado_pago: estadoPagoInicial,
         metodo_pago: condicionVenta,
+        detalle_pago: Object.keys(detallePago).length ? detallePago : null,
         id_vendedor: usuarioId,
         nombre_vendedor: usuarioNombre,
         created_at: ahora,
         updated_at: ahora,
-        items: itemsVenta.map(item => ({
+        items: itemsVenta.map((item) => ({
           id: 0,
           id_venta: ventaData.id,
           id_articulo_stock: item.id_articulo_stock ?? undefined,
@@ -424,9 +554,6 @@ const VentaRapidaModal = ({
           created_at: ahora
         }))
       }
-      setVentaCreada(ventaMinima)
-      setShowCartelVentaRealizada(true)
-      setCartelAceptarEnabled(false)
 
       // Agregar items a la venta (el stock se descuenta automáticamente en agregarItemVenta)
       for (const item of itemsVenta) {
@@ -452,6 +579,18 @@ const VentaRapidaModal = ({
         }
       }
 
+      if (esMercadoPagoCondicion) {
+        setMpVentaId(ventaData.id)
+        setVentaCreada({ ...ventaMinima, estado_pago: 'Pendiente' })
+        setShowMpCheckout(true)
+        setGuardando(false)
+        return
+      }
+
+      setVentaCreada(ventaMinima)
+      setShowCartelVentaRealizada(true)
+      setCartelAceptarEnabled(false)
+
       if (comprobanteArchivo) {
         const compResp = await apiService.subirComprobantePagoVenta(ventaData.id, comprobanteArchivo)
         if (!compResp.success) {
@@ -467,7 +606,6 @@ const VentaRapidaModal = ({
         if (comprobanteInputRef.current) comprobanteInputRef.current.value = ''
       }
 
-      // Opcional: actualizar con la venta completa desde el servidor (no bloquea la UI)
       try {
         const ventasResponse = await apiService.obtenerVentas()
         if (ventasResponse.success && ventasResponse.data) {
@@ -605,15 +743,15 @@ const VentaRapidaModal = ({
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="venta-rapida-modal-overlay"
       onMouseDown={(e) => {
-        if (ventaCreada) return
+        if (ventaCreada || showMpCheckout) return
         if (e.target === e.currentTarget) onClose()
       }}
       onTouchStart={(e) => {
-        if (ventaCreada) return
+        if (ventaCreada || showMpCheckout) return
         if (e.target === e.currentTarget) onClose()
       }}
     >
@@ -828,9 +966,11 @@ const VentaRapidaModal = ({
             <select
               className="form-select"
               value={condicionVenta}
+              disabled={showMpCheckout}
               onChange={(e) => {
-                const valor = e.target.value as typeof condicionVenta
+                const valor = e.target.value as MedioPagoCodigo
                 setCondicionVenta(valor)
+                setDetallePago({})
                 if (valor === 'Cuenta Corriente') {
                   setEsCuentaCorriente(true)
                 } else if (esCuentaCorriente) {
@@ -841,14 +981,34 @@ const VentaRapidaModal = ({
                 }
               }}
             >
-              <option value="Efectivo">Efectivo</option>
-              <option value="Transferencia">Transferencia</option>
-              <option value="Tarjeta">Tarjeta</option>
-              <option value="Cheque">Cheque</option>
-              <option value="Cuenta Corriente">Cuenta Corriente</option>
-              <option value="Otro">Otro</option>
+              {mediosActivos.map((m) => (
+                <option key={m.codigo} value={m.codigo}>
+                  {m.label}
+                </option>
+              ))}
             </select>
           </div>
+
+          <VentaCondicionPagoFields
+            condicion={condicionVenta}
+            config={configCondiciones}
+            detalle={detallePago}
+            cuentasBancarias={cuentasBancarias}
+            onChange={setDetallePago}
+          />
+
+          {showMpCheckout && mpVentaId ? (
+            <div className="venta-rapida-mp-panel">
+              <MercadoPagoCheckoutPanel
+                tipo="venta"
+                payload={{ venta_id: mpVentaId }}
+                amountHint={calcularSubtotal()}
+                title="Cobrar con Mercado Pago"
+                note="Escaneá el QR con la app de Mercado Pago. Al confirmarse el pago la venta queda registrada y guardamos el comprobante."
+                onPaid={(data) => void finalizarVentaTrasMp(data)}
+              />
+            </div>
+          ) : null}
 
           {/* Checkbox Cuenta Corriente */}
           <div className="form-group">
@@ -984,6 +1144,12 @@ const VentaRapidaModal = ({
                 ? 'Efectivo, transferencia, tarjeta y otros medios usan Lista 1.'
                 : 'Cuenta corriente usa Lista 2.'}{' '}
               Precios con <strong>{labelAjustesPreciosActivos(ajustesPrecios)}</strong>.
+              {recargoPrioridadLabel ? (
+                <>
+                  {' '}
+                  <strong>{recargoPrioridadLabel}</strong> incluido en los precios mostrados.
+                </>
+              ) : null}
             </p>
             <div className="lista-precios-filtros">
               <input
@@ -1022,7 +1188,7 @@ const VentaRapidaModal = ({
               ) : (
                 <div className="lista-precios-scroll">
                   {articulosFiltrados.slice(0, 80).map((articulo) => {
-                    const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+                    const precio = precioListaConPrioridad(articulo)
                     const yaAgregado = itemsVenta.some((i) => i.id_articulo_empresa === articulo.id)
                     return (
                       <button
@@ -1032,8 +1198,12 @@ const VentaRapidaModal = ({
                         disabled={precio == null || yaAgregado}
                         onClick={() => agregarArticulo(articulo)}
                       >
-                        <span className="lista-precios-row__codigo">{articulo.codigo}</span>
-                        <span className="lista-precios-row__nombre">{articulo.nombre}</span>
+                        <span className="lista-precios-row__codigo" title={articulo.codigo}>
+                          {articulo.codigo}
+                        </span>
+                        <span className="lista-precios-row__nombre" title={articulo.nombre}>
+                          {articulo.nombre}
+                        </span>
                         <span className="lista-precios-row__precio">
                           {precio != null ? `$${formatArs(precio)}` : '—'}
                         </span>
@@ -1051,10 +1221,19 @@ const VentaRapidaModal = ({
           </div>
 
           <div className="form-group">
-            <label>Comprobante de pago (opcional)</label>
+            <label>
+              Comprobante de pago
+              {condicionVenta === 'Transferencia' && configCondiciones.transferencia_requiere_comprobante
+                ? ' *'
+                : ' (opcional)'}
+            </label>
             <p className="form-hint-comprobante">
-              PDF o imagen (transferencia, QR, etc.). Máximo 8 MB.
+              {esMercadoPagoCondicion
+                ? 'Con Mercado Pago el comprobante se guarda automáticamente al aprobarse el pago.'
+                : 'PDF o imagen (transferencia, QR, etc.). Máximo 8 MB.'}
             </p>
+            {!esMercadoPagoCondicion ? (
+              <>
             <input
               ref={comprobanteInputRef}
               type="file"
@@ -1080,6 +1259,8 @@ const VentaRapidaModal = ({
                 </button>
               </div>
             )}
+              </>
+            ) : null}
           </div>
 
           {/* Fecha */}
@@ -1099,13 +1280,22 @@ const VentaRapidaModal = ({
             <select
               className="form-select"
               value={prioridad}
-              onChange={(e) => setPrioridad(e.target.value as typeof prioridad)}
+              onChange={(e) => setPrioridad(e.target.value as PrioridadVentaRapida)}
             >
               <option value="Baja">Baja</option>
               <option value="Normal">Normal</option>
-              <option value="Alta">Alta</option>
-              <option value="Urgente">Urgente</option>
+              <option value="Alta">Alta (+10%)</option>
+              <option value="Urgente">Urgente (+45%)</option>
             </select>
+            {recargoPrioridadLabel ? (
+              <p className="form-hint-comprobante venta-prioridad-hint">
+                Los precios de la lista y los ítems ya cargados incluyen <strong>{recargoPrioridadLabel}</strong>.
+              </p>
+            ) : (
+              <p className="form-hint-comprobante venta-prioridad-hint">
+                Prioridad Baja o Normal: sin recargo sobre el precio de lista.
+              </p>
+            )}
           </div>
 
           {/* Items de venta (se muestran al agregar desde la lista) */}
@@ -1148,7 +1338,7 @@ const VentaRapidaModal = ({
                             </span>
                           )}
                         </label>
-                        <div className="item-precio-readonly" title="Según lista de precios activa">
+                        <div className="item-precio-readonly" title="Precio de lista con recargo de prioridad si aplica">
                           ${formatArs(item.precio_unitario)}
                         </div>
                       </div>
@@ -1187,6 +1377,12 @@ const VentaRapidaModal = ({
                 <span>Lista aplicada:</span>
                 <span>{labelListaPrecio(tipoListaPrecio)}</span>
               </div>
+              {recargoPrioridadLabel ? (
+                <div className="total-line total-line--lista">
+                  <span>Recargo prioridad:</span>
+                  <span>{recargoPrioridadLabel}</span>
+                </div>
+              ) : null}
               <div className="total-line total-final">
                 <span><strong>Total:</strong></span>
                 <span><strong>${formatArs(calcularSubtotal())}</strong></span>
@@ -1207,7 +1403,7 @@ const VentaRapidaModal = ({
           </div>
 
           {/* Número de Venta (si ya se creó) */}
-          {ventaCreada && (
+          {ventaCreada && !showMpCheckout && (
             <div className="venta-creada-info">
               <div className="success-message">
                 <strong>Venta realizada</strong> — Nº {ventaCreada.numero_venta}
@@ -1238,15 +1434,22 @@ const VentaRapidaModal = ({
           <button className="btn-secondary" onClick={onClose}>
             {ventaCreada ? 'Cerrar' : 'Cancelar'}
           </button>
-          {!ventaCreada ? (
+          {!ventaCreada && !showMpCheckout ? (
             <button
               className="btn-primary"
               onClick={handleGuardarVenta}
               disabled={guardando || itemsVenta.length === 0}
             >
-              {guardando ? 'Guardando...' : '💾 Guardar Venta'}
+              {guardando
+                ? 'Guardando...'
+                : esMercadoPagoCondicion
+                  ? '💳 Generar QR Mercado Pago'
+                  : '💾 Guardar Venta'}
             </button>
-          ) : (
+          ) : showMpCheckout ? (
+            <span className="venta-rapida-footer-hint">Esperando confirmación de Mercado Pago…</span>
+          ) : null}
+          {ventaCreada && !showMpCheckout ? (
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
               {!ventaCreada.numero_op && (
                 <button
@@ -1298,11 +1501,12 @@ const VentaRapidaModal = ({
                 📋 Generar Remito
               </button>
             </div>
-          )}
+          ) : null}
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

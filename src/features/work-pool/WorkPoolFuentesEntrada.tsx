@@ -34,7 +34,7 @@ export default function WorkPoolFuentesEntrada({
   onAplicarBrief,
   onAplicarPedido
 }: Props) {
-  const { usuario } = useAuth()
+  const { nombreVisible } = useAuth()
   const showBriefsPortal = product === 'plot-design'
   const [tab, setTab] = useState<'tablero' | 'briefs' | 'pedidos'>('tablero')
   const [tablero, setTablero] = useState<WorkPoolOrdenSugerida[]>([])
@@ -263,7 +263,7 @@ export default function WorkPoolFuentesEntrada({
         <WorkPoolFuenteDetailModal
           detail={fuenteDetail}
           idUsuarioCreador={idUsuarioCreador}
-          usuarioNombre={usuario?.nombre || 'Usuario'}
+          usuarioNombre={nombreVisible}
           onClose={() => setFuenteDetail(null)}
           onUsarParaPublicar={aplicarDesdeDetalle}
         />

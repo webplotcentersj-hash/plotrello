@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
+import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import type { UsuarioRecord } from '../types/api'
 import jsPDF from 'jspdf'
 import * as XLSX from 'xlsx'
@@ -601,7 +603,7 @@ const RecursosHumanosReportesPage = () => {
                 <option value="todos">Todos los usuarios</option>
                 {usuarios.map(u => (
                   <option key={u.id} value={u.id.toString()}>
-                    {u.nombre}
+                    {nombreVisibleDesdeRecord(u)}
                   </option>
                 ))}
               </select>
@@ -685,7 +687,7 @@ const RecursosHumanosReportesPage = () => {
                   {reporteData.usuario ? (
                     <div className="rrhh-stats-grid">
                       <div className="rrhh-stat-card rrhh-stat-card--with-pie">
-                        <h3>{reporteData.usuario.nombre_usuario || 'Usuario'}</h3>
+                        <h3>{etiquetaUsuarioNombre(reporteData.usuario.nombre_usuario, reporteData.usuario.id_usuario)}</h3>
                         <div className="rrhh-stat-rows">
                         {reporteData.usuario.id_usuario != null && (
                           <div className="rrhh-stat-item">
@@ -793,7 +795,7 @@ const RecursosHumanosReportesPage = () => {
                           const mov = Number(usuario.movimientos_realizados) || 0
                           return (
                           <div key={String(uid)} className="rrhh-stat-card rrhh-stat-card--with-pie">
-                            <h4>{usuario.nombre_usuario || 'Usuario'}</h4>
+                            <h4>{etiquetaUsuarioNombre(usuario.nombre_usuario, usuario.id_usuario)}</h4>
                             <div className="rrhh-stat-rows">
                             {usuario.id_usuario != null && (
                               <div className="rrhh-stat-item">
@@ -886,7 +888,7 @@ const RecursosHumanosReportesPage = () => {
                                 return (
                                   <tr key={String(u.id_usuario ?? u.nombre_usuario)}>
                                     <td>{u.id_usuario != null ? String(u.id_usuario) : '—'}</td>
-                                    <td>{u.nombre_usuario || '—'}</td>
+                                    <td>{etiquetaUsuarioNombre(u.nombre_usuario, u.id_usuario)}</td>
                                     <td>{t}</td>
                                     <td>{c}</td>
                                     <td>{p}</td>

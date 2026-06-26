@@ -1203,6 +1203,10 @@ export interface CuentaBancariaRecord {
   moneda: string
   activa: boolean
   saldo_inicial: number
+  cbu?: string | null
+  alias_cvu?: string | null
+  titular?: string | null
+  visible_venta_rapida?: boolean
   created_at?: string
   updated_at?: string
 }
@@ -1768,7 +1772,7 @@ export interface MenuIntercambioTurno {
 
 export type EtapaOportunidad = 'Prospecto' | 'Calificación' | 'Propuesta' | 'Negociación' | 'Cerrado' | 'Perdido'
 export type TipoSeguimiento = 'Llamada' | 'Email' | 'Reunión' | 'WhatsApp' | 'Visita' | 'Propuesta' | 'Otro'
-export type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Otro'
+export type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Mercado Pago' | 'Otro'
 export type EstadoPago = 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
 
 export interface OportunidadVenta {
@@ -1838,6 +1842,9 @@ export interface Venta {
   observaciones?: string | null
   /** URL del comprobante de pago (imagen/PDF) en Storage */
   comprobante_pago_url?: string | null
+  comprobante_pago_ia?: import('../features/control-cajas/comprobanteMediosTypes').ComprobanteMedioParsed | null
+  comprobante_pago_texto?: string | null
+  detalle_pago?: import('../constants/ventasCondicionesPago').VentaDetallePago | null
   mp_payment_id?: string | null
   mp_preference_id?: string | null
   created_at: string

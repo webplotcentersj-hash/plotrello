@@ -62,8 +62,8 @@ function regsPorVehiculo(vid: number, todos: RegistroSalidaVehiculo[]) {
 
 const FlotaPage = () => {
   const navigate = useNavigate()
-  const { isAdmin, isCaja, usuario, loading: authLoading } = useAuth()
-  const canAutorizar = !authLoading && (isAdmin || isCaja)
+  const { isAdmin, isCajaOperativa, usuario, nombreVisible, loading: authLoading } = useAuth()
+  const canAutorizar = !authLoading && (isAdmin || isCajaOperativa)
 
   const [itemsParque, setItemsParque] = useState<ItemParqueFlota[]>([])
   const [registros, setRegistros] = useState<RegistroSalidaVehiculo[]>([])
@@ -190,7 +190,7 @@ const FlotaPage = () => {
     const res = await apiService.autorizarRegistroSalidaVehiculo(
       idRegistro,
       usuario.id,
-      usuario.nombre || 'Caja/Admin'
+      nombreVisible || 'Caja/Admin'
     )
     if (res.success) await loadData({ quiet: true })
     else alert(res.error || 'Error al autorizar')

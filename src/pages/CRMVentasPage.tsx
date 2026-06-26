@@ -37,12 +37,11 @@ import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
 import CajaCobroVentaModal from '../features/control-cajas/components/CajaCobroVentaModal'
 import CajaSectionEgresos from '../features/control-cajas/components/CajaSectionEgresos'
 import CajaSectionHistorial from '../features/control-cajas/components/CajaSectionHistorial'
-import { getParams } from '../features/control-cajas/cajaRepository'
 import { resolveUsuarioCajaEtiqueta } from '../features/control-cajas/cajaUsuarioDisplay'
-import { DEFAULT_CAJERAS } from '../features/control-cajas/constants'
 import MercadoPagoCheckoutPanel from '../components/payments/MercadoPagoCheckoutPanel'
 import { forceResyncVenta } from '../features/control-cajas/plotlabVentaCajaSync'
 import VentaRapidaModal from '../components/VentaRapidaModal'
+import VentaComprobantePagoDetalle from '../components/ventas/VentaComprobantePagoDetalle'
 import VentasListaPreciosPanel from '../components/ventas/VentasListaPreciosPanel'
 import VentasOportunidadesChatLeads from '../components/ventas/VentasOportunidadesChatLeads'
 import { labelListaPrecio } from '../constants/ventasListasPrecio'
@@ -223,12 +222,11 @@ function tabIdsPermitidos(vistaPropia: boolean): readonly string[] {
 const CRMVentasPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { canAccessMostradorViews, usuario, isAdmin, isPresupuestos, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, usuario, nombreVisible, isAdmin, isPresupuestos, loading: authLoading } = useAuth()
   const vistaPropia = esVistaVentasPropiaVendedor(isAdmin, isPresupuestos)
   const idVendedorScope = idVendedorParaConsulta(isAdmin, isPresupuestos, usuario?.id)
-  const [usuarioEtiquetaCaja, setUsuarioEtiquetaCaja] = useState(() =>
-    resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario')
-  )
+  const usuarioEtiquetaCaja = nombreVisible || resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario')
+  const nombreOperador = nombreVisible || usuario?.nombre || 'Usuario'
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<VentasTabId>(() => {
     try {
@@ -241,13 +239,6 @@ const CRMVentasPage = () => {
     return 'ventas'
   })
   const [showVentaRapida, setShowVentaRapida] = useState(false)
-
-  useEffect(() => {
-    void getParams().then((p) => {
-      const cajeras = p.cajeras?.length ? p.cajeras : DEFAULT_CAJERAS
-      setUsuarioEtiquetaCaja(resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario', cajeras))
-    })
-  }, [usuario?.nombre])
 
   useEffect(() => {
     if (!vistaPropia && (activeTab === 'arqueos' || activeTab === 'egresos')) {
@@ -510,6 +501,15 @@ const CRMVentasPage = () => {
     setDropdownDocumentosAbierto(null)
   }, [])
 
+  const actualizarComprobanteIaVenta = useCallback(
+    (ventaId: number, ia: Venta['comprobante_pago_ia'], texto: string) => {
+      const patch = { comprobante_pago_ia: ia ?? null, comprobante_pago_texto: texto }
+      setVentas((prev) => prev.map((v) => (v.id === ventaId ? { ...v, ...patch } : v)))
+      setVentasFiltradas((prev) => prev.map((v) => (v.id === ventaId ? { ...v, ...patch } : v)))
+    },
+    []
+  )
+
   const presupuestosPorEstado = useMemo(() => {
     const map: Record<EstadoPresupuestoCliente, PresupuestoVentaRecord[]> = {
       borrador: [],
@@ -663,7 +663,7 @@ const CRMVentasPage = () => {
         useMemory: false,
         learnFromResponse: false,
         includeAppManual: false,
-        userName: usuario?.nombre
+        userName: nombreOperador
       })
       setPlotAiInforme(text)
     } catch (e: any) {
@@ -671,7 +671,7 @@ const CRMVentasPage = () => {
     } finally {
       setPlotAiInformeLoading(false)
     }
-  }, [formOportunidad, usuario?.nombre])
+  }, [formOportunidad, nombreOperador])
 
   // Verificar permisos (mostrador, caja, presupuestos, admin)
   useEffect(() => {
@@ -1358,7 +1358,7 @@ const CRMVentasPage = () => {
           etapa: formOportunidad.etapa,
           fecha_cierre_estimada: formOportunidad.fecha_cierre_estimada || undefined,
           id_vendedor: usuario.id,
-          nombre_vendedor: usuario.nombre,
+          nombre_vendedor: nombreOperador,
           observaciones: formOportunidad.observaciones || undefined,
           id_cliente: idClienteFinal || undefined
         })
@@ -1403,7 +1403,7 @@ const CRMVentasPage = () => {
         proxima_accion: formSeguimiento.proxima_accion || undefined,
         fecha_proxima_accion: formSeguimiento.fecha_proxima_accion || undefined,
         id_usuario: usuario.id,
-        nombre_usuario: usuario.nombre
+        nombre_usuario: nombreOperador
       })
       
       if (response.success) {
@@ -1721,7 +1721,7 @@ const CRMVentasPage = () => {
         const response = await apiService.convertirPedidoAOp({
           id_pedido: venta.id_pedido_cliente,
           id_usuario_convertidor: usuario.id,
-          nombre_usuario_convertidor: usuario.nombre || 'Usuario',
+          nombre_usuario_convertidor: nombreOperador,
           sector_inicial: 'Diseño Gráfico'
         })
         if (response.success && response.data) {
@@ -1769,7 +1769,7 @@ const CRMVentasPage = () => {
         fecha_entrega: venta.fecha_venta,
         sector: 'Diseño Gráfico',
         sector_inicial: 'Diseño Gráfico',
-        nombre_creador: usuario.nombre,
+        nombre_creador: nombreOperador,
         telefono_cliente: venta.cliente_telefono || undefined,
         email_cliente: venta.cliente_email || undefined,
         direccion_cliente: venta.cliente_direccion || undefined
@@ -1824,7 +1824,7 @@ const CRMVentasPage = () => {
         estado_pago: formVenta.estado_pago,
         fecha_venta: formVenta.fecha_venta,
         id_vendedor: usuario.id,
-        nombre_vendedor: usuario.nombre,
+        nombre_vendedor: nombreOperador,
         observaciones: formVenta.observaciones || undefined
       })
       
@@ -3009,6 +3009,16 @@ const CRMVentasPage = () => {
                         ))}
                       </ul>
                     </div>
+                  ) : null}
+
+                  {ventaModal.comprobante_pago_url ? (
+                    <VentaComprobantePagoDetalle
+                      ventaId={ventaModal.id}
+                      url={ventaModal.comprobante_pago_url}
+                      iaInicial={ventaModal.comprobante_pago_ia ?? null}
+                      textoInicial={ventaModal.comprobante_pago_texto ?? null}
+                      onGuardado={(ia, texto) => actualizarComprobanteIaVenta(ventaModal.id, ia, texto)}
+                    />
                   ) : null}
 
                   {ventaModal.observaciones ? (
@@ -4305,7 +4315,7 @@ const CRMVentasPage = () => {
             loadData()
           }}
           usuarioId={usuario.id}
-          usuarioNombre={usuario.nombre}
+          usuarioNombre={nombreOperador}
           prefillDesdeOportunidad={oportunidadParaPresupuesto}
         />
       )}
@@ -4320,7 +4330,7 @@ const CRMVentasPage = () => {
             setActiveTab('ventas')
           }}
           usuarioId={usuario.id}
-          usuarioNombre={usuario.nombre}
+          usuarioNombre={nombreOperador}
         />
       )}
     </div>

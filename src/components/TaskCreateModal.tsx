@@ -34,14 +34,6 @@ type LocalAttachment = {
 const COMPLEXITY_OPTIONS = ['Baja', 'Media', 'Alta']
 const PRIORITY_OPTIONS = ['Normal', 'Alta', 'Media', 'Baja']
 
-const stripEmailDomain = (value?: string | null) => {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  const atIndex = trimmed.indexOf('@')
-  return atIndex > 0 ? trimmed.slice(0, atIndex) : trimmed
-}
-
 const TaskCreateModal = ({
   teamMembers,
   sectores,
@@ -49,7 +41,7 @@ const TaskCreateModal = ({
   onClose,
   onCreate
 }: TaskCreateModalProps) => {
-  const { usuario, isAdmin, isDiseno } = useAuth()
+  const { nombreVisible, isAdmin, isDiseno } = useAuth()
   const [briefTokenSeleccionado, setBriefTokenSeleccionado] = useState<string | null>(null)
   const [briefMockupUrl, setBriefMockupUrl] = useState<string | null>(null)
   const [briefsPendientes, setBriefsPendientes] = useState<any[]>([])
@@ -506,7 +498,7 @@ const TaskCreateModal = ({
       ? new Date(`${fechaEntrega}T${horaEstimada || '00:00'}:00-03:00`).toISOString()
       : ''
 
-    const creatorName = stripEmailDomain(usuario?.nombre) ?? usuario?.nombre ?? 'Usuario'
+    const creatorName = nombreVisible || 'Usuario'
 
     // Mapear el primer sector al status correspondiente (primera ficha de la OP en el tablero)
     const mapSectorToStatus = (sector: string): TaskStatus => {

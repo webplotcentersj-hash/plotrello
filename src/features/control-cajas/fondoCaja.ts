@@ -1,6 +1,6 @@
 import type { CajaRegistro } from './types'
 
-/** Monto sugerido al crear una caja operativa (Noelia / Rosa). Las cajeras pueden cambiarlo. */
+/** Monto sugerido al crear una caja operativa por usuario. El operador puede cambiarlo en cierre de turno. */
 export const FONDO_CAJA_RECOMENDADO = 100_000
 
 /** Alias histórico — mismo valor recomendado, no es un mínimo obligatorio. */

@@ -10,7 +10,7 @@ type TiempoTrabajoSectionProps = {
 }
 
 const TiempoTrabajoSection = ({ ordenId, onTiempoActualizado }: TiempoTrabajoSectionProps) => {
-  const { usuario } = useAuth()
+  const { usuario, nombreVisible } = useAuth()
   const [registros, setRegistros] = useState<RegistroTiempo[]>([])
   const [registroActivo, setRegistroActivo] = useState<RegistroTiempo | null>(null)
   const [loading, setLoading] = useState(false)
@@ -90,7 +90,7 @@ const TiempoTrabajoSection = ({ ordenId, onTiempoActualizado }: TiempoTrabajoSec
       const response = await apiService.iniciarTiempoTrabajo({
         id_orden: ordenId,
         usuario_id: usuario.id,
-        usuario_nombre: usuario.nombre
+        usuario_nombre: nombreVisible,
       })
 
       if (response.success) {
@@ -139,7 +139,7 @@ const TiempoTrabajoSection = ({ ordenId, onTiempoActualizado }: TiempoTrabajoSec
       const response = await apiService.registrarTiempoManual({
         id_orden: ordenId,
         usuario_id: usuario.id,
-        usuario_nombre: usuario.nombre,
+        usuario_nombre: nombreVisible,
         fecha: formularioManual.fecha,
         hora_inicio: formularioManual.hora_inicio,
         hora_fin: formularioManual.hora_fin,

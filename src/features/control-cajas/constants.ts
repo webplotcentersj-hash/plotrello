@@ -15,8 +15,6 @@ export const CONCEPTOS_MOVIMIENTO = [
 ] as const
 
 export const DEFAULT_CAJAS: CajaRegistro[] = [
-  { slug: 'noelia', nombre: 'Caja Noelia', fondo_fijo: FONDO_CAJA_BASE_MIN, activa: true },
-  { slug: 'rosa', nombre: 'Caja Rosa', fondo_fijo: FONDO_CAJA_BASE_MIN, activa: true },
   { slug: 'admin', nombre: 'Caja Administración', fondo_fijo: 0, activa: true },
   { slug: 'vuelto', nombre: 'Caja Vuelto', fondo_fijo: 5000, activa: true }
 ]
@@ -43,15 +41,8 @@ export const NAV_CAJA: NavItem[] = [
   { section: 'asistente', label: 'Asistente IA', icon: '✨' }
 ]
 
-export const DEFAULT_CAJERAS: { nombre: string; usuario: string }[] = [
-  { nombre: 'Noelia Galaburri', usuario: 'NGALABURRI' },
-  { nombre: 'Rosa Tabera', usuario: 'RTABERA' },
-  { nombre: 'Administración', usuario: 'ADMIN' }
-]
-
 export const DEFAULT_PARAMS = {
-  tolerancia: 0,
-  cajeras: DEFAULT_CAJERAS
+  tolerancia: 0
 }
 
 export const NAV_ADMIN: NavItem[] = [

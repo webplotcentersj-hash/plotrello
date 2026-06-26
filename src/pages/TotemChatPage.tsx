@@ -1,116 +1,55 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, type MouseEvent } from 'react'
 import './TotemChatPage.css'
 import { consumeTotemSeedMessage } from '../utils/totemSeedMessage'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
+import {
+  TotemPlotAILive,
+  fetchTotemGeminiApiKey,
+  fetchTotemLiveContext
+} from '../services/totemPlotAILiveService'
 
-/** Saludo de mostrador: claro al leer en voz alta (sin comas/puntos por formatTotemVoiceText). */
-const GREETING_SPEECH =
-  'Hola bienvenido a Plot Center soy el asistente del mostrador decime en qué te puedo ayudar hoy'
-const CHAT_API_PATH = '/api/plotai/chat-public'
 const IMAGE_API_PATH = '/api/plotai/generate-image'
-/** TTS del tótem: solo esta ruta usa ElevenLabs (API servidor + reproducción acá). */
-const ELEVENLABS_TTS_API_PATH = '/api/plotai/elevenlabs-tts'
 const MOTION_THRESHOLD = 0.08
 const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?:una\s+)?foto\s+de|imagina|imagina(?:me)?|mu[eé]strame\s+(?:una\s+)?(?:imagen|foto)|quiero\s+ver\s+(?:una\s+)?(?:imagen|foto)|crea\s+(?:una\s+)?(?:imagen|ilustraci[oó]n))/i
 const MOTION_CHECKS = 2
 const CHECK_INTERVAL_MS = 800
-/** Tras este tiempo en escucha sin nuevo turno, vuelve a idle para reactivar detección por cámara. */
 const IDLE_RESET_MS = 90_000
-
-/** Quita emojis y símbolos para que el TTS no los lea. */
-function stripEmojisForTTS(text: string): string {
-  return text
-    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F1E0}-\u{1F1FF}]/gu, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-/** Alineado al tótem: sin asteriscos ni comas; puntos solo al final de frase (preserva puntos en URLs/mails). */
-function formatTotemVoiceText(text: string): string {
-  let s = stripEmojisForTTS(text)
-  s = s.replace(/\*/g, '')
-  s = s.replace(/,/g, ' ')
-  s = s.replace(/\.(?=\s|$)/g, ' ')
-  return s.replace(/\s+/g, ' ').trim()
-}
+const ROBOT_SKETCHFAB_SRC =
+  'https://sketchfab.com/models/59fc99d8dcb146f3a6c16dbbcc4680da/embed?autostart=1&autospin=0.14&camera=0&preload=1&ui_theme=dark&ui_animations=0&ui_infos=0&ui_hint=0&ui_stop=0&ui_inspector=0&ui_watermark=0&ui_watermark_link=0&ui_ar=0&ui_help=0&ui_settings=0&ui_vr=0&ui_fullscreen=0&transparent=1'
 
 type TotemState = 'idle' | 'greeting' | 'listening' | 'thinking' | 'speaking'
 
 export default function TotemChatPage() {
   const [state, setState] = useState<TotemState>('idle')
-  const [conversationId, setConversationId] = useState<number | null>(null)
-  const [history, setHistory] = useState<Array<{ role: 'user' | 'model'; parts: { text: string }[] }>>([])
-  const [lastText, setLastText] = useState<string>('')
+  const [lastText, setLastText] = useState('')
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [cameraWarning, setCameraWarning] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
+  const [robot3dReady, setRobot3dReady] = useState(false)
+  const [liveActive, setLiveActive] = useState(false)
+  const [contextHint, setContextHint] = useState<string | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const recognitionRef = useRef<{ start?: () => void; stop?: () => void } | null>(null)
-  const synthRef = useRef<SpeechSynthesis | null>(null)
-  const ttsAudioRef = useRef<HTMLAudioElement | null>(null)
-  const ttsObjectUrlRef = useRef<string | null>(null)
-  /** Si true, al cortar el reconocimiento se vuelve a iniciar (solo en escucha, no durante el TTS). */
-  const recShouldRunRef = useRef(false)
-  const isThinkingRef = useRef(false)
-  const isAssistantSpeakingRef = useRef(false)
-  const speakDoneRef = useRef<(() => void) | null>(null)
-  const processingUserTurnRef = useRef(false)
+  const liveRef = useRef<TotemPlotAILive | null>(null)
+  const liveStartingRef = useRef(false)
   const stateRef = useRef<TotemState>('idle')
-  const historyRef = useRef(history)
-  const conversationIdRef = useRef<number | null>(conversationId)
-  const processUserTurnRef = useRef<(text: string) => Promise<void>>(async () => {})
-  /** Un solo aviso si ElevenLabs no está configurado y caemos a voz del navegador. */
-  const ttsElevenLabsFallbackWarnedRef = useRef(false)
   const idleResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSeedRef = useRef<string | null>(null)
-  const seedDispatchedRef = useRef(false)
+  const imageBusyRef = useRef(false)
+  const intentionalStopRef = useRef(false)
+  const userTextsRef = useRef<string[]>([])
+  const lastContextFpRef = useRef('')
+  const contextRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  historyRef.current = history
-  conversationIdRef.current = conversationId
   stateRef.current = state
 
   useEffect(() => {
     const msg = consumeTotemSeedMessage()
     if (msg) pendingSeedRef.current = msg
   }, [])
-
-  const safeRecStart = useCallback(() => {
-    try {
-      recognitionRef.current?.start?.()
-    } catch {
-      /* ya está escuchando */
-    }
-  }, [])
-
-  const revokeTtsObjectUrl = useCallback(() => {
-    if (ttsObjectUrlRef.current) {
-      URL.revokeObjectURL(ttsObjectUrlRef.current)
-      ttsObjectUrlRef.current = null
-    }
-  }, [])
-
-  const cancelSpeak = useCallback(() => {
-    if (ttsAudioRef.current) {
-      ttsAudioRef.current.pause()
-      try {
-        ttsAudioRef.current.currentTime = 0
-      } catch {
-        /* noop */
-      }
-      ttsAudioRef.current.removeAttribute('src')
-      ttsAudioRef.current.load()
-      ttsAudioRef.current = null
-    }
-    revokeTtsObjectUrl()
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
-    isAssistantSpeakingRef.current = false
-    const done = speakDoneRef.current
-    speakDoneRef.current = null
-    done?.()
-  }, [revokeTtsObjectUrl])
 
   const clearIdleReset = useCallback(() => {
     if (idleResetTimerRef.current != null) {
@@ -119,355 +58,190 @@ export default function TotemChatPage() {
     }
   }, [])
 
-  /** Tras inactividad vuelve a idle: la detección por movimiento en cámara vuelve a disparar el saludo. */
+  const stopLiveSession = useCallback(() => {
+    clearIdleReset()
+    intentionalStopRef.current = true
+    liveRef.current?.stop()
+    liveRef.current = null
+    setLiveActive(false)
+  }, [clearIdleReset])
+
+  const resetToIdle = useCallback(() => {
+    if (contextRefreshTimerRef.current != null) {
+      clearTimeout(contextRefreshTimerRef.current)
+      contextRefreshTimerRef.current = null
+    }
+    userTextsRef.current = []
+    lastContextFpRef.current = ''
+    setContextHint(null)
+    stopLiveSession()
+    setLastText('')
+    setGeneratedImageUrl(null)
+    setState('idle')
+  }, [stopLiveSession])
+
   const armIdleReset = useCallback(() => {
     clearIdleReset()
     idleResetTimerRef.current = setTimeout(() => {
       idleResetTimerRef.current = null
-      recShouldRunRef.current = false
-      try {
-        recognitionRef.current?.stop?.()
-      } catch {
-        /* noop */
-      }
-      recognitionRef.current = null
-      cancelSpeak()
-      setConversationId(null)
-      conversationIdRef.current = null
-      historyRef.current = []
-      setHistory([])
-      setLastText('')
-      setGeneratedImageUrl(null)
-      setState('idle')
+      resetToIdle()
     }, IDLE_RESET_MS)
-  }, [cancelSpeak, clearIdleReset])
+  }, [clearIdleReset, resetToIdle])
 
-  const speak = useCallback(
-    (text: string) => {
-      const clean = formatTotemVoiceText(text)
-      if (!clean) return Promise.resolve()
-
-      return new Promise<void>((resolve) => {
-        const finish = () => {
-          speakDoneRef.current = null
-          isAssistantSpeakingRef.current = false
-          resolve()
-        }
-
-        speakDoneRef.current = finish
-        isAssistantSpeakingRef.current = true
-
-        const speakBrowser = (reason: string) => {
-          console.warn(
-            `[Plotrello /totem TTS] Usando voz del NAVEGADOR (no ElevenLabs). Motivo: ${reason}. ` +
-              `Si querés ElevenLabs: Vercel → ELEVENLABS_API_KEY + ELEVENLABS_VOICE_ID o ELEVENLABS_VOICE_NAME. ` +
-              `En Red (F12) buscá POST ${ELEVENLABS_TTS_API_PATH}`
-          )
-          if (!('speechSynthesis' in window)) {
-            finish()
-            return
-          }
-          window.speechSynthesis.cancel()
-          const u = new SpeechSynthesisUtterance(clean)
-          u.lang = 'es-AR'
-          u.rate = 0.92
-          u.onend = () => finish()
-          u.onerror = () => finish()
-          window.speechSynthesis.speak(u)
-          synthRef.current = window.speechSynthesis
-        }
-
-        const tryElevenLabs = async (): Promise<boolean> => {
-          const urlTts = plotLabApiUrl(ELEVENLABS_TTS_API_PATH)
-          for (let attempt = 0; attempt < 2; attempt++) {
-            try {
-              if (attempt === 0) {
-                console.info(`[Plotrello /totem TTS] Llamando ElevenLabs vía ${ELEVENLABS_TTS_API_PATH} (${clean.length} caracteres)`)
-              }
-              const res = await fetch(urlTts, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: clean })
-              })
-              const ct = (res.headers.get('content-type') || '').toLowerCase()
-
-              if (res.ok && ct.includes('application/json')) {
-                const j = (await res.json().catch(() => null)) as { fallback?: boolean; error?: string } | null
-                console.warn(
-                  '[Plotrello /totem TTS] El servidor respondió JSON (no audio). ElevenLabs no se usó.',
-                  j?.error || j
-                )
-                if (j?.fallback && !ttsElevenLabsFallbackWarnedRef.current) {
-                  ttsElevenLabsFallbackWarnedRef.current = true
-                  setError(
-                    'Voz ElevenLabs: en Vercel configurá ELEVENLABS_API_KEY y ELEVENLABS_VOICE_ID o ELEVENLABS_VOICE_NAME. Mientras tanto se usa la voz del navegador.'
-                  )
-                }
-                return false
-              }
-
-              if (!res.ok) {
-                const errTxt = await res.text().catch(() => '')
-                console.warn(`[Plotrello /totem TTS] HTTP ${res.status} desde API propia`, errTxt.slice(0, 200))
-                continue
-              }
-
-              const blob = await res.blob()
-              if (blob.size < 80) {
-                console.warn('[Plotrello /totem TTS] Respuesta muy chica, no parece MP3', blob.size)
-                continue
-              }
-              if ((blob.type || '').toLowerCase().includes('json')) {
-                console.warn('[Plotrello /totem TTS] Blob parece JSON, ignorado')
-                continue
-              }
-
-              const looksAudio =
-                ct.includes('audio/') ||
-                ct.includes('octet-stream') ||
-                (blob.type || '').toLowerCase().includes('audio') ||
-                (blob.type === '' && blob.size > 500)
-
-              if (!looksAudio) {
-                console.warn('[Plotrello /totem TTS] Content-Type/blob no reconocido como audio', ct, blob.type, blob.size)
-                continue
-              }
-
-              revokeTtsObjectUrl()
-              const url = URL.createObjectURL(blob)
-              ttsObjectUrlRef.current = url
-              const audio = new Audio(url)
-              ttsAudioRef.current = audio
-              audio.onended = () => {
-                revokeTtsObjectUrl()
-                ttsAudioRef.current = null
-                finish()
-              }
-              audio.onerror = () => {
-                ttsAudioRef.current = null
-                revokeTtsObjectUrl()
-                speakBrowser('error al reproducir el audio MP3')
-              }
-              try {
-                await audio.play()
-                console.info('[Plotrello /totem TTS] ElevenLabs OK (audio reproduciéndose)')
-                setError((prev) =>
-                  prev && prev.includes('ElevenLabs') ? null : prev
-                )
-                return true
-              } catch (e) {
-                console.warn('[Plotrello /totem TTS] audio.play() bloqueado o falló', e)
-                ttsAudioRef.current = null
-                revokeTtsObjectUrl()
-              }
-            } catch (e) {
-              console.warn('[Plotrello /totem TTS] Error de red al llamar a la API', e)
-            }
-            if (attempt === 0) await new Promise((r) => setTimeout(r, 350))
-          }
-          return false
-        }
-
-        void (async () => {
-          const ok = await tryElevenLabs()
-          if (!ok) speakBrowser('sin audio válido de ElevenLabs tras reintentos')
-        })()
+  const handleImageRequest = useCallback(async (prompt: string) => {
+    if (imageBusyRef.current) return
+    imageBusyRef.current = true
+    setState('thinking')
+    setGeneratedImageUrl(null)
+    try {
+      const imgRes = await fetch(plotLabApiUrl(IMAGE_API_PATH), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, aspectRatio: '1:1', style: 'totem_creative' })
       })
-    },
-    [revokeTtsObjectUrl]
-  )
-
-  const sendToChat = useCallback(async (userText: string): Promise<string | null> => {
-    const currentHistory = historyRef.current
-    const currentConvId = conversationIdRef.current
-    const res = await fetch(plotLabApiUrl(CHAT_API_PATH), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: userText,
-        modo: 'totem',
-        conversation_id: currentConvId ?? undefined,
-        history: currentHistory.map((m) => ({ role: m.role, parts: m.parts }))
-      })
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) return null
-    if (data.conversation_id != null) {
-      setConversationId(data.conversation_id)
-      conversationIdRef.current = data.conversation_id
+      const imgData = await imgRes.json().catch(() => ({}))
+      if (imgData?.dataUrl) {
+        setGeneratedImageUrl(imgData.dataUrl)
+        liveRef.current?.sendTextTurn(
+          '[Sistema: ya generaste y mostraste la imagen en pantalla. Confirmale al cliente en una frase breve que ya puede verla.]'
+        )
+      } else {
+        liveRef.current?.sendTextTurn(
+          '[Sistema: no se pudo generar la imagen. Pedile disculpas breves y sugerí reformular el pedido.]'
+        )
+      }
+    } catch {
+      liveRef.current?.sendTextTurn(
+        '[Sistema: hubo un error al generar la imagen. Pedile disculpas y sugerí intentar de nuevo.]'
+      )
+    } finally {
+      imageBusyRef.current = false
+      if (stateRef.current === 'thinking') setState('listening')
     }
-    const newHistory: Array<{ role: 'user' | 'model'; parts: { text: string }[] }> = [
-      ...currentHistory,
-      { role: 'user', parts: [{ text: userText }] },
-      ...(data.reply ? [{ role: 'model' as const, parts: [{ text: data.reply }] }] : [])
-    ]
-    historyRef.current = newHistory
-    setHistory(newHistory)
-    return data.reply && String(data.reply).trim() ? data.reply : null
   }, [])
 
-  const processUserTurn = useCallback(
-    async (userTextRaw: string) => {
-      const userText = userTextRaw.trim()
-      if (!userText) return
-      if (processingUserTurnRef.current) return
-
-      clearIdleReset()
-      processingUserTurnRef.current = true
-      const rec = recognitionRef.current
-      recShouldRunRef.current = false
-      isThinkingRef.current = true
-      try {
-        rec?.stop?.()
-      } catch {
-        /* noop */
+  const refreshLiveContext = useCallback(async () => {
+    const texts = userTextsRef.current
+    if (texts.length === 0) return
+    try {
+      const ctx = await fetchTotemLiveContext(texts)
+      if (ctx.fingerprint === lastContextFpRef.current) return
+      lastContextFpRef.current = ctx.fingerprint
+      liveRef.current?.injectContextUpdate(ctx.contextBlock)
+      if (ctx.numeroOp) {
+        setContextHint(`OP ${ctx.numeroOp} encontrada en el sistema`)
+      } else if (texts.some((t) => /\b(op|orden|dni|cuit|llamo|nombre)\b/i.test(t))) {
+        setContextHint('Datos del cliente actualizados')
       }
+    } catch (e) {
+      console.warn('[Totem] refreshLiveContext:', e)
+    }
+  }, [])
 
-      setLastText(userText)
-      setState('thinking')
-      setGeneratedImageUrl(null)
+  const scheduleContextRefresh = useCallback(() => {
+    if (contextRefreshTimerRef.current != null) {
+      clearTimeout(contextRefreshTimerRef.current)
+    }
+    contextRefreshTimerRef.current = setTimeout(() => {
+      contextRefreshTimerRef.current = null
+      void refreshLiveContext()
+    }, 900)
+  }, [refreshLiveContext])
 
-      const wantsImage = IMAGE_TRIGGER.test(userText)
-      let reply: string | null = null
-      if (wantsImage) {
-        try {
-          const imgRes = await fetch(plotLabApiUrl(IMAGE_API_PATH), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: userText, aspectRatio: '1:1' })
-          })
-          const imgData = await imgRes.json().catch(() => ({}))
-          if (imgData?.dataUrl) {
-            setGeneratedImageUrl(imgData.dataUrl)
-            reply = 'Acá está la imagen'
-          } else {
-            reply = (imgData?.error as string) || 'No pude generar la imagen probá de nuevo'
+  const startLiveSession = useCallback(async () => {
+    if (liveStartingRef.current || liveRef.current) return
+    liveStartingRef.current = true
+    setState('greeting')
+    setError(null)
+
+    try {
+      const [apiKey, initialContext] = await Promise.all([
+        fetchTotemGeminiApiKey(),
+        fetchTotemLiveContext(userTextsRef.current).catch(() => ({
+          contextBlock:
+            'CLIENTE CON QUIEN ESTÁS HABLANDO: el visitante aún no dio nombre DNI CUIT ni OP. Pedilos solo si pregunta por su trabajo.',
+          fingerprint: 'empty',
+          plotCenterKnowledge: undefined,
+          numeroOp: null
+        }))
+      ])
+      lastContextFpRef.current = initialContext.fingerprint
+
+      const live = new TotemPlotAILive(apiKey)
+      liveRef.current = live
+      setLiveActive(true)
+
+      await live.start({
+        initialContext,
+        callbacks: {
+        onOpen: () => {
+          setState('listening')
+          live.sendGreetingNudge()
+          armIdleReset()
+
+          const seed = pendingSeedRef.current
+          if (seed) {
+            pendingSeedRef.current = null
+            userTextsRef.current = [seed]
+            window.setTimeout(() => {
+              live.sendTextTurn(seed)
+              void refreshLiveContext()
+            }, 1200)
           }
-        } catch {
-          reply = 'No pude generar la imagen en este momento'
+        },
+        onUserTranscript: (text) => {
+          clearIdleReset()
+          armIdleReset()
+          const t = text.trim()
+          if (!t) return
+          if (!userTextsRef.current.includes(t)) {
+            userTextsRef.current = [...userTextsRef.current, t].slice(-24)
+          }
+          setLastText(t)
+          scheduleContextRefresh()
+          if (IMAGE_TRIGGER.test(t)) {
+            void handleImageRequest(t)
+          } else if (!imageBusyRef.current) {
+            setState('thinking')
+          }
+        },
+        onModelTranscript: (text) => {
+          setLastText(text)
+        },
+        onSpeakingChange: (speaking) => {
+          if (imageBusyRef.current) return
+          setState(speaking ? 'speaking' : 'listening')
+        },
+        onError: (err) => {
+          console.error('[Totem Gemini Live]', err)
+          setError(err.message || 'Error en Gemini Live')
+        },
+        onClose: () => {
+          if (intentionalStopRef.current) {
+            intentionalStopRef.current = false
+            return
+          }
+          if (stateRef.current !== 'idle') {
+            resetToIdle()
+          }
         }
-      } else {
-        reply = await sendToChat(userText)
-      }
-
-      isThinkingRef.current = false
-
-      const replyStr = reply && String(reply).trim() ? String(reply).trim() : null
-      if (!replyStr) {
-        processingUserTurnRef.current = false
-        setState('listening')
-        recShouldRunRef.current = true
-        safeRecStart()
-        armIdleReset()
-        return
-      }
-
-      setState('speaking')
-      /* Micrófono apagado mientras suena la voz: si no, el parlante mete eco y el SR “interrumpe” solo. */
-      recShouldRunRef.current = false
-      try {
-        recognitionRef.current?.stop?.()
-      } catch {
-        /* noop */
-      }
-
-      await speak(replyStr)
-
-      setLastText(replyStr)
-      processingUserTurnRef.current = false
-      setState('listening')
-      recShouldRunRef.current = true
-      safeRecStart()
-      armIdleReset()
-    },
-    [sendToChat, speak, safeRecStart, clearIdleReset, armIdleReset]
-  )
-
-  useEffect(() => {
-    processUserTurnRef.current = processUserTurn
-  }, [processUserTurn])
-
-  useEffect(() => {
-    if (state !== 'listening') return
-    const seed = pendingSeedRef.current
-    if (!seed || seedDispatchedRef.current) return
-    seedDispatchedRef.current = true
-    pendingSeedRef.current = null
-    const id = window.setTimeout(() => {
-      void processUserTurnRef.current(seed)
-    }, 480)
-    return () => clearTimeout(id)
-  }, [state])
-
-  const startListening = useCallback(() => {
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognitionAPI) {
-      setError('Tu navegador no soporta reconocimiento de voz. Usá Chrome o Edge.')
-      return
+        }
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo iniciar Gemini Live'
+      setError(msg)
+      stopLiveSession()
+      setState('idle')
+    } finally {
+      liveStartingRef.current = false
     }
-    if (recognitionRef.current) {
-      recShouldRunRef.current = true
-      setState('listening')
-      safeRecStart()
-      return
-    }
-
-    const rec = new SpeechRecognitionAPI()
-    rec.continuous = true
-    rec.interimResults = false
-    rec.lang = 'es-AR'
-
-    rec.onresult = async (e: Event & { resultIndex: number; results: SpeechRecognitionResultList }) => {
-      let finalChunk = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const row = e.results[i]
-        const piece = row[0]?.transcript ?? ''
-        if (row.isFinal) finalChunk += piece
-      }
-      const st = stateRef.current
-
-      if (isThinkingRef.current) return
-      /* Durante speaking el mic está detenido; por si llega un evento rezagado, ignorar. */
-      if (st !== 'listening') return
-
-      const ft = finalChunk.trim()
-      if (ft) void processUserTurnRef.current(ft)
-    }
-
-    rec.onerror = () => {
-      if (recShouldRunRef.current && !isThinkingRef.current) {
-        setState((s) => (s === 'speaking' || s === 'listening' ? s : 'listening'))
-      }
-    }
-
-    rec.onend = () => {
-      if (recShouldRunRef.current && !isThinkingRef.current) {
-        setTimeout(() => safeRecStart(), 120)
-      }
-    }
-
-    recognitionRef.current = rec
-    recShouldRunRef.current = true
-    setState('listening')
-    rec.start()
-  }, [safeRecStart])
+  }, [armIdleReset, clearIdleReset, handleImageRequest, refreshLiveContext, resetToIdle, scheduleContextRefresh, stopLiveSession])
 
   useEffect(() => {
     return () => {
-      if (idleResetTimerRef.current != null) {
-        clearTimeout(idleResetTimerRef.current)
-        idleResetTimerRef.current = null
-      }
-      recShouldRunRef.current = false
-      try {
-        recognitionRef.current?.stop?.()
-      } catch {
-        /* noop */
-      }
-      recognitionRef.current = null
-      cancelSpeak()
+      stopLiveSession()
     }
-  }, [cancelSpeak])
+  }, [stopLiveSession])
 
   useEffect(() => {
     let cancelled = false
@@ -486,10 +260,10 @@ export default function TotemChatPage() {
         setCameraReady(true)
       } catch {
         setCameraReady(false)
-        setError('No se pudo acceder a la cámara.')
+        setCameraWarning('Cámara no disponible — tocá la pantalla para hablar con PlotAI.')
       }
     }
-    startCamera()
+    void startCamera()
     return () => {
       cancelled = true
       streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -513,18 +287,12 @@ export default function TotemChatPage() {
     let sameCount = 0
     let timeoutId: ReturnType<typeof setTimeout>
 
-    function onPersonDetected() {
-      setState('greeting')
-      setError(null)
-      speak(GREETING_SPEECH).then(() => {
-        setState('listening')
-        startListening()
-        armIdleReset()
-      })
+    const onPersonDetected = () => {
+      void startLiveSession()
     }
 
     const check = () => {
-      if (state !== 'idle') return
+      if (stateRef.current !== 'idle') return
       if (video.readyState < 2) {
         timeoutId = setTimeout(check, CHECK_INTERVAL_MS)
         return
@@ -554,87 +322,108 @@ export default function TotemChatPage() {
 
     timeoutId = setTimeout(check, 1500)
     return () => clearTimeout(timeoutId)
-  }, [state, cameraReady, speak, startListening, armIdleReset])
+  }, [state, cameraReady, startLiveSession])
 
   const handleTapStart = () => {
     if (state !== 'idle') return
-    setState('greeting')
-    setError(null)
-    speak(GREETING_SPEECH).then(() => {
-      setState('listening')
-      startListening()
-      armIdleReset()
-    })
+    void startLiveSession()
+  }
+
+  const handleTapStartButton = (e: MouseEvent) => {
+    e.stopPropagation()
+    handleTapStart()
+  }
+
+  const handleEndSession = (e: MouseEvent) => {
+    e.stopPropagation()
+    resetToIdle()
   }
 
   return (
-    <div className="totem-page" data-state={state} onClick={state === 'idle' ? handleTapStart : undefined}>
+    <div className="totem-page" data-state={state} data-live={liveActive ? 'on' : 'off'} onClick={state === 'idle' ? handleTapStart : undefined}>
+      <div className="totem-bg" aria-hidden>
+        <div className="totem-bg-aurora totem-bg-aurora--a" />
+        <div className="totem-bg-aurora totem-bg-aurora--b" />
+        <div className="totem-bg-aurora totem-bg-aurora--c" />
+        <div className="totem-bg-orbs">
+          <span className="totem-bg-orb totem-bg-orb--1" />
+          <span className="totem-bg-orb totem-bg-orb--2" />
+          <span className="totem-bg-orb totem-bg-orb--3" />
+          <span className="totem-bg-orb totem-bg-orb--4" />
+        </div>
+        <div className="totem-bg-grid" />
+        <div className="totem-bg-noise" />
+      </div>
+
       <div className="totem-video-wrap">
         <video ref={videoRef} className="totem-video" muted playsInline />
         <canvas ref={canvasRef} className="totem-canvas" aria-hidden />
       </div>
+
       <div className="totem-bg-glow" aria-hidden />
       <div className="totem-scanline" aria-hidden />
+
       <div className="totem-ui">
-        <div className="totem-robot">
-          <div className="totem-robot-halo" aria-hidden />
-          <div className="totem-robot-antenna totem-robot-antenna--l">
-            <span className="totem-robot-antenna-tip" aria-hidden />
+        <div className="totem-hero">
+          <div className="totem-hero-ring totem-hero-ring--outer" aria-hidden />
+          <div className="totem-hero-ring totem-hero-ring--inner" aria-hidden />
+          <div className={`totem-hero-stage${robot3dReady ? ' totem-hero-stage--ready' : ''}`}>
+            <iframe
+              title="PlotAI — Robot Playground"
+              className="totem-robot-3d"
+              src={ROBOT_SKETCHFAB_SRC}
+              frameBorder={0}
+              allow="autoplay; fullscreen; xr-spatial-tracking"
+              allowFullScreen
+              onLoad={() => setRobot3dReady(true)}
+            />
+            {!robot3dReady && <div className="totem-hero-loader" aria-hidden />}
           </div>
-          <div className="totem-robot-antenna totem-robot-antenna--r">
-            <span className="totem-robot-antenna-tip" aria-hidden />
-          </div>
-          <div className="totem-robot-face" role="img" aria-label={`Estado: ${state}`}>
-            <div className="totem-robot-eyes">
-              <div className="totem-robot-eye totem-robot-eye--l">
-                <span className="totem-robot-eye-shine" />
-              </div>
-              <div className="totem-robot-eye totem-robot-eye--r">
-                <span className="totem-robot-eye-shine" />
-              </div>
-            </div>
-            <div className="totem-robot-mouth">
-              {(state === 'listening' || state === 'speaking') && (
-                <>
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                    <span key={i} className="totem-robot-bar" style={{ animationDelay: `${i * 0.05}s` }} />
-                  ))}
-                </>
-              )}
-            </div>
-            <div className="totem-robot-smile" aria-hidden />
-            {state === 'thinking' && (
-              <div className="totem-robot-thinking">
-                <span className="totem-robot-dot" />
-                <span className="totem-robot-dot" />
-                <span className="totem-robot-dot" />
-              </div>
+          <p className="totem-hero-brand">PlotAI</p>
+          {liveActive && <span className="totem-live-badge">Gemini Live</span>}
+        </div>
+
+        <div className="totem-panel">
+          <div className="totem-conversation-box">
+            <p className="totem-state totem-state--label">
+              {state === 'idle' && 'ACERCATE O TOCÁ PARA HABLAR'}
+              {state === 'greeting' && 'CONECTANDO CON GEMINI LIVE...'}
+              {state === 'listening' && 'CONVERSANDO — HABLÁ LIBREMENTE'}
+              {state === 'thinking' && 'PENSANDO...'}
+              {state === 'speaking' && 'PLOTAI RESPONDE...'}
+            </p>
+            {state === 'idle' && (
+              <button type="button" className="totem-tap-cta" onClick={handleTapStartButton}>
+                Tocá para empezar
+              </button>
             )}
+            {state !== 'idle' && (
+              <button type="button" className="totem-end-cta" onClick={handleEndSession}>
+                Finalizar conversación
+              </button>
+            )}
+            {state === 'idle' && cameraReady && (
+              <p className="totem-idle-camera-hint">Cámara activa: te detectamos al acercarte.</p>
+            )}
+            {state === 'idle' && cameraWarning && (
+              <p className="totem-camera-warn">{cameraWarning}</p>
+            )}
+            {state === 'speaking' && (
+              <p className="totem-barge-hint">Podés interrumpir hablando cuando quieras.</p>
+            )}
+            {contextHint && state !== 'idle' && (
+              <p className="totem-context-hint">{contextHint}</p>
+            )}
+            {lastText && <p className="totem-subtitle">{lastText}</p>}
           </div>
-          <div className="totem-robot-name">PlotAI</div>
-        </div>
-        <div className="totem-conversation-box">
-          <p className="totem-state totem-state--label">
-            {state === 'idle' && 'ACERCATE O TOCÁ PARA HABLAR'}
-            {state === 'greeting' && 'INICIANDO...'}
-            {state === 'listening' && 'ESCUCHANDO...'}
-            {state === 'thinking' && 'PROCESANDO...'}
-            {state === 'speaking' && 'HABLANDO...'}
-          </p>
-          {state === 'idle' && cameraReady && (
-            <p className="totem-idle-camera-hint">Cámara activa: te detectamos al acercarte.</p>
+
+          {generatedImageUrl && (
+            <div className="totem-generated-image-wrap">
+              <img src={generatedImageUrl} alt="Imagen generada" className="totem-generated-image" />
+            </div>
           )}
-          {state === 'speaking' && (
-            <p className="totem-barge-hint">Esperá un momento… cuando termine podés hablar de nuevo.</p>
-          )}
-          {lastText && <p className="totem-subtitle">{lastText}</p>}
+          {error && <p className="totem-error">{error}</p>}
         </div>
-        {generatedImageUrl && (
-          <div className="totem-generated-image-wrap">
-            <img src={generatedImageUrl} alt="Imagen generada" className="totem-generated-image" />
-          </div>
-        )}
-        {error && <p className="totem-error">{error}</p>}
       </div>
     </div>
   )

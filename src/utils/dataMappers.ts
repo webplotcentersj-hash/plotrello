@@ -1,5 +1,6 @@
 import type { ActivityEvent, Priority, Task, TaskStatus } from '../types/board'
 import type { HistorialMovimiento, OpGaleriaSlide, OrdenTrabajo, TareaRecord } from '../types/api'
+import { resolveDisplayNombre } from './legajoDisplayRegistry'
 import { getArgentinaDate } from './dateUtils'
 
 export function normalizeGaleriaCarrusel(raw: unknown): OpGaleriaSlide[] {
@@ -354,7 +355,9 @@ export const historialToActivity = (registro: HistorialMovimiento): ActivityEven
   from: mapEstadoToStatus(registro.estado_anterior || ''),
   to: mapEstadoToStatus(registro.estado_nuevo || ''),
   actorId: registro.id_usuario.toString(),
-  actorName: registro.nombre_usuario?.trim() || null,
+  actorName: registro.nombre_usuario?.trim()
+    ? resolveDisplayNombre(registro.nombre_usuario, registro.id_usuario)
+    : null,
   timestamp: registro.timestamp,
   note: registro.comentario ?? 'Cambio de estado'
 })

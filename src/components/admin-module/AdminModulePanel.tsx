@@ -73,7 +73,7 @@ export default function AdminModulePanel({
   onLogout,
   onRefreshData
 }: AdminModulePanelProps) {
-  const { usuario } = useAuth()
+  const { usuario, nombreVisible } = useAuth()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<AdminModuleCategory | 'all'>('all')
@@ -175,7 +175,7 @@ export default function AdminModulePanel({
   const firstName = usuario?.nombre?.split(' ')[0] ?? 'equipo'
 
   const initials = usuario?.nombre
-    ? usuario.nombre
+    ? nombreVisible
         .split(' ')
         .map((p) => p[0])
         .join('')
@@ -415,7 +415,7 @@ export default function AdminModulePanel({
                 <div className="amp-hero-user">
                   <div className="amp-hero-user-avatar">{initials}</div>
                   <div className="amp-hero-user-meta">
-                    <span className="amp-hero-user-name">{usuario.nombre}</span>
+                    <span className="amp-hero-user-name">{nombreVisible}</span>
                     <span className="amp-hero-user-role">{roleLabel}</span>
                   </div>
                 </div>

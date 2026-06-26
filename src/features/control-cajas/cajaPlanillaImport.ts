@@ -5,20 +5,15 @@ import {
   type TipoPlanillaDetectado
 } from './cajaCoherencia'
 import { resolverDestinoPlanilla } from './cajaPlanillaRouter'
+import { resolverCajaSlugImport } from './cajaOperativa'
 import {
-  getParams,
   listCajas,
   listMovimientos,
   planillaYaImportada,
-  resolveCajaSlug,
-  resolveCajaSlugForUsuario,
-  resolveCajaSlugFromHistorial,
   saveMovimientosBulk,
   savePlanillaImport
 } from './cajaRepository'
-import { setStoredCajaSlug } from './cajaUsuarioDisplay'
 import { netoCtaCteDesdePlanilla, efectivoQuedaEnCajaDesdePlanilla } from './cajaTotales'
-import { DEFAULT_CAJERAS } from './constants'
 import { fmtArs } from './format'
 import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
 import { fechaPlanillaImport, planillaAllToMovimientos, resumenImportacion } from './planillaMovimientos'
@@ -43,19 +38,17 @@ export type ImportarPlanillaResult = {
 async function resolverCajaSlugPlanilla(
   parsed: PlanillaCajaParsed,
   usuarioNombre: string,
-  usuarioId?: number
+  usuarioId?: number,
+  esAdmin?: boolean
 ): Promise<string | null> {
-  const [cajas, params] = await Promise.all([listCajas(), getParams()])
-  const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
-  const cajeras = params.cajeras?.length ? params.cajeras : DEFAULT_CAJERAS
-  let cajaSlug =
-    resolveCajaSlug(parsed.caja_nombre, cajas) ??
-    resolveCajaSlugForUsuario(usuarioNombre, operativas, cajeras, { usuarioId }) ??
-    null
-  if (!cajaSlug && usuarioId) {
-    cajaSlug = (await resolveCajaSlugFromHistorial(usuarioId, operativas)) ?? null
-  }
-  return cajaSlug ?? operativas[0]?.slug ?? null
+  const cajas = await listCajas()
+  return resolverCajaSlugImport({
+    usuarioId,
+    usuarioNombre,
+    cajaNombrePdf: parsed.caja_nombre,
+    cajas,
+    esAdmin
+  })
 }
 
 /** Lee el PDF, importa movimientos sin duplicar y resuelve a qué sección del módulo corresponde. */
@@ -66,19 +59,20 @@ export async function importarPlanillaAlSistema(input: {
   estadoOperativa?: { arqueoHecho?: boolean; cierreTurnoHecho?: boolean }
   onProgress?: (msg: string) => void
   permitirArchivoDuplicado?: boolean
+  esAdmin?: boolean
 }): Promise<ImportarPlanillaResult> {
-  const { planilla, usuarioNombre, usuarioId, estadoOperativa, onProgress, permitirArchivoDuplicado } =
+  const { planilla, usuarioNombre, usuarioId, estadoOperativa, onProgress, permitirArchivoDuplicado, esAdmin } =
     input
 
   const tipo = clasificarPlanillaPorContenido(planilla)
   const destino = resolverDestinoPlanilla(planilla, estadoOperativa)
 
   const cajas = await listCajas()
-  const cajaSlug = await resolverCajaSlugPlanilla(planilla, usuarioNombre, usuarioId)
+  const cajaSlug = await resolverCajaSlugPlanilla(planilla, usuarioNombre, usuarioId, esAdmin)
   if (!cajaSlug) {
     return {
       success: false,
-      error: 'No se pudo determinar la caja. Revisá Maestros → Cajeras o el nombre en el PDF.',
+      error: 'No se pudo determinar la caja del usuario mostrador o el nombre en el PDF.',
       planilla,
       tipo,
       destino: destino.section,
@@ -105,8 +99,6 @@ export async function importarPlanillaAlSistema(input: {
       yaExistiaArchivo: true
     }
   }
-
-  if (usuarioId) setStoredCajaSlug(usuarioId, cajaSlug)
 
   let planillaId: string | undefined
   if (!yaExistiaArchivo) {

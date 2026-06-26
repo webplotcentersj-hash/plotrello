@@ -64,7 +64,6 @@ export default function CajaSectionCierreForm({
   onIrSubirPdf
 }: Props) {
   const [cajas, setCajas] = useState<Awaited<ReturnType<typeof listCajas>>>([])
-  const [cajeras, setCajeras] = useState<string[]>([])
   const [tolerancia, setTolerancia] = useState(0)
   const [fecha, setFecha] = useState(getArgentinaDateString())
   const [cajaSlug, setCajaSlug] = useState('')
@@ -86,7 +85,6 @@ export default function CajaSectionCierreForm({
   useEffect(() => {
     void Promise.all([listCajas(), getParams()]).then(([c, p]) => {
       setCajas(c)
-      setCajeras(p.cajeras.map((x) => x.nombre))
       setTolerancia(p.tolerancia)
       if (c.length && !cajaSlug) setCajaSlug(c[0].slug)
     })
@@ -484,15 +482,13 @@ export default function CajaSectionCierreForm({
         </div>
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
-            Cajera
-            <select value={cajera} onChange={(e) => setCajera(e.target.value)}>
-              <option value="">—</option>
-              {cajeras.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+            Operador
+            <input
+              type="text"
+              value={cajera}
+              onChange={(e) => setCajera(e.target.value)}
+              placeholder="Nombre del operador de caja"
+            />
           </label>
           <label className="caja-cc-field">
             Email del listado recibido

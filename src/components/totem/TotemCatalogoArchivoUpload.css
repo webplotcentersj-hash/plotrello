@@ -1,3 +1,9 @@
+.totem-cat-upload {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
 .totem-cat-upload__origen {
   display: flex;
   gap: 10px;

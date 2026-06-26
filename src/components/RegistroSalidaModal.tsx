@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import type { UsuarioRecord, Vehiculo, RegistroSalidaVehiculo } from '../types/api'
+import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import { sectorDesdeRolUsuario } from '../utils/flotaSector'
 import { geocodeFirstHitSanJuan } from '../utils/flotaGeocode'
 import { parseLatLngFromMapsUrl } from '../utils/mapsUrlParse'
@@ -32,7 +33,7 @@ const SECTORES_EXTRA = [
 ]
 
 const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaModalProps) => {
-  const { usuario } = useAuth()
+  const { usuario, nombreVisible } = useAuth()
   const [sector, setSector] = useState('')
   const [kmSalida, setKmSalida] = useState<string>('')
   const [numeroOp, setNumeroOp] = useState('')
@@ -178,7 +179,7 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
       const registro: Omit<RegistroSalidaVehiculo, 'id' | 'created_at' | 'updated_at' | 'vehiculo'> = {
         id_vehiculo: vehiculo.id,
         id_usuario: usuario.id || null,
-        nombre_usuario: usuario.nombre || 'Usuario',
+        nombre_usuario: nombreVisible,
         sector,
         km_aproximado: kmSalida ? parseInt(kmSalida, 10) : null,
         numero_op: numeroOp.trim() || null,
@@ -347,7 +348,7 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
                 const u = usuariosLista.find((x) => x.id === id)
                 if (!u || u.id === usuario?.id) return
                 if (acompanantesSel.some((a) => a.id_usuario === id)) return
-                setAcompanantesSel((prev) => [...prev, { id_usuario: u.id, nombre: u.nombre }])
+                setAcompanantesSel((prev) => [...prev, { id_usuario: u.id, nombre: nombreVisibleDesdeRecord(u) }])
               }}
             >
               <option value="">Agregar desde usuarios…</option>
@@ -357,7 +358,7 @@ const RegistroSalidaModal = ({ vehiculo, onClose, onSuccess }: RegistroSalidaMod
                 )
                 .map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.nombre}
+                    {nombreVisibleDesdeRecord(u)}
                   </option>
                 ))}
             </select>

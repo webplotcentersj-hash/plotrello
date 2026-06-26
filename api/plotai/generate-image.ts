@@ -3,6 +3,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 type Body = {
   prompt?: string
   aspectRatio?: '1:1' | '16:9' | '9:16'
+  /** totem_creative: ilustración vívida para pantalla del tótem PlotAI */
+  style?: 'product' | 'totem_creative'
 }
 
 function getGeminiKey(): string {
@@ -70,6 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const prompt = (body?.prompt || '').trim()
   const aspectRatio = body?.aspectRatio || '16:9'
+  const style = body?.style === 'totem_creative' ? 'totem_creative' : 'product'
 
   if (!prompt) {
     res.status(400).json({ error: 'prompt es requerido' })
@@ -77,7 +80,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const model = 'gemini-2.5-flash-image'
-  const enhancedPrompt = `Genera una imagen realista de producto gráfico / comunicación visual para imprenta: ${prompt}. Relación de aspecto ${aspectRatio}. Estilo profesional, iluminación natural, sin texto ilegible ni marcas de agua.`
+  const enhancedPrompt =
+    style === 'totem_creative'
+      ? `Ilustración digital premium muy atractiva y colorida para mostrar en pantalla táctil de kiosko: ${prompt}. Estilo 3D render amigable o arte digital de alta calidad con colores vivos iluminación cinematográfica composición centrada fondo degradado suave o ambiente mágico detalles pulidos sin marcas de agua sin texto ilegible relación de aspecto ${aspectRatio}.`
+      : `Genera una imagen realista de producto gráfico / comunicación visual para imprenta: ${prompt}. Relación de aspecto ${aspectRatio}. Estilo profesional, iluminación natural, sin texto ilegible ni marcas de agua.`
 
   try {
     const upstream = await fetch(

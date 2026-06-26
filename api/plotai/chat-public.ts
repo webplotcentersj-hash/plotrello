@@ -625,7 +625,7 @@ export async function buildLista1PreciosContext(
 }
 
 
-const PLOT_CENTER_KNOWLEDGE = `
+export const PLOT_CENTER_KNOWLEDGE = `
 EMPRESA: Plot Center (PlotCenter)
 Web: https://plotcenter.com.ar/
 
@@ -1201,6 +1201,124 @@ async function findClientAndOrders(
   return { clientContext, ordersContext }
 }
 
+export type ResolvePlotAIClienteContextParams = {
+  userTexts: string[]
+  modo?: string
+  nombre?: string
+  empresa?: string
+  dni?: string
+  cuit?: string
+  op?: string
+  cliente_id?: number | null
+  includePrecios?: boolean
+}
+
+export type ResolvedPlotAIClienteContext = {
+  clientContext: string
+  ordersContext: string
+  pedidosContext: string
+  preciosContext: string
+  contextBlock: string
+  fingerprint: string
+  numeroOp: string | null
+}
+
+/** Misma lógica que chat-public: OPs, cliente, pedidos y lista de precios según lo dicho en la conversación. */
+export async function resolvePlotAIClienteContext(
+  params: ResolvePlotAIClienteContextParams
+): Promise<ResolvedPlotAIClienteContext> {
+  const modo = (params.modo || 'totem').toLowerCase()
+  const allUserTexts = (params.userTexts || []).map((t) => String(t ?? '').trim()).filter(Boolean)
+
+  const extracted = allUserTexts.reduce(
+    (acc, txt) => {
+      const e = extractIdentificacionFromText(txt)
+      if (e.nombre) acc.nombre = e.nombre
+      if (e.empresa) acc.empresa = e.empresa
+      if (e.dni) acc.dni = e.dni
+      if (e.cuit) acc.cuit = e.cuit
+      return acc
+    },
+    {} as { nombre?: string; empresa?: string; dni?: string; cuit?: string }
+  )
+
+  const nombre = (params.nombre && params.nombre.trim()) || extracted.nombre
+  const empresa = (params.empresa && params.empresa.trim()) || extracted.empresa
+  const dniRaw = (params.dni && params.dni.trim()) || extracted.dni
+  const cuitRaw = (params.cuit && params.cuit.trim()) || extracted.cuit
+  const dni = dniRaw ? (digitsOnly(dniRaw).length >= 7 ? digitsOnly(dniRaw) : dniRaw.trim()) : undefined
+  const cuit = cuitRaw ? (digitsOnly(cuitRaw).length >= 10 ? digitsOnly(cuitRaw) : cuitRaw.trim()) : undefined
+  const opFromBody = params.op && params.op.trim() ? normalizeOp(params.op) : null
+  const opFromMsg = allUserTexts.map(extractOpFromText).find(Boolean) ?? null
+  const numeroOp = opFromBody && opFromBody.length >= 2 ? opFromBody : opFromMsg
+
+  const clienteIdFromBody =
+    params.cliente_id != null && Number.isInteger(Number(params.cliente_id)) && Number(params.cliente_id) > 0
+      ? Number(params.cliente_id)
+      : null
+
+  let clientContext: string
+  let ordersContext: string
+  let pedidosContext = ''
+
+  if (numeroOp) {
+    const byOp = await getContextByOp(numeroOp)
+    clientContext = byOp.clientContext
+    ordersContext = byOp.ordersContext
+    if (modo === 'cliente_portal' && clienteIdFromBody) {
+      const portalCtx = await getContextByClienteId(clienteIdFromBody)
+      clientContext = portalCtx.clientContext + '\n' + clientContext
+      pedidosContext = portalCtx.pedidosContext
+      if (!ordersContext && portalCtx.ordersContext) ordersContext = portalCtx.ordersContext
+    }
+  } else if (modo === 'cliente_portal' && clienteIdFromBody) {
+    const portalCtx = await getContextByClienteId(clienteIdFromBody)
+    clientContext = portalCtx.clientContext
+    ordersContext = portalCtx.ordersContext
+    pedidosContext = portalCtx.pedidosContext
+  } else {
+    const byClient = await findClientAndOrders(nombre, dni, cuit, empresa)
+    clientContext = byClient.clientContext
+    ordersContext = byClient.ordersContext
+  }
+
+  const includePrecios = params.includePrecios !== false && modo !== 'admin'
+  const preciosContext =
+    supabase && includePrecios ? await buildLista1PreciosContext(supabase, allUserTexts) : ''
+
+  const contextBlock = [
+    'CLIENTE CON QUIEN ESTÁS HABLANDO (solo esta info es válida para OPs estados y datos del cliente):',
+    clientContext,
+    pedidosContext || null,
+    ordersContext || null,
+    preciosContext || null
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+
+  const fingerprint = [
+    numeroOp || '',
+    nombre || '',
+    dni || '',
+    cuit || '',
+    empresa || '',
+    clientContext.slice(0, 120),
+    ordersContext.slice(0, 200),
+    pedidosContext.slice(0, 120),
+    preciosContext.slice(0, 120)
+  ].join('|')
+
+  return {
+    clientContext,
+    ordersContext,
+    pedidosContext,
+    preciosContext,
+    contextBlock,
+    fingerprint,
+    numeroOp
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -1257,59 +1375,20 @@ SALIDA:
       ...history.filter((p) => p.role === 'user').map((p) => (p.parts?.[0]?.text ?? '')),
       message
     ]
-    const extracted = allUserTexts.reduce(
-      (acc, txt) => {
-        const e = extractIdentificacionFromText(txt)
-        if (e.nombre) acc.nombre = e.nombre
-        if (e.empresa) acc.empresa = e.empresa
-        if (e.dni) acc.dni = e.dni
-        if (e.cuit) acc.cuit = e.cuit
-        return acc
-      },
-      {} as { nombre?: string; empresa?: string; dni?: string; cuit?: string }
-    )
-    const nombre = (body.nombre && body.nombre.trim()) || extracted.nombre
-    const empresa = (body.empresa && body.empresa.trim()) || extracted.empresa
-    const dniRaw = (body.dni && body.dni.trim()) || extracted.dni
-    const cuitRaw = (body.cuit && body.cuit.trim()) || extracted.cuit
-    const dni = dniRaw ? digitsOnly(dniRaw).length >= 7 ? digitsOnly(dniRaw) : dniRaw.trim() : undefined
-    const cuit = cuitRaw ? digitsOnly(cuitRaw).length >= 10 ? digitsOnly(cuitRaw) : cuitRaw.trim() : undefined
-    const opFromBody = body.op && body.op.trim() ? normalizeOp(body.op) : null
-    const opFromMsg = allUserTexts.map(extractOpFromText).find(Boolean)
-    const numeroOp = (opFromBody && opFromBody.length >= 2) ? opFromBody : (opFromMsg || null)
-
-    const clienteIdFromBody =
-      body.cliente_id != null && Number.isInteger(Number(body.cliente_id)) && Number(body.cliente_id) > 0
-        ? Number(body.cliente_id)
-        : null
-
-    let clientContext: string
-    let ordersContext: string
-    let pedidosContext = ''
-
-    if (numeroOp) {
-      const byOp = await getContextByOp(numeroOp)
-      clientContext = byOp.clientContext
-      ordersContext = byOp.ordersContext
-      if (modo === 'cliente_portal' && clienteIdFromBody) {
-        const portalCtx = await getContextByClienteId(clienteIdFromBody)
-        clientContext = portalCtx.clientContext + '\n' + clientContext
-        pedidosContext = portalCtx.pedidosContext
-        if (!ordersContext && portalCtx.ordersContext) ordersContext = portalCtx.ordersContext
-      }
-    } else if (modo === 'cliente_portal' && clienteIdFromBody) {
-      const portalCtx = await getContextByClienteId(clienteIdFromBody)
-      clientContext = portalCtx.clientContext
-      ordersContext = portalCtx.ordersContext
-      pedidosContext = portalCtx.pedidosContext
-    } else {
-      const byClient = await findClientAndOrders(nombre, dni, cuit, empresa)
-      clientContext = byClient.clientContext
-      ordersContext = byClient.ordersContext
-    }
-
-    const preciosContext =
-      supabase && modo !== 'admin' ? await buildLista1PreciosContext(supabase, allUserTexts) : ''
+    const resolvedCtx = await resolvePlotAIClienteContext({
+      userTexts: allUserTexts,
+      modo,
+      nombre: body.nombre,
+      empresa: body.empresa,
+      dni: body.dni,
+      cuit: body.cuit,
+      op: body.op,
+      cliente_id: body.cliente_id ?? null
+    })
+    const { clientContext, ordersContext, pedidosContext, preciosContext } = resolvedCtx
+    const nombre =
+      (body.nombre && body.nombre.trim()) ||
+      allUserTexts.map((txt) => extractIdentificacionFromText(txt).nombre).find(Boolean)
 
     const solicitudAtencion = detectSolicitudAtencionHumano(message)
     let notificacionEnviada = false
@@ -1533,6 +1612,20 @@ CÓMO TRATAR AL CLIENTE (atención al público):
 
     const publicChatModel = 'gemini-2.5-flash'
 
+    const totemConversational = modo === 'totem' && safeImages.length === 0
+    const totemChatContents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = []
+    if (totemConversational) {
+      for (const p of history.slice(-14)) {
+        const histText = (p.parts?.[0]?.text ?? '').trim()
+        if (!histText) continue
+        totemChatContents.push({
+          role: p.role === 'model' ? 'model' : 'user',
+          parts: [{ text: histText.slice(0, 8000) }]
+        })
+      }
+      totemChatContents.push({ role: 'user', parts: [{ text: message }] })
+    }
+
     const response = safeImages.length > 0
       ? await ai.models.generateContent({
           model: publicChatModel,
@@ -1548,10 +1641,21 @@ CÓMO TRATAR AL CLIENTE (atención al público):
             }
           ]
         } as any)
-      : await ai.models.generateContent({
-          model: publicChatModel,
-          contents: conversation
-        } as any)
+      : totemConversational
+        ? await ai.models.generateContent({
+            model: publicChatModel,
+            contents: totemChatContents,
+            config: {
+              systemInstruction: systemPrompt,
+              temperature: 0.88,
+              topP: 0.95,
+              maxOutputTokens: 900
+            }
+          } as any)
+        : await ai.models.generateContent({
+            model: publicChatModel,
+            contents: conversation
+          } as any)
 
     const text = (response as any)?.text ?? ''
     replyText = text || 'No pude generar una respuesta. Por favor, intentá de nuevo o contactanos por teléfono o email.'

@@ -1,0 +1,121 @@
+.venta-condicion-fields {
+  margin-top: 4px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.venta-condicion-fields__hint {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.venta-condicion-fields__warn {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: #fde68a;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.venta-condicion-fields__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .venta-condicion-fields__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.venta-condicion-cuenta-card {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.venta-condicion-cuenta-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  font-size: 0.86rem;
+}
+
+.venta-condicion-cuenta-card__label {
+  color: #93c5fd;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.venta-condicion-cuenta-card code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.84rem;
+  color: #e2e8f0;
+  word-break: break-all;
+}
+
+.venta-condicion-fields--mp {
+  border-color: rgba(0, 188, 212, 0.35);
+  background: rgba(0, 188, 212, 0.08);
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .venta-condicion-fields {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .venta-condicion-fields__hint {
+  color: #475569;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .venta-condicion-cuenta-card {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .venta-condicion-cuenta-card__label {
+  color: #1d4ed8;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .venta-condicion-cuenta-card code {
+  color: #0f172a;
+}
+
+.venta-rapida-mp-panel {
+  margin: 12px 0 20px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 188, 212, 0.35);
+  background: rgba(0, 188, 212, 0.06);
+}
+
+.venta-rapida-mp-panel .mp-checkout-pay {
+  margin: 0;
+}
+
+.venta-rapida-mp-panel .mp-checkout-pay-title {
+  font-size: 1.05rem;
+  margin: 0 0 8px;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .venta-rapida-mp-panel {
+  background: #f0fdfa;
+  border-color: #5eead4;
+}

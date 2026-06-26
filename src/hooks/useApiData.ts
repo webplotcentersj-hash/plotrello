@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import apiService from '../services/api'
+import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
+import { resolveDisplayNombre } from '../utils/legajoDisplayRegistry'
 import type { Task, ActivityEvent, TeamMember } from '../types/board'
 
 /**
@@ -52,13 +54,16 @@ export function useApiData() {
 
         if (usuariosRes.success && usuariosRes.data) {
           // Mapear usuarios a miembros del equipo
-          const mappedMembers: TeamMember[] = usuariosRes.data.map((usuario: any) => ({
-            id: `user-${usuario.id}`,
-            name: usuario.nombre,
-            role: usuario.rol,
-            avatar: usuario.nombre.charAt(0).toUpperCase(),
-            productivity: 0
-          }))
+          const mappedMembers: TeamMember[] = usuariosRes.data.map((usuario: any) => {
+            const display = nombreVisibleDesdeRecord(usuario)
+            return {
+              id: `user-${usuario.id}`,
+              name: display,
+              role: usuario.rol,
+              avatar: display.charAt(0).toUpperCase(),
+              productivity: 0
+            }
+          })
           setTeamMembers(mappedMembers)
         }
 
@@ -70,7 +75,9 @@ export function useApiData() {
             from: mapEstadoToStatus(mov.estado_anterior),
             to: mapEstadoToStatus(mov.estado_nuevo),
             actorId: String(mov.id_usuario ?? ''),
-            actorName: typeof mov.nombre_usuario === 'string' ? mov.nombre_usuario.trim() || null : null,
+            actorName: typeof mov.nombre_usuario === 'string'
+              ? resolveDisplayNombre(mov.nombre_usuario.trim(), mov.id_usuario) || null
+              : null,
             timestamp: mov.timestamp,
             note: mov.comentario || ''
           }))

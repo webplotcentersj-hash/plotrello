@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import type { UsuarioRecord, UserRole } from '../types/api'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import './UsuariosPage.css'
 
 const UsuariosPage = () => {
@@ -126,7 +127,7 @@ const UsuariosPage = () => {
     try {
       const response = await apiService.updateUsuario(usuario.id, { rol: newRol })
       if (response.success) {
-        setSuccess(`Rol de "${usuario.nombre}" actualizado a ${roleOptions.find((r) => r.value === newRol)?.label ?? newRol}`)
+        setSuccess(`Rol de "${nombreVisibleDesdeRecord(usuario)}" actualizado a ${roleOptions.find((r) => r.value === newRol)?.label ?? newRol}`)
         await loadUsuarios()
       } else {
         setError(response.error || 'Error al actualizar rol')
@@ -316,14 +317,16 @@ const UsuariosPage = () => {
             </div>
           ) : (
             <div className="usuarios-grid">
-              {usuarios.map((usuario) => (
+              {usuarios.map((usuario) => {
+                const display = nombreVisibleDesdeRecord(usuario)
+                return (
                 <div key={usuario.id} className="usuario-card">
                   <div className="usuario-header">
                     <div className="usuario-avatar">
-                      {usuario.nombre.charAt(0).toUpperCase()}
+                      {display.charAt(0).toUpperCase()}
                     </div>
                     <div className="usuario-info">
-                      <h3>{usuario.nombre}</h3>
+                      <h3>{display}</h3>
                       <div className="usuario-rol-edit">
                         <select
                           className="usuario-rol-select"
@@ -349,7 +352,8 @@ const UsuariosPage = () => {
                     <span className="id-value">{usuario.id}</span>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

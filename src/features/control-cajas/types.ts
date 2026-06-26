@@ -3,6 +3,7 @@ export type CajaRegistro = {
   nombre: string
   fondo_fijo: number
   activa: boolean
+  id_usuario?: number | null
 }
 
 export type CajaArqueoEstado = 'correcto' | 'sobrante' | 'faltante'
@@ -174,11 +175,8 @@ export type CajaDiferencia = {
   created_at?: string
 }
 
-export type CajaCajera = { nombre: string; usuario: string }
-
 export type CajaParams = {
   tolerancia: number
-  cajeras: CajaCajera[]
 }
 
 export type CajaAlertaSeveridad = 'ok' | 'info' | 'warn' | 'error'

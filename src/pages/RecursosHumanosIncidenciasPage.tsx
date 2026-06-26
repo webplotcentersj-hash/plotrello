@@ -215,7 +215,7 @@ type MainTab = 'lista' | 'metricas'
 
 const RecursosHumanosIncidenciasPage = () => {
   const navigate = useNavigate()
-  const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
+  const { usuario, nombreVisible, canManageRecursosHumanos, loading: authLoading } = useAuth()
   const canAccess =
     !!usuario &&
     (canManageRecursosHumanos || usuario.rol === 'gerencia')
@@ -543,7 +543,7 @@ const RecursosHumanosIncidenciasPage = () => {
     setGuardandoNota(true)
     try {
       const payload = `${RRHH_PREFIX} ${text}`
-      const res = await apiService.addComentarioOrden(selected.ordenId, payload, usuario.nombre || 'RRHH')
+      const res = await apiService.addComentarioOrden(selected.ordenId, payload, nombreVisible || 'RRHH')
       if (!res.success) {
         window.alert(res.error || 'No se pudo guardar la nota.')
         return
@@ -613,7 +613,7 @@ const RecursosHumanosIncidenciasPage = () => {
         useMemory: false,
         learnFromResponse: false,
         includeAppManual: false,
-        userName: usuario?.nombre
+        userName: nombreVisible
       })
       setPlotAnalysis(text.trim())
     } catch (e) {
