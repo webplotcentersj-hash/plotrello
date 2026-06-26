@@ -3,7 +3,7 @@ import './TotemChatPage.css'
 import { consumeTotemSeedMessage } from '../utils/totemSeedMessage'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
 import TotemPlotAIRobot from '../components/totem/TotemPlotAIRobot'
-import { ensureTotemMicrophone, mapTotemLiveErrorMessage } from '../utils/totemMicPermission'
+import { beginTotemMicrophoneOnGesture, isTotemSecureContext, mapTotemLiveErrorMessage, queryTotemMicPermission } from '../utils/totemMicPermission'
 import {
   TotemPlotAILive,
   fetchTotemGeminiApiKey,
@@ -27,6 +27,8 @@ export default function TotemChatPage() {
   const [cameraReady, setCameraReady] = useState(false)
   const [liveActive, setLiveActive] = useState(false)
   const [contextHint, setContextHint] = useState<string | null>(null)
+  const [proximityHint, setProximityHint] = useState(false)
+  const [micBlocked, setMicBlocked] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -48,6 +50,12 @@ export default function TotemChatPage() {
   useEffect(() => {
     const msg = consumeTotemSeedMessage()
     if (msg) pendingSeedRef.current = msg
+    if (!isTotemSecureContext()) {
+      setError('El tótem debe abrirse con HTTPS para usar el micrófono.')
+    }
+    void queryTotemMicPermission().then((p) => {
+      if (p === 'denied') setMicBlocked(true)
+    })
   }, [])
 
   const clearIdleReset = useCallback(() => {
@@ -62,7 +70,10 @@ export default function TotemChatPage() {
     intentionalStopRef.current = true
     liveRef.current?.stop()
     liveRef.current = null
-    micStreamRef.current = null
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((t) => t.stop())
+      micStreamRef.current = null
+    }
     setLiveActive(false)
   }, [clearIdleReset])
 
@@ -74,6 +85,7 @@ export default function TotemChatPage() {
     userTextsRef.current = []
     lastContextFpRef.current = ''
     setContextHint(null)
+    setProximityHint(false)
     stopLiveSession()
     setGeneratedImageUrl(null)
     setState('idle')
@@ -147,15 +159,17 @@ export default function TotemChatPage() {
     }, 900)
   }, [refreshLiveContext])
 
-  const startLiveSession = useCallback(async () => {
+  const startLiveSession = useCallback(async (micGesture: Promise<MediaStream>) => {
     if (liveStartingRef.current || liveRef.current) return
     liveStartingRef.current = true
     setState('greeting')
     setError(null)
+    setProximityHint(false)
 
     try {
-      const micStream = await ensureTotemMicrophone()
+      const micStream = await micGesture
       micStreamRef.current = micStream
+      setMicBlocked(false)
 
       const [apiKey, initialContext] = await Promise.all([
         fetchTotemGeminiApiKey(),
@@ -235,6 +249,9 @@ export default function TotemChatPage() {
     } catch (e) {
       const msg = e instanceof Error ? mapTotemLiveErrorMessage(e.message) : 'No se pudo iniciar PlotAI'
       setError(msg)
+      if (msg.toLowerCase().includes('bloqueado') || msg.toLowerCase().includes('denegado')) {
+        setMicBlocked(true)
+      }
       stopLiveSession()
       setState('idle')
     } finally {
@@ -293,7 +310,8 @@ export default function TotemChatPage() {
     let timeoutId: ReturnType<typeof setTimeout>
 
     const onPersonDetected = () => {
-      void startLiveSession()
+      if (stateRef.current !== 'idle' || liveStartingRef.current || liveRef.current) return
+      setProximityHint(true)
     }
 
     const check = () => {
@@ -327,11 +345,17 @@ export default function TotemChatPage() {
 
     timeoutId = setTimeout(check, 1500)
     return () => clearTimeout(timeoutId)
-  }, [state, cameraReady, startLiveSession])
+  }, [state, cameraReady])
 
   const handleTapStart = () => {
-    if (state !== 'idle') return
-    void startLiveSession()
+    if (state !== 'idle' || liveStartingRef.current || liveRef.current) return
+    if (!isTotemSecureContext()) {
+      setError('El tótem debe abrirse con HTTPS para usar el micrófono.')
+      return
+    }
+    setError(null)
+    const micPromise = beginTotemMicrophoneOnGesture()
+    void startLiveSession(micPromise)
   }
 
   const handleTapStartButton = (e: MouseEvent) => {
@@ -345,7 +369,7 @@ export default function TotemChatPage() {
   }
 
   return (
-    <div className="totem-page" data-state={state} data-live={liveActive ? 'on' : 'off'} onClick={state === 'idle' ? handleTapStart : undefined}>
+    <div className="totem-page" data-state={state} data-live={liveActive ? 'on' : 'off'} data-proximity={proximityHint ? 'near' : 'far'}>
       <div className="totem-bg" aria-hidden>
         <div className="totem-bg-aurora totem-bg-aurora--a" />
         <div className="totem-bg-aurora totem-bg-aurora--b" />
@@ -380,15 +404,19 @@ export default function TotemChatPage() {
         <div className="totem-panel">
           <div className="totem-conversation-box">
             <p className="totem-state totem-state--label">
-              {state === 'idle' && 'ACERCATE O TOCÁ PARA HABLAR'}
+              {state === 'idle' && (proximityHint ? 'TE DETECTAMOS — ACTIVÁ EL MICRÓFONO' : 'TOCÁ ACTIVAR MICRÓFONO PARA HABLAR')}
               {state === 'greeting' && 'CONECTANDO...'}
               {state === 'listening' && 'TE ESCUCHO'}
               {state === 'thinking' && 'UN MOMENTO...'}
               {state === 'speaking' && 'HABLANDO CON VOS'}
             </p>
             {state === 'idle' && (
-              <button type="button" className="totem-tap-cta" onClick={handleTapStartButton}>
-                Tocá para empezar
+              <button
+                type="button"
+                className={`totem-tap-cta${proximityHint ? ' totem-tap-cta--proximity' : ''}${micBlocked ? ' totem-tap-cta--blocked' : ''}`}
+                onClick={handleTapStartButton}
+              >
+                {micBlocked ? 'Reintentar micrófono' : 'Activar micrófono'}
               </button>
             )}
             {state !== 'idle' && (
@@ -397,7 +425,11 @@ export default function TotemChatPage() {
               </button>
             )}
             {state === 'idle' && cameraReady && (
-              <p className="totem-idle-camera-hint">Cámara activa: te detectamos al acercarte.</p>
+              <p className="totem-idle-camera-hint">
+                {proximityHint
+                  ? 'Estás cerca del tótem. Tocá el botón para hablar con PlotAI.'
+                  : 'Cámara activa: te avisamos cuando te acerques.'}
+              </p>
             )}
             {state === 'idle' && cameraWarning && (
               <p className="totem-camera-warn">{cameraWarning}</p>
@@ -415,7 +447,16 @@ export default function TotemChatPage() {
               <img src={generatedImageUrl} alt="Imagen generada" className="totem-generated-image" />
             </div>
           )}
-          {error && <p className="totem-error">{error}</p>}
+          {error && (
+            <div className="totem-error-wrap">
+              <p className="totem-error">{error}</p>
+              {state === 'idle' && (
+                <button type="button" className="totem-mic-retry" onClick={handleTapStartButton}>
+                  Activar micrófono
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

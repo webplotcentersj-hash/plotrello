@@ -20,13 +20,13 @@ export default function PwaUpdateButton({ className }: PwaUpdateButtonProps) {
   const { needRefresh, checking, checkForUpdate, applyUpdate } = pwa
 
   const label = needRefresh
-    ? 'Nueva versión'
+    ? 'Actualizar'
     : checking
       ? 'Comprobando…'
       : 'App al día'
 
   const title = needRefresh
-    ? 'Hay una nueva versión lista. Clic para actualizar ahora.'
+    ? 'Hay una nueva versión lista. Tocá para actualizar.'
     : checking
       ? 'Buscando actualizaciones en el servidor…'
       : 'Tu app está actualizada. Clic para buscar de nuevo.'
@@ -57,7 +57,8 @@ export default function PwaUpdateButton({ className }: PwaUpdateButtonProps) {
       {label}
       {needRefresh && (
         <span className="pwa-update-btn-badge" aria-hidden>
-          1
+          <span className="pwa-update-btn-badge__dot" />
+          <span className="pwa-update-btn-badge__label">NEW</span>
         </span>
       )}
     </button>

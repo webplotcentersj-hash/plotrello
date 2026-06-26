@@ -2,7 +2,6 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from '../components/ErrorBoundary'
-import PwaRefreshGate from '../components/PwaRefreshGate'
 import { PwaUpdateProvider } from '../contexts/PwaUpdateContext'
 import { AuthProvider } from '../hooks/useAuth'
 import { UsuariosDisplayProvider } from '../hooks/useUsuariosDisplay'
@@ -37,9 +36,7 @@ try {
         <AuthProvider>
           <UsuariosDisplayProvider>
             <PwaUpdateProvider>
-              <PwaRefreshGate>
                 <App />
-              </PwaRefreshGate>
             </PwaUpdateProvider>
           </UsuariosDisplayProvider>
         </AuthProvider>

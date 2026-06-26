@@ -67,7 +67,6 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<PwaToast>(null)
   const [modalMode, setModalMode] = useState<PwaUpdateModalMode | null>(null)
   const toastIdRef = useRef(0)
-  const modalShownForRefreshRef = useRef(false)
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = ++toastIdRef.current
@@ -130,8 +129,6 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
     needRefreshRef.current = needRefresh
     if (needRefresh) {
       setChecking(false)
-      // La pantalla PwaRefreshGate bloquea la app; no abrir modal duplicado.
-      modalShownForRefreshRef.current = true
     }
   }, [needRefresh])
 
@@ -175,7 +172,7 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
 
   const checkForUpdate = useCallback(async () => {
     if (needRefreshRef.current) {
-      setModalMode('available')
+      await applyUpdate()
       return
     }
 
@@ -186,7 +183,7 @@ export function PwaUpdateProvider({ children }: { children: ReactNode }) {
       await new Promise((resolve) => window.setTimeout(resolve, 1200))
 
       if (needRefreshRef.current) {
-        setModalMode('available')
+        showToast('Nueva versión lista. Tocá «Actualizar» en el header.', 'info')
       } else {
         setModalMode('installed')
       }

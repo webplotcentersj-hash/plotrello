@@ -5,7 +5,6 @@ import PwaUpdateToast from './components/PwaUpdateToast'
 import CajaSyncToastHost from './features/control-cajas/components/CajaSyncToastHost'
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
-import PwaRefreshGate from './components/PwaRefreshGate'
 import { PwaUpdateProvider } from './contexts/PwaUpdateContext'
 import { useAuth, type Usuario } from './hooks/useAuth'
 import { useUsuariosDisplayBootstrap } from './hooks/useUsuariosDisplay'
@@ -152,7 +151,6 @@ function AppInner() {
       {loading ? (
         <LoadingScreen />
       ) : (
-      <PwaRefreshGate>
       <BrowserRouter>
         <EnvDebugGate />
         <Routes>
@@ -492,7 +490,6 @@ function AppInner() {
           />
         </Routes>
       </BrowserRouter>
-      </PwaRefreshGate>
       )}
     </>
   )

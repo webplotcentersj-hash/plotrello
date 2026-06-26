@@ -537,6 +537,48 @@
   }
 }
 
+.totem-tap-cta--proximity {
+  animation: totem-cta-proximity 1.2s ease-in-out infinite;
+}
+
+.totem-tap-cta--blocked {
+  background: linear-gradient(135deg, #fca5a5 0%, #f87171 50%, #dc2626 100%);
+  color: #fff;
+}
+
+@keyframes totem-cta-proximity {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+.totem-page[data-proximity='near'] .totem-hero-ring--outer {
+  animation-duration: 2.5s;
+  opacity: 0.95;
+}
+
+.totem-error-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+.totem-mic-retry {
+  padding: 0.65rem 1.2rem;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.2);
+  color: #fecaca;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.totem-mic-retry:active {
+  transform: scale(0.98);
+}
+
 .totem-error {
   color: #ff8a8a;
   font-size: 0.88rem;
