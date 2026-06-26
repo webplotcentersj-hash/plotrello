@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback, type MouseEvent } from 'react
 import './TotemChatPage.css'
 import { consumeTotemSeedMessage } from '../utils/totemSeedMessage'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
+import TotemPlotAIRobot from '../components/totem/TotemPlotAIRobot'
+import { ensureTotemMicrophone, mapTotemLiveErrorMessage } from '../utils/totemMicPermission'
 import {
   TotemPlotAILive,
   fetchTotemGeminiApiKey,
@@ -14,19 +16,15 @@ const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?
 const MOTION_CHECKS = 2
 const CHECK_INTERVAL_MS = 800
 const IDLE_RESET_MS = 90_000
-const ROBOT_SKETCHFAB_SRC =
-  'https://sketchfab.com/models/59fc99d8dcb146f3a6c16dbbcc4680da/embed?autostart=1&autospin=0.14&camera=0&preload=1&ui_theme=dark&ui_animations=0&ui_infos=0&ui_hint=0&ui_stop=0&ui_inspector=0&ui_watermark=0&ui_watermark_link=0&ui_ar=0&ui_help=0&ui_settings=0&ui_vr=0&ui_fullscreen=0&transparent=1'
 
 type TotemState = 'idle' | 'greeting' | 'listening' | 'thinking' | 'speaking'
 
 export default function TotemChatPage() {
   const [state, setState] = useState<TotemState>('idle')
-  const [lastText, setLastText] = useState('')
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [cameraWarning, setCameraWarning] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
-  const [robot3dReady, setRobot3dReady] = useState(false)
   const [liveActive, setLiveActive] = useState(false)
   const [contextHint, setContextHint] = useState<string | null>(null)
 
@@ -34,6 +32,7 @@ export default function TotemChatPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const liveRef = useRef<TotemPlotAILive | null>(null)
+  const micStreamRef = useRef<MediaStream | null>(null)
   const liveStartingRef = useRef(false)
   const stateRef = useRef<TotemState>('idle')
   const idleResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -63,6 +62,7 @@ export default function TotemChatPage() {
     intentionalStopRef.current = true
     liveRef.current?.stop()
     liveRef.current = null
+    micStreamRef.current = null
     setLiveActive(false)
   }, [clearIdleReset])
 
@@ -75,7 +75,6 @@ export default function TotemChatPage() {
     lastContextFpRef.current = ''
     setContextHint(null)
     stopLiveSession()
-    setLastText('')
     setGeneratedImageUrl(null)
     setState('idle')
   }, [stopLiveSession])
@@ -155,6 +154,9 @@ export default function TotemChatPage() {
     setError(null)
 
     try {
+      const micStream = await ensureTotemMicrophone()
+      micStreamRef.current = micStream
+
       const [apiKey, initialContext] = await Promise.all([
         fetchTotemGeminiApiKey(),
         fetchTotemLiveContext(userTextsRef.current).catch(() => ({
@@ -173,8 +175,10 @@ export default function TotemChatPage() {
 
       await live.start({
         initialContext,
+        micStream,
         callbacks: {
         onOpen: () => {
+          setError(null)
           setState('listening')
           live.sendGreetingNudge()
           armIdleReset()
@@ -197,7 +201,6 @@ export default function TotemChatPage() {
           if (!userTextsRef.current.includes(t)) {
             userTextsRef.current = [...userTextsRef.current, t].slice(-24)
           }
-          setLastText(t)
           scheduleContextRefresh()
           if (IMAGE_TRIGGER.test(t)) {
             void handleImageRequest(t)
@@ -205,8 +208,8 @@ export default function TotemChatPage() {
             setState('thinking')
           }
         },
-        onModelTranscript: (text) => {
-          setLastText(text)
+        onModelTranscript: () => {
+          /* solo animación del robot; sin subtítulos en pantalla */
         },
         onSpeakingChange: (speaking) => {
           if (imageBusyRef.current) return
@@ -214,7 +217,9 @@ export default function TotemChatPage() {
         },
         onError: (err) => {
           console.error('[Totem Gemini Live]', err)
-          setError(err.message || 'Error en Gemini Live')
+          if (stateRef.current === 'idle' || stateRef.current === 'greeting') {
+            setError(mapTotemLiveErrorMessage(err.message || 'Error en PlotAI'))
+          }
         },
         onClose: () => {
           if (intentionalStopRef.current) {
@@ -228,7 +233,7 @@ export default function TotemChatPage() {
         }
       })
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'No se pudo iniciar Gemini Live'
+      const msg = e instanceof Error ? mapTotemLiveErrorMessage(e.message) : 'No se pudo iniciar PlotAI'
       setError(msg)
       stopLiveSession()
       setState('idle')
@@ -367,30 +372,19 @@ export default function TotemChatPage() {
         <div className="totem-hero">
           <div className="totem-hero-ring totem-hero-ring--outer" aria-hidden />
           <div className="totem-hero-ring totem-hero-ring--inner" aria-hidden />
-          <div className={`totem-hero-stage${robot3dReady ? ' totem-hero-stage--ready' : ''}`}>
-            <iframe
-              title="PlotAI — Robot Playground"
-              className="totem-robot-3d"
-              src={ROBOT_SKETCHFAB_SRC}
-              frameBorder={0}
-              allow="autoplay; fullscreen; xr-spatial-tracking"
-              allowFullScreen
-              onLoad={() => setRobot3dReady(true)}
-            />
-            {!robot3dReady && <div className="totem-hero-loader" aria-hidden />}
+          <div className="totem-hero-stage totem-hero-stage--ready">
+            <TotemPlotAIRobot state={state} />
           </div>
-          <p className="totem-hero-brand">PlotAI</p>
-          {liveActive && <span className="totem-live-badge">Gemini Live</span>}
         </div>
 
         <div className="totem-panel">
           <div className="totem-conversation-box">
             <p className="totem-state totem-state--label">
               {state === 'idle' && 'ACERCATE O TOCÁ PARA HABLAR'}
-              {state === 'greeting' && 'CONECTANDO CON GEMINI LIVE...'}
-              {state === 'listening' && 'CONVERSANDO — HABLÁ LIBREMENTE'}
-              {state === 'thinking' && 'PENSANDO...'}
-              {state === 'speaking' && 'PLOTAI RESPONDE...'}
+              {state === 'greeting' && 'CONECTANDO...'}
+              {state === 'listening' && 'TE ESCUCHO'}
+              {state === 'thinking' && 'UN MOMENTO...'}
+              {state === 'speaking' && 'HABLANDO CON VOS'}
             </p>
             {state === 'idle' && (
               <button type="button" className="totem-tap-cta" onClick={handleTapStartButton}>
@@ -414,7 +408,6 @@ export default function TotemChatPage() {
             {contextHint && state !== 'idle' && (
               <p className="totem-context-hint">{contextHint}</p>
             )}
-            {lastText && <p className="totem-subtitle">{lastText}</p>}
           </div>
 
           {generatedImageUrl && (

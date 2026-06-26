@@ -102,6 +102,8 @@ export async function fetchTotemGeminiApiKey(): Promise<string> {
 export type TotemLiveStartOptions = {
   callbacks: TotemLiveCallbacks
   initialContext?: TotemLiveContextPayload
+  /** Stream ya autorizado en el gesto del usuario (tap). */
+  micStream?: MediaStream
 }
 
 export class TotemPlotAILive {
@@ -121,8 +123,10 @@ export class TotemPlotAILive {
   }
 
   async start(options: TotemLiveStartOptions): Promise<void> {
-    const { callbacks, initialContext } = options
+    const { callbacks, initialContext, micStream } = options
     this.callbacks = callbacks
+
+    await this.startMicrophone(micStream)
 
     this.audioContext = new AudioContext({ sampleRate: 24000 })
     if (this.audioContext.state === 'suspended') {
@@ -161,7 +165,6 @@ export class TotemPlotAILive {
       }
     })
 
-    await this.startMicrophone()
     this.startAudioPlaybackLoop()
   }
 
@@ -227,16 +230,20 @@ export class TotemPlotAILive {
     this.updateSpeakingState()
   }
 
-  private async startMicrophone(): Promise<void> {
-    this.mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        sampleRate: 16000,
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }
-    })
+  private async startMicrophone(existingStream?: MediaStream): Promise<void> {
+    if (existingStream) {
+      this.mediaStream = existingStream
+    } else {
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1
+        },
+        video: false
+      })
+    }
 
     const audioContext = new AudioContext({ sampleRate: 16000 })
     this.micAudioContext = audioContext
