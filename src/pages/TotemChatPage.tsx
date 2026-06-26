@@ -3,7 +3,13 @@ import './TotemChatPage.css'
 import { consumeTotemSeedMessage } from '../utils/totemSeedMessage'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
 import TotemPlotAIRobot from '../components/totem/TotemPlotAIRobot'
-import { beginTotemMicrophoneOnGesture, isTotemSecureContext, mapTotemLiveErrorMessage, queryTotemMicPermission } from '../utils/totemMicPermission'
+import {
+  beginTotemMediaOnGesture,
+  isTotemFeatureAllowedByPolicy,
+  isTotemSecureContext,
+  mapTotemLiveErrorMessage,
+  queryTotemMicPermission
+} from '../utils/totemMicPermission'
 import {
   TotemPlotAILive,
   fetchTotemGeminiApiKey,
@@ -52,10 +58,16 @@ export default function TotemChatPage() {
     if (msg) pendingSeedRef.current = msg
     if (!isTotemSecureContext()) {
       setError('El tótem debe abrirse con HTTPS para usar el micrófono.')
+    } else if (!isTotemFeatureAllowedByPolicy('microphone')) {
+      setError(
+        'Micrófono bloqueado por configuración del servidor en /totem. Esperá el deploy o recargá con Ctrl+Shift+R.'
+      )
+      setMicBlocked(true)
+    } else {
+      void queryTotemMicPermission().then((p) => {
+        if (p === 'denied') setMicBlocked(true)
+      })
     }
-    void queryTotemMicPermission().then((p) => {
-      if (p === 'denied') setMicBlocked(true)
-    })
   }, [])
 
   const clearIdleReset = useCallback(() => {
@@ -77,6 +89,13 @@ export default function TotemChatPage() {
     setLiveActive(false)
   }, [clearIdleReset])
 
+  const stopTotemVideo = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    if (videoRef.current) videoRef.current.srcObject = null
+    setCameraReady(false)
+  }, [])
+
   const resetToIdle = useCallback(() => {
     if (contextRefreshTimerRef.current != null) {
       clearTimeout(contextRefreshTimerRef.current)
@@ -87,9 +106,10 @@ export default function TotemChatPage() {
     setContextHint(null)
     setProximityHint(false)
     stopLiveSession()
+    stopTotemVideo()
     setGeneratedImageUrl(null)
     setState('idle')
-  }, [stopLiveSession])
+  }, [stopLiveSession, stopTotemVideo])
 
   const armIdleReset = useCallback(() => {
     clearIdleReset()
@@ -146,6 +166,26 @@ export default function TotemChatPage() {
       }
     } catch (e) {
       console.warn('[Totem] refreshLiveContext:', e)
+    }
+  }, [])
+
+  const attachTotemVideoStream = useCallback(async (videoStream: MediaStream | null) => {
+    if (!videoStream) {
+      setCameraReady(false)
+      setCameraWarning('Cámara no disponible — igual podés hablar con PlotAI.')
+      return
+    }
+    streamRef.current = videoStream
+    if (videoRef.current) {
+      videoRef.current.srcObject = videoStream
+      try {
+        await videoRef.current.play()
+        setCameraReady(true)
+        setCameraWarning(null)
+      } catch {
+        setCameraReady(false)
+        setCameraWarning('Cámara no disponible — igual podés hablar con PlotAI.')
+      }
     }
   }, [])
 
@@ -262,36 +302,9 @@ export default function TotemChatPage() {
   useEffect(() => {
     return () => {
       stopLiveSession()
+      stopTotemVideo()
     }
-  }, [stopLiveSession])
-
-  useEffect(() => {
-    let cancelled = false
-    const startCamera = async () => {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-        if (cancelled) {
-          s.getTracks().forEach((t) => t.stop())
-          return
-        }
-        streamRef.current = s
-        if (videoRef.current) {
-          videoRef.current.srcObject = s
-          await videoRef.current.play()
-        }
-        setCameraReady(true)
-      } catch {
-        setCameraReady(false)
-        setCameraWarning('Cámara no disponible — tocá la pantalla para hablar con PlotAI.')
-      }
-    }
-    void startCamera()
-    return () => {
-      cancelled = true
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
-    }
-  }, [])
+  }, [stopLiveSession, stopTotemVideo])
 
   useEffect(() => {
     if (state !== 'idle' || !cameraReady || !videoRef.current || !canvasRef.current) return
@@ -354,7 +367,10 @@ export default function TotemChatPage() {
       return
     }
     setError(null)
-    const micPromise = beginTotemMicrophoneOnGesture()
+    const micPromise = beginTotemMediaOnGesture().then(async ({ micStream, videoStream }) => {
+      await attachTotemVideoStream(videoStream)
+      return micStream
+    })
     void startLiveSession(micPromise)
   }
 
@@ -424,11 +440,13 @@ export default function TotemChatPage() {
                 Finalizar conversación
               </button>
             )}
-            {state === 'idle' && cameraReady && (
+            {state === 'idle' && !cameraWarning && (
               <p className="totem-idle-camera-hint">
-                {proximityHint
-                  ? 'Estás cerca del tótem. Tocá el botón para hablar con PlotAI.'
-                  : 'Cámara activa: te avisamos cuando te acerques.'}
+                {cameraReady
+                  ? proximityHint
+                    ? 'Estás cerca del tótem. Tocá el botón para hablar con PlotAI.'
+                    : 'Cámara activa: te avisamos cuando te acerques.'
+                  : 'Tocá «Activar micrófono» — Chrome pedirá permiso de micrófono y cámara.'}
               </p>
             )}
             {state === 'idle' && cameraWarning && (
