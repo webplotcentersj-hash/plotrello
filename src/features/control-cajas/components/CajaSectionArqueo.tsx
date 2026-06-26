@@ -13,6 +13,7 @@ import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { efectivoQuedaEnCajaDesdePlanilla } from '../cajaTotales'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaRegistro } from '../types'
+import { notifyArqueoCompletado } from '../cajaSyncNotify'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 
 type Props = {
@@ -192,6 +193,7 @@ export default function CajaSectionArqueo({
         firma_data_url: firmaDataUrl
       })
       setMsg(`Arqueo guardado — total $ ${fmtArs(total)}`)
+      notifyArqueoCompletado(cajaAsignadaNombre || cajaActiva?.nombre || 'caja', total)
       setBilletes({})
       setFirmaDataUrl(null)
       setFirmaPadKey((k) => k + 1)

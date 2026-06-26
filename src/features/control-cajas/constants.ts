@@ -37,7 +37,7 @@ export const NAV_CAJA: NavItem[] = [
   { section: 'pase_caja', label: 'Pase de caja', icon: '↔️', cajaOnly: true },
   { section: 'traspasos', label: 'Mis traspasos', icon: '🔀', cajaOnly: true },
   { section: 'egresos', label: 'Egresos', icon: '📤', cajaOnly: true },
-  { section: 'historial', label: 'Historial', icon: '🕐', cajaOnly: true },
+  { section: 'historial', label: 'Mis movimientos', icon: '📋', cajaOnly: true },
   { section: 'asistente', label: 'Asistente IA', icon: '✨' }
 ]
 

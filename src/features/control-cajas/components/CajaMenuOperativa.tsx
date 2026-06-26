@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { estadoPasoMenu, loadEstadoOperativaHoy, type CajaEstadoOperativaHoy } from '../cajaOperativaHoy'
 import { fmtArs, fmtDateAr } from '../format'
+import { useCajaMenuRealtime } from '../useCajaMenuRealtime'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaSectionId } from '../types'
+import CajaMenuResumenDia from './CajaMenuResumenDia'
 import CajaSubidaInteligente from './CajaSubidaInteligente'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 
@@ -54,9 +56,9 @@ const PASOS: Paso[] = [
   {
     orden: 6,
     section: 'historial',
-    icon: '🕐',
-    label: 'Historial',
-    descripcion: 'Consultá tus arqueos y movimientos anteriores.'
+    icon: '📋',
+    label: 'Mis movimientos',
+    descripcion: 'Movimientos del día, arqueos y historial completo.'
   },
   {
     orden: 7,
@@ -113,6 +115,10 @@ export default function CajaMenuOperativa({
   const [estado, setEstado] = useState<CajaEstadoOperativaHoy | null>(null)
   const [cargando, setCargando] = useState(true)
 
+  const onEstado = useCallback((e: CajaEstadoOperativaHoy | null) => {
+    setEstado(e)
+  }, [])
+
   useEffect(() => {
     if (!usuarioId) {
       setEstado(null)
@@ -131,6 +137,14 @@ export default function CajaMenuOperativa({
       cancelled = true
     }
   }, [usuarioId, usuarioNombre, hoy, refreshToken])
+
+  useCajaMenuRealtime({
+    usuarioId,
+    usuarioNombre,
+    fecha: hoy,
+    enabled: !!usuarioId,
+    onEstado
+  })
 
   const siguientePaso = estado
     ? !estado.arqueoHecho
@@ -153,7 +167,7 @@ export default function CajaMenuOperativa({
                 · Caja <strong>{estado.cajaNombre}</strong>
               </>
             ) : null}
-            . Subí el PDF del día aquí; el sistema lo clasifica e importa sin duplicar comprobantes.
+            . Acá ves lo que vendiste en Plot Lab, tus movimientos y el estado del arqueo y cierre.
           </p>
           {cargando ? (
             <p className="caja-cc-menu-estado-line">Cargando estado del día…</p>
@@ -164,34 +178,11 @@ export default function CajaMenuOperativa({
         <CajaVolverPlotLab small />
       </div>
 
-      {estado?.totalesDia && (estado.totalesDia.ingresos > 0 || estado.totalesDia.egresos > 0) ? (
-        <div className="caja-cc-menu-coherencia" aria-label="Totales coherentes del día">
-          <div className="caja-cc-menu-coherencia-kpi">
-            <small>Ingresos</small>
-            <strong>$ {fmtArs(estado.totalesDia.ingresos)}</strong>
-          </div>
-          <div className="caja-cc-menu-coherencia-kpi">
-            <small>Egresos</small>
-            <strong>$ {fmtArs(estado.totalesDia.egresos)}</strong>
-          </div>
-          <div className="caja-cc-menu-coherencia-kpi caja-cc-menu-coherencia-kpi--neto">
-            <small>Neto día</small>
-            <strong>$ {fmtArs(estado.totalesDia.neto)}</strong>
-          </div>
-          <div className="caja-cc-menu-coherencia-kpi">
-            <small>Comprobantes</small>
-            <strong>{estado.totalesDia.comprobantes_unicos}</strong>
-          </div>
-        </div>
-      ) : null}
-
-      <CajaSubidaInteligente
-        usuarioNombre={usuarioNombre}
-        usuarioId={usuarioId}
+      <CajaMenuResumenDia
         estado={estado}
+        cargando={cargando}
+        enVivo={!!usuarioId}
         onNavigate={onNavigate}
-        onPlanillaParsed={onPlanillaParsed}
-        onImported={onImported}
       />
 
       {siguientePaso && estado ? (
@@ -213,7 +204,7 @@ export default function CajaMenuOperativa({
           const esSiguiente = paso.section === siguientePaso
           return (
             <button
-              key={paso.section}
+              key={paso.orden}
               type="button"
               className={`caja-cc-menu-paso${esSiguiente ? ' caja-cc-menu-paso--siguiente' : ''}`}
               onClick={() => onNavigate(paso.section)}
@@ -240,6 +231,16 @@ export default function CajaMenuOperativa({
           )
         })}
       </div>
+
+      <CajaSubidaInteligente
+        usuarioNombre={usuarioNombre}
+        usuarioId={usuarioId}
+        estado={estado}
+        onNavigate={onNavigate}
+        onPlanillaParsed={onPlanillaParsed}
+        onImported={onImported}
+        collapsible
+      />
     </div>
   )
 }

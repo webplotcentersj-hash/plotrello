@@ -26,6 +26,8 @@ type Props = {
   onImported?: () => void
   /** Si false, no cambia de sección tras importar (p. ej. admin en Cierres). */
   autoNavigate?: boolean
+  /** Si true, va colapsado al final del menú (secundario respecto a ventas Plot Lab). */
+  collapsible?: boolean
 }
 
 export default function CajaSubidaInteligente({
@@ -35,9 +37,11 @@ export default function CajaSubidaInteligente({
   onNavigate,
   onPlanillaParsed,
   onImported,
-  autoNavigate = true
+  autoNavigate = true,
+  collapsible = false
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
+  const [abierto, setAbierto] = useState(!collapsible)
   const [busy, setBusy] = useState(false)
   const [etapa, setEtapa] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -45,6 +49,7 @@ export default function CajaSubidaInteligente({
   const [ultimoDestino, setUltimoDestino] = useState<CajaSectionId | null>(null)
 
   const procesarPdf = async (file: File) => {
+    if (!abierto) setAbierto(true)
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       setErr('Elegí un PDF exportado desde PLOT CENTER.')
       return
@@ -98,7 +103,29 @@ export default function CajaSubidaInteligente({
   }
 
   return (
-    <section className="caja-cc-subida-inteligente" aria-label="Subida inteligente de PDF">
+    <section
+      className={`caja-cc-subida-inteligente${collapsible ? ' caja-cc-subida-inteligente--secondary' : ''}`}
+      aria-label="Subida inteligente de PDF"
+    >
+      {collapsible ? (
+        <button
+          type="button"
+          className="caja-cc-subida-inteligente-toggle"
+          aria-expanded={abierto}
+          onClick={() => setAbierto((v) => !v)}
+        >
+          <span className="caja-cc-subida-inteligente-toggle-icon" aria-hidden>
+            {abierto ? '▾' : '▸'}
+          </span>
+          <span>
+            <strong>Importar PDF del día</strong>
+            <small>Opcional — cierre, pase, traspaso o egresos desde PLOT CENTER</small>
+          </span>
+        </button>
+      ) : null}
+
+      {(!collapsible || abierto) && (
+        <>
       <input
         ref={fileRef}
         type="file"
@@ -157,6 +184,8 @@ export default function CajaSubidaInteligente({
           ) : null}
         </CajaMensajeOkPlotLab>
       ) : null}
+        </>
+      )}
     </section>
   )
 }

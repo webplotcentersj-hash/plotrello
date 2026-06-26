@@ -2,6 +2,11 @@ import { getArgentinaDateString } from '../../utils/dateUtils'
 import { calcularTotalesCoherentesDia, contarPlanillasDelDia, type TotalesCajaDia } from './cajaCoherencia'
 import { obtenerCajaOperativa } from './cajaOperativa'
 import {
+  efectivoTeoricoDia,
+  inferirTurnoActivo,
+  ultimosMovimientosDia
+} from './cajaMenuOperativaData'
+import {
   listArqueos,
   listCajas,
   listEgresoSolicitudes,
@@ -11,7 +16,9 @@ import {
   listTraspasos,
   resolveCajaSlugForUsuario
 } from './cajaRepository'
-import type { CajaSectionId } from './types'
+import type { CajaMovimiento, CajaSectionId } from './types'
+import type { ResumenPlotlabVentasCaja } from './plotlabVentasCajaData'
+import { resumenPlotlabVentasCaja } from './plotlabVentasCajaData'
 
 export type EstadoPasoCaja = 'hecho' | 'pendiente' | 'opcional' | 'alerta'
 
@@ -26,6 +33,10 @@ export type CajaEstadoOperativaHoy = {
   egresosPendientes: number
   traspasosPendientes: number
   totalesDia: TotalesCajaDia | null
+  resumenPlotlab: ResumenPlotlabVentasCaja | null
+  ultimosMovimientos: CajaMovimiento[]
+  efectivoTeorico: number | null
+  turnoActivo: string
 }
 
 export async function loadEstadoOperativaHoy(
@@ -61,6 +72,16 @@ export async function loadEstadoOperativaHoy(
         }
       : null
 
+  const resumenPlotlab =
+    cajaSlug != null ? resumenPlotlabVentasCaja(movimientos, fecha, cajaSlug) : null
+
+  const cajaRegistro = cajaSlug ? cajas.find((c) => c.slug === cajaSlug) ?? null : null
+  const ultimosMovimientos =
+    cajaSlug != null ? ultimosMovimientosDia(movimientos, fecha, cajaSlug, 8) : []
+  const efectivoTeorico =
+    cajaRegistro != null ? efectivoTeoricoDia(movimientos, fecha, cajaRegistro) : null
+  const turnoActivo = inferirTurnoActivo(fecha, cajaSlug, arqueos)
+
   const arqueoHecho =
     cajaSlug != null && arqueos.some((a) => a.fecha === fecha && a.caja_slug === cajaSlug)
 
@@ -94,7 +115,11 @@ export async function loadEstadoOperativaHoy(
     cierreTurnoHecho,
     egresosPendientes,
     traspasosPendientes,
-    totalesDia
+    totalesDia,
+    resumenPlotlab,
+    ultimosMovimientos,
+    efectivoTeorico,
+    turnoActivo
   }
 }
 
@@ -114,7 +139,7 @@ export function estadoPasoMenu(
               : `${estado.planillasDelDia} planillas — contá billetes`
         }
       }
-      return { tipo: 'pendiente', detalle: 'Subí PDF de cierre o usá lectura inteligente arriba' }
+      return { tipo: 'pendiente', detalle: 'Contá billetes en Mi arqueo' }
     case 'cierre_turno':
       if (estado.cierreTurnoHecho) return { tipo: 'hecho', detalle: 'Cierre de turno registrado' }
       if (estado.arqueoHecho) return { tipo: 'pendiente', detalle: 'Podés cerrar el turno' }

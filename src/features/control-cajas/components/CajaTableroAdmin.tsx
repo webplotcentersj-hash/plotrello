@@ -18,6 +18,8 @@ import {
   listTransferenciaLotes
 } from '../cajaRepository'
 import type { CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from '../types'
+import { resumenPorCajeroAdminDia } from '../cajaMenuOperativaData'
+import CajaAdminCajerosResumen from './CajaAdminCajerosResumen'
 import CajaCalendarioAdmin from './CajaCalendarioAdmin'
 import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
 import CajaDiaConciliacionPanel from './CajaDiaConciliacionPanel'
@@ -125,6 +127,11 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
     [concilBanco, selectedFecha]
   )
 
+  const resumenCajeros = useMemo(
+    () => resumenPorCajeroAdminDia(selectedFecha, cajas, movimientos, arqueos, lotes),
+    [selectedFecha, cajas, movimientos, arqueos, lotes]
+  )
+
   const resumen = useMemo(
     () => resumenAdminHoy(selectedFecha, lotes, planillas, egresos, cajas, movimientos),
     [selectedFecha, lotes, planillas, egresos, cajas, movimientos]
@@ -214,6 +221,8 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
       )}
 
       {syncMsg && <p className="caja-cc-ok">{syncMsg}</p>}
+
+      <CajaAdminCajerosResumen filas={resumenCajeros} fechaLabel={tituloDia} />
 
       {loading ? (
         <p className="caja-cc-muted">Cargando movimientos del calendario…</p>
