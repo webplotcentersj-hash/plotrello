@@ -1,6 +1,13 @@
 @import './totemAutogestionTheme.css';
 
 .totem-print-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
   background: radial-gradient(820px 520px at 100% 0%, rgba(244, 114, 182, 0.16), transparent 52%),
     radial-gradient(640px 440px at 0% 80%, rgba(56, 189, 248, 0.1), transparent 50%),
     linear-gradient(168deg, var(--totem-bg-top) 0%, var(--totem-bg-mid) 48%, var(--totem-bg-deep) 100%);
@@ -8,6 +15,7 @@
 }
 
 .totem-print-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -47,7 +55,13 @@
 }
 
 .totem-print-main {
-  padding: clamp(18px, 3vw, 28px) clamp(18px, 3vw, 28px);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: clamp(18px, 3vw, 28px) clamp(18px, 3vw, 28px) clamp(28px, 4vw, 40px);
   display: flex;
   justify-content: center;
 }

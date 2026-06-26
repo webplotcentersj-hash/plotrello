@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import {
   cantidadMaximaVendible,
@@ -22,10 +22,6 @@ import {
 /** Mismo catálogo que el portal de clientes (`visible_portal`). */
 const CANAL_CATALOGO = 'portal' as const
 
-type CatalogoLocationState = {
-  returnTo?: string
-}
-
 type CategoriaConConteo = {
   nombre: string
   count: number
@@ -33,9 +29,6 @@ type CategoriaConConteo = {
 
 export default function TotemAutogestionCatalogoPage() {
   const navigate = useNavigate()
-  const location = useLocation()
-  const returnTo =
-    (location.state as CatalogoLocationState | null)?.returnTo ?? '/totem/autogestion'
 
   const [todosArticulos, setTodosArticulos] = useState<ArticuloEmpresaRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -154,7 +147,7 @@ export default function TotemAutogestionCatalogoPage() {
     <div className="totem-cat-page">
         <header className="totem-cat-header">
           <div className="totem-cat-title">
-            <button type="button" className="totem-cat-back" onClick={() => navigate(returnTo)}>
+            <button type="button" className="totem-cat-back" onClick={() => navigate('/totem/consulta-cliente')}>
               ← Volver
             </button>
             <h1>Comprar</h1>
