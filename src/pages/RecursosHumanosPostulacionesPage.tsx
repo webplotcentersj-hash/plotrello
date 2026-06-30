@@ -278,7 +278,7 @@ const RecursosHumanosPostulacionesPage = () => {
   }
 
   const reanalizar = async () => {
-    if (!selected || !usuario?.id) return
+    if (!selected || !usuario?.id || !selected.cv_url) return
     setReanalizando(true)
     const res = await apiService.rrhhPostulacionReanalizarCv(
       selected.id,
