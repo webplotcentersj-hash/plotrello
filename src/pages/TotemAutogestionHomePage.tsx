@@ -28,7 +28,7 @@ export default function TotemAutogestionHomePage() {
         <header className="totem-auto-header">
           <div className="totem-auto-brand">
             <div className="totem-auto-logo-ring">
-              <img src="https://www.plotcenterlab.com.ar/Group%20187.png" alt="Plot Center" />
+              <img src="/plot-lab-logo.png" alt="Plot Center" />
             </div>
             <div>
               <p className="totem-auto-kicker">Plot Center · Totem</p>

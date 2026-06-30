@@ -1214,7 +1214,7 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
         <div className="stats-header-content">
           <div className="stats-header-brand">
             <img 
-              src="https://www.plotcenterlab.com.ar/Group%20187.png" 
+              src="/plot-lab-logo.png" 
               alt="Plot Center Logo" 
               className="stats-logo"
             />

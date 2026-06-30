@@ -127,7 +127,7 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
               <div className="qr-print-header">
                 <div className="qr-print-logo">
                   <img 
-                    src="https://www.plotcenterlab.com.ar/Group%20187.png" 
+                    src="/plot-lab-logo.png" 
                     alt="Plot Center Logo" 
                     className="qr-print-logo-img"
                   />

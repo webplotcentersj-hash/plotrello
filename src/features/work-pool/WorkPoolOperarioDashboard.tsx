@@ -15,7 +15,7 @@ import './WorkPoolOperarioDashboard.css'
 const ONEST_FONT =
   'https://fonts.googleapis.com/css2?family=Onest:wght@500;700;800&display=swap'
 
-const PLOT_LOGO = 'https://www.plotcenterlab.com.ar/Group%20187.png'
+const PLOT_LOGO = '/plot-lab-logo.png'
 
 export type OperarioDashView = 'mis' | 'mensajes' | 'cuenta'
 

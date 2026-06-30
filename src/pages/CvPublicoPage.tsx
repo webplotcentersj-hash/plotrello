@@ -12,7 +12,7 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ]
 const HR_WHATSAPP = '2646212163'
-const LOGO_URL = 'https://www.plotcenterlab.com.ar/Group%20187.png'
+const LOGO_URL = '/plot-lab-logo.png'
 
 const CvPublicoPage = () => {
   const [nombre, setNombre] = useState('')

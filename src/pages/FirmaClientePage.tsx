@@ -230,7 +230,7 @@ export default function FirmaClientePage() {
     <div className="firma-cliente-page">
       <header className="firma-cliente-header">
         <img
-          src="https://www.plotcenterlab.com.ar/Group%20187.png"
+          src="/plot-lab-logo.png"
           alt="Logo"
           className="firma-cliente-logo"
         />

@@ -159,7 +159,7 @@ const ReclamosPublicoPage = () => {
       <div className="reclamos-publico-page">
         <div className="reclamos-publico-container">
           <div className="reclamos-publico-success">
-            <img src="https://www.plotcenterlab.com.ar/Group%20187.png" alt="Plot Center" className="reclamos-publico-logo" />
+            <img src="/plot-lab-logo.png" alt="Plot Center" className="reclamos-publico-logo" />
             <span className="reclamos-publico-success-icon">✓</span>
             <h1>Reclamo enviado</h1>
             <p className="reclamos-publico-success-id">
@@ -186,7 +186,7 @@ const ReclamosPublicoPage = () => {
       <div className="reclamos-publico-container">
         <header className="reclamos-publico-header">
           <div className="reclamos-publico-header-content">
-            <img src="https://www.plotcenterlab.com.ar/Group%20187.png" alt="Plot Center" className="reclamos-publico-logo" />
+            <img src="/plot-lab-logo.png" alt="Plot Center" className="reclamos-publico-logo" />
             <div className="reclamos-publico-header-text">
               <h1>Formulario de reclamos</h1>
               <p>Completá el formulario y te responderemos lo antes posible. Podés consultar el estado con tu email o teléfono.</p>

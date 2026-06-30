@@ -46,7 +46,7 @@ import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import '../features/phi/phi-landing.css'
 import './OperarioBolsaSolicitudPage.css'
 
-const LOGO_URL = 'https://www.plotcenterlab.com.ar/Group%20187.png'
+const LOGO_URL = '/plot-lab-logo.png'
 const UPLOAD_FOLDER = 'work-pool-solicitudes'
 const ONEST_FONT =
   'https://fonts.googleapis.com/css2?family=Onest:wght@500;700&display=swap'

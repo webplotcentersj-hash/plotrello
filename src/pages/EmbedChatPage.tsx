@@ -266,7 +266,7 @@ export default function EmbedChatPage() {
         <div className="embed-chat-header-inner">
           <div className="embed-chat-logo">
             <img
-              src="https://www.plotcenterlab.com.ar/Group%20187.png"
+              src="/plot-lab-logo.png"
               alt="Plot Center Logo"
               className="embed-chat-logo-image"
             />

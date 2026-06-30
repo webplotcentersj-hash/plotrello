@@ -212,7 +212,7 @@ const ReportesMostradorPage = () => {
         {/* Encabezado del Reporte */}
         <div className="reporte-header">
           <img
-            src="https://www.plotcenterlab.com.ar/Group%20187.png"
+            src="/plot-lab-logo.png"
             alt="Plot Center Logo"
             className="reporte-logo"
           />

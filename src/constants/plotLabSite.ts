@@ -1,7 +1,8 @@
 /** Dominio público principal de Plot Lab. */
 export const PLOT_LAB_SITE_ORIGIN = 'https://www.plotcenterlab.com.ar'
 
-export const PLOT_LAB_LOGO_URL = `${PLOT_LAB_SITE_ORIGIN}/Group%20187.png`
+/** Logo servido desde /public (mismo asset en cualquier dominio). */
+export const PLOT_LAB_LOGO_URL = '/plot-lab-logo.png'
 
 /** Hosts legacy que sirven solo el SPA estático; las APIs apuntan al dominio principal. */
 export const PLOT_LAB_LEGACY_STATIC_HOSTS = new Set([

@@ -60,7 +60,7 @@ const Login = ({ onLogin }: LoginProps) => {
       <div className="login-card">
         <div className="login-header">
           <img
-            src="https://www.plotcenterlab.com.ar/Group%20187.png"
+            src="/plot-lab-logo.png"
             alt="Plot Center Logo"
             className="login-logo"
           />

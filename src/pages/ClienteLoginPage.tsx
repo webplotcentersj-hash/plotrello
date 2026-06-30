@@ -47,7 +47,7 @@ function ClienteLoginForm() {
           <div className="cliente-login-logo-wrap">
             <div className="cliente-login-logo-inner">
               <img
-                src="https://www.plotcenterlab.com.ar/Group%20187.png"
+                src="/plot-lab-logo.png"
                 alt="Plot Center Logo"
                 className="cliente-login-logo"
               />

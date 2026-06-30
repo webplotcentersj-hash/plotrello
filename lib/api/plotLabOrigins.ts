@@ -15,4 +15,4 @@ export const PLOT_LAB_ORIGINS = [
 
 export const PLOT_LAB_ORIGINS_CSV = PLOT_LAB_ORIGINS.join(',')
 
-export const PLOT_LAB_LOGO_URL = `${PLOT_LAB_PRIMARY_ORIGIN}/Group%20187.png`
+export const PLOT_LAB_LOGO_URL = '/plot-lab-logo.png'
