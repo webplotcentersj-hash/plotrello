@@ -3,18 +3,7 @@ import {
   PLOT_CENTER_KNOWLEDGE,
   resolvePlotAIClienteContext
 } from './chat-public'
-import { getPlotLabAllowedOrigins } from '../../lib/api/plotLabOrigins'
-
-function setCors(req: VercelRequest, res: VercelResponse): void {
-  const allowed = getPlotLabAllowedOrigins()
-  const origin = String(req.headers.origin || '')
-  if (origin && allowed.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin)
-    res.setHeader('Vary', 'Origin')
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-}
+import { beginPlotAiRequest } from './_http'
 
 type Body = {
   userTexts?: string[]
@@ -27,12 +16,7 @@ type Body = {
 
 /** Contexto OP/cliente/precios para Gemini Live del tótem (misma fuente que chat-public). */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCors(req, res)
-
-  if (req.method === 'OPTIONS') {
-    res.status(204).end()
-    return
-  }
+  if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
 
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })

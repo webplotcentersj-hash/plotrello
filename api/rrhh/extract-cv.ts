@@ -2,13 +2,12 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import {
   getBearerToken,
+  beginCorsRequest,
   getGeminiServerKey,
   getSupabaseServerKey,
   getSupabaseServerUrl,
-  handleOptions,
   isPlotLabSameOrigin,
-  isProduction,
-  setCorsRestricted
+  isProduction
 } from '../../lib/api/security'
 import { verifyStaffJwt } from '../../lib/api/staffJwt'
 import { extractCvMetadata, stripDataUrl } from './_cvExtract'
@@ -34,8 +33,7 @@ async function fetchFileAsBase64(url: string): Promise<{ mimeType: string; base6
 
 /** Extrae metadata de CV con PlotAI (staff o submit interno). */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (handleOptions(req, res)) return
-  setCorsRestricted(req, res, 'POST, OPTIONS')
+  if (beginCorsRequest(req, res, 'POST, OPTIONS')) return
 
   if (req.method !== 'POST') {
     res.status(405).json({ success: false, error: 'Method not allowed' })

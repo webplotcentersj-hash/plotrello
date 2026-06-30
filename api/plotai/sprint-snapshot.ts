@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { beginPlotAiRequest } from './_http'
 import { createClient } from '@supabase/supabase-js'
 
 type Body = {
@@ -24,6 +25,8 @@ const supabaseKey =
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return

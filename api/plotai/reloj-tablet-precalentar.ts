@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { beginPlotAiRequest } from './_http'
 import { createClient } from '@supabase/supabase-js'
 import { fetchImageAsBase64Cached } from './reloj-tablet-identify-shared'
 
@@ -25,6 +26,8 @@ function assertRelojTabletAuth(req: VercelRequest, res: VercelResponse): boolean
 
 /** Precarga miniaturas de legajo en memoria (misma instancia serverless). */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
+
   if (req.method !== 'POST') {
     res.status(405).json({ success: false, error: 'Method not allowed' })
     return

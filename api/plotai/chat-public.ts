@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { GoogleGenAI } from '@google/genai'
+import { beginPlotAiRequest, getGeminiServerKey } from './_http'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
 const supabaseKey =
@@ -9,10 +10,6 @@ const supabaseKey =
   process.env.SUPABASE_ANON_KEY ||
   ''
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
-
-function getGeminiKey() {
-  return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
-}
 
 // --- contacto cliente (inlined para bundle Vercel) ---
 type ContactoCliente = {
@@ -1326,12 +1323,14 @@ export async function resolvePlotAIClienteContext(
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
 
-  const apiKey = getGeminiKey()
+  const apiKey = getGeminiServerKey()
   if (!apiKey) {
     res.status(500).json({ error: 'GEMINI_API_KEY no configurada en el servidor.' })
     return

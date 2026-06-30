@@ -1,9 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { GoogleGenAI } from '@google/genai'
-
-function getGeminiKey() {
-  return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
-}
+import { beginCorsRequest, getGeminiServerKey } from '../../lib/api/security'
 
 type Body = {
   mimeType?: string
@@ -50,12 +47,14 @@ function tryParseJsonFromModelText(text: string): Record<string, unknown> | null
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (beginCorsRequest(req, res, 'POST, OPTIONS')) return
+
   if (req.method !== 'POST') {
     res.status(405).json({ success: false, error: 'Method not allowed' })
     return
   }
 
-  const apiKey = getGeminiKey()
+  const apiKey = getGeminiServerKey()
   if (!apiKey) {
     res.status(500).json({ success: false, error: 'GEMINI_API_KEY no configurada.' })
     return

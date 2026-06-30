@@ -1,12 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { beginPlotAiRequest, getGeminiServerKey } from './_http'
 import { GoogleGenAI } from '@google/genai'
 
 type Body = {
   analysisData?: any
-}
-
-function getGeminiKey() {
-  return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
 }
 
 function safeDateEsAR(iso: string | null | undefined): string {
@@ -16,12 +13,14 @@ function safeDateEsAR(iso: string | null | undefined): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
 
-  const apiKey = getGeminiKey()
+  const apiKey = getGeminiServerKey()
   if (!apiKey) {
     res.status(500).json({ error: 'GEMINI_API_KEY no configurada en el servidor.' })
     return

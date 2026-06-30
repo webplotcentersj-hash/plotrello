@@ -24,3 +24,13 @@ export function handleOptions(req: VercelRequest, res: VercelResponse): boolean 
   }
   return false
 }
+
+/** CORS + OPTIONS en orden correcto (headers antes del 204). Retorna true si ya respondió. */
+export function beginPlotAiRequest(
+  req: VercelRequest,
+  res: VercelResponse,
+  methods = 'GET, POST, OPTIONS'
+): boolean {
+  setCorsRestricted(req, res, methods)
+  return handleOptions(req, res)
+}

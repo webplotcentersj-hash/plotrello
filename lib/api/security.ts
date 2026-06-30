@@ -60,6 +60,16 @@ export function handleOptions(req: VercelRequest, res: VercelResponse): boolean 
   return false
 }
 
+/** CORS + OPTIONS en orden correcto. Retorna true si la request ya fue respondida (OPTIONS). */
+export function beginCorsRequest(
+  req: VercelRequest,
+  res: VercelResponse,
+  methods = 'GET, POST, OPTIONS'
+): boolean {
+  setCorsRestricted(req, res, methods)
+  return handleOptions(req, res)
+}
+
 /** Supabase server: nunca usar VITE_* como fallback de service role en producción. */
 export function getSupabaseServerKey(): string {
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY || ''

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { beginPlotAiRequest } from './_http'
 
 type Body = { text?: string }
 
@@ -75,14 +76,7 @@ async function resolveVoiceId(apiKey: string): Promise<{ voiceId: string | null;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-
-  if (req.method === 'OPTIONS') {
-    res.status(204).end()
-    return
-  }
+  if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
 
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed', fallback: true })

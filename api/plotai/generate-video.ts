@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { beginPlotAiRequest, getGeminiServerKey } from './_http'
 import { GoogleGenAI } from '@google/genai'
 
 type Body = {
@@ -7,17 +8,15 @@ type Body = {
   aspectRatio?: '16:9' | '9:16' | '1:1'
 }
 
-function getEnvKey() {
-  return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
 
-  const apiKey = getEnvKey()
+  const apiKey = getGeminiServerKey()
   if (!apiKey) {
     res.status(500).json({ error: 'GEMINI_API_KEY no configurada en el servidor.' })
     return

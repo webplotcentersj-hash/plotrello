@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { beginPlotAiRequest } from './_http'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
@@ -21,6 +22,8 @@ function assertRelojTabletAuth(req: VercelRequest, res: VercelResponse): boolean
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (beginPlotAiRequest(req, res, 'GET, OPTIONS')) return
+
   if (req.method !== 'GET') {
     res.status(405).json({ success: false, error: 'Method not allowed' })
     return

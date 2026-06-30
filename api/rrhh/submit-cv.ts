@@ -4,10 +4,9 @@ import {
   getGeminiServerKey,
   getSupabaseServerKey,
   getSupabaseServerUrl,
-  handleOptions,
+  beginCorsRequest,
   isPlotLabSameOrigin,
-  isProduction,
-  setCorsRestricted
+  isProduction
 } from '../../lib/api/security'
 import { extractCvMetadata } from './_cvExtract'
 
@@ -34,8 +33,7 @@ function isValidCvUrl(url: string): boolean {
 
 /** Recibe postulación pública (CV ya subido a Storage). Valida y persiste + dispara IA async. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (handleOptions(req, res)) return
-  setCorsRestricted(req, res, 'POST, OPTIONS')
+  if (beginCorsRequest(req, res, 'POST, OPTIONS')) return
 
   if (req.method !== 'POST') {
     res.status(405).json({ success: false, error: 'Method not allowed' })

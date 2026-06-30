@@ -3,10 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 import {
   getSupabaseServerKey,
   getSupabaseServerUrl,
-  handleOptions,
+  beginCorsRequest,
   isPlotLabSameOrigin,
-  isProduction,
-  setCorsRestricted
+  isProduction
 } from '../../lib/api/security'
 
 type Body = {
@@ -23,8 +22,7 @@ type Body = {
 
 /** Postulación desde formulario externo de convocatoria (sin CV). */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (handleOptions(req, res)) return
-  setCorsRestricted(req, res, 'POST, OPTIONS')
+  if (beginCorsRequest(req, res, 'POST, OPTIONS')) return
 
   if (req.method !== 'POST') {
     res.status(405).json({ success: false, error: 'Method not allowed' })

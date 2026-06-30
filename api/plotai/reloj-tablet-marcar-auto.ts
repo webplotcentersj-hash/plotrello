@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { beginPlotAiRequest, getGeminiServerKey } from './_http'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   identificarEmpleadoRapido,
@@ -20,10 +21,6 @@ type Body = {
   selfie_data_url?: string
   dispositivo_id?: string
   marcado_at?: string
-}
-
-function getGeminiKey() {
-  return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
 }
 
 function assertRelojTabletAuth(req: VercelRequest, res: VercelResponse): boolean {
@@ -68,13 +65,15 @@ type EmpleadoRow = {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
+
   if (req.method !== 'POST') {
     res.status(405).json({ success: false, error: 'Method not allowed' })
     return
   }
   if (!assertRelojTabletAuth(req, res)) return
 
-  const apiKey = getGeminiKey()
+  const apiKey = getGeminiServerKey()
   if (!apiKey) {
     res.status(500).json({ success: false, error: 'GEMINI_API_KEY no configurada' })
     return

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { beginPlotAiRequest } from './_http'
 import { createClient } from '@supabase/supabase-js'
 
 type SnapshotRow = {
@@ -34,6 +35,8 @@ function stddev(xs: number[]) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (beginPlotAiRequest(req, res, 'GET, OPTIONS')) return
+
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' })
     return

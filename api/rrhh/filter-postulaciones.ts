@@ -1,13 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import {
+  beginCorsRequest,
   getGeminiServerKey,
   getSupabaseServerKey,
   getSupabaseServerUrl,
-  handleOptions,
   isPlotLabSameOrigin,
-  isProduction,
-  setCorsRestricted
+  isProduction
 } from '../../lib/api/security'
 import { requireStaffSession } from '../../lib/api/staffAuth'
 import { filterPostulacionesWithPlotAI } from './_cvExtract'
@@ -26,8 +25,7 @@ type Body = {
 
 /** Filtro inteligente de postulaciones con filosofía Plot (solo staff RRHH). */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (handleOptions(req, res)) return
-  setCorsRestricted(req, res, 'POST, OPTIONS')
+  if (beginCorsRequest(req, res, 'POST, OPTIONS')) return
 
   if (req.method !== 'POST') {
     res.status(405).json({ success: false, error: 'Method not allowed' })

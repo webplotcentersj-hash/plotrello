@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { beginPlotAiRequest } from './_http'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
@@ -13,6 +14,8 @@ const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabase
  * Devuelve las respuestas del staff para que el cliente las vea en el widget.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (beginPlotAiRequest(req, res, 'GET, OPTIONS')) return
+
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' })
     return

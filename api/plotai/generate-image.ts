@@ -1,26 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getPlotLabAllowedOrigins } from '../../lib/api/plotLabOrigins'
+import { beginPlotAiRequest, getGeminiServerKey } from './_http'
 
 type Body = {
   prompt?: string
   aspectRatio?: '1:1' | '16:9' | '9:16'
   /** totem_creative: ilustración vívida para pantalla del tótem PlotAI */
   style?: 'product' | 'totem_creative'
-}
-
-function getGeminiKey(): string {
-  return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
-}
-
-function setCors(req: VercelRequest, res: VercelResponse): void {
-  const allowed = getPlotLabAllowedOrigins()
-  const origin = String(req.headers.origin || '')
-  if (origin && allowed.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin)
-    res.setHeader('Vary', 'Origin')
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
 }
 
 function extractImageFromGeminiJson(payload: unknown): { data: string; mimeType: string } | null {
@@ -41,19 +26,14 @@ function extractImageFromGeminiJson(payload: unknown): { data: string; mimeType:
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCors(req, res)
-
-  if (req.method === 'OPTIONS') {
-    res.status(204).end()
-    return
-  }
+  if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
 
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
 
-  const apiKey = getGeminiKey()
+  const apiKey = getGeminiServerKey()
   if (!apiKey) {
     res.status(500).json({ error: 'GEMINI_API_KEY no configurada en el servidor.' })
     return
