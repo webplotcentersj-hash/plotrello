@@ -63,9 +63,17 @@ export async function callGeminiGenerateContent(opts: {
       return callGeminiDev(model, contents)
     }
 
-    const json = (await resp.json().catch(() => ({}))) as { text?: string; error?: string }
+    const raw = await resp.text()
+    let json: { text?: string; error?: string } = {}
+    try {
+      json = raw ? (JSON.parse(raw) as { text?: string; error?: string }) : {}
+    } catch {
+      if (!resp.ok) {
+        throw new Error(raw.slice(0, 200) || `Error Gemini (${resp.status})`)
+      }
+    }
     if (!resp.ok) {
-      throw new Error(json.error || `Error Gemini (${resp.status})`)
+      throw new Error(json.error || raw.slice(0, 200) || `Error Gemini (${resp.status})`)
     }
     const text = (json.text || '').trim()
     if (!text) throw new Error('Gemini no devolvió texto.')

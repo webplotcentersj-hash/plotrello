@@ -39,9 +39,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const allowed = getPlotLabAllowedOrigins()
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
   const origin = String(req.headers.origin || '')
   if (origin && allowed.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin)

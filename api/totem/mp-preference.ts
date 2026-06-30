@@ -20,9 +20,6 @@ function getSupabase() {
 
 function publicOrigin(req: VercelRequest): string {
   const allowed = getPlotLabAllowedOrigins()
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
   const origin = String(req.headers.origin || '')
   if (origin && allowed.includes(origin)) return origin
   return allowed[0] || PLOT_LAB_PRIMARY_ORIGIN

@@ -23017,6 +23017,7 @@ class ApiService {
     busqueda?: string
     estado?: string
     puesto?: string
+    limite?: number
   }): Promise<ApiResponse<RrhhPostulacion[]>> {
     if (!supabase) return { success: false, error: 'Supabase no inicializado' }
     try {
@@ -23025,7 +23026,7 @@ class ApiService {
         p_busqueda: filters.busqueda || null,
         p_estado: filters.estado || null,
         p_puesto: filters.puesto || null,
-        p_limite: 300
+        p_limite: filters.limite ?? 2000
       })
       if (error) throw error
       const rows = Array.isArray(data) ? data : []
@@ -23147,6 +23148,67 @@ class ApiService {
       return {
         success: false,
         error: e instanceof Error ? e.message : 'Error al analizar CV'
+      }
+    }
+  }
+
+  async rrhhPostulacionAnalizarFormulario(
+    postulacionId: number,
+    row: RrhhPostulacion
+  ): Promise<ApiResponse<Record<string, unknown>>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+
+    try {
+      const meta = (row.metadata_ia || {}) as Record<string, unknown>
+      const respuestas = (meta.respuestas as Record<string, string>) || {}
+      const { analyzeFormularioExternoPlotAI } = await import('./rrhhPostulacionesPlotAI')
+      const {
+        FORMULARIO_FIELD_LABELS,
+        formatFormularioField,
+        formularioSlug
+      } = await import('../utils/rrhhFormularioExternoDisplay')
+
+      const slug = formularioSlug(row)
+      const respuestasLegibles = Object.entries(FORMULARIO_FIELD_LABELS)
+        .map(([key, label]) => {
+          const raw = respuestas[key]
+          if (!raw?.trim()) return null
+          return `${label}: ${formatFormularioField(key, raw, slug)}`
+        })
+        .filter(Boolean)
+        .join('\n')
+
+      const data = await analyzeFormularioExternoPlotAI({
+        nombre: row.nombre,
+        email: row.email,
+        telefono: row.telefono,
+        puesto: row.puesto,
+        respuestas,
+        respuestasLegibles
+      })
+
+      const merged: Record<string, unknown> = {
+        ...data,
+        tipo: 'formulario_externo',
+        slug: meta.slug ?? slug,
+        respuestas,
+        enviado_at: meta.enviado_at ?? null,
+        analizado_formulario_at: new Date().toISOString()
+      }
+
+      const score = data.score_plot
+      const { error } = await supabase.rpc('rrhh_postulacion_set_metadata_ia', {
+        p_id: postulacionId,
+        p_metadata: merged,
+        p_score: score == null ? null : Number(score)
+      })
+      if (error) throw error
+
+      return { success: true, data: merged }
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Error al analizar formulario'
       }
     }
   }

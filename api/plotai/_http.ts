@@ -8,9 +8,6 @@ export function getGeminiServerKey(): string {
 
 export function setCorsRestricted(req: VercelRequest, res: VercelResponse, methods = 'GET, POST, OPTIONS'): void {
   const allowed = getPlotLabAllowedOrigins()
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
   const origin = String(req.headers.origin || '')
   if (origin && allowed.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin)

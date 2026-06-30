@@ -4,8 +4,15 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { RrhhPostulacion, RrhhPostulacionEstado } from '../types/api'
 import { PUESTOS_POSTULACION } from '../data/puestosPostulacion'
-import { CONVOCATORIAS, labelDeOpcion } from '../data/convocatoriasPostulacion'
 import { buildWhatsappLink } from '../utils/whatsappLink'
+import {
+  FORMULARIO_FIELD_LABELS,
+  formatFormularioField,
+  formularioSlug,
+  getFormularioRespuestas,
+  isFormularioExterno
+} from '../utils/rrhhFormularioExternoDisplay'
+import { downloadPostulacionFormularioPdf } from '../utils/rrhhPostulacionFormularioPdf'
 import './RecursosHumanosPostulacionesPage.css'
 
 const ESTADOS: { value: RrhhPostulacionEstado | ''; label: string }[] = [
@@ -45,44 +52,6 @@ function fmtCount(n: number | null | undefined): string {
   return n.toLocaleString('es-AR')
 }
 
-function isFormularioExterno(row: RrhhPostulacion): boolean {
-  const meta = (row.metadata_ia || {}) as Record<string, unknown>
-  return meta.tipo === 'formulario_externo'
-}
-
-function getFormularioRespuestas(row: RrhhPostulacion): Record<string, string> {
-  const meta = (row.metadata_ia || {}) as Record<string, unknown>
-  const resp = meta.respuestas
-  if (resp && typeof resp === 'object' && !Array.isArray(resp)) {
-    return resp as Record<string, string>
-  }
-  return {}
-}
-
-const FORM_LABELS: Record<string, string> = {
-  situacion_laboral: 'Situación laboral',
-  detalle_trabajo: 'Trabajo reciente',
-  experiencia_desde_cv: 'Experiencia desde CV',
-  fortalezas_cm: 'Fortalezas CM',
-  conocimiento_ia: 'Conocimiento IA',
-  detalle_ia: 'Detalle IA',
-  disponibilidad_horaria: 'Disponibilidad',
-  incorporacion: 'Incorporación',
-  pretension_salarial: 'Pretensión salarial',
-  motivacion_plot: 'Motivación',
-  comentarios_adicionales: 'Comentarios'
-}
-
-function fmtFormValue(key: string, value: string): string {
-  const conv = CONVOCATORIAS['community-manager']
-  if (!conv || !value) return value || '—'
-  if (key === 'situacion_laboral') return labelDeOpcion(conv.situacionLaboral, value)
-  if (key === 'conocimiento_ia') return labelDeOpcion(conv.conocimientoIa, value)
-  if (key === 'disponibilidad_horaria') return labelDeOpcion(conv.disponibilidadHoraria, value)
-  if (key === 'incorporacion') return labelDeOpcion(conv.incorporacion, value)
-  return value
-}
-
 const RecursosHumanosPostulacionesPage = () => {
   const navigate = useNavigate()
   const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
@@ -92,7 +61,7 @@ const RecursosHumanosPostulacionesPage = () => {
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [busqueda, setBusqueda] = useState('')
-  const [estadoFilter, setEstadoFilter] = useState<RrhhPostulacionEstado | ''>('nuevo')
+  const [estadoFilter, setEstadoFilter] = useState<RrhhPostulacionEstado | ''>('')
   const [puestoFilter, setPuestoFilter] = useState('')
   const [tipoFilter, setTipoFilter] = useState<'' | 'formulario' | 'cv'>('')
   const [aiQuery, setAiQuery] = useState('')
@@ -105,6 +74,7 @@ const RecursosHumanosPostulacionesPage = () => {
   const [detailEstado, setDetailEstado] = useState<RrhhPostulacionEstado>('nuevo')
   const [saving, setSaving] = useState(false)
   const [reanalizando, setReanalizando] = useState(false)
+  const [analizandoFormulario, setAnalizandoFormulario] = useState(false)
   const [totalCount, setTotalCount] = useState<number | null>(null)
   const [resultCount, setResultCount] = useState<number | null>(null)
 
@@ -156,7 +126,7 @@ const RecursosHumanosPostulacionesPage = () => {
   useEffect(() => {
     if (authLoading || !canAccess || !usuario?.id) return
     void load()
-    // Carga inicial al abrir el panel PlotLab (estado «nuevo» por defecto)
+    // Carga inicial: todos los estados
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, canAccess, usuario?.id])
 
@@ -303,6 +273,28 @@ const RecursosHumanosPostulacionesPage = () => {
     setReanalizando(false)
   }
 
+  const analizarFormulario = async () => {
+    if (!selected || !usuario?.id) return
+    setAnalizandoFormulario(true)
+    const res = await apiService.rrhhPostulacionAnalizarFormulario(selected.id, selected)
+    if (res.success) {
+      const listRes = await apiService.rrhhPostulacionesListar({
+        usuarioId: usuario.id,
+        busqueda: busqueda.trim() || undefined,
+        estado: estadoFilter || undefined,
+        puesto: puestoFilter || undefined
+      })
+      if (listRes.success && listRes.data) {
+        setRows(listRes.data)
+        const updated = listRes.data.find((r) => r.id === selected.id)
+        if (updated) setSelected(updated)
+      }
+    } else {
+      alert(res.error || 'Error al analizar formulario')
+    }
+    setAnalizandoFormulario(false)
+  }
+
   const copyPublicLink = (path: string, label: string) => {
     const url = `${window.location.origin}${path}`
     void navigator.clipboard.writeText(url)
@@ -312,6 +304,35 @@ const RecursosHumanosPostulacionesPage = () => {
   const meta = (selected?.metadata_ia || {}) as Record<string, unknown>
   const selectedEsFormulario = selected ? isFormularioExterno(selected) : false
   const formRespuestas = selected ? getFormularioRespuestas(selected) : {}
+  const formSlug = selected ? formularioSlug(selected) : 'community-manager'
+
+  const renderPlotAiMeta = () => (
+    <>
+      {typeof meta.resumen === 'string' && meta.resumen && <p>{meta.resumen}</p>}
+      {Array.isArray(meta.habilidades) && meta.habilidades.length > 0 && (
+        <div className="rrhh-post-tags">
+          {(meta.habilidades as string[]).map((h) => (
+            <span key={h}>{h}</span>
+          ))}
+        </div>
+      )}
+      {Array.isArray(meta.fortalezas_plot) && (meta.fortalezas_plot as string[]).length > 0 && (
+        <p>
+          <strong>Fortalezas Plot:</strong> {(meta.fortalezas_plot as string[]).join(', ')}
+        </p>
+      )}
+      {Array.isArray(meta.gaps_plot) && (meta.gaps_plot as string[]).length > 0 && (
+        <p>
+          <strong>A mejorar:</strong> {(meta.gaps_plot as string[]).join(', ')}
+        </p>
+      )}
+      {meta.score_plot != null && (
+        <p>
+          <strong>Score Plot:</strong> {String(meta.score_plot)}
+        </p>
+      )}
+    </>
+  )
 
   const aiMatchCount = Object.keys(aiScores).length
   const visibleCount = sortedRows.length
@@ -442,8 +463,8 @@ const RecursosHumanosPostulacionesPage = () => {
         <div className="rrhh-post-empty">
           <p>Usá la barra de búsqueda o los filtros y pulsá <strong>Buscar</strong> para ver candidatos.</p>
           <p className="rrhh-post-empty-hint">
-            Al entrar se listan las postulaciones <strong>nuevas</strong>. Los formularios de convocatoria aparecen con
-            badge 📋 Formulario.
+            Al entrar se listan <strong>todas</strong> las postulaciones. Usá los filtros para acotar por estado,
+            puesto o tipo.
           </p>
           <button
             type="button"
@@ -593,13 +614,13 @@ const RecursosHumanosPostulacionesPage = () => {
                 {selectedEsFormulario && (
                   <div className="rrhh-post-form-detail">
                     <h3>📋 Respuestas del formulario</h3>
-                    {Object.entries(FORM_LABELS).map(([key, label]) => {
+                    {Object.entries(FORMULARIO_FIELD_LABELS).map(([key, label]) => {
                       const val = formRespuestas[key]
                       if (!val?.trim()) return null
                       return (
                         <div key={key} className="rrhh-post-form-field">
                           <strong>{label}</strong>
-                          <p>{fmtFormValue(key, val)}</p>
+                          <p>{formatFormularioField(key, val, formSlug)}</p>
                         </div>
                       )
                     })}
@@ -623,6 +644,25 @@ const RecursosHumanosPostulacionesPage = () => {
                   <button type="button" className="rrhh-post-btn-primary" onClick={() => void saveDetail()} disabled={saving}>
                     {saving ? 'Guardando…' : 'Guardar'}
                   </button>
+                  {selectedEsFormulario && (
+                    <button
+                      type="button"
+                      className="rrhh-post-btn-ai"
+                      onClick={() => void analizarFormulario()}
+                      disabled={analizandoFormulario}
+                    >
+                      {analizandoFormulario ? 'Analizando…' : '✨ Analizar con PlotAI'}
+                    </button>
+                  )}
+                  {selectedEsFormulario && (
+                    <button
+                      type="button"
+                      className="rrhh-post-btn-outline"
+                      onClick={() => downloadPostulacionFormularioPdf(selected)}
+                    >
+                      Descargar PDF
+                    </button>
+                  )}
                   {selected.cv_url && (
                     <button type="button" className="rrhh-post-btn-ai" onClick={() => void reanalizar()} disabled={reanalizando}>
                       {reanalizando ? 'Analizando…' : '✨ Re-analizar CV'}
@@ -649,39 +689,15 @@ const RecursosHumanosPostulacionesPage = () => {
                 </div>
               </div>
               <div className="rrhh-post-modal-col rrhh-post-modal-ia">
-                {selectedEsFormulario ? (
-                  <>
-                    <h3>📋 Formulario extendido</h3>
-                    <p className="rrhh-post-form-modal-note">
-                      Esta postulación llegó por el formulario de convocatoria. No incluye CV nuevo; revisá las
-                      respuestas en el panel izquierdo.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h3>✨ Análisis PlotAI</h3>
-                    {typeof meta.resumen === 'string' && <p>{meta.resumen}</p>}
-                    {Array.isArray(meta.habilidades) && meta.habilidades.length > 0 && (
-                      <div className="rrhh-post-tags">
-                        {(meta.habilidades as string[]).map((h) => (
-                          <span key={h}>{h}</span>
-                        ))}
-                      </div>
-                    )}
-                    {Array.isArray(meta.fortalezas_plot) && (
-                      <p>
-                        <strong>Fortalezas Plot:</strong> {(meta.fortalezas_plot as string[]).join(', ')}
-                      </p>
-                    )}
-                    {Array.isArray(meta.gaps_plot) && (meta.gaps_plot as string[]).length > 0 && (
-                      <p>
-                        <strong>A mejorar:</strong> {(meta.gaps_plot as string[]).join(', ')}
-                      </p>
-                    )}
-                    {selected.cv_url && isPdf(selected) && (
-                      <iframe title="CV" src={`${selected.cv_url}#toolbar=0`} className="rrhh-post-modal-pdf" />
-                    )}
-                  </>
+                <h3>✨ Análisis PlotAI</h3>
+                {selectedEsFormulario && !meta.resumen && (
+                  <p className="rrhh-post-form-modal-note">
+                    Postulación por formulario de convocatoria. Usá «Analizar con PlotAI» para evaluar al candidato.
+                  </p>
+                )}
+                {renderPlotAiMeta()}
+                {!selectedEsFormulario && selected.cv_url && isPdf(selected) && (
+                  <iframe title="CV" src={`${selected.cv_url}#toolbar=0`} className="rrhh-post-modal-pdf" />
                 )}
               </div>
             </div>

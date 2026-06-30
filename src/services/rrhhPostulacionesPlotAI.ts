@@ -170,3 +170,66 @@ SCHEMA:
   }
   return data as CvMetadataIa
 }
+
+export type FormularioMetadataIa = CvMetadataIa & {
+  recomendacion_rrhh?: string | null
+}
+
+export async function analyzeFormularioExternoPlotAI(input: {
+  nombre: string
+  email: string
+  telefono?: string | null
+  puesto: string
+  respuestas: Record<string, string>
+  respuestasLegibles: string
+}): Promise<FormularioMetadataIa> {
+  const prompt = `Sos PlotAI, asistente de RRHH de Plot Center en Argentina. Analizá una postulación recibida por formulario extendido (sin CV adjunto en este envío).
+
+${PLOT_FILOSOFIA}
+
+Puesto al que se postula: ${input.puesto}
+
+Datos del candidato:
+- Nombre: ${input.nombre}
+- Email: ${input.email}
+- Teléfono: ${input.telefono || '—'}
+
+Respuestas del formulario:
+${input.respuestasLegibles}
+
+REGLAS:
+- Devolvé SOLO JSON válido (sin markdown).
+- Basate solo en las respuestas; no inventes experiencia no mencionada.
+- score_plot: 0-100 según fit con la filosofía Plot y el puesto.
+- recomendacion_rrhh: 1-2 frases accionables para el equipo de RRHH (entrevistar, descartar, pedir portfolio, etc.).
+
+SCHEMA:
+{
+  "nombre_detectado": string|null,
+  "email_detectado": string|null,
+  "telefono_detectado": string|null,
+  "resumen": string|null,
+  "experiencia_anios": number|null,
+  "habilidades": string[],
+  "educacion": string|null,
+  "idiomas": string[],
+  "puesto_sugerido": string|null,
+  "score_plot": number|null,
+  "fortalezas_plot": string[],
+  "gaps_plot": string[],
+  "confidence": number|null,
+  "notas": string|null,
+  "recomendacion_rrhh": string|null
+}`
+
+  const text = await callGeminiGenerateContent({
+    model: 'gemini-2.5-flash',
+    contents: prompt
+  })
+
+  const data = tryParseJsonFromModelText(text)
+  if (!data) {
+    throw new Error('PlotAI no devolvió un análisis válido. Reintentá.')
+  }
+  return data as FormularioMetadataIa
+}
