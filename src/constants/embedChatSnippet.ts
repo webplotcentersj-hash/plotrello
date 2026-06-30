@@ -1,12 +1,12 @@
 import { isPlotLabAppHost, PLOT_LAB_SITE_ORIGIN } from './plotLabSite'
 
 export function getPlotLabEmbedOrigin(): string {
+  if (typeof window !== 'undefined' && isPlotLabAppHost(window.location.hostname)) {
+    return window.location.origin.replace(/\/$/, '')
+  }
+
   const fromEnv = String(import.meta.env.VITE_PLOTLAB_EMBED_ORIGIN || '').trim().replace(/\/$/, '')
   if (fromEnv) return fromEnv
-
-  if (typeof window !== 'undefined' && isPlotLabAppHost(window.location.hostname)) {
-    return window.location.origin
-  }
 
   return PLOT_LAB_SITE_ORIGIN
 }

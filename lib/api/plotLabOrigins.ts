@@ -16,3 +16,19 @@ export const PLOT_LAB_ORIGINS = [
 export const PLOT_LAB_ORIGINS_CSV = PLOT_LAB_ORIGINS.join(',')
 
 export const PLOT_LAB_LOGO_URL = '/plot-lab-logo.png'
+
+/**
+ * Orígenes CORS permitidos: defaults del código + extras en PLOT_LAB_ALLOWED_ORIGINS (Vercel).
+ * Así un valor legacy en Vercel no bloquea plotcenterlab.com.ar.
+ */
+export function getPlotLabAllowedOrigins(): string[] {
+  const extra = (process.env.PLOT_LAB_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return [...new Set<string>([...PLOT_LAB_ORIGINS, ...extra])]
+}
+
+export function getPlotLabAllowedOriginsCsv(): string {
+  return getPlotLabAllowedOrigins().join(',')
+}

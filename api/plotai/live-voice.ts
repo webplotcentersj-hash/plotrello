@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { PLOT_LAB_ORIGINS_CSV } from '../../lib/api/plotLabOrigins'
+import { getPlotLabAllowedOrigins } from '../../lib/api/plotLabOrigins'
 
 function getEnvKey() {
   return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
 }
 
 function setCors(req: VercelRequest, res: VercelResponse): void {
-  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || PLOT_LAB_ORIGINS_CSV)
+  const allowed = getPlotLabAllowedOrigins()
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)

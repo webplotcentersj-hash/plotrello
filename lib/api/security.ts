@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { PLOT_LAB_ORIGINS_CSV } from './plotLabOrigins'
+import { getPlotLabAllowedOrigins } from './plotLabOrigins'
 
 /** Producción Vercel o NODE_ENV=production */
 export function isProduction(): boolean {
@@ -42,10 +42,7 @@ export function requireBearerSecret(
 
 /** CORS restrictivo: origen permitido o mismo host. Evita * en endpoints sensibles. */
 export function setCorsRestricted(req: VercelRequest, res: VercelResponse, methods = 'GET, POST, OPTIONS'): void {
-  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || PLOT_LAB_ORIGINS_CSV)
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
+  const allowed = getPlotLabAllowedOrigins()
   const origin = String(req.headers.origin || '')
   if (origin && allowed.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin)
@@ -80,14 +77,9 @@ export function getGeminiServerKey(): string {
   return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
 }
 
-import { PLOT_LAB_ORIGINS_CSV } from './plotLabOrigins'
-
 /** Request desde el frontend PlotLab (mismo sitio). No reemplaza JWT; evita exponer secret en el bundle. */
 export function isPlotLabSameOrigin(req: VercelRequest): boolean {
-  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || PLOT_LAB_ORIGINS_CSV)
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
+  const allowed = getPlotLabAllowedOrigins()
   const origin = String(req.headers.origin || '').trim()
   const referer = String(req.headers.referer || '').trim()
   if (origin && allowed.some((a) => origin === a || origin.startsWith(a))) return true

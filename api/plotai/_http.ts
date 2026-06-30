@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { PLOT_LAB_ORIGINS_CSV } from '../../lib/api/plotLabOrigins'
+import { getPlotLabAllowedOrigins } from '../../lib/api/plotLabOrigins'
 
 /** Clave Gemini solo server-side. Acepta GEMINI_API_KEY o VITE_GEMINI_API_KEY (Vercel). */
 export function getGeminiServerKey(): string {
@@ -7,7 +7,7 @@ export function getGeminiServerKey(): string {
 }
 
 export function setCorsRestricted(req: VercelRequest, res: VercelResponse, methods = 'GET, POST, OPTIONS'): void {
-  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || PLOT_LAB_ORIGINS_CSV)
+  const allowed = getPlotLabAllowedOrigins()
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)

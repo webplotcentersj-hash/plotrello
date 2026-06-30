@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { GoogleGenAI } from '@google/genai'
-import { PLOT_LAB_ORIGINS_CSV } from '../../lib/api/plotLabOrigins'
+import { getPlotLabAllowedOrigins } from '../../lib/api/plotLabOrigins'
 
 type ContentPart = {
   text?: string
@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || PLOT_LAB_ORIGINS_CSV)
+  const allowed = getPlotLabAllowedOrigins()
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
