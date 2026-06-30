@@ -596,7 +596,7 @@ const EntregaPage = () => {
           <div className="comprobante-preview" ref={comprobanteRef}>
             <div className="comprobante-header">
               <img
-                src="https://trello.plotcenter.com.ar/Group%20187.png"
+                src="https://www.plotcenterlab.com.ar/Group%20187.png"
                 alt="Plot Center Logo"
                 className="comprobante-logo"
               />

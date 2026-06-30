@@ -91,7 +91,7 @@ const OpEliminadasPage = () => {
         <header className="consulta-header">
           <div className="header-content">
             <img
-              src="https://trello.plotcenter.com.ar/Group%20187.png"
+              src="https://www.plotcenterlab.com.ar/Group%20187.png"
               alt="Plot Center Logo"
               className="consulta-logo"
             />

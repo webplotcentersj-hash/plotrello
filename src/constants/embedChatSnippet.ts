@@ -1,19 +1,14 @@
+import { isPlotLabAppHost, PLOT_LAB_SITE_ORIGIN } from './plotLabSite'
+
 export function getPlotLabEmbedOrigin(): string {
   const fromEnv = String(import.meta.env.VITE_PLOTLAB_EMBED_ORIGIN || '').trim().replace(/\/$/, '')
   if (fromEnv) return fromEnv
 
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname.toLowerCase()
-    if (
-      host === 'localhost' ||
-      host.includes('vercel.app') ||
-      host.includes('plotcenter.com.ar')
-    ) {
-      return window.location.origin
-    }
+  if (typeof window !== 'undefined' && isPlotLabAppHost(window.location.hostname)) {
+    return window.location.origin
   }
 
-  return 'https://plotrello.vercel.app'
+  return PLOT_LAB_SITE_ORIGIN
 }
 
 export function buildEmbedWidgetSnippet(embedOrigin = getPlotLabEmbedOrigin()): string {

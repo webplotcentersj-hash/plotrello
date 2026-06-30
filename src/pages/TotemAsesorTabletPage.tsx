@@ -9,7 +9,7 @@ import {
 import { playPedidoTallerAlertSound } from '../utils/playPedidoTallerAlertSound'
 import './TotemAsesorTabletPage.css'
 
-const LOGO_URL = 'https://trello.plotcenter.com.ar/Group%20187.png'
+const LOGO_URL = 'https://www.plotcenterlab.com.ar/Group%20187.png'
 
 type SolicitudAsesor = {
   key: string

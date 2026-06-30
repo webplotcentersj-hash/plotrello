@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { PLOT_LAB_ORIGINS_CSV } from './plotLabOrigins'
 
 /** Producción Vercel o NODE_ENV=production */
 export function isProduction(): boolean {
@@ -41,7 +42,7 @@ export function requireBearerSecret(
 
 /** CORS restrictivo: origen permitido o mismo host. Evita * en endpoints sensibles. */
 export function setCorsRestricted(req: VercelRequest, res: VercelResponse, methods = 'GET, POST, OPTIONS'): void {
-  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || 'https://plotrello.vercel.app,https://trello.plotcenter.com.ar')
+  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || PLOT_LAB_ORIGINS_CSV)
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -79,16 +80,11 @@ export function getGeminiServerKey(): string {
   return process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
 }
 
-const DEFAULT_ALLOWED_ORIGINS = [
-  'https://trello.plotcenter.com.ar',
-  'https://plotrello.vercel.app',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173'
-]
+import { PLOT_LAB_ORIGINS_CSV } from './plotLabOrigins'
 
 /** Request desde el frontend PlotLab (mismo sitio). No reemplaza JWT; evita exponer secret en el bundle. */
 export function isPlotLabSameOrigin(req: VercelRequest): boolean {
-  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS.join(','))
+  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || PLOT_LAB_ORIGINS_CSV)
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)

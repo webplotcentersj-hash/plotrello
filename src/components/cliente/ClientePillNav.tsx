@@ -9,7 +9,7 @@ import { CLIENTE_NAV_ITEMS, type ClienteNavBadge } from './clienteNavConfig'
 import ClienteThemeToggle from './ClienteThemeToggle'
 import './ClientePillNav.css'
 
-const LOGO_URL = 'https://trello.plotcenter.com.ar/Group%20187.png'
+const LOGO_URL = 'https://www.plotcenterlab.com.ar/Group%20187.png'
 
 export default function ClientePillNav() {
   const location = useLocation()

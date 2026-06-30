@@ -7,9 +7,10 @@ import {
   type FormularioExternoRespuestas,
   type RadioOption
 } from '../data/convocatoriasPostulacion'
+import { PLOT_LAB_LOGO_URL } from '../constants/plotLabSite'
 import './PostulacionExternaPage.css'
 
-const LOGO_URL = 'https://trello.plotcenter.com.ar/Group%20187.png'
+const LOGO_URL = PLOT_LAB_LOGO_URL
 
 function padNum(n: number): string {
   return String(n).padStart(2, '0')

@@ -7,6 +7,7 @@ import {
   isMercadoPagoConfigured,
   mpInitPoint
 } from '../../lib/api/mercadopago'
+import { PLOT_LAB_ORIGINS_CSV, PLOT_LAB_PRIMARY_ORIGIN } from '../../lib/api/plotLabOrigins'
 import { handleOptions, setCorsRestricted } from '../plotai/_http'
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
@@ -18,13 +19,13 @@ function getSupabase() {
 }
 
 function publicOrigin(req: VercelRequest): string {
-  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || 'https://plotrello.vercel.app,https://trello.plotcenter.com.ar')
+  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || PLOT_LAB_ORIGINS_CSV)
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
   const origin = String(req.headers.origin || '')
   if (origin && allowed.includes(origin)) return origin
-  return allowed[0] || 'https://plotrello.vercel.app'
+  return allowed[0] || PLOT_LAB_PRIMARY_ORIGIN
 }
 
 type CheckoutTipo = 'venta' | 'pedido_portal'

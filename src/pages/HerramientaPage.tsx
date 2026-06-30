@@ -14,7 +14,7 @@ const HerramientaPage = ({ onBack }: HerramientaPageProps) => {
         <div className="herramienta-header-content">
           <div className="herramienta-header-brand">
             <img 
-              src="https://trello.plotcenter.com.ar/Group%20187.png" 
+              src="https://www.plotcenterlab.com.ar/Group%20187.png" 
               alt="Plot Center Logo" 
               className="herramienta-logo"
             />

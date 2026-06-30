@@ -448,7 +448,7 @@ export default function ProtocolosBasesPage() {
             <div className="protocolos-bases-logo-wrap">
               <img
                 className="protocolos-bases-logo"
-                src="https://trello.plotcenter.com.ar/Group%20187.png"
+                src="https://www.plotcenterlab.com.ar/Group%20187.png"
                 alt="Plot Center Logo"
               />
             </div>

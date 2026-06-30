@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { PLOT_LAB_ORIGINS_CSV } from '../../lib/api/plotLabOrigins'
 
 type Body = {
   prompt?: string
@@ -12,8 +13,7 @@ function getGeminiKey(): string {
 }
 
 function setCors(req: VercelRequest, res: VercelResponse): void {
-  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS ||
-    'https://plotrello.vercel.app,https://trello.plotcenter.com.ar,http://localhost:5173')
+  const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS || PLOT_LAB_ORIGINS_CSV)
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)

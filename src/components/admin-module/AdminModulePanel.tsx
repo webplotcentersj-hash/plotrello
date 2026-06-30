@@ -39,7 +39,7 @@ type AdminModulePanelProps = ModuleActions & {
   onRefreshData?: () => void
 }
 
-const PLOT_LAB_LOGO = 'https://trello.plotcenter.com.ar/Group%20187.png'
+const PLOT_LAB_LOGO = 'https://www.plotcenterlab.com.ar/Group%20187.png'
 
 const CATEGORY_ORDER: AdminModuleCategory[] = [
   'produccion',

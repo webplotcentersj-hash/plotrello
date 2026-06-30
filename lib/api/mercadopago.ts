@@ -1,3 +1,5 @@
+import { PLOT_LAB_PRIMARY_ORIGIN } from './plotLabOrigins'
+
 const MP_API = 'https://api.mercadopago.com'
 
 export function getMercadoPagoAccessToken(): string {
@@ -16,7 +18,7 @@ export function isMercadoPagoConfigured(): boolean {
 export function getMercadoPagoWebhookBaseUrl(): string {
   const explicit = process.env.MERCADOPAGO_WEBHOOK_URL || process.env.PLOT_LAB_PUBLIC_URL
   if (explicit) return explicit.replace(/\/$/, '')
-  return 'https://plotrello.vercel.app'
+  return PLOT_LAB_PRIMARY_ORIGIN
 }
 
 export type MpPreferenceItem = {

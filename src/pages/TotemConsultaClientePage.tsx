@@ -483,7 +483,7 @@ const TotemConsultaClientePage = () => {
             <div className="totem-idle-inner">
               <div className="totem-kiosk-logo-ring totem-idle-logo-ring">
                 <img
-                  src="https://trello.plotcenter.com.ar/Group%20187.png"
+                  src="https://www.plotcenterlab.com.ar/Group%20187.png"
                   alt="Plot Center"
                   className="totem-idle-logo"
                 />
@@ -512,7 +512,7 @@ const TotemConsultaClientePage = () => {
               <div className="totem-kiosk-header-brand">
                 <div className="totem-kiosk-logo-ring">
                   <img
-                    src="https://trello.plotcenter.com.ar/Group%20187.png"
+                    src="https://www.plotcenterlab.com.ar/Group%20187.png"
                     alt="Plot Center"
                     className="totem-welcome-top-logo"
                   />
@@ -783,7 +783,7 @@ const TotemConsultaClientePage = () => {
               </button>
               <div className="header-content totem-header-content">
                 <img
-                  src="https://trello.plotcenter.com.ar/Group%20187.png"
+                  src="https://www.plotcenterlab.com.ar/Group%20187.png"
                   alt="Plot Center Logo"
                   className="consulta-logo totem-logo"
                 />

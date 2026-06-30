@@ -51,7 +51,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "frame-ancestors 'self' https://plotcenter.com.ar https://www.plotcenter.com.ar"
+          "value": "frame-ancestors 'self' https://plotcenter.com.ar https://www.plotcenter.com.ar https://plotcenterlab.com.ar https://www.plotcenterlab.com.ar"
         },
         {
           "key": "Permissions-Policy",

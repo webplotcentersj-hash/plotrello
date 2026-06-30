@@ -153,7 +153,7 @@ const OpPublicPage = () => {
         <div className="op-public-header">
           <div className="logo-section">
             <img 
-              src="https://trello.plotcenter.com.ar/Group%20187.png" 
+              src="https://www.plotcenterlab.com.ar/Group%20187.png" 
               alt="Plot Center Logo" 
               className="logo-img"
             />

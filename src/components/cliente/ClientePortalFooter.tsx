@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import './ClientePortalFooter.css'
 
-const LOGO_URL = 'https://trello.plotcenter.com.ar/Group%20187.png'
+const LOGO_URL = 'https://www.plotcenterlab.com.ar/Group%20187.png'
 
 const LINKS = [
   { label: 'Inicio', href: '/cliente/dashboard' },

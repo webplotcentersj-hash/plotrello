@@ -4,7 +4,7 @@ import apiService from '../services/api'
 import { estiloSectorPorDestino, parsearNotasTotem } from '../utils/totemPantallaSectores'
 import './TotemPantallaPage.css'
 
-const LOGO_URL = 'https://trello.plotcenter.com.ar/Group%20187.png'
+const LOGO_URL = 'https://www.plotcenterlab.com.ar/Group%20187.png'
 const ROTATE_MS = 8000
 const POLL_MS = 30_000
 const HORAS_DATOS = 48

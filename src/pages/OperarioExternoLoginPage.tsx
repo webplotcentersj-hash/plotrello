@@ -18,7 +18,7 @@ import {
 import '../features/phi/phi-landing.css'
 import './OperarioExternoLoginPage.css'
 
-const LOGO_URL = 'https://trello.plotcenter.com.ar/Group%20187.png'
+const LOGO_URL = 'https://www.plotcenterlab.com.ar/Group%20187.png'
 const ONEST_FONT =
   'https://fonts.googleapis.com/css2?family=Onest:wght@500;700;800&display=swap'
 
