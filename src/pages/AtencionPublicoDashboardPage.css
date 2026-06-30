@@ -435,6 +435,26 @@
   margin-top: 0;
 }
 
+.atencion-publico-embed-copy-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 6px;
+}
+
+.atencion-publico-embed-copy-btn {
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.atencion-publico-embed-copy-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
 .atencion-publico-embed-code-hint code {
   background: rgba(0, 0, 0, 0.1);
   padding: 2px 6px;

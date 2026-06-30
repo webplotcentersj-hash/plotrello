@@ -216,17 +216,22 @@ export type HistorialMensajeChat = {
   text: string
   whatsapp?: string
   contacto_nombre?: string
+  imageDataUrl?: string
 }
 
 export function enrichUserHistorialEntry(
   text: string,
-  parsed?: { nombre?: string; telefono?: string }
+  parsed?: { nombre?: string; telefono?: string },
+  imageDataUrl?: string
 ): HistorialMensajeChat {
   const entry: HistorialMensajeChat = { role: 'user', text: text.slice(0, 5000) }
   const par = parsed || extractNombreYTelefonoMensaje(text)
   if (par.telefono) entry.whatsapp = par.telefono
   if (par.nombre && esNombreValido(par.nombre)) entry.contacto_nombre = par.nombre
   else if (extractNombreExplicito(text)) entry.contacto_nombre = extractNombreExplicito(text) || undefined
+  if (imageDataUrl && imageDataUrl.length > 0 && imageDataUrl.length < 600_000) {
+    entry.imageDataUrl = imageDataUrl
+  }
   return entry
 }
 
@@ -668,6 +673,7 @@ type Body = {
   conversation_id?: number
   history?: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>
   images?: Array<{ mimeType: string; data: string }>
+  staff_image_preview?: string
 }
 
 /** Tótem (voz): sin asteriscos ni comas; puntos solo si cierran frase (no toca dominios tipo plotcenter.com.ar). */
@@ -1335,6 +1341,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const message = (body?.message || '').trim()
   const images = Array.isArray(body?.images) ? body.images! : []
   const hasImages = images.length > 0
+  const staffImagePreview =
+    typeof body.staff_image_preview === 'string' && body.staff_image_preview.startsWith('data:image/')
+      ? body.staff_image_preview.slice(0, 600_000)
+      : undefined
+  const previewLabel = message.trim() || (hasImages ? '📷 Imagen' : '')
   if (!message && !hasImages) {
     res.status(400).json({ error: 'message o images es requerido' })
     return
@@ -1395,7 +1406,11 @@ SALIDA:
     let solicitudChatId: number | null = null
     const historialParaSolicitud = [
       ...history.map((p) => ({ role: p.role, text: (p.parts?.[0]?.text ?? '').slice(0, 2000) })),
-      { role: 'user' as const, text: message.slice(0, 2000) }
+      {
+        role: 'user' as const,
+        text: previewLabel.slice(0, 2000),
+        ...(staffImagePreview ? { imageDataUrl: staffImagePreview } : {})
+      }
     ]
     if (solicitudAtencion.solicita && solicitudAtencion.rol && supabase) {
       const clienteNombre = nombre || 'Cliente desde chat'
@@ -1667,7 +1682,7 @@ CÓMO TRATAR AL CLIENTE (atención al público):
     }
 
     let conversationId: number | null = null
-    const userHistorialEntry = enrichUserHistorialEntry(message)
+    const userHistorialEntry = enrichUserHistorialEntry(message, undefined, staffImagePreview)
     const canalConversacion =
       modo === 'cliente_portal'
         ? 'cliente_portal'
@@ -1724,7 +1739,7 @@ CÓMO TRATAR AL CLIENTE (atención al público):
             .from('atencion_conversaciones')
             .update({
               historial_mensajes: updated,
-              ultimo_mensaje_preview: message.slice(0, 200),
+              ultimo_mensaje_preview: previewLabel.slice(0, 200),
               updated_at: new Date().toISOString(),
               ...contactoUpdate
             })
@@ -1747,7 +1762,7 @@ CÓMO TRATAR AL CLIENTE (atención al público):
               canal: canalConversacion,
               ...(body.cliente_email?.trim() ? { cliente_email: body.cliente_email.trim() } : {}),
               ...contactoInsert,
-              ultimo_mensaje_preview: message.slice(0, 200),
+              ultimo_mensaje_preview: previewLabel.slice(0, 200),
               estado: 'abierto',
               historial_mensajes: historialInicial
             })

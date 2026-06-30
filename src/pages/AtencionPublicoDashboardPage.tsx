@@ -8,6 +8,11 @@ import AtencionSatisfaccionPanel from '../components/AtencionSatisfaccionPanel'
 import { buildWhatsappLink } from '../utils/whatsappLink'
 import { renderTextoConWhatsapp } from '../utils/renderTextoConWhatsapp'
 import { nombreClienteAtencionVisible } from '../utils/atencionClienteDisplay'
+import {
+  buildEmbedPageSnippet,
+  buildEmbedWidgetSnippet,
+  getPlotLabEmbedOrigin
+} from '../constants/embedChatSnippet'
 
 const REFRESH_INTERVAL_MS = 25000
 
@@ -152,6 +157,19 @@ const AtencionPublicoDashboardPage = () => {
   const [modalEmbed, setModalEmbed] = useState(false)
   const [modalConversacionId, setModalConversacionId] = useState<number | null>(null)
   const [modalSolicitudId, setModalSolicitudId] = useState<number | null>(null)
+
+  const embedOrigin = getPlotLabEmbedOrigin()
+  const embedSnippetWidget = useMemo(() => buildEmbedWidgetSnippet(embedOrigin), [embedOrigin])
+  const embedSnippetPage = useMemo(() => buildEmbedPageSnippet(embedOrigin), [embedOrigin])
+
+  const copyEmbedSnippet = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      window.alert('Código copiado al portapapeles.')
+    } catch {
+      window.prompt('Copiá el código manualmente:', text)
+    }
+  }
   const [modalReclamoEditar, setModalReclamoEditar] = useState<Reclamo | null>(null)
   const [reclamoEditForm, setReclamoEditForm] = useState({ estado: '', prioridad: '', notas_internas: '', usuario_asignado_id: null as number | null, sector_id: null as number | null })
   const [showCrearReclamo, setShowCrearReclamo] = useState(false)
@@ -473,27 +491,32 @@ const AtencionPublicoDashboardPage = () => {
             {modalEmbed && (
               <div className="atencion-publico-modal-embed">
                 <h3>Código para incrustar en WordPress</h3>
-                <p className="atencion-publico-embed-code-hint">Copiá el iframe y el script en la web de Plot Center (plotcenter.com.ar).</p>
+                <p className="atencion-publico-embed-code-hint">
+                  Copiá el iframe y el script en la web de Plot Center (plotcenter.com.ar).
+                  Origen del embed: <strong>{embedOrigin}</strong>.
+                  También disponible en{' '}
+                  <a href="/embed-snippet.html" target="_blank" rel="noopener noreferrer">
+                    /embed-snippet.html
+                  </a>
+                  .
+                </p>
                 <p className="atencion-publico-embed-option-label"><strong>Opción 1 — Botón flotante (recomendado)</strong></p>
-                <pre className="atencion-publico-pre">{`<iframe id="plotai-widget-iframe"
-  src="https://plotrello.vercel.app/embed/chat-widget"
-  title="Chat Plot Center"
-  width="88"
-  height="88"
-  style="border: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999;"
-></iframe>
-<script>
-(function() {
-  var ORIGIN = 'https://plotrello.vercel.app';
-  window.addEventListener('message', function(e) {
-    if (e.origin !== ORIGIN || !e.data || e.data.type !== 'plotai-widget-resize') return;
-    var iframe = document.getElementById('plotai-widget-iframe');
-    if (iframe) { iframe.style.width = e.data.width + 'px'; iframe.style.height = e.data.height + 'px'; }
-  });
-})();
-</script>`}</pre>
+                <div className="atencion-publico-embed-copy-row">
+                  <button type="button" className="atencion-publico-embed-copy-btn" onClick={() => void copyEmbedSnippet(embedSnippetWidget)}>
+                    Copiar código
+                  </button>
+                </div>
+                <pre className="atencion-publico-pre">{embedSnippetWidget}</pre>
                 <p className="atencion-publico-embed-option-label"><strong>Opción 2 — Chat en página</strong></p>
-                <pre className="atencion-publico-pre">{`<iframe src="https://plotrello.vercel.app/embed/chat" title="Chat Plot Center" width="100%" height="500" style="border: none; border-radius: 8px;"></iframe>`}</pre>
+                <p className="atencion-publico-embed-code-hint">
+                  Incluye polling de respuestas del equipo cada 4 segundos (sin script extra).
+                </p>
+                <div className="atencion-publico-embed-copy-row">
+                  <button type="button" className="atencion-publico-embed-copy-btn" onClick={() => void copyEmbedSnippet(embedSnippetPage)}>
+                    Copiar código
+                  </button>
+                </div>
+                <pre className="atencion-publico-pre">{embedSnippetPage}</pre>
               </div>
             )}
             {modalSolicitudId != null && !modalEmbed && (

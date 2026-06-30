@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useLayoutEffect, useRef, type CSSProperties, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../services/supabaseClient'
@@ -26,6 +27,7 @@ type ChatFloatingButtonInsightsProps = ChatFloatingButtonBaseProps & {
   variant: 'insights'
   isOpen: boolean
   onOpenChange: (open: boolean) => void
+  anchorRef: RefObject<HTMLElement | null>
 }
 
 type ChatFloatingButtonProps = ChatFloatingButtonFloatingProps | ChatFloatingButtonInsightsProps
@@ -39,11 +41,15 @@ function isInsightsVariant(
 const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
   const { onNavigateToChat, onUnreadChange } = props
   const insights = isInsightsVariant(props)
+  const insightsOpen = insights ? props.isOpen : false
+  const insightsAnchorRef = insights ? props.anchorRef : null
   const { usuario } = useAuth()
   const navigate = useNavigate()
   const [internalOpen, setInternalOpen] = useState(false)
   const isOpen = insights ? props.isOpen : internalOpen
   const setIsOpen = insights ? props.onOpenChange : setInternalOpen
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [portalStyle, setPortalStyle] = useState<CSSProperties>({})
 
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -186,6 +192,58 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
     onUnreadChange?.(totalUnread)
   }, [totalUnread, onUnreadChange])
 
+  const updatePortalPosition = useCallback(() => {
+    if (!insightsOpen || !insightsAnchorRef?.current) return
+
+    const rect = insightsAnchorRef.current.getBoundingClientRect()
+    const panelWidth = Math.min(360, window.innerWidth - 24)
+    const panelHeight = Math.min(520, window.innerHeight * 0.7)
+    const margin = 12
+
+    let top = rect.bottom + 8
+    if (top + panelHeight > window.innerHeight - margin) {
+      top = Math.max(margin, rect.top - panelHeight - 8)
+    }
+
+    let left = rect.right - panelWidth
+    left = Math.max(margin, Math.min(left, window.innerWidth - panelWidth - margin))
+
+    setPortalStyle({
+      position: 'fixed',
+      top,
+      left,
+      width: panelWidth,
+      zIndex: 5000
+    })
+  }, [insightsOpen, insightsAnchorRef])
+
+  useLayoutEffect(() => {
+    if (!insightsOpen) return
+    updatePortalPosition()
+
+    const onReflow = () => updatePortalPosition()
+    window.addEventListener('resize', onReflow)
+    window.addEventListener('scroll', onReflow, true)
+    return () => {
+      window.removeEventListener('resize', onReflow)
+      window.removeEventListener('scroll', onReflow, true)
+    }
+  }, [insightsOpen, updatePortalPosition])
+
+  useEffect(() => {
+    if (!insightsOpen) return
+
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (insightsAnchorRef?.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setIsOpen(false)
+    }
+
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [insightsOpen, insightsAnchorRef, setIsOpen])
+
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
       await apiService.markNotificationAsRead(notification.id)
@@ -204,7 +262,11 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
   }
 
   const menuPanel = isOpen ? (
-    <div className={`chat-floating-menu${insights ? ' chat-floating-menu--insights' : ''}`}>
+    <div
+      ref={insights ? panelRef : undefined}
+      className={`chat-floating-menu${insights ? ' chat-floating-menu--insights chat-floating-menu--insights-portal' : ''}`}
+      style={insights ? portalStyle : undefined}
+    >
       <div className="chat-menu-header">
         <h3>Chat y Notificaciones</h3>
         <button type="button" className="close-menu-btn" onClick={() => setIsOpen(false)}>
@@ -283,12 +345,8 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
   ) : null
 
   if (insights) {
-    if (!menuPanel) return null
-    return (
-      <div className="chat-floating-button-container chat-floating-button-container--insights">
-        {menuPanel}
-      </div>
-    )
+    if (!menuPanel || typeof document === 'undefined') return null
+    return createPortal(menuPanel, document.body)
   }
 
   return (

@@ -137,6 +137,21 @@ html.embed-widget-page body {
   animation: embed-widget-panel-in 0.25s ease-out;
 }
 
+@media (max-width: 520px) {
+  .embed-widget-panel {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .embed-widget-panel-inner {
+    border-radius: 0;
+  }
+
+  .embed-widget-panel .embed-chat-footer {
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+}
+
 @keyframes embed-widget-panel-in {
   from {
     opacity: 0;

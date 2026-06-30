@@ -39,6 +39,7 @@ const FirmaClientePage = lazy(() => import('./pages/FirmaClientePage'))
 const BriefPublicoPage = lazy(() => import('./pages/BriefPublicoPage'))
 const ReclamosPublicoPage = lazy(() => import('./pages/ReclamosPublicoPage'))
 const CvPublicoPage = lazy(() => import('./pages/CvPublicoPage'))
+const PostulacionExternaPage = lazy(() => import('./pages/PostulacionExternaPage'))
 const SatisfaccionClientePublicPage = lazy(() => import('./pages/SatisfaccionClientePublicPage'))
 const OpEliminadasPage = lazy(() => import('./pages/OpEliminadasPage'))
 const ClienteLoginPage = lazy(() => import('./pages/ClienteLoginPage'))
@@ -348,6 +349,14 @@ function AppInner() {
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
                 <CvPublicoPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/convocatoria/:slug"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
+                <PostulacionExternaPage />
               </Suspense>
             }
           />

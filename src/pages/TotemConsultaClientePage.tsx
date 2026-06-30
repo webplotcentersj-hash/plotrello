@@ -12,6 +12,7 @@ import {
   isOpFinalizadoEnTaller
 } from '../utils/totemConsultaOpEstado'
 import { TotemAutogestionPlotAiChat } from '@/components/ui/TotemAutogestionPlotAiChat'
+import { TotemKioskIcon, type TotemKioskIconName } from '../components/totem/TotemKioskIcons'
 import { requestTotemKioskFullscreen, useTotemKioskFullscreen } from '../hooks/useTotemKioskMode'
 import './ClienteConsultaPage.css'
 import './TotemConsultaClientePage.css'
@@ -27,7 +28,7 @@ type SectorDirection = 'planta-baja' | 'primer-piso'
 const TOTEM_SECTORS_QUEHACER: Array<{
   id: string
   label: string
-  icon: string
+  icon: TotemKioskIconName
   sectorDestino: string
   bg: string
   textColor: string
@@ -36,7 +37,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'presupuestos',
     label: 'PRESUPUESTOS Y ASESORAMIENTO',
-    icon: '📋',
+    icon: 'presupuestos',
     sectorDestino: 'Presupuestos y asesoramiento',
     bg: '#7dd3fc',
     textColor: '#0f172a',
@@ -45,7 +46,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'recepcion',
     label: 'RECEPCIÓN DE PEDIDOS',
-    icon: '📦',
+    icon: 'recepcion',
     sectorDestino: 'Recepción de pedidos',
     bg: '#facc15',
     textColor: '#0f172a',
@@ -54,7 +55,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'diseno',
     label: 'DISEÑO GRÁFICO',
-    icon: '🎨',
+    icon: 'diseno',
     sectorDestino: 'Diseño gráfico',
     bg: '#ec4899',
     textColor: '#fff',
@@ -63,7 +64,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'caja',
     label: 'CAJA / ENTREGA DE PEDIDOS',
-    icon: '💳',
+    icon: 'caja',
     sectorDestino: 'Caja / Entrega de pedidos',
     bg: '#1f2937',
     textColor: '#fff',
@@ -72,7 +73,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'base_operaciones',
     label: 'BASE DE OPERACIONES',
-    icon: '⚙️',
+    icon: 'base_operaciones',
     sectorDestino: 'Base de operaciones',
     bg: '#f97316',
     textColor: '#0f172a',
@@ -81,7 +82,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
   {
     id: 'marketing',
     label: 'MARKETING Y COMUNICACIÓN',
-    icon: '📣',
+    icon: 'marketing',
     sectorDestino: 'Marketing y comunicación',
     bg: '#ffffff',
     textColor: '#0f172a',
@@ -549,7 +550,7 @@ const TotemConsultaClientePage = () => {
                     }}
                   >
                     <span className="totem-kiosk-ico-ring totem-kiosk-ico-ring--orange" aria-hidden>
-                      <span className="totem-kiosk-ico">🔍</span>
+                      <TotemKioskIcon name="search" size="tile" />
                     </span>
                     <span className="totem-kiosk-tile-title">Buscar mi trabajo</span>
                     <span className="totem-kiosk-tile-desc">Estado de tu OP en tiempo real</span>
@@ -564,7 +565,7 @@ const TotemConsultaClientePage = () => {
                     }}
                   >
                     <span className="totem-kiosk-ico-ring totem-kiosk-ico-ring--blue" aria-hidden>
-                      <span className="totem-kiosk-ico">🖨️</span>
+                      <TotemKioskIcon name="print" size="tile" />
                     </span>
                     <span className="totem-kiosk-tile-title">Imprimir</span>
                     <span className="totem-kiosk-tile-desc">Fotos, documentos y más</span>
@@ -581,7 +582,7 @@ const TotemConsultaClientePage = () => {
                     }}
                   >
                     <span className="totem-kiosk-ico-ring totem-kiosk-ico-ring--emerald" aria-hidden>
-                      <span className="totem-kiosk-ico">🛒</span>
+                      <TotemKioskIcon name="catalog" size="tile" />
                     </span>
                     <span className="totem-kiosk-tile-title">Comprar</span>
                     <span className="totem-kiosk-tile-desc">Compra Tu Producto</span>
@@ -619,7 +620,9 @@ const TotemConsultaClientePage = () => {
                           setAvisoVoyMotivo('')
                         }}
                       >
-                        <span className="totem-strip-icon" aria-hidden>{sector.icon}</span>
+                        <span className="totem-strip-icon" aria-hidden>
+                          <TotemKioskIcon name={sector.icon} size="strip" />
+                        </span>
                         <span className="totem-strip-text">{sector.label}</span>
                         <SectorDirectionArrows direction={sector.direction} />
                       </button>

@@ -1,8 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
 import './EmbedChatPage.css'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
+import {
+  EmbedChatVoiceBanner,
+  EmbedChatVoiceButton,
+  useEmbedChatVoice
+} from '../components/embed/EmbedChatVoice'
+import '../components/embed/EmbedChatVoice.css'
+import {
+  type EmbedChatMessage,
+  collectUserTexts,
+  fileToChatImagePayload,
+  EMBED_CHAT_CONVERSATION_KEY
+} from '../utils/embedChatShared'
+import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
 
-type ChatMessage = { role: 'user' | 'model'; parts: { text: string }[] }
+const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
 
 export default function EmbedChatPage() {
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
@@ -21,7 +34,7 @@ export default function EmbedChatPage() {
   const [dni, setDni] = useState('')
   const [cuit, setCuit] = useState('')
   const [op, setOp] = useState('')
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [messages, setMessages] = useState<EmbedChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +42,7 @@ export default function EmbedChatPage() {
   const [showIdentificacion, setShowIdentificacion] = useState(!hideFormFromPortal)
   const [conversationId, setConversationId] = useState<number | null>(() => {
     try {
-      const s = typeof localStorage !== 'undefined' ? localStorage.getItem('embed_chat_conversation_id') : null
+      const s = typeof localStorage !== 'undefined' ? localStorage.getItem(EMBED_CHAT_CONVERSATION_KEY) : null
       const n = s ? parseInt(s, 10) : NaN
       return Number.isInteger(n) ? n : null
     } catch {
@@ -42,17 +55,50 @@ export default function EmbedChatPage() {
     mimeType: string
     data: string
     previewUrl: string
+    staffPreviewUrl: string
   } | null>(null)
+
+  const { staffReplies } = useEmbedStaffReplies(conversationId, {
+    notifyIcon: PLOTAI_LOGO
+  })
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   useEffect(() => {
     if (conversationId != null && typeof localStorage !== 'undefined') {
-      localStorage.setItem('embed_chat_conversation_id', String(conversationId))
+      localStorage.setItem(EMBED_CHAT_CONVERSATION_KEY, String(conversationId))
     }
   }, [conversationId])
   useEffect(() => {
     scrollToBottom()
-  }, [messages, loading])
+  }, [messages, loading, staffReplies])
+
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {})
+    }
+  }, [])
+
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const root = document.getElementById('root')
+    const prev = {
+      htmlHeight: html.style.height,
+      bodyHeight: body.style.height,
+      bodyMargin: body.style.margin,
+      rootHeight: root?.style.height ?? ''
+    }
+    html.style.height = '100%'
+    body.style.height = '100%'
+    body.style.margin = '0'
+    if (root) root.style.height = '100%'
+    return () => {
+      html.style.height = prev.htmlHeight
+      body.style.height = prev.bodyHeight
+      body.style.margin = prev.bodyMargin
+      if (root) root.style.height = prev.rootHeight
+    }
+  }, [])
 
   useEffect(() => {
     if (!isClientePortal || messages.length > 0) return
@@ -97,32 +143,6 @@ export default function EmbedChatPage() {
     return parts
   }
 
-  const downscaleImageToJpeg = async (file: File) => {
-    const objectUrl = URL.createObjectURL(file)
-    try {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el = new Image()
-        el.onload = () => resolve(el)
-        el.onerror = () => reject(new Error('No se pudo leer la imagen'))
-        el.src = objectUrl
-      })
-      const maxSide = 1280
-      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight))
-      const w = Math.max(1, Math.round(img.naturalWidth * scale))
-      const h = Math.max(1, Math.round(img.naturalHeight * scale))
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('No se pudo crear canvas')
-      ctx.drawImage(img, 0, 0, w, h)
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
-      return dataUrl
-    } finally {
-      URL.revokeObjectURL(objectUrl)
-    }
-  }
-
   const handlePickImage = async (file: File | null) => {
     if (!file) return
     if (!file.type.startsWith('image/')) {
@@ -131,16 +151,8 @@ export default function EmbedChatPage() {
     }
     setError(null)
     try {
-      const dataUrl = file.size > 900_000 ? await downscaleImageToJpeg(file) : await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(String(reader.result || ''))
-        reader.onerror = () => reject(new Error('No se pudo leer la imagen'))
-        reader.readAsDataURL(file)
-      })
-      const [meta, b64] = dataUrl.split(',')
-      const mimeType = meta?.match(/data:([^;]+);base64/i)?.[1] || 'image/jpeg'
-      if (!b64) throw new Error('Imagen inválida')
-      setPendingImage({ mimeType, data: b64, previewUrl: dataUrl })
+      const payload = await fileToChatImagePayload(file)
+      setPendingImage(payload)
     } catch {
       setError('No pude procesar la imagen. Probá con otra.')
     } finally {
@@ -162,8 +174,13 @@ export default function EmbedChatPage() {
     const text = input.trim()
     if ((!text && !pendingImage) || loading) return
 
-    const userMsgText = text || (pendingImage ? '📷 Imagen enviada' : '')
-    const userMsg: ChatMessage = { role: 'user', parts: [{ text: userMsgText }] }
+    const imageSnapshot = pendingImage
+    const userMsgText = text || (imageSnapshot ? '📷 Imagen enviada' : '')
+    const userMsg: EmbedChatMessage = {
+      role: 'user',
+      parts: [{ text: userMsgText }],
+      ...(imageSnapshot ? { imagePreviewUrl: imageSnapshot.previewUrl } : {})
+    }
     setMessages((prev) => [...prev, userMsg])
     setInput('')
     setPendingImage(null)
@@ -184,7 +201,12 @@ export default function EmbedChatPage() {
           message: text,
           modo: modoFromUrl,
           ...(clienteIdFromUrl ? { cliente_id: clienteIdFromUrl } : {}),
-          ...(pendingImage ? { images: [{ mimeType: pendingImage.mimeType, data: pendingImage.data }] } : {}),
+          ...(imageSnapshot
+            ? {
+                images: [{ mimeType: imageSnapshot.mimeType, data: imageSnapshot.data }],
+                staff_image_preview: imageSnapshot.staffPreviewUrl
+              }
+            : {}),
           nombre: normalizeForSearch(nombre) || (clienteNombreFromUrl || undefined),
           empresa: clienteEmpresaFromUrl || undefined,
           cliente_email: clienteEmailFromUrl || undefined,
@@ -210,15 +232,35 @@ export default function EmbedChatPage() {
           : `${apiBase}/brief/${data.brief.token}`
         setBriefUrl(url)
       }
-    } catch (e) {
+    } catch {
       setError('Error de conexión. Intentá de nuevo.')
     } finally {
       setLoading(false)
     }
   }
 
+  const appendVoiceTranscript = (role: 'user' | 'model', text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    setMessages((prev) => {
+      const last = prev[prev.length - 1]
+      if (last?.role === role && last.parts?.[0]?.text) {
+        const merged = `${last.parts[0].text} ${trimmed}`.trim()
+        return [...prev.slice(0, -1), { role, parts: [{ text: merged }] }]
+      }
+      return [...prev, { role, parts: [{ text: trimmed }] }]
+    })
+  }
+
+  const voice = useEmbedChatVoice({
+    userTexts: collectUserTexts(messages),
+    disabled: loading,
+    onUserTranscript: (text) => appendVoiceTranscript('user', text),
+    onModelTranscript: (text) => appendVoiceTranscript('model', text)
+  })
+
   return (
-    <div className="embed-chat-scope">
+    <div className="embed-chat-scope embed-chat-scope--page">
       <div className="embed-chat">
       <header className="embed-chat-header">
         <div className="embed-chat-header-inner">
@@ -297,9 +339,23 @@ export default function EmbedChatPage() {
         )}
         {messages.map((m, i) => (
           <div key={i} className={`embed-chat-msg embed-chat-msg--${m.role}`}>
-            <span className="embed-chat-msg-text">
-              {renderMessageText(m.parts?.[0]?.text || '')}
-            </span>
+            {m.imagePreviewUrl && (
+              <img src={m.imagePreviewUrl} alt="Imagen enviada" className="embed-chat-msg-image" />
+            )}
+            {m.parts?.[0]?.text && m.parts[0].text !== '📷 Imagen enviada' && (
+              <span className="embed-chat-msg-text">
+                {renderMessageText(m.parts[0].text)}
+              </span>
+            )}
+            {m.parts?.[0]?.text === '📷 Imagen enviada' && !m.imagePreviewUrl && (
+              <span className="embed-chat-msg-text">{m.parts[0].text}</span>
+            )}
+          </div>
+        ))}
+        {staffReplies.map((r, i) => (
+          <div key={`staff-${i}`} className="embed-chat-msg embed-chat-msg--staff">
+            <span className="embed-chat-msg-role">Equipo · {r.autor}</span>
+            <span className="embed-chat-msg-text">{r.texto}</span>
           </div>
         ))}
         {loading && (
@@ -340,7 +396,7 @@ export default function EmbedChatPage() {
 
       {pendingImage && (
         <div className="embed-attach-preview" aria-label="Imagen adjunta">
-          <img src={pendingImage.previewUrl} alt="Imagen adjunta" className="embed-attach-preview-img" />
+          <img src={pendingImage.previewUrl} alt="Vista previa" className="embed-attach-preview-img" />
           <button
             type="button"
             className="embed-attach-remove"
@@ -352,24 +408,42 @@ export default function EmbedChatPage() {
         </div>
       )}
 
+      <EmbedChatVoiceBanner
+        active={voice.active}
+        starting={voice.starting}
+        speaking={voice.speaking}
+        error={voice.error}
+        status={voice.status}
+        onStop={voice.stopLive}
+      />
+
       <footer className="embed-chat-footer">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="embed-attach-input"
-          onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
-        />
-        <button
-          type="button"
-          className="embed-attach"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={loading}
-          aria-label="Adjuntar foto"
-          title="Adjuntar foto"
-        >
-          📎
-        </button>
+        <div className="embed-chat-footer-tools">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="embed-attach-input"
+            onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
+          />
+          <button
+            type="button"
+            className="embed-attach"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+            aria-label="Adjuntar foto"
+            title="Adjuntar foto"
+          >
+            📎
+          </button>
+          <EmbedChatVoiceButton
+            active={voice.active}
+            starting={voice.starting}
+            disabled={loading}
+            onClick={() => void voice.toggleLive()}
+          />
+        </div>
         <input
           type="text"
           placeholder="Escribí tu mensaje..."

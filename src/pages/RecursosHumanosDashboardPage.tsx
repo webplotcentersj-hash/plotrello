@@ -191,7 +191,7 @@ const RecursosHumanosDashboardPage = () => {
             >
               <div className="rrhh-action-icon">📄</div>
               <h3>Postulaciones / CVs</h3>
-              <p>Bandeja de candidatos, filtro PlotAI, vista previa y contacto WhatsApp</p>
+              <p>Bandeja PlotLab: CVs públicos y formularios de convocatoria (ej. Community Manager)</p>
             </button>
 
             <button

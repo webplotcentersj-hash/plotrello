@@ -54,6 +54,10 @@
           "value": "frame-ancestors 'self' https://plotcenter.com.ar https://www.plotcenter.com.ar"
         },
         {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(self), geolocation=()"
+        },
+        {
           "key": "X-Content-Type-Options",
           "value": "nosniff"
         }

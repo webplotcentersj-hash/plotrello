@@ -2,9 +2,21 @@ import { useState, useRef, useEffect } from 'react'
 import './EmbedChatPage.css'
 import './EmbedChatWidgetPage.css'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
+import {
+  EmbedChatVoiceBanner,
+  EmbedChatVoiceButton,
+  useEmbedChatVoice
+} from '../components/embed/EmbedChatVoice'
+import {
+  type EmbedChatMessage,
+  collectUserTexts,
+  fileToChatImagePayload,
+  EMBED_CHAT_CONVERSATION_KEY
+} from '../utils/embedChatShared'
+import '../components/embed/EmbedChatVoice.css'
+import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
 
 const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
-const POLL_INTERVAL_MS = 4000
 
 /** Ícono de chat atractivo: burbuja con puntos de conversación */
 function ChatBubbleIcon({ className }: { className?: string }) {
@@ -25,26 +37,58 @@ function ChatBubbleIcon({ className }: { className?: string }) {
   )
 }
 
-type ChatMessage = { role: 'user' | 'model'; parts: { text: string }[] }
-type StaffReply = { autor: string; texto: string; created_at?: string }
+function getWidgetOpenSize() {
+  const screenW = typeof window !== 'undefined' ? window.screen?.availWidth || window.innerWidth : 400
+  const screenH = typeof window !== 'undefined' ? window.screen?.availHeight || window.innerHeight : 580
+  const mobile = screenW <= 520
+  return {
+    width: mobile ? screenW : Math.min(400, screenW - 16),
+    height: mobile ? screenH : Math.min(580, screenH - 24),
+    fullscreen: mobile
+  }
+}
 
 export default function EmbedChatWidgetPage() {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [staffReplies, setStaffReplies] = useState<StaffReply[]>([])
+  const [messages, setMessages] = useState<EmbedChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasNewStaffReply, setHasNewStaffReply] = useState(false)
   const [briefUrl, setBriefUrl] = useState<string | null>(null)
-  const [conversationId, setConversationId] = useState<number | null>(null)
+  const [conversationId, setConversationId] = useState<number | null>(() => {
+    try {
+      const s = typeof localStorage !== 'undefined' ? localStorage.getItem(EMBED_CHAT_CONVERSATION_KEY) : null
+      const n = s ? parseInt(s, 10) : NaN
+      return Number.isInteger(n) ? n : null
+    } catch {
+      return null
+    }
+  })
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingImage, setPendingImage] = useState<{
     mimeType: string
     data: string
     previewUrl: string
+    staffPreviewUrl: string
   } | null>(null)
+
+  useEffect(() => {
+    if (conversationId != null && typeof localStorage !== 'undefined') {
+      localStorage.setItem(EMBED_CHAT_CONVERSATION_KEY, String(conversationId))
+    }
+  }, [conversationId])
+
+  const { staffReplies, hasNewStaffReply: hookHasNewStaffReply, clearNewStaffReply } =
+    useEmbedStaffReplies(conversationId, {
+      enabled: open,
+      notifyIcon: PLOTAI_LOGO
+    })
+
+  useEffect(() => {
+    if (hookHasNewStaffReply) setHasNewStaffReply(true)
+  }, [hookHasNewStaffReply])
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   useEffect(() => {
@@ -100,8 +144,6 @@ export default function EmbedChatWidgetPage() {
 
   const IFRAME_CLOSED_WIDTH = 88
   const IFRAME_CLOSED_HEIGHT = 88
-  const IFRAME_OPEN_WIDTH = 400
-  const IFRAME_OPEN_HEIGHT = 580
 
   useEffect(() => {
     if (open && typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -112,10 +154,11 @@ export default function EmbedChatWidgetPage() {
   useEffect(() => {
     try {
       if (window.parent !== window) {
-        const w = open ? IFRAME_OPEN_WIDTH : IFRAME_CLOSED_WIDTH
-        const h = open ? IFRAME_OPEN_HEIGHT : IFRAME_CLOSED_HEIGHT
+        const size = getWidgetOpenSize()
+        const w = open ? size.width : IFRAME_CLOSED_WIDTH
+        const h = open ? size.height : IFRAME_CLOSED_HEIGHT
         window.parent.postMessage(
-          { type: 'plotai-widget-resize', open, width: w, height: h },
+          { type: 'plotai-widget-resize', open, width: w, height: h, fullscreen: open && size.fullscreen },
           '*'
         )
       }
@@ -125,48 +168,6 @@ export default function EmbedChatWidgetPage() {
   }, [open])
 
   const apiBase = typeof window !== 'undefined' ? window.location.origin : ''
-  const respuestasApi = plotLabApiUrl('/api/plotai/conversation-respuestas')
-
-  const prevStaffCountRef = useRef(0)
-
-  useEffect(() => {
-    if (conversationId == null) {
-      setStaffReplies([])
-      prevStaffCountRef.current = 0
-      return
-    }
-    const fetchRespuestas = async () => {
-      try {
-        const res = await fetch(`${respuestasApi}?conversation_id=${conversationId}`)
-        const data = await res.json().catch(() => ({}))
-        if (Array.isArray(data.respuestas_staff)) {
-          const prev = prevStaffCountRef.current
-          const next = data.respuestas_staff.length
-          setStaffReplies(data.respuestas_staff)
-          if (next > prev && prev > 0) {
-            setHasNewStaffReply(true)
-            try {
-              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                new Notification('Plot Center', {
-                  body: 'Te respondieron en el chat.',
-                  icon: PLOTAI_LOGO
-                })
-              }
-            } catch {
-              // ignore
-            }
-          }
-          prevStaffCountRef.current = next
-        }
-      } catch {
-        // ignore
-      }
-    }
-    fetchRespuestas()
-    const interval = setInterval(fetchRespuestas, POLL_INTERVAL_MS)
-    return () => clearInterval(interval)
-  }, [open, conversationId])
-
   const chatApi = plotLabApiUrl('/api/plotai/chat-public')
 
   const renderMessageText = (text: string) => {
@@ -200,31 +201,6 @@ export default function EmbedChatWidgetPage() {
     return parts
   }
 
-  const downscaleImageToJpeg = async (file: File) => {
-    const objectUrl = URL.createObjectURL(file)
-    try {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el = new Image()
-        el.onload = () => resolve(el)
-        el.onerror = () => reject(new Error('No se pudo leer la imagen'))
-        el.src = objectUrl
-      })
-      const maxSide = 1280
-      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight))
-      const w = Math.max(1, Math.round(img.naturalWidth * scale))
-      const h = Math.max(1, Math.round(img.naturalHeight * scale))
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('No se pudo crear canvas')
-      ctx.drawImage(img, 0, 0, w, h)
-      return canvas.toDataURL('image/jpeg', 0.82)
-    } finally {
-      URL.revokeObjectURL(objectUrl)
-    }
-  }
-
   const handlePickImage = async (file: File | null) => {
     if (!file) return
     if (!file.type.startsWith('image/')) {
@@ -233,16 +209,8 @@ export default function EmbedChatWidgetPage() {
     }
     setError(null)
     try {
-      const dataUrl = file.size > 900_000 ? await downscaleImageToJpeg(file) : await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(String(reader.result || ''))
-        reader.onerror = () => reject(new Error('No se pudo leer la imagen'))
-        reader.readAsDataURL(file)
-      })
-      const [meta, b64] = dataUrl.split(',')
-      const mimeType = meta?.match(/data:([^;]+);base64/i)?.[1] || 'image/jpeg'
-      if (!b64) throw new Error('Imagen inválida')
-      setPendingImage({ mimeType, data: b64, previewUrl: dataUrl })
+      const payload = await fileToChatImagePayload(file)
+      setPendingImage(payload)
     } catch {
       setError('No pude procesar la imagen. Probá con otra.')
     } finally {
@@ -254,8 +222,13 @@ export default function EmbedChatWidgetPage() {
     const text = input.trim()
     if ((!text && !pendingImage) || loading) return
 
-    const userMsgText = text || (pendingImage ? '📷 Imagen enviada' : '')
-    const userMsg: ChatMessage = { role: 'user', parts: [{ text: userMsgText }] }
+    const imageSnapshot = pendingImage
+    const userMsgText = text || (imageSnapshot ? '📷 Imagen enviada' : '')
+    const userMsg: EmbedChatMessage = {
+      role: 'user',
+      parts: [{ text: userMsgText }],
+      ...(imageSnapshot ? { imagePreviewUrl: imageSnapshot.previewUrl } : {})
+    }
     setMessages((prev) => [...prev, userMsg])
     setInput('')
     setPendingImage(null)
@@ -267,10 +240,15 @@ export default function EmbedChatWidgetPage() {
       const res = await fetch(chatApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: text,
-        modo: 'web_publico',
-          ...(pendingImage ? { images: [{ mimeType: pendingImage.mimeType, data: pendingImage.data }] } : {}),
+        body: JSON.stringify({
+          message: text,
+          modo: 'web_publico',
+          ...(imageSnapshot
+            ? {
+                images: [{ mimeType: imageSnapshot.mimeType, data: imageSnapshot.data }],
+                staff_image_preview: imageSnapshot.staffPreviewUrl
+              }
+            : {}),
           conversation_id: conversationId ?? undefined,
           history
         })
@@ -291,12 +269,32 @@ export default function EmbedChatWidgetPage() {
           : `${apiBase}/brief/${data.brief.token}`
         setBriefUrl(url)
       }
-    } catch (e) {
+    } catch {
       setError('Error de conexión. Intentá de nuevo.')
     } finally {
       setLoading(false)
     }
   }
+
+  const appendVoiceTranscript = (role: 'user' | 'model', text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    setMessages((prev) => {
+      const last = prev[prev.length - 1]
+      if (last?.role === role && last.parts?.[0]?.text) {
+        const merged = `${last.parts[0].text} ${trimmed}`.trim()
+        return [...prev.slice(0, -1), { role, parts: [{ text: merged }] }]
+      }
+      return [...prev, { role, parts: [{ text: trimmed }] }]
+    })
+  }
+
+  const voice = useEmbedChatVoice({
+    userTexts: collectUserTexts(messages),
+    disabled: loading,
+    onUserTranscript: (text) => appendVoiceTranscript('user', text),
+    onModelTranscript: (text) => appendVoiceTranscript('model', text)
+  })
 
   return (
     <div className="embed-widget-wrap embed-chat-scope">
@@ -305,7 +303,10 @@ export default function EmbedChatWidgetPage() {
         className="embed-widget-button"
         onClick={() => {
           setOpen((o) => !o)
-          if (!open) setHasNewStaffReply(false)
+          if (!open) {
+            setHasNewStaffReply(false)
+            clearNewStaffReply()
+          }
         }}
         aria-label={open ? 'Cerrar chat' : 'Abrir chat'}
         aria-expanded={open}
@@ -351,9 +352,14 @@ export default function EmbedChatWidgetPage() {
               )}
               {messages.map((m, i) => (
                 <div key={i} className={`embed-chat-msg embed-chat-msg--${m.role}`}>
-                  <span className="embed-chat-msg-text">
-                    {renderMessageText(m.parts?.[0]?.text || '')}
-                  </span>
+                  {m.imagePreviewUrl && (
+                    <img src={m.imagePreviewUrl} alt="Imagen enviada" className="embed-chat-msg-image" />
+                  )}
+                  {m.parts?.[0]?.text && m.parts[0].text !== '📷 Imagen enviada' && (
+                    <span className="embed-chat-msg-text">
+                      {renderMessageText(m.parts[0].text)}
+                    </span>
+                  )}
                 </div>
               ))}
               {staffReplies.map((r, i) => (
@@ -412,24 +418,42 @@ export default function EmbedChatWidgetPage() {
               </div>
             )}
 
+            <EmbedChatVoiceBanner
+              active={voice.active}
+              starting={voice.starting}
+              speaking={voice.speaking}
+              error={voice.error}
+              status={voice.status}
+              onStop={voice.stopLive}
+            />
+
             <footer className="embed-chat-footer">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="embed-attach-input"
-                onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
-              />
-              <button
-                type="button"
-                className="embed-attach"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={loading}
-                aria-label="Adjuntar foto"
-                title="Adjuntar foto"
-              >
-                📎
-              </button>
+              <div className="embed-chat-footer-tools">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="embed-attach-input"
+                  onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  className="embed-attach"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading}
+                  aria-label="Adjuntar foto"
+                  title="Adjuntar foto"
+                >
+                  📎
+                </button>
+                <EmbedChatVoiceButton
+                  active={voice.active}
+                  starting={voice.starting}
+                  disabled={loading}
+                  onClick={() => void voice.toggleLive()}
+                />
+              </div>
               <input
                 type="text"
                 placeholder="Escribí tu mensaje..."

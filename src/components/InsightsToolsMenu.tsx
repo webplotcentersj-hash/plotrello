@@ -27,6 +27,7 @@ export default function InsightsToolsMenu({
   const [pendientesCount, setPendientesCount] = useState(0)
   const [chatUnread, setChatUnread] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   const loadPendientesCount = async () => {
     if (!usuario?.id) return
@@ -51,22 +52,22 @@ export default function InsightsToolsMenu({
   }, [usuario?.id])
 
   useEffect(() => {
-    if (!menuOpen && !chatOpen) return
+    if (!menuOpen) return
     const onDocClick = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setMenuOpen(false)
-        setChatOpen(false)
       }
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
-  }, [menuOpen, chatOpen])
+  }, [menuOpen])
 
   const totalBadge = pendientesCount + chatUnread
 
   return (
     <div className="insights-tools-menu" ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className={`insights-toggle-btn insights-tools-trigger${menuOpen ? ' insights-tools-trigger--open' : ''}${totalBadge > 0 ? ' insights-tools-trigger--badge' : ''}`}
         onClick={() => {
@@ -174,6 +175,7 @@ export default function InsightsToolsMenu({
 
       <ChatFloatingButton
         variant="insights"
+        anchorRef={triggerRef}
         isOpen={chatOpen}
         onOpenChange={setChatOpen}
         onNavigateToChat={() => {

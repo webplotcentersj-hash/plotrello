@@ -5,27 +5,19 @@
   z-index: 1000;
 }
 
-.chat-floating-button-container--insights {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  bottom: auto;
-  left: auto;
-  z-index: 1200;
-  overflow: visible;
-}
-
 .chat-floating-menu--insights {
-  position: relative;
-  bottom: auto;
-  left: auto;
-  right: 0;
-  width: min(360px, calc(100vw - 24px));
   max-height: min(70vh, 520px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.chat-floating-menu--insights-portal {
+  position: fixed;
+  bottom: auto;
+  right: auto;
+  animation: chat-menu-slide-up 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .chat-floating-menu--insights .chat-notifications-section {

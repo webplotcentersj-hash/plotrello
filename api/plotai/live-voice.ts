@@ -6,7 +6,7 @@ function getEnvKey() {
 
 function setCors(req: VercelRequest, res: VercelResponse): void {
   const allowed = (process.env.PLOT_LAB_ALLOWED_ORIGINS ||
-    'https://plotrello.vercel.app,https://trello.plotcenter.com.ar,http://localhost:5173')
+    'https://plotrello.vercel.app,https://trello.plotcenter.com.ar,https://plotcenter.com.ar,https://www.plotcenter.com.ar,http://localhost:5173')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)

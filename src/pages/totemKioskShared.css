@@ -71,17 +71,46 @@
   box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.2), 0 12px 32px rgba(249, 115, 22, 0.2);
 }
 
+.totem-kiosk-ico-ring--orange .totem-kiosk-svg {
+  color: #fdba74;
+  filter: drop-shadow(0 2px 8px rgba(249, 115, 22, 0.45));
+}
+
 .totem-kiosk-ico-ring--blue {
   box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2), 0 12px 32px rgba(56, 189, 248, 0.18);
+}
+
+.totem-kiosk-ico-ring--blue .totem-kiosk-svg {
+  color: #7dd3fc;
+  filter: drop-shadow(0 2px 8px rgba(56, 189, 248, 0.4));
 }
 
 .totem-kiosk-ico-ring--emerald {
   box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.2), 0 12px 32px rgba(52, 211, 153, 0.18);
 }
 
-.totem-kiosk-ico {
-  font-size: clamp(1.5rem, 3vw, 1.75rem);
-  line-height: 1;
+.totem-kiosk-ico-ring--emerald .totem-kiosk-svg {
+  color: #6ee7b7;
+  filter: drop-shadow(0 2px 8px rgba(52, 211, 153, 0.4));
+}
+
+.totem-kiosk-svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.totem-kiosk-svg--tile {
+  width: clamp(28px, 4.5vw, 32px);
+  height: clamp(28px, 4.5vw, 32px);
+}
+
+.totem-kiosk-tile:hover .totem-kiosk-ico-ring .totem-kiosk-svg {
+  transform: scale(1.06);
+  transition: transform 0.2s ease;
+}
+
+.totem-kiosk-ico-ring .totem-kiosk-svg {
+  transition: transform 0.2s ease;
 }
 
 .totem-kiosk-tile-title {

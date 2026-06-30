@@ -22922,6 +22922,75 @@ class ApiService {
     }
   }
 
+  async submitFormularioExternoPublico(payload: {
+    nombre: string
+    email: string
+    telefono?: string
+    puesto: string
+    categoria_puesto?: string
+    slug: string
+    respuestas: Record<string, unknown>
+    resumen?: string
+    website?: string
+  }): Promise<ApiResponse<{ id: number }>> {
+    const body = {
+      nombre: payload.nombre,
+      email: payload.email,
+      telefono: payload.telefono || null,
+      puesto: payload.puesto,
+      categoria_puesto: payload.categoria_puesto || null,
+      slug: payload.slug,
+      respuestas: payload.respuestas,
+      resumen: payload.resumen || null,
+      website: payload.website || null
+    }
+
+    try {
+      const resp = await fetch(plotLabApiUrl('/api/rrhh/submit-formulario-externo'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      const json = (await resp.json()) as { success?: boolean; error?: string; data?: { id?: number } }
+      if (resp.ok && json.success) {
+        return { success: true, data: { id: Number(json.data?.id) || 0 } }
+      }
+      if (json.error) {
+        return { success: false, error: json.error }
+      }
+    } catch {
+      /* fallback RPC local */
+    }
+
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+
+    try {
+      const formulario = {
+        slug: payload.slug,
+        frase_compromiso: payload.respuestas.frase_compromiso ?? '',
+        confirmacion_puesto: payload.respuestas.confirmacion_puesto ?? '',
+        respuestas: payload.respuestas,
+        resumen: payload.resumen || null
+      }
+
+      const { data, error } = await supabase.rpc('crear_postulacion_formulario_externo', {
+        p_nombre: payload.nombre,
+        p_email: payload.email,
+        p_telefono: payload.telefono || null,
+        p_puesto: payload.puesto,
+        p_categoria_puesto: payload.categoria_puesto || null,
+        p_formulario: formulario,
+        p_honeypot: payload.website || null
+      })
+      if (error) throw error
+
+      return { success: true, data: { id: Number(data) || 0 } }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo enviar la postulación'
+      return { success: false, error: msg }
+    }
+  }
+
   async rrhhPostulacionesContar(filters: {
     usuarioId: number
     busqueda?: string

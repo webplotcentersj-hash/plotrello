@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { RrhhPostulacion, RrhhPostulacionEstado } from '../types/api'
 import { PUESTOS_POSTULACION } from '../data/puestosPostulacion'
+import { CONVOCATORIAS, labelDeOpcion } from '../data/convocatoriasPostulacion'
 import { buildWhatsappLink } from '../utils/whatsappLink'
 import './RecursosHumanosPostulacionesPage.css'
 
@@ -33,6 +34,7 @@ function fmtFecha(iso: string): string {
 }
 
 function isPdf(cv: RrhhPostulacion): boolean {
+  if (!cv.cv_url) return false
   const mime = cv.cv_mime || ''
   const name = cv.cv_nombre || cv.cv_url
   return mime.includes('pdf') || name.toLowerCase().endsWith('.pdf')
@@ -41,6 +43,44 @@ function isPdf(cv: RrhhPostulacion): boolean {
 function fmtCount(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return '—'
   return n.toLocaleString('es-AR')
+}
+
+function isFormularioExterno(row: RrhhPostulacion): boolean {
+  const meta = (row.metadata_ia || {}) as Record<string, unknown>
+  return meta.tipo === 'formulario_externo'
+}
+
+function getFormularioRespuestas(row: RrhhPostulacion): Record<string, string> {
+  const meta = (row.metadata_ia || {}) as Record<string, unknown>
+  const resp = meta.respuestas
+  if (resp && typeof resp === 'object' && !Array.isArray(resp)) {
+    return resp as Record<string, string>
+  }
+  return {}
+}
+
+const FORM_LABELS: Record<string, string> = {
+  situacion_laboral: 'Situación laboral',
+  detalle_trabajo: 'Trabajo reciente',
+  experiencia_desde_cv: 'Experiencia desde CV',
+  fortalezas_cm: 'Fortalezas CM',
+  conocimiento_ia: 'Conocimiento IA',
+  detalle_ia: 'Detalle IA',
+  disponibilidad_horaria: 'Disponibilidad',
+  incorporacion: 'Incorporación',
+  pretension_salarial: 'Pretensión salarial',
+  motivacion_plot: 'Motivación',
+  comentarios_adicionales: 'Comentarios'
+}
+
+function fmtFormValue(key: string, value: string): string {
+  const conv = CONVOCATORIAS['community-manager']
+  if (!conv || !value) return value || '—'
+  if (key === 'situacion_laboral') return labelDeOpcion(conv.situacionLaboral, value)
+  if (key === 'conocimiento_ia') return labelDeOpcion(conv.conocimientoIa, value)
+  if (key === 'disponibilidad_horaria') return labelDeOpcion(conv.disponibilidadHoraria, value)
+  if (key === 'incorporacion') return labelDeOpcion(conv.incorporacion, value)
+  return value
 }
 
 const RecursosHumanosPostulacionesPage = () => {
@@ -52,8 +92,9 @@ const RecursosHumanosPostulacionesPage = () => {
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [busqueda, setBusqueda] = useState('')
-  const [estadoFilter, setEstadoFilter] = useState<RrhhPostulacionEstado | ''>('')
+  const [estadoFilter, setEstadoFilter] = useState<RrhhPostulacionEstado | ''>('nuevo')
   const [puestoFilter, setPuestoFilter] = useState('')
+  const [tipoFilter, setTipoFilter] = useState<'' | 'formulario' | 'cv'>('')
   const [aiQuery, setAiQuery] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiScores, setAiScores] = useState<Record<number, { score: number; motivo: string }>>({})
@@ -112,6 +153,13 @@ const RecursosHumanosPostulacionesPage = () => {
     void refreshTotalCount()
   }, [authLoading, canAccess, navigate, refreshTotalCount])
 
+  useEffect(() => {
+    if (authLoading || !canAccess || !usuario?.id) return
+    void load()
+    // Carga inicial al abrir el panel PlotLab (estado «nuevo» por defecto)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, canAccess, usuario?.id])
+
   const puestosFlat = useMemo(
     () => PUESTOS_POSTULACION.flatMap((g) => g.puestos),
     []
@@ -119,8 +167,13 @@ const RecursosHumanosPostulacionesPage = () => {
 
   const sortedRows = useMemo(() => {
     let list = rows
+    if (tipoFilter === 'formulario') {
+      list = list.filter((r) => isFormularioExterno(r))
+    } else if (tipoFilter === 'cv') {
+      list = list.filter((r) => !isFormularioExterno(r))
+    }
     if (Object.keys(aiScores).length > 0) {
-      list = rows.filter((r) => aiScores[r.id] != null)
+      list = list.filter((r) => aiScores[r.id] != null)
     }
     if (!Object.keys(aiScores).length) return list
     return [...list].sort((a, b) => {
@@ -128,7 +181,7 @@ const RecursosHumanosPostulacionesPage = () => {
       const sb = aiScores[b.id]?.score ?? -1
       return sb - sa
     })
-  }, [rows, aiScores])
+  }, [rows, aiScores, tipoFilter])
 
   const buildCandidatosParaIA = (list: RrhhPostulacion[]) =>
     list.map((r) => {
@@ -250,13 +303,15 @@ const RecursosHumanosPostulacionesPage = () => {
     setReanalizando(false)
   }
 
-  const copyPublicLink = () => {
-    const url = `${window.location.origin}/trabaja-con-nosotros`
+  const copyPublicLink = (path: string, label: string) => {
+    const url = `${window.location.origin}${path}`
     void navigator.clipboard.writeText(url)
-    alert('Link copiado: ' + url)
+    alert(`Link copiado (${label}): ${url}`)
   }
 
   const meta = (selected?.metadata_ia || {}) as Record<string, unknown>
+  const selectedEsFormulario = selected ? isFormularioExterno(selected) : false
+  const formRespuestas = selected ? getFormularioRespuestas(selected) : {}
 
   const aiMatchCount = Object.keys(aiScores).length
   const visibleCount = sortedRows.length
@@ -287,11 +342,22 @@ const RecursosHumanosPostulacionesPage = () => {
               </span>
             )}
           </div>
-          <p>Bandeja de candidatos · PlotAI · Vista previa al pasar el mouse</p>
+          <p>Bandeja PlotLab · candidatos y formularios de convocatoria · PlotAI</p>
         </div>
         <div className="rrhh-post-header-actions">
-          <button type="button" className="rrhh-post-btn-outline" onClick={copyPublicLink}>
-            🔗 Link público
+          <button
+            type="button"
+            className="rrhh-post-btn-outline"
+            onClick={() => copyPublicLink('/trabaja-con-nosotros', 'CV')}
+          >
+            🔗 Link CV
+          </button>
+          <button
+            type="button"
+            className="rrhh-post-btn-outline"
+            onClick={() => copyPublicLink('/convocatoria/community-manager', 'Formulario CM')}
+          >
+            📋 Link formulario CM
           </button>
           <button type="button" className="rrhh-post-btn-outline" onClick={() => navigate('/rrhh')}>
             ← RRHH
@@ -322,6 +388,11 @@ const RecursosHumanosPostulacionesPage = () => {
                 {p}
               </option>
             ))}
+          </select>
+          <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value as '' | 'formulario' | 'cv')}>
+            <option value="">Todos los tipos</option>
+            <option value="formulario">📋 Solo formularios</option>
+            <option value="cv">📎 Solo con CV</option>
           </select>
           <button type="button" className="rrhh-post-btn-primary" onClick={() => void load()}>
             Buscar
@@ -370,9 +441,16 @@ const RecursosHumanosPostulacionesPage = () => {
       ) : !hasSearched ? (
         <div className="rrhh-post-empty">
           <p>Usá la barra de búsqueda o los filtros y pulsá <strong>Buscar</strong> para ver candidatos.</p>
-          <p className="rrhh-post-empty-hint">Las postulaciones no se listan solas: acotá con búsqueda o filtros.</p>
-          <button type="button" className="rrhh-post-btn-primary" onClick={copyPublicLink}>
-            Copiar link del formulario público
+          <p className="rrhh-post-empty-hint">
+            Al entrar se listan las postulaciones <strong>nuevas</strong>. Los formularios de convocatoria aparecen con
+            badge 📋 Formulario.
+          </p>
+          <button
+            type="button"
+            className="rrhh-post-btn-primary"
+            onClick={() => copyPublicLink('/trabaja-con-nosotros', 'CV')}
+          >
+            Copiar link del formulario CV
           </button>
         </div>
       ) : sortedRows.length === 0 ? (
@@ -388,6 +466,8 @@ const RecursosHumanosPostulacionesPage = () => {
         <div className="rrhh-post-grid">
           {sortedRows.map((row) => {
             const ia = row.metadata_ia as Record<string, unknown>
+            const esFormulario = isFormularioExterno(row)
+            const formResp = esFormulario ? getFormularioRespuestas(row) : {}
             const scorePlot = row.score_ia ?? (ia.score_plot as number | undefined)
             const aiMatch = aiScores[row.id]
             const wa = buildWhatsappLink(
@@ -420,16 +500,25 @@ const RecursosHumanosPostulacionesPage = () => {
                 <p className="rrhh-post-email">{row.email}</p>
                 <div className="rrhh-post-card-meta">
                   <span className={`rrhh-post-estado ${row.estado}`}>{ESTADO_LABEL[row.estado]}</span>
+                  {esFormulario && <span className="rrhh-post-form-badge">📋 Formulario</span>}
                   {row.legacy_id != null && <span className="rrhh-post-legacy">Histórico</span>}
                   <span className="rrhh-post-fecha">{fmtFecha(row.created_at)}</span>
                 </div>
                 {typeof ia.resumen === 'string' && ia.resumen && (
                   <p className="rrhh-post-resumen">{(ia.resumen as string).slice(0, 120)}…</p>
                 )}
+                {esFormulario && formResp.motivacion_plot && (
+                  <p className="rrhh-post-resumen">{formResp.motivacion_plot.slice(0, 120)}…</p>
+                )}
                 <div className="rrhh-post-card-actions" onClick={(e) => e.stopPropagation()}>
-                  <a href={row.cv_url} target="_blank" rel="noopener noreferrer" className="rrhh-post-btn-mini">
-                    📎 CV
-                  </a>
+                  {row.cv_url && (
+                    <a href={row.cv_url} target="_blank" rel="noopener noreferrer" className="rrhh-post-btn-mini">
+                      📎 CV
+                    </a>
+                  )}
+                  {esFormulario && !row.cv_url && (
+                    <span className="rrhh-post-btn-mini rrhh-post-btn-mini--muted">📋 Sin CV</span>
+                  )}
                   {wa && (
                     <a href={wa} target="_blank" rel="noopener noreferrer" className="rrhh-post-btn-wa">
                       WhatsApp
@@ -452,14 +541,25 @@ const RecursosHumanosPostulacionesPage = () => {
         >
           <strong>{hovered.nombre}</strong>
           <span className="rrhh-post-preview-puesto">{hovered.puesto}</span>
-          {isPdf(hovered) ? (
-            <iframe title="Vista previa CV" src={`${hovered.cv_url}#toolbar=0`} className="rrhh-post-preview-frame" />
+          {hovered.cv_url ? (
+            isPdf(hovered) ? (
+              <iframe title="Vista previa CV" src={`${hovered.cv_url}#toolbar=0`} className="rrhh-post-preview-frame" />
+            ) : (
+              <div className="rrhh-post-preview-fallback">
+                <p>Vista previa no disponible para este formato.</p>
+                <a href={hovered.cv_url} target="_blank" rel="noopener noreferrer">
+                  Abrir {hovered.cv_nombre || 'archivo'}
+                </a>
+              </div>
+            )
+          ) : isFormularioExterno(hovered) ? (
+            <div className="rrhh-post-preview-fallback">
+              <p>Postulación desde formulario extendido (sin CV adjunto).</p>
+              <p className="rrhh-post-preview-form-hint">Clic para ver respuestas completas.</p>
+            </div>
           ) : (
             <div className="rrhh-post-preview-fallback">
-              <p>Vista previa no disponible para este formato.</p>
-              <a href={hovered.cv_url} target="_blank" rel="noopener noreferrer">
-                Abrir {hovered.cv_nombre || 'archivo'}
-              </a>
+              <p>Sin CV disponible.</p>
             </div>
           )}
         </div>
@@ -487,8 +587,23 @@ const RecursosHumanosPostulacionesPage = () => {
                 </p>
                 {selected.mensaje && (
                   <p>
-                    <strong>Mensaje:</strong> {selected.mensaje}
+                    <strong>Resumen:</strong> {selected.mensaje}
                   </p>
+                )}
+                {selectedEsFormulario && (
+                  <div className="rrhh-post-form-detail">
+                    <h3>📋 Respuestas del formulario</h3>
+                    {Object.entries(FORM_LABELS).map(([key, label]) => {
+                      const val = formRespuestas[key]
+                      if (!val?.trim()) return null
+                      return (
+                        <div key={key} className="rrhh-post-form-field">
+                          <strong>{label}</strong>
+                          <p>{fmtFormValue(key, val)}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
                 )}
                 <label>
                   Estado
@@ -508,9 +623,11 @@ const RecursosHumanosPostulacionesPage = () => {
                   <button type="button" className="rrhh-post-btn-primary" onClick={() => void saveDetail()} disabled={saving}>
                     {saving ? 'Guardando…' : 'Guardar'}
                   </button>
-                  <button type="button" className="rrhh-post-btn-ai" onClick={() => void reanalizar()} disabled={reanalizando}>
-                    {reanalizando ? 'Analizando…' : '✨ Re-analizar CV'}
-                  </button>
+                  {selected.cv_url && (
+                    <button type="button" className="rrhh-post-btn-ai" onClick={() => void reanalizar()} disabled={reanalizando}>
+                      {reanalizando ? 'Analizando…' : '✨ Re-analizar CV'}
+                    </button>
+                  )}
                   {buildWhatsappLink(selected.telefono) && (
                     <a
                       href={buildWhatsappLink(
@@ -524,33 +641,47 @@ const RecursosHumanosPostulacionesPage = () => {
                       WhatsApp
                     </a>
                   )}
-                  <a href={selected.cv_url} target="_blank" rel="noopener noreferrer" className="rrhh-post-btn-outline">
-                    Descargar CV
-                  </a>
+                  {selected.cv_url && (
+                    <a href={selected.cv_url} target="_blank" rel="noopener noreferrer" className="rrhh-post-btn-outline">
+                      Descargar CV
+                    </a>
+                  )}
                 </div>
               </div>
               <div className="rrhh-post-modal-col rrhh-post-modal-ia">
-                <h3>✨ Análisis PlotAI</h3>
-                {typeof meta.resumen === 'string' && <p>{meta.resumen}</p>}
-                {Array.isArray(meta.habilidades) && meta.habilidades.length > 0 && (
-                  <div className="rrhh-post-tags">
-                    {(meta.habilidades as string[]).map((h) => (
-                      <span key={h}>{h}</span>
-                    ))}
-                  </div>
-                )}
-                {Array.isArray(meta.fortalezas_plot) && (
-                  <p>
-                    <strong>Fortalezas Plot:</strong> {(meta.fortalezas_plot as string[]).join(', ')}
-                  </p>
-                )}
-                {Array.isArray(meta.gaps_plot) && (meta.gaps_plot as string[]).length > 0 && (
-                  <p>
-                    <strong>A mejorar:</strong> {(meta.gaps_plot as string[]).join(', ')}
-                  </p>
-                )}
-                {isPdf(selected) && (
-                  <iframe title="CV" src={`${selected.cv_url}#toolbar=0`} className="rrhh-post-modal-pdf" />
+                {selectedEsFormulario ? (
+                  <>
+                    <h3>📋 Formulario extendido</h3>
+                    <p className="rrhh-post-form-modal-note">
+                      Esta postulación llegó por el formulario de convocatoria. No incluye CV nuevo; revisá las
+                      respuestas en el panel izquierdo.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3>✨ Análisis PlotAI</h3>
+                    {typeof meta.resumen === 'string' && <p>{meta.resumen}</p>}
+                    {Array.isArray(meta.habilidades) && meta.habilidades.length > 0 && (
+                      <div className="rrhh-post-tags">
+                        {(meta.habilidades as string[]).map((h) => (
+                          <span key={h}>{h}</span>
+                        ))}
+                      </div>
+                    )}
+                    {Array.isArray(meta.fortalezas_plot) && (
+                      <p>
+                        <strong>Fortalezas Plot:</strong> {(meta.fortalezas_plot as string[]).join(', ')}
+                      </p>
+                    )}
+                    {Array.isArray(meta.gaps_plot) && (meta.gaps_plot as string[]).length > 0 && (
+                      <p>
+                        <strong>A mejorar:</strong> {(meta.gaps_plot as string[]).join(', ')}
+                      </p>
+                    )}
+                    {selected.cv_url && isPdf(selected) && (
+                      <iframe title="CV" src={`${selected.cv_url}#toolbar=0`} className="rrhh-post-modal-pdf" />
+                    )}
+                  </>
                 )}
               </div>
             </div>

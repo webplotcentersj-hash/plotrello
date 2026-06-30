@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snippet — Chat Plot Center (embed)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; line-height: 1.5; }
+    pre { background: #111; color: #e5e7eb; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+    h2 { margin-top: 32px; }
+    .hint { color: #64748b; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Chat Plot Center — código para WordPress</h1>
+  <p class="hint">Pegá en plotcenter.com.ar. Incluye micrófono, resize móvil y polling de respuestas del equipo.</p>
+
+  <h2>Opción 1 — Botón flotante (recomendado)</h2>
+  <pre id="snippet-widget"></pre>
+
+  <h2>Opción 2 — Chat en página</h2>
+  <pre id="snippet-page"></pre>
+
+  <script type="module">
+    const EMBED_ORIGIN = 'https://plotrello.vercel.app';
+    const API_ORIGIN = 'https://plotrello.vercel.app';
+
+    document.getElementById('snippet-widget').textContent = `<iframe id="plotai-widget-iframe"
+  src="${EMBED_ORIGIN}/embed/chat-widget"
+  title="Chat Plot Center"
+  allow="microphone"
+  width="88"
+  height="88"
+  style="border: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999;"
+></iframe>
+<script>
+(function() {
+  var ORIGIN = '${API_ORIGIN}';
+  window.addEventListener('message', function(e) {
+    if (e.origin !== ORIGIN || !e.data || e.data.type !== 'plotai-widget-resize') return;
+    var iframe = document.getElementById('plotai-widget-iframe');
+    if (!iframe) return;
+    if (e.data.fullscreen) {
+      iframe.style.width = '100vw';
+      iframe.style.height = '100dvh';
+      iframe.style.maxWidth = '100vw';
+      iframe.style.maxHeight = '100dvh';
+      iframe.style.bottom = '0';
+      iframe.style.right = '0';
+      iframe.style.left = '0';
+      iframe.style.top = '0';
+      iframe.style.borderRadius = '0';
+    } else {
+      iframe.style.width = e.data.width + 'px';
+      iframe.style.height = e.data.height + 'px';
+      iframe.style.left = 'auto';
+      iframe.style.top = 'auto';
+      iframe.style.bottom = '20px';
+      iframe.style.right = '20px';
+      iframe.style.borderRadius = '';
+    }
+  });
+})();
+<\/script>`;
+
+    document.getElementById('snippet-page').textContent = `<iframe
+  src="${EMBED_ORIGIN}/embed/chat"
+  title="Chat Plot Center"
+  allow="microphone"
+  width="100%"
+  height="560"
+  style="border: none; border-radius: 8px; min-height: 420px; max-height: 100dvh;"
+></iframe>`;
+  </script>
+</body>
+</html>

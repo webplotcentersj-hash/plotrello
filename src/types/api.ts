@@ -1578,7 +1578,7 @@ export interface RrhhPostulacion {
   puesto: string
   categoria_puesto: string | null
   mensaje: string | null
-  cv_url: string
+  cv_url: string | null
   cv_nombre: string | null
   cv_mime: string | null
   estado: RrhhPostulacionEstado

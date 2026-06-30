@@ -104,6 +104,8 @@ export type TotemLiveStartOptions = {
   initialContext?: TotemLiveContextPayload
   /** Stream ya autorizado en el gesto del usuario (tap). */
   micStream?: MediaStream
+  /** Reemplaza el prompt del tótem (p. ej. chat web embebido). */
+  systemInstruction?: string
 }
 
 export class TotemPlotAILive {
@@ -123,7 +125,7 @@ export class TotemPlotAILive {
   }
 
   async start(options: TotemLiveStartOptions): Promise<void> {
-    const { callbacks, initialContext, micStream } = options
+    const { callbacks, initialContext, micStream, systemInstruction: customInstruction } = options
     this.callbacks = callbacks
 
     await this.startMicrophone(micStream)
@@ -133,10 +135,12 @@ export class TotemPlotAILive {
       await this.audioContext.resume()
     }
 
-    const systemInstruction = buildTotemLiveSystemInstruction(
-      initialContext?.contextBlock,
-      initialContext?.plotCenterKnowledge
-    )
+    const systemInstruction =
+      customInstruction?.trim() ||
+      buildTotemLiveSystemInstruction(
+        initialContext?.contextBlock,
+        initialContext?.plotCenterKnowledge
+      )
 
     this.session = await this.ai.live.connect({
       model: LIVE_MODEL,
