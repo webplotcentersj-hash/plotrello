@@ -8,8 +8,8 @@ import {
   getSupabaseServerUrl,
   isPlotLabSameOrigin,
   isProduction
-} from '../lib/security'
-import { verifyStaffJwt } from '../lib/staffJwt'
+} from '../_lib/security'
+import { verifyStaffJwt } from '../_lib/staffJwt'
 import { extractCvMetadata, stripDataUrl } from './_cvExtract'
 
 type Body = {

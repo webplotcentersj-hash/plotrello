@@ -4,8 +4,8 @@ import {
   beginCorsRequest,
   isPlotLabSameOrigin,
   isProduction
-} from '../lib/security'
-import { isStaffJwtConfigured, verifyStaffJwt } from '../lib/staffJwt'
+} from '../_lib/security'
+import { isStaffJwtConfigured, verifyStaffJwt } from '../_lib/staffJwt'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (beginCorsRequest(req, res, 'GET, OPTIONS')) return

@@ -6,7 +6,7 @@ import {
   isMercadoPagoConfigured,
   isMpPaymentApproved,
   parseTotemCheckoutExternalRef
-} from '../lib/mercadopago'
+} from '../_lib/mercadopago'
 import { handleOptions, setCorsRestricted } from '../plotai/plotaiHttp'
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''

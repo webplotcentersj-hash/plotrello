@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getPlotLabAllowedOrigins } from '../lib/plotLabOrigins'
+import { getPlotLabAllowedOrigins } from '../_lib/plotLabOrigins'
 
 /** Clave Gemini solo server-side. Acepta GEMINI_API_KEY o VITE_GEMINI_API_KEY (Vercel). */
 export function getGeminiServerKey(): string {

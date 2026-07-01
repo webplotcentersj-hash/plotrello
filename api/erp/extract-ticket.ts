@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { GoogleGenAI } from '@google/genai'
-import { beginCorsRequest, getGeminiServerKey } from '../lib/security'
+import { beginCorsRequest, getGeminiServerKey } from '../_lib/security'
 
 type Body = {
   mimeType?: string

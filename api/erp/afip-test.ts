@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireStaffSession } from '../lib/staffAuth'
-import { testAfipConexion } from '../../lib/afip/autorizar'
-import { getAfipAccessToken } from '../../lib/afip/client'
-import { getSupabaseAdmin, loadAfipConfigResumen } from '../../lib/afip/supabaseAdmin'
-import type { AfipConfigResumen } from '../../lib/afip/types'
+import { requireStaffSession } from '../_lib/staffAuth'
+import { testAfipConexion } from '../../_lib/afip/autorizar'
+import { getAfipAccessToken } from '../../_lib/afip/client'
+import { getSupabaseAdmin, loadAfipConfigResumen } from '../../_lib/afip/supabaseAdmin'
+import type { AfipConfigResumen } from '../../_lib/afip/types'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

@@ -6,7 +6,7 @@ import {
   beginCorsRequest,
   isPlotLabSameOrigin,
   isProduction
-} from '../lib/security'
+} from '../_lib/security'
 
 type Body = {
   nombre?: string

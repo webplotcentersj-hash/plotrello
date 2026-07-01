@@ -5,8 +5,8 @@ import {
   isMercadoPagoConfigured,
   isMpPaymentApproved,
   parseMpCheckoutExternalRef
-} from '../lib/mercadopago'
-import { tryFulfillGeneralCheckout } from '../lib/mpPaymentRouter'
+} from '../_lib/mercadopago'
+import { tryFulfillGeneralCheckout } from '../_lib/mpPaymentRouter'
 import { handleOptions, setCorsRestricted } from '../plotai/plotaiHttp'
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''

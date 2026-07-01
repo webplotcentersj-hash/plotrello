@@ -7,8 +7,8 @@ import {
   getSupabaseServerUrl,
   isPlotLabSameOrigin,
   isProduction
-} from '../lib/security'
-import { requireStaffSession } from '../lib/staffAuth'
+} from '../_lib/security'
+import { requireStaffSession } from '../_lib/staffAuth'
 import { filterPostulacionesWithPlotAI } from './_cvExtract'
 
 type Body = {
