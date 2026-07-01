@@ -3,7 +3,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
   type ReactNode
 } from 'react'
 import {
@@ -13,7 +12,6 @@ import {
 } from '../utils/legajoDisplayRegistry'
 
 type Ctx = {
-  ready: boolean
   displayNombre: (raw?: string | null, id?: number | null) => string
   displayOperario: (
     value?: string | null,
@@ -24,25 +22,30 @@ type Ctx = {
 const UsuariosDisplayContext = createContext<Ctx | null>(null)
 
 export function UsuariosDisplayProvider({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(false)
-
   useEffect(() => {
     let cancelled = false
-    void loadLegajoDisplayRegistry().then(() => {
-      if (!cancelled) setReady(true)
-    })
+    const run = () => {
+      if (cancelled) return
+      void loadLegajoDisplayRegistry()
+    }
+    const ric =
+      typeof requestIdleCallback === 'function'
+        ? requestIdleCallback(run, { timeout: 12_000 })
+        : null
+    const tid = ric == null ? window.setTimeout(run, 3000) : null
     return () => {
       cancelled = true
+      if (ric != null && typeof cancelIdleCallback === 'function') cancelIdleCallback(ric as number)
+      if (tid != null) window.clearTimeout(tid)
     }
   }, [])
 
   const value = useMemo(
     (): Ctx => ({
-      ready,
       displayNombre: resolveDisplayNombre,
       displayOperario: resolveOperarioAsignadoLabel
     }),
-    [ready]
+    []
   )
 
   return (
@@ -54,7 +57,6 @@ export function useUsuariosDisplay(): Ctx {
   const ctx = useContext(UsuariosDisplayContext)
   if (!ctx) {
     return {
-      ready: false,
       displayNombre: resolveDisplayNombre,
       displayOperario: resolveOperarioAsignadoLabel
     }
@@ -62,7 +64,7 @@ export function useUsuariosDisplay(): Ctx {
   return ctx
 }
 
-/** Suscripción al registro: re-renderiza la app cuando cargan los legajos. */
+/** @deprecated Ya no fuerza re-render global; el registro se carga en idle. */
 export function useUsuariosDisplayBootstrap(): void {
   useUsuariosDisplay()
 }

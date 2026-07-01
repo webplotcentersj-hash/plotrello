@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import apiService from '../services/api'
+import { getApiService } from '../services/apiLoader'
 import { supabase } from '../services/supabaseClient'
 import type { Notification } from '../types/api'
 import { useAuth } from './useAuth'
@@ -36,13 +36,14 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
       return
     }
 
-    const notifRes = await apiService.getUserNotifications(usuario.id, 80)
+    const api = await getApiService()
+    const notifRes = await api.getUserNotifications(usuario.id, 80)
     const notifications = notifRes.success && notifRes.data ? notifRes.data : []
     const fromNotifs = countBadgesFromNotifications(notifications)
 
     let permisosPending = 0
     try {
-      const permRes = await apiService.obtenerSolicitudesPermisos(
+      const permRes = await api.obtenerSolicitudesPermisos(
         canManageRecursosHumanos ? null : usuario.id,
         'pendiente',
         null,
@@ -59,7 +60,7 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
     let atencionPendientes = 0
     if (canAccessAtencionPublico) {
       try {
-        const atRes = await apiService.getAtencionPublicoPendientesCount()
+        const atRes = await api.getAtencionPublicoPendientesCount()
         if (atRes.success && atRes.data) {
           atencionPendientes = atRes.data.total
         }
@@ -76,9 +77,12 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
   }, [usuario?.id, canManageRecursosHumanos, canAccessAtencionPublico])
 
   useEffect(() => {
-    void refresh()
+    const initial = window.setTimeout(() => void refresh(), 2500)
     const interval = window.setInterval(() => void refresh(), 30_000)
-    return () => window.clearInterval(interval)
+    return () => {
+      window.clearTimeout(initial)
+      window.clearInterval(interval)
+    }
   }, [refresh])
 
   useEffect(() => {

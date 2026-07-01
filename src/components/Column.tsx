@@ -64,8 +64,8 @@ const Column = ({
   disableDrag = false
 }: ColumnProps) => {
   const { isAdmin } = useAuth()
-  const INITIAL_VISIBLE_TASKS = 2
-  const LOAD_MORE_STEP = 10
+  const INITIAL_VISIBLE_TASKS = 8
+  const LOAD_MORE_STEP = 12
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_TASKS)
 
   useEffect(() => {
@@ -167,7 +167,11 @@ const Column = ({
                 onDelete={onDeleteTask}
                 sectores={sectores}
                 onMarkDelivered={onMarkDelivered}
-                activity={activityByTaskId.get(task.id) ?? EMPTY_ACTIVITY}
+                activity={
+                  selectedTaskId === task.id
+                    ? activityByTaskId.get(task.id) ?? EMPTY_ACTIVITY
+                    : EMPTY_ACTIVITY
+                }
                 members={members}
                 onMoveTask={onMoveTask}
                 columns={columns}

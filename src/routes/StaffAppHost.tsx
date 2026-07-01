@@ -137,6 +137,7 @@ import type {
 import { getApiService } from '../services/apiLoader'
 import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
 import { historialToActivity } from '../utils/dataMappers'
+import { registerUsuariosLegajoDisplay } from '../utils/legajoDisplayRegistry'
 import { subscribeOrdenesBroadcast } from '../utils/ordenesBroadcast'
 import { routeNeedsBoardSync } from '../utils/boardRouteSync'
 import { writeOrdenesTableroCache } from '../utils/ordenesTableroCache'
@@ -359,6 +360,7 @@ export default function StaffAppHost() {
       }
 
       if (usuariosResp.success && usuariosResp.data) {
+        registerUsuariosLegajoDisplay(usuariosResp.data)
         startTransition(() => setTeamMembers(mapUsuariosToTeamMembers(usuariosResp.data!)))
       } else {
         startTransition(() => setTeamMembers([]))
@@ -377,23 +379,30 @@ export default function StaffAppHost() {
       }
 
       // Historial y materiales: no bloquean el primer paint del tablero.
-      void (async () => {
-        try {
-          const [historialResp, materialesResp] = await Promise.all([
-            api.getHistorialMovimientos({ limit: 50 }),
-            api.getMateriales()
-          ])
-          if (historialResp.success && historialResp.data) {
-            const act = historialResp.data.map((registro) => historialToActivity(registro))
-            startTransition(() => setActivity(act))
+      const loadSecondary = () => {
+        void (async () => {
+          try {
+            const [historialResp, materialesResp] = await Promise.all([
+              api.getHistorialMovimientos({ limit: 50 }),
+              api.getMateriales()
+            ])
+            if (historialResp.success && historialResp.data) {
+              const act = historialResp.data.map((registro) => historialToActivity(registro))
+              startTransition(() => setActivity(act))
+            }
+            if (materialesResp.success && materialesResp.data) {
+              startTransition(() => setMateriales(materialesResp.data!))
+            }
+          } catch {
+            /* secundario */
           }
-          if (materialesResp.success && materialesResp.data) {
-            startTransition(() => setMateriales(materialesResp.data!))
-          }
-        } catch {
-          /* secundario */
-        }
-      })()
+        })()
+      }
+      const ric =
+        typeof requestIdleCallback === 'function'
+          ? requestIdleCallback(loadSecondary, { timeout: 6000 })
+          : null
+      if (ric == null) window.setTimeout(loadSecondary, 1500)
     } catch (error: any) {
       console.error('❌ Error cargando datos desde Supabase:', error)
       const errorMessage = error?.message || 'Error desconocido'
@@ -541,7 +550,7 @@ export default function StaffAppHost() {
 
     const scheduleRealtimeFlush = () => {
       if (realtimeFlushTimerRef.current != null) return
-      realtimeFlushTimerRef.current = window.setTimeout(flushRealtimeOrdenes, 280)
+      realtimeFlushTimerRef.current = window.setTimeout(flushRealtimeOrdenes, 480)
     }
 
     const upsertTaskFromOrden = (orden: OrdenTrabajo) => {

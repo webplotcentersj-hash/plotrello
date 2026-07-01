@@ -7,7 +7,6 @@ import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import { PwaUpdateProvider } from './contexts/PwaUpdateContext'
 import { useAuth, type Usuario } from './hooks/useAuth'
-import { useUsuariosDisplayBootstrap } from './hooks/useUsuariosDisplay'
 import { adminStaffHomeRoute } from './utils/adminStaffHome'
 import {
   isOperarioExternoSession,
@@ -127,7 +126,6 @@ function App() {
 }
 
 function AppInner() {
-  useUsuariosDisplayBootstrap()
   const { usuario, loading, setUsuario } = useAuth()
   const isStaffAuthenticated = isStaffSession()
 
