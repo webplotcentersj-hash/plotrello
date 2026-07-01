@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useMemo, useRef, type MouseEvent } from 'react'
+import { memo, useState, useEffect, useMemo, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Draggable } from '@hello-pangea/dnd'
@@ -25,6 +25,7 @@ import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
+import { getBoardDragEndedAt } from '../utils/boardDragSync'
 import { activityEventsEqual, draggableInlineStylesEqual } from './boardRbdMemo'
 const CONTEXT_MENU_MIN_WIDTH = 200
 const CONTEXT_MENU_TITLE_H = 40
@@ -169,7 +170,6 @@ const TaskCardInner = ({
   }, [isReadOnly])
   const [tagColorsCache, setTagColorsCache] = useState<Map<string, string>>(new Map())
   const [isExpanded, setIsExpanded] = useState(false)
-  const [isMinimized, setIsMinimized] = useState(false)
   const [showChecklist, setShowChecklist] = useState(false)
   const [showAudit, setShowAudit] = useState(false)
   const [showAsignarImpresora, setShowAsignarImpresora] = useState(false)
@@ -192,15 +192,7 @@ const TaskCardInner = ({
   const [marcandoReclamo, setMarcandoReclamo] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ left: number; top: number } | null>(null)
   const [moveSheetOpen, setMoveSheetOpen] = useState(false)
-  const boardDragJustEndedAt = useRef(0)
-  useEffect(() => {
-    const fn = (e: Event) => {
-      const d = (e as CustomEvent<{ dragging?: boolean }>).detail
-      if (d && d.dragging === false) boardDragJustEndedAt.current = Date.now()
-    }
-    window.addEventListener('board-dragging-changed', fn)
-    return () => window.removeEventListener('board-dragging-changed', fn)
-  }, [])
+  const [isMinimized, setIsMinimized] = useState(true)
   const navigate = useNavigate()
   useUsuariosDisplay()
   const { nombreVisible, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
@@ -213,21 +205,6 @@ const TaskCardInner = ({
     const stripped = raw.replace(/^FICHA[\s-_#:]*/i, '')
     return stripped || raw
   })()
-
-  useEffect(() => {
-    // Persistir minimizado por ficha/OP
-    try {
-      const key = `taskcard:minimized:${task.id}`
-      const raw = localStorage.getItem(key)
-      // Por defecto: minimizado (si no hay preferencia guardada)
-      if (raw === null) setIsMinimized(true)
-      else setIsMinimized(raw === '1')
-    } catch {
-      // Fallback: si no se puede leer storage, arrancar minimizado
-      setIsMinimized(true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [task.id])
 
   const toggleMinimized = () => {
     setIsMinimized((prev) => {
@@ -540,7 +517,7 @@ const TaskCardInner = ({
               return
             }
             if (isReadOnly && onInspectReadOnly) {
-              if (Date.now() - boardDragJustEndedAt.current > 420) {
+              if (Date.now() - getBoardDragEndedAt() > 420) {
                 onInspectReadOnly(task)
               }
               return
@@ -549,7 +526,7 @@ const TaskCardInner = ({
               onSelect?.(task.id)
               if (
                 onViewTask &&
-                Date.now() - boardDragJustEndedAt.current > 420
+                Date.now() - getBoardDragEndedAt() > 420
               ) {
                 onViewTask(task)
               }

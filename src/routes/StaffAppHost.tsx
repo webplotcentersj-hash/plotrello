@@ -139,7 +139,7 @@ import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
 import { historialToActivity } from '../utils/dataMappers'
 import { subscribeOrdenesBroadcast } from '../utils/ordenesBroadcast'
 import { routeNeedsBoardSync } from '../utils/boardRouteSync'
-import { readOrdenesTableroCache, writeOrdenesTableroCache } from '../utils/ordenesTableroCache'
+import { writeOrdenesTableroCache } from '../utils/ordenesTableroCache'
 import { ordenesTableroFingerprint, syncTasksFromOrdenesFetch, applyOrdenRealtimeBatch } from '../utils/syncTasksFromOrdenes'
 import { supabase } from '../services/supabaseClient'
 
@@ -322,25 +322,6 @@ export default function StaffAppHost() {
         console.log('🔄 Intentando cargar datos de Supabase...')
       }
 
-      const hydrateFromCache = () => {
-        const cached = readOrdenesTableroCache()
-        if (!cached?.length) return
-        startTransition(() => {
-          setTasks((prev) => {
-            if (prev.length > 0) return prev
-            return syncTasksFromOrdenesFetch(
-              prev,
-              cached.filter((o) => o.id != null)
-            )
-          })
-        })
-      }
-      if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(hydrateFromCache, { timeout: 120 })
-      } else {
-        window.setTimeout(hydrateFromCache, 0)
-      }
-
       const api = await getApiService()
       const [ordenesResp, usuariosResp, sectoresResp] = await Promise.all([
         api.getOrdenes({ attachLineasM2: false, soloActivasEnTablero: true }),
@@ -363,7 +344,7 @@ export default function StaffAppHost() {
         if (import.meta.env.DEV) {
           console.log('✅ Órdenes cargadas:', ordenesResp.data.length)
         }
-      } else if (!readOrdenesTableroCache()?.length) {
+      } else {
         const errorMsg = formatSupabaseStatementTimeoutError(
           ordenesResp.error || 'No se pudieron cargar las órdenes (Supabase no respondió)'
         )
@@ -371,13 +352,6 @@ export default function StaffAppHost() {
         if (import.meta.env.DEV) {
           console.error('❌ Error cargando órdenes:', errorMsg)
         }
-      } else {
-        setDataError(
-          formatSupabaseStatementTimeoutError(
-            ordenesResp.error ||
-              'No se pudo actualizar desde Supabase; mostrando la última copia guardada en este navegador.'
-          )
-        )
       }
 
       if (!silent) {

@@ -15,13 +15,13 @@ import Header from '../components/Header'
 import FiltersBar from '../components/FiltersBar'
 import StatsPanel from '../components/StatsPanel'
 import ActivityFeed from '../components/ActivityFeed'
-import TaskEditModal from '../components/TaskEditModal'
-import TaskViewModal from '../components/TaskViewModal'
-import TaskCreateModal from '../components/TaskCreateModal'
-import SprintOptimizerModal from '../components/SprintOptimizerModal'
+const TaskEditModal = lazy(() => import('../components/TaskEditModal'))
+const TaskViewModal = lazy(() => import('../components/TaskViewModal'))
+const TaskCreateModal = lazy(() => import('../components/TaskCreateModal'))
+const SprintOptimizerModal = lazy(() => import('../components/SprintOptimizerModal'))
 const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
 import InsightsToolsMenu from '../components/InsightsToolsMenu'
-import TaskLibraryModal from '../components/TaskLibraryModal'
+const TaskLibraryModal = lazy(() => import('../components/TaskLibraryModal'))
 import QRPrintView from '../components/QRPrintView'
 import SolicitarProductosModal from '../components/SolicitarProductosModal'
 import SolicitudPermisoModal from '../components/SolicitudPermisoModal'
@@ -1473,45 +1473,53 @@ const BoardPage = ({
       </main>
 
       {taskToView && (
-        <TaskViewModal
-          task={taskToView}
-          teamMembers={teamMembers}
-          sectores={sectores}
-          onClose={() => setTaskViewId(null)}
-        />
+        <Suspense fallback={null}>
+          <TaskViewModal
+            task={taskToView}
+            teamMembers={teamMembers}
+            sectores={sectores}
+            onClose={() => setTaskViewId(null)}
+          />
+        </Suspense>
       )}
 
       {taskToEdit && (
-        <TaskEditModal
-          task={taskToEdit}
-          teamMembers={teamMembers}
-          sectores={sectores}
-          materiales={materialesCatalog}
-          activity={activity}
-          onClose={handleCloseEditModal}
-          onSave={handleSaveTask}
-          onDelete={handleDeleteTask}
-          onEspejoSectoresOpSynced={handleEspejoSectoresOpSynced}
-        />
+        <Suspense fallback={null}>
+          <TaskEditModal
+            task={taskToEdit}
+            teamMembers={teamMembers}
+            sectores={sectores}
+            materiales={materialesCatalog}
+            activity={activity}
+            onClose={handleCloseEditModal}
+            onSave={handleSaveTask}
+            onDelete={handleDeleteTask}
+            onEspejoSectoresOpSynced={handleEspejoSectoresOpSynced}
+          />
+        </Suspense>
       )}
 
       {isCreateModalOpen && (
-        <TaskCreateModal
-          teamMembers={teamMembers}
-          sectores={sectores}
-          materiales={materialesCatalog}
-          onClose={() => setIsCreateModalOpen(false)}
-          onCreate={handleCreateTask}
-        />
+        <Suspense fallback={null}>
+          <TaskCreateModal
+            teamMembers={teamMembers}
+            sectores={sectores}
+            materiales={materialesCatalog}
+            onClose={() => setIsCreateModalOpen(false)}
+            onCreate={handleCreateTask}
+          />
+        </Suspense>
       )}
 
       {isOptimizerModalOpen && (
-        <SprintOptimizerModal
-          tasks={tasks}
-          teamMembers={teamMembers}
-          onClose={() => setIsOptimizerModalOpen(false)}
-          onApplyOptimization={handleApplyOptimizations}
-        />
+        <Suspense fallback={null}>
+          <SprintOptimizerModal
+            tasks={tasks}
+            teamMembers={teamMembers}
+            onClose={() => setIsOptimizerModalOpen(false)}
+            onApplyOptimization={handleApplyOptimizations}
+          />
+        </Suspense>
       )}
 
       {!isPhoneBoard && isChatAIOpen && (
@@ -1581,15 +1589,17 @@ const BoardPage = ({
       )}
 
       {isLibraryModalOpen && (
-        <TaskLibraryModal
-          tasks={tasks}
-          teamMembers={teamMembers}
-          sectores={sectores}
-          columns={BOARD_COLUMNS}
-          onClose={() => setIsLibraryModalOpen(false)}
-          onPersistLibraryEdit={handleSaveTask}
-          onRestartOrdenEnTablero={handleRestartOrdenEnTablero}
-        />
+        <Suspense fallback={null}>
+          <TaskLibraryModal
+            tasks={tasks}
+            teamMembers={teamMembers}
+            sectores={sectores}
+            columns={BOARD_COLUMNS}
+            onClose={() => setIsLibraryModalOpen(false)}
+            onPersistLibraryEdit={handleSaveTask}
+            onRestartOrdenEnTablero={handleRestartOrdenEnTablero}
+          />
+        </Suspense>
       )}
     </div>
   )

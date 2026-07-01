@@ -47,7 +47,7 @@ export async function rrhhPostulacionesListar(filters: {
       p_busqueda: filters.busqueda || null,
       p_estado: filters.estado || null,
       p_puesto: filters.puesto || null,
-      p_limite: filters.limite ?? 40
+        p_limite: filters.limite ?? 30
     })
     if (error) throw error
     const rows = Array.isArray(data) ? data : []

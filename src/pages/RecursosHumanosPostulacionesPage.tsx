@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
+import { useCallback, useEffect, useMemo, useState, memo, startTransition } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import {
   rrhhPostulacionActualizarEstado,
   rrhhPostulacionObtener,
-  rrhhPostulacionesContar,
   rrhhPostulacionesListar
 } from '../services/rrhhPostulacionesService'
 import type { RrhhPostulacion, RrhhPostulacionEstado } from '../types/api'
@@ -56,7 +55,7 @@ function fmtCount(n: number | null | undefined): string {
   return n.toLocaleString('es-AR')
 }
 
-const LIST_PAGE_SIZE = 24
+const LIST_PAGE_SIZE = 16
 
 async function getPlotAiApi() {
   const m = await import('../services/api')
@@ -78,9 +77,6 @@ const RecursosHumanosPostulacionesPage = () => {
   const [aiQuery, setAiQuery] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiScores, setAiScores] = useState<Record<number, { score: number; motivo: string }>>({})
-  const [hovered, setHovered] = useState<RrhhPostulacion | null>(null)
-  const previewRef = useRef<HTMLDivElement | null>(null)
-  const lastPointerRef = useRef({ x: 0, y: 0 })
   const [selected, setSelected] = useState<RrhhPostulacion | null>(null)
   const [detailNotas, setDetailNotas] = useState('')
   const [detailEstado, setDetailEstado] = useState<RrhhPostulacionEstado>('nuevo')
@@ -116,11 +112,6 @@ const RecursosHumanosPostulacionesPage = () => {
       alert(res.error)
     }
     setLoading(false)
-
-    void rrhhPostulacionesContar(filters).then((countRes) => {
-      if (countRes.success && countRes.data != null) setResultCount(countRes.data)
-    })
-
     return data
   }, [usuario?.id, listFilters])
 
@@ -214,33 +205,19 @@ const RecursosHumanosPostulacionesPage = () => {
     setAiScores({})
   }
 
-  const positionPreview = (clientX: number, clientY: number) => {
-    const el = previewRef.current
-    if (!el) return
-    el.style.left = `${Math.min(clientX + 16, window.innerWidth - 340)}px`
-    el.style.top = `${Math.min(clientY + 16, window.innerHeight - 280)}px`
-  }
-
-  const onRowEnter = (row: RrhhPostulacion, e: React.MouseEvent) => {
-    lastPointerRef.current = { x: e.clientX, y: e.clientY }
-    setHovered(row)
-  }
-
-  useEffect(() => {
-    if (!hovered) return
-    const { x, y } = lastPointerRef.current
-    positionPreview(x, y)
-  }, [hovered])
-
   const openDetail = (row: RrhhPostulacion) => {
-    setSelected(row)
-    setDetailEstado(row.estado)
-    setDetailNotas(row.notas_rrhh || '')
+    startTransition(() => {
+      setSelected(row)
+      setDetailEstado(row.estado)
+      setDetailNotas(row.notas_rrhh || '')
+    })
     void rrhhPostulacionObtener(row.id).then((res) => {
       if (res.success && res.data) {
-        setSelected(res.data)
-        setDetailEstado(res.data.estado)
-        setDetailNotas(res.data.notas_rrhh || '')
+        startTransition(() => {
+          setSelected(res.data!)
+          setDetailEstado(res.data!.estado)
+          setDetailNotas(res.data!.notas_rrhh || '')
+        })
       }
     })
   }
@@ -496,8 +473,6 @@ const RecursosHumanosPostulacionesPage = () => {
               <article
                 key={row.id}
                 className={`rrhh-post-card estado-${row.estado}${aiMatch ? ' ai-highlight' : ''}`}
-                onMouseEnter={(e) => onRowEnter(row, e)}
-                onMouseLeave={() => setHovered(null)}
                 onClick={() => openDetail(row)}
               >
                 <div className="rrhh-post-card-top">
@@ -557,41 +532,6 @@ const RecursosHumanosPostulacionesPage = () => {
           >
             Cargar más ({fmtCount(sortedRows.length - visibleLimit)} restantes)
           </button>
-        </div>
-      )}
-
-      {hovered && (
-        <div ref={previewRef} className="rrhh-post-preview">
-          <strong>{hovered.nombre}</strong>
-          <span className="rrhh-post-preview-puesto">{hovered.puesto}</span>
-          {(() => {
-            const ia = (hovered.metadata_ia || {}) as Record<string, unknown>
-            const resumen = typeof ia.resumen === 'string' ? ia.resumen : ''
-            if (resumen) {
-              return <p className="rrhh-post-preview-resumen">{resumen.slice(0, 220)}{resumen.length > 220 ? '…' : ''}</p>
-            }
-            if (isFormularioExterno(hovered)) {
-              const motiv = getFormularioRespuestas(hovered).motivacion_plot
-              if (motiv) {
-                return (
-                  <p className="rrhh-post-preview-resumen">
-                    {motiv.slice(0, 220)}
-                    {motiv.length > 220 ? '…' : ''}
-                  </p>
-                )
-              }
-            }
-            return null
-          })()}
-          {hovered.cv_url ? (
-            <a href={hovered.cv_url} target="_blank" rel="noopener noreferrer" className="rrhh-post-preview-link">
-              Abrir {hovered.cv_nombre || 'CV'}
-            </a>
-          ) : isFormularioExterno(hovered) ? (
-            <p className="rrhh-post-preview-form-hint">Clic en la tarjeta para ver el formulario completo.</p>
-          ) : (
-            <p className="rrhh-post-preview-form-hint">Sin CV adjunto.</p>
-          )}
         </div>
       )}
 
