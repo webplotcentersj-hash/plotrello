@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -61,14 +61,15 @@ const RecursosHumanosPostulacionesPage = () => {
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [busqueda, setBusqueda] = useState('')
-  const [estadoFilter, setEstadoFilter] = useState<RrhhPostulacionEstado | ''>('')
+  const [estadoFilter, setEstadoFilter] = useState<RrhhPostulacionEstado | ''>('nuevo')
   const [puestoFilter, setPuestoFilter] = useState('')
   const [tipoFilter, setTipoFilter] = useState<'' | 'formulario' | 'cv'>('')
   const [aiQuery, setAiQuery] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiScores, setAiScores] = useState<Record<number, { score: number; motivo: string }>>({})
   const [hovered, setHovered] = useState<RrhhPostulacion | null>(null)
-  const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 })
+  const previewRef = useRef<HTMLDivElement | null>(null)
+  const lastPointerRef = useRef({ x: 0, y: 0 })
   const [selected, setSelected] = useState<RrhhPostulacion | null>(null)
   const [detailNotas, setDetailNotas] = useState('')
   const [detailEstado, setDetailEstado] = useState<RrhhPostulacionEstado>('nuevo')
@@ -122,13 +123,6 @@ const RecursosHumanosPostulacionesPage = () => {
     }
     void refreshTotalCount()
   }, [authLoading, canAccess, navigate, refreshTotalCount])
-
-  useEffect(() => {
-    if (authLoading || !canAccess || !usuario?.id) return
-    void load()
-    // Carga inicial: todos los estados
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, canAccess, usuario?.id])
 
   const puestosFlat = useMemo(
     () => PUESTOS_POSTULACION.flatMap((g) => g.puestos),
@@ -214,14 +208,23 @@ const RecursosHumanosPostulacionesPage = () => {
     setAiScores({})
   }
 
-  const onRowEnter = (row: RrhhPostulacion, e: React.MouseEvent) => {
-    setHovered(row)
-    setHoverPos({ x: e.clientX, y: e.clientY })
+  const positionPreview = (clientX: number, clientY: number) => {
+    const el = previewRef.current
+    if (!el) return
+    el.style.left = `${Math.min(clientX + 16, window.innerWidth - 340)}px`
+    el.style.top = `${Math.min(clientY + 16, window.innerHeight - 280)}px`
   }
 
-  const onRowMove = (e: React.MouseEvent) => {
-    setHoverPos({ x: e.clientX, y: e.clientY })
+  const onRowEnter = (row: RrhhPostulacion, e: React.MouseEvent) => {
+    lastPointerRef.current = { x: e.clientX, y: e.clientY }
+    setHovered(row)
   }
+
+  useEffect(() => {
+    if (!hovered) return
+    const { x, y } = lastPointerRef.current
+    positionPreview(x, y)
+  }, [hovered])
 
   const openDetail = (row: RrhhPostulacion) => {
     setSelected(row)
@@ -463,8 +466,8 @@ const RecursosHumanosPostulacionesPage = () => {
         <div className="rrhh-post-empty">
           <p>Usá la barra de búsqueda o los filtros y pulsá <strong>Buscar</strong> para ver candidatos.</p>
           <p className="rrhh-post-empty-hint">
-            Al entrar se listan <strong>todas</strong> las postulaciones. Usá los filtros para acotar por estado,
-            puesto o tipo.
+            Por defecto se buscan postulaciones en estado <strong>Nuevo</strong>. Cambiá el filtro de estado para ver
+            el historial completo.
           </p>
           <button
             type="button"
@@ -500,7 +503,6 @@ const RecursosHumanosPostulacionesPage = () => {
                 key={row.id}
                 className={`rrhh-post-card estado-${row.estado}${aiMatch ? ' ai-highlight' : ''}`}
                 onMouseEnter={(e) => onRowEnter(row, e)}
-                onMouseMove={onRowMove}
                 onMouseLeave={() => setHovered(null)}
                 onClick={() => openDetail(row)}
               >
@@ -553,35 +555,36 @@ const RecursosHumanosPostulacionesPage = () => {
       )}
 
       {hovered && (
-        <div
-          className="rrhh-post-preview"
-          style={{
-            left: Math.min(hoverPos.x + 16, window.innerWidth - 340),
-            top: Math.min(hoverPos.y + 16, window.innerHeight - 420)
-          }}
-        >
+        <div ref={previewRef} className="rrhh-post-preview">
           <strong>{hovered.nombre}</strong>
           <span className="rrhh-post-preview-puesto">{hovered.puesto}</span>
+          {(() => {
+            const ia = (hovered.metadata_ia || {}) as Record<string, unknown>
+            const resumen = typeof ia.resumen === 'string' ? ia.resumen : ''
+            if (resumen) {
+              return <p className="rrhh-post-preview-resumen">{resumen.slice(0, 220)}{resumen.length > 220 ? '…' : ''}</p>
+            }
+            if (isFormularioExterno(hovered)) {
+              const motiv = getFormularioRespuestas(hovered).motivacion_plot
+              if (motiv) {
+                return (
+                  <p className="rrhh-post-preview-resumen">
+                    {motiv.slice(0, 220)}
+                    {motiv.length > 220 ? '…' : ''}
+                  </p>
+                )
+              }
+            }
+            return null
+          })()}
           {hovered.cv_url ? (
-            isPdf(hovered) ? (
-              <iframe title="Vista previa CV" src={`${hovered.cv_url}#toolbar=0`} className="rrhh-post-preview-frame" />
-            ) : (
-              <div className="rrhh-post-preview-fallback">
-                <p>Vista previa no disponible para este formato.</p>
-                <a href={hovered.cv_url} target="_blank" rel="noopener noreferrer">
-                  Abrir {hovered.cv_nombre || 'archivo'}
-                </a>
-              </div>
-            )
+            <a href={hovered.cv_url} target="_blank" rel="noopener noreferrer" className="rrhh-post-preview-link">
+              Abrir {hovered.cv_nombre || 'CV'}
+            </a>
           ) : isFormularioExterno(hovered) ? (
-            <div className="rrhh-post-preview-fallback">
-              <p>Postulación desde formulario extendido (sin CV adjunto).</p>
-              <p className="rrhh-post-preview-form-hint">Clic para ver respuestas completas.</p>
-            </div>
+            <p className="rrhh-post-preview-form-hint">Clic en la tarjeta para ver el formulario completo.</p>
           ) : (
-            <div className="rrhh-post-preview-fallback">
-              <p>Sin CV disponible.</p>
-            </div>
+            <p className="rrhh-post-preview-form-hint">Sin CV adjunto.</p>
           )}
         </div>
       )}

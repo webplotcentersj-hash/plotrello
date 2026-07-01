@@ -42,7 +42,7 @@
       "destination": "/tablet-reloj.html"
     },
     {
-      "source": "/((?!api/|assets/|favicon|manifest\\.json|.*\\.[a-z0-9]+$).*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],

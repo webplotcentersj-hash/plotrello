@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, startTransition } from 'react'
 import { flushSync } from 'react-dom'
-import { Routes, Route, useNavigate, Navigate, useParams } from 'react-router-dom'
+import { Routes, Route, useNavigate, Navigate, useParams, useLocation } from 'react-router-dom'
 import OperarioExternoGate from '../features/work-pool/OperarioExternoGate'
 import OperarioExternoHomeRedirect from '../features/work-pool/OperarioExternoHomeRedirect'
 import type { TaskStatus } from '../types/board'
@@ -181,6 +181,12 @@ const mapUsuariosToTeamMembers = (usuarios: UsuarioRecord[]): TeamMember[] =>
 export default function StaffAppHost() {
   useUsuariosDisplayBootstrap()
   const navigate = useNavigate()
+  const location = useLocation()
+  const pauseBoardRealtimeRef = useRef(false)
+  pauseBoardRealtimeRef.current =
+    location.pathname.startsWith('/rrhh') ||
+    location.pathname.startsWith('/clientes-web') ||
+    location.pathname.startsWith('/erp')
   const [tasks, setTasks] = useState<Task[]>([])
   const [activity, setActivity] = useState<ActivityEvent[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
@@ -448,6 +454,17 @@ export default function StaffAppHost() {
     void loadRemoteData()
   }, [loadRemoteData])
 
+  // Al salir de módulos pesados (RRHH, etc.), refrescar tablero sin bloquear la UI.
+  const wasBoardRealtimePausedRef = useRef(pauseBoardRealtimeRef.current)
+  useEffect(() => {
+    const wasPaused = wasBoardRealtimePausedRef.current
+    const isPaused = pauseBoardRealtimeRef.current
+    wasBoardRealtimePausedRef.current = isPaused
+    if (wasPaused && !isPaused) {
+      void loadRemoteData({ silent: true })
+    }
+  }, [location.pathname, loadRemoteData])
+
   // Tras procesar entrega (mostrador/tablet): refrescar tablero por si el realtime llega tarde
   useEffect(() => {
     const onOrdenEntregada = () => {
@@ -460,6 +477,7 @@ export default function StaffAppHost() {
   /** Otra pestaña creó/borró OP: Supabase Realtime puede no llegar; BroadcastChannel + refetch silencioso. */
   useEffect(() => {
     const unsub = subscribeOrdenesBroadcast(() => {
+      if (pauseBoardRealtimeRef.current) return
       if (ordenBroadcastRefreshTimerRef.current != null) {
         window.clearTimeout(ordenBroadcastRefreshTimerRef.current)
       }
@@ -542,6 +560,7 @@ export default function StaffAppHost() {
 
     const upsertTaskFromOrden = (orden: OrdenTrabajo) => {
       if (!orden?.id) return
+      if (pauseBoardRealtimeRef.current) return
       if (isBoardDraggingRef.current) {
         needsSyncAfterDragRef.current = true
         return
@@ -577,40 +596,42 @@ export default function StaffAppHost() {
         }
       }
       
-      setTasks((prev) => {
-        const next = [...prev]
-        const idx = next.findIndex((task) => task.id === taskId)
-        const mapped =
-          idx >= 0 ? taskFromRealtimeOrdenUpdate(next[idx], orden) : ordenToTask(orden)
+      startTransition(() => {
+        setTasks((prev) => {
+          const next = [...prev]
+          const idx = next.findIndex((task) => task.id === taskId)
+          const mapped =
+            idx >= 0 ? taskFromRealtimeOrdenUpdate(next[idx], orden) : ordenToTask(orden)
 
-        if (idx >= 0) {
-          // ⚠️ CRÍTICO: Preservar el status actual si la tarea fue editada recientemente
-          // Esto evita que la ficha se mueva cuando solo se actualiza la etapa u otros campos
-          const recentEdit = recentUserEdits.get(taskId)
-          if (recentEdit) {
-            const timeSinceEdit = Date.now() - recentEdit.timestamp
-            // Si la edición fue hace menos de 5 segundos, preservar el status
-            if (timeSinceEdit < 5000) {
-              mapped.status = recentEdit.status
-              if (import.meta.env.DEV) {
-                console.log(
-                  `🔒 Preservando status de edición (${recentEdit.status}) para ${taskId} - editado hace ${timeSinceEdit}ms`
-                )
+          if (idx >= 0) {
+            // ⚠️ CRÍTICO: Preservar el status actual si la tarea fue editada recientemente
+            // Esto evita que la ficha se mueva cuando solo se actualiza la etapa u otros campos
+            const recentEdit = recentUserEdits.get(taskId)
+            if (recentEdit) {
+              const timeSinceEdit = Date.now() - recentEdit.timestamp
+              // Si la edición fue hace menos de 5 segundos, preservar el status
+              if (timeSinceEdit < 5000) {
+                mapped.status = recentEdit.status
+                if (import.meta.env.DEV) {
+                  console.log(
+                    `🔒 Preservando status de edición (${recentEdit.status}) para ${taskId} - editado hace ${timeSinceEdit}ms`
+                  )
+                }
+              } else {
+                // Si pasaron más de 5 segundos, limpiar el tracking
+                recentUserEdits.delete(taskId)
               }
-            } else {
-              // Si pasaron más de 5 segundos, limpiar el tracking
-              recentUserEdits.delete(taskId)
             }
+            // No forzar mapped.status = taskActual.status cuando el sector coincide: rompe OP multi-sector
+            // (realtime trae la columna correcta y el local aún tenía status viejo → rebote). Ya cubren
+            // recentUserMoves (drag) y recentUserEdits (modal).
+            next[idx] = mapped
+          } else {
+            next.unshift(mapped)
           }
-          // No forzar mapped.status = taskActual.status cuando el sector coincide: rompe OP multi-sector
-          // (realtime trae la columna correcta y el local aún tenía status viejo → rebote). Ya cubren
-          // recentUserMoves (drag) y recentUserEdits (modal).
-          next[idx] = mapped
-        } else {
-          next.unshift(mapped)
-        }
 
-        return next.filter((task) => !isTaskHiddenFromKanban(task))
+          return next.filter((task) => !isTaskHiddenFromKanban(task))
+        })
       })
     }
 
@@ -622,23 +643,29 @@ export default function StaffAppHost() {
 
     const removeTask = (orden: OrdenTrabajo | null) => {
       if (!orden?.id) return
+      if (pauseBoardRealtimeRef.current) return
       if (isBoardDraggingRef.current) {
         needsSyncAfterDragRef.current = true
         return
       }
-      setTasks((prev) => prev.filter((task) => task.id !== orden.id!.toString()))
+      startTransition(() => {
+        setTasks((prev) => prev.filter((task) => task.id !== orden.id!.toString()))
+      })
     }
 
     const addActivityFromRegistro = (registro: HistorialMovimiento) => {
       if (!registro?.id) return
+      if (pauseBoardRealtimeRef.current) return
       if (isBoardDraggingRef.current) {
         needsSyncAfterDragRef.current = true
         return
       }
       const mapped = historialToActivity(registro)
-      setActivity((prev) => {
-        const withoutDuplicate = prev.filter((event) => event.id !== mapped.id)
-        return [mapped, ...withoutDuplicate].slice(0, 300)
+      startTransition(() => {
+        setActivity((prev) => {
+          const withoutDuplicate = prev.filter((event) => event.id !== mapped.id)
+          return [mapped, ...withoutDuplicate].slice(0, 300)
+        })
       })
     }
 
