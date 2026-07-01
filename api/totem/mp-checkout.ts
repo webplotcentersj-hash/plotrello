@@ -6,8 +6,8 @@ import {
   getMercadoPagoWebhookBaseUrl,
   isMercadoPagoConfigured,
   mpInitPoint
-} from '../../lib/api/mercadopago'
-import { getPlotLabAllowedOrigins, PLOT_LAB_PRIMARY_ORIGIN } from '../../lib/api/plotLabOrigins'
+} from '../lib/mercadopago'
+import { getPlotLabAllowedOrigins, PLOT_LAB_PRIMARY_ORIGIN } from '../lib/plotLabOrigins'
 import { handleOptions, setCorsRestricted } from '../plotai/plotaiHttp'
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''

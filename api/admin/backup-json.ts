@@ -6,7 +6,7 @@ import {
   handleOptions,
   requireBearerSecret,
   setCorsRestricted
-} from '../../lib/api/security'
+} from '../lib/security'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsRestricted(req, res, 'GET, OPTIONS')

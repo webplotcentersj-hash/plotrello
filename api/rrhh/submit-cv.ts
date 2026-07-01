@@ -7,7 +7,7 @@ import {
   beginCorsRequest,
   isPlotLabSameOrigin,
   isProduction
-} from '../../lib/api/security'
+} from '../lib/security'
 import { extractCvMetadata } from './_cvExtract'
 
 const ALLOWED_EXT = ['pdf', 'doc', 'docx']

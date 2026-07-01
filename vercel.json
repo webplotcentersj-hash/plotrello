@@ -2,7 +2,7 @@
   "crons": [],
   "functions": {
     "api/**": {
-      "includeFiles": "lib/**,node_modules/@google/genai/**"
+      "includeFiles": "node_modules/@google/genai/**"
     },
     "api/plotai/chat-public.ts": { "maxDuration": 60 },
     "api/plotai/reloj-tablet-identificar.ts": { "maxDuration": 60 },

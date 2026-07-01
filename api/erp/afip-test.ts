@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireStaffSession } from '../../lib/api/staffAuth'
+import { requireStaffSession } from '../lib/staffAuth'
 import { testAfipConexion } from '../../lib/afip/autorizar'
 import { getAfipAccessToken } from '../../lib/afip/client'
 import { getSupabaseAdmin, loadAfipConfigResumen } from '../../lib/afip/supabaseAdmin'
