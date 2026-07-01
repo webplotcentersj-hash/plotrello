@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import apiService from '../services/api'
+import {
+  rrhhPostulacionActualizarEstado,
+  rrhhPostulacionObtener,
+  rrhhPostulacionesContar,
+  rrhhPostulacionesListar
+} from '../services/rrhhPostulacionesService'
 import type { RrhhPostulacion, RrhhPostulacionEstado } from '../types/api'
 import { PUESTOS_POSTULACION } from '../data/puestosPostulacion'
 import { buildWhatsappLink } from '../utils/whatsappLink'
@@ -12,7 +17,6 @@ import {
   getFormularioRespuestas,
   isFormularioExterno
 } from '../utils/rrhhFormularioExternoDisplay'
-import { downloadPostulacionFormularioPdf } from '../utils/rrhhPostulacionFormularioPdf'
 import './RecursosHumanosPostulacionesPage.css'
 
 const ESTADOS: { value: RrhhPostulacionEstado | ''; label: string }[] = [
@@ -52,7 +56,12 @@ function fmtCount(n: number | null | undefined): string {
   return n.toLocaleString('es-AR')
 }
 
-const LIST_PAGE_SIZE = 36
+const LIST_PAGE_SIZE = 24
+
+async function getPlotAiApi() {
+  const m = await import('../services/api')
+  return m.default
+}
 
 const RecursosHumanosPostulacionesPage = () => {
   const navigate = useNavigate()
@@ -78,61 +87,47 @@ const RecursosHumanosPostulacionesPage = () => {
   const [saving, setSaving] = useState(false)
   const [reanalizando, setReanalizando] = useState(false)
   const [analizandoFormulario, setAnalizandoFormulario] = useState(false)
-  const [totalCount, setTotalCount] = useState<number | null>(null)
   const [resultCount, setResultCount] = useState<number | null>(null)
   const [visibleLimit, setVisibleLimit] = useState(LIST_PAGE_SIZE)
 
-  const refreshTotalCount = useCallback(async () => {
-    if (!usuario?.id) return
-    const res = await apiService.rrhhPostulacionesContar({ usuarioId: usuario.id })
-    if (res.success && res.data != null) setTotalCount(res.data)
-  }, [usuario?.id])
+  const listFilters = useCallback(
+    () => ({
+      usuarioId: usuario!.id,
+      busqueda: busqueda.trim() || undefined,
+      estado: estadoFilter || undefined,
+      puesto: puestoFilter || undefined
+    }),
+    [usuario?.id, busqueda, estadoFilter, puestoFilter]
+  )
 
   const load = useCallback(async (): Promise<RrhhPostulacion[]> => {
     if (!usuario?.id) return []
     setLoading(true)
-    const filters = {
-      usuarioId: usuario.id,
-      busqueda: busqueda.trim() || undefined,
-      estado: estadoFilter || undefined,
-      puesto: puestoFilter || undefined
-    }
-    const [res, countRes] = await Promise.all([
-      apiService.rrhhPostulacionesListar(filters),
-      apiService.rrhhPostulacionesContar(filters)
-    ])
+    const filters = listFilters()
+    const res = await rrhhPostulacionesListar(filters)
     const data = res.success && res.data ? res.data : []
     if (res.success) {
       setRows(data)
       setHasSearched(true)
       setAiScores({})
       setVisibleLimit(LIST_PAGE_SIZE)
+      setResultCount(data.length)
     } else if (res.error) {
       alert(res.error)
     }
-    if (countRes.success && countRes.data != null) {
-      setResultCount(countRes.data)
-    } else {
-      setResultCount(data.length)
-    }
     setLoading(false)
+
+    void rrhhPostulacionesContar(filters).then((countRes) => {
+      if (countRes.success && countRes.data != null) setResultCount(countRes.data)
+    })
+
     return data
-  }, [usuario?.id, busqueda, estadoFilter, puestoFilter])
+  }, [usuario?.id, listFilters])
 
   useEffect(() => {
     if (authLoading) return
-    if (!canAccess) {
-      navigate('/')
-      return
-    }
-    const run = () => void refreshTotalCount()
-    if (typeof requestIdleCallback === 'function') {
-      const id = requestIdleCallback(run, { timeout: 3000 })
-      return () => cancelIdleCallback(id)
-    }
-    const tid = window.setTimeout(run, 400)
-    return () => window.clearTimeout(tid)
-  }, [authLoading, canAccess, navigate, refreshTotalCount])
+    if (!canAccess) navigate('/')
+  }, [authLoading, canAccess, navigate])
 
   const puestosFlat = useMemo(
     () => PUESTOS_POSTULACION.flatMap((g) => g.puestos),
@@ -195,7 +190,8 @@ const RecursosHumanosPostulacionesPage = () => {
         return
       }
 
-      const res = await apiService.rrhhPostulacionesFiltrarPlotAI(q, buildCandidatosParaIA(candidatos))
+      const api = await getPlotAiApi()
+      const res = await api.rrhhPostulacionesFiltrarPlotAI(q, buildCandidatosParaIA(candidatos))
       if (res.success && res.data?.resultados) {
         const map: Record<number, { score: number; motivo: string }> = {}
         res.data.resultados.forEach((r) => {
@@ -240,26 +236,19 @@ const RecursosHumanosPostulacionesPage = () => {
     setSelected(row)
     setDetailEstado(row.estado)
     setDetailNotas(row.notas_rrhh || '')
-    if (isFormularioExterno(row) && Object.keys(getFormularioRespuestas(row)).length <= 1) {
-      void apiService.rrhhPostulacionObtener(row.id).then((res) => {
-        if (res.success && res.data) {
-          setSelected(res.data)
-          setDetailEstado(res.data.estado)
-          setDetailNotas(res.data.notas_rrhh || '')
-        }
-      })
-    }
+    void rrhhPostulacionObtener(row.id).then((res) => {
+      if (res.success && res.data) {
+        setSelected(res.data)
+        setDetailEstado(res.data.estado)
+        setDetailNotas(res.data.notas_rrhh || '')
+      }
+    })
   }
 
   const saveDetail = async () => {
     if (!selected || !usuario?.id) return
     setSaving(true)
-    const res = await apiService.rrhhPostulacionActualizarEstado(
-      usuario.id,
-      selected.id,
-      detailEstado,
-      detailNotas
-    )
+    const res = await rrhhPostulacionActualizarEstado(usuario.id, selected.id, detailEstado, detailNotas)
     if (res.success && res.data) {
       setRows((prev) => prev.map((r) => (r.id === res.data!.id ? res.data! : r)))
       setSelected(res.data)
@@ -272,22 +261,13 @@ const RecursosHumanosPostulacionesPage = () => {
   const reanalizar = async () => {
     if (!selected || !usuario?.id || !selected.cv_url) return
     setReanalizando(true)
-    const res = await apiService.rrhhPostulacionReanalizarCv(
-      selected.id,
-      selected.cv_url,
-      selected.puesto
-    )
+    const api = await getPlotAiApi()
+    const res = await api.rrhhPostulacionReanalizarCv(selected.id, selected.cv_url, selected.puesto)
     if (res.success) {
-      const listRes = await apiService.rrhhPostulacionesListar({
-        usuarioId: usuario.id,
-        busqueda: busqueda.trim() || undefined,
-        estado: estadoFilter || undefined,
-        puesto: puestoFilter || undefined
-      })
-      if (listRes.success && listRes.data) {
-        setRows(listRes.data)
-        const updated = listRes.data.find((r) => r.id === selected.id)
-        if (updated) setSelected(updated)
+      const full = await rrhhPostulacionObtener(selected.id)
+      if (full.success && full.data) {
+        setSelected(full.data)
+        setRows((prev) => prev.map((r) => (r.id === full.data!.id ? full.data! : r)))
       }
     } else {
       alert(res.error || 'Error al analizar')
@@ -298,18 +278,13 @@ const RecursosHumanosPostulacionesPage = () => {
   const analizarFormulario = async () => {
     if (!selected || !usuario?.id) return
     setAnalizandoFormulario(true)
-    const res = await apiService.rrhhPostulacionAnalizarFormulario(selected.id, selected)
+    const api = await getPlotAiApi()
+    const res = await api.rrhhPostulacionAnalizarFormulario(selected.id, selected)
     if (res.success) {
-      const listRes = await apiService.rrhhPostulacionesListar({
-        usuarioId: usuario.id,
-        busqueda: busqueda.trim() || undefined,
-        estado: estadoFilter || undefined,
-        puesto: puestoFilter || undefined
-      })
-      if (listRes.success && listRes.data) {
-        setRows(listRes.data)
-        const updated = listRes.data.find((r) => r.id === selected.id)
-        if (updated) setSelected(updated)
+      const full = await rrhhPostulacionObtener(selected.id)
+      if (full.success && full.data) {
+        setSelected(full.data)
+        setRows((prev) => prev.map((r) => (r.id === full.data!.id ? full.data! : r)))
       }
     } else {
       alert(res.error || 'Error al analizar formulario')
@@ -374,11 +349,6 @@ const RecursosHumanosPostulacionesPage = () => {
         <div>
           <div className="rrhh-post-title-row">
             <h1>📄 Postulaciones y CVs</h1>
-            {totalCount != null && (
-              <span className="rrhh-post-count-badge" title="Total en la base">
-                {fmtCount(totalCount)} en total
-              </span>
-            )}
             {hasSearched && resultCount != null && (
               <span className="rrhh-post-count-badge rrhh-post-count-badge--results" title="Resultados de la búsqueda">
                 {fmtCount(resultCount)} resultado{resultCount === 1 ? '' : 's'}
@@ -697,7 +667,11 @@ const RecursosHumanosPostulacionesPage = () => {
                     <button
                       type="button"
                       className="rrhh-post-btn-outline"
-                      onClick={() => downloadPostulacionFormularioPdf(selected)}
+                      onClick={() => {
+                        void import('../utils/rrhhPostulacionFormularioPdf').then((m) =>
+                          m.downloadPostulacionFormularioPdf(selected)
+                        )
+                      }}
                     >
                       Descargar PDF
                     </button>
@@ -736,7 +710,9 @@ const RecursosHumanosPostulacionesPage = () => {
                 )}
                 {renderPlotAiMeta()}
                 {!selectedEsFormulario && selected.cv_url && isPdf(selected) && (
-                  <iframe title="CV" src={`${selected.cv_url}#toolbar=0`} className="rrhh-post-modal-pdf" />
+                  <a href={selected.cv_url} target="_blank" rel="noopener noreferrer" className="rrhh-post-btn-outline">
+                    Abrir CV en nueva pestaña
+                  </a>
                 )}
               </div>
             </div>

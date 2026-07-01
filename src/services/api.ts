@@ -23026,7 +23026,7 @@ class ApiService {
         p_busqueda: filters.busqueda || null,
         p_estado: filters.estado || null,
         p_puesto: filters.puesto || null,
-        p_limite: filters.limite ?? 80
+        p_limite: filters.limite ?? 40
       })
       if (error) throw error
       const rows = Array.isArray(data) ? data : []
