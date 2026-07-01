@@ -30,7 +30,7 @@ import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../t
 import type { MaterialRecord, SectorRecord } from '../types/api'
 import { useAuth } from '../hooks/useAuth'
 import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
-import apiService from '../services/api'
+import { getApiService } from '../services/apiLoader'
 import {
   ordenToTask,
   parseTaskIdToOrdenId,
@@ -281,7 +281,7 @@ const BoardPage = ({
     if (!ordenId) return
 
     try {
-      const response = await apiService.setOrdenWorkingUser(ordenId, workingUser)
+      const response = await (await getApiService()).setOrdenWorkingUser(ordenId, workingUser)
       if (!response.success) {
         console.error('Error actualizando trabajador activo:', response.error)
       }
@@ -479,7 +479,7 @@ const BoardPage = ({
         return
       }
       try {
-        const archResp = await apiService.getArchivosOrden(ordenId)
+        const archResp = await (await getApiService()).getArchivosOrden(ordenId)
         const rows =
           archResp.success && archResp.data
             ? (archResp.data as Array<{ titulo?: string; url?: string }>)
@@ -548,7 +548,7 @@ const BoardPage = ({
 
       const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
       try {
-        const response = await apiService.moveOrden(ordenId, nuevoEstado, usuarioId)
+        const response = await (await getApiService()).moveOrden(ordenId, nuevoEstado, usuarioId)
         if (!response.success) {
           setActionError(response.error || 'No se pudo actualizar la orden en Supabase.')
           setTasks((prev) =>
@@ -822,9 +822,9 @@ const BoardPage = ({
         }
       }
       
-      const response = await apiService.updateOrden(ordenId, payload)
+      const response = await (await getApiService()).updateOrden(ordenId, payload)
       if (response.success && response.data) {
-        const lineasRes = await apiService.replaceOrdenLineasM2(
+        const lineasRes = await (await getApiService()).replaceOrdenLineasM2(
           ordenId,
           updatedTask.lineasMetrosM2 ?? []
         )
@@ -869,13 +869,13 @@ const BoardPage = ({
         const espejoOn = updatedTask.espejoSectoresOp === true && sectLenEspejo >= 2
         let propagatedSiblingOrdenIds: number[] = []
         if (espejoOn) {
-          const esp = await apiService.propagateEspejoGrupoOrden(ordenId, updatedTask.opNumber, payload)
+          const esp = await (await getApiService()).propagateEspejoGrupoOrden(ordenId, updatedTask.opNumber, payload)
           if (!esp.success && esp.error) {
             console.warn('Modo espejo:', esp.error)
           }
           propagatedSiblingOrdenIds = esp.propagatedIds
           for (const sid of propagatedSiblingOrdenIds) {
-            const lrEspejo = await apiService.replaceOrdenLineasM2(sid, updatedTask.lineasMetrosM2 ?? [])
+            const lrEspejo = await (await getApiService()).replaceOrdenLineasM2(sid, updatedTask.lineasMetrosM2 ?? [])
             if (!lrEspejo.success) {
               console.warn('No se pudieron guardar las líneas m² (espejo):', sid, lrEspejo.error)
             }
@@ -910,7 +910,7 @@ const BoardPage = ({
         const sectoresAnt = JSON.stringify(taskOriginal?.sectores ?? [])
         const sectoresNue = JSON.stringify(updatedTask.sectores ?? [])
         if (sectoresAnt !== sectoresNue) {
-          const syncRes = await apiService.syncOpGrupoSectoresYFichas(ordenId)
+          const syncRes = await (await getApiService()).syncOpGrupoSectoresYFichas(ordenId)
           if (!syncRes.success) {
             console.warn('Sincronización sectores OP:', syncRes.error)
           }
@@ -950,7 +950,7 @@ const BoardPage = ({
         if (!ok) return
       }
 
-      const response = await apiService.restartOrdenParaTablero(ordenId)
+      const response = await (await getApiService()).restartOrdenParaTablero(ordenId)
       if (!response.success || !response.data) {
         const msg = response.error || 'No se pudo restaurar la OP.'
         setActionError(msg)
@@ -1009,7 +1009,7 @@ const BoardPage = ({
 
     const ordenId = parseTaskIdToOrdenId(taskId)
     if (ordenId) {
-      const response = await apiService.deleteOrden(ordenId, {
+      const response = await (await getApiService()).deleteOrden(ordenId, {
         motivo: motivo.trim(),
         usuarioId: usuario?.id ?? null,
         usuarioNombre: nombreVisible || null,
@@ -1044,7 +1044,7 @@ const BoardPage = ({
     console.log(`📦 Marcando orden ${ordenId} como entregado: ${delivered}`)
 
     try {
-      const response = await apiService.marcarEntregado(ordenId, delivered)
+      const response = await (await getApiService()).marcarEntregado(ordenId, delivered)
       
       if (response.success) {
         console.log(`✅ Orden ${ordenId} marcada como entregado: ${delivered}`)
@@ -1097,7 +1097,7 @@ const BoardPage = ({
       })
       const payload = taskToOrdenPayload(newTaskData)
       console.log('📤 Payload a enviar:', payload)
-      const response = await apiService.createOrden(payload)
+      const response = await (await getApiService()).createOrden(payload)
       console.log('📥 Respuesta de createOrden:', response)
       if (response.success && response.data) {
         let createdTask = ordenToTask(response.data)
@@ -1132,7 +1132,7 @@ const BoardPage = ({
         }
 
         if (ordenId) {
-          const lineasRes = await apiService.replaceOrdenLineasM2(
+          const lineasRes = await (await getApiService()).replaceOrdenLineasM2(
             ordenId,
             newTaskData.lineasMetrosM2 ?? []
           )
@@ -1152,7 +1152,7 @@ const BoardPage = ({
         if (ordenId && newTaskData.metrosCuadrados !== undefined && newTaskData.metrosCuadrados !== null) {
           const metros = Number(newTaskData.metrosCuadrados)
           if (!Number.isNaN(metros) && metros > 0) {
-            await apiService.actualizarMetrosOrden(ordenId, metros, {
+            await (await getApiService()).actualizarMetrosOrden(ordenId, metros, {
               motivo: 'Carga inicial de metros cuadrados (m²) al crear la OP.'
             })
           }
@@ -1161,7 +1161,7 @@ const BoardPage = ({
         // Asociar brief si hay token seleccionado
         if ((newTaskData as any).briefToken && ordenId) {
           try {
-            await apiService.asociarBriefAOrden((newTaskData as any).briefToken, ordenId)
+            await (await getApiService()).asociarBriefAOrden((newTaskData as any).briefToken, ordenId)
             console.log('✅ Brief asociado a la OP:', ordenId)
           } catch (error) {
             console.error('Error asociando brief a la OP:', error)
@@ -1172,7 +1172,7 @@ const BoardPage = ({
         if (newTaskData.attachments && Array.isArray(newTaskData.attachments) && ordenId) {
           for (const attachment of newTaskData.attachments) {
             if (attachment.remoteUrl && !attachment.uploading) {
-              await apiService.guardarArchivoOrden(ordenId, attachment.name, attachment.remoteUrl)
+              await (await getApiService()).guardarArchivoOrden(ordenId, attachment.name, attachment.remoteUrl)
             }
           }
         }

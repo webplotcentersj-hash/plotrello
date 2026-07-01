@@ -120,6 +120,20 @@ const RecursosHumanosPostulacionesPage = () => {
     if (!canAccess) navigate('/')
   }, [authLoading, canAccess, navigate])
 
+  useEffect(() => {
+    if (authLoading || !canAccess || !usuario?.id) return
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      startTransition(() => {
+        if (!cancelled) void load()
+      })
+    }, 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [authLoading, canAccess, usuario?.id, load])
+
   const puestosFlat = useMemo(
     () => PUESTOS_POSTULACION.flatMap((g) => g.puestos),
     []
@@ -435,7 +449,7 @@ const RecursosHumanosPostulacionesPage = () => {
         <div className="rrhh-post-loading">Buscando postulaciones…</div>
       ) : !hasSearched ? (
         <div className="rrhh-post-empty">
-          <p>Usá la barra de búsqueda o los filtros y pulsá <strong>Buscar</strong> para ver candidatos.</p>
+          <p>Cargando candidatos…</p>
           <p className="rrhh-post-empty-hint">
             Por defecto se buscan postulaciones en estado <strong>Nuevo</strong>. Cambiá el filtro de estado para ver
             el historial completo.

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import apiService from '../services/api'
+import { getApiService } from '../services/apiLoader'
 import type { Subtask } from '../types/board'
 import './Subtasks.css'
 
@@ -27,7 +27,7 @@ const Subtasks = ({ ordenId, readOnly = false }: SubtasksProps) => {
 
   const fetchSubtasks = async () => {
     setLoading(true)
-    const res = await apiService.getSubitems(ordenId)
+    const res = await (await getApiService()).getSubitems(ordenId)
     if (res.success && res.data) {
       setSubtasks(
         res.data.map((s) => ({
@@ -53,7 +53,7 @@ const Subtasks = ({ ordenId, readOnly = false }: SubtasksProps) => {
 
   const handleAdd = async () => {
     if (!newTitle.trim()) return
-    const res = await apiService.createSubitem({
+    const res = await (await getApiService()).createSubitem({
       idOrden: ordenId,
       titulo: newTitle.trim(),
       duracionEstimadaMin: newEstimate
@@ -83,7 +83,7 @@ const Subtasks = ({ ordenId, readOnly = false }: SubtasksProps) => {
   const handleToggle = async (id: string, done: boolean) => {
     const sub = subtasks.find((s) => s.id === id)
     const startedAt = sub?.startedAt
-    const res = await apiService.toggleSubitemDone(Number(id), done, startedAt)
+    const res = await (await getApiService()).toggleSubitemDone(Number(id), done, startedAt)
     if (res.success) {
       setSubtasks((prev) =>
         prev.map((s) =>
@@ -104,7 +104,7 @@ const Subtasks = ({ ordenId, readOnly = false }: SubtasksProps) => {
   }
 
   const handlePlay = async (id: string) => {
-    const res = await apiService.startSubitemTimer(Number(id))
+    const res = await (await getApiService()).startSubitemTimer(Number(id))
     if (res.success) {
       const now = new Date().toISOString()
       setSubtasks((prev) =>
@@ -117,7 +117,7 @@ const Subtasks = ({ ordenId, readOnly = false }: SubtasksProps) => {
 
   const handlePause = async (id: string) => {
     const sub = subtasks.find((s) => s.id === id)
-    const res = await apiService.stopSubitemTimer(Number(id), sub?.startedAt)
+    const res = await (await getApiService()).stopSubitemTimer(Number(id), sub?.startedAt)
     if (res.success) {
       setSubtasks((prev) =>
         prev.map((s) =>

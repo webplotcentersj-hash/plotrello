@@ -6,7 +6,7 @@ import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dn
 import clsx from 'clsx'
 import type { ActivityEvent, Task, TaskStatus, TeamMember, ColumnConfig } from '../types/board'
 import type { SectorRecord } from '../types/api'
-import apiService from '../services/api'
+import { getApiService } from '../services/apiLoader'
 import { parseTaskIdToOrdenId } from '../utils/dataMappers'
 import { useAuth } from '../hooks/useAuth'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
@@ -778,7 +778,7 @@ const TaskCardInner = ({
                   setMarcandoReclamo(true)
                   try {
                     const nombre = nombreVisible?.trim() || 'Usuario'
-                    const r = await apiService.marcarReclamoOrden(
+                    const r = await (await getApiService()).marcarReclamoOrden(
                       ordenId,
                       detalle.trim() || undefined,
                       nombre
@@ -811,7 +811,7 @@ const TaskCardInner = ({
                   setMarcandoReclamo(true)
                   try {
                     const nombre = nombreVisible?.trim() || 'Usuario'
-                    const r = await apiService.desmarcarReclamoOrden(ordenId, nombre)
+                    const r = await (await getApiService()).desmarcarReclamoOrden(ordenId, nombre)
                     if (!r.success) {
                       window.alert(r.error || 'No se pudo quitar el reclamo.')
                     }
@@ -838,7 +838,7 @@ const TaskCardInner = ({
                   e.stopPropagation()
                   // Obtener los datos correctos de la orden
                   try {
-                    const response = await apiService.getOrdenByOpNumber(task.opNumber!)
+                    const response = await (await getApiService()).getOrdenByOpNumber(task.opNumber!)
                     if (response.success && response.data) {
                       setQrPrintData({
                         opNumber: response.data.numero_op,
@@ -1318,7 +1318,7 @@ const TaskCardInner = ({
                         setShowAsignarImpresora(true)
                         setMetrosManuales(task.metrosCuadrados?.toString() || '')
                         // Cargar impresoras disponibles
-                        const response = await apiService.getImpresoras()
+                        const response = await (await getApiService()).getImpresoras()
                         if (response.success && response.data) {
                           setImpresorasDisponibles(response.data.filter((imp: any) => 
                             imp.estado !== 'Mantenimiento' && imp.estado !== 'Fuera de Servicio' && imp.activa
@@ -1648,14 +1648,14 @@ const TaskCardInner = ({
                     setAsignandoImpresora(true)
                     try {
                       const metros = parseFloat(metrosManuales)
-                      const metrosUpd = await apiService.actualizarMetrosOrden(ordenId, metros, {
+                      const metrosUpd = await (await getApiService()).actualizarMetrosOrden(ordenId, metros, {
                         motivo: 'Taller Gráfico corroboró/ajustó los m² antes de asignar impresora.'
                       })
                       if (!metrosUpd.success) {
                         alert(`No se pudieron guardar los m² en la OP: ${metrosUpd.error || 'error desconocido'}`)
                         return
                       }
-                      const response = await apiService.asignarOrdenAImpresora(
+                      const response = await (await getApiService()).asignarOrdenAImpresora(
                         impresoraSeleccionada,
                         ordenId,
                         nombreVisible,

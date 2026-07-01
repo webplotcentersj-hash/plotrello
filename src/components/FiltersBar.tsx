@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
-import apiService from '../services/api'
+import { getApiService } from '../services/apiLoader'
 import VentaRapidaModal from './VentaRapidaModal'
 import './FiltersBar.css'
 
@@ -88,7 +88,7 @@ const FiltersBar = ({
     setCopiandoBrief(true)
     try {
       const usuarioId = usuario?.id ? parseInt(usuario.id.toString()) : undefined
-      const response = await apiService.crearBriefPublico(usuarioId)
+      const response = await (await getApiService()).crearBriefPublico(usuarioId)
       
       if (response.success && response.data) {
         const token = response.data

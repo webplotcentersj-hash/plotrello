@@ -9,6 +9,20 @@ function errMsg(e: unknown, fallback: string): string {
   return fallback
 }
 
+/** RPC que devuelve `jsonb` (array) a veces llega como string o objeto único. */
+function parseRpcJsonbRows(data: unknown): Record<string, unknown>[] {
+  if (Array.isArray(data)) return data as Record<string, unknown>[]
+  if (typeof data === 'string') {
+    try {
+      const parsed = JSON.parse(data) as unknown
+      if (Array.isArray(parsed)) return parsed as Record<string, unknown>[]
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 function mapRow(row: Record<string, unknown>): RrhhPostulacion {
   return {
     id: Number(row.id),
@@ -47,11 +61,11 @@ export async function rrhhPostulacionesListar(filters: {
       p_busqueda: filters.busqueda || null,
       p_estado: filters.estado || null,
       p_puesto: filters.puesto || null,
-        p_limite: filters.limite ?? 30
+        p_limite: filters.limite ?? 50
     })
     if (error) throw error
-    const rows = Array.isArray(data) ? data : []
-    return { success: true, data: rows.map((r) => mapRow(r as Record<string, unknown>)) }
+    const rows = parseRpcJsonbRows(data)
+    return { success: true, data: rows.map((r) => mapRow(r)) }
   } catch (e) {
     return { success: false, error: errMsg(e, 'Error al listar postulaciones') }
   }
