@@ -1,11 +1,20 @@
 import type { OrdenTrabajo } from '../types/api'
-import type { Task } from '../types/board'
+import type { Task, TaskStatus } from '../types/board'
 import {
+  isOrdenMarcadaEliminada,
   isOrdenVisibleOnTablero,
   isTaskHiddenFromKanban,
   ordenToTask,
   taskFromRealtimeOrdenUpdate
 } from './dataMappers'
+
+export type RealtimeOrdenGuard = {
+  recentUserMoves: Map<string, { estado: string; timestamp: number }>
+  recentUserEdits: Map<string, { status: TaskStatus; timestamp: number }>
+  /** OP multi-sector en settle: ignorar realtime de esa OP. */
+  settlingNumeroOpNorm?: string | null
+  normNumeroOp?: (n: unknown) => string
+}
 
 function taskBoardFieldsEqual(a: Task, b: Task): boolean {
   return (
@@ -86,4 +95,83 @@ export function syncTasksFromOrdenesFetch(prev: Task[], ordenes: OrdenTrabajo[])
   }
 
   return changed ? next : prev
+}
+
+function shouldSkipRealtimeOrden(orden: OrdenTrabajo, guard: RealtimeOrdenGuard): boolean {
+  if (!orden?.id) return true
+  const norm = guard.normNumeroOp ?? ((n: unknown) => String(n ?? '').trim().toLowerCase())
+  const settling = guard.settlingNumeroOpNorm
+  const opNorm = norm(orden.numero_op)
+  if (settling && opNorm && opNorm === settling) return true
+
+  const taskId = String(orden.id)
+  const recentMove = guard.recentUserMoves.get(taskId)
+  const incomingEliminada = isOrdenMarcadaEliminada(orden)
+  if (recentMove && !incomingEliminada) {
+    const timeSinceMove = Date.now() - recentMove.timestamp
+    if (timeSinceMove >= 3000) {
+      guard.recentUserMoves.delete(taskId)
+    } else if (
+      orden.estado != null &&
+      String(orden.estado).trim() !== '' &&
+      timeSinceMove < 3000 &&
+      String(orden.estado) !== String(recentMove.estado)
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+/** Una OP realtime sin reemplazar referencias de fichas que no cambiaron. */
+export function applyOrdenRealtimeToTasks(
+  prev: Task[],
+  orden: OrdenTrabajo,
+  guard: RealtimeOrdenGuard
+): Task[] {
+  if (shouldSkipRealtimeOrden(orden, guard)) return prev
+
+  const taskId = String(orden.id)
+  const idx = prev.findIndex((task) => task.id === taskId)
+  const mapped =
+    idx >= 0 ? taskFromRealtimeOrdenUpdate(prev[idx], orden) : ordenToTask(orden)
+
+  const recentEdit = guard.recentUserEdits.get(taskId)
+  if (recentEdit && idx >= 0) {
+    const timeSinceEdit = Date.now() - recentEdit.timestamp
+    if (timeSinceEdit < 5000) {
+      mapped.status = recentEdit.status
+    } else {
+      guard.recentUserEdits.delete(taskId)
+    }
+  }
+
+  const hidden = isTaskHiddenFromKanban(mapped)
+  if (idx >= 0) {
+    if (hidden) {
+      const next = prev.filter((task) => task.id !== taskId)
+      return next.length === prev.length ? prev : next
+    }
+    if (prev[idx] === mapped || taskBoardFieldsEqual(prev[idx], mapped)) return prev
+    const next = [...prev]
+    next[idx] = mapped
+    return next
+  }
+
+  if (hidden) return prev
+  return [mapped, ...prev]
+}
+
+export function applyOrdenRealtimeBatch(
+  prev: Task[],
+  ordenes: OrdenTrabajo[],
+  guard: RealtimeOrdenGuard
+): Task[] {
+  if (ordenes.length === 0) return prev
+  let next = prev
+  for (const orden of ordenes) {
+    const updated = applyOrdenRealtimeToTasks(next, orden, guard)
+    if (updated !== next) next = updated
+  }
+  return next
 }

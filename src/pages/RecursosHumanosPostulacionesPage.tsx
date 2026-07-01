@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -52,6 +52,8 @@ function fmtCount(n: number | null | undefined): string {
   return n.toLocaleString('es-AR')
 }
 
+const LIST_PAGE_SIZE = 36
+
 const RecursosHumanosPostulacionesPage = () => {
   const navigate = useNavigate()
   const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
@@ -78,6 +80,7 @@ const RecursosHumanosPostulacionesPage = () => {
   const [analizandoFormulario, setAnalizandoFormulario] = useState(false)
   const [totalCount, setTotalCount] = useState<number | null>(null)
   const [resultCount, setResultCount] = useState<number | null>(null)
+  const [visibleLimit, setVisibleLimit] = useState(LIST_PAGE_SIZE)
 
   const refreshTotalCount = useCallback(async () => {
     if (!usuario?.id) return
@@ -103,6 +106,7 @@ const RecursosHumanosPostulacionesPage = () => {
       setRows(data)
       setHasSearched(true)
       setAiScores({})
+      setVisibleLimit(LIST_PAGE_SIZE)
     } else if (res.error) {
       alert(res.error)
     }
@@ -121,7 +125,13 @@ const RecursosHumanosPostulacionesPage = () => {
       navigate('/')
       return
     }
-    void refreshTotalCount()
+    const run = () => void refreshTotalCount()
+    if (typeof requestIdleCallback === 'function') {
+      const id = requestIdleCallback(run, { timeout: 3000 })
+      return () => cancelIdleCallback(id)
+    }
+    const tid = window.setTimeout(run, 400)
+    return () => window.clearTimeout(tid)
   }, [authLoading, canAccess, navigate, refreshTotalCount])
 
   const puestosFlat = useMemo(
@@ -230,6 +240,15 @@ const RecursosHumanosPostulacionesPage = () => {
     setSelected(row)
     setDetailEstado(row.estado)
     setDetailNotas(row.notas_rrhh || '')
+    if (isFormularioExterno(row) && Object.keys(getFormularioRespuestas(row)).length <= 1) {
+      void apiService.rrhhPostulacionObtener(row.id).then((res) => {
+        if (res.success && res.data) {
+          setSelected(res.data)
+          setDetailEstado(res.data.estado)
+          setDetailNotas(res.data.notas_rrhh || '')
+        }
+      })
+    }
   }
 
   const saveDetail = async () => {
@@ -339,6 +358,11 @@ const RecursosHumanosPostulacionesPage = () => {
 
   const aiMatchCount = Object.keys(aiScores).length
   const visibleCount = sortedRows.length
+  const displayedRows = useMemo(
+    () => sortedRows.slice(0, visibleLimit),
+    [sortedRows, visibleLimit]
+  )
+  const hasMoreRows = sortedRows.length > visibleLimit
   const listLimitNote =
     hasSearched && resultCount != null && resultCount > rows.length
       ? ` (mostrando ${fmtCount(rows.length)} de ${fmtCount(resultCount)})`
@@ -488,7 +512,7 @@ const RecursosHumanosPostulacionesPage = () => {
         </div>
       ) : (
         <div className="rrhh-post-grid">
-          {sortedRows.map((row) => {
+          {displayedRows.map((row) => {
             const ia = row.metadata_ia as Record<string, unknown>
             const esFormulario = isFormularioExterno(row)
             const formResp = esFormulario ? getFormularioRespuestas(row) : {}
@@ -551,6 +575,18 @@ const RecursosHumanosPostulacionesPage = () => {
               </article>
             )
           })}
+        </div>
+      )}
+
+      {hasSearched && hasMoreRows && !loading && (
+        <div className="rrhh-post-load-more">
+          <button
+            type="button"
+            className="rrhh-post-btn-outline"
+            onClick={() => setVisibleLimit((n) => n + LIST_PAGE_SIZE)}
+          >
+            Cargar más ({fmtCount(sortedRows.length - visibleLimit)} restantes)
+          </button>
         </div>
       )}
 
@@ -711,4 +747,4 @@ const RecursosHumanosPostulacionesPage = () => {
   )
 }
 
-export default RecursosHumanosPostulacionesPage
+export default memo(RecursosHumanosPostulacionesPage)

@@ -288,6 +288,12 @@
   gap: 8px;
 }
 
+.rrhh-post-load-more {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0 8px;
+}
+
 .rrhh-post-preview {
   position: fixed;
   z-index: 9000;

@@ -64,8 +64,8 @@ const Column = ({
   disableDrag = false
 }: ColumnProps) => {
   const { isAdmin } = useAuth()
-  const INITIAL_VISIBLE_TASKS = 5
-  const LOAD_MORE_STEP = 12
+  const INITIAL_VISIBLE_TASKS = 3
+  const LOAD_MORE_STEP = 10
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_TASKS)
 
   useEffect(() => {

@@ -161,7 +161,7 @@ export { formatSupabaseStatementTimeoutError }
 const ORDENES_TABLERO_SELECT =
   'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,fecha_ingreso,entregado,eliminada,visible_en_tablero,motivo_eliminacion,fecha_eliminacion,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final,numero_ficha_original,planilla_preliminar,ficha_tecnica_pdf_url,ficha_tecnica_cargada,ficha_tecnica_incompleta,presupuesto_enviado_cliente,presupuesto_armado,presupuesto_en_espera'
 
-const ORDENES_TABLERO_LIMIT = 800
+const ORDENES_TABLERO_LIMIT = 450
 /** Páginas para biblioteca (catálogo completo bajo demanda; no usa orden_lineas_m2). */
 const ORDENES_BIBLIOTECA_PAGE_SIZE = 400
 const ORDENES_BIBLIOTECA_SEARCH_LIMIT = 50
@@ -23032,14 +23032,20 @@ class ApiService {
       const rows = Array.isArray(data) ? data : []
       return {
         success: true,
-        data: rows.map((r) => this.mapRrhhPostulacionRow(r as Record<string, unknown>))
+        data: rows.map((r) => this.mapRrhhPostulacionRow(r as Record<string, unknown>, { lite: true }))
       }
     } catch (e) {
       return { success: false, error: supabaseErrorMessage(e, 'Error al listar postulaciones') }
     }
   }
 
-  mapRrhhPostulacionRow(row: Record<string, unknown>): RrhhPostulacion {
+  mapRrhhPostulacionRow(
+    row: Record<string, unknown>,
+    options?: { lite?: boolean }
+  ): RrhhPostulacion {
+    const rawMeta = (row.metadata_ia as Record<string, unknown>) || {}
+    const metadata_ia =
+      options?.lite === true ? this.slimRrhhPostulacionMetadata(rawMeta) : rawMeta
     return {
       id: Number(row.id),
       legacy_id: row.legacy_id == null ? null : Number(row.legacy_id),
@@ -23053,13 +23059,45 @@ class ApiService {
       cv_nombre: row.cv_nombre == null ? null : String(row.cv_nombre),
       cv_mime: row.cv_mime == null ? null : String(row.cv_mime),
       estado: String(row.estado || 'nuevo') as RrhhPostulacionEstado,
-      metadata_ia: (row.metadata_ia as Record<string, unknown>) || {},
+      metadata_ia,
       score_ia: row.score_ia == null ? null : Number(row.score_ia),
       notas_rrhh: row.notas_rrhh == null ? null : String(row.notas_rrhh),
       created_at: String(row.created_at || ''),
       updated_at: String(row.updated_at || ''),
       revisado_por: row.revisado_por == null ? null : Number(row.revisado_por),
       revisado_at: row.revisado_at == null ? null : String(row.revisado_at)
+    }
+  }
+
+  /** Recorta JSON de IA en listados (formularios completos solo en detalle). */
+  private slimRrhhPostulacionMetadata(meta: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {}
+    if (typeof meta.resumen === 'string') out.resumen = meta.resumen
+    if (typeof meta.score_plot === 'number') out.score_plot = meta.score_plot
+    if (Array.isArray(meta.habilidades)) out.habilidades = meta.habilidades
+    if (meta.tipo === 'formulario_externo') {
+      out.tipo = meta.tipo
+      if (typeof meta.slug === 'string') out.slug = meta.slug
+      const resp = meta.respuestas
+      if (resp && typeof resp === 'object' && !Array.isArray(resp)) {
+        const r = resp as Record<string, unknown>
+        const slim: Record<string, unknown> = {}
+        if (typeof r.motivacion_plot === 'string') slim.motivacion_plot = r.motivacion_plot
+        if (Object.keys(slim).length > 0) out.respuestas = slim
+      }
+    }
+    return out
+  }
+
+  async rrhhPostulacionObtener(id: number): Promise<ApiResponse<RrhhPostulacion>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.from('rrhh_postulaciones').select('*').eq('id', id).maybeSingle()
+      if (error) throw error
+      if (!data) return { success: false, error: 'Postulación no encontrada' }
+      return { success: true, data: this.mapRrhhPostulacionRow(data as Record<string, unknown>) }
+    } catch (e) {
+      return { success: false, error: supabaseErrorMessage(e, 'Error al cargar postulación') }
     }
   }
 

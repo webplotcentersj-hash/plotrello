@@ -124,7 +124,6 @@ const AsesorPresupuestosPage = lazy(() => import('../pages/AsesorPresupuestosPag
 const AdminBackLink = lazy(() => import('../components/AdminBackLink'))
 const TallerGraficoPedidoEntregaOverlay = lazy(() => import('../components/TallerGraficoPedidoEntregaOverlay'))
 import { useAuth } from '../hooks/useAuth'
-import { useUsuariosDisplayBootstrap } from '../hooks/useUsuariosDisplay'
 import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import { clearPlotlabAuthStorage } from '../utils/plotlabSession'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
@@ -137,16 +136,11 @@ import type {
 } from '../types/api'
 import { getApiService } from '../services/apiLoader'
 import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
-import {
-  historialToActivity,
-  isOrdenMarcadaEliminada,
-  isTaskHiddenFromKanban,
-  ordenToTask,
-  taskFromRealtimeOrdenUpdate
-} from '../utils/dataMappers'
+import { historialToActivity } from '../utils/dataMappers'
 import { subscribeOrdenesBroadcast } from '../utils/ordenesBroadcast'
+import { routeNeedsBoardSync } from '../utils/boardRouteSync'
 import { readOrdenesTableroCache, writeOrdenesTableroCache } from '../utils/ordenesTableroCache'
-import { ordenesTableroFingerprint, syncTasksFromOrdenesFetch } from '../utils/syncTasksFromOrdenes'
+import { ordenesTableroFingerprint, syncTasksFromOrdenesFetch, applyOrdenRealtimeBatch } from '../utils/syncTasksFromOrdenes'
 import { supabase } from '../services/supabaseClient'
 
 const DEFAULT_SECTORES: SectorRecord[] = [
@@ -179,14 +173,11 @@ const mapUsuariosToTeamMembers = (usuarios: UsuarioRecord[]): TeamMember[] =>
   })
 
 export default function StaffAppHost() {
-  useUsuariosDisplayBootstrap()
   const navigate = useNavigate()
   const location = useLocation()
-  const pauseBoardRealtimeRef = useRef(false)
-  pauseBoardRealtimeRef.current =
-    location.pathname.startsWith('/rrhh') ||
-    location.pathname.startsWith('/clientes-web') ||
-    location.pathname.startsWith('/erp')
+  const boardSyncActive = routeNeedsBoardSync(location.pathname)
+  const boardSyncActiveRef = useRef(boardSyncActive)
+  boardSyncActiveRef.current = boardSyncActive
   const [tasks, setTasks] = useState<Task[]>([])
   const [activity, setActivity] = useState<ActivityEvent[]>([])
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
@@ -289,6 +280,7 @@ export default function StaffAppHost() {
 
       // Refresco ligero: solo órdenes (Kanban compartido / realtime ausente o RLS en eventos)
       if (silent) {
+        if (!boardSyncActiveRef.current) return
         if (silentReloadBusyRef.current) {
           silentReloadAgainRef.current = true
           return
@@ -298,7 +290,8 @@ export default function StaffAppHost() {
           const api = await getApiService()
           const ordenesResp = await api.getOrdenes({
             skipInFlightDedupe: true,
-            attachLineasM2: false
+            attachLineasM2: false,
+            soloActivasEnTablero: true
           })
           if (ordenesResp.success && ordenesResp.data && ordenesResp.data.length > 0) {
             const fp = ordenesTableroFingerprint(ordenesResp.data)
@@ -329,40 +322,48 @@ export default function StaffAppHost() {
         console.log('🔄 Intentando cargar datos de Supabase...')
       }
 
-      const cached = readOrdenesTableroCache()
-      if (cached?.length) {
-        startTransition(() =>
-          setTasks(
-            cached
-              .map((orden) => ordenToTask(orden))
-              .filter((task) => !isTaskHiddenFromKanban(task))
-          )
-        )
+      const hydrateFromCache = () => {
+        const cached = readOrdenesTableroCache()
+        if (!cached?.length) return
+        startTransition(() => {
+          setTasks((prev) => {
+            if (prev.length > 0) return prev
+            return syncTasksFromOrdenesFetch(
+              prev,
+              cached.filter((o) => o.id != null)
+            )
+          })
+        })
+      }
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(hydrateFromCache, { timeout: 120 })
+      } else {
+        window.setTimeout(hydrateFromCache, 0)
       }
 
       const api = await getApiService()
-      const [ordenesResp, historialResp, usuariosResp, sectoresResp, materialesResp] = await Promise.all([
-        api.getOrdenes({ attachLineasM2: false }),
-        api.getHistorialMovimientos({ limit: 80 }),
+      const [ordenesResp, usuariosResp, sectoresResp] = await Promise.all([
+        api.getOrdenes({ attachLineasM2: false, soloActivasEnTablero: true }),
         api.getUsuarios(),
-        api.getSectores(),
-        api.getMateriales()
+        api.getSectores()
       ])
 
       if (ordenesResp.success && ordenesResp.data && ordenesResp.data.length > 0) {
-        lastOrdenesFingerprintRef.current = ordenesTableroFingerprint(ordenesResp.data)
-        writeOrdenesTableroCache(ordenesResp.data)
-        const tasksWithCorrectStatus = ordenesResp.data
-          .map((orden) => ordenToTask(orden))
-          .filter((task) => !isTaskHiddenFromKanban(task))
-        startTransition(() => {
-          setTasks(tasksWithCorrectStatus)
+        const fp = ordenesTableroFingerprint(ordenesResp.data)
+        if (fp !== lastOrdenesFingerprintRef.current) {
+          lastOrdenesFingerprintRef.current = fp
+          writeOrdenesTableroCache(ordenesResp.data)
+          startTransition(() => {
+            setTasks((prev) => syncTasksFromOrdenesFetch(prev, ordenesResp.data!))
+            setDataError(null)
+          })
+        } else {
           setDataError(null)
-        })
-        if (import.meta.env.DEV) {
-          console.log('✅ Órdenes cargadas:', tasksWithCorrectStatus.length)
         }
-      } else if (!cached?.length) {
+        if (import.meta.env.DEV) {
+          console.log('✅ Órdenes cargadas:', ordenesResp.data.length)
+        }
+      } else if (!readOrdenesTableroCache()?.length) {
         const errorMsg = formatSupabaseStatementTimeoutError(
           ordenesResp.error || 'No se pudieron cargar las órdenes (Supabase no respondió)'
         )
@@ -383,48 +384,42 @@ export default function StaffAppHost() {
         setDataLoading(false)
       }
 
-      if (historialResp.success && historialResp.data) {
-        const act = historialResp.data.map((registro) => historialToActivity(registro))
-        startTransition(() => setActivity(act))
-        if (import.meta.env.DEV) {
-          console.log('✅ Historial cargado:', historialResp.data.length, 'movimientos')
-        }
-      } else {
-        const errorMsg = formatSupabaseStatementTimeoutError(
-          historialResp.error ?? 'No se pudo cargar el historial'
-        )
-        setDataError((prev) => prev ?? errorMsg)
-        if (import.meta.env.DEV) {
-          console.error('❌ Error cargando historial:', errorMsg)
-        }
-      }
-
       if (usuariosResp.success && usuariosResp.data) {
-        setTeamMembers(mapUsuariosToTeamMembers(usuariosResp.data))
+        startTransition(() => setTeamMembers(mapUsuariosToTeamMembers(usuariosResp.data!)))
       } else {
-        setTeamMembers([])
+        startTransition(() => setTeamMembers([]))
         setDataError((prev) =>
           prev ?? formatSupabaseStatementTimeoutError(usuariosResp.error ?? 'No se pudieron cargar los usuarios')
         )
       }
 
       if (sectoresResp.success && sectoresResp.data && sectoresResp.data.length > 0) {
-        setSectores(sectoresResp.data)
+        startTransition(() => setSectores(sectoresResp.data!))
       } else {
-        setSectores(DEFAULT_SECTORES)
+        startTransition(() => setSectores(DEFAULT_SECTORES))
         setDataError((prev) =>
           prev ?? formatSupabaseStatementTimeoutError(sectoresResp.error ?? 'No se pudieron cargar los sectores')
         )
       }
 
-      if (materialesResp.success && materialesResp.data) {
-        setMateriales(materialesResp.data)
-      } else {
-        setMateriales([])
-        setDataError((prev) =>
-          prev ?? formatSupabaseStatementTimeoutError(materialesResp.error ?? 'No se pudieron cargar los materiales')
-        )
-      }
+      // Historial y materiales: no bloquean el primer paint del tablero.
+      void (async () => {
+        try {
+          const [historialResp, materialesResp] = await Promise.all([
+            api.getHistorialMovimientos({ limit: 50 }),
+            api.getMateriales()
+          ])
+          if (historialResp.success && historialResp.data) {
+            const act = historialResp.data.map((registro) => historialToActivity(registro))
+            startTransition(() => setActivity(act))
+          }
+          if (materialesResp.success && materialesResp.data) {
+            startTransition(() => setMateriales(materialesResp.data!))
+          }
+        } catch {
+          /* secundario */
+        }
+      })()
     } catch (error: any) {
       console.error('❌ Error cargando datos desde Supabase:', error)
       const errorMessage = error?.message || 'Error desconocido'
@@ -451,23 +446,14 @@ export default function StaffAppHost() {
   }, [])
 
   useEffect(() => {
+    if (!boardSyncActive) return
     void loadRemoteData()
-  }, [loadRemoteData])
-
-  // Al salir de módulos pesados (RRHH, etc.), refrescar tablero sin bloquear la UI.
-  const wasBoardRealtimePausedRef = useRef(pauseBoardRealtimeRef.current)
-  useEffect(() => {
-    const wasPaused = wasBoardRealtimePausedRef.current
-    const isPaused = pauseBoardRealtimeRef.current
-    wasBoardRealtimePausedRef.current = isPaused
-    if (wasPaused && !isPaused) {
-      void loadRemoteData({ silent: true })
-    }
-  }, [location.pathname, loadRemoteData])
+  }, [boardSyncActive, loadRemoteData])
 
   // Tras procesar entrega (mostrador/tablet): refrescar tablero por si el realtime llega tarde
   useEffect(() => {
     const onOrdenEntregada = () => {
+      if (!boardSyncActiveRef.current) return
       void loadRemoteData({ silent: true })
     }
     window.addEventListener('plotrello-orden-entregada', onOrdenEntregada)
@@ -477,7 +463,7 @@ export default function StaffAppHost() {
   /** Otra pestaña creó/borró OP: Supabase Realtime puede no llegar; BroadcastChannel + refetch silencioso. */
   useEffect(() => {
     const unsub = subscribeOrdenesBroadcast(() => {
-      if (pauseBoardRealtimeRef.current) return
+      if (!boardSyncActiveRef.current) return
       if (ordenBroadcastRefreshTimerRef.current != null) {
         window.clearTimeout(ordenBroadcastRefreshTimerRef.current)
       }
@@ -513,7 +499,7 @@ export default function StaffAppHost() {
   }, [])
 
   useEffect(() => {
-    if (!supabase) return
+    if (!boardSyncActive || !supabase) return
 
     // Track movimientos recientes del usuario para evitar efecto espejo del realtime
     const recentUserMoves = new Map<string, { estado: string; timestamp: number }>()
@@ -558,81 +544,40 @@ export default function StaffAppHost() {
     window.addEventListener('user-edited-task', handleUserEdit)
     window.addEventListener('board-dragging-changed', handleBoardDraggingChanged)
 
+    const pendingRealtimeOrdenesRef = { current: new Map<number, OrdenTrabajo>() }
+    const realtimeFlushTimerRef = { current: null as number | null }
+
+    const flushRealtimeOrdenes = () => {
+      realtimeFlushTimerRef.current = null
+      const batch = Array.from(pendingRealtimeOrdenesRef.current.values())
+      pendingRealtimeOrdenesRef.current.clear()
+      if (batch.length === 0) return
+
+      const guard = {
+        recentUserMoves,
+        recentUserEdits,
+        settlingNumeroOpNorm: multiSectorSettleRef.current?.numeroOpNorm ?? null,
+        normNumeroOp: normNumeroOp
+      }
+
+      startTransition(() => {
+        setTasks((prev) => applyOrdenRealtimeBatch(prev, batch, guard))
+      })
+    }
+
+    const scheduleRealtimeFlush = () => {
+      if (realtimeFlushTimerRef.current != null) return
+      realtimeFlushTimerRef.current = window.setTimeout(flushRealtimeOrdenes, 280)
+    }
+
     const upsertTaskFromOrden = (orden: OrdenTrabajo) => {
       if (!orden?.id) return
-      if (pauseBoardRealtimeRef.current) return
       if (isBoardDraggingRef.current) {
         needsSyncAfterDragRef.current = true
         return
       }
-      const taskId = orden.id!.toString()
-      // Las OP entregadas/archivadas siguen en `tasks` para biblioteca, búsquedas y reportes;
-      // el tablero las oculta con filteredTasks (BoardPage).
-      const settling = multiSectorSettleRef.current
-      const opNorm = normNumeroOp(orden.numero_op)
-      if (settling && opNorm && opNorm === settling.numeroOpNorm) {
-        return
-      }
-
-      // Verificar si hay un movimiento reciente del usuario para esta ficha
-      const recentMove = recentUserMoves.get(taskId)
-      const incomingEliminada = isOrdenMarcadaEliminada(orden)
-      if (recentMove && !incomingEliminada) {
-        const timeSinceMove = Date.now() - recentMove.timestamp
-        if (timeSinceMove >= 3000) {
-          recentUserMoves.delete(taskId)
-        } else if (
-          orden.estado != null &&
-          String(orden.estado).trim() !== '' &&
-          timeSinceMove < 3000 &&
-          String(orden.estado) !== String(recentMove.estado)
-        ) {
-          if (import.meta.env.DEV) {
-            console.log(
-              `⏭️ Ignorando actualización realtime (efecto espejo) para ${taskId}: realtime=${orden.estado}, usuario movió a=${recentMove.estado}`
-            )
-          }
-          return
-        }
-      }
-      
-      startTransition(() => {
-        setTasks((prev) => {
-          const next = [...prev]
-          const idx = next.findIndex((task) => task.id === taskId)
-          const mapped =
-            idx >= 0 ? taskFromRealtimeOrdenUpdate(next[idx], orden) : ordenToTask(orden)
-
-          if (idx >= 0) {
-            // ⚠️ CRÍTICO: Preservar el status actual si la tarea fue editada recientemente
-            // Esto evita que la ficha se mueva cuando solo se actualiza la etapa u otros campos
-            const recentEdit = recentUserEdits.get(taskId)
-            if (recentEdit) {
-              const timeSinceEdit = Date.now() - recentEdit.timestamp
-              // Si la edición fue hace menos de 5 segundos, preservar el status
-              if (timeSinceEdit < 5000) {
-                mapped.status = recentEdit.status
-                if (import.meta.env.DEV) {
-                  console.log(
-                    `🔒 Preservando status de edición (${recentEdit.status}) para ${taskId} - editado hace ${timeSinceEdit}ms`
-                  )
-                }
-              } else {
-                // Si pasaron más de 5 segundos, limpiar el tracking
-                recentUserEdits.delete(taskId)
-              }
-            }
-            // No forzar mapped.status = taskActual.status cuando el sector coincide: rompe OP multi-sector
-            // (realtime trae la columna correcta y el local aún tenía status viejo → rebote). Ya cubren
-            // recentUserMoves (drag) y recentUserEdits (modal).
-            next[idx] = mapped
-          } else {
-            next.unshift(mapped)
-          }
-
-          return next.filter((task) => !isTaskHiddenFromKanban(task))
-        })
-      })
+      pendingRealtimeOrdenesRef.current.set(orden.id, orden)
+      scheduleRealtimeFlush()
     }
 
     const handleOrdenUpsertEvent = (event: Event) => {
@@ -643,7 +588,6 @@ export default function StaffAppHost() {
 
     const removeTask = (orden: OrdenTrabajo | null) => {
       if (!orden?.id) return
-      if (pauseBoardRealtimeRef.current) return
       if (isBoardDraggingRef.current) {
         needsSyncAfterDragRef.current = true
         return
@@ -655,7 +599,6 @@ export default function StaffAppHost() {
 
     const addActivityFromRegistro = (registro: HistorialMovimiento) => {
       if (!registro?.id) return
-      if (pauseBoardRealtimeRef.current) return
       if (isBoardDraggingRef.current) {
         needsSyncAfterDragRef.current = true
         return
@@ -706,6 +649,11 @@ export default function StaffAppHost() {
     })
 
     return () => {
+      if (realtimeFlushTimerRef.current != null) {
+        window.clearTimeout(realtimeFlushTimerRef.current)
+        realtimeFlushTimerRef.current = null
+      }
+      pendingRealtimeOrdenesRef.current.clear()
       void ordenesChannel.unsubscribe()
       void historialChannel.unsubscribe()
       window.removeEventListener('plotrello-orden-upsert', handleOrdenUpsertEvent)
@@ -713,7 +661,7 @@ export default function StaffAppHost() {
       window.removeEventListener('user-edited-task', handleUserEdit)
       window.removeEventListener('board-dragging-changed', handleBoardDraggingChanged)
     }
-  }, [loadRemoteData])
+  }, [boardSyncActive, loadRemoteData])
 
   return (
     <AppRoutes

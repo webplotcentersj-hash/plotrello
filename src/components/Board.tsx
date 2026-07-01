@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useMemo, useRef, useState, memo } from 'react'
 import { DragDropContext, Droppable, type DropResult } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -198,5 +198,5 @@ const Board = ({
   )
 }
 
-export default Board
+export default memo(Board)
 
