@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { beginPlotAiRequest, getGeminiServerKey } from './_http'
+import { beginPlotAiRequest, getGeminiServerKey } from './plotaiHttp'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   identificarEmpleadoRapido,

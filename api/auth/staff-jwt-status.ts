@@ -1,11 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { handleOptions, setCorsRestricted } from '../../lib/api/security'
+import { beginCorsRequest } from '../../lib/api/security'
 import { isStaffJwtConfigured } from '../../lib/api/staffJwt'
 
 /** Indica si el servidor emite/verifica JWT staff (PLOT_LAB_STAFF_JWT_SECRET configurado). */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (handleOptions(req, res)) return
-  setCorsRestricted(req, res, 'GET, OPTIONS')
+  if (beginCorsRequest(req, res, 'GET, OPTIONS')) return
 
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' })

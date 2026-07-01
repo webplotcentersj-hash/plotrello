@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { GoogleGenAI } from '@google/genai'
-import { beginPlotAiRequest, getGeminiServerKey } from './_http'
+import { beginPlotAiRequest, getGeminiServerKey } from './plotaiHttp'
 
 type ContentPart = {
   text?: string

@@ -3,7 +3,7 @@ import {
   PLOT_CENTER_KNOWLEDGE,
   resolvePlotAIClienteContext
 } from './chat-public'
-import { beginPlotAiRequest } from './_http'
+import { beginPlotAiRequest } from './plotaiHttp'
 
 type Body = {
   userTexts?: string[]

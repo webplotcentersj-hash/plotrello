@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { GoogleGenAI } from '@google/genai'
-import { beginPlotAiRequest, getGeminiServerKey } from './_http'
+import { beginPlotAiRequest, getGeminiServerKey } from './plotaiHttp'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
 const supabaseKey =

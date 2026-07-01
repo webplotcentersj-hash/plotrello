@@ -1,16 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
   getBearerToken,
-  handleOptions,
+  beginCorsRequest,
   isPlotLabSameOrigin,
-  isProduction,
-  setCorsRestricted
+  isProduction
 } from '../../lib/api/security'
 import { isStaffJwtConfigured, verifyStaffJwt } from '../../lib/api/staffJwt'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (handleOptions(req, res)) return
-  setCorsRestricted(req, res, 'GET, OPTIONS')
+  if (beginCorsRequest(req, res, 'GET, OPTIONS')) return
 
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' })

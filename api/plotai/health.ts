@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { beginPlotAiRequest, getGeminiServerKey } from './_http'
+import { beginPlotAiRequest, getGeminiServerKey } from './plotaiHttp'
 
 /** Diagnóstico rápido: API viva + Gemini configurado (sin llamar a Google). */
 export default function handler(req: VercelRequest, res: VercelResponse) {

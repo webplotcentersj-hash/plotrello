@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { beginPlotAiRequest, getGeminiServerKey } from './_http'
+import { beginPlotAiRequest, getGeminiServerKey } from './plotaiHttp'
 
 /** Entrega la API key de Gemini al tótem (origen permitido) para Gemini Live en el navegador. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {

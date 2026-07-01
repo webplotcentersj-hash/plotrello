@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { beginPlotAiRequest } from './_http'
+import { beginPlotAiRequest } from './plotaiHttp'
 
 type Body = { text?: string }
 

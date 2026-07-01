@@ -7,7 +7,7 @@ import {
   isMpPaymentApproved,
   parseTotemImpresionExternalRef
 } from '../../lib/api/mercadopago'
-import { handleOptions, setCorsRestricted } from '../plotai/_http'
+import { handleOptions, setCorsRestricted } from '../plotai/plotaiHttp'
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
