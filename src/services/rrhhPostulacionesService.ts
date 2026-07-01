@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
+import { isTransientSupabaseError, withSupabaseRetry } from '../utils/supabaseRetry'
 import type { RrhhPostulacion, RrhhPostulacionEstado } from '../types/api'
 
 function errMsg(e: unknown, fallback: string): string {
@@ -55,14 +56,22 @@ export async function rrhhPostulacionesListar(filters: {
   limite?: number
 }): Promise<{ success: boolean; data?: RrhhPostulacion[]; error?: string }> {
   if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+  const sb = supabase
   try {
-    const { data, error } = await supabase.rpc('rrhh_postulaciones_listar', {
-      p_usuario_id: filters.usuarioId,
-      p_busqueda: filters.busqueda || null,
-      p_estado: filters.estado || null,
-      p_puesto: filters.puesto || null,
-        p_limite: filters.limite ?? 50
-    })
+    const { data, error } = await withSupabaseRetry(
+      async () => {
+        const res = await sb.rpc('rrhh_postulaciones_listar', {
+          p_usuario_id: filters.usuarioId,
+          p_busqueda: filters.busqueda || null,
+          p_estado: filters.estado || null,
+          p_puesto: filters.puesto || null,
+          p_limite: filters.limite ?? 50
+        })
+        if (res.error && isTransientSupabaseError(res.error)) throw res.error
+        return res
+      },
+      { label: 'rrhh_postulaciones_listar', attempts: 3, baseDelayMs: 800 }
+    )
     if (error) throw error
     const rows = parseRpcJsonbRows(data)
     return { success: true, data: rows.map((r) => mapRow(r)) }

@@ -196,6 +196,7 @@ export default function StaffAppHost() {
   const silentReloadAgainRef = useRef(false)
   const ordenBroadcastRefreshTimerRef = useRef<number | null>(null)
   const lastOrdenesFingerprintRef = useRef<string | null>(null)
+  const pageVisibleRef = useRef(typeof document !== 'undefined' ? !document.hidden : true)
 
   // Manual PlotAI: no bloquear primer paint (idle o timeout corto).
   useEffect(() => {
@@ -282,6 +283,10 @@ export default function StaffAppHost() {
       // Refresco ligero: solo órdenes (Kanban compartido / realtime ausente o RLS en eventos)
       if (silent) {
         if (!boardSyncActiveRef.current) return
+        if (!pageVisibleRef.current) {
+          silentReloadAgainRef.current = true
+          return
+        }
         if (silentReloadBusyRef.current) {
           silentReloadAgainRef.current = true
           return
@@ -429,6 +434,19 @@ export default function StaffAppHost() {
   }, [])
 
   useEffect(() => {
+    const onVisibility = () => {
+      const visible = !document.hidden
+      pageVisibleRef.current = visible
+      if (visible && boardSyncActiveRef.current && silentReloadAgainRef.current) {
+        silentReloadAgainRef.current = false
+        void loadRemoteData({ silent: true })
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [loadRemoteData])
+
+  useEffect(() => {
     if (!boardSyncActive) return
     void loadRemoteData()
   }, [boardSyncActive, loadRemoteData])
@@ -532,6 +550,10 @@ export default function StaffAppHost() {
 
     const flushRealtimeOrdenes = () => {
       realtimeFlushTimerRef.current = null
+      if (!pageVisibleRef.current) {
+        scheduleRealtimeFlush()
+        return
+      }
       const batch = Array.from(pendingRealtimeOrdenesRef.current.values())
       pendingRealtimeOrdenesRef.current.clear()
       if (batch.length === 0) return

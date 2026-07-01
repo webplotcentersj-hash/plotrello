@@ -8,7 +8,7 @@ export function formatSupabaseStatementTimeoutError(raw: string): string {
     m.includes('timeout') ||
     m.includes('aborted')
   ) {
-    return 'Supabase no responde (plan NANO saturado o spend cap). En dashboard.supabase.com: reiniciá el proyecto, subí Compute o desactivá spend cap. Luego recargá Plotrello.'
+    return 'Supabase está lento o saturado (incidente de plataforma o plan NANO). Reintentá en unos segundos; si persiste: dashboard.supabase.com → reiniciar proyecto o subir Compute. Luego recargá Plotrello.'
   }
   return raw
 }

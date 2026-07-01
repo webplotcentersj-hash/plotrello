@@ -153,6 +153,7 @@ import {
 } from '../constants/totemSolicitudAsesor'
 
 import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
+import { isTransientSupabaseError, withSupabaseRetry } from '../utils/supabaseRetry'
 import { filtrarUsuariosRrhhOperarios } from '../utils/rrhhUsuariosExcluidos'
 
 export { formatSupabaseStatementTimeoutError }
@@ -839,7 +840,18 @@ class ApiService {
           return withQueryTimeout(Promise.resolve(q), 'getOrdenes')
         }
 
-        let { data, error } = await runQuery(ORDENES_TABLERO_SELECT)
+        const queryOrdenes = async (select: string) => {
+          const result = await runQuery(select)
+          if (result.error && isTransientSupabaseError(result.error)) {
+            throw result.error
+          }
+          return result
+        }
+
+        let { data, error } = await withSupabaseRetry(
+          () => queryOrdenes(ORDENES_TABLERO_SELECT),
+          { label: 'getOrdenes', attempts: 3, baseDelayMs: 900 }
+        )
         if (
           error &&
           (error.message?.includes('motivo_eliminacion') ||
@@ -849,7 +861,10 @@ class ApiService {
             ',motivo_eliminacion,fecha_eliminacion',
             ''
           )
-          ;({ data, error } = await runQuery(fallbackSelect))
+          ;({ data, error } = await withSupabaseRetry(
+            () => queryOrdenes(fallbackSelect),
+            { label: 'getOrdenes-fallback', attempts: 2, baseDelayMs: 700 }
+          ))
         }
 
         if (error) {
