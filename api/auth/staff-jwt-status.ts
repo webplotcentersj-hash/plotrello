@@ -1,15 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { beginCorsRequest } from '../_lib/security'
-import { isStaffJwtConfigured } from '../_lib/staffJwt'
 
-/** Indica si el servidor emite/verifica JWT staff (PLOT_LAB_STAFF_JWT_SECRET configurado). */
+/** JWT status sin imports de _lib (diagnóstico). */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (beginCorsRequest(req, res, 'GET, OPTIONS')) return
-
+  if (req.method === 'OPTIONS') {
+    res.status(204).end()
+    return
+  }
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
-
-  res.status(200).json({ enabled: isStaffJwtConfigured() })
+  const enabled = Boolean((process.env.PLOT_LAB_STAFF_JWT_SECRET || '').trim())
+  res.status(200).json({ enabled })
 }

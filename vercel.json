@@ -17,10 +17,6 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
       "source": "/admin",
       "destination": "/admin.html"
     },
@@ -45,7 +41,7 @@
       "destination": "/tablet-reloj.html"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/|assets/|favicon|manifest\\.json|.*\\.[a-z0-9]+$).*)",
       "destination": "/index.html"
     }
   ],

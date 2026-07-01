@@ -1,16 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { beginPlotAiRequest, getGeminiServerKey } from './plotaiHttp'
 
-/** Diagnóstico rápido: API viva + Gemini configurado (sin llamar a Google). */
+/** Health mínimo sin dependencias externas (diagnóstico Vercel). */
 export default function handler(req: VercelRequest, res: VercelResponse) {
-  if (beginPlotAiRequest(req, res, 'GET, OPTIONS')) return
-
+  if (req.method === 'OPTIONS') {
+    res.status(204).end()
+    return
+  }
   if (req.method !== 'GET') {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
     return
   }
-
-  const gemini = Boolean(getGeminiServerKey())
+  const gemini = Boolean(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY)
   res.status(200).json({
     ok: true,
     service: 'plotai',
