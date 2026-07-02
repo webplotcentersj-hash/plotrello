@@ -11,7 +11,9 @@ import {
   type EmbedChatMessage,
   collectUserTexts,
   fileToChatImagePayload,
-  EMBED_CHAT_CONVERSATION_KEY
+  EMBED_CHAT_CONVERSATION_KEY,
+  EMBED_CHAT_OPENING_GREETING,
+  buildEmbedChatApiPayload
 } from '../utils/embedChatShared'
 import '../components/embed/EmbedChatVoice.css'
 import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
@@ -59,6 +61,12 @@ export default function EmbedChatWidgetPage() {
   const [error, setError] = useState<string | null>(null)
   const [hasNewStaffReply, setHasNewStaffReply] = useState(false)
   const [briefUrl, setBriefUrl] = useState<string | null>(null)
+  const [showIdentificacion, setShowIdentificacion] = useState(false)
+  const [nombre, setNombre] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [dni, setDni] = useState('')
+  const [cuit, setCuit] = useState('')
+  const [op, setOp] = useState('')
   const [conversationId, setConversationId] = useState<number | null>(() => {
     try {
       const s = typeof localStorage !== 'undefined' ? localStorage.getItem(EMBED_CHAT_CONVERSATION_KEY) : null
@@ -118,6 +126,11 @@ export default function EmbedChatWidgetPage() {
   }, [viewportSize])
 
   useEmbedShellLayout('widget', { active: open })
+
+  useEffect(() => {
+    if (!open || messages.length > 0) return
+    setMessages([{ role: 'model', parts: [{ text: EMBED_CHAT_OPENING_GREETING }] }])
+  }, [open, messages.length])
 
   useEffect(() => {
     const root = document.documentElement
@@ -247,18 +260,21 @@ export default function EmbedChatWidgetPage() {
       const res = await fetch(chatApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          modo: 'web_publico',
-          ...(imageSnapshot
-            ? {
-                images: [{ mimeType: imageSnapshot.mimeType, data: imageSnapshot.data }],
-                staff_image_preview: imageSnapshot.staffPreviewUrl
-              }
-            : {}),
-          conversation_id: conversationId ?? undefined,
-          history
-        })
+        body: JSON.stringify(
+          buildEmbedChatApiPayload({
+            message: text,
+            history,
+            conversationId,
+            identificacion: { nombre, telefono, dni, cuit, op },
+            image: imageSnapshot
+              ? {
+                  mimeType: imageSnapshot.mimeType,
+                  data: imageSnapshot.data,
+                  staffPreviewUrl: imageSnapshot.staffPreviewUrl
+                }
+              : null
+          })
+        )
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -299,6 +315,7 @@ export default function EmbedChatWidgetPage() {
   const voice = useEmbedChatVoice({
     userTexts: collectUserTexts(messages),
     disabled: loading,
+    identificacion: { nombre, telefono, dni, cuit, op },
     onUserTranscript: (text) => appendVoiceTranscript('user', text),
     onModelTranscript: (text) => appendVoiceTranscript('model', text)
   })
@@ -352,13 +369,72 @@ export default function EmbedChatWidgetPage() {
               </div>
             </header>
 
-            <div className="embed-chat-messages">
-              {messages.length === 0 && !loading && (
-                <div className="embed-chat-welcome embed-chat-welcome--hero">
-                  <p className="embed-chat-welcome-title">Hola, soy PlotAI</p>
-                  <p className="embed-chat-welcome-sub">Escribí o usá el micrófono para consultar.</p>
+            {showIdentificacion ? (
+              <section className="embed-chat-identificacion">
+                <p className="embed-chat-identificacion-text">
+                  Para cotizar: nombre y WhatsApp. Para tu OP: DNI, CUIT o número de OP.
+                </p>
+                <div className="embed-chat-identificacion-fields">
+                  <input
+                    type="text"
+                    placeholder="Nombre"
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                    className="embed-chat-input-field"
+                    aria-label="Nombre"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="WhatsApp"
+                    value={telefono}
+                    onChange={(e) => setTelefono(e.target.value)}
+                    className="embed-chat-input-field"
+                    aria-label="WhatsApp"
+                  />
+                  <input
+                    type="text"
+                    placeholder="DNI"
+                    value={dni}
+                    onChange={(e) => setDni(e.target.value)}
+                    className="embed-chat-input-field"
+                    aria-label="DNI"
+                  />
+                  <input
+                    type="text"
+                    placeholder="CUIT"
+                    value={cuit}
+                    onChange={(e) => setCuit(e.target.value)}
+                    className="embed-chat-input-field"
+                    aria-label="CUIT"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Nº OP"
+                    value={op}
+                    onChange={(e) => setOp(e.target.value)}
+                    className="embed-chat-input-field embed-chat-input-op"
+                    aria-label="Número de OP"
+                  />
                 </div>
-              )}
+                <button
+                  type="button"
+                  className="embed-chat-link"
+                  onClick={() => setShowIdentificacion(false)}
+                >
+                  Ocultar
+                </button>
+              </section>
+            ) : (
+              <button
+                type="button"
+                className="embed-chat-link embed-chat-link-bar"
+                onClick={() => setShowIdentificacion(true)}
+              >
+                Identificarme (nombre, WhatsApp u OP)
+              </button>
+            )}
+
+            <div className="embed-chat-messages">
               {messages.map((m, i) => (
                 <div key={i} className={`embed-chat-msg embed-chat-msg--${m.role}`}>
                   {m.imagePreviewUrl && (

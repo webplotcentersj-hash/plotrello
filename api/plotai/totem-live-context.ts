@@ -7,6 +7,7 @@ import { beginPlotAiRequest } from './plotaiHttp'
 
 type Body = {
   userTexts?: string[]
+  modo?: string
   nombre?: string
   empresa?: string
   dni?: string
@@ -36,9 +37,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     : []
 
   try {
+    const modo = (body.modo || 'totem').toString().trim().toLowerCase() || 'totem'
+
     const resolved = await resolvePlotAIClienteContext({
       userTexts,
-      modo: 'totem',
+      modo,
       nombre: body.nombre,
       empresa: body.empresa,
       dni: body.dni,

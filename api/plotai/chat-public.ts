@@ -169,6 +169,36 @@ export function modoRequiereContactoCliente(modo: string): boolean {
   )
 }
 
+/** Horarios/ubicación u OP ya identificada: no bloquear con el cartel fijo de contacto. */
+export function puedeResponderSinContactoCompleto(params: {
+  message: string
+  userTexts: string[]
+  numeroOp: string | null
+  ordersContext: string
+}): boolean {
+  const msg = params.message.trim()
+  if (!msg) return false
+
+  if (
+    /\b(horarios?|horario\s+de\s+atenci[oó]n|a\s+qu[eé]\s+hora|abren|cierran|ubicaci[oó]n|direcci[oó]n|d[oó]nde\s+(est[aá]n|queda|quedan)|9\s*de\s*julio)\b/i.test(
+      msg
+    )
+  ) {
+    return true
+  }
+
+  const allText = [...params.userTexts, msg].join('\n')
+  if (esConsultaEstadoPedido(allText)) {
+    if (params.numeroOp) return true
+    const ctx = params.ordersContext || ''
+    if (ctx && !/no se encontró|no tiene órdenes|no hay coincidencias|no hay op vinculadas/i.test(ctx)) {
+      return true
+    }
+  }
+
+  return false
+}
+
 export function buildSolicitudContactoReply(contacto: ContactoCliente): string {
   const faltaNombre = !esNombreValido(contacto.nombre)
   const faltaTelefono = !contacto.telefono
@@ -1495,17 +1525,23 @@ SALIDA:
     const contactoContext = modoRequiereContactoCliente(modo) ? buildContactoContextPrompt(contactoCliente) : ''
     const requiereContactoPendiente =
       modoRequiereContactoCliente(modo) && !contactoCliente.completo
+    const userTextsHistorial = history.filter((p) => p.role === 'user').map((p) => (p.parts?.[0]?.text ?? '').trim())
 
     if (!skipGemini) {
-    const textoUsuarioReciente = [
-      ...history.filter((p) => p.role === 'user').map((p) => (p.parts?.[0]?.text ?? '').trim()),
-      message
-    ].join('\n')
+    const textoUsuarioReciente = [...userTextsHistorial, message].join('\n')
     const consultaInterna = modo !== 'admin' && detectConsultaInternaOAbuso(textoUsuarioReciente)
 
     if (consultaInterna) {
       replyText = RESPUESTA_CONSULTA_INTERNA
-    } else if (requiereContactoPendiente) {
+    } else if (
+      requiereContactoPendiente &&
+      !puedeResponderSinContactoCompleto({
+        message,
+        userTexts: userTextsHistorial,
+        numeroOp: resolvedCtx.numeroOp,
+        ordersContext: resolvedCtx.ordersContext
+      })
+    ) {
       replyText = buildSolicitudContactoReply(contactoCliente)
     } else {
     const canalPrompt =

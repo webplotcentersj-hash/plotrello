@@ -10,13 +10,21 @@ import './EmbedChatVoice.css'
 type UseEmbedChatVoiceOptions = {
   userTexts: string[]
   disabled?: boolean
+  identificacion?: {
+    nombre?: string
+    telefono?: string
+    dni?: string
+    cuit?: string
+    op?: string
+    empresa?: string
+  }
   onUserTranscript?: (text: string) => void
   onModelTranscript?: (text: string) => void
 }
 
 function buildEmbedLiveSystemInstruction(contextBlock?: string): string {
   const clienteBlock = contextBlock?.trim()
-    ? `\n\n${contextBlock}\n\nUsá SOLO datos reales del contexto. No inventes OPs ni fechas.`
+    ? `\n\n${contextBlock}\n\nUsá SOLO datos reales del contexto. No inventes OPs ni fechas ni precios.`
     : '\n\nSi el cliente pregunta por su pedido pedile nombre DNI CUIT o número de OP.'
 
   return `Sos PlotAI el asistente de voz del chat web de Plot Center.
@@ -28,6 +36,11 @@ PERSONALIDAD: cordial servicial como atención en mostrador. Frases breves que s
 EMPRESA: Plot Center — comunicación visual en San Juan Argentina. 9 de Julio 622. Tel 2646212163.
 ${clienteBlock}
 
+CONTACTO Y PRECIOS (obligatorio en chat web):
+- Antes de cotizar precios o armar un pedido nuevo pedí nombre y WhatsApp si aún no los tenés.
+- Cotizá SOLO con precios de Lista 1 del contexto cuando figuren. Si no hay precio en el contexto no inventes.
+- Para consultas de OP usá solo datos reales del contexto.
+
 REGLAS DE VOZ:
 - Sin markdown asteriscos listas ni emojis.
 - Una a tres frases salvo que pidan detalle.
@@ -38,6 +51,7 @@ REGLAS DE VOZ:
 export function useEmbedChatVoice({
   userTexts,
   disabled,
+  identificacion,
   onUserTranscript,
   onModelTranscript
 }: UseEmbedChatVoiceOptions) {
@@ -75,7 +89,14 @@ export function useEmbedChatVoice({
       const apiKey = await fetchTotemGeminiApiKey()
       let contextBlock = ''
       try {
-        const ctx = await fetchTotemLiveContext(userTexts)
+        const ctx = await fetchTotemLiveContext(userTexts, {
+          modo: 'web_publico',
+          nombre: identificacion?.nombre,
+          empresa: identificacion?.empresa,
+          dni: identificacion?.dni,
+          cuit: identificacion?.cuit,
+          op: identificacion?.op
+        })
         contextBlock = ctx.contextBlock
       } catch {
         /* contexto opcional */

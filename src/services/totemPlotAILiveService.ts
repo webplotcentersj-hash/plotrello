@@ -12,11 +12,29 @@ export type TotemLiveContextPayload = {
   numeroOp?: string | null
 }
 
-export async function fetchTotemLiveContext(userTexts: string[]): Promise<TotemLiveContextPayload> {
+export async function fetchTotemLiveContext(
+  userTexts: string[],
+  options?: {
+    modo?: string
+    nombre?: string
+    empresa?: string
+    dni?: string
+    cuit?: string
+    op?: string
+  }
+): Promise<TotemLiveContextPayload> {
   const res = await fetch(plotLabApiUrl(TOTEM_CONTEXT_PATH), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userTexts: userTexts.slice(-24) })
+    body: JSON.stringify({
+      userTexts: userTexts.slice(-24),
+      modo: options?.modo || 'totem',
+      nombre: options?.nombre,
+      empresa: options?.empresa,
+      dni: options?.dni,
+      cuit: options?.cuit,
+      op: options?.op
+    })
   })
   const data = (await res.json().catch(() => ({}))) as TotemLiveContextPayload & {
     success?: boolean

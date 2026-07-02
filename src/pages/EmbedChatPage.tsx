@@ -11,7 +11,9 @@ import {
   type EmbedChatMessage,
   collectUserTexts,
   fileToChatImagePayload,
-  EMBED_CHAT_CONVERSATION_KEY
+  EMBED_CHAT_CONVERSATION_KEY,
+  EMBED_CHAT_OPENING_GREETING,
+  buildEmbedChatApiPayload
 } from '../utils/embedChatShared'
 import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
 import { useEmbedShellLayout } from '../hooks/useEmbedShellLayout'
@@ -34,6 +36,7 @@ export default function EmbedChatPage() {
   const clienteEmailFromUrl = searchParams?.get('clienteEmail') || ''
   const isClientePortal = modoFromUrl === 'cliente_portal'
   const [nombre, setNombre] = useState('')
+  const [telefono, setTelefono] = useState('')
   const [dni, setDni] = useState('')
   const [cuit, setCuit] = useState('')
   const [op, setOp] = useState('')
@@ -82,6 +85,11 @@ export default function EmbedChatPage() {
   }, [])
 
   useEmbedShellLayout('page')
+
+  useEffect(() => {
+    if (isClientePortal || messages.length > 0) return
+    setMessages([{ role: 'model', parts: [{ text: EMBED_CHAT_OPENING_GREETING }] }])
+  }, [isClientePortal, messages.length])
 
   useEffect(() => {
     if (!isClientePortal || messages.length > 0) return
@@ -143,16 +151,6 @@ export default function EmbedChatPage() {
     }
   }
 
-  const normalizeForSearch = (value: string, digitsOnly = false) => {
-    const t = value.trim()
-    if (!t) return undefined
-    if (digitsOnly) {
-      const num = t.replace(/\D/g, '')
-      return num.length >= 2 ? num : t
-    }
-    return t
-  }
-
   const sendMessage = async () => {
     const text = input.trim()
     if ((!text && !pendingImage) || loading) return
@@ -180,25 +178,31 @@ export default function EmbedChatPage() {
       const res = await fetch(chatApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          modo: modoFromUrl,
-          ...(clienteIdFromUrl ? { cliente_id: clienteIdFromUrl } : {}),
-          ...(imageSnapshot
-            ? {
-                images: [{ mimeType: imageSnapshot.mimeType, data: imageSnapshot.data }],
-                staff_image_preview: imageSnapshot.staffPreviewUrl
-              }
-            : {}),
-          nombre: normalizeForSearch(nombre) || (clienteNombreFromUrl || undefined),
-          empresa: clienteEmpresaFromUrl || undefined,
-          cliente_email: clienteEmailFromUrl || undefined,
-          dni: normalizeForSearch(dni, true),
-          cuit: normalizeForSearch(cuit, true),
-          op: normalizeForSearch(op, true),
-          conversation_id: conversationId ?? undefined,
-          history
-        })
+        body: JSON.stringify(
+          buildEmbedChatApiPayload({
+            message: text,
+            modo: modoFromUrl,
+            history,
+            conversationId,
+            clienteId: clienteIdFromUrl,
+            identificacion: {
+              nombre: nombre || clienteNombreFromUrl || undefined,
+              telefono,
+              empresa: clienteEmpresaFromUrl || undefined,
+              clienteEmail: clienteEmailFromUrl || undefined,
+              dni,
+              cuit,
+              op
+            },
+            image: imageSnapshot
+              ? {
+                  mimeType: imageSnapshot.mimeType,
+                  data: imageSnapshot.data,
+                  staffPreviewUrl: imageSnapshot.staffPreviewUrl
+                }
+              : null
+          })
+        )
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -238,6 +242,7 @@ export default function EmbedChatPage() {
   const voice = useEmbedChatVoice({
     userTexts: collectUserTexts(messages),
     disabled: loading,
+    identificacion: { nombre, telefono, dni, cuit, op, empresa: clienteEmpresaFromUrl || undefined },
     onUserTranscript: (text) => appendVoiceTranscript('user', text),
     onModelTranscript: (text) => appendVoiceTranscript('model', text)
   })
@@ -261,7 +266,7 @@ export default function EmbedChatPage() {
       {!hideFormFromPortal && (showIdentificacion ? (
         <section className="embed-chat-identificacion">
           <p className="embed-chat-identificacion-text">
-            Opcional: nombre, DNI, CUIT o número de OP para consultar tus trabajos.
+            Para cotizar: nombre y WhatsApp. Para tu OP: nombre, DNI, CUIT o número de OP.
           </p>
           <div className="embed-chat-identificacion-fields">
             <input
@@ -271,6 +276,14 @@ export default function EmbedChatPage() {
               onChange={(e) => setNombre(e.target.value)}
               className="embed-chat-input-field"
               aria-label="Nombre o empresa"
+            />
+            <input
+              type="tel"
+              placeholder="WhatsApp"
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              className="embed-chat-input-field"
+              aria-label="WhatsApp"
             />
             <input
               type="text"
@@ -311,19 +324,11 @@ export default function EmbedChatPage() {
           className="embed-chat-link embed-chat-link-bar"
           onClick={() => setShowIdentificacion(true)}
         >
-          Identificarme (nombre, DNI, CUIT u OP)
+          Identificarme (nombre, WhatsApp, DNI, CUIT u OP)
         </button>
       ))}
 
       <div className="embed-chat-messages">
-        {messages.length === 0 && !loading && !isClientePortal && (
-          <div className="embed-chat-welcome embed-chat-welcome--hero">
-            <p className="embed-chat-welcome-title">Hola, soy PlotAI</p>
-            <p className="embed-chat-welcome-sub">
-              Consultá por tu OP, pedido o escribí tu consulta. También podés usar el micrófono.
-            </p>
-          </div>
-        )}
         {messages.map((m, i) => (
           <div key={i} className={`embed-chat-msg embed-chat-msg--${m.role}`}>
             {m.imagePreviewUrl && (
