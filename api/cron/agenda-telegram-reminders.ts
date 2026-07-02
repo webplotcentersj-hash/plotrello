@@ -157,7 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const authz = authorizeCronRequest(req)
-  if (!authz.ok) {
+  if (authz.ok === false) {
     const status = authz.error.startsWith('Definí') ? 500 : 401
     res.status(status).json({ ok: false, error: authz.error })
     return

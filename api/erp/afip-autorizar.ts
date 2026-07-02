@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { requireStaffSession } from '../_lib/staffAuth'
-import { autorizarFacturaAfip, buildNumeroFacturaFromAutorizacion } from '../../_lib/afip/autorizar'
-import { getAfipAccessToken } from '../../_lib/afip/client'
-import { getSupabaseAdmin, loadAfipConfigResumen } from '../../_lib/afip/supabaseAdmin'
-import type { AfipConfigResumen, FacturaAfipInput, FacturaReferenciaAfip } from '../../_lib/afip/types'
+import { autorizarFacturaAfip, buildNumeroFacturaFromAutorizacion } from '../../lib/afip/autorizar'
+import { getAfipAccessToken } from '../../lib/afip/client'
+import { getSupabaseAdmin, loadAfipConfigResumen } from '../../lib/afip/supabaseAdmin'
+import type { AfipConfigResumen, FacturaAfipInput, FacturaReferenciaAfip } from '../../lib/afip/types'
 
 type Body = { id_factura?: number }
 

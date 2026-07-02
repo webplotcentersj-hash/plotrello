@@ -264,7 +264,6 @@ export function enrichUserHistorialEntry(
 
 
 // --- lista precios chat (inlined) ---
-import type { SupabaseClient } from '@supabase/supabase-js'
 
 type ConfigAjustesPreciosVentas = {
   iva_porcentaje: number
@@ -1643,6 +1642,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const history = Array.isArray(body.history) ? body.history : []
     const modo = ((body.modo || 'web_publico').toString().trim().toLowerCase() || 'web_publico') as string
+    const clienteIdFromBody =
+      body.cliente_id != null && Number.isInteger(Number(body.cliente_id)) && Number(body.cliente_id) > 0
+        ? Number(body.cliente_id)
+        : null
 
     /** Resumen hablado del dashboard admin: no usar flujo de chat público ni persistir en atencion_conversaciones. */
     if (modo === 'admin') {

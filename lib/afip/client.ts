@@ -57,7 +57,7 @@ export function createAfipClient(options: CreateAfipClientOptions = {}) {
     afipOptions.key = key
   }
 
-  return new Afip(afipOptions)
+  return new Afip(afipOptions as ConstructorParameters<typeof Afip>[0])
 }
 
 export function formatNumeroFactura(puntoVenta: number, numeroComprobante: number): string {
