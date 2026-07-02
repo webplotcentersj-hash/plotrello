@@ -19,26 +19,51 @@ function formatArs(n: number): string {
   return `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function cargarLogoPlotLab(): Promise<string | null> {
+type LogoAsset = { dataUrl: string; widthMm: number; heightMm: number }
+
+function cargarLogoPlotLab(maxSideMm = 24): Promise<LogoAsset | null> {
   return new Promise((resolve) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
       try {
-        const size = Math.max(img.naturalWidth || img.width, 1)
+        const iw = Math.max(img.naturalWidth || img.width, 1)
+        const ih = Math.max(img.naturalHeight || img.height, 1)
+        const box = Math.max(iw, ih)
         const canvas = document.createElement('canvas')
-        canvas.width = size
-        canvas.height = size
+        canvas.width = box
+        canvas.height = box
         const ctx = canvas.getContext('2d')
         if (!ctx) {
           resolve(null)
           return
         }
         ctx.fillStyle = LOGO_BG
-        ctx.fillRect(0, 0, size, size)
-        const pad = Math.round(size * 0.12)
-        ctx.drawImage(img, pad, pad, size - pad * 2, size - pad * 2)
-        resolve(canvas.toDataURL('image/png'))
+        ctx.fillRect(0, 0, box, box)
+        const pad = Math.round(box * 0.1)
+        const innerW = box - pad * 2
+        const innerH = box - pad * 2
+        const scale = Math.min(innerW / iw, innerH / ih)
+        const dw = iw * scale
+        const dh = ih * scale
+        const dx = (box - dw) / 2
+        const dy = (box - dh) / 2
+        ctx.drawImage(img, dx, dy, dw, dh)
+
+        const aspect = iw / ih
+        let widthMm = maxSideMm
+        let heightMm = maxSideMm
+        if (aspect >= 1) {
+          heightMm = maxSideMm / aspect
+        } else {
+          widthMm = maxSideMm * aspect
+        }
+
+        resolve({
+          dataUrl: canvas.toDataURL('image/png'),
+          widthMm,
+          heightMm
+        })
       } catch {
         resolve(null)
       }
@@ -53,7 +78,9 @@ export async function buildEmbedPresupuestoPdf(presupuesto: EmbedPresupuestoPayl
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageWidth = doc.internal.pageSize.getWidth()
   const margin = 18
-  const logoSize = 26
+  const logoW = logo?.widthMm ?? 24
+  const logoH = logo?.heightMm ?? 24
+  const headerBlockH = Math.max(logoH, 22)
   const tableRight = pageWidth - margin
   const colSub = tableRight - 2
   const colUnit = tableRight - 38
@@ -63,13 +90,13 @@ export async function buildEmbedPresupuestoPdf(presupuesto: EmbedPresupuestoPayl
   let y = margin
 
   if (logo) {
-    doc.addImage(logo, 'PNG', margin, y, logoSize, logoSize)
+    doc.addImage(logo.dataUrl, 'PNG', margin, y, logoW, logoH)
   } else {
     doc.setFillColor(15, 23, 42)
-    doc.roundedRect(margin, y, logoSize, logoSize, 2, 2, 'F')
+    doc.roundedRect(margin, y, logoW, logoH, 2, 2, 'F')
   }
 
-  const headerTextX = margin + logoSize + 8
+  const headerTextX = margin + logoW + 8
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(30, 41, 59)
@@ -90,7 +117,7 @@ export async function buildEmbedPresupuestoPdf(presupuesto: EmbedPresupuestoPayl
   doc.setTextColor(15, 23, 42)
   doc.text(pdfText(presupuesto.numero), tableRight, y + 16, { align: 'right' })
 
-  y += logoSize + 8
+  y += headerBlockH + 8
   doc.setDrawColor(226, 232, 240)
   doc.line(margin, y, tableRight, y)
   y += 8

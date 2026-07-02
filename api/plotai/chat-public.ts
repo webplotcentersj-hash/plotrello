@@ -653,17 +653,50 @@ function isArticuloPaqueteFijo(nombre: string): boolean {
   return /foto\s*libros|\b\d{1,3}\s+impresiones?\s+a\s*[345]/i.test(n)
 }
 
+function extractGramajePapel(text: string): number | null {
+  const t = normalizeTextForCatalog(text)
+  const explicit = t.match(/\b(115|170|300|350|400)\s*grs?\b/)
+  if (explicit) return Number(explicit[1])
+  const generic = t.match(/\b(\d{2,3})\s*grs?\b/)
+  return generic ? Number(generic[1]) : null
+}
+
+function extractUnidadesEnNombreArticulo(nombre: string): number | null {
+  const n = normalizeTextForCatalog(nombre)
+  const m = n.match(/\b(\d{1,3})\s+impresiones?\b/)
+  return m ? Number(m[1]) : null
+}
+
+function extractGramajeEnNombreArticulo(nombre: string): number | null {
+  const n = normalizeTextForCatalog(nombre)
+  const m = n.match(/\b(115|170|300|350|400)\s*grs?\b/)
+  return m ? Number(m[1]) : null
+}
+
+function isArticuloImpresionUnitaria(nombre: string): boolean {
+  const n = normalizeTextForCatalog(nombre)
+  return /^impresiones?\s+a[345]\b/.test(n) || /\bimpresiones?\s+a[345]\s+ilustracion\b/.test(n)
+}
+
 function scoreArticuloRelevancia(row: ArticuloPrecioRow, text: string): number {
   const nombre = normalizeTextForCatalog(row.nombre || '')
   let score = 0
   const formato = detectFormatoImpresion(text)
+  const gramaje = extractGramajePapel(text)
+  const gramajeNombre = extractGramajeEnNombreArticulo(row.nombre || '')
   if (formato && nombre.includes(formato)) score += 12
   if (detectPapelIlustracion(text) && nombre.includes('ilustracion')) score += 10
   if (detectColorImpresion(text) === 'color' && nombre.includes('color')) score += 8
   if (detectColorImpresion(text) === 'bn' && (nombre.includes('b/n') || nombre.includes('b n'))) score += 8
   if (/\bimpres/i.test(text) && nombre.includes('impres')) score += 6
   if (detectSolicitudDiseno(text) && /armado de archivos|diseno grafico/.test(nombre)) score += 14
-  if (isArticuloPaqueteFijo(row.nombre || '') && extractCantidadSolicitada(text) == null) score -= 25
+  if (gramaje && gramajeNombre === gramaje) score += 16
+  if (gramaje && gramajeNombre && gramajeNombre !== gramaje) score -= 12
+  if (isArticuloImpresionUnitaria(row.nombre || '')) score += 10
+  if (isArticuloPaqueteFijo(row.nombre || '')) score -= 30
+  const packUnits = extractUnidadesEnNombreArticulo(row.nombre || '')
+  const userQty = extractCantidadSolicitada(text)
+  if (packUnits && userQty && userQty < packUnits) score -= 40
   return score
 }
 
@@ -678,7 +711,8 @@ const ARTICULO_SELECT_COLS = 'codigo, nombre, descripcion, categoria, precio_bas
 async function fetchArticulosLista1ForChat(
   supabase: SupabaseClient,
   joinedText: string,
-  maxRows = 30
+  maxRows = 30,
+  options?: { strict?: boolean }
 ): Promise<ArticuloPrecioRow[]> {
   const terms = buildCatalogSearchTerms(joinedText)
   const seen = new Map<string, ArticuloPrecioRow>()
@@ -708,7 +742,7 @@ async function fetchArticulosLista1ForChat(
     if (seen.size >= maxRows) break
   }
 
-  if (!seen.size && shouldLoadLista1PreciosContext(joinedText)) {
+  if (!seen.size && !options?.strict && shouldLoadLista1PreciosContext(joinedText)) {
     const { data } = await supabase
       .from('articulos_empresa')
       .select(ARTICULO_SELECT_COLS)
@@ -723,15 +757,19 @@ async function fetchArticulosLista1ForChat(
 }
 
 function pickArticuloImpresion(rows: ArticuloPrecioRow[], text: string): ArticuloPrecioRow | null {
-  const cantidad = extractCantidadSolicitada(text)
-  const impresion = rows.filter((r) => {
-    const nombre = r.nombre || ''
-    if (!/impres|folleto|diptico|tarjeta|sticker|vinilo|lona|cartel/i.test(nombre)) return false
-    if (isArticuloPaqueteFijo(nombre) && cantidad == null) return false
-    return true
-  })
-  const pool = impresion.length ? impresion : rows.filter((r) => !isArticuloPaqueteFijo(r.nombre || ''))
-  return pool[0] || null
+  const userQty = extractCantidadSolicitada(text)
+  const formato = detectFormatoImpresion(text)
+  const ranked = rankArticulosForChat(rows, text)
+  for (const row of ranked) {
+    const nombre = row.nombre || ''
+    if (!/impres|folleto|diptico|tarjeta|sticker|vinilo|lona|cartel/i.test(nombre)) continue
+    if (isArticuloPaqueteFijo(nombre)) continue
+    const packUnits = extractUnidadesEnNombreArticulo(nombre)
+    if (packUnits && userQty && userQty < packUnits) continue
+    if (formato && !normalizeTextForCatalog(nombre).includes(formato)) continue
+    return row
+  }
+  return ranked.find((r) => /impres/i.test(r.nombre || '') && !isArticuloPaqueteFijo(r.nombre || '')) || null
 }
 
 function pickArticuloDiseno(rows: ArticuloPrecioRow[]): ArticuloPrecioRow | null {
@@ -898,7 +936,7 @@ export async function buildEmbedPresupuestoPayload(
   const joined = [...params.userTexts, params.message].join('\n').trim()
   if (!shouldBuildEmbedPresupuesto(joined)) return null
 
-  const rows = await fetchArticulosLista1ForChat(supabase, joined, 20)
+  const rows = await fetchArticulosLista1ForChat(supabase, joined, 20, { strict: true })
   if (!rows.length) return null
 
   const cantidad = Math.max(1, extractCantidadSolicitada(joined) || 1)
@@ -2037,7 +2075,7 @@ CÓMO TRATAR AL CLIENTE (atención al público):
           message,
           contacto: contactoCliente
         })
-        if (presupuestoPayload && geminiRechazoCotizacion(replyText)) {
+        if (presupuestoPayload) {
           replyText = buildPresupuestoChatReply(presupuestoPayload, contactoCliente.nombre)
         }
       } catch (e) {

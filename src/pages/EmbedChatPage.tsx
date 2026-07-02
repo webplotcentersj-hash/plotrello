@@ -23,7 +23,7 @@ import { EmbedChatOnlineStatus } from '../components/embed/EmbedChatOnlineStatus
 import { EmbedPresupuestoBanner } from '../components/embed/EmbedPresupuestoBanner'
 import '../components/embed/EmbedChatOnlineStatus.css'
 
-const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
+const PLOTAI_LOGO = '/plot-lab-logo.png'
 
 export default function EmbedChatPage() {
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null

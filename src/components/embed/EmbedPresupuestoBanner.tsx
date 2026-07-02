@@ -2,6 +2,10 @@ import { useState } from 'react'
 import type { EmbedPresupuestoPayload } from '../../utils/embedChatShared'
 import { downloadEmbedPresupuestoPdf } from '../../utils/embedPresupuestoPdf'
 
+function formatArs(n: number): string {
+  return n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })
+}
+
 export function EmbedPresupuestoBanner({ presupuesto }: { presupuesto: EmbedPresupuestoPayload }) {
   const [downloading, setDownloading] = useState(false)
 
@@ -20,10 +24,12 @@ export function EmbedPresupuestoBanner({ presupuesto }: { presupuesto: EmbedPres
     <div className="embed-brief-banner embed-presupuesto-banner">
       <div className="embed-brief-text">
         <strong>Presupuesto {presupuesto.numero}</strong>
-        <span>
-          Total referencial:{' '}
-          {presupuesto.total.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-        </span>
+        {presupuesto.items.map((item, idx) => (
+          <span key={`${item.codigo || item.descripcion}-${idx}`}>
+            {item.cantidad} x {item.descripcion}: {formatArs(item.subtotal)}
+          </span>
+        ))}
+        <span className="embed-presupuesto-total">Total referencial: {formatArs(presupuesto.total)}</span>
       </div>
       <button
         type="button"

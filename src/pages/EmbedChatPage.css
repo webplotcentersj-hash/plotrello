@@ -30,9 +30,14 @@
 }
 
 .embed-chat-scope--page {
-  min-height: 100dvh;
-  height: 100dvh;
-  max-height: 100dvh;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  min-height: 0;
+  height: var(--embed-vh, 100svh);
+  max-height: var(--embed-vh, 100svh);
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 /* Header: responsive padding y safe-area (vmin para que escale con alto y ancho) */
@@ -65,6 +70,9 @@
   border-radius: 10px;
   object-fit: contain;
   flex-shrink: 0;
+  background: #0f172a;
+  padding: 4px;
+  box-sizing: border-box;
 }
 
 .embed-chat-scope .embed-chat-title {
@@ -393,6 +401,17 @@ html.embed-shell--framed.embed-shell-page .embed-chat-scope--page {
 .embed-chat-scope .embed-brief-text strong {
   color: var(--embed-text);
   font-size: 0.86rem;
+}
+
+.embed-chat-scope .embed-presupuesto-banner .embed-brief-text span {
+  display: block;
+  line-height: 1.35;
+}
+
+.embed-chat-scope .embed-presupuesto-total {
+  margin-top: 4px;
+  font-weight: 600;
+  color: var(--embed-text) !important;
 }
 
 .embed-chat-scope .embed-brief-button {
