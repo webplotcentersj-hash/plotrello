@@ -21,7 +21,7 @@ export function EmbedPresupuestoBanner({ presupuesto }: { presupuesto: EmbedPres
       <div className="embed-brief-text">
         <strong>Presupuesto {presupuesto.numero}</strong>
         <span>
-          Total referencial Lista 1:{' '}
+          Total referencial:{' '}
           {presupuesto.total.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
         </span>
       </div>

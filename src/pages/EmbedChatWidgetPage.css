@@ -34,6 +34,9 @@ html.embed-widget-page body {
   object-fit: contain;
   border-radius: 10px;
   flex-shrink: 0;
+  background: #0f172a;
+  padding: 4px;
+  box-sizing: border-box;
 }
 
 /* Botón flotante: sin fondo, solo ícono atractivo */

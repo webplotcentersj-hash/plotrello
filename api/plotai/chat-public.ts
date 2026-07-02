@@ -538,6 +538,16 @@ export function detectIntencionPedidoProducto(text: string): boolean {
 
   if (esConsultaEstadoPedido(t) && !intencionCompra) return false
 
+  // Consulta de OP/estado sin pedido nuevo ni cotización
+  if (
+    esConsultaEstadoPedido(t) &&
+    !detectConsultaPrecios(t) &&
+    !mencionaProducto &&
+    !mencionaFormatoImpresion
+  ) {
+    return false
+  }
+
   return true
 }
 
@@ -548,6 +558,22 @@ export function shouldLoadLista1PreciosContext(text: string): boolean {
   if (detectConsultaPrecios(t)) return true
   if (detectIntencionPedidoProducto(t)) return true
   return false
+}
+
+/** Solo generar PDF cuando el cliente pidió cotización o un pedido concreto — no en consultas de OP. */
+export function shouldBuildEmbedPresupuesto(text: string): boolean {
+  const t = text.trim()
+  if (!t) return false
+  if (esConsultaEstadoPedido(t) && !detectConsultaPrecios(t)) return false
+  if (detectConsultaPrecios(t)) return true
+  if (!detectIntencionPedidoProducto(t)) return false
+  return (
+    extractCantidadSolicitada(t) != null ||
+    detectFormatoImpresion(t) != null ||
+    detectPapelIlustracion(t) ||
+    detectSolicitudDiseno(t) ||
+    PRODUCTO_KEYWORDS.some((k) => t.toLowerCase().includes(k))
+  )
 }
 
 /** Cantidad numérica que menciona el cliente (ej. 500 stickers, 8 hojas). */
@@ -622,6 +648,11 @@ export function buildCatalogSearchTerms(text: string): string[] {
   return [...new Set(terms.map((t) => t.trim()).filter((t) => t.length >= 2))]
 }
 
+function isArticuloPaqueteFijo(nombre: string): boolean {
+  const n = normalizeTextForCatalog(nombre)
+  return /foto\s*libros|\b\d{1,3}\s+impresiones?\s+a\s*[345]/i.test(n)
+}
+
 function scoreArticuloRelevancia(row: ArticuloPrecioRow, text: string): number {
   const nombre = normalizeTextForCatalog(row.nombre || '')
   let score = 0
@@ -632,6 +663,7 @@ function scoreArticuloRelevancia(row: ArticuloPrecioRow, text: string): number {
   if (detectColorImpresion(text) === 'bn' && (nombre.includes('b/n') || nombre.includes('b n'))) score += 8
   if (/\bimpres/i.test(text) && nombre.includes('impres')) score += 6
   if (detectSolicitudDiseno(text) && /armado de archivos|diseno grafico/.test(nombre)) score += 14
+  if (isArticuloPaqueteFijo(row.nombre || '') && extractCantidadSolicitada(text) == null) score -= 25
   return score
 }
 
@@ -691,8 +723,14 @@ async function fetchArticulosLista1ForChat(
 }
 
 function pickArticuloImpresion(rows: ArticuloPrecioRow[], text: string): ArticuloPrecioRow | null {
-  const impresion = rows.filter((r) => /impres|folleto|diptico|tarjeta|sticker|vinilo|lona|cartel/i.test(r.nombre || ''))
-  const pool = impresion.length ? impresion : rows
+  const cantidad = extractCantidadSolicitada(text)
+  const impresion = rows.filter((r) => {
+    const nombre = r.nombre || ''
+    if (!/impres|folleto|diptico|tarjeta|sticker|vinilo|lona|cartel/i.test(nombre)) return false
+    if (isArticuloPaqueteFijo(nombre) && cantidad == null) return false
+    return true
+  })
+  const pool = impresion.length ? impresion : rows.filter((r) => !isArticuloPaqueteFijo(r.nombre || ''))
   return pool[0] || null
 }
 
@@ -839,14 +877,14 @@ function buildPresupuestoChatReply(p: EmbedPresupuestoPayload, nombre?: string |
   const saludo = nombre ? `${nombre}, ` : ''
   const lineas = p.items.map((i) => `- ${i.cantidad} x ${i.descripcion}: ${formatArs(i.subtotal)}`)
   return (
-    `${saludo}te paso un presupuesto de referencia con Lista 1:\n` +
+    `${saludo}te paso un presupuesto de referencia:\n` +
     `${lineas.join('\n')}\n\n` +
     `Total estimado: ${formatArs(p.total)}\n\n` +
     `${p.notas} Podés descargar el PDF desde el botón del chat.`
   )
 }
 
-/** Arma presupuesto PDF cuando hay contacto completo y cotización con Lista 1. */
+/** Arma presupuesto PDF cuando hay contacto completo y el cliente pidió cotización. */
 export async function buildEmbedPresupuestoPayload(
   supabase: SupabaseClient,
   params: {
@@ -858,7 +896,7 @@ export async function buildEmbedPresupuestoPayload(
   if (!params.contacto.completo || !esNombreValido(params.contacto.nombre)) return null
 
   const joined = [...params.userTexts, params.message].join('\n').trim()
-  if (!shouldLoadLista1PreciosContext(joined)) return null
+  if (!shouldBuildEmbedPresupuesto(joined)) return null
 
   const rows = await fetchArticulosLista1ForChat(supabase, joined, 20)
   if (!rows.length) return null
@@ -906,11 +944,11 @@ export async function buildEmbedPresupuestoPayload(
     validez_hasta: addDaysIso(7),
     cliente_nombre: params.contacto.nombre!,
     cliente_telefono: params.contacto.telefono,
-    lista_label: 'Lista 1 (efectivo, debito o transferencia)',
+    lista_label: '',
     items,
     total,
     notas:
-      'Presupuesto de referencia segun Lista 1. Medidas, terminaciones, cantidades finales o diseno pueden modificar el total. ' +
+      'Presupuesto de referencia. Medidas, terminaciones, cantidades finales o diseño pueden modificar el total. ' +
       'Validez 7 dias. Se requiere sena del 50% para confirmar pedido.'
   }
 }

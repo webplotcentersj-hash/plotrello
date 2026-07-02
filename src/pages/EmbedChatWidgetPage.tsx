@@ -25,7 +25,7 @@ import { useEmbedShellLayout } from '../hooks/useEmbedShellLayout'
 import { EmbedChatOnlineStatus } from '../components/embed/EmbedChatOnlineStatus'
 import '../components/embed/EmbedChatOnlineStatus.css'
 
-const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
+const PLOTAI_LOGO = '/plot-lab-logo.png'
 
 /** Ícono de chat atractivo: burbuja con puntos de conversación */
 function ChatBubbleIcon({ className }: { className?: string }) {

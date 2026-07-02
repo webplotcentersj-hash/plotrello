@@ -5,6 +5,7 @@ import { formatArgentinaDate } from './dateUtils'
 const EMPRESA = 'PLOT CENTER S.R.L.'
 const DOMICILIO = '9 de Julio 622 (Oeste) - San Juan, Argentina'
 const TELEFONO = '2646212163'
+const LOGO_BG = '#0f172a'
 
 function pdfText(value: string | null | undefined): string {
   if (!value) return ''
@@ -24,15 +25,19 @@ function cargarLogoPlotLab(): Promise<string | null> {
     img.crossOrigin = 'anonymous'
     img.onload = () => {
       try {
+        const size = Math.max(img.naturalWidth || img.width, 1)
         const canvas = document.createElement('canvas')
-        canvas.width = img.naturalWidth || img.width
-        canvas.height = img.naturalHeight || img.height
+        canvas.width = size
+        canvas.height = size
         const ctx = canvas.getContext('2d')
         if (!ctx) {
           resolve(null)
           return
         }
-        ctx.drawImage(img, 0, 0)
+        ctx.fillStyle = LOGO_BG
+        ctx.fillRect(0, 0, size, size)
+        const pad = Math.round(size * 0.12)
+        ctx.drawImage(img, pad, pad, size - pad * 2, size - pad * 2)
         resolve(canvas.toDataURL('image/png'))
       } catch {
         resolve(null)
@@ -47,36 +52,47 @@ export async function buildEmbedPresupuestoPdf(presupuesto: EmbedPresupuestoPayl
   const logo = await cargarLogoPlotLab()
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageWidth = doc.internal.pageSize.getWidth()
-  const margin = 16
+  const margin = 18
+  const logoSize = 26
+  const tableRight = pageWidth - margin
+  const colSub = tableRight - 2
+  const colUnit = tableRight - 38
+  const colCant = tableRight - 58
+  const colDesc = margin + 2
+  const colDescWidth = colCant - colDesc - 6
   let y = margin
 
   if (logo) {
-    doc.addImage(logo, 'PNG', margin, y, 28, 28)
+    doc.addImage(logo, 'PNG', margin, y, logoSize, logoSize)
+  } else {
+    doc.setFillColor(15, 23, 42)
+    doc.roundedRect(margin, y, logoSize, logoSize, 2, 2, 'F')
   }
 
-  doc.setFontSize(15)
+  const headerTextX = margin + logoSize + 8
+  doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(30, 41, 59)
-  doc.text(pdfText(EMPRESA), logo ? margin + 34 : margin, y + 10)
+  doc.text(pdfText(EMPRESA), headerTextX, y + 9)
 
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139)
-  doc.text(pdfText(DOMICILIO), logo ? margin + 34 : margin, y + 16)
-  doc.text(pdfText(`Tel: ${TELEFONO}`), logo ? margin + 34 : margin, y + 21)
+  doc.text(pdfText(DOMICILIO), headerTextX, y + 15)
+  doc.text(pdfText(`Tel: ${TELEFONO}`), headerTextX, y + 20)
 
-  doc.setFontSize(18)
+  doc.setFontSize(17)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(234, 88, 12)
-  doc.text('PRESUPUESTO', pageWidth - margin, y + 10, { align: 'right' })
+  doc.text('PRESUPUESTO', tableRight, y + 9, { align: 'right' })
 
   doc.setFontSize(10)
   doc.setTextColor(15, 23, 42)
-  doc.text(pdfText(presupuesto.numero), pageWidth - margin, y + 17, { align: 'right' })
+  doc.text(pdfText(presupuesto.numero), tableRight, y + 16, { align: 'right' })
 
-  y += 34
+  y += logoSize + 8
   doc.setDrawColor(226, 232, 240)
-  doc.line(margin, y, pageWidth - margin, y)
+  doc.line(margin, y, tableRight, y)
   y += 8
 
   doc.setFontSize(9)
@@ -84,7 +100,7 @@ export async function buildEmbedPresupuestoPdf(presupuesto: EmbedPresupuestoPayl
   doc.text(`Fecha: ${formatArgentinaDate(presupuesto.fecha)}`, margin, y)
   doc.text(
     pdfText(`Valido hasta: ${formatArgentinaDate(presupuesto.validez_hasta)}`),
-    pageWidth - margin,
+    tableRight,
     y,
     { align: 'right' }
   )
@@ -102,46 +118,57 @@ export async function buildEmbedPresupuestoPdf(presupuesto: EmbedPresupuestoPayl
     doc.text(pdfText(`WhatsApp: ${presupuesto.cliente_telefono}`), margin, y)
     y += 5
   }
-  doc.text(pdfText(presupuesto.lista_label), margin, y)
-  y += 10
+  y += 6
 
+  const headerH = 9
   doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
   doc.setFillColor(249, 115, 22)
   doc.setTextColor(255, 255, 255)
-  doc.rect(margin, y, pageWidth - margin * 2, 8, 'F')
-  doc.text('Descripcion', margin + 2, y + 5.5)
-  doc.text('Cant.', pageWidth - margin - 52, y + 5.5, { align: 'right' })
-  doc.text('P. unit.', pageWidth - margin - 32, y + 5.5, { align: 'right' })
-  doc.text('Subtotal', pageWidth - margin - 2, y + 5.5, { align: 'right' })
-  y += 10
+  doc.rect(margin, y, tableRight - margin, headerH, 'F')
+  doc.text('Descripcion', colDesc, y + 6)
+  doc.text('Cant.', colCant, y + 6, { align: 'right' })
+  doc.text('P. unit.', colUnit, y + 6, { align: 'right' })
+  doc.text('Subtotal', colSub, y + 6, { align: 'right' })
+  y += headerH + 2
 
   doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
   doc.setTextColor(30, 41, 59)
   for (const item of presupuesto.items) {
     const desc = pdfText(item.descripcion)
-    const lines = doc.splitTextToSize(desc, pageWidth - margin * 2 - 58)
-    doc.text(lines, margin + 2, y)
-    doc.text(String(item.cantidad), pageWidth - margin - 52, y, { align: 'right' })
-    doc.text(formatArs(item.precio_unitario), pageWidth - margin - 32, y, { align: 'right' })
-    doc.text(formatArs(item.subtotal), pageWidth - margin - 2, y, { align: 'right' })
-    y += Math.max(7, lines.length * 5)
+    const lines = doc.splitTextToSize(desc, colDescWidth) as string[]
+    const rowH = Math.max(8, lines.length * 4.5 + 2)
+    if (y + rowH > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage()
+      y = margin
+    }
+    doc.text(lines, colDesc, y + 4)
+    doc.text(String(item.cantidad), colCant, y + 4, { align: 'right' })
+    doc.text(formatArs(item.precio_unitario), colUnit, y + 4, { align: 'right' })
+    doc.text(formatArs(item.subtotal), colSub, y + 4, { align: 'right' })
+    y += rowH
+    doc.setDrawColor(241, 245, 249)
+    doc.line(margin, y, tableRight, y)
+    y += 2
   }
 
   y += 4
-  doc.setDrawColor(226, 232, 240)
-  doc.line(margin, y, pageWidth - margin, y)
+  doc.setDrawColor(203, 213, 225)
+  doc.line(margin, y, tableRight, y)
   y += 8
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
-  doc.text('TOTAL', pageWidth - margin - 50, y)
+  doc.setTextColor(15, 23, 42)
+  doc.text('TOTAL', colUnit - 8, y)
   doc.setTextColor(234, 88, 12)
-  doc.text(formatArs(presupuesto.total), pageWidth - margin - 2, y, { align: 'right' })
+  doc.text(formatArs(presupuesto.total), colSub, y, { align: 'right' })
 
-  y += 12
+  y += 14
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139)
-  const notas = doc.splitTextToSize(pdfText(presupuesto.notas), pageWidth - margin * 2)
+  const notas = doc.splitTextToSize(pdfText(presupuesto.notas), tableRight - margin)
   doc.text(notas, margin, y)
 
   return doc
