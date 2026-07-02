@@ -4,7 +4,7 @@ import {
   fetchTotemGeminiApiKey,
   fetchTotemLiveContext
 } from '../../services/totemPlotAILiveService'
-import { requestEmbedMicrophoneStream } from '../../utils/embedMicPermission'
+import { requestEmbedMicrophoneStream, isMicAvailableInEmbed } from '../../utils/embedMicPermission'
 import './EmbedChatVoice.css'
 
 type UseEmbedChatVoiceOptions = {
@@ -72,6 +72,8 @@ export function useEmbedChatVoice({
   }, [])
 
   useEffect(() => () => stopLive(), [stopLive])
+
+  const micAvailable = isMicAvailableInEmbed()
 
   const toggleLive = async () => {
     if (active) {
@@ -147,6 +149,7 @@ export function useEmbedChatVoice({
     speaking,
     error,
     status,
+    micAvailable,
     stopLive,
     toggleLive
   }
@@ -159,7 +162,8 @@ export function EmbedChatVoiceBanner({
   error,
   status,
   onStop,
-  onRetry
+  onRetry,
+  onOpenStandalone
 }: {
   active: boolean
   starting: boolean
@@ -168,6 +172,7 @@ export function EmbedChatVoiceBanner({
   status: string
   onStop: () => void
   onRetry?: () => void
+  onOpenStandalone?: () => void
 }) {
   if (!active && !starting && !error) return null
   return (
@@ -184,6 +189,11 @@ export function EmbedChatVoiceBanner({
           Reintentar
         </button>
       )}
+      {error && onOpenStandalone && (
+        <button type="button" className="embed-voice-standalone" onClick={onOpenStandalone}>
+          Pantalla completa
+        </button>
+      )}
       {active && !error && (
         <button type="button" className="embed-voice-stop" onClick={onStop}>
           Cortar
@@ -197,13 +207,16 @@ export function EmbedChatVoiceButton({
   active,
   starting,
   disabled,
+  micAvailable = true,
   onClick
 }: {
   active: boolean
   starting: boolean
   disabled?: boolean
+  micAvailable?: boolean
   onClick: () => void
 }) {
+  if (!micAvailable) return null
   return (
     <button
       type="button"

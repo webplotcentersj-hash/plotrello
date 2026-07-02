@@ -96,8 +96,37 @@
   background: rgba(251, 191, 36, 0.15);
   color: #fde68a;
   border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 0.78rem;
+  padding: 6px 8px;
+  font-size: 0.72rem;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.embed-chat-scope .embed-voice-standalone {
+  flex-shrink: 0;
+  border: 1px solid rgba(96, 165, 250, 0.5);
+  background: rgba(59, 130, 246, 0.15);
+  color: #bfdbfe;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.embed-chat-scope .embed-voice-banner--error .embed-voice-banner-text {
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+@media (max-width: 420px) {
+  .embed-chat-scope .embed-voice-banner {
+    flex-wrap: wrap;
+    margin-inline: 8px;
+    padding: 8px 10px;
+  }
+
+  .embed-chat-scope .embed-voice-banner-main {
+    flex: 1 1 100%;
+  }
 }

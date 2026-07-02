@@ -42,9 +42,11 @@ export function buildEmbedWidgetSnippet(embedOrigin = getPlotLabEmbedOrigin()): 
       iframe.style.height = e.data.height + 'px';
       iframe.style.left = 'auto';
       iframe.style.top = 'auto';
-      iframe.style.bottom = '20px';
-      iframe.style.right = '20px';
-      iframe.style.borderRadius = '';
+      iframe.style.bottom = 'max(12px, env(safe-area-inset-bottom))';
+      iframe.style.right = 'max(8px, env(safe-area-inset-right))';
+      iframe.style.borderRadius = '14px';
+      iframe.style.maxWidth = 'calc(100vw - 16px)';
+      iframe.style.maxHeight = 'calc(100dvh - 80px)';
     }
   });
 })();

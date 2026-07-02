@@ -13,11 +13,14 @@ import {
   fileToChatImagePayload,
   EMBED_CHAT_CONVERSATION_KEY,
   EMBED_CHAT_OPENING_GREETING,
-  buildEmbedChatApiPayload
+  buildEmbedChatApiPayload,
+  type EmbedPresupuestoPayload
 } from '../utils/embedChatShared'
+import { getEmbedStandaloneChatUrl } from '../utils/embedMicPermission'
 import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
 import { useEmbedShellLayout } from '../hooks/useEmbedShellLayout'
 import { EmbedChatOnlineStatus } from '../components/embed/EmbedChatOnlineStatus'
+import { EmbedPresupuestoBanner } from '../components/embed/EmbedPresupuestoBanner'
 import '../components/embed/EmbedChatOnlineStatus.css'
 
 const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
@@ -45,6 +48,7 @@ export default function EmbedChatPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [briefUrl, setBriefUrl] = useState<string | null>(null)
+  const [presupuesto, setPresupuesto] = useState<EmbedPresupuestoPayload | null>(null)
   const [showIdentificacion, setShowIdentificacion] = useState(!hideFormFromPortal)
   const [conversationId, setConversationId] = useState<number | null>(() => {
     try {
@@ -213,6 +217,9 @@ export default function EmbedChatPage() {
       const reply = data.reply || 'No pude generar una respuesta.'
       setMessages((prev) => [...prev, { role: 'model', parts: [{ text: reply }] }])
       if (data.conversation_id != null) setConversationId(data.conversation_id)
+      if (data.presupuesto && Array.isArray(data.presupuesto.items) && data.presupuesto.items.length > 0) {
+        setPresupuesto(data.presupuesto as EmbedPresupuestoPayload)
+      }
       if (data.brief && (data.brief.url || data.brief.token)) {
         const url = typeof data.brief.url === 'string' && data.brief.url
           ? data.brief.url
@@ -369,6 +376,8 @@ export default function EmbedChatPage() {
         </div>
       )}
 
+      {presupuesto && <EmbedPresupuestoBanner presupuesto={presupuesto} />}
+
       {briefUrl && (
         <div className="embed-brief-banner">
           <div className="embed-brief-text">
@@ -408,6 +417,7 @@ export default function EmbedChatPage() {
         status={voice.status}
         onStop={voice.stopLive}
         onRetry={() => void voice.toggleLive()}
+        onOpenStandalone={() => window.open(getEmbedStandaloneChatUrl(), '_blank', 'noopener,noreferrer')}
       />
 
       <footer className="embed-chat-footer">
@@ -434,6 +444,7 @@ export default function EmbedChatPage() {
             active={voice.active}
             starting={voice.starting}
             disabled={loading}
+            micAvailable={voice.micAvailable}
             onClick={() => void voice.toggleLive()}
           />
         </div>

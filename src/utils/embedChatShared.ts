@@ -68,6 +68,26 @@ export function collectUserTexts(messages: EmbedChatMessage[]): string[] {
 
 export const EMBED_CHAT_CONVERSATION_KEY = 'embed_chat_conversation_id'
 
+export type EmbedPresupuestoItem = {
+  codigo?: string | null
+  descripcion: string
+  cantidad: number
+  precio_unitario: number
+  subtotal: number
+}
+
+export type EmbedPresupuestoPayload = {
+  numero: string
+  fecha: string
+  validez_hasta: string
+  cliente_nombre: string
+  cliente_telefono?: string | null
+  lista_label: string
+  items: EmbedPresupuestoItem[]
+  total: number
+  notas: string
+}
+
 export const EMBED_CHAT_WELCOME_TITLE = 'Hola, soy PlotAI'
 
 export const EMBED_CHAT_WELCOME_SUB =
@@ -77,7 +97,8 @@ export const EMBED_CHAT_WELCOME_SUB =
 export const EMBED_CHAT_OPENING_GREETING =
   '¡Hola! Soy PlotAI de Plot Center. Puedo cotizar con Lista 1 (efectivo, débito o transferencia), consultar el estado de tu OP o ayudarte con un pedido nuevo.\n\n' +
   'Para cotizar o encargar un trabajo necesito tu nombre y tu WhatsApp en un solo mensaje, por ejemplo: Juan 2644123456.\n' +
-  'Si ya tenés una OP en curso, decime el número o tu nombre/DNI.\n\n' +
+  'Si ya tenés una OP en curso, decime el número o tu nombre/DNI.\n' +
+  'Cuando te pase precios, vas a poder descargar el presupuesto en PDF desde el botón del chat.\n\n' +
   '¿En qué te ayudo?'
 
 export type EmbedChatIdentificacion = {

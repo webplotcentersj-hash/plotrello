@@ -13,8 +13,11 @@ import {
   fileToChatImagePayload,
   EMBED_CHAT_CONVERSATION_KEY,
   EMBED_CHAT_OPENING_GREETING,
-  buildEmbedChatApiPayload
+  buildEmbedChatApiPayload,
+  type EmbedPresupuestoPayload
 } from '../utils/embedChatShared'
+import { getEmbedStandaloneChatUrl } from '../utils/embedMicPermission'
+import { EmbedPresupuestoBanner } from '../components/embed/EmbedPresupuestoBanner'
 import '../components/embed/EmbedChatVoice.css'
 import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
 import { useEmbedShellLayout } from '../hooks/useEmbedShellLayout'
@@ -43,13 +46,13 @@ function ChatBubbleIcon({ className }: { className?: string }) {
 }
 
 function getWidgetOpenSize() {
-  const screenW = typeof window !== 'undefined' ? window.screen?.availWidth || window.innerWidth : 400
-  const screenH = typeof window !== 'undefined' ? window.screen?.availHeight || window.innerHeight : 580
+  const screenW = typeof window !== 'undefined' ? window.innerWidth : 400
+  const screenH = typeof window !== 'undefined' ? window.innerHeight : 580
   const mobile = screenW <= 520
   return {
-    width: mobile ? screenW : Math.min(400, screenW - 16),
-    height: mobile ? screenH : Math.min(580, screenH - 24),
-    fullscreen: mobile
+    width: mobile ? Math.min(screenW - 20, 360) : Math.min(380, screenW - 16),
+    height: mobile ? Math.min(Math.round(screenH * 0.68), 480) : Math.min(540, screenH - 24),
+    fullscreen: false
   }
 }
 
@@ -61,6 +64,7 @@ export default function EmbedChatWidgetPage() {
   const [error, setError] = useState<string | null>(null)
   const [hasNewStaffReply, setHasNewStaffReply] = useState(false)
   const [briefUrl, setBriefUrl] = useState<string | null>(null)
+  const [presupuesto, setPresupuesto] = useState<EmbedPresupuestoPayload | null>(null)
   const [showIdentificacion, setShowIdentificacion] = useState(false)
   const [nombre, setNombre] = useState('')
   const [telefono, setTelefono] = useState('')
@@ -286,6 +290,9 @@ export default function EmbedChatWidgetPage() {
       if (reply) setMessages((prev) => [...prev, { role: 'model', parts: [{ text: reply }] }])
       else setMessages((prev) => prev)
       if (data.conversation_id != null) setConversationId(data.conversation_id)
+      if (data.presupuesto && Array.isArray(data.presupuesto.items) && data.presupuesto.items.length > 0) {
+        setPresupuesto(data.presupuesto as EmbedPresupuestoPayload)
+      }
       if (data.brief && (data.brief.url || data.brief.token)) {
         const url = typeof data.brief.url === 'string' && data.brief.url
           ? data.brief.url
@@ -472,6 +479,8 @@ export default function EmbedChatWidgetPage() {
               </div>
             )}
 
+            {presupuesto && <EmbedPresupuestoBanner presupuesto={presupuesto} />}
+
             {briefUrl && (
               <div className="embed-brief-banner">
                 <div className="embed-brief-text">
@@ -511,6 +520,7 @@ export default function EmbedChatWidgetPage() {
               status={voice.status}
               onStop={voice.stopLive}
               onRetry={() => void voice.toggleLive()}
+              onOpenStandalone={() => window.open(getEmbedStandaloneChatUrl(), '_blank', 'noopener,noreferrer')}
             />
 
             <footer className="embed-chat-footer">
@@ -537,6 +547,7 @@ export default function EmbedChatWidgetPage() {
                   active={voice.active}
                   starting={voice.starting}
                   disabled={loading}
+                  micAvailable={voice.micAvailable}
                   onClick={() => void voice.toggleLive()}
                 />
               </div>

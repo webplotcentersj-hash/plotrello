@@ -656,6 +656,100 @@ export async function buildLista1PreciosContext(
   return `${encabezado}${lineas.join('\n')}`
 }
 
+export type EmbedPresupuestoItem = {
+  codigo?: string | null
+  descripcion: string
+  cantidad: number
+  precio_unitario: number
+  subtotal: number
+}
+
+export type EmbedPresupuestoPayload = {
+  numero: string
+  fecha: string
+  validez_hasta: string
+  cliente_nombre: string
+  cliente_telefono?: string | null
+  lista_label: string
+  items: EmbedPresupuestoItem[]
+  total: number
+  notas: string
+}
+
+function addDaysIso(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString()
+}
+
+/** Arma presupuesto PDF cuando hay contacto completo y cotización con Lista 1. */
+export async function buildEmbedPresupuestoPayload(
+  supabase: SupabaseClient,
+  params: {
+    userTexts: string[]
+    message: string
+    contacto: ContactoCliente
+  }
+): Promise<EmbedPresupuestoPayload | null> {
+  if (!params.contacto.completo || !esNombreValido(params.contacto.nombre)) return null
+
+  const joined = [...params.userTexts, params.message].join('\n').trim()
+  if (!shouldLoadLista1PreciosContext(joined)) return null
+
+  const busqueda = extractBusquedaProducto(joined)
+  const cantidad = Math.max(1, extractCantidadSolicitada(joined) || 1)
+  const selectCols = 'codigo, nombre, descripcion, categoria, precio_base, precio_lista_1'
+
+  let query = supabase
+    .from('articulos_empresa')
+    .select(selectCols)
+    .eq('activo', true)
+    .order('nombre', { ascending: true })
+    .limit(busqueda.length >= 2 ? 8 : 5)
+
+  if (busqueda.length >= 2) {
+    const term = escapeIlike(busqueda)
+    query = query.or(`nombre.ilike.%${term}%,descripcion.ilike.%${term}%,codigo.ilike.%${term}%`)
+  }
+
+  const { data, error } = await query
+  if (error || !data?.length) return null
+
+  const rows = (data as ArticuloPrecioRow[]).filter((r) => resolvePrecioLista1Bruto(r) != null).slice(0, 3)
+  if (!rows.length) return null
+
+  const ajustes = await getAjustesPrecios(supabase)
+  const items: EmbedPresupuestoItem[] = rows.map((row) => {
+    const bruto = resolvePrecioLista1Bruto(row)!
+    const unit = calcularPrecioFinalLista1(bruto, ajustes)
+    const qty = rows.length === 1 ? cantidad : 1
+    return {
+      codigo: row.codigo,
+      descripcion: row.nombre || row.descripcion || 'Articulo',
+      cantidad: qty,
+      precio_unitario: unit,
+      subtotal: round2(unit * qty)
+    }
+  })
+
+  const total = round2(items.reduce((s, i) => s + i.subtotal, 0))
+  const numero = `PWEB-${Date.now().toString(36).toUpperCase().slice(-6)}`
+
+  return {
+    numero,
+    fecha: new Date().toISOString(),
+    validez_hasta: addDaysIso(7),
+    cliente_nombre: params.contacto.nombre!,
+    cliente_telefono: params.contacto.telefono,
+    lista_label: 'Lista 1 (efectivo, debito o transferencia)',
+    items,
+    total,
+    notas:
+      'Presupuesto de referencia segun Lista 1. Medidas, terminaciones, cantidades finales o diseno pueden modificar el total. ' +
+      'Validez 7 dias. Se requiere sena del 50% para confirmar pedido.'
+  }
+}
+
 
 export const PLOT_CENTER_KNOWLEDGE = `
 EMPRESA: Plot Center (PlotCenter)
@@ -1608,6 +1702,7 @@ REGLA — PRECIOS LISTA 1 (obligatorio cuando pregunten por precios, cotización
 - Aclará que es referencial por unidad base; medidas, cantidades, terminaciones o diseño pueden cambiar el total final.
 - Si el producto no está en la lista cargada, NO inventes: decí que no tenés ese precio en el sistema y ofrecé que mostrador cotice con detalle.
 - No uses Lista 2 (cuenta corriente) salvo que el cliente pregunte explícitamente por cuenta corriente.
+- Cuando des montos concretos de cotización, mencioná brevemente que puede descargar el presupuesto en PDF desde el botón del chat.
 ` : ''}
 
 IDIOMA Y TONO:
@@ -1717,6 +1812,26 @@ CÓMO TRATAR AL CLIENTE (atención al público):
     }
 
     let conversationId: number | null = null
+    let presupuestoPayload: EmbedPresupuestoPayload | null = null
+
+    if (
+      supabase &&
+      modo === 'web_publico' &&
+      contactoCliente.completo &&
+      !skipGemini &&
+      replyText
+    ) {
+      try {
+        presupuestoPayload = await buildEmbedPresupuestoPayload(supabase, {
+          userTexts: allUserTexts,
+          message,
+          contacto: contactoCliente
+        })
+      } catch (e) {
+        console.error('Error armando presupuesto embed:', e)
+      }
+    }
+
     const userHistorialEntry = enrichUserHistorialEntry(message, undefined, staffImagePreview)
     const canalConversacion =
       modo === 'cliente_portal'
@@ -1815,7 +1930,8 @@ CÓMO TRATAR AL CLIENTE (atención al público):
       success: true,
       reply: replyText,
       ...(conversationId != null && { conversation_id: conversationId }),
-      ...(solicitudChatId != null && { solicitud_id: solicitudChatId })
+      ...(solicitudChatId != null && { solicitud_id: solicitudChatId }),
+      ...(presupuestoPayload && { presupuesto: presupuestoPayload })
     })
   } catch (error: any) {
     console.error('Error en chat-public:', error)
