@@ -80,6 +80,11 @@ function EnvDebugGate() {
   return <EnvDebug />
 }
 
+function isEmbedPublicRoute(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.location.pathname.startsWith('/embed/')
+}
+
 function LoadingScreen() {
   return (
     <div
@@ -147,7 +152,7 @@ function AppInner() {
 
   return (
     <>
-      {loading ? (
+      {loading && !isEmbedPublicRoute() ? (
         <LoadingScreen />
       ) : (
       <BrowserRouter>

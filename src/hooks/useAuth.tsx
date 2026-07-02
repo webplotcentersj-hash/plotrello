@@ -115,14 +115,25 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+function isEmbedPublicRoute(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.location.pathname.startsWith('/embed/')
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(resolveUsuarioForContext)
   const [loading, setLoading] = useState(() => {
     if (typeof window === 'undefined') return true
+    if (isEmbedPublicRoute()) return false
     return resolveUsuarioForContext() == null
   })
 
   useEffect(() => {
+    if (isEmbedPublicRoute()) {
+      setLoading(false)
+      return
+    }
+
     const load = async () => {
       const sessionUsuario = resolveUsuarioForContext()
       const usuarioStr = sessionUsuario ? JSON.stringify(sessionUsuario) : null

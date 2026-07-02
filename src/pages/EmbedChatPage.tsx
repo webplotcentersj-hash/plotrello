@@ -14,6 +14,9 @@ import {
   EMBED_CHAT_CONVERSATION_KEY
 } from '../utils/embedChatShared'
 import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
+import { useEmbedShellLayout } from '../hooks/useEmbedShellLayout'
+import { EmbedChatOnlineStatus } from '../components/embed/EmbedChatOnlineStatus'
+import '../components/embed/EmbedChatOnlineStatus.css'
 
 const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
 
@@ -78,27 +81,7 @@ export default function EmbedChatPage() {
     }
   }, [])
 
-  useEffect(() => {
-    const html = document.documentElement
-    const body = document.body
-    const root = document.getElementById('root')
-    const prev = {
-      htmlHeight: html.style.height,
-      bodyHeight: body.style.height,
-      bodyMargin: body.style.margin,
-      rootHeight: root?.style.height ?? ''
-    }
-    html.style.height = '100%'
-    body.style.height = '100%'
-    body.style.margin = '0'
-    if (root) root.style.height = '100%'
-    return () => {
-      html.style.height = prev.htmlHeight
-      body.style.height = prev.bodyHeight
-      body.style.margin = prev.bodyMargin
-      if (root) root.style.height = prev.rootHeight
-    }
-  }, [])
+  useEmbedShellLayout('page')
 
   useEffect(() => {
     if (!isClientePortal || messages.length > 0) return
@@ -264,12 +247,13 @@ export default function EmbedChatPage() {
       <div className="embed-chat">
       <header className="embed-chat-header">
         <div className="embed-chat-header-inner">
-          <div className="embed-chat-logo">
+          <div className="embed-chat-logo embed-chat-logo-block">
             <img
               src="/plot-lab-logo.png"
               alt="Plot Center Logo"
               className="embed-chat-logo-image"
             />
+            <EmbedChatOnlineStatus />
           </div>
         </div>
       </header>
@@ -333,8 +317,11 @@ export default function EmbedChatPage() {
 
       <div className="embed-chat-messages">
         {messages.length === 0 && !loading && !isClientePortal && (
-          <div className="embed-chat-welcome">
-            <p>Hola.</p>
+          <div className="embed-chat-welcome embed-chat-welcome--hero">
+            <p className="embed-chat-welcome-title">Hola, soy PlotAI</p>
+            <p className="embed-chat-welcome-sub">
+              Consultá por tu OP, pedido o escribí tu consulta. También podés usar el micrófono.
+            </p>
           </div>
         )}
         {messages.map((m, i) => (
@@ -415,6 +402,7 @@ export default function EmbedChatPage() {
         error={voice.error}
         status={voice.status}
         onStop={voice.stopLive}
+        onRetry={() => void voice.toggleLive()}
       />
 
       <footer className="embed-chat-footer">

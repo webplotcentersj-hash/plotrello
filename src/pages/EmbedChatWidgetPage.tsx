@@ -15,6 +15,9 @@ import {
 } from '../utils/embedChatShared'
 import '../components/embed/EmbedChatVoice.css'
 import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
+import { useEmbedShellLayout } from '../hooks/useEmbedShellLayout'
+import { EmbedChatOnlineStatus } from '../components/embed/EmbedChatOnlineStatus'
+import '../components/embed/EmbedChatOnlineStatus.css'
 
 const PLOTAI_LOGO = 'https://plotcenter.com.ar/wp-content/uploads/2024/10/FAVICON_Mesa-de-trabajo-1.png'
 
@@ -114,6 +117,8 @@ export default function EmbedChatWidgetPage() {
     return () => { root.style.removeProperty('--embed-btn-size') }
   }, [viewportSize])
 
+  useEmbedShellLayout('widget', { active: open })
+
   useEffect(() => {
     const root = document.documentElement
     root.classList.add('embed-widget-page')
@@ -127,8 +132,10 @@ export default function EmbedChatWidgetPage() {
     const prevPaddingBody = body.padding
     html.background = 'transparent'
     body.background = 'transparent'
-    html.overflow = 'visible'
-    body.overflow = 'visible'
+    if (!open) {
+      html.overflow = 'visible'
+      body.overflow = 'visible'
+    }
     body.margin = '0'
     body.padding = '0'
     return () => {
@@ -140,7 +147,7 @@ export default function EmbedChatWidgetPage() {
       body.margin = prevMarginBody
       body.padding = prevPaddingBody
     }
-  }, [])
+  }, [open])
 
   const IFRAME_CLOSED_WIDTH = 88
   const IFRAME_CLOSED_HEIGHT = 88
@@ -312,6 +319,7 @@ export default function EmbedChatWidgetPage() {
         aria-expanded={open}
       >
         {hasNewStaffReply && !open && <span className="embed-widget-badge" aria-hidden />}
+        {!open && <EmbedChatOnlineStatus dotOnly />}
         <span className="embed-widget-button-icon">
           {open ? (
             <span className="embed-widget-button-close" aria-hidden>✕</span>
@@ -330,7 +338,7 @@ export default function EmbedChatWidgetPage() {
                   <img src={PLOTAI_LOGO} alt="" className="embed-chat-logo-img" />
                   <div>
                     <span className="embed-chat-title">PlotAI</span>
-                    <span className="embed-chat-subtitle">Asistente virtual</span>
+                    <EmbedChatOnlineStatus className="embed-chat-subtitle-status" />
                   </div>
                 </div>
                 <button
@@ -346,8 +354,9 @@ export default function EmbedChatWidgetPage() {
 
             <div className="embed-chat-messages">
               {messages.length === 0 && !loading && (
-                <div className="embed-chat-welcome">
-                  <p>Hola.</p>
+                <div className="embed-chat-welcome embed-chat-welcome--hero">
+                  <p className="embed-chat-welcome-title">Hola, soy PlotAI</p>
+                  <p className="embed-chat-welcome-sub">Escribí o usá el micrófono para consultar.</p>
                 </div>
               )}
               {messages.map((m, i) => (
@@ -425,6 +434,7 @@ export default function EmbedChatWidgetPage() {
               error={voice.error}
               status={voice.status}
               onStop={voice.stopLive}
+              onRetry={() => void voice.toggleLive()}
             />
 
             <footer className="embed-chat-footer">

@@ -13,6 +13,7 @@ import {
   buildEmbedWidgetSnippet,
   getPlotLabEmbedOrigin
 } from '../constants/embedChatSnippet'
+import { useAtencionStaffPresence } from '../hooks/useAtencionStaffPresence'
 
 const REFRESH_INTERVAL_MS = 25000
 
@@ -161,6 +162,8 @@ const AtencionPublicoDashboardPage = () => {
   const embedOrigin = getPlotLabEmbedOrigin()
   const embedSnippetWidget = useMemo(() => buildEmbedWidgetSnippet(embedOrigin), [embedOrigin])
   const embedSnippetPage = useMemo(() => buildEmbedPageSnippet(embedOrigin), [embedOrigin])
+
+  useAtencionStaffPresence(canAccessAtencionPublico)
 
   const copyEmbedSnippet = async (text: string) => {
     try {

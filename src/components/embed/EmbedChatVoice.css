@@ -29,11 +29,22 @@
   border: 1px solid rgba(16, 185, 129, 0.35);
   background: rgba(16, 185, 129, 0.12);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
   font-size: 0.82rem;
   color: var(--embed-text);
+}
+
+.embed-chat-scope .embed-voice-banner--error {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(185, 28, 28, 0.22);
+  color: #fecaca;
+}
+
+.embed-chat-scope .embed-voice-banner-text {
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 .embed-chat-scope .embed-voice-banner-main {
@@ -77,4 +88,16 @@
   padding: 6px 10px;
   font-size: 0.78rem;
   cursor: pointer;
+}
+
+.embed-chat-scope .embed-voice-retry {
+  flex-shrink: 0;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.15);
+  color: #fde68a;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
 }

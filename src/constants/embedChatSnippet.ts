@@ -15,10 +15,10 @@ export function buildEmbedWidgetSnippet(embedOrigin = getPlotLabEmbedOrigin()): 
   return `<iframe id="plotai-widget-iframe"
   src="${embedOrigin}/embed/chat-widget"
   title="Chat Plot Center"
-  allow="microphone"
+  allow="microphone *; autoplay *"
   width="88"
   height="88"
-  style="border: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999;"
+  style="border: none; position: fixed; bottom: max(12px, env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right)); z-index: 9999;"
 ></iframe>
 <script>
 (function() {
@@ -55,10 +55,10 @@ export function buildEmbedPageSnippet(embedOrigin = getPlotLabEmbedOrigin()): st
   return `<iframe
   src="${embedOrigin}/embed/chat"
   title="Chat Plot Center"
-  allow="microphone"
+  allow="microphone *; autoplay *"
   width="100%"
-  height="560"
-  style="border: none; border-radius: 8px; min-height: 420px; max-height: 100dvh;"
+  height="640"
+  style="border: none; border-radius: 8px; width: 100%; height: min(85dvh, 640px); min-height: 420px; max-height: 100dvh; display: block;"
 ></iframe>`
 }
 

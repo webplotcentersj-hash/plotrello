@@ -4,6 +4,7 @@ import {
   fetchTotemGeminiApiKey,
   fetchTotemLiveContext
 } from '../../services/totemPlotAILiveService'
+import { requestEmbedMicrophoneStream } from '../../utils/embedMicPermission'
 import './EmbedChatVoice.css'
 
 type UseEmbedChatVoiceOptions = {
@@ -69,15 +70,7 @@ export function useEmbedChatVoice({
     setStatus('Conectando voz...')
 
     try {
-      const micStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1
-        },
-        video: false
-      })
+      const micStream = await requestEmbedMicrophoneStream()
 
       const apiKey = await fetchTotemGeminiApiKey()
       let contextBlock = ''
@@ -119,11 +112,9 @@ export function useEmbedChatVoice({
       })
     } catch (e) {
       const msg =
-        e instanceof DOMException && e.name === 'NotAllowedError'
-          ? 'Permiso de micrófono denegado. Activá el micrófono en el navegador.'
-          : e instanceof Error
-            ? e.message
-            : 'No se pudo iniciar la llamada de voz'
+        e instanceof Error
+          ? e.message
+          : 'No se pudo iniciar la llamada de voz'
       setError(msg)
       stopLive()
     }
@@ -146,7 +137,8 @@ export function EmbedChatVoiceBanner({
   speaking,
   error,
   status,
-  onStop
+  onStop,
+  onRetry
 }: {
   active: boolean
   starting: boolean
@@ -154,15 +146,24 @@ export function EmbedChatVoiceBanner({
   error: string | null
   status: string
   onStop: () => void
+  onRetry?: () => void
 }) {
   if (!active && !starting && !error) return null
   return (
-    <div className="embed-voice-banner" role="status">
+    <div
+      className={`embed-voice-banner${error ? ' embed-voice-banner--error' : ''}`}
+      role={error ? 'alert' : 'status'}
+    >
       <div className="embed-voice-banner-main">
-        <span className={`embed-voice-pulse${speaking ? ' embed-voice-pulse--speaking' : ''}`} />
-        <span>{error || status || 'Conectando...'}</span>
+        {!error && <span className={`embed-voice-pulse${speaking ? ' embed-voice-pulse--speaking' : ''}`} />}
+        <span className="embed-voice-banner-text">{error || status || 'Conectando...'}</span>
       </div>
-      {active && (
+      {error && onRetry && (
+        <button type="button" className="embed-voice-retry" onClick={onRetry}>
+          Reintentar
+        </button>
+      )}
+      {active && !error && (
         <button type="button" className="embed-voice-stop" onClick={onStop}>
           Cortar
         </button>
