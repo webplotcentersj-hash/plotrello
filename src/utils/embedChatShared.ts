@@ -68,6 +68,45 @@ export function collectUserTexts(messages: EmbedChatMessage[]): string[] {
 
 export const EMBED_CHAT_CONVERSATION_KEY = 'embed_chat_conversation_id'
 
+export const EMBED_WIDGET_CLOSED_SIZE = 88
+
+/** Tamaño del iframe en la página padre (WordPress). En iframe cerrado innerWidth ≈ 88px — usar screen. */
+export function getEmbedWidgetOpenSize(): { width: number; height: number; fullscreen: boolean } {
+  if (typeof window === 'undefined') {
+    return { width: 380, height: 540, fullscreen: false }
+  }
+
+  const framed = window.self !== window.top
+  const screenW = framed
+    ? window.screen?.availWidth || window.screen?.width || 400
+    : window.innerWidth
+  const screenH = framed
+    ? window.screen?.availHeight || window.screen?.height || 700
+    : window.innerHeight
+  const mobile = screenW <= 520
+
+  return {
+    width: mobile ? Math.min(screenW - 20, 360) : Math.min(380, Math.max(screenW - 16, 320)),
+    height: mobile ? Math.min(Math.round(screenH * 0.68), 480) : Math.min(540, Math.max(screenH - 24, 400)),
+    fullscreen: false
+  }
+}
+
+export function postEmbedWidgetResize(open: boolean): void {
+  if (typeof window === 'undefined' || window.parent === window) return
+  try {
+    const size = getEmbedWidgetOpenSize()
+    const w = open ? size.width : EMBED_WIDGET_CLOSED_SIZE
+    const h = open ? size.height : EMBED_WIDGET_CLOSED_SIZE
+    window.parent.postMessage(
+      { type: 'plotai-widget-resize', open, width: w, height: h, fullscreen: false },
+      '*'
+    )
+  } catch {
+    /* ignore */
+  }
+}
+
 export type EmbedPresupuestoItem = {
   codigo?: string | null
   descripcion: string

@@ -480,7 +480,17 @@ const PRODUCTO_KEYWORDS = [
   'plotear',
   'plotear',
   'plotteo',
-  'plotteado'
+  'plotteado',
+  'hoja',
+  'hojas',
+  'a4',
+  'a3',
+  'a5',
+  'papel',
+  'ilustracion',
+  'ilustración',
+  'diseno',
+  'diseño'
 ]
 
 /** Consulta de estado de OP/pedido existente — no cargar lista de precios. */
@@ -495,8 +505,8 @@ export function detectConsultaPrecios(text: string): boolean {
   const t = text.toLowerCase()
   if (!t.trim()) return false
   const patterns = [
-    /\b(precio|precios|tarifa|tarifas|cotizaci[oó]n|cotizar|cotizame|cotizá)\b/i,
-    /\b(cu[aá]nto\s+(sale|cuesta|cuestan|vale|valen|es|ser[ií]a))\b/i,
+    /\b(precio|precios|tarifa|tarifas|cotizaci[oó]n|cotizar|cotizame|cotizá|presupuesto|presupuestame)\b/i,
+    /\b(cu[aá]nto\s+(sale|cuesta|cuestan|vale|valen|es|ser[ií]a|me\s+sale))\b/i,
     /\b(qu[eé]\s+precio|a\s+cu[aá]nto|valor\s+de|lista\s+de\s+precios?)\b/i,
     /\b(cuesta|sale)\s+(el|la|los|las|un|una)\b/i,
     /\$\s*\d/
@@ -510,6 +520,7 @@ export function detectIntencionPedidoProducto(text: string): boolean {
   if (!t || t.length < 8) return false
 
   const mencionaProducto = PRODUCTO_KEYWORDS.some((k) => t.includes(k))
+  const mencionaFormatoImpresion = /\b(a\s*[345]|hojas?|papel|ilustraci[oó]n|tama[nñ]o\s+carta)\b/i.test(t)
   const cantidadYProducto = /\b\d+\s+(?:unidades?\s+de\s+)?[a-záéíóúñ]{4,}/i.test(t)
 
   const intencionCompra = [
@@ -517,10 +528,11 @@ export function detectIntencionPedidoProducto(text: string): boolean {
     /\b(me\s+gustar[ií]a|quisiera)\s+/i,
     /\b(hacen|hac[eé]s|pueden\s+hacer|puedo\s+pedir|fabrican|imprimen|realizan)\s+/i,
     /\b(?:imprimir|impresi[oó]n\s+de)\s+/i,
-    /\bpedido\s+(?:de|nuevo)\s+/i
+    /\bpedido\s+(?:de|nuevo)\s+/i,
+    /\b(ayuda|ayudame|ayudá)\s+con\s+(el\s+)?dise[nñ]o\b/i
   ].some((re) => re.test(t))
 
-  if (!mencionaProducto && !cantidadYProducto) return false
+  if (!mencionaProducto && !cantidadYProducto && !mencionaFormatoImpresion) return false
   if (!intencionCompra && !cantidadYProducto) {
     return /\b(quiero|necesito|pedir|hacer|imprimir|encargar)\b/i.test(t) && mencionaProducto
   }
@@ -539,13 +551,158 @@ export function shouldLoadLista1PreciosContext(text: string): boolean {
   return false
 }
 
-/** Cantidad numérica que menciona el cliente (ej. 500 stickers). */
+/** Cantidad numérica que menciona el cliente (ej. 500 stickers, 8 hojas). */
 export function extractCantidadSolicitada(text: string): number | null {
+  const mHojas = text.match(/\b(\d{1,6})\s+hojas?\b/i)
+  if (mHojas) return Number(mHojas[1])
   const m = text.match(/\b(\d{1,6})\s+(?:unidades?\s+de\s+)?(?:stickers?|tarjetas?|folletos?|carteles?|afiches?|volantes?|banners?|vinilos?|hojas?|talonarios?)/i)
   if (m) return Number(m[1])
   const m2 = text.match(/\b(?:quiero|necesito|pedir)\s+(\d{1,6})\b/i)
   if (m2) return Number(m2[1])
   return null
+}
+
+function normalizeTextForCatalog(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+}
+
+export function detectFormatoImpresion(text: string): 'a4' | 'a3' | 'a5' | null {
+  const t = normalizeTextForCatalog(text)
+  if (/\ba\s*4\b/.test(t)) return 'a4'
+  if (/\ba\s*3\b/.test(t)) return 'a3'
+  if (/\ba\s*5\b/.test(t)) return 'a5'
+  return null
+}
+
+export function detectColorImpresion(text: string): 'color' | 'bn' | null {
+  const t = normalizeTextForCatalog(text)
+  if (/\b(color|full\s*color|a\s*color)\b/.test(t)) return 'color'
+  if (/\b(b\/n|blanco\s*y\s*negro)\b/.test(t)) return 'bn'
+  return null
+}
+
+export function detectPapelIlustracion(text: string): boolean {
+  return /ilustraci[oó]n|ilustracion/i.test(text)
+}
+
+export function detectSolicitudDiseno(text: string): boolean {
+  return /\b(dise[nñ]o|diseno|maquet|armado\s+de\s+archivo|edicion\s+gr[aá]fica|crear\s+(un\s+)?logo)\b/i.test(
+    text
+  )
+}
+
+/** Términos priorizados para buscar en articulos_empresa (Lista 1). */
+export function buildCatalogSearchTerms(text: string): string[] {
+  const terms: string[] = []
+  const formato = detectFormatoImpresion(text)
+  const ilustracion = detectPapelIlustracion(text)
+  const color = detectColorImpresion(text)
+
+  if (formato && ilustracion && color === 'color') {
+    terms.push(`impresiones ${formato} ilustracion color`)
+  }
+  if (formato && ilustracion) {
+    terms.push(`impresiones ${formato} ilustracion`)
+  }
+  if (formato && color === 'color') {
+    terms.push(`impresiones ${formato} color`)
+  }
+  if (formato) terms.push(`impresiones ${formato}`)
+
+  const busqueda = extractBusquedaProducto(text)
+  if (busqueda.length >= 2) terms.push(busqueda)
+
+  if (detectSolicitudDiseno(text)) {
+    terms.push('armado de archivos')
+    terms.push('diseno grafico')
+  }
+
+  return [...new Set(terms.map((t) => t.trim()).filter((t) => t.length >= 2))]
+}
+
+function scoreArticuloRelevancia(row: ArticuloPrecioRow, text: string): number {
+  const nombre = normalizeTextForCatalog(row.nombre || '')
+  let score = 0
+  const formato = detectFormatoImpresion(text)
+  if (formato && nombre.includes(formato)) score += 12
+  if (detectPapelIlustracion(text) && nombre.includes('ilustracion')) score += 10
+  if (detectColorImpresion(text) === 'color' && nombre.includes('color')) score += 8
+  if (detectColorImpresion(text) === 'bn' && (nombre.includes('b/n') || nombre.includes('b n'))) score += 8
+  if (/\bimpres/i.test(text) && nombre.includes('impres')) score += 6
+  if (detectSolicitudDiseno(text) && /armado de archivos|diseno grafico/.test(nombre)) score += 14
+  return score
+}
+
+function rankArticulosForChat(rows: ArticuloPrecioRow[], text: string): ArticuloPrecioRow[] {
+  return [...rows].sort(
+    (a, b) => scoreArticuloRelevancia(b, text) - scoreArticuloRelevancia(a, text)
+  )
+}
+
+const ARTICULO_SELECT_COLS = 'codigo, nombre, descripcion, categoria, precio_base, precio_lista_1'
+
+async function fetchArticulosLista1ForChat(
+  supabase: SupabaseClient,
+  joinedText: string,
+  maxRows = 30
+): Promise<ArticuloPrecioRow[]> {
+  const terms = buildCatalogSearchTerms(joinedText)
+  const seen = new Map<string, ArticuloPrecioRow>()
+
+  const addRows = (rows: ArticuloPrecioRow[]) => {
+    for (const row of rows) {
+      if (resolvePrecioLista1Bruto(row) == null) continue
+      const key = String(row.codigo || row.nombre || '')
+      if (key) seen.set(key, row)
+    }
+  }
+
+  for (const term of terms) {
+    const escaped = escapeIlike(term)
+    const { data, error } = await supabase
+      .from('articulos_empresa')
+      .select(ARTICULO_SELECT_COLS)
+      .eq('activo', true)
+      .or(`nombre.ilike.%${escaped}%,descripcion.ilike.%${escaped}%,codigo.ilike.%${escaped}%`)
+      .order('nombre', { ascending: true })
+      .limit(maxRows)
+    if (error) {
+      console.error('Error buscando articulos lista 1:', error.message, term)
+      continue
+    }
+    addRows((data || []) as ArticuloPrecioRow[])
+    if (seen.size >= maxRows) break
+  }
+
+  if (!seen.size && shouldLoadLista1PreciosContext(joinedText)) {
+    const { data } = await supabase
+      .from('articulos_empresa')
+      .select(ARTICULO_SELECT_COLS)
+      .eq('activo', true)
+      .ilike('nombre', '%impresiones a4%')
+      .order('nombre', { ascending: true })
+      .limit(15)
+    addRows((data || []) as ArticuloPrecioRow[])
+  }
+
+  return rankArticulosForChat([...seen.values()], joinedText)
+}
+
+function pickArticuloImpresion(rows: ArticuloPrecioRow[], text: string): ArticuloPrecioRow | null {
+  const impresion = rows.filter((r) => /impres|folleto|diptico|tarjeta|sticker|vinilo|lona|cartel/i.test(r.nombre || ''))
+  const pool = impresion.length ? impresion : rows
+  return pool[0] || null
+}
+
+function pickArticuloDiseno(rows: ArticuloPrecioRow[]): ArticuloPrecioRow | null {
+  return (
+    rows.find((r) => /armado de archivos/i.test(r.nombre || '')) ||
+    rows.find((r) => /diseno grafico/i.test(r.nombre || '')) ||
+    null
+  )
 }
 
 /** Extrae términos de producto/servicio para buscar en el catálogo. */
@@ -601,29 +758,17 @@ export async function buildLista1PreciosContext(
   const joined = userTexts.join('\n').trim()
   if (!shouldLoadLista1PreciosContext(joined)) return ''
 
-  const busqueda = extractBusquedaProducto(joined)
+  const busqueda = buildCatalogSearchTerms(joined).join(' / ') || extractBusquedaProducto(joined)
   const cantidad = extractCantidadSolicitada(joined)
-  const selectCols = 'codigo, nombre, descripcion, categoria, precio_base, precio_lista_1'
 
-  let query = supabase
-    .from('articulos_empresa')
-    .select(selectCols)
-    .eq('activo', true)
-    .order('nombre', { ascending: true })
-    .limit(busqueda.length >= 2 ? 30 : 40)
-
-  if (busqueda.length >= 2) {
-    const term = escapeIlike(busqueda)
-    query = query.or(`nombre.ilike.%${term}%,descripcion.ilike.%${term}%,codigo.ilike.%${term}%`)
-  }
-
-  const { data, error } = await query
-  if (error) {
-    console.error('Error cargando lista 1 para chat:', error.message)
+  let rows: ArticuloPrecioRow[]
+  try {
+    rows = await fetchArticulosLista1ForChat(supabase, joined, 30)
+  } catch (e) {
+    console.error('Error cargando lista 1 para chat:', e)
     return 'LISTA DE PRECIOS 1: no se pudo cargar el catálogo en este momento. Indicá al cliente que un asesor de mostrador puede cotizar por teléfono (2646212163).'
   }
 
-  const rows = (data || []) as ArticuloPrecioRow[]
   const ajustes = await getAjustesPrecios(supabase)
 
   const lineas: string[] = []
@@ -651,7 +796,10 @@ export async function buildLista1PreciosContext(
     `LISTA DE PRECIOS 1 (efectivo, transferencia, débito/tarjeta) — única fuente válida para cotizar precios al público.\n` +
     `Ajustes aplicados: ${labelAjustes(ajustes)}. Importes finales por unidad base del artículo.\n` +
     (busqueda ? `Búsqueda: "${busqueda}".\n` : 'Muestra de artículos del catálogo (sin término específico).\n') +
-    (cantidad != null && cantidad > 0 ? `Cantidad mencionada por el cliente: ${cantidad} unidades (podés estimar total = precio unitario × cantidad si aplica).\n` : '')
+    (cantidad != null && cantidad > 0 ? `Cantidad mencionada por el cliente: ${cantidad} unidades (podés estimar total = precio unitario × cantidad si aplica).\n` : '') +
+    (detectSolicitudDiseno(joined)
+      ? 'El cliente pidió ayuda con diseño: si corresponde, sumá ARMADO DE ARCHIVOS BASICOS o DISEÑO GRÁFICO X HORA del listado.\n'
+      : '')
 
   return `${encabezado}${lineas.join('\n')}`
 }
@@ -682,6 +830,23 @@ function addDaysIso(days: number): string {
   return d.toISOString()
 }
 
+function geminiRechazoCotizacion(text: string): boolean {
+  return /\b(no\s+tengo\s+acceso|no\s+tenemos\s+acceso|no\s+puedo\s+generar|no\s+podemos\s+generar|no\s+est[aá]\s+disponible\s+la\s+lista)\b/i.test(
+    text
+  )
+}
+
+function buildPresupuestoChatReply(p: EmbedPresupuestoPayload, nombre?: string | null): string {
+  const saludo = nombre ? `${nombre}, ` : ''
+  const lineas = p.items.map((i) => `- ${i.cantidad} x ${i.descripcion}: ${formatArs(i.subtotal)}`)
+  return (
+    `${saludo}te paso un presupuesto de referencia con Lista 1:\n` +
+    `${lineas.join('\n')}\n\n` +
+    `Total estimado: ${formatArs(p.total)}\n\n` +
+    `${p.notas} Podés descargar el PDF desde el botón del chat.`
+  )
+}
+
 /** Arma presupuesto PDF cuando hay contacto completo y cotización con Lista 1. */
 export async function buildEmbedPresupuestoPayload(
   supabase: SupabaseClient,
@@ -696,41 +861,42 @@ export async function buildEmbedPresupuestoPayload(
   const joined = [...params.userTexts, params.message].join('\n').trim()
   if (!shouldLoadLista1PreciosContext(joined)) return null
 
-  const busqueda = extractBusquedaProducto(joined)
-  const cantidad = Math.max(1, extractCantidadSolicitada(joined) || 1)
-  const selectCols = 'codigo, nombre, descripcion, categoria, precio_base, precio_lista_1'
-
-  let query = supabase
-    .from('articulos_empresa')
-    .select(selectCols)
-    .eq('activo', true)
-    .order('nombre', { ascending: true })
-    .limit(busqueda.length >= 2 ? 8 : 5)
-
-  if (busqueda.length >= 2) {
-    const term = escapeIlike(busqueda)
-    query = query.or(`nombre.ilike.%${term}%,descripcion.ilike.%${term}%,codigo.ilike.%${term}%`)
-  }
-
-  const { data, error } = await query
-  if (error || !data?.length) return null
-
-  const rows = (data as ArticuloPrecioRow[]).filter((r) => resolvePrecioLista1Bruto(r) != null).slice(0, 3)
+  const rows = await fetchArticulosLista1ForChat(supabase, joined, 20)
   if (!rows.length) return null
 
+  const cantidad = Math.max(1, extractCantidadSolicitada(joined) || 1)
   const ajustes = await getAjustesPrecios(supabase)
-  const items: EmbedPresupuestoItem[] = rows.map((row) => {
-    const bruto = resolvePrecioLista1Bruto(row)!
+  const items: EmbedPresupuestoItem[] = []
+
+  const articuloImpresion = pickArticuloImpresion(rows, joined)
+  if (articuloImpresion) {
+    const bruto = resolvePrecioLista1Bruto(articuloImpresion)!
     const unit = calcularPrecioFinalLista1(bruto, ajustes)
-    const qty = rows.length === 1 ? cantidad : 1
-    return {
-      codigo: row.codigo,
-      descripcion: row.nombre || row.descripcion || 'Articulo',
-      cantidad: qty,
+    items.push({
+      codigo: articuloImpresion.codigo,
+      descripcion: articuloImpresion.nombre || articuloImpresion.descripcion || 'Impresion',
+      cantidad,
       precio_unitario: unit,
-      subtotal: round2(unit * qty)
+      subtotal: round2(unit * cantidad)
+    })
+  }
+
+  if (detectSolicitudDiseno(joined)) {
+    const articuloDiseno = pickArticuloDiseno(rows)
+    if (articuloDiseno && !items.some((i) => i.codigo === articuloDiseno.codigo)) {
+      const bruto = resolvePrecioLista1Bruto(articuloDiseno)!
+      const unit = calcularPrecioFinalLista1(bruto, ajustes)
+      items.push({
+        codigo: articuloDiseno.codigo,
+        descripcion: articuloDiseno.nombre || 'Servicio de diseno',
+        cantidad: 1,
+        precio_unitario: unit,
+        subtotal: round2(unit)
+      })
     }
-  })
+  }
+
+  if (!items.length) return null
 
   const total = round2(items.reduce((s, i) => s + i.subtotal, 0))
   const numero = `PWEB-${Date.now().toString(36).toUpperCase().slice(-6)}`
@@ -1696,11 +1862,14 @@ REGLA CRÍTICA — NO ALUCINAR (obligatorio):
 - Para datos de Plot Center (dirección, teléfono, servicios) usá ÚNICAMENTE lo que está en CONOCIMIENTO DE LA EMPRESA.
 ${preciosContext ? `
 REGLA — PRECIOS LISTA 1 (obligatorio cuando pregunten por precios, cotización o pidan un producto nuevo):
+- Tenés acceso a la LISTA DE PRECIOS 1 en esta conversación. NUNCA digas que "no tenés acceso" a la lista ni que no podés cotizar si esa sección está cargada abajo.
 - Cotizá SOLO con los importes de "LISTA DE PRECIOS 1" (efectivo, transferencia, débito/tarjeta). Es la lista de atención al público en mostrador.
+- Si el cliente pidió presupuesto o cantidad concreta (ej. 8 hojas A4 color), elegí el artículo más cercano del listado, multiplicá por la cantidad y mostrá el subtotal y total estimado.
+- Si el cliente pide ayuda con diseño, sumá ARMADO DE ARCHIVOS BASICOS o DISEÑO GRÁFICO X HORA del listado si figuran.
 - Si el cliente pide un producto sin preguntar precio (ej. "quiero 500 stickers"), ofrecé el precio de referencia de Lista 1 del artículo más cercano en el listado y multiplicá por cantidad solo si el precio es claramente por unidad.
 - Decí el precio en pesos argentinos con el formato del listado. Si hay varios artículos relacionados, mencioná los más relevantes (máx. 5).
 - Aclará que es referencial por unidad base; medidas, cantidades, terminaciones o diseño pueden cambiar el total final.
-- Si el producto no está en la lista cargada, NO inventes: decí que no tenés ese precio en el sistema y ofrecé que mostrador cotice con detalle.
+- Si el producto no está en la lista cargada, NO inventes: decí que no tenés ese artículo exacto en el sistema y ofrecé que mostrador cotice con detalle.
 - No uses Lista 2 (cuenta corriente) salvo que el cliente pregunte explícitamente por cuenta corriente.
 - Cuando des montos concretos de cotización, mencioná brevemente que puede descargar el presupuesto en PDF desde el botón del chat.
 ` : ''}
@@ -1827,6 +1996,9 @@ CÓMO TRATAR AL CLIENTE (atención al público):
           message,
           contacto: contactoCliente
         })
+        if (presupuestoPayload && geminiRechazoCotizacion(replyText)) {
+          replyText = buildPresupuestoChatReply(presupuestoPayload, contactoCliente.nombre)
+        }
       } catch (e) {
         console.error('Error armando presupuesto embed:', e)
       }

@@ -13,6 +13,7 @@ import {
   fileToChatImagePayload,
   EMBED_CHAT_CONVERSATION_KEY,
   EMBED_CHAT_OPENING_GREETING,
+  postEmbedWidgetResize,
   buildEmbedChatApiPayload,
   type EmbedPresupuestoPayload
 } from '../utils/embedChatShared'
@@ -43,17 +44,6 @@ function ChatBubbleIcon({ className }: { className?: string }) {
       <circle cx="15.5" cy="11.5" r="1.25" fill="rgba(255,255,255,0.9)" />
     </svg>
   )
-}
-
-function getWidgetOpenSize() {
-  const screenW = typeof window !== 'undefined' ? window.innerWidth : 400
-  const screenH = typeof window !== 'undefined' ? window.innerHeight : 580
-  const mobile = screenW <= 520
-  return {
-    width: mobile ? Math.min(screenW - 20, 360) : Math.min(380, screenW - 16),
-    height: mobile ? Math.min(Math.round(screenH * 0.68), 480) : Math.min(540, screenH - 24),
-    fullscreen: false
-  }
 }
 
 export default function EmbedChatWidgetPage() {
@@ -166,9 +156,6 @@ export default function EmbedChatWidgetPage() {
     }
   }, [open])
 
-  const IFRAME_CLOSED_WIDTH = 88
-  const IFRAME_CLOSED_HEIGHT = 88
-
   useEffect(() => {
     if (open && typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {})
@@ -176,18 +163,19 @@ export default function EmbedChatWidgetPage() {
   }, [open])
 
   useEffect(() => {
-    try {
-      if (window.parent !== window) {
-        const size = getWidgetOpenSize()
-        const w = open ? size.width : IFRAME_CLOSED_WIDTH
-        const h = open ? size.height : IFRAME_CLOSED_HEIGHT
-        window.parent.postMessage(
-          { type: 'plotai-widget-resize', open, width: w, height: h, fullscreen: open && size.fullscreen },
-          '*'
-        )
-      }
-    } catch {
-      // ignore
+    postEmbedWidgetResize(open)
+    const raf = requestAnimationFrame(() => postEmbedWidgetResize(open))
+    return () => cancelAnimationFrame(raf)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const onResize = () => postEmbedWidgetResize(true)
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
     }
   }, [open])
 

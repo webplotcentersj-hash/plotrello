@@ -124,7 +124,7 @@ html.embed-widget-page body {
   color: #1f2937;
 }
 
-/* Panel: ocupa el iframe (desktop) o caja compacta abajo a la derecha (móvil) */
+/* Panel: ocupa todo el iframe; el padre (WordPress) controla el tamaño */
 .embed-widget-panel {
   position: fixed;
   inset: 0;
@@ -138,23 +138,6 @@ html.embed-widget-page body {
 }
 
 @media (max-width: 520px) {
-  .embed-widget-panel {
-    inset: auto;
-    right: 8px;
-    bottom: max(8px, env(safe-area-inset-bottom));
-    left: auto;
-    top: auto;
-    width: min(calc(100vw - 16px), 360px);
-    height: min(68dvh, 480px);
-    max-height: calc(100dvh - 80px);
-    border-radius: 14px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-  }
-
-  .embed-widget-panel-inner {
-    border-radius: 14px;
-  }
-
   .embed-widget-panel .embed-chat-header {
     padding: 8px 44px 8px 12px;
   }
@@ -180,13 +163,6 @@ html.embed-widget-page body {
   .embed-widget-panel .embed-voice-btn {
     min-width: 40px;
     min-height: 40px;
-  }
-}
-
-@media (max-width: 420px) {
-  .embed-widget-panel {
-    width: min(calc(100vw - 12px), 340px);
-    height: min(65dvh, 440px);
   }
 }
 
