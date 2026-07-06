@@ -107,6 +107,67 @@ export function postEmbedWidgetResize(open: boolean): void {
   }
 }
 
+/** Pide al sitio padre (WordPress) expandir el iframe a pantalla completa — mismo chat, micrófono sin cambiar de pestaña. */
+export function postEmbedWidgetFullscreen(open = true): void {
+  if (typeof window === 'undefined' || window.parent === window) return
+  try {
+    window.parent.postMessage({ type: 'plotai-widget-resize', open: true, fullscreen: open }, '*')
+  } catch {
+    /* ignore */
+  }
+}
+
+export const EMBED_CHAT_SESSION_KEY = 'plotai_embed_chat_session'
+
+export type EmbedChatSessionSnapshot = {
+  messages: EmbedChatMessage[]
+  nombre: string
+  telefono: string
+  dni: string
+  cuit: string
+  op: string
+  presupuesto: EmbedPresupuestoPayload | null
+  conversationId: number | null
+}
+
+export function saveEmbedChatSession(snapshot: EmbedChatSessionSnapshot): void {
+  try {
+    if (typeof sessionStorage === 'undefined') return
+    sessionStorage.setItem(EMBED_CHAT_SESSION_KEY, JSON.stringify(snapshot))
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadEmbedChatSession(): EmbedChatSessionSnapshot | null {
+  try {
+    if (typeof sessionStorage === 'undefined') return null
+    const raw = sessionStorage.getItem(EMBED_CHAT_SESSION_KEY)
+    if (!raw) return null
+    const data = JSON.parse(raw) as EmbedChatSessionSnapshot
+    if (!data || !Array.isArray(data.messages)) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+export function clearEmbedChatSession(): void {
+  try {
+    if (typeof sessionStorage === 'undefined') return
+    sessionStorage.removeItem(EMBED_CHAT_SESSION_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+export function openEmbedStandaloneChat(snapshot: EmbedChatSessionSnapshot): void {
+  saveEmbedChatSession(snapshot)
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const url = `${origin.replace(/\/$/, '')}/embed/chat?resume=1`
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
 export type EmbedPresupuestoItem = {
   codigo?: string | null
   descripcion: string

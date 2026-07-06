@@ -5,7 +5,7 @@ import {
 } from './totemMicPermission'
 import { getPlotLabEmbedOrigin } from '../constants/embedChatSnippet'
 
-const MOBILE_HINT = 'Tocá Reintentar → Permitir. O abrí el chat en pantalla completa (botón abajo).'
+const MOBILE_HINT = 'Tocá Reintentar → Permitir. Si sigue fallando, tocá Pantalla completa para agrandar el chat.'
 
 const IFRAME_HINT = 'Si estás en plotcenter.com.ar, el iframe debe tener allow="microphone".'
 

@@ -3,14 +3,16 @@ import type { OrdenTrabajo, HistorialMovimiento } from '../types/api'
 import apiService from '../services/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
-import { historialPorOrdenId, historialUnificadoMismoNumeroOp } from '../utils/consultaOpHistorial'
+import { historialPorOrdenId, historialUnificadoMismoNumeroOp, formatConsultaTimelineComment } from '../utils/consultaOpHistorial'
 import './ClienteConsultaPage.css'
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
+const CONSULTA_CONTACT_EMAIL = 'contacto@plotcenter.com.ar'
+const CONSULTA_WEB_URL = 'https://www.plotcenter.com.ar'
+
 const ClienteConsultaPage = () => {
   const [searchOp, setSearchOp] = useState('')
-  const [searchDni, setSearchDni] = useState('')
   const [loading, setLoading] = useState(false)
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([])
   const [historial, setHistorial] = useState<Record<number, HistorialMovimiento[]>>({})
@@ -80,24 +82,6 @@ const ClienteConsultaPage = () => {
     )
   }
 
-  const handleSearchDni = async () => {
-    const term = searchDni.trim()
-    if (!term) {
-      setError('Ingresá un DNI o CUIT para buscar.')
-      return
-    }
-    const searchDigits = digitsOnly(term)
-    if (searchDigits.length < 6) {
-      setError('Ingresá al menos 6 dígitos de DNI/CUIT.')
-      return
-    }
-
-    await buscarOrdenes(
-      (orden) => digitsOnly(orden.dni_cuit ?? '') === searchDigits,
-      'No se encontraron pedidos con ese DNI/CUIT.'
-    )
-  }
-
   const getEstadoLabel = (estado: string) => {
     const status = mapEstadoToStatus(estado)
     const column = BOARD_COLUMNS.find((col) => col.id === status)
@@ -156,7 +140,7 @@ const ClienteConsultaPage = () => {
             />
             <div className="header-text">
               <h1>Consulta el Estado de tu Pedido</h1>
-              <p>Ingresá nombre, apellido, empresa, número de OP o DNI/CUIT para ver tus órdenes</p>
+              <p>Ingresá el número de OP para ver el estado de tu pedido</p>
             </div>
           </div>
         </header>
@@ -192,41 +176,6 @@ const ClienteConsultaPage = () => {
               ) : (
                 <>
                   🔍 Buscar por OP
-                </>
-              )}
-            </button>
-          </div>
-
-          <div className="search-box secondary-search-box">
-            <div className="input-group">
-              <label htmlFor="consulta-dni">Buscar por DNI / CUIT</label>
-              <input
-                id="consulta-dni"
-                type="text"
-                value={searchDni}
-                onChange={(e) => setSearchDni(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSearchDni()
-                }}
-                placeholder="Solo números de DNI o CUIT"
-                className="dni-input"
-                disabled={loading}
-                autoComplete="off"
-              />
-            </div>
-            <button
-              onClick={handleSearchDni}
-              disabled={loading || !searchDni.trim()}
-              className="search-button"
-            >
-              {loading ? (
-                <>
-                  <span className="spinner"></span>
-                  Buscando...
-                </>
-              ) : (
-                <>
-                  🔍 Buscar por DNI/CUIT
                 </>
               )}
             </button>
@@ -286,7 +235,9 @@ const ClienteConsultaPage = () => {
                             </div>
                           )}
                           {movimiento.comentario && (
-                            <div className="timeline-comment">💬 {movimiento.comentario}</div>
+                            <div className="timeline-comment">
+                              💬 {formatConsultaTimelineComment(movimiento.comentario)}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -304,12 +255,8 @@ const ClienteConsultaPage = () => {
 
             const readyForPickup = isReadyForPickup(orden.estado)
 
-            const dniCuit = orden.dni_cuit ? digitsOnly(orden.dni_cuit) : null
-
             let descripcionResumen: string | null = null
-            if (dniCuit && searchDni.trim()) {
-              descripcionResumen = `DNI / CUIT: ${dniCuit}`
-            } else if (orden.numero_op && searchOp.trim()) {
+            if (orden.numero_op && searchOp.trim()) {
               descripcionResumen = `OP: ${orden.numero_op}`
             } else if (orden.descripcion) {
               descripcionResumen =
@@ -338,12 +285,6 @@ const ClienteConsultaPage = () => {
                         <h3 className="orden-op-numero">#{orden.numero_op}</h3>
                       </div>
                       <p className="orden-cliente">{orden.cliente}</p>
-                      {dniCuit && (
-                        <div className="orden-dni">
-                          <span className="orden-dni-label">DNI/CUIT:</span>
-                          <span className="orden-dni-value">{dniCuit}</span>
-                        </div>
-                      )}
                     </div>
                     <div className={`orden-estado-badge ${readyForPickup ? 'ready-badge' : ''}`} style={{ backgroundColor: getEstadoColor(orden.estado) }}>
                       {getEstadoLabel(orden.estado)}
@@ -420,7 +361,7 @@ const ClienteConsultaPage = () => {
                                 )}
                                 {movimiento.comentario && (
                                   <div className="timeline-comment">
-                                    💬 {movimiento.comentario}
+                                    💬 {formatConsultaTimelineComment(movimiento.comentario)}
                                   </div>
                                 )}
                               </div>
@@ -443,8 +384,22 @@ const ClienteConsultaPage = () => {
         )}
 
         <footer className="consulta-footer">
-          <p>¿Necesitas ayuda? Contacta con nosotros</p>
-          <p className="footer-small">Plot Center - Sistema de Gestión de Pedidos</p>
+          <p>
+            ¿Necesitás ayuda? Escribinos a{' '}
+            <a href={`mailto:${CONSULTA_CONTACT_EMAIL}`} className="consulta-footer-link">
+              {CONSULTA_CONTACT_EMAIL}
+            </a>
+          </p>
+          <p className="footer-small">
+            <a
+              href={CONSULTA_WEB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="consulta-footer-link"
+            >
+              www.plotcenter.com.ar
+            </a>
+          </p>
         </footer>
       </div>
     </div>

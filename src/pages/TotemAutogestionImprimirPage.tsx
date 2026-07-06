@@ -10,10 +10,16 @@ import {
   type TotemArchivoItem
 } from '@/utils/totemArchivoManifest'
 import {
-  buildTipoImpresionLabel,
+  resolveTotemPrintColorQuote,
   type PrintColorDetection,
-  type PrintFormat
+  type PrintFormat,
+  type TotemPrintColorModo
 } from '@/utils/totemPrintDocument'
+import {
+  cotizarImpresionTotem,
+  formatTotemPrintArs,
+  type TotemPrintQuote
+} from '../services/totemPrintPricingService'
 import TotemPrintPreviewMonitor from '../components/totem/TotemPrintPreviewMonitor'
 import TotemMercadoPagoPayPanel from '../components/totem/TotemMercadoPagoPayPanel'
 import type { TotemImpresionCheckoutDraft } from '../services/totemMpApi'
@@ -37,12 +43,14 @@ export default function TotemAutogestionImprimirPage() {
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [cantidadHojas, setCantidadHojas] = useState(1)
   const [formatoImpresion, setFormatoImpresion] = useState<PrintFormat>('A4')
-  const [tipoImpresion, setTipoImpresion] = useState('A4 - Color (detectado)')
+  const [modoColor, setModoColor] = useState<TotemPrintColorModo>('auto')
   const [origenArchivo, setOrigenArchivo] = useState<OrigenArchivo>('CelularQR')
   const [archivoUrl, setArchivoUrl] = useState('')
   const [archivoNombre, setArchivoNombre] = useState('')
   const [archivosCargados, setArchivosCargados] = useState<TotemArchivoItem[]>([])
-  const [valorTotal, setValorTotal] = useState<string>('')
+  const [printQuote, setPrintQuote] = useState<TotemPrintQuote | null>(null)
+  const [printQuoteLoading, setPrintQuoteLoading] = useState(false)
+  const [printQuoteError, setPrintQuoteError] = useState<string | null>(null)
 
   const [nombreSugerencias, setNombreSugerencias] = useState<ClienteRecord[]>([])
   const [nombreLoading, setNombreLoading] = useState(false)
@@ -59,6 +67,7 @@ export default function TotemAutogestionImprimirPage() {
   const [qrLinkSrc, setQrLinkSrc] = useState<string | null>(null)
   const [qrSesionError, setQrSesionError] = useState<string | null>(null)
   const [qrSesionCompleta, setQrSesionCompleta] = useState(false)
+  const [qrSessionNonce, setQrSessionNonce] = useState(0)
 
   const nombreWrapRef = useRef<HTMLDivElement>(null)
   const origenSectionRef = useRef<HTMLDivElement>(null)
@@ -103,6 +112,64 @@ export default function TotemAutogestionImprimirPage() {
     [archivosActivos]
   )
 
+  const tieneArchivoSeleccionado = useMemo(() => {
+    if (origenArchivo === 'Pendrive') return pendriveArchivos.length > 0
+    if (origenArchivo === 'CelularQR') return archivosCargados.length > 0 || qrSesionCompleta
+    if (origenArchivo === 'Drive') return archivoUrl.trim().startsWith('http')
+    return archivoNombre.trim().length > 0 || archivosActivos.length > 0
+  }, [
+    origenArchivo,
+    pendriveArchivos,
+    archivosCargados,
+    qrSesionCompleta,
+    archivoUrl,
+    archivoNombre,
+    archivosActivos
+  ])
+
+  const tieneDatosCliente =
+    clienteId != null ||
+    clienteNombre.trim().length > 0 ||
+    clienteDni.trim().length > 0 ||
+    clienteTelefono.trim().length > 0
+
+  const limpiarSeleccionArchivo = useCallback(() => {
+    setError(null)
+    if (pollRef.current != null) {
+      window.clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+    setArchivosCargados([])
+    setPendriveArchivos([])
+    setArchivoNombre('')
+    setQrSesionCompleta(false)
+    hojasEditadasManualRef.current = false
+    setCantidadHojas(1)
+    setModoColor('auto')
+    setHojasAutoDetectadas(false)
+    setColorAutoDetectado(false)
+    lastAnalysisRef.current = null
+    setPrintQuote(null)
+    setPrintQuoteError(null)
+    if (pendriveInputRef.current) pendriveInputRef.current.value = ''
+    if (origenArchivo === 'Drive') {
+      setArchivoUrl('')
+    } else if (origenArchivo === 'CelularQR') {
+      setQrSessionNonce((n) => n + 1)
+    } else if (origenArchivo === 'Pendrive') {
+      setArchivoUrl('')
+    }
+  }, [origenArchivo])
+
+  const limpiarDatosCliente = useCallback(() => {
+    setClienteId(null)
+    setClienteNombre('')
+    setClienteDni('')
+    setClienteTelefono('')
+    setNombreSugerencias([])
+    setNombreMenuOpen(false)
+  }, [])
+
   const applyArchivosFromManifest = useCallback((rawUrl: string, rawNombre?: string | null) => {
     const manifest = parseTotemArchivoManifest(rawUrl)
     if (manifest.files.length === 0) return
@@ -111,6 +178,17 @@ export default function TotemAutogestionImprimirPage() {
     setArchivoNombre(rawNombre?.trim() || summarizeTotemArchivoNombres(manifest.files))
   }, [])
 
+  const colorQuote = useMemo(
+    () =>
+      resolveTotemPrintColorQuote({
+        formato: formatoImpresion,
+        modoColor,
+        cantidadHojas,
+        analysis: lastAnalysisRef.current
+      }),
+    [formatoImpresion, modoColor, cantidadHojas, colorAutoDetectado, hojasAutoDetectadas]
+  )
+
   const handlePrintAnalysis = useCallback(
     (data: { pageCount: number; colorDetection: PrintColorDetection; colorPages: number; bwPages: number }) => {
       lastAnalysisRef.current = data
@@ -118,31 +196,56 @@ export default function TotemAutogestionImprimirPage() {
         setCantidadHojas(Math.max(1, Math.min(999, data.pageCount)))
         setHojasAutoDetectadas(true)
       }
-      const tipo = buildTipoImpresionLabel(formatoImpresion, data.colorDetection, data.colorPages, data.bwPages)
-      setTipoImpresion(tipo)
       setColorAutoDetectado(true)
     },
-    [formatoImpresion]
+    []
   )
-
-  useEffect(() => {
-    const data = lastAnalysisRef.current
-    if (!data || !colorAutoDetectado) return
-    setTipoImpresion(buildTipoImpresionLabel(formatoImpresion, data.colorDetection, data.colorPages, data.bwPages))
-  }, [formatoImpresion, colorAutoDetectado])
 
   useEffect(() => {
     hojasEditadasManualRef.current = false
     setHojasAutoDetectadas(false)
     setColorAutoDetectado(false)
+    setModoColor('auto')
     lastAnalysisRef.current = null
   }, [previewSources])
 
   useEffect(() => {
-    if (!colorAutoDetectado) {
-      setTipoImpresion(`${formatoImpresion} - Color (detectado)`)
+    if (!colorQuote.tipo_impresion.trim() || cantidadHojas < 1) {
+      setPrintQuote(null)
+      setPrintQuoteError(null)
+      return
     }
-  }, [formatoImpresion, colorAutoDetectado])
+
+    let cancelled = false
+    setPrintQuoteLoading(true)
+    setPrintQuoteError(null)
+
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const r = await cotizarImpresionTotem({
+          formato: formatoImpresion,
+          tipo_impresion: colorQuote.tipo_impresion,
+          cantidad_hojas: cantidadHojas,
+          color_pages: colorQuote.color_pages,
+          bw_pages: colorQuote.bw_pages
+        })
+        if (cancelled) return
+        setPrintQuoteLoading(false)
+        if (!r.ok || !r.quote) {
+          setPrintQuote(null)
+          setPrintQuoteError(r.error || 'No se pudo calcular el precio.')
+          return
+        }
+        setPrintQuote(r.quote)
+        setPrintQuoteError(null)
+      })()
+    }, 320)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [formatoImpresion, modoColor, cantidadHojas, colorQuote, colorAutoDetectado, hojasAutoDetectadas])
 
   useEffect(() => {
     if (step !== 'done') return
@@ -232,7 +335,7 @@ export default function TotemAutogestionImprimirPage() {
         pollRef.current = null
       }
     }
-  }, [origenArchivo, applyArchivosFromManifest])
+  }, [origenArchivo, applyArchivosFromManifest, qrSessionNonce])
 
   useEffect(() => {
     if (!qrUploadPageUrl) {
@@ -408,11 +511,11 @@ export default function TotemAutogestionImprimirPage() {
     if (!dniDigits || dniDigits.length < 7) return 'Ingresá un DNI/CUIT válido.'
     if (!clienteTelefono.trim()) return 'Ingresá un teléfono.'
     if (!Number.isFinite(cantidadHojas) || cantidadHojas < 1) return 'Cantidad de hojas inválida.'
-    const valorNum = Number(valorTotal)
-    if (!Number.isFinite(valorNum) || valorNum < 1) {
-      return 'Indicá el valor estimado (mínimo $1) para cobrar con Mercado Pago.'
+    if (printQuoteLoading) return 'Calculando precio de Lista 1…'
+    if (!printQuote || printQuote.total < 1) {
+      return printQuoteError || 'Esperá el cálculo del precio según Lista 1.'
     }
-    if (!tipoImpresion.trim()) return 'Esperá el análisis del archivo o subí un documento.'
+    if (!colorQuote.tipo_impresion.trim()) return 'Indicá el tipo de impresión (color o B/N).'
     if (!origenArchivo) return 'Elegí origen del archivo.'
     if (!archivoNombre.trim()) return 'Ingresá el nombre del archivo.'
 
@@ -457,11 +560,14 @@ export default function TotemAutogestionImprimirPage() {
       cliente_dni: dniDigits,
       cliente_telefono: clienteTelefono.trim(),
       cantidad_hojas: Math.floor(cantidadHojas),
-      tipo_impresion: tipoImpresion.trim(),
+      tipo_impresion: colorQuote.tipo_impresion.trim(),
       origen_archivo: origenArchivo === 'CelularQR' ? 'Celular (QR)' : origenArchivo,
       archivo_url: urlFinal,
       archivo_nombre: nombreFinal,
-      valor_total: Number(valorTotal)
+      valor_total: printQuote?.total ?? 0,
+      formato_impresion: formatoImpresion,
+      color_pages: colorQuote.color_pages,
+      bw_pages: colorQuote.bw_pages
     }
   }
 
@@ -590,6 +696,13 @@ export default function TotemAutogestionImprimirPage() {
                     </span>
                   </div>
                 )}
+                {tieneDatosCliente && (
+                  <div className="totem-print-span2 totem-print-clearRow">
+                    <button type="button" className="totem-print-clearBtn" onClick={limpiarDatosCliente}>
+                      Borrar datos del cliente
+                    </button>
+                  </div>
+                )}
                 <label>
                   DNI/CUIT
                   <input
@@ -638,10 +751,30 @@ export default function TotemAutogestionImprimirPage() {
                     <option value="A3">A3</option>
                   </select>
                 </label>
-                <label className="totem-print-span2 totem-print-readonlyField">
+                <label className="totem-print-span2">
                   Color / blanco y negro
-                  <div className="totem-print-detectedTipo">{tipoImpresion}</div>
-                  <span className="totem-print-hojasHint">Se detecta automáticamente al subir el archivo</span>
+                  <select
+                    value={modoColor}
+                    onChange={(e) => setModoColor(e.target.value as TotemPrintColorModo)}
+                    aria-label="Modo de color"
+                  >
+                    <option value="auto">Automático (del archivo)</option>
+                    <option value="color">Todo a color</option>
+                    <option value="bn">Todo blanco y negro</option>
+                  </select>
+                  {modoColor === 'auto' && colorAutoDetectado && (
+                    <span className="totem-print-hojasHint">Detectado: {colorQuote.tipo_impresion}</span>
+                  )}
+                  {modoColor === 'color' && (
+                    <span className="totem-print-hojasHint">
+                      Se cobrarán las {cantidadHojas} hoja(s) como color (Lista 1).
+                    </span>
+                  )}
+                  {modoColor === 'bn' && (
+                    <span className="totem-print-hojasHint">
+                      Se cobrarán las {cantidadHojas} hoja(s) como blanco y negro (Lista 1).
+                    </span>
+                  )}
                 </label>
                 <div
                   className={`totem-print-span2 totem-print-origenBlock ${origenPulse ? 'totem-print-origenBlock--pulse' : ''}`}
@@ -690,6 +823,11 @@ export default function TotemAutogestionImprimirPage() {
                         onChange={(e) => setArchivoUrl(e.target.value)}
                         placeholder="https://drive.google.com/…"
                       />
+                      {archivoUrl.trim().startsWith('http') && (
+                        <button type="button" className="totem-print-clearBtn" onClick={limpiarSeleccionArchivo}>
+                          Borrar link de Drive
+                        </button>
+                      )}
                     </label>
                   )}
                   {showEmailBlock && (
@@ -722,6 +860,11 @@ export default function TotemAutogestionImprimirPage() {
                           {pendriveArchivos.length} archivo(s) listos: {pendriveArchivos.map((f) => f.nombre).join(', ')}
                         </p>
                       )}
+                      {pendriveArchivos.length > 0 && !pendriveSubiendo && (
+                        <button type="button" className="totem-print-clearBtn" onClick={limpiarSeleccionArchivo}>
+                          Quitar archivos seleccionados
+                        </button>
+                      )}
                     </div>
                   )}
                   {showCelularQrBlock && (
@@ -753,6 +896,15 @@ export default function TotemAutogestionImprimirPage() {
                                 Abrir enlace en este equipo
                               </a>
                             )}
+                            {(archivosCargados.length > 0 || qrSesionCompleta) && (
+                              <button
+                                type="button"
+                                className="totem-print-clearBtn totem-print-clearBtn--block"
+                                onClick={limpiarSeleccionArchivo}
+                              >
+                                Quitar archivo y generar nuevo QR
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
@@ -764,10 +916,37 @@ export default function TotemAutogestionImprimirPage() {
                   Nombre del archivo
                   <input value={archivoNombre} onChange={(e) => setArchivoNombre(e.target.value)} placeholder="Ej: cartel_frente.pdf" />
                 </label>
-                <label>
-                  Valor a cobrar
-                  <input inputMode="decimal" value={valorTotal} onChange={(e) => setValorTotal(e.target.value)} placeholder="Ej: 1500" />
-                  <span className="totem-print-hojasHint">Mínimo $1 — necesario para Mercado Pago</span>
+                {tieneArchivoSeleccionado &&
+                  origenArchivo !== 'Pendrive' &&
+                  origenArchivo !== 'CelularQR' &&
+                  origenArchivo !== 'Drive' && (
+                  <div className="totem-print-span2 totem-print-clearRow">
+                    <button type="button" className="totem-print-clearBtn" onClick={limpiarSeleccionArchivo}>
+                      Quitar selección de archivo
+                    </button>
+                    <span className="totem-print-hojasHint">Volvé a subir el archivo si te equivocaste.</span>
+                  </div>
+                )}
+                <label className="totem-print-span2 totem-print-readonlyField">
+                  Valor a cobrar (Lista 1)
+                  <div className="totem-print-priceTotal" aria-live="polite">
+                    {printQuoteLoading
+                      ? 'Calculando…'
+                      : printQuote
+                        ? formatTotemPrintArs(printQuote.total)
+                        : '—'}
+                  </div>
+                  {printQuote?.items.map((item, idx) => (
+                    <div key={`${item.codigo || item.descripcion}-${idx}`} className="totem-print-priceLine">
+                      {item.cantidad} × {item.descripcion}: {formatTotemPrintArs(item.subtotal)}
+                    </div>
+                  ))}
+                  {printQuoteError && !printQuoteLoading && (
+                    <span className="totem-print-qrError">{printQuoteError}</span>
+                  )}
+                  <span className="totem-print-hojasHint">
+                    Precio según Lista 1 (efectivo/débito) — calculado automáticamente, no editable
+                  </span>
                 </label>
               </div>
 

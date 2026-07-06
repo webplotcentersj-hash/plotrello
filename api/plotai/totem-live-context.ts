@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
   PLOT_CENTER_KNOWLEDGE,
+  buildContactoContextPrompt,
+  buildEmbedVoiceSystemInstruction,
+  modoRequiereContactoCliente,
+  resolveContactoCliente,
   resolvePlotAIClienteContext
 } from './chat-public'
 import { beginPlotAiRequest } from './plotaiHttp'
@@ -13,6 +17,8 @@ type Body = {
   dni?: string
   cuit?: string
   op?: string
+  telefono?: string
+  whatsapp?: string
 }
 
 /** Contexto OP/cliente/precios para Gemini Live del tótem (misma fuente que chat-public). */
@@ -50,9 +56,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       includePrecios: true
     })
 
+    const telefonoBody = (body.telefono || body.whatsapp || '').trim()
+    const contacto = resolveContactoCliente({
+      bodyNombre: body.nombre,
+      bodyTelefono: telefonoBody || undefined,
+      userTexts
+    })
+    const contactoContext = modoRequiereContactoCliente(modo)
+      ? buildContactoContextPrompt(contacto)
+      : ''
+    const voiceSystemInstruction = buildEmbedVoiceSystemInstruction({
+      modo,
+      contextBlock: resolved.contextBlock,
+      plotCenterKnowledge: PLOT_CENTER_KNOWLEDGE,
+      preciosContext: resolved.preciosContext,
+      contactoContext
+    })
+
     res.status(200).json({
       success: true,
       plotCenterKnowledge: PLOT_CENTER_KNOWLEDGE,
+      voiceSystemInstruction,
       ...resolved
     })
   } catch (error: unknown) {

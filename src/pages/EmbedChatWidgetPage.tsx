@@ -15,9 +15,11 @@ import {
   EMBED_CHAT_OPENING_GREETING,
   postEmbedWidgetResize,
   buildEmbedChatApiPayload,
+  openEmbedStandaloneChat,
+  postEmbedWidgetFullscreen,
   type EmbedPresupuestoPayload
 } from '../utils/embedChatShared'
-import { getEmbedStandaloneChatUrl } from '../utils/embedMicPermission'
+import { isEmbedFramed } from '../utils/embedMicPermission'
 import { EmbedPresupuestoBanner } from '../components/embed/EmbedPresupuestoBanner'
 import '../components/embed/EmbedChatVoice.css'
 import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
@@ -248,13 +250,16 @@ export default function EmbedChatWidgetPage() {
     setError(null)
 
     try {
-      const history = messages.map((m) => ({ role: m.role, parts: m.parts }))
+      const history = messages
+        .filter((m) => m.role === 'user' || (m.role === 'model' && m.parts?.[0]?.text))
+        .map((m) => ({ role: m.role, parts: m.parts }))
       const res = await fetch(chatApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           buildEmbedChatApiPayload({
             message: text,
+            modo: 'web_publico',
             history,
             conversationId,
             identificacion: { nombre, telefono, dni, cuit, op },
@@ -314,6 +319,23 @@ export default function EmbedChatWidgetPage() {
     onUserTranscript: (text) => appendVoiceTranscript('user', text),
     onModelTranscript: (text) => appendVoiceTranscript('model', text)
   })
+
+  const openStandaloneChat = () => {
+    if (isEmbedFramed()) {
+      postEmbedWidgetFullscreen(true)
+      return
+    }
+    openEmbedStandaloneChat({
+      messages,
+      nombre,
+      telefono,
+      dni,
+      cuit,
+      op,
+      presupuesto,
+      conversationId
+    })
+  }
 
   return (
     <div className="embed-widget-wrap embed-chat-scope">
@@ -508,7 +530,7 @@ export default function EmbedChatWidgetPage() {
               status={voice.status}
               onStop={voice.stopLive}
               onRetry={() => void voice.toggleLive()}
-              onOpenStandalone={() => window.open(getEmbedStandaloneChatUrl(), '_blank', 'noopener,noreferrer')}
+              onOpenStandalone={openStandaloneChat}
             />
 
             <footer className="embed-chat-footer">

@@ -22,7 +22,7 @@ type UseEmbedChatVoiceOptions = {
   onModelTranscript?: (text: string) => void
 }
 
-function buildEmbedLiveSystemInstruction(contextBlock?: string): string {
+function buildEmbedLiveSystemInstructionFallback(contextBlock?: string): string {
   const clienteBlock = contextBlock?.trim()
     ? `\n\n${contextBlock}\n\nUsá SOLO datos reales del contexto. No inventes OPs ni fechas ni precios.`
     : '\n\nSi el cliente pregunta por su pedido pedile nombre DNI CUIT o número de OP.'
@@ -39,6 +39,7 @@ ${clienteBlock}
 CONTACTO Y PRECIOS (obligatorio en chat web):
 - Antes de cotizar precios o armar un pedido nuevo pedí nombre y WhatsApp si aún no los tenés.
 - Cotizá SOLO con precios de Lista 1 del contexto cuando figuren. Si no hay precio en el contexto no inventes.
+- Si el cliente indica cantidad multiplicá precio unitario por esa cantidad y decí el total.
 - Para consultas de OP usá solo datos reales del contexto.
 
 REGLAS DE VOZ:
@@ -56,13 +57,24 @@ export function useEmbedChatVoice({
   onModelTranscript
 }: UseEmbedChatVoiceOptions) {
   const liveRef = useRef<TotemPlotAILive | null>(null)
+  const userTextsRef = useRef(userTexts)
+  const lastContextFpRef = useRef('')
+  const contextRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [active, setActive] = useState(false)
   const [starting, setStarting] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState('')
 
+  useEffect(() => {
+    userTextsRef.current = userTexts
+  }, [userTexts])
+
   const stopLive = useCallback(() => {
+    if (contextRefreshTimerRef.current != null) {
+      clearTimeout(contextRefreshTimerRef.current)
+      contextRefreshTimerRef.current = null
+    }
     liveRef.current?.stop()
     liveRef.current = null
     setActive(false)
@@ -72,6 +84,39 @@ export function useEmbedChatVoice({
   }, [])
 
   useEffect(() => () => stopLive(), [stopLive])
+
+  const refreshLiveContext = useCallback(async () => {
+    if (!liveRef.current) return
+    const texts = userTextsRef.current
+    if (!texts.length) return
+    try {
+      const ctx = await fetchTotemLiveContext(texts, {
+        modo: 'web_publico',
+        nombre: identificacion?.nombre,
+        empresa: identificacion?.empresa,
+        dni: identificacion?.dni,
+        cuit: identificacion?.cuit,
+        op: identificacion?.op,
+        telefono: identificacion?.telefono
+      })
+      if (ctx.fingerprint === lastContextFpRef.current) return
+      lastContextFpRef.current = ctx.fingerprint
+      liveRef.current.injectContextUpdate(ctx.contextBlock)
+    } catch {
+      /* contexto opcional */
+    }
+  }, [identificacion?.nombre, identificacion?.empresa, identificacion?.dni, identificacion?.cuit, identificacion?.op, identificacion?.telefono])
+
+  const scheduleContextRefresh = useCallback(() => {
+    if (!liveRef.current) return
+    if (contextRefreshTimerRef.current != null) {
+      clearTimeout(contextRefreshTimerRef.current)
+    }
+    contextRefreshTimerRef.current = setTimeout(() => {
+      contextRefreshTimerRef.current = null
+      void refreshLiveContext()
+    }, 900)
+  }, [refreshLiveContext])
 
   const micAvailable = isMicAvailableInEmbed()
 
@@ -89,19 +134,23 @@ export function useEmbedChatVoice({
       const micStream = await requestEmbedMicrophoneStream()
 
       const apiKey = await fetchTotemGeminiApiKey()
-      let contextBlock = ''
+      let systemInstruction = ''
       try {
-        const ctx = await fetchTotemLiveContext(userTexts, {
+        const ctx = await fetchTotemLiveContext(userTextsRef.current, {
           modo: 'web_publico',
           nombre: identificacion?.nombre,
           empresa: identificacion?.empresa,
           dni: identificacion?.dni,
           cuit: identificacion?.cuit,
-          op: identificacion?.op
+          op: identificacion?.op,
+          telefono: identificacion?.telefono
         })
-        contextBlock = ctx.contextBlock
+        lastContextFpRef.current = ctx.fingerprint
+        systemInstruction =
+          ctx.voiceSystemInstruction?.trim() ||
+          buildEmbedLiveSystemInstructionFallback(ctx.contextBlock)
       } catch {
-        /* contexto opcional */
+        systemInstruction = buildEmbedLiveSystemInstructionFallback()
       }
 
       const live = new TotemPlotAILive(apiKey)
@@ -109,15 +158,20 @@ export function useEmbedChatVoice({
 
       await live.start({
         micStream,
-        systemInstruction: buildEmbedLiveSystemInstruction(contextBlock),
+        systemInstruction,
         callbacks: {
           onOpen: () => {
             setActive(true)
             setStarting(false)
             setStatus('Escuchando... hablá con PlotAI')
-            live.sendGreetingNudge()
+            live.sendTextTurn(
+              '[El cliente activó la llamada de voz en el chat web de Plot Center. Saludalo breve en español argentino como PlotAI y preguntale en qué podés ayudarlo hoy con cotizaciones OP o pedidos.]'
+            )
           },
-          onUserTranscript: (text) => onUserTranscript?.(text),
+          onUserTranscript: (text) => {
+            onUserTranscript?.(text)
+            scheduleContextRefresh()
+          },
           onModelTranscript: (text) => {
             onModelTranscript?.(text)
             setStatus('PlotAI responde...')

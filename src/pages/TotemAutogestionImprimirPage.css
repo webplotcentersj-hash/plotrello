@@ -114,6 +114,23 @@
   color: #e9d5ff;
 }
 
+.totem-print-priceTotal {
+  padding: 14px 16px;
+  border-radius: var(--totem-radius-lg);
+  border: 1px solid rgba(249, 115, 22, 0.45);
+  background: rgba(249, 115, 22, 0.12);
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: #fdba74;
+}
+
+.totem-print-priceLine {
+  font-size: 0.85rem;
+  color: rgba(226, 232, 240, 0.85);
+  margin-top: 0.35rem;
+  line-height: 1.35;
+}
+
 .totem-print-fileOk {
   margin: 0;
   font-size: 0.9rem;
@@ -434,6 +451,36 @@
   display: flex;
   justify-content: flex-end;
   margin-top: 18px;
+}
+
+.totem-print-clearRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.totem-print-clearBtn {
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: var(--totem-radius-md);
+  background: rgba(127, 29, 29, 0.25);
+  color: #fecaca;
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.totem-print-clearBtn:hover {
+  background: rgba(153, 27, 27, 0.45);
+  border-color: rgba(252, 165, 165, 0.55);
+}
+
+.totem-print-clearBtn--block {
+  width: 100%;
+  margin-top: 10px;
 }
 
 .totem-print-primary {

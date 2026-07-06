@@ -506,7 +506,8 @@ export function detectConsultaPrecios(text: string): boolean {
   const patterns = [
     /\b(precio|precios|tarifa|tarifas|cotizaci[oó]n|cotizar|cotizame|cotizá|presupuesto|presupuestame)\b/i,
     /\b(cu[aá]nto\s+(sale|cuesta|cuestan|vale|valen|es|ser[ií]a|me\s+sale))\b/i,
-    /\b(qu[eé]\s+precio|a\s+cu[aá]nto|valor\s+de|lista\s+de\s+precios?)\b/i,
+    /\b(cu[aá]nto\s+(sale|cuesta|cuestan|vale|valen|es|ser[ií]a|me\s+sale)\s+por)\b/i,
+    /\b(qu[eé]\s+precio|a\s+cu[aá]nto|valor\s+de|lista\s+de\s+precios?|el\s+total)\b/i,
     /\b(cuesta|sale)\s+(el|la|los|las|un|una)\b/i,
     /\$\s*\d/
   ]
@@ -516,11 +517,20 @@ export function detectConsultaPrecios(text: string): boolean {
 /** Detecta pedido nuevo o consulta por producto sin mencionar "precio". */
 export function detectIntencionPedidoProducto(text: string): boolean {
   const t = text.toLowerCase().trim()
-  if (!t || t.length < 8) return false
+  if (!t) return false
 
   const mencionaProducto = PRODUCTO_KEYWORDS.some((k) => t.includes(k))
   const mencionaFormatoImpresion = /\b(a\s*[345]|hojas?|papel|ilustraci[oó]n|tama[nñ]o\s+carta)\b/i.test(t)
   const cantidadYProducto = /\b\d+\s+(?:unidades?\s+de\s+)?[a-záéíóúñ]{4,}/i.test(t)
+  const cantidadPedida = extractCantidadSolicitada(text) != null
+
+  if (t.length < 8) {
+    return (
+      cantidadYProducto ||
+      (cantidadPedida && (mencionaFormatoImpresion || mencionaProducto || /\bimpres/i.test(t))) ||
+      detectConsultaPrecios(t)
+    )
+  }
 
   const intencionCompra = [
     /\b(quiero|necesito|necesitamos|busco|solicito|pedir[ií]|encargar|encargo)\s+/i,
@@ -557,34 +567,123 @@ export function shouldLoadLista1PreciosContext(text: string): boolean {
   if (!t) return false
   if (detectConsultaPrecios(t)) return true
   if (detectIntencionPedidoProducto(t)) return true
+  const lines = t.split('\n').map((l) => l.trim()).filter(Boolean)
+  if (extractCantidadFromConversation(lines) != null && hasProductQuoteContext(t)) return true
   return false
 }
 
-/** Solo generar PDF cuando el cliente pidió cotización o un pedido concreto — no en consultas de OP. */
-export function shouldBuildEmbedPresupuesto(text: string): boolean {
+/** Cantidad numérica que menciona el cliente (ej. 4 hojas, 8 impresiones, 500 stickers). */
+export function extractCantidadSolicitada(text: string): number | null {
+  const t = text.trim()
+  if (!t || isContactoChatMessage(t)) return null
+
+  const patterns: RegExp[] = [
+    /\b(\d{1,5})\s+hojas?\b/i,
+    /\b(\d{1,5})\s+impresiones?\b/i,
+    /\b(\d{1,5})\s+copias?\b/i,
+    /\b(\d{1,5})\s+ejemplares?\b/i,
+    /\bpor\s+(\d{1,5})\b/i,
+    /\b(\d{1,5})\s+(?:unidades?\s+de\s+)?(?:stickers?|tarjetas?|folletos?|carteles?|afiches?|volantes?|banners?|vinilos?|talonarios?)/i,
+    /\b(?:quiero|necesito|pedir|son|ser[ií]an|cotizar|cotizame|imprimir|imprimirme)\s+(\d{1,5})\b/i,
+    /\b(?:imprimir|impresi[oó]n)\s+(\d{1,5})\b/i,
+    /\b(\d{1,5})\s+(?:a\s*[345])\b/i,
+    /\bx\s*(\d{1,5})\b/i
+  ]
+
+  for (const re of patterns) {
+    const m = t.match(re)
+    if (m) return Number(m[1])
+  }
+
+  if (/^\d{1,5}$/.test(t)) return Number(t)
+
+  return null
+}
+
+function isContactoChatMessage(text: string): boolean {
+  const t = text.toLowerCase().trim()
+  return (
+    /^(mi nombre|me llamo|soy)\b/.test(t) ||
+    (/\b(whatsapp|telefono|celular|wa\.me)\b/.test(t) && !/\b(hojas?|impres|copias?)\b/.test(t))
+  )
+}
+
+function collectTelefonosEnTexto(text: string): Set<number> {
+  const out = new Set<number>()
+  for (const m of text.match(/\b\d{8,15}\b/g) || []) {
+    out.add(Number(m))
+  }
+  return out
+}
+
+/** Cantidad pedida en la conversación (prioriza el mensaje más reciente con un número válido). */
+export function extractCantidadFromConversation(userTexts: string[]): number | null {
+  const parts = userTexts.map((t) => String(t ?? '').trim()).filter(Boolean)
+  if (!parts.length) return null
+
+  const telefonos = collectTelefonosEnTexto(parts.join(' '))
+
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (isContactoChatMessage(parts[i])) continue
+    const qty = extractCantidadSolicitada(parts[i])
+    if (qty != null && qty > 0 && qty <= 99999 && !telefonos.has(qty)) return qty
+  }
+
+  const joined = parts.join(' ')
+  const qtyJoined = extractCantidadSolicitada(joined)
+  if (qtyJoined != null && qtyJoined > 0 && qtyJoined <= 99999 && !telefonos.has(qtyJoined)) {
+    return qtyJoined
+  }
+
+  return null
+}
+
+function normalizeConversationTexts(userTexts: string[], message?: string): string[] {
+  const base = userTexts.map((t) => String(t ?? '').trim()).filter(Boolean)
+  const msg = String(message ?? '').trim()
+  if (!msg) return base
+  if (base.length > 0 && base[base.length - 1] === msg) return base
+  return [...base, msg]
+}
+
+export function hasProductQuoteContext(text: string): boolean {
   const t = text.trim()
   if (!t) return false
-  if (esConsultaEstadoPedido(t) && !detectConsultaPrecios(t)) return false
-  if (detectConsultaPrecios(t)) return true
-  if (!detectIntencionPedidoProducto(t)) return false
   return (
-    extractCantidadSolicitada(t) != null ||
+    detectConsultaPrecios(t) ||
     detectFormatoImpresion(t) != null ||
     detectPapelIlustracion(t) ||
     detectSolicitudDiseno(t) ||
+    detectIntencionPedidoProducto(t) ||
     PRODUCTO_KEYWORDS.some((k) => t.toLowerCase().includes(k))
   )
 }
 
-/** Cantidad numérica que menciona el cliente (ej. 500 stickers, 8 hojas). */
-export function extractCantidadSolicitada(text: string): number | null {
-  const mHojas = text.match(/\b(\d{1,6})\s+hojas?\b/i)
-  if (mHojas) return Number(mHojas[1])
-  const m = text.match(/\b(\d{1,6})\s+(?:unidades?\s+de\s+)?(?:stickers?|tarjetas?|folletos?|carteles?|afiches?|volantes?|banners?|vinilos?|hojas?|talonarios?)/i)
-  if (m) return Number(m[1])
-  const m2 = text.match(/\b(?:quiero|necesito|pedir)\s+(\d{1,6})\b/i)
-  if (m2) return Number(m2[1])
-  return null
+/** Solo generar PDF cuando el cliente pidió cotización o un pedido concreto — no en consultas de OP. */
+export function shouldBuildEmbedPresupuestoFromTexts(userTexts: string[]): boolean {
+  const parts = userTexts.map((t) => String(t ?? '').trim()).filter(Boolean)
+  const joined = parts.join('\n').trim()
+  if (!joined) return false
+  if (esConsultaEstadoPedido(joined) && !detectConsultaPrecios(joined) && !hasProductQuoteContext(joined)) {
+    return false
+  }
+  if (detectConsultaPrecios(joined)) return true
+
+  const qty = extractCantidadFromConversation(parts)
+  if (qty != null && hasProductQuoteContext(joined)) return true
+
+  if (!detectIntencionPedidoProducto(joined)) return false
+  return (
+    qty != null ||
+    detectFormatoImpresion(joined) != null ||
+    detectPapelIlustracion(joined) ||
+    detectSolicitudDiseno(joined) ||
+    PRODUCTO_KEYWORDS.some((k) => joined.toLowerCase().includes(k))
+  )
+}
+
+export function shouldBuildEmbedPresupuesto(text: string): boolean {
+  return shouldBuildEmbedPresupuestoFromTexts([text])
 }
 
 function normalizeTextForCatalog(text: string): string {
@@ -695,7 +794,7 @@ function scoreArticuloRelevancia(row: ArticuloPrecioRow, text: string): number {
   if (isArticuloImpresionUnitaria(row.nombre || '')) score += 10
   if (isArticuloPaqueteFijo(row.nombre || '')) score -= 30
   const packUnits = extractUnidadesEnNombreArticulo(row.nombre || '')
-  const userQty = extractCantidadSolicitada(text)
+  const userQty = extractCantidadFromConversation(text.split('\n').map((l) => l.trim()).filter(Boolean))
   if (packUnits && userQty && userQty < packUnits) score -= 40
   return score
 }
@@ -757,7 +856,8 @@ async function fetchArticulosLista1ForChat(
 }
 
 function pickArticuloImpresion(rows: ArticuloPrecioRow[], text: string): ArticuloPrecioRow | null {
-  const userQty = extractCantidadSolicitada(text)
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
+  const userQty = extractCantidadFromConversation(lines)
   const formato = detectFormatoImpresion(text)
   const ranked = rankArticulosForChat(rows, text)
   for (const row of ranked) {
@@ -834,7 +934,7 @@ export async function buildLista1PreciosContext(
   if (!shouldLoadLista1PreciosContext(joined)) return ''
 
   const busqueda = buildCatalogSearchTerms(joined).join(' / ') || extractBusquedaProducto(joined)
-  const cantidad = extractCantidadSolicitada(joined)
+  const cantidad = extractCantidadFromConversation(userTexts.map((t) => String(t ?? '').trim()).filter(Boolean))
 
   let rows: ArticuloPrecioRow[]
   try {
@@ -913,7 +1013,10 @@ function geminiRechazoCotizacion(text: string): boolean {
 
 function buildPresupuestoChatReply(p: EmbedPresupuestoPayload, nombre?: string | null): string {
   const saludo = nombre ? `${nombre}, ` : ''
-  const lineas = p.items.map((i) => `- ${i.cantidad} x ${i.descripcion}: ${formatArs(i.subtotal)}`)
+  const lineas = p.items.map((i) => {
+    const unitHint = i.cantidad > 1 ? ` (${formatArs(i.precio_unitario)} c/u)` : ''
+    return `- ${i.cantidad} x ${i.descripcion}${unitHint}: ${formatArs(i.subtotal)}`
+  })
   return (
     `${saludo}te paso un presupuesto de referencia:\n` +
     `${lineas.join('\n')}\n\n` +
@@ -933,13 +1036,15 @@ export async function buildEmbedPresupuestoPayload(
 ): Promise<EmbedPresupuestoPayload | null> {
   if (!params.contacto.completo || !esNombreValido(params.contacto.nombre)) return null
 
-  const joined = [...params.userTexts, params.message].join('\n').trim()
-  if (!shouldBuildEmbedPresupuesto(joined)) return null
+  const allTexts = normalizeConversationTexts(params.userTexts, params.message)
+  const joined = allTexts.join('\n').trim()
+  if (!shouldBuildEmbedPresupuestoFromTexts(allTexts)) return null
 
   const rows = await fetchArticulosLista1ForChat(supabase, joined, 20, { strict: true })
   if (!rows.length) return null
 
-  const cantidad = Math.max(1, extractCantidadSolicitada(joined) || 1)
+  const cantidadDetectada = extractCantidadFromConversation(allTexts)
+  const cantidad = Math.max(1, cantidadDetectada || 1)
   const ajustes = await getAjustesPrecios(supabase)
   const items: EmbedPresupuestoItem[] = []
 
@@ -1687,6 +1792,57 @@ export async function resolvePlotAIClienteContext(
   }
 }
 
+/** Mismas reglas que chat-public (texto) adaptadas a Gemini Live del chat embebido. */
+export function buildEmbedVoiceSystemInstruction(params: {
+  modo: string
+  contextBlock: string
+  plotCenterKnowledge: string
+  preciosContext?: string
+  contactoContext?: string
+}): string {
+  const modo = (params.modo || 'web_publico').toLowerCase()
+  if (modo !== 'web_publico' && modo !== 'cliente_portal') return ''
+
+  const precios = (params.preciosContext || '').trim()
+  const preciosRules = precios
+    ? `
+REGLA PRECIOS LISTA 1 (obligatorio cuando pregunten por precios cotización o producto nuevo):
+- Tenés la LISTA DE PRECIOS 1 en el contexto. NUNCA digas que no tenés acceso si figura abajo.
+- Cotizá SOLO con importes de Lista 1 (efectivo transferencia débito tarjeta).
+- Si el cliente indica cantidad (4 hojas 8 impresiones 500 stickers) multiplicá precio unitario por esa cantidad y decí subtotal y total en voz. Si dice 4 cotizá por 4 si dice 8 por 8.
+- Si pide diseño sumá ARMADO DE ARCHIVOS BASICOS o DISEÑO GRÁFICO X HORA del listado si figuran.
+- No inventes precios. Si el artículo no está en la lista decilo y ofrecé que mostrador cotice.
+- Cuando des montos decí que puede descargar el presupuesto en PDF desde el botón del chat.`
+    : ''
+
+  const contacto = (params.contactoContext || '').trim()
+
+  return `Sos PlotAI el asistente de voz del chat web de Plot Center.
+
+IDIOMA: español argentino natural para voz.
+
+PERSONALIDAD: cordial servicial como atención en mostrador. Frases breves que suenen bien al hablar.
+
+REGLA CRÍTICA: Solo usá datos de CONOCIMIENTO DE LA EMPRESA y CLIENTE CON QUIEN ESTÁS HABLANDO abajo. NUNCA inventes OPs fechas precios ni estados.
+
+CONOCIMIENTO DE LA EMPRESA:
+${params.plotCenterKnowledge.trim()}
+
+${params.contextBlock.trim()}
+${contacto ? `\n${contacto}` : ''}
+${preciosRules}
+
+CONTACTO Y ATENCIÓN (chat web):
+- Antes de cotizar o armar pedido nuevo pedí nombre y WhatsApp si aún no los tenés.
+- Consulta de OP: usá solo datos reales del contexto.
+- Pedido nuevo: no pidas número de OP; guiá con cantidad formato y plazos.
+
+REGLAS DE VOZ:
+- Sin markdown asteriscos listas ni emojis.
+- Una a tres frases salvo que pidan detalle.
+- Si no tenés un dato decilo con honestidad.`
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
 
@@ -1943,7 +2099,7 @@ ${preciosContext ? `
 REGLA — PRECIOS LISTA 1 (obligatorio cuando pregunten por precios, cotización o pidan un producto nuevo):
 - Tenés acceso a la LISTA DE PRECIOS 1 en esta conversación. NUNCA digas que "no tenés acceso" a la lista ni que no podés cotizar si esa sección está cargada abajo.
 - Cotizá SOLO con los importes de "LISTA DE PRECIOS 1" (efectivo, transferencia, débito/tarjeta). Es la lista de atención al público en mostrador.
-- Si el cliente pidió presupuesto o cantidad concreta (ej. 8 hojas A4 color), elegí el artículo más cercano del listado, multiplicá por la cantidad y mostrá el subtotal y total estimado.
+- Si el cliente indica una cantidad (ej. 4 hojas, 8 impresiones, 500 stickers), SIEMPRE multiplicá precio unitario × esa cantidad y mostrá subtotal y total. Si dice 4, cotizá por 4; si dice 8, por 8.
 - Si el cliente pide ayuda con diseño, sumá ARMADO DE ARCHIVOS BASICOS o DISEÑO GRÁFICO X HORA del listado si figuran.
 - Si el cliente pide un producto sin preguntar precio (ej. "quiero 500 stickers"), ofrecé el precio de referencia de Lista 1 del artículo más cercano en el listado y multiplicá por cantidad solo si el precio es claramente por unidad.
 - Decí el precio en pesos argentinos con el formato del listado. Si hay varios artículos relacionados, mencioná los más relevantes (máx. 5).

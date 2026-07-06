@@ -52,6 +52,63 @@ export function buildTipoImpresionLabel(
   return `${format} - Mixto (${colorPages} color, ${bwPages} B/N)`
 }
 
+/** Cómo cobrar color en el tótem: automático del archivo o forzar todo color / todo B/N. */
+export type TotemPrintColorModo = 'auto' | 'color' | 'bn'
+
+export function resolveTotemPrintColorQuote(params: {
+  formato: PrintFormat
+  modoColor: TotemPrintColorModo
+  cantidadHojas: number
+  analysis?: Pick<PrintDocumentAnalysis, 'colorDetection' | 'colorPages' | 'bwPages'> | null
+}): { tipo_impresion: string; color_pages: number; bw_pages: number } {
+  const hojas = Math.max(1, Math.floor(params.cantidadHojas) || 1)
+  const { formato, modoColor, analysis } = params
+
+  if (modoColor === 'color') {
+    return {
+      tipo_impresion: `${formato} - Color`,
+      color_pages: hojas,
+      bw_pages: 0
+    }
+  }
+
+  if (modoColor === 'bn') {
+    return {
+      tipo_impresion: `${formato} - Blanco y negro`,
+      color_pages: 0,
+      bw_pages: hojas
+    }
+  }
+
+  if (analysis) {
+    const tipo = buildTipoImpresionLabel(
+      formato,
+      analysis.colorDetection,
+      analysis.colorPages,
+      analysis.bwPages
+    )
+    if (analysis.colorDetection === 'mixed') {
+      return {
+        tipo_impresion: tipo,
+        color_pages: Math.max(0, analysis.colorPages),
+        bw_pages: Math.max(0, analysis.bwPages)
+      }
+    }
+    const esColor = analysis.colorDetection === 'color'
+    return {
+      tipo_impresion: tipo,
+      color_pages: esColor ? hojas : 0,
+      bw_pages: esColor ? 0 : hojas
+    }
+  }
+
+  return {
+    tipo_impresion: `${formato} - Color (detectado)`,
+    color_pages: hojas,
+    bw_pages: 0
+  }
+}
+
 export function aspectRatioForFormat(format: PrintFormat): number {
   return format === 'A3' ? 297 / 420 : 210 / 297
 }

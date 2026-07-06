@@ -9,6 +9,7 @@ export type TotemLiveContextPayload = {
   contextBlock: string
   fingerprint: string
   plotCenterKnowledge?: string
+  voiceSystemInstruction?: string
   numeroOp?: string | null
 }
 
@@ -21,6 +22,7 @@ export async function fetchTotemLiveContext(
     dni?: string
     cuit?: string
     op?: string
+    telefono?: string
   }
 ): Promise<TotemLiveContextPayload> {
   const res = await fetch(plotLabApiUrl(TOTEM_CONTEXT_PATH), {
@@ -33,7 +35,9 @@ export async function fetchTotemLiveContext(
       empresa: options?.empresa,
       dni: options?.dni,
       cuit: options?.cuit,
-      op: options?.op
+      op: options?.op,
+      telefono: options?.telefono,
+      whatsapp: options?.telefono
     })
   })
   const data = (await res.json().catch(() => ({}))) as TotemLiveContextPayload & {
@@ -47,6 +51,7 @@ export async function fetchTotemLiveContext(
     contextBlock: data.contextBlock,
     fingerprint: data.fingerprint || data.contextBlock.slice(0, 200),
     plotCenterKnowledge: data.plotCenterKnowledge,
+    voiceSystemInstruction: data.voiceSystemInstruction,
     numeroOp: data.numeroOp ?? null
   }
 }

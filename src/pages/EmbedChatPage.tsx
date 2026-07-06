@@ -14,9 +14,13 @@ import {
   EMBED_CHAT_CONVERSATION_KEY,
   EMBED_CHAT_OPENING_GREETING,
   buildEmbedChatApiPayload,
+  clearEmbedChatSession,
+  loadEmbedChatSession,
+  openEmbedStandaloneChat,
+  postEmbedWidgetFullscreen,
   type EmbedPresupuestoPayload
 } from '../utils/embedChatShared'
-import { getEmbedStandaloneChatUrl } from '../utils/embedMicPermission'
+import { isEmbedFramed } from '../utils/embedMicPermission'
 import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
 import { useEmbedShellLayout } from '../hooks/useEmbedShellLayout'
 import { EmbedChatOnlineStatus } from '../components/embed/EmbedChatOnlineStatus'
@@ -89,6 +93,24 @@ export default function EmbedChatPage() {
   }, [])
 
   useEmbedShellLayout('page')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('resume') !== '1') return
+    const snap = loadEmbedChatSession()
+    if (!snap) return
+    if (snap.messages.length > 0) setMessages(snap.messages)
+    if (snap.nombre) setNombre(snap.nombre)
+    if (snap.telefono) setTelefono(snap.telefono)
+    if (snap.dni) setDni(snap.dni)
+    if (snap.cuit) setCuit(snap.cuit)
+    if (snap.op) setOp(snap.op)
+    if (snap.presupuesto) setPresupuesto(snap.presupuesto)
+    if (snap.conversationId != null) setConversationId(snap.conversationId)
+    setShowIdentificacion(false)
+    clearEmbedChatSession()
+  }, [])
 
   useEffect(() => {
     if (isClientePortal || messages.length > 0) return
@@ -254,6 +276,23 @@ export default function EmbedChatPage() {
     onModelTranscript: (text) => appendVoiceTranscript('model', text)
   })
 
+  const openStandaloneChat = () => {
+    if (isEmbedFramed()) {
+      postEmbedWidgetFullscreen(true)
+      return
+    }
+    openEmbedStandaloneChat({
+      messages,
+      nombre: nombre || clienteNombreFromUrl || '',
+      telefono,
+      dni,
+      cuit,
+      op,
+      presupuesto,
+      conversationId
+    })
+  }
+
   return (
     <div className="embed-chat-scope embed-chat-scope--page">
       <div className="embed-chat">
@@ -417,7 +456,7 @@ export default function EmbedChatPage() {
         status={voice.status}
         onStop={voice.stopLive}
         onRetry={() => void voice.toggleLive()}
-        onOpenStandalone={() => window.open(getEmbedStandaloneChatUrl(), '_blank', 'noopener,noreferrer')}
+        onOpenStandalone={openStandaloneChat}
       />
 
       <footer className="embed-chat-footer">
