@@ -2,6 +2,9 @@
   "crons": [],
   "functions": {
     "api/plotai/chat-public.ts": { "maxDuration": 60 },
+    "api/plotai/design-studio.ts": { "maxDuration": 120 },
+    "api/plotai/generate-image.ts": { "maxDuration": 120 },
+    "api/plotai/generate-video.ts": { "maxDuration": 300 },
     "api/plotai/reloj-tablet-identificar.ts": { "maxDuration": 60 },
     "api/plotai/reloj-tablet-precalentar.ts": { "maxDuration": 60 },
     "api/plotai/reloj-tablet-marcar-auto.ts": { "maxDuration": 60 },

@@ -50,6 +50,7 @@
 }
 
 .btn-primary,
+.btn-secondary,
 .btn-link {
   padding: 10px 20px;
   border-radius: 8px;
@@ -57,6 +58,16 @@
   cursor: pointer;
   transition: all 0.2s;
   border: none;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .btn-primary {
@@ -75,6 +86,22 @@
   color: #f97316;
   padding: 0;
   text-decoration: underline;
+}
+
+.herramientas-diseno-section {
+  margin-bottom: 32px;
+}
+
+.herramientas-diseno-section h2 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.herramientas-diseno-intro {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
 }
 
 /* Métricas */

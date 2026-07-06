@@ -4,6 +4,7 @@ import apiService from '../services/api'
 import { etiquetaOperarioAsignado } from '../utils/etiquetaUsuarioNombre'
 import type { OrdenTrabajo } from '../types/api'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import PlotCenterDesignToolsGrid from '../components/diseno/PlotCenterDesignToolsGrid'
 import './DisenoDashboardPage.css'
 
 const DisenoDashboardPage = () => {
@@ -174,7 +175,22 @@ const DisenoDashboardPage = () => {
         <div className="header-content">
           <h1>🎨 Dashboard de Diseño Gráfico</h1>
           <div className="header-actions">
-            <button 
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => navigate('/diseno/plot-ai')}
+            >
+              Plot AI Studio
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => navigate('/plot-design')}
+            >
+              Plot Design
+            </button>
+            <button
+              type="button"
               className="btn-primary"
               onClick={() => navigate('/')}
             >
@@ -183,6 +199,14 @@ const DisenoDashboardPage = () => {
           </div>
         </div>
       </header>
+
+      <section className="herramientas-diseno-section" id="herramientas">
+        <h2>🔧 Herramientas Plot Center</h2>
+        <p className="herramientas-diseno-intro">
+          Accesos directos a las herramientas web del equipo de diseño.
+        </p>
+        <PlotCenterDesignToolsGrid />
+      </section>
 
       {/* Métricas */}
       <section className="metricas-section">

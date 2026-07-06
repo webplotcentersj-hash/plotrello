@@ -181,6 +181,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         href: '/plot-design',
         title: 'Bolsa y trabajos de diseño'
       })
+      push({
+        id: 'plot-ai-studio',
+        label: 'Plot AI',
+        icon: '✨',
+        href: '/diseno/plot-ai',
+        title: 'Herramientas creativas con Gemini'
+      })
       break
     case 'taller-grafico':
       push({

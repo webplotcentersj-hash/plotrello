@@ -1,4 +1,5 @@
 import type { Usuario } from '../../hooks/useAuth'
+import { PLOT_CENTER_DESIGN_TOOLS } from '../../constants/plotCenterDesignTools'
 import { VENTAS } from '../../utils/ventasRoutes'
 
 export type AdminModuleCategory =
@@ -184,6 +185,29 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     roles: ['diseno', 'administracion'],
     accent: '#ec4899'
   },
+  {
+    id: 'plot-ai-studio',
+    title: 'Plot AI Studio',
+    description: 'Herramientas creativas con Gemini: imágenes, video, chat y más',
+    icon: '✨',
+    path: '/diseno/plot-ai',
+    category: 'produccion',
+    roles: ['diseno', 'administracion', 'operario-diseno'],
+    accent: '#eb671b'
+  },
+  ...PLOT_CENTER_DESIGN_TOOLS.map(
+    (tool): AdminModuleDef => ({
+      id: tool.id,
+      title: tool.title,
+      description: tool.description,
+      icon: tool.icon,
+      path: tool.url,
+      category: 'produccion',
+      roles: ['diseno', 'administracion', 'operario-diseno'],
+      accent: '#f97316',
+      openInNewTab: true
+    })
+  ),
   {
     id: 'calendario',
     title: 'Calendario',

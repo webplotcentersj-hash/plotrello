@@ -528,6 +528,7 @@ export function detectIntencionPedidoProducto(text: string): boolean {
     return (
       cantidadYProducto ||
       (cantidadPedida && (mencionaFormatoImpresion || mencionaProducto || /\bimpres/i.test(t))) ||
+      (cantidadPedida && /\bpor\s+\d{1,5}\b/i.test(t)) ||
       detectConsultaPrecios(t)
     )
   }
@@ -582,12 +583,15 @@ export function extractCantidadSolicitada(text: string): number | null {
     /\b(\d{1,5})\s+impresiones?\b/i,
     /\b(\d{1,5})\s+copias?\b/i,
     /\b(\d{1,5})\s+ejemplares?\b/i,
+    /\b(\d{1,5})\s+unidades?\b/i,
     /\bpor\s+(\d{1,5})\b/i,
+    /\b(?:x|×)\s*(\d{1,5})\b/i,
     /\b(\d{1,5})\s+(?:unidades?\s+de\s+)?(?:stickers?|tarjetas?|folletos?|carteles?|afiches?|volantes?|banners?|vinilos?|talonarios?)/i,
-    /\b(?:quiero|necesito|pedir|son|ser[ií]an|cotizar|cotizame|imprimir|imprimirme)\s+(\d{1,5})\b/i,
-    /\b(?:imprimir|impresi[oó]n)\s+(\d{1,5})\b/i,
+    /\b(?:quiero|necesito|pedir|son|ser[ií]an|cotizar|cotizame|imprimir|imprimirme|tengo)\s+(\d{1,5})\b/i,
+    /\b(?:imprimir|impresi[oó]n)\s+(?:de\s+)?(\d{1,5})\b/i,
     /\b(\d{1,5})\s+(?:a\s*[345])\b/i,
-    /\bx\s*(\d{1,5})\b/i
+    /\b(\d{1,5})\s+para\s+imprimir\b/i,
+    /\bmultiplicar?\s+por\s+(\d{1,5})\b/i
   ]
 
   for (const re of patterns) {
@@ -671,6 +675,16 @@ export function shouldBuildEmbedPresupuestoFromTexts(userTexts: string[]): boole
 
   const qty = extractCantidadFromConversation(parts)
   if (qty != null && hasProductQuoteContext(joined)) return true
+  if (
+    qty != null &&
+    qty > 1 &&
+    (detectFormatoImpresion(joined) != null ||
+      detectPapelIlustracion(joined) ||
+      detectColorImpresion(joined) != null ||
+      PRODUCTO_KEYWORDS.some((k) => joined.toLowerCase().includes(k)))
+  ) {
+    return true
+  }
 
   if (!detectIntencionPedidoProducto(joined)) return false
   return (
@@ -860,16 +874,21 @@ function pickArticuloImpresion(rows: ArticuloPrecioRow[], text: string): Articul
   const userQty = extractCantidadFromConversation(lines)
   const formato = detectFormatoImpresion(text)
   const ranked = rankArticulosForChat(rows, text)
-  for (const row of ranked) {
-    const nombre = row.nombre || ''
-    if (!/impres|folleto|diptico|tarjeta|sticker|vinilo|lona|cartel/i.test(nombre)) continue
-    if (isArticuloPaqueteFijo(nombre)) continue
-    const packUnits = extractUnidadesEnNombreArticulo(nombre)
-    if (packUnits && userQty && userQty < packUnits) continue
-    if (formato && !normalizeTextForCatalog(nombre).includes(formato)) continue
-    return row
+
+  const tryPick = (requireFormato: boolean): ArticuloPrecioRow | null => {
+    for (const row of ranked) {
+      const nombre = row.nombre || ''
+      if (!/impres|folleto|diptico|tarjeta|sticker|vinilo|lona|cartel/i.test(nombre)) continue
+      if (isArticuloPaqueteFijo(nombre)) continue
+      const packUnits = extractUnidadesEnNombreArticulo(nombre)
+      if (packUnits && userQty && userQty < packUnits) continue
+      if (requireFormato && formato && !normalizeTextForCatalog(nombre).includes(formato)) continue
+      return row
+    }
+    return null
   }
-  return ranked.find((r) => /impres/i.test(r.nombre || '') && !isArticuloPaqueteFijo(r.nombre || '')) || null
+
+  return tryPick(true) || tryPick(false) || ranked.find((r) => /impres/i.test(r.nombre || '') && !isArticuloPaqueteFijo(r.nombre || '')) || null
 }
 
 function pickArticuloDiseno(rows: ArticuloPrecioRow[]): ArticuloPrecioRow | null {
@@ -953,7 +972,9 @@ export async function buildLista1PreciosContext(
     const final = calcularPrecioFinalLista1(bruto, ajustes)
     const cod = row.codigo ? `[${row.codigo}] ` : ''
     const cat = row.categoria ? ` (${row.categoria})` : ''
-    lineas.push(`- ${cod}${row.nombre || 'Sin nombre'}${cat}: ${formatArs(final)}`)
+    const totalCantidad =
+      cantidad != null && cantidad > 1 ? ` → total ${cantidad} u.: ${formatArs(round2(final * cantidad))}` : ''
+    lineas.push(`- ${cod}${row.nombre || 'Sin nombre'}${cat}: ${formatArs(final)} c/u${totalCantidad}`)
     if (lineas.length >= 25) break
   }
 
@@ -971,7 +992,9 @@ export async function buildLista1PreciosContext(
     `LISTA DE PRECIOS 1 (efectivo, transferencia, débito/tarjeta) — única fuente válida para cotizar precios al público.\n` +
     `Ajustes aplicados: ${labelAjustes(ajustes)}. Importes finales por unidad base del artículo.\n` +
     (busqueda ? `Búsqueda: "${busqueda}".\n` : 'Muestra de artículos del catálogo (sin término específico).\n') +
-    (cantidad != null && cantidad > 0 ? `Cantidad mencionada por el cliente: ${cantidad} unidades (podés estimar total = precio unitario × cantidad si aplica).\n` : '') +
+    (cantidad != null && cantidad > 0
+      ? `Cantidad pedida por el cliente: ${cantidad}. OBLIGATORIO: multiplicá precio unitario × ${cantidad} y mostrá subtotal y total (no cotices solo una unidad).\n`
+      : '') +
     (detectSolicitudDiseno(joined)
       ? 'El cliente pidió ayuda con diseño: si corresponde, sumá ARMADO DE ARCHIVOS BASICOS o DISEÑO GRÁFICO X HORA del listado.\n'
       : '')
@@ -1040,7 +1063,7 @@ export async function buildEmbedPresupuestoPayload(
   const joined = allTexts.join('\n').trim()
   if (!shouldBuildEmbedPresupuestoFromTexts(allTexts)) return null
 
-  const rows = await fetchArticulosLista1ForChat(supabase, joined, 20, { strict: true })
+  const rows = await fetchArticulosLista1ForChat(supabase, joined, 20)
   if (!rows.length) return null
 
   const cantidadDetectada = extractCantidadFromConversation(allTexts)
@@ -1094,6 +1117,42 @@ export async function buildEmbedPresupuestoPayload(
       'Presupuesto de referencia. Medidas, terminaciones, cantidades finales o diseño pueden modificar el total. ' +
       'Validez 7 dias. Se requiere sena del 50% para confirmar pedido.'
   }
+}
+
+/** Cotización con cantidad × unitario cuando no se pudo armar el payload PDF completo. */
+async function buildMultipliedPriceReplyFromCatalog(
+  supabase: SupabaseClient,
+  userTexts: string[],
+  message: string,
+  nombre?: string | null
+): Promise<string | null> {
+  const allTexts = normalizeConversationTexts(userTexts, message)
+  const joined = allTexts.join('\n').trim()
+  if (!joined) return null
+
+  const cantidad = extractCantidadFromConversation(allTexts)
+  if (cantidad == null || cantidad <= 1) return null
+  if (!detectConsultaPrecios(joined) && !hasProductQuoteContext(joined)) return null
+
+  const rows = await fetchArticulosLista1ForChat(supabase, joined, 20)
+  const articulo = pickArticuloImpresion(rows, joined)
+  if (!articulo) return null
+
+  const bruto = resolvePrecioLista1Bruto(articulo)
+  if (bruto == null) return null
+
+  const ajustes = await getAjustesPrecios(supabase)
+  const unit = calcularPrecioFinalLista1(bruto, ajustes)
+  const subtotal = round2(unit * cantidad)
+  const saludo = nombre ? `${nombre}, ` : ''
+  const desc = articulo.nombre || articulo.descripcion || 'Impresión'
+
+  return (
+    `${saludo}te paso una cotización de referencia:\n` +
+    `- ${cantidad} × ${desc} (${formatArs(unit)} c/u): ${formatArs(subtotal)}\n\n` +
+    `Total estimado: ${formatArs(subtotal)}\n\n` +
+    'Valores referenciales de Lista 1; medidas, terminaciones o diseño pueden modificar el total.'
+  )
 }
 
 
@@ -2222,8 +2281,7 @@ CÓMO TRATAR AL CLIENTE (atención al público):
       supabase &&
       modo === 'web_publico' &&
       contactoCliente.completo &&
-      !skipGemini &&
-      replyText
+      !skipGemini
     ) {
       try {
         presupuestoPayload = await buildEmbedPresupuestoPayload(supabase, {
@@ -2233,6 +2291,14 @@ CÓMO TRATAR AL CLIENTE (atención al público):
         })
         if (presupuestoPayload) {
           replyText = buildPresupuestoChatReply(presupuestoPayload, contactoCliente.nombre)
+        } else {
+          const multiplied = await buildMultipliedPriceReplyFromCatalog(
+            supabase,
+            allUserTexts,
+            message,
+            contactoCliente.nombre
+          )
+          if (multiplied) replyText = multiplied
         }
       } catch (e) {
         console.error('Error armando presupuesto embed:', e)
