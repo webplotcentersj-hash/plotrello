@@ -55,6 +55,7 @@ import type {
   LegajoEmpleado,
   FechaPlotHoyItem,
   ClienteWebRecord,
+  ClienteSolicitudRegistro,
   ArticuloEmpresaRecord,
   ArticuloEmpresaImagenRecord,
   CamposComercioArticuloEmpresa,
@@ -13116,6 +13117,72 @@ class ApiService {
   // ============================================
   // SISTEMA DE PEDIDOS WEB
   // ============================================
+
+  /**
+   * Registrar solicitud de alta de cliente web desde /cliente/login.
+   * El equipo crea el usuario y envía las credenciales luego.
+   */
+  async crearSolicitudRegistroCliente(solicitud: {
+    nombre: string
+    email: string
+    telefono: string
+    esClienteExistente: boolean
+  }): Promise<ApiResponse<null>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { error } = await supabase.from('cliente_solicitudes_registro').insert({
+        nombre: solicitud.nombre.trim(),
+        email: solicitud.email.trim(),
+        telefono: solicitud.telefono.trim(),
+        es_cliente_existente: solicitud.esClienteExistente
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: null }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
+   * Listar solicitudes de registro de clientes (panel staff del portal).
+   */
+  async listarSolicitudesRegistroCliente(
+    opts?: { soloPendientes?: boolean }
+  ): Promise<ApiResponse<ClienteSolicitudRegistro[]>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      let query = supabase
+        .from('cliente_solicitudes_registro')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (opts?.soloPendientes) query = query.eq('estado', 'pendiente')
+      const { data, error } = await query
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data || []) as ClienteSolicitudRegistro[] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
+   * Marcar una solicitud de registro con un estado (procesada / descartada).
+   */
+  async marcarSolicitudRegistroCliente(
+    id: number,
+    estado: 'pendiente' | 'procesada' | 'descartada'
+  ): Promise<ApiResponse<null>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { error } = await supabase
+        .from('cliente_solicitudes_registro')
+        .update({ estado })
+        .eq('id', id)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: null }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
 
   /**
    * Autenticar cliente web

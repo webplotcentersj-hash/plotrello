@@ -644,6 +644,19 @@ export interface ClienteWebRecord {
   updated_at?: string
 }
 
+export type ClienteSolicitudRegistroEstado = 'pendiente' | 'procesada' | 'descartada'
+
+export interface ClienteSolicitudRegistro {
+  id: number
+  nombre: string
+  email: string
+  telefono: string
+  es_cliente_existente: boolean
+  estado: ClienteSolicitudRegistroEstado
+  notas?: string | null
+  created_at: string
+}
+
 export type ModoVentaArticulo = 'compra' | 'cotizacion' | 'ambos'
 
 export type TipoIntencionPedido = 'compra' | 'cotizacion'

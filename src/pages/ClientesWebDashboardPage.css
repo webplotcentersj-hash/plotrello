@@ -5,6 +5,47 @@
   padding: 20px;
 }
 
+.clientes-web-solicitudes-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 0 0 22px;
+  padding: 16px 20px;
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.16), rgba(249, 115, 22, 0.06));
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.clientes-web-solicitudes-banner:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.2);
+}
+
+.clientes-web-solicitudes-banner__icon {
+  font-size: 1.6rem;
+}
+
+.clientes-web-solicitudes-banner__text {
+  flex: 1;
+  font-size: 0.98rem;
+}
+
+.clientes-web-solicitudes-banner__text strong {
+  color: #f97316;
+  font-size: 1.15rem;
+}
+
+.clientes-web-solicitudes-banner__cta {
+  font-weight: 600;
+  color: #f97316;
+  white-space: nowrap;
+}
+
 .clientes-web-dashboard-loading {
   display: flex;
   flex-direction: column;

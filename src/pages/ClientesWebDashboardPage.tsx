@@ -17,7 +17,8 @@ const ClientesWebDashboardPage = () => {
     pedidosConvertidos: 0,
     pedidosRechazados: 0,
     presupuestosEnviados: 0,
-    presupuestosPendientes: 0
+    presupuestosPendientes: 0,
+    solicitudesRegistro: 0
   })
 
   useEffect(() => {
@@ -60,6 +61,12 @@ const ClientesWebDashboardPage = () => {
           totalClientes: clientes.length,
           clientesActivos: activos
         }))
+      }
+
+      // Cargar solicitudes de registro pendientes
+      const solicitudesResponse = await apiService.listarSolicitudesRegistroCliente({ soloPendientes: true })
+      if (solicitudesResponse.success && solicitudesResponse.data) {
+        setStats(prev => ({ ...prev, solicitudesRegistro: solicitudesResponse.data!.length }))
       }
 
       // Cargar presupuestos
@@ -161,6 +168,20 @@ const ClientesWebDashboardPage = () => {
           </div>
         </div>
 
+        {stats.solicitudesRegistro > 0 && (
+          <button
+            type="button"
+            className="clientes-web-solicitudes-banner"
+            onClick={() => navigate('/clientes-web/gestion')}
+          >
+            <span className="clientes-web-solicitudes-banner__icon">📨</span>
+            <span className="clientes-web-solicitudes-banner__text">
+              <strong>{stats.solicitudesRegistro}</strong> nueva{stats.solicitudesRegistro > 1 ? 's' : ''} solicitud{stats.solicitudesRegistro > 1 ? 'es' : ''} de registro desde el portal
+            </span>
+            <span className="clientes-web-solicitudes-banner__cta">Ver y crear acceso →</span>
+          </button>
+        )}
+
         {/* Sección de acciones rápidas */}
         <div className="clientes-web-actions-section">
           <h2>Acciones Rápidas</h2>
@@ -171,7 +192,10 @@ const ClientesWebDashboardPage = () => {
             >
               <div className="clientes-web-action-icon">👤</div>
               <h3>Gestión de Clientes</h3>
-              <p>Crear, editar y gestionar clientes (con o sin acceso al portal)</p>
+              <p>
+                Crear, editar y gestionar clientes (con o sin acceso al portal)
+                {stats.solicitudesRegistro > 0 ? ` · ${stats.solicitudesRegistro} solicitud(es) nueva(s)` : ''}
+              </p>
             </button>
 
             <button

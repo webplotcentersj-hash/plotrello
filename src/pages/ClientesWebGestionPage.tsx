@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { ClienteRecord } from '../types/api'
+import type { ClienteRecord, ClienteSolicitudRegistro } from '../types/api'
 import { clientesPerfil } from '../utils/clientesRoutes'
 import './ClientesWebGestionPage.css'
 
@@ -30,6 +30,8 @@ const ClientesWebGestionPage = () => {
   const [darAccesoForm, setDarAccesoForm] = useState({ usuario: '', password: '' })
   const [sortField, setSortField] = useState<keyof ClienteRecord | ''>('nombre')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [solicitudes, setSolicitudes] = useState<ClienteSolicitudRegistro[]>([])
+  const [solicitudEnProceso, setSolicitudEnProceso] = useState<ClienteSolicitudRegistro | null>(null)
   const [formData, setFormData] = useState({
     usuario: '',
     password: '',
@@ -46,6 +48,45 @@ const ClientesWebGestionPage = () => {
     const res = await apiService.contarClientesResumen()
     if (res.success && res.data) setStats(res.data)
   }, [])
+
+  const refreshSolicitudes = useCallback(async () => {
+    const res = await apiService.listarSolicitudesRegistroCliente({ soloPendientes: true })
+    if (res.success && res.data) setSolicitudes(res.data)
+  }, [])
+
+  const handleCrearDesdeSolicitud = (s: ClienteSolicitudRegistro) => {
+    const partes = s.nombre.trim().split(/\s+/)
+    const nombre = partes.shift() || s.nombre.trim()
+    const apellido = partes.join(' ')
+    setEditingCliente(null)
+    setCrearConAcceso(true)
+    setSolicitudEnProceso(s)
+    setFormData({
+      usuario: '',
+      password: '',
+      nombre,
+      apellido,
+      empresa: '',
+      telefono: s.telefono || '',
+      email: s.email || '',
+      dni_cuit: '',
+      direccion: ''
+    })
+    setShowCreateModal(true)
+  }
+
+  const handleMarcarSolicitud = async (
+    s: ClienteSolicitudRegistro,
+    estado: 'procesada' | 'descartada'
+  ) => {
+    if (estado === 'descartada' && !confirm(`¿Descartar la solicitud de ${s.nombre}?`)) return
+    const res = await apiService.marcarSolicitudRegistroCliente(s.id, estado)
+    if (res.success) {
+      setSolicitudes((prev) => prev.filter((x) => x.id !== s.id))
+    } else {
+      alert(res.error || 'No se pudo actualizar la solicitud')
+    }
+  }
 
   const ejecutarBusqueda = useCallback(async (term: string) => {
     setBuscando(true)
@@ -143,10 +184,11 @@ const ClientesWebGestionPage = () => {
     const run = async () => {
       setLoadingStats(true)
       await refreshStats()
+      await refreshSolicitudes()
       setLoadingStats(false)
     }
     void run()
-  }, [navigate, canAccessMostradorViews, authLoading, refreshStats])
+  }, [navigate, canAccessMostradorViews, authLoading, refreshStats, refreshSolicitudes])
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedTerm(searchQuery.trim()), 280)
@@ -270,6 +312,11 @@ const ClientesWebGestionPage = () => {
       }
 
       if (response.success) {
+        if (!editingCliente && solicitudEnProceso) {
+          const solId = solicitudEnProceso.id
+          await apiService.marcarSolicitudRegistroCliente(solId, 'procesada')
+          setSolicitudes((prev) => prev.filter((x) => x.id !== solId))
+        }
         setShowCreateModal(false)
         resetForm()
         await refreshStats()
@@ -354,6 +401,7 @@ const ClientesWebGestionPage = () => {
     })
     setEditingCliente(null)
     setCrearConAcceso(true)
+    setSolicitudEnProceso(null)
   }
 
   const handleSort = (field: keyof ClienteRecord) => {
@@ -446,6 +494,67 @@ const ClientesWebGestionPage = () => {
             </button>
           </div>
         </header>
+
+        {solicitudes.length > 0 && (
+          <section className="cwg-solicitudes" aria-label="Solicitudes de registro">
+            <div className="cwg-solicitudes__head">
+              <h2>
+                Solicitudes de registro
+                <span className="cwg-solicitudes__count">{solicitudes.length}</span>
+              </h2>
+              <p className="cwg-solicitudes__hint">
+                Nuevos registros desde el portal. Creá el acceso y avisale al cliente su usuario y contraseña.
+              </p>
+            </div>
+            <div className="cwg-solicitudes__list">
+              {solicitudes.map((s) => (
+                <div key={s.id} className="cwg-solicitud">
+                  <div className="cwg-solicitud__info">
+                    <div className="cwg-solicitud__name">
+                      {s.nombre}
+                      {s.es_cliente_existente ? (
+                        <span className="cwg-badge cwg-badge--portal">Ya es cliente</span>
+                      ) : (
+                        <span className="cwg-badge cwg-badge--none">Nuevo</span>
+                      )}
+                    </div>
+                    <div className="cwg-solicitud__contact">
+                      <span>{s.email}</span>
+                      <span>·</span>
+                      <span>{s.telefono}</span>
+                    </div>
+                    <div className="cwg-solicitud__date">
+                      {new Date(s.created_at).toLocaleString('es-AR')}
+                    </div>
+                  </div>
+                  <div className="cwg-solicitud__actions">
+                    <button
+                      type="button"
+                      className="cwg-btn cwg-btn--primary cwg-btn--xs"
+                      onClick={() => handleCrearDesdeSolicitud(s)}
+                    >
+                      Crear acceso
+                    </button>
+                    <button
+                      type="button"
+                      className="cwg-btn cwg-btn--muted cwg-btn--xs"
+                      onClick={() => void handleMarcarSolicitud(s, 'procesada')}
+                    >
+                      Listo
+                    </button>
+                    <button
+                      type="button"
+                      className="cwg-btn cwg-btn--warn cwg-btn--xs"
+                      onClick={() => void handleMarcarSolicitud(s, 'descartada')}
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="cwg-search-hero" aria-label="Buscar clientes">
           <label className="cwg-search-hero__wrap">
