@@ -12,6 +12,15 @@ export function getPlotLabEmbedOrigin(): string {
 }
 
 export function buildEmbedWidgetSnippet(embedOrigin = getPlotLabEmbedOrigin()): string {
+  const origins = [
+    embedOrigin,
+    embedOrigin.replace('://www.', '://'),
+    embedOrigin.replace('://', '://www.')
+  ]
+    .map((o) => o.replace(/\/$/, ''))
+    .filter((v, i, a) => a.indexOf(v) === i)
+  const originsJson = JSON.stringify(origins)
+
   return `<iframe id="plotai-widget-iframe"
   src="${embedOrigin}/embed/chat-widget"
   title="Chat Plot Center"
@@ -22,9 +31,10 @@ export function buildEmbedWidgetSnippet(embedOrigin = getPlotLabEmbedOrigin()): 
 ></iframe>
 <script>
 (function() {
-  var ORIGIN = '${embedOrigin}';
+  var ORIGINS = ${originsJson};
   window.addEventListener('message', function(e) {
-    if (e.origin !== ORIGIN || !e.data || e.data.type !== 'plotai-widget-resize') return;
+    if (!e.data || e.data.type !== 'plotai-widget-resize') return;
+    if (ORIGINS.indexOf(e.origin) === -1) return;
     var iframe = document.getElementById('plotai-widget-iframe');
     if (!iframe) return;
     if (e.data.fullscreen) {

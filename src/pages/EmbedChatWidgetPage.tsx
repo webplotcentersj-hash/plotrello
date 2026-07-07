@@ -15,8 +15,8 @@ import {
   EMBED_CHAT_OPENING_GREETING,
   postEmbedWidgetResize,
   buildEmbedChatApiPayload,
-  openEmbedStandaloneChat,
-  postEmbedWidgetFullscreen,
+  openEmbedChatLarge,
+  isEmbedMobile,
   type EmbedPresupuestoPayload
 } from '../utils/embedChatShared'
 import { isEmbedFramed } from '../utils/embedMicPermission'
@@ -320,21 +320,27 @@ export default function EmbedChatWidgetPage() {
     onModelTranscript: (text) => appendVoiceTranscript('model', text)
   })
 
-  const openStandaloneChat = () => {
-    if (isEmbedFramed()) {
-      postEmbedWidgetFullscreen(true)
+  const chatSnapshot = (): Parameters<typeof openEmbedChatLarge>[0] => ({
+    messages,
+    nombre,
+    telefono,
+    dni,
+    cuit,
+    op,
+    presupuesto,
+    conversationId
+  })
+
+  const openLargeChat = (options?: { startVoice?: boolean }) => {
+    openEmbedChatLarge(chatSnapshot(), options)
+  }
+
+  const handleVoiceClick = () => {
+    if (!voice.active && isEmbedFramed() && isEmbedMobile()) {
+      openLargeChat({ startVoice: true })
       return
     }
-    openEmbedStandaloneChat({
-      messages,
-      nombre,
-      telefono,
-      dni,
-      cuit,
-      op,
-      presupuesto,
-      conversationId
-    })
+    void voice.toggleLive()
   }
 
   return (
@@ -375,14 +381,25 @@ export default function EmbedChatWidgetPage() {
                     <EmbedChatOnlineStatus className="embed-chat-subtitle-status" />
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="embed-widget-close"
-                  onClick={() => setOpen(false)}
-                  aria-label="Cerrar"
-                >
-                  ✕
-                </button>
+                <div className="embed-widget-header-actions">
+                  <button
+                    type="button"
+                    className="embed-widget-expand"
+                    onClick={() => openLargeChat()}
+                    aria-label="Abrir chat en pantalla completa"
+                    title="Pantalla completa"
+                  >
+                    ⛶
+                  </button>
+                  <button
+                    type="button"
+                    className="embed-widget-close"
+                    onClick={() => setOpen(false)}
+                    aria-label="Cerrar"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             </header>
 
@@ -530,7 +547,7 @@ export default function EmbedChatWidgetPage() {
               status={voice.status}
               onStop={voice.stopLive}
               onRetry={() => void voice.toggleLive()}
-              onOpenStandalone={openStandaloneChat}
+              onOpenStandalone={() => openLargeChat()}
             />
 
             <footer className="embed-chat-footer">
@@ -539,7 +556,6 @@ export default function EmbedChatWidgetPage() {
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   className="embed-attach-input"
                   onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
                 />
@@ -558,7 +574,7 @@ export default function EmbedChatWidgetPage() {
                   starting={voice.starting}
                   disabled={loading}
                   micAvailable={voice.micAvailable}
-                  onClick={() => void voice.toggleLive()}
+                  onClick={handleVoiceClick}
                 />
               </div>
               <input

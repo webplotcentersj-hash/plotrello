@@ -245,7 +245,7 @@ export function EmbedChatVoiceBanner({
       )}
       {error && onOpenStandalone && (
         <button type="button" className="embed-voice-standalone" onClick={onOpenStandalone}>
-          Pantalla completa
+          Abrir chat grande
         </button>
       )}
       {active && !error && (

@@ -1,3 +1,5 @@
+import { getPlotLabEmbedOrigin } from '../constants/embedChatSnippet'
+
 export type EmbedChatMessage = {
   role: 'user' | 'model'
   parts: { text: string }[]
@@ -70,6 +72,66 @@ export const EMBED_CHAT_CONVERSATION_KEY = 'embed_chat_conversation_id'
 
 export const EMBED_WIDGET_CLOSED_SIZE = 88
 
+/** Detecta móvil para UX del widget (iframe pequeño en WordPress). */
+export function isEmbedMobile(): boolean {
+  if (typeof window === 'undefined') return false
+  const screenW = window.screen?.width || window.innerWidth
+  const coarse = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
+  return screenW <= 520 || coarse || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+}
+
+export function buildEmbedChatUrl(options?: { startVoice?: boolean }): string {
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : getPlotLabEmbedOrigin()
+  const params = new URLSearchParams()
+  params.set('resume', '1')
+  if (options?.startVoice) params.set('voice', '1')
+  return `${origin}/embed/chat?${params.toString()}`
+}
+
+/** Abre el chat grande: en móvil dentro del iframe navega al chat full (mic + pantalla); en desktop pide fullscreen al padre. */
+export function openEmbedChatLarge(
+  snapshot: EmbedChatSessionSnapshot,
+  options?: { startVoice?: boolean }
+): void {
+  saveEmbedChatSession(snapshot)
+  const url = buildEmbedChatUrl(options)
+  const framed = typeof window !== 'undefined' && window.self !== window.top
+  const mobile = isEmbedMobile()
+
+  if (!framed) {
+    const win = window.open(url, '_blank', 'noopener,noreferrer')
+    if (!win) window.location.assign(url)
+    return
+  }
+
+  postEmbedWidgetFullscreen(true)
+
+  if (mobile) {
+    try {
+      window.top!.location.href = url
+    } catch {
+      const win = window.open(url, '_blank', 'noopener,noreferrer')
+      if (!win) window.location.href = url
+    }
+    return
+  }
+
+  const win = window.open(url, '_blank', 'noopener,noreferrer')
+  if (!win) {
+    try {
+      window.top!.location.href = url
+    } catch {
+      window.location.href = url
+    }
+  }
+}
+
+/** @deprecated Usar openEmbedChatLarge */
+export function openEmbedStandaloneChat(snapshot: EmbedChatSessionSnapshot): void {
+  openEmbedChatLarge(snapshot)
+}
+
 /** Tamaño del iframe en la página padre (WordPress). En iframe cerrado innerWidth ≈ 88px — usar screen. */
 export function getEmbedWidgetOpenSize(): { width: number; height: number; fullscreen: boolean } {
   if (typeof window === 'undefined') {
@@ -85,9 +147,13 @@ export function getEmbedWidgetOpenSize(): { width: number; height: number; fulls
     : window.innerHeight
   const mobile = screenW <= 520
 
+  if (mobile) {
+    return { width: screenW, height: screenH, fullscreen: true }
+  }
+
   return {
-    width: mobile ? Math.min(screenW - 20, 360) : Math.min(380, Math.max(screenW - 16, 320)),
-    height: mobile ? Math.min(Math.round(screenH * 0.68), 480) : Math.min(540, Math.max(screenH - 24, 400)),
+    width: Math.min(380, Math.max(screenW - 16, 320)),
+    height: Math.min(540, Math.max(screenH - 24, 400)),
     fullscreen: false
   }
 }
@@ -96,6 +162,10 @@ export function postEmbedWidgetResize(open: boolean): void {
   if (typeof window === 'undefined' || window.parent === window) return
   try {
     const size = getEmbedWidgetOpenSize()
+    if (open && size.fullscreen) {
+      window.parent.postMessage({ type: 'plotai-widget-resize', open: true, fullscreen: true }, '*')
+      return
+    }
     const w = open ? size.width : EMBED_WIDGET_CLOSED_SIZE
     const h = open ? size.height : EMBED_WIDGET_CLOSED_SIZE
     window.parent.postMessage(
@@ -159,13 +229,6 @@ export function clearEmbedChatSession(): void {
   } catch {
     /* ignore */
   }
-}
-
-export function openEmbedStandaloneChat(snapshot: EmbedChatSessionSnapshot): void {
-  saveEmbedChatSession(snapshot)
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const url = `${origin.replace(/\/$/, '')}/embed/chat?resume=1`
-  window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 export type EmbedPresupuestoItem = {

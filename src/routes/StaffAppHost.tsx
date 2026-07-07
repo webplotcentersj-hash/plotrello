@@ -21,6 +21,7 @@ const HerramientaPage = lazy(() => import('../pages/HerramientaPage'))
 const MostradorDashboardPage = lazy(() => import('../pages/MostradorDashboardPage'))
 const DisenoDashboardPage = lazy(() => import('../pages/DisenoDashboardPage'))
 const PlotcenterAiStudioPage = lazy(() => import('../pages/PlotcenterAiStudioPage'))
+const ManualUsuarioPage = lazy(() => import('../pages/ManualUsuarioPage'))
 const GaleriaTrabajosPage = lazy(() => import('../pages/GaleriaTrabajosPage'))
 const BriefsPendientesPage = lazy(() => import('../pages/BriefsPendientesPage'))
 const OrdenesListasPage = lazy(() => import('../pages/OrdenesListasPage'))
@@ -1113,6 +1114,7 @@ function AppRoutes({
         path="/diseno/plot-ai"
         element={<PlotcenterAiStudioPage />}
       />
+      <Route path="/manual" element={<ManualUsuarioPage />} />
       <Route
         path="/diseno"
         element={<DisenoDashboardPage />}

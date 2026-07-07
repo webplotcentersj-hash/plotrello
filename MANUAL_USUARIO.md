@@ -1,5 +1,7 @@
-# Manual de Usuario - Trello Plot
-## Sistema de Gestión de Producción Plot Center
+# Manual de Usuario — PlotLab (Plotrello)
+## Sistema de Gestión de Producción · Plot Center
+
+> **Última actualización:** junio 2026 · Versión web en `/manual`
 
 ---
 
@@ -28,12 +30,12 @@
 19. [Módulo DT (Asesor Técnico / Presupuestos)](#módulo-dt-asesor-técnico--presupuestos)
 20. [Módulo de Mostrador](#módulo-de-mostrador)
 21. [Módulo de Compras](#módulo-de-compras)
-22. [Módulo de Diseño](#módulo-de-diseño)
+22. [Módulo de Diseño](#22-módulo-de-diseño) — incluye Plot AI Studio y herramientas web
 23. [Libro de Actas](#libro-de-actas)
 24. [Gestión de Impresoras](#gestión-de-impresoras)
 25. [Briefs y Galería de Trabajos](#briefs-y-galería-de-trabajos)
 26. [Herramientas Personalizadas](#herramientas-personalizadas)
-27. [Páginas Públicas](#páginas-públicas)
+27. [Páginas Públicas](#27-páginas-públicas) — consulta cliente, embed, tótem
 28. [Atajos de Teclado](#atajos-de-teclado)
 29. [Funciones Avanzadas](#funciones-avanzadas)
 30. [Solución de Problemas](#solución-de-problemas)
@@ -42,27 +44,21 @@
 
 ## 1. Introducción
 
-**Trello Plot** es un sistema de gestión de producción tipo Kanban diseñado específicamente para Plot Center. Permite gestionar órdenes de trabajo (OPs) desde su creación hasta la entrega, con seguimiento en tiempo real, comunicación entre equipos y análisis de rendimiento.
+**PlotLab** (también conocido como Plotrello / Trello Plot) es el sistema de gestión de producción tipo Kanban de Plot Center. Permite gestionar órdenes de trabajo (OPs) desde su creación hasta la entrega, con seguimiento en tiempo real, comunicación entre equipos, IA integrada y análisis de rendimiento.
 
 ### Características Principales
 
 - ✅ **Tablero Kanban** con arrastrar y soltar (drag & drop)
-- ✅ **Aplicación de escritorio** (PWA) - Instalable en Windows, Mac y Linux
+- ✅ **Aplicación de escritorio** (PWA) — instalable en Windows, Mac y Linux
 - ✅ **Sincronización en tiempo real** entre usuarios
-- ✅ **Chat en tiempo real** estilo Slack
-- ✅ **PlotAI** - Asistente con inteligencia artificial
-- ✅ **Estadísticas y reportes** avanzados
-- ✅ **Calendario y diagrama de Gantt**
-- ✅ **Sistema de checklist** para subtareas
-- ✅ **Gestión de materiales y sectores**
-- ✅ **Códigos QR** para acceso rápido
-- ✅ **Auditoría completa** de movimientos
-- ✅ **Sistema de Capacitaciones** para RRHH y empleados
-- ✅ **Sistema de Evaluaciones de Desempeño**
-- ✅ **Sistema de Solicitudes de Permisos** (turnos, vacaciones, ausencias)
-- ✅ **Sistema de Menú Diario** con selección de platos
-- ✅ **Sistema de Pedidos de Compra** con historial y notificaciones
-- ✅ **Sistema de Horarios y Turnos** para RRHH
+- ✅ **Chat interno** y **PlotAI** con contexto del tablero
+- ✅ **Plot AI Studio** — herramientas creativas Gemini para diseño
+- ✅ **Plot Design** — bolsa de trabajos para diseñadores
+- ✅ **Consulta pública de OP** y **chat embed** para clientes
+- ✅ **Tótem de autogestión** (impresión y consultas en local)
+- ✅ **Estadísticas, calendario y Gantt**
+- ✅ **Módulos por sector**: mostrador, compras, RRHH, caja, taller, instalaciones, metalúrgica
+- ✅ **Portal cliente** y **cuenta corriente**
 
 ---
 
@@ -1623,6 +1619,47 @@ Los clientes pueden enviar briefs a través de un enlace público:
 3. Adjunta archivos de referencia
 4. El brief aparece en "Briefs Pendientes"
 
+### 22.6 Plot AI Studio
+
+**URL:** `/diseno/plot-ai` · **Roles:** diseño, administración, operario-diseño
+
+Estudio creativo con **Gemini** integrado al servidor (sin exponer claves en el navegador):
+
+| Herramienta | Uso |
+|-------------|-----|
+| Asistente de chat | Brainstorming, copy y consultas creativas |
+| Generador de imágenes | Piezas visuales desde descripción |
+| Editor de imágenes | Modificar una imagen con instrucciones en texto |
+| Generador de video | Clips cortos (Veo, si está habilitado en la API) |
+| Análisis profundo | Briefs, estrategias y guiones detallados |
+| Búsqueda en tiempo real | Información actualizada de la web |
+| Texto a voz | Locuciones para videos o presentaciones |
+
+**Acceso rápido:** Dashboard Diseño → **Plot AI Studio**, o desde el panel admin.
+
+### 22.7 Herramientas web Plot Center
+
+Accesos directos en el dashboard de diseño y en Plot AI Studio:
+
+| Herramienta | URL |
+|-------------|-----|
+| QR / Link WhatsApp | https://qr.plotcenter.com.ar/ |
+| Generador de QR | https://generadorqr.plotcenter.com.ar/ |
+| Verificador WCAG | https://wcag.plotcenter.com.ar/ |
+| Studio Resizer Pro | https://resizer.plotcenter.com.ar/ |
+| Color Intelligence | https://extractor.plotcenter.com.ar/ |
+
+También disponibles en **Herramientas** (`/herramienta`).
+
+### 22.8 Plot Design (bolsa de trabajos)
+
+**URL:** `/plot-design`
+
+- Publicación y asignación de trabajos de diseño gráfico
+- Fuentes: briefs del portal, pedidos y OPs del tablero
+- Operarios externos acceden por `/operario-externo/diseno`
+- Administración y presupuestos pueden gestionar la bolsa completa
+
 ---
 
 ## 23. Libro de Actas
@@ -1760,30 +1797,47 @@ Ver sección [22.5 Brief Público](#225-brief-público) en Módulo de Diseño.
 
 ### 27.1 Consulta de Cliente
 
-**URL**: `/consulta-cliente`
+**URL:** `/consulta-cliente` (pública, sin login)
 
-Los clientes pueden consultar el estado de sus órdenes sin login:
+Los clientes consultan el estado de sus trabajos:
 
-1. Navega a la URL de consulta
-2. Ingresa el **número de OP**
-3. Verás:
-   - Estado actual de la orden
-   - Fecha de entrega
-   - Información básica
+1. Ingresan **número de OP** o **nombre / empresa** en el buscador
+2. Ven estado actual, fechas y **línea de tiempo** con movimientos entre sectores
+3. Contacto: contacto@plotcenter.com.ar · www.plotcenter.com.ar
 
-### 27.2 OP Pública
+> No se muestra DNI ni datos sensibles. El timeline explica en lenguaje claro cada paso del proceso.
+
+### 27.2 Chat público (embed)
+
+**URLs:** `/embed/chat` · `/embed/chat-widget`
+
+- Chat con PlotAI para visitantes de plotcenter.com.ar
+- Cotización con **Lista 1** y multiplicación por cantidad
+- Presupuesto PDF embebido cuando corresponde
+- Widget flotante integrable en la web con iframe
+
+### 27.3 Tótem de autogestión
+
+**URL:** `/totem` (kiosco en local)
+
+- Consulta de trabajos y atajos por sector
+- **Impresión self-service** con cotización Lista 1 automática
+- Modo color: automático, color o B/N
+- Panel backoffice: `/totem-impresion` (roles imprenta, mostrador, caja, admin)
+
+### 27.4 OP Pública
 
 **URL**: `/op-public/:opNumber`
 
 Acceso directo a una orden específica mediante enlace público o código QR.
 
-### 27.3 Brief Público
+### 27.5 Brief Público
 
 **URL**: `/brief/:token`
 
 Los clientes pueden enviar briefs mediante un enlace único con token.
 
-### 27.4 Dashboard de Pantallas
+### 27.6 Dashboard de Pantallas
 
 **URL**: `/dashboard-pantallas`
 

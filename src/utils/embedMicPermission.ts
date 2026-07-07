@@ -16,7 +16,9 @@ export function isEmbedFramed(): boolean {
 export function isMicAvailableInEmbed(): boolean {
   if (!isTotemSecureContext()) return false
   if (!navigator.mediaDevices?.getUserMedia) return false
-  return isTotemFeatureAllowedByPolicy('microphone')
+  // Mostrar el botón aunque permissionsPolicy sea conservador (común en iframes iOS).
+  // El permiso real se pide en el gesto del usuario; si falla, ofrecemos pantalla completa.
+  return true
 }
 
 export function getEmbedStandaloneChatUrl(): string {

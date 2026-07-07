@@ -455,31 +455,14 @@ const Header = ({
             >
               📝 Mis evaluaciones
             </Link>
-            <button
+            <Link
+              to="/manual"
               className="brand-button"
-              onClick={() => {
-                // Descargar el manual
-                fetch('/MANUAL_USUARIO.md')
-                  .then(response => response.blob())
-                  .then(blob => {
-                    const url = window.URL.createObjectURL(blob)
-                    const a = document.createElement('a')
-                    a.href = url
-                    a.download = 'MANUAL_USUARIO_TRELLO_PLOT.md'
-                    document.body.appendChild(a)
-                    a.click()
-                    window.URL.revokeObjectURL(url)
-                    document.body.removeChild(a)
-                  })
-                  .catch(error => {
-                    console.error('Error descargando manual:', error)
-                    alert('Error al descargar el manual. Por favor, intenta nuevamente.')
-                  })
-              }}
-              title="Descargar manual de usuario en formato Markdown"
+              onClick={() => setActionsOpen(false)}
+              title="Manual de usuario actualizado"
             >
-              📖 Descargar Manual
-            </button>
+              📖 Manual
+            </Link>
             <a
               href="/mis-pedidos"
               className="brand-button"

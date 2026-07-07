@@ -16,11 +16,9 @@ import {
   buildEmbedChatApiPayload,
   clearEmbedChatSession,
   loadEmbedChatSession,
-  openEmbedStandaloneChat,
-  postEmbedWidgetFullscreen,
+  openEmbedChatLarge,
   type EmbedPresupuestoPayload
 } from '../utils/embedChatShared'
-import { isEmbedFramed } from '../utils/embedMicPermission'
 import { useEmbedStaffReplies } from '../hooks/useEmbedStaffReplies'
 import { useEmbedShellLayout } from '../hooks/useEmbedShellLayout'
 import { EmbedChatOnlineStatus } from '../components/embed/EmbedChatOnlineStatus'
@@ -71,6 +69,8 @@ export default function EmbedChatPage() {
     previewUrl: string
     staffPreviewUrl: string
   } | null>(null)
+  const [autoStartVoice, setAutoStartVoice] = useState(() => searchParams?.get('voice') === '1')
+  const voiceBootstrappedRef = useRef(false)
 
   const { staffReplies } = useEmbedStaffReplies(conversationId, {
     notifyIcon: PLOTAI_LOGO
@@ -276,12 +276,18 @@ export default function EmbedChatPage() {
     onModelTranscript: (text) => appendVoiceTranscript('model', text)
   })
 
-  const openStandaloneChat = () => {
-    if (isEmbedFramed()) {
-      postEmbedWidgetFullscreen(true)
-      return
-    }
-    openEmbedStandaloneChat({
+  useEffect(() => {
+    if (!autoStartVoice || voiceBootstrappedRef.current || voice.active || voice.starting) return
+    voiceBootstrappedRef.current = true
+    setAutoStartVoice(false)
+    const timer = window.setTimeout(() => {
+      void voice.toggleLive()
+    }, 600)
+    return () => window.clearTimeout(timer)
+  }, [autoStartVoice, voice.active, voice.starting, voice])
+
+  const openLargeChat = () => {
+    openEmbedChatLarge({
       messages,
       nombre: nombre || clienteNombreFromUrl || '',
       telefono,
@@ -456,7 +462,7 @@ export default function EmbedChatPage() {
         status={voice.status}
         onStop={voice.stopLive}
         onRetry={() => void voice.toggleLive()}
-        onOpenStandalone={openStandaloneChat}
+        onOpenStandalone={openLargeChat}
       />
 
       <footer className="embed-chat-footer">
@@ -465,7 +471,6 @@ export default function EmbedChatPage() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
             className="embed-attach-input"
             onChange={(e) => handlePickImage(e.target.files?.[0] ?? null)}
           />

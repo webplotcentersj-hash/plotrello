@@ -35,9 +35,10 @@
 ></iframe>
 <script>
 (function() {
-  var ORIGIN = '${API_ORIGIN}';
+  var ORIGINS = ['${API_ORIGIN}', '${API_ORIGIN}'.replace('://www.', '://'), '${API_ORIGIN}'.replace('://', '://www.')];
   window.addEventListener('message', function(e) {
-    if (e.origin !== ORIGIN || !e.data || e.data.type !== 'plotai-widget-resize') return;
+    if (!e.data || e.data.type !== 'plotai-widget-resize') return;
+    if (ORIGINS.indexOf(e.origin) === -1) return;
     var iframe = document.getElementById('plotai-widget-iframe');
     if (!iframe) return;
     if (e.data.fullscreen) {

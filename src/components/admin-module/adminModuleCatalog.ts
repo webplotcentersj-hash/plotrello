@@ -495,6 +495,17 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     accent: '#be123c'
   },
   {
+    id: 'manual-usuario',
+    title: 'Manual de usuario',
+    description: 'Guía actualizada de PlotLab con índice y búsqueda',
+    icon: '📖',
+    path: '/manual',
+    category: 'sistemas',
+    roles: 'all',
+    accent: '#f59e0b',
+    featured: true
+  },
+  {
     id: 'plotai',
     title: 'PlotAI',
     description: 'Asistente inteligente con contexto del tablero',
