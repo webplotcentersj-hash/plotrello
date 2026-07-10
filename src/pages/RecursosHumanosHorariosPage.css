@@ -1195,14 +1195,65 @@
   background: #fafafa;
 }
 
-.rrhh-fijos-nombre {
-  display: block;
+.rrhh-fijos-nombre-cell {
+  min-width: 200px;
+}
+
+.rrhh-fijos-nombre-editor {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.rrhh-fijos-nombre-input {
+  flex: 1 1 72px;
+  min-width: 72px;
+  max-width: 110px;
+  padding: 4px 6px;
+  font-size: 0.78rem;
   font-weight: 600;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
   color: #111827;
+  background: #fff;
+}
+
+.rrhh-fijos-nombre-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.rrhh-fijos-nombre-input:disabled {
+  opacity: 0.6;
+}
+
+.rrhh-fijos-nombre-save {
+  border: none;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.rrhh-fijos-nombre-save:hover:not(:disabled) {
+  background: #bfdbfe;
+}
+
+.rrhh-fijos-nombre-save:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .rrhh-fijos-login {
   display: block;
+  margin-top: 2px;
   font-size: 0.7rem;
   color: #9ca3af;
 }
@@ -1445,7 +1496,29 @@ thead .rrhh-asis-sticky {
 .rrhh-asis-celda .celda-h {
   display: block;
   font-size: 0.72rem;
-  color: #1f2937;
+  font-weight: 600;
+}
+
+.rrhh-asis-celda .celda-h-entrada {
+  color: #2563eb;
+}
+
+.rrhh-asis-celda .celda-h-salida {
+  color: #7c3aed;
+}
+
+.rrhh-asis-celda.celda-tarde .celda-h-entrada {
+  color: #b45309;
+}
+
+.rrhh-asis-celda.celda-aus {
+  background: rgba(220, 38, 38, 0.22);
+  color: #991b1b;
+  font-weight: 700;
+}
+
+.rrhh-asis-celda.celda-aus .celda-nov-label {
+  color: #991b1b;
 }
 
 .rrhh-asis-celda .celda-vacia {
@@ -1453,17 +1526,12 @@ thead .rrhh-asis-sticky {
 }
 
 .rrhh-asis-celda.celda-ok {
-  background: rgba(34, 197, 94, 0.12);
+  background: rgba(34, 197, 94, 0.14);
 }
 
 .rrhh-asis-celda.celda-tarde {
-  background: rgba(245, 158, 11, 0.18);
-}
-
-.rrhh-asis-celda.celda-aus {
-  background: rgba(239, 68, 68, 0.18);
-  color: #fca5a5;
-  font-weight: 700;
+  background: rgba(245, 158, 11, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.35);
 }
 
 .rrhh-asis-celda.celda-nov {
@@ -1508,6 +1576,37 @@ thead .rrhh-asis-sticky {
   font-weight: 800;
 }
 
+.celda-extra-hs {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #059669;
+  line-height: 1.1;
+}
+
+.rrhh-asis-celda.celda-con-extra {
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.35);
+}
+
+.rrhh-asis-celda.celda-nov--horas_extra {
+  background: rgba(16, 185, 129, 0.2);
+  color: #047857;
+}
+
+.rrhh-asis-tot-extra {
+  color: #059669;
+  font-weight: 700;
+}
+
+.leyenda-extra {
+  color: #059669;
+  font-weight: 700;
+}
+
+.rrhh-asis-leyenda .leyenda-extra { color: #10b981; font-weight: 600; }
+
+.rrhh-stats-kpi--extra .rrhh-stats-kpi-val { color: #059669; }
+
 .celda-sm {
   font-size: 0.62rem;
   font-weight: 600;
@@ -1523,9 +1622,264 @@ thead .rrhh-asis-sticky {
 }
 
 .rrhh-asis-leyenda .leyenda-ok { color: #4ade80; }
+.rrhh-asis-leyenda .leyenda-entrada { color: #2563eb; font-weight: 600; }
+.rrhh-asis-leyenda .leyenda-salida { color: #7c3aed; font-weight: 600; }
+.rrhh-asis-leyenda .leyenda-tarde { color: #f59e0b; font-weight: 600; }
 .rrhh-asis-leyenda .leyenda-aus { color: #f87171; }
 .rrhh-asis-leyenda .leyenda-nov { color: #c4b5fd; }
 .rrhh-asis-leyenda .leyenda-sm { color: #64748b; }
+
+.rrhh-asis-detalle-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.rrhh-asis-detalle-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  min-width: 280px;
+  max-width: 420px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  color: #111827;
+}
+
+.rrhh-asis-detalle-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.rrhh-asis-detalle-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.rrhh-asis-detalle-close {
+  border: none;
+  background: transparent;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.rrhh-asis-detalle-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.rrhh-asis-detalle-dl dt {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.rrhh-asis-detalle-dl dd {
+  margin: 0;
+}
+
+/* Estadísticas de asistencia */
+.rrhh-stats-tab {
+  color: #1f2937;
+}
+
+.rrhh-stats-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.rrhh-stats-modo {
+  display: inline-flex;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.rrhh-stats-modo-btn {
+  border: none;
+  background: #f8fafc;
+  color: #475569;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.rrhh-stats-modo-btn.active {
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 600;
+}
+
+.rrhh-stats-periodo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.rrhh-stats-periodo input {
+  padding: 5px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+}
+
+.rrhh-stats-subtitle {
+  margin: 0 0 16px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.rrhh-stats-loading,
+.rrhh-stats-empty {
+  padding: 24px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.rrhh-stats-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.rrhh-stats-kpi {
+  background: #f8fafc;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 12px 10px;
+  text-align: center;
+}
+
+.rrhh-stats-kpi-val {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.rrhh-stats-kpi-lbl {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.rrhh-stats-kpi--ok .rrhh-stats-kpi-val { color: #16a34a; }
+.rrhh-stats-kpi--warn .rrhh-stats-kpi-val { color: #d97706; }
+.rrhh-stats-kpi--bad .rrhh-stats-kpi-val { color: #dc2626; }
+
+.rrhh-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.rrhh-stats-ranking {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.rrhh-stats-ranking h3 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.rrhh-stats-ranking .reloj-rank-nombre {
+  color: #111827;
+}
+
+.rrhh-stats-ranking .reloj-rank-bar-wrap {
+  background: #e2e8f0;
+}
+
+.rrhh-stats-ranking .reloj-rank-pct {
+  color: #111827;
+}
+
+.rrhh-stats-ranking .reloj-rank-detalle {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.rrhh-stats-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.rrhh-stats-chart-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.rrhh-stats-chart-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  color: #111827;
+}
+
+.rrhh-stats-tabla-wrap {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+  overflow: auto;
+}
+
+.rrhh-stats-tabla-wrap h3 {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+}
+
+.rrhh-stats-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.rrhh-stats-tabla th,
+.rrhh-stats-tabla td {
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  text-align: left;
+}
+
+.rrhh-stats-tabla th {
+  background: #f1f5f9;
+  font-weight: 600;
+  color: #374151;
+}
+
+.rrhh-stats-emp {
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.rrhh-stats-pct {
+  font-weight: 700;
+}
 
 .rrhh-permisos-cal {
   padding: 16px;
@@ -1669,7 +2023,7 @@ thead .rrhh-asis-sticky {
 }
 
 .rrhh-asis-celda.celda-click:hover {
-  outline: 2px solid rgba(220, 38, 38, 0.55);
+  outline: 2px solid rgba(59, 130, 246, 0.45);
   outline-offset: -2px;
 }
 

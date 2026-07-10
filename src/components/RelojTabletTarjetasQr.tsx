@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toDataURL } from 'qrcode'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
 import { getStaffAuthToken } from '../services/staffSession'
 import { buildRelojTabletQrPayload } from '../utils/relojTabletQr'
+import { generarTarjetaRelojPdf } from '../utils/relojTabletTarjetaPdf'
 import { VerificationCard } from './ui/verification-card'
 import './RelojTabletTarjetasQr.css'
 
@@ -33,21 +32,16 @@ function slugNombre(emp: EmpleadoTarjeta): string {
 function TarjetaEmpleadoItem({ emp }: { emp: TarjetaConQr }) {
   const [descargando, setDescargando] = useState(false)
 
-  const descargarPdf = async () => {
-    const el = document.getElementById(`reloj-tarjeta-${emp.id_usuario}`)
-    if (!el) return
+  const descargarPdf = () => {
     setDescargando(true)
     try {
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#0f172a'
+      generarTarjetaRelojPdf({
+        idUsuario: emp.id_usuario,
+        nombreCompleto: emp.nombre_completo || emp.login,
+        sector: emp.sector,
+        qrSrc: emp.qrSrc,
+        filename: `tarjeta-reloj_${slugNombre(emp)}.pdf`
       })
-      const img = canvas.toDataURL('image/png')
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [54, 86] })
-      pdf.addImage(img, 'PNG', 0, 0, 86, 54)
-      pdf.save(`tarjeta-reloj_${slugNombre(emp)}.pdf`)
     } finally {
       setDescargando(false)
     }
@@ -70,7 +64,7 @@ function TarjetaEmpleadoItem({ emp }: { emp: TarjetaConQr }) {
       <button
         type="button"
         className="reloj-tablet-tarjeta-pdf-btn"
-        onClick={() => void descargarPdf()}
+        onClick={() => descargarPdf()}
         disabled={descargando}
       >
         {descargando ? 'Generando PDF…' : 'Descargar PDF'}

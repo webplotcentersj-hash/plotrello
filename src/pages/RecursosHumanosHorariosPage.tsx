@@ -32,6 +32,16 @@ import {
 import { etiquetaCodigoRrhhNovedad } from '../utils/rrhhNovedadCatalog'
 import { asistenciaHoraCorta } from '../utils/dateUtils'
 import {
+  calcularHorasExtraDia,
+  calcularStatsAsistencia,
+  diasEntre,
+  rankingPuntualidad,
+  totalesStats,
+  ultimoDiaMes,
+  type HorarioFijoAsistencia,
+  type StatsEmpleadoAsistencia
+} from '../utils/asistenciaStats'
+import {
   procesarArchivoReloj,
   exportarRelojXlsx,
   exportarResumenXlsx,
@@ -58,7 +68,7 @@ import {
 import RelojTabletMarcacionesTab from '../components/RelojTabletMarcacionesTab'
 import './RecursosHumanosHorariosPage.css'
 
-type TabType = 'horarios' | 'permisos' | 'asistencia' | 'reloj' | 'tablet-reloj'
+type TabType = 'horarios' | 'permisos' | 'asistencia' | 'estadisticas' | 'reloj' | 'tablet-reloj'
 
 const RecursosHumanosHorariosPage = () => {
   const navigate = useNavigate()
@@ -167,20 +177,6 @@ const RecursosHumanosHorariosPage = () => {
     }
   }
 
-  const handleEliminarAsistencia = async (id: number) => {
-    try {
-      const response = await apiService.eliminarAsistencia(id)
-      if (response.success) {
-        loadAsistencia()
-      } else {
-        alert('Error al eliminar: ' + (response.error || ''))
-      }
-    } catch (error) {
-      alert('Error al eliminar el registro')
-      console.error(error)
-    }
-  }
-
   if (loading) {
     return (
       <div className="rrhh-horarios-loading">
@@ -225,6 +221,12 @@ const RecursosHumanosHorariosPage = () => {
             ✅ Asistencia
           </button>
           <button
+            className={`rrhh-tab ${activeTab === 'estadisticas' ? 'active' : ''}`}
+            onClick={() => setActiveTab('estadisticas')}
+          >
+            📊 Estadísticas
+          </button>
+          <button
             className={`rrhh-tab ${activeTab === 'reloj' ? 'active' : ''}`}
             onClick={() => setActiveTab('reloj')}
           >
@@ -263,6 +265,21 @@ const RecursosHumanosHorariosPage = () => {
             onChange={(e) => setFechaHasta(e.target.value)}
             className="rrhh-date-input"
           />
+        </div>
+        )}
+
+        {activeTab === 'estadisticas' && (
+        <div className="rrhh-filters-section">
+          <select
+            value={usuarioSeleccionado || ''}
+            onChange={(e) => setUsuarioSeleccionado(e.target.value ? parseInt(e.target.value) : null)}
+            className="rrhh-filter-select"
+          >
+            <option value="">Todos los empleados</option>
+            {usuarios.map(u => (
+              <option key={u.id} value={u.id}>{u.nombre}</option>
+            ))}
+          </select>
         </div>
         )}
 
@@ -324,8 +341,14 @@ const RecursosHumanosHorariosPage = () => {
             usuarios={usuarios}
             fechaDesde={fechaDesde}
             fechaHasta={fechaHasta}
-            onEliminar={handleEliminarAsistencia}
             onIrNovedades={() => navigate('/rrhh/novedades')}
+          />
+        )}
+
+        {activeTab === 'estadisticas' && (
+          <EstadisticasAsistenciaTab
+            usuarios={usuarios}
+            usuarioSeleccionado={usuarioSeleccionado}
           />
         )}
 
@@ -1732,6 +1755,86 @@ const JornadaCell = ({
 }
 
 // ============================================================
+// Editor de nombre/apellido del legajo (planilla horarios fijos)
+// ============================================================
+const NombreLegajoCell = ({
+  idUsuario,
+  legajo,
+  loginNombre,
+  guardando,
+  onGuardar
+}: {
+  idUsuario: number
+  legajo?: { nombre: string; apellido: string }
+  loginNombre: string
+  guardando?: boolean
+  onGuardar: (idUsuario: number, nombre: string, apellido: string) => void
+}) => {
+  const [nombre, setNombre] = useState(legajo?.nombre || '')
+  const [apellido, setApellido] = useState(legajo?.apellido || '')
+
+  useEffect(() => {
+    setNombre(legajo?.nombre || '')
+    setApellido(legajo?.apellido || '')
+  }, [legajo?.nombre, legajo?.apellido])
+
+  const partesLogin = loginNombre.trim().split(/\s+/)
+  const phNombre = partesLogin[0] || 'Nombre'
+  const phApellido = partesLogin.slice(1).join(' ') || 'Apellido'
+
+  const sucio = nombre.trim() !== (legajo?.nombre || '').trim() || apellido.trim() !== (legajo?.apellido || '').trim()
+  const valido = !!(nombre.trim() || apellido.trim())
+
+  const commit = () => {
+    if (!valido || !sucio || guardando) return
+    onGuardar(idUsuario, nombre.trim(), apellido.trim())
+  }
+
+  return (
+    <div className="rrhh-fijos-nombre-cell">
+      <div className="rrhh-fijos-nombre-editor">
+        <input
+          type="text"
+          className="rrhh-fijos-nombre-input"
+          value={nombre}
+          placeholder={phNombre}
+          title="Nombre en legajo (reloj, tarjetas QR)"
+          disabled={guardando}
+          onChange={(e) => setNombre(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit()
+          }}
+        />
+        <input
+          type="text"
+          className="rrhh-fijos-nombre-input"
+          value={apellido}
+          placeholder={phApellido}
+          title="Apellido en legajo"
+          disabled={guardando}
+          onChange={(e) => setApellido(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit()
+          }}
+        />
+        <button
+          type="button"
+          className="rrhh-fijos-nombre-save"
+          disabled={!valido || !sucio || guardando}
+          title="Guardar nombre en legajo"
+          onClick={commit}
+        >
+          {guardando ? '…' : sucio ? 'Guardar' : '✓'}
+        </button>
+      </div>
+      <span className="rrhh-fijos-login" title="Usuario de login en Plot Lab">
+        {loginNombre}
+      </span>
+    </div>
+  )
+}
+
+// ============================================================
 // Planilla editable (grilla empleados x días)
 // ============================================================
 const DOW_CORTO = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
@@ -1987,6 +2090,7 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
   // Horarios fijos (planilla editable): entrada/salida/jornada estándar por empleado.
   const [fijos, setFijos] = useState<Record<number, { entrada: string; salida: string; horas?: number | null; trabajaSabado?: boolean }>>({})
   const [guardandoFijo, setGuardandoFijo] = useState<number | null>(null)
+  const [guardandoNombre, setGuardandoNombre] = useState<number | null>(null)
   const [cargandoFijos, setCargandoFijos] = useState(true)
   // Datos de legajo (nombre completo + área) por id de usuario.
   const [legajos, setLegajos] = useState<Record<number, { nombre: string; apellido: string; sector: string }>>({})
@@ -2083,10 +2187,40 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
     upsertFijo(idUsuario, f.entrada, f.salida, f.horas ?? null, trabajaSabado)
   }
 
-  const nombreCompletoLegajo = (u: UsuarioRecord): string => {
-    const l = legajos[u.id]
-    const full = `${l?.nombre || ''} ${l?.apellido || ''}`.trim()
-    return full || u.nombre
+  const guardarNombreLegajo = async (idUsuario: number, nombre: string, apellido: string) => {
+    const previo = legajos[idUsuario]
+    setLegajos((prev) => ({
+      ...prev,
+      [idUsuario]: {
+        nombre,
+        apellido,
+        sector: prev[idUsuario]?.sector || ''
+      }
+    }))
+    setGuardandoNombre(idUsuario)
+    try {
+      const r = await apiService.crearActualizarLegajo(idUsuario, { nombre, apellido })
+      if (!r.success) {
+        setLegajos((prev) => {
+          const next = { ...prev }
+          if (previo) next[idUsuario] = previo
+          else delete next[idUsuario]
+          return next
+        })
+        alert('Error al guardar el nombre: ' + (r.error || ''))
+      } else if (r.data) {
+        setLegajos((prev) => ({
+          ...prev,
+          [idUsuario]: {
+            nombre: r.data!.nombre || nombre,
+            apellido: r.data!.apellido || apellido,
+            sector: prev[idUsuario]?.sector || r.data!.sector || ''
+          }
+        }))
+      }
+    } finally {
+      setGuardandoNombre(null)
+    }
   }
 
   const usuariosFijos = useMemo(() => {
@@ -2149,8 +2283,13 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
                 return (
                   <tr key={u.id} className={f?.entrada ? '' : 'rrhh-fijos-row-sin'}>
                     <td>
-                      <span className="rrhh-fijos-nombre">{nombreCompletoLegajo(u)}</span>
-                      <span className="rrhh-fijos-login">{u.nombre}</span>
+                      <NombreLegajoCell
+                        idUsuario={u.id}
+                        legajo={legajos[u.id]}
+                        loginNombre={u.nombre}
+                        guardando={guardandoNombre === u.id}
+                        onGuardar={guardarNombreLegajo}
+                      />
                     </td>
                     <td className="rrhh-fijos-area">{sector || '—'}</td>
                     <td>
@@ -2222,7 +2361,6 @@ const AsistenciaTab = ({
   usuarios,
   fechaDesde,
   fechaHasta,
-  onEliminar,
   onIrNovedades
 }: {
   asistencia: Asistencia[]
@@ -2230,29 +2368,45 @@ const AsistenciaTab = ({
   usuarios: UsuarioRecord[]
   fechaDesde: string
   fechaHasta: string
-  onEliminar: (id: number) => void
   onIrNovedades: () => void
 }) => {
   const [novedadDetalle, setNovedadDetalle] = useState<RrhhNovedad | null>(null)
+  const [asistenciaDetalle, setAsistenciaDetalle] = useState<Asistencia | null>(null)
+  const [asistenciaDetalleExtra, setAsistenciaDetalleExtra] = useState<number | null>(null)
+  const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
 
-  const eliminar = (a: Asistencia) => {
-    if (!a?.id) return
-    if (!confirm(`¿Eliminar el registro de ${a.nombre_usuario || 'este empleado'} del ${new Date(a.fecha).toLocaleDateString()}?`)) return
-    onEliminar(a.id)
-  }
+  const dias = useMemo(() => diasEntre(fechaDesde, fechaHasta), [fechaDesde, fechaHasta])
 
-  const dias = useMemo(() => {
-    const [y, m, d] = fechaDesde.split('-').map(Number)
-    const [Y, M, D] = fechaHasta.split('-').map(Number)
-    const cur = new Date(y, m - 1, d)
-    const fin = new Date(Y, M - 1, D)
-    const out: string[] = []
-    while (cur <= fin) {
-      out.push(`${cur.getFullYear()}-${pad2(cur.getMonth() + 1)}-${pad2(cur.getDate())}`)
-      cur.setDate(cur.getDate() + 1)
+  const mesesEnPeriodo = useMemo(() => [...new Set(dias.map((d) => d.slice(0, 7)))], [dias])
+
+  useEffect(() => {
+    let cancelado = false
+    if (!mesesEnPeriodo.length) return
+    Promise.all(mesesEnPeriodo.map((m) => apiService.obtenerHorariosFijos(m))).then((results) => {
+      if (cancelado) return
+      const map: Record<string, Record<number, HorarioFijoAsistencia>> = {}
+      mesesEnPeriodo.forEach((mes, i) => {
+        const r = results[i]
+        if (!r.success || !r.data) return
+        const entradas: Record<number, HorarioFijoAsistencia> = {}
+        for (const [id, h] of Object.entries(r.data)) {
+          if (h.entrada) {
+            entradas[Number(id)] = {
+              entrada: h.entrada,
+              salida: h.salida,
+              horas: h.horas,
+              trabajaSabado: h.trabajaSabado
+            }
+          }
+        }
+        map[mes] = entradas
+      })
+      setHorariosPorMes(map)
+    })
+    return () => {
+      cancelado = true
     }
-    return out
-  }, [fechaDesde, fechaHasta])
+  }, [mesesEnPeriodo])
 
   const nombres = useMemo(() => {
     const m = new Map<number, string>()
@@ -2267,16 +2421,17 @@ const AsistenciaTab = ({
     const ids = new Set<number>()
     asistencia.forEach((a) => ids.add(a.id_usuario))
     novedades
-      .filter((n) => n.grupo === 'falta' || n.grupo === 'licencia' || n.grupo === 'tardanza_retiro')
+      .filter((n) => n.grupo === 'falta' || n.grupo === 'licencia' || n.grupo === 'tardanza_retiro' || n.grupo === 'horas_extra')
       .forEach((n) => ids.add(n.id_usuario))
 
-    const map = new Map<number, { id: number; nombre: string; dias: Record<string, Asistencia>; horas: number }>()
+    const map = new Map<number, { id: number; nombre: string; dias: Record<string, Asistencia>; horas: number; horasExtra: number }>()
     for (const id of ids) {
       map.set(id, {
         id,
         nombre: nombres.get(id) || `Usuario ${id}`,
         dias: {},
-        horas: 0
+        horas: 0,
+        horasExtra: 0
       })
     }
     for (const a of asistencia) {
@@ -2287,6 +2442,17 @@ const AsistenciaTab = ({
     }
     return [...map.values()].sort((x, y) => x.nombre.localeCompare(y.nombre))
   }, [asistencia, novedades, nombres])
+
+  const statsPorEmpleado = useMemo(() => {
+    const stats = calcularStatsAsistencia({
+      asistencia,
+      novedades,
+      dias,
+      nombres,
+      horariosPorMes
+    })
+    return new Map(stats.map((s) => [s.id, s]))
+  }, [asistencia, novedades, dias, nombres, horariosPorMes])
 
   const novedadesPorUsuarioDia = useMemo(() => {
     const m = new Map<string, RrhhNovedad[]>()
@@ -2317,6 +2483,12 @@ const AsistenciaTab = ({
   const renderCelda = (empId: number, f: string, a: Asistencia | undefined): CeldaRender => {
     const novs = novedadesPorUsuarioDia.get(`${empId}|${f}`) ?? []
     const finde = !esDiaHabil(f)
+    const horario = horariosPorMes[f.slice(0, 7)]?.[empId] ?? null
+
+    const abrirDetalle = (reg: Asistencia) => {
+      setAsistenciaDetalle(reg)
+      setAsistenciaDetalleExtra(calcularHorasExtraDia(reg, f, horario, novs))
+    }
 
     if (a) {
       if (a.tipo_registro === 'ausente' || a.tipo_registro === 'justificado') {
@@ -2329,42 +2501,51 @@ const AsistenciaTab = ({
         return {
           cls: `celda-aus${nov ? ' celda-nov-vinc' : ''}`,
           contenido: <span className="celda-nov-label">{label}</span>,
-          title: [
-            nov ? etiquetaCodigoRrhhNovedad(nov.codigo) : a.tipo_registro,
-            a.observaciones,
-            nov?.observaciones,
-            a.tipo_registro === 'ausente' ? '(clic en registro para eliminar)' : ''
-          ]
+          title: [nov ? etiquetaCodigoRrhhNovedad(nov.codigo) : a.tipo_registro, a.observaciones, nov?.observaciones]
             .filter(Boolean)
             .join(' · '),
-          onClick: () => eliminar(a)
+          onClick: () => abrirDetalle(a)
         }
       }
       const e = asistenciaHoraCorta(a.hora_entrada)
       const s = asistenciaHoraCorta(a.hora_salida)
       const tardeNov = novs.find((n) => n.codigo === 'tardanza')
+      const extra = calcularHorasExtraDia(a, f, horario, novs)
       return {
-        cls: `${a.tipo_registro === 'tarde' || tardeNov ? 'celda-tarde' : 'celda-ok'}${!s && e ? ' celda-sin-salida' : ''}`,
+        cls: `${a.tipo_registro === 'tarde' || tardeNov ? 'celda-tarde' : 'celda-ok'}${!s && e ? ' celda-sin-salida' : ''}${extra > 0 ? ' celda-con-extra' : ''}`,
         contenido: (
           <>
-            <span className="celda-h">{e || '—'}</span>
-            <span className="celda-h">{s || '—'}</span>
+            <span className="celda-h celda-h-entrada">{e || '—'}</span>
+            <span className="celda-h celda-h-salida">{s || '—'}</span>
+            {extra > 0 ? <span className="celda-extra-hs">+{extra.toFixed(1)}</span> : null}
             {tardeNov ? <span className="celda-nov-mini">T</span> : null}
           </>
         ),
-        title: [e && s ? `${e}–${s}` : e ? `Entrada ${e}` : '', a.observaciones, tardeNov ? etiquetaCodigoRrhhNovedad(tardeNov.codigo) : '', '(clic para eliminar)']
+        title: [
+          e && s ? `${e}–${s}` : e ? `Entrada ${e}` : '',
+          extra > 0 ? `Horas extra: ${extra.toFixed(1)} hs` : '',
+          a.observaciones,
+          tardeNov ? etiquetaCodigoRrhhNovedad(tardeNov.codigo) : '',
+          'Clic para ver detalle'
+        ]
           .filter(Boolean)
           .join(' · '),
-        onClick: () => eliminar(a)
+        onClick: () => abrirDetalle(a)
       }
     }
 
     if (novs.length) {
       const n = novs[0]
+      const extraNov = novs
+        .filter((nv) => nv.grupo === 'horas_extra' && nv.horas_extra_cantidad != null)
+        .reduce((sum, nv) => sum + (nv.horas_extra_cantidad || 0), 0)
       return {
-        cls: `celda-nov celda-nov--${n.grupo}`,
+        cls: `celda-nov celda-nov--${n.grupo}${extraNov > 0 ? ' celda-con-extra' : ''}`,
         contenido: (
-          <span className="celda-nov-label">{abreviaturaCodigoNovedad(n.codigo)}</span>
+          <>
+            <span className="celda-nov-label">{abreviaturaCodigoNovedad(n.codigo)}</span>
+            {extraNov > 0 ? <span className="celda-extra-hs">+{extraNov.toFixed(1)}</span> : null}
+          </>
         ),
         title: `${etiquetaCodigoRrhhNovedad(n.codigo)}${n.observaciones ? ` · ${n.observaciones}` : ''} (clic para ver novedad)`,
         onClick: () => setNovedadDetalle(n)
@@ -2405,12 +2586,17 @@ const AsistenciaTab = ({
       ) : (
         <div className="rrhh-asis-planilla">
           <p className="rrhh-asis-help">
-            Planilla del período filtrado. Las celdas muestran entrada/salida, ausencias y novedades de legajo
-            (faltas, licencias, tardanzas). <strong>S/M</strong> = sin marca en día hábil. Clic en novedad para
-            ver detalle; clic en registro de asistencia para eliminar.
+            Planilla del período filtrado. Entrada en <strong className="leyenda-entrada">azul</strong>, salida en{' '}
+            <strong className="leyenda-salida">violeta</strong>, extra en{' '}
+            <strong className="leyenda-extra">verde</strong>. Tardanzas en amarillo, ausencias en rojo.{' '}
+            <strong>S/M</strong> = sin marca en día hábil. Clic en celda para ver detalle (no elimina el registro).
           </p>
           <div className="rrhh-asis-leyenda">
-            <span className="leyenda-ok">✓ Presente</span>
+            <span className="leyenda-entrada">▲ Entrada</span>
+            <span className="leyenda-salida">▼ Salida</span>
+            <span className="leyenda-ok">✓ A horario</span>
+            <span className="leyenda-tarde">⏰ Tarde</span>
+            <span className="leyenda-extra">⚡ Extra</span>
             <span className="leyenda-aus">F.I. / AUS</span>
             <span className="leyenda-nov">Novedad</span>
             <span className="leyenda-sm">S/M sin marca</span>
@@ -2432,10 +2618,13 @@ const AsistenciaTab = ({
                     )
                   })}
                   <th className="rrhh-asis-tot">Hs</th>
+                  <th className="rrhh-asis-tot rrhh-asis-tot-extra">Ext</th>
                 </tr>
               </thead>
               <tbody>
-                {empleados.map((emp) => (
+                {empleados.map((emp) => {
+                  const st = statsPorEmpleado.get(emp.id)
+                  return (
                   <tr key={emp.id}>
                     <td className="rrhh-asis-sticky rrhh-asis-emp" title={emp.nombre}>{emp.nombre}</td>
                     {dias.map((f) => {
@@ -2454,8 +2643,11 @@ const AsistenciaTab = ({
                       )
                     })}
                     <td className="rrhh-asis-tot">{emp.horas ? emp.horas.toFixed(1) : '—'}</td>
+                    <td className="rrhh-asis-tot rrhh-asis-tot-extra">
+                      {st && st.totalHorasExtra > 0 ? formatHoras(st.totalHorasExtra) : '—'}
+                    </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
@@ -2469,6 +2661,489 @@ const AsistenciaTab = ({
           onClose={() => setNovedadDetalle(null)}
         />
       ) : null}
+
+      {asistenciaDetalle ? (
+        <div className="rrhh-asis-detalle-overlay" onMouseDown={() => { setAsistenciaDetalle(null); setAsistenciaDetalleExtra(null) }}>
+          <div className="rrhh-asis-detalle-modal" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="rrhh-asis-detalle-head">
+              <h3>Registro de asistencia</h3>
+              <button type="button" className="rrhh-asis-detalle-close" onClick={() => { setAsistenciaDetalle(null); setAsistenciaDetalleExtra(null) }}>
+                ✕
+              </button>
+            </div>
+            <dl className="rrhh-asis-detalle-dl">
+              <dt>Empleado</dt>
+              <dd>{asistenciaDetalle.nombre_usuario || nombres.get(asistenciaDetalle.id_usuario) || '—'}</dd>
+              <dt>Fecha</dt>
+              <dd>{new Date(asistenciaDetalle.fecha).toLocaleDateString('es-AR')}</dd>
+              <dt>Entrada</dt>
+              <dd className="leyenda-entrada">{asistenciaHoraCorta(asistenciaDetalle.hora_entrada) || '—'}</dd>
+              <dt>Salida</dt>
+              <dd className="leyenda-salida">{asistenciaHoraCorta(asistenciaDetalle.hora_salida) || '—'}</dd>
+              <dt>Horas</dt>
+              <dd>{asistenciaDetalle.horas_trabajadas != null ? `${asistenciaDetalle.horas_trabajadas.toFixed(1)} hs` : '—'}</dd>
+              {asistenciaDetalleExtra != null && asistenciaDetalleExtra > 0 ? (
+                <>
+                  <dt>Horas extra</dt>
+                  <dd className="leyenda-extra">{formatHoras(asistenciaDetalleExtra)}</dd>
+                </>
+              ) : null}
+              <dt>Tipo</dt>
+              <dd>{asistenciaDetalle.tipo_registro}</dd>
+              {asistenciaDetalle.observaciones ? (
+                <>
+                  <dt>Observaciones</dt>
+                  <dd>{asistenciaDetalle.observaciones}</dd>
+                </>
+              ) : null}
+            </dl>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+const nombreCortoStats = (n: string) => {
+  const parts = n.split(/\s+/)
+  return parts.length > 2 ? `${parts[0]} ${parts[1]}` : n
+}
+
+const EstadisticasAsistenciaTab = ({
+  usuarios,
+  usuarioSeleccionado
+}: {
+  usuarios: UsuarioRecord[]
+  usuarioSeleccionado: number | null
+}) => {
+  const [modo, setModo] = useState<'mes' | 'anio'>('mes')
+  const [mes, setMes] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [anio, setAnio] = useState(() => String(new Date().getFullYear()))
+  const [asistencia, setAsistencia] = useState<Asistencia[]>([])
+  const [novedades, setNovedades] = useState<RrhhNovedad[]>([])
+  const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
+  const [horarioFallback, setHorarioFallback] = useState<Record<number, HorarioFijoAsistencia>>({})
+  const [legajos, setLegajos] = useState<Record<number, { nombre: string; apellido: string }>>({})
+  const [cargando, setCargando] = useState(true)
+
+  const periodo = useMemo(() => {
+    if (modo === 'mes') {
+      return { desde: `${mes}-01`, hasta: ultimoDiaMes(mes) }
+    }
+    return { desde: `${anio}-01-01`, hasta: `${anio}-12-31` }
+  }, [modo, mes, anio])
+
+  useEffect(() => {
+    let cancelado = false
+    setCargando(true)
+    const { desde, hasta } = periodo
+
+    const horariosPromise =
+      modo === 'mes'
+        ? apiService.obtenerHorariosFijos(mes).then((r) => (r.success && r.data ? { [mes]: r.data } : {}))
+        : Promise.all(
+            Array.from({ length: 12 }, (_, i) => {
+              const m = `${anio}-${pad2(i + 1)}`
+              return apiService.obtenerHorariosFijos(m).then((r) => ({ mes: m, data: r.success ? r.data : null }))
+            })
+          ).then((rows) => {
+            const map: Record<string, NonNullable<Awaited<ReturnType<typeof apiService.obtenerHorariosFijos>>['data']>> = {}
+            for (const row of rows) {
+              if (row.data) map[row.mes] = row.data
+            }
+            return map
+          })
+
+    Promise.all([
+      apiService.obtenerAsistencia(usuarioSeleccionado, desde, hasta),
+      apiService.rrhhNovedadesListar({
+        idUsuario: usuarioSeleccionado ?? undefined,
+        fechaDesde: desde,
+        fechaHasta: hasta
+      }),
+      apiService.obtenerLegajosBasico(),
+      horariosPromise
+    ]).then(([ra, rn, rl, rhMap]) => {
+      if (cancelado) return
+      setAsistencia(ra.success && ra.data ? ra.data : [])
+      setNovedades(rn.success && rn.data ? rn.data : [])
+      if (rl.success && rl.data) {
+        const map: Record<number, { nombre: string; apellido: string }> = {}
+        for (const [id, row] of Object.entries(rl.data)) {
+          map[Number(id)] = { nombre: row.nombre, apellido: row.apellido }
+        }
+        setLegajos(map)
+      }
+      if (rhMap && typeof rhMap === 'object') {
+        const mapMes: Record<string, Record<number, HorarioFijoAsistencia>> = {}
+        let fb: Record<number, HorarioFijoAsistencia> = {}
+        for (const [mesKey, rhData] of Object.entries(rhMap)) {
+          if (!rhData) continue
+          const entradas: Record<number, HorarioFijoAsistencia> = {}
+          for (const [id, h] of Object.entries(rhData)) {
+            if (h.entrada) {
+              entradas[Number(id)] = {
+                entrada: h.entrada,
+                salida: h.salida,
+                horas: h.horas,
+                trabajaSabado: h.trabajaSabado
+              }
+            }
+          }
+          mapMes[mesKey] = entradas
+          fb = { ...fb, ...entradas }
+        }
+        if (modo === 'mes') {
+          setHorariosPorMes((prev) => ({ ...prev, ...mapMes }))
+        } else {
+          setHorariosPorMes(mapMes)
+          setHorarioFallback(fb)
+        }
+      }
+      setCargando(false)
+    })
+
+    return () => {
+      cancelado = true
+    }
+  }, [periodo, usuarioSeleccionado, modo, mes, anio])
+
+  const nombres = useMemo(() => {
+    const m = new Map<number, string>()
+    usuarios.forEach((u) => m.set(u.id, u.nombre))
+    asistencia.forEach((a) => {
+      if (a.nombre_usuario) m.set(a.id_usuario, a.nombre_usuario)
+    })
+    for (const [id, l] of Object.entries(legajos)) {
+      const full = `${l.nombre} ${l.apellido}`.trim()
+      if (full) m.set(Number(id), full)
+    }
+    return m
+  }, [usuarios, asistencia, legajos])
+
+  const dias = useMemo(() => diasEntre(periodo.desde, periodo.hasta), [periodo])
+
+  const stats = useMemo(
+    () =>
+      calcularStatsAsistencia({
+        asistencia,
+        novedades,
+        dias,
+        nombres,
+        horariosPorMes,
+        horarioFallback: modo === 'anio' ? horarioFallback : undefined
+      }),
+    [asistencia, novedades, dias, nombres, horariosPorMes, horarioFallback, modo]
+  )
+
+  const rankingExtra = useMemo(
+    () => [...stats].filter((s) => s.totalHorasExtra > 0).sort((a, b) => b.totalHorasExtra - a.totalHorasExtra),
+    [stats]
+  )
+
+  const ranking = useMemo(() => rankingPuntualidad(stats), [stats])
+  const totales = useMemo(() => totalesStats(stats), [stats])
+
+  const chartDistribucion = useMemo(() => {
+    let puntual = 0
+    let tarde = 0
+    let ausente = 0
+    let sinMarca = 0
+    for (const s of stats) {
+      puntual += Math.max(0, s.diasConEntrada - s.tardanzas)
+      tarde += s.tardanzas
+      ausente += s.ausencias + s.justificados
+      sinMarca += s.sinMarca
+    }
+    return [
+      { name: 'A horario', value: puntual, color: '#22c55e' },
+      { name: 'Tarde', value: tarde, color: '#f59e0b' },
+      { name: 'Ausente / lic.', value: ausente, color: '#ef4444' },
+      { name: 'Sin marca', value: sinMarca, color: '#64748b' }
+    ].filter((d) => d.value > 0)
+  }, [stats])
+
+  const chartHoras = useMemo(
+    () =>
+      [...stats]
+        .filter((s) => s.totalHoras > 0)
+        .sort((a, b) => b.totalHoras - a.totalHoras)
+        .slice(0, 12)
+        .map((s) => ({ nombre: nombreCortoStats(s.nombre), Horas: Math.round(s.totalHoras * 10) / 10 })),
+    [stats]
+  )
+
+  const chartExtra = useMemo(
+    () =>
+      rankingExtra.slice(0, 12).map((s) => ({
+        nombre: nombreCortoStats(s.nombre),
+        Extra: Math.round(s.totalHorasExtra * 10) / 10
+      })),
+    [rankingExtra]
+  )
+
+  const periodoLabel =
+    modo === 'mes'
+      ? new Date(`${mes}-01T12:00:00`).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+      : `Año ${anio}`
+
+  const renderRanking = (lista: StatsEmpleadoAsistencia[], titulo: string) => (
+    <div className="rrhh-stats-ranking">
+      <h3>{titulo}</h3>
+      {lista.length === 0 ? (
+        <p className="rrhh-stats-empty">Sin datos de puntualidad en el período.</p>
+      ) : (
+        <div className="reloj-ranking-list">
+          {lista.map((e, i) => (
+            <div key={e.id} className="reloj-ranking-item">
+              <span className={`reloj-rank-pos reloj-rank-${Math.min(i + 1, 3)}`}>{i + 1}</span>
+              <span className="reloj-rank-nombre" title={e.nombre}>
+                {e.nombre}
+              </span>
+              <div className="reloj-rank-bar-wrap">
+                <div
+                  className="reloj-rank-bar"
+                  style={{
+                    width: `${e.puntualidadPct}%`,
+                    background:
+                      e.puntualidadPct >= 90 ? '#22c55e' : e.puntualidadPct >= 70 ? '#f59e0b' : '#ef4444'
+                  }}
+                />
+              </div>
+              <span className="reloj-rank-pct">{e.puntualidadPct}%</span>
+              <span className="reloj-rank-detalle">
+                {e.tardanzas} tarde · {e.ausencias} aus. · {formatHoras(e.totalHorasExtra)} ext.
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="rrhh-tab-content rrhh-stats-tab">
+      <div className="rrhh-section-header">
+        <h2>📊 Estadísticas de asistencia</h2>
+        <div className="rrhh-stats-controls">
+          <div className="rrhh-stats-modo">
+            <button
+              type="button"
+              className={`rrhh-stats-modo-btn${modo === 'mes' ? ' active' : ''}`}
+              onClick={() => setModo('mes')}
+            >
+              Por mes
+            </button>
+            <button
+              type="button"
+              className={`rrhh-stats-modo-btn${modo === 'anio' ? ' active' : ''}`}
+              onClick={() => setModo('anio')}
+            >
+              Por año
+            </button>
+          </div>
+          {modo === 'mes' ? (
+            <label className="rrhh-stats-periodo">
+              Mes:
+              <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
+            </label>
+          ) : (
+            <label className="rrhh-stats-periodo">
+              Año:
+              <input
+                type="number"
+                min={2020}
+                max={2100}
+                value={anio}
+                onChange={(e) => setAnio(e.target.value)}
+              />
+            </label>
+          )}
+        </div>
+      </div>
+
+      <p className="rrhh-stats-subtitle">
+        Período: <strong>{periodoLabel}</strong>
+        {usuarioSeleccionado ? ` · Empleado filtrado` : ' · Todos los empleados'}
+      </p>
+
+      {cargando ? (
+        <div className="rrhh-stats-loading">Cargando estadísticas…</div>
+      ) : stats.length === 0 ? (
+        <p className="rrhh-stats-empty">No hay registros de asistencia en el período seleccionado.</p>
+      ) : (
+        <>
+          <div className="rrhh-stats-kpis">
+            <div className="rrhh-stats-kpi">
+              <span className="rrhh-stats-kpi-val">{totales.empleados}</span>
+              <span className="rrhh-stats-kpi-lbl">Empleados</span>
+            </div>
+            <div className="rrhh-stats-kpi rrhh-stats-kpi--ok">
+              <span className="rrhh-stats-kpi-val">{totales.promedioPuntualidad}%</span>
+              <span className="rrhh-stats-kpi-lbl">Puntualidad prom.</span>
+            </div>
+            <div className="rrhh-stats-kpi rrhh-stats-kpi--warn">
+              <span className="rrhh-stats-kpi-val">{totales.totalTardanzas}</span>
+              <span className="rrhh-stats-kpi-lbl">Tardanzas</span>
+            </div>
+            <div className="rrhh-stats-kpi rrhh-stats-kpi--bad">
+              <span className="rrhh-stats-kpi-val">{totales.totalAusencias}</span>
+              <span className="rrhh-stats-kpi-lbl">Ausencias</span>
+            </div>
+            <div className="rrhh-stats-kpi">
+              <span className="rrhh-stats-kpi-val">{totales.totalJustificados}</span>
+              <span className="rrhh-stats-kpi-lbl">Justificados</span>
+            </div>
+            <div className="rrhh-stats-kpi">
+              <span className="rrhh-stats-kpi-val">{totales.totalSinMarca}</span>
+              <span className="rrhh-stats-kpi-lbl">Sin marca</span>
+            </div>
+            <div className="rrhh-stats-kpi rrhh-stats-kpi--extra">
+              <span className="rrhh-stats-kpi-val">{formatHoras(totales.totalHorasExtra)}</span>
+              <span className="rrhh-stats-kpi-lbl">Horas extra</span>
+            </div>
+            <div className="rrhh-stats-kpi">
+              <span className="rrhh-stats-kpi-val">{totales.totalHoras}</span>
+              <span className="rrhh-stats-kpi-lbl">Horas totales</span>
+            </div>
+          </div>
+
+          <div className="rrhh-stats-grid">
+            {renderRanking(ranking.slice(0, 10), '🏆 Top 10 más puntuales')}
+            {renderRanking(
+              [...ranking].reverse().slice(0, 10),
+              '⚠️ Menor puntualidad'
+            )}
+            {rankingExtra.length > 0 && (
+              <div className="rrhh-stats-ranking">
+                <h3>⚡ Más horas extra</h3>
+                <div className="reloj-ranking-list">
+                  {rankingExtra.slice(0, 10).map((e, i) => (
+                    <div key={e.id} className="reloj-ranking-item">
+                      <span className={`reloj-rank-pos reloj-rank-${Math.min(i + 1, 3)}`}>{i + 1}</span>
+                      <span className="reloj-rank-nombre" title={e.nombre}>
+                        {e.nombre}
+                      </span>
+                      <div className="reloj-rank-bar-wrap">
+                        <div
+                          className="reloj-rank-bar"
+                          style={{
+                            width: `${Math.min(100, (e.totalHorasExtra / (rankingExtra[0]?.totalHorasExtra || 1)) * 100)}%`,
+                            background: '#10b981'
+                          }}
+                        />
+                      </div>
+                      <span className="reloj-rank-pct leyenda-extra">{formatHoras(e.totalHorasExtra)}</span>
+                      <span className="reloj-rank-detalle">{e.totalHoras.toFixed(0)} hs totales</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rrhh-stats-charts">
+            {chartDistribucion.length > 0 && (
+              <div className="rrhh-stats-chart-card">
+                <h3>Distribución del período</h3>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={chartDistribucion}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, value }) => `${name}: ${value}`}
+                    >
+                      {chartDistribucion.map((d) => (
+                        <Cell key={d.name} fill={d.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {chartHoras.length > 0 && (
+              <div className="rrhh-stats-chart-card">
+                <h3>Horas trabajadas (top 12)</h3>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={chartHoras} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" />
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="nombre" width={90} tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Bar dataKey="Horas" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {chartExtra.length > 0 && (
+              <div className="rrhh-stats-chart-card">
+                <h3>Horas extra (top 12)</h3>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={chartExtra} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" />
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="nombre" width={90} tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Bar dataKey="Extra" fill="#10b981" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          <div className="rrhh-stats-tabla-wrap">
+            <h3>Detalle por empleado</h3>
+            <table className="rrhh-stats-tabla">
+              <thead>
+                <tr>
+                  <th>Empleado</th>
+                  <th>Días c/ entrada</th>
+                  <th>Puntualidad</th>
+                  <th>Tardanzas</th>
+                  <th>Ausencias</th>
+                  <th>Justificados</th>
+                  <th>Sin marca</th>
+                  <th>Horas</th>
+                  <th>Extra</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranking.map((s) => (
+                  <tr key={s.id}>
+                    <td className="rrhh-stats-emp">{s.nombre}</td>
+                    <td>{s.diasConEntrada || '—'}</td>
+                    <td>
+                      <span
+                        className="rrhh-stats-pct"
+                        style={{
+                          color: s.puntualidadPct >= 90 ? '#16a34a' : s.puntualidadPct >= 70 ? '#d97706' : '#dc2626'
+                        }}
+                      >
+                        {s.diasConEntrada ? `${s.puntualidadPct}%` : '—'}
+                      </span>
+                    </td>
+                    <td>{s.tardanzas || '—'}</td>
+                    <td>{s.ausencias || '—'}</td>
+                    <td>{s.justificados || '—'}</td>
+                    <td>{s.sinMarca || '—'}</td>
+                    <td>{s.totalHoras ? s.totalHoras.toFixed(1) : '—'}</td>
+                    <td className="leyenda-extra">{s.totalHorasExtra > 0 ? formatHoras(s.totalHorasExtra) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   )
 }
