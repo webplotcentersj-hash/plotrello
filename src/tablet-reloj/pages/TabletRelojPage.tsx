@@ -18,7 +18,7 @@ import {
   type EmpleadoRelojTablet,
   type MarcacionTabletResult
 } from '../services/relojTabletApi'
-import { useMotionPresence } from '../hooks/useMotionPresence'
+import { useFacePresence } from '../hooks/useFacePresence'
 import {
   estadoMarcacionHoy,
   getDispositivoId,
@@ -107,6 +107,7 @@ export default function TabletRelojPage() {
   const [kioskUnlocked, setKioskUnlocked] = useState(() => isKioskUnlocked())
   const [pinModal, setPinModal] = useState<'manual' | 'config' | null>(null)
   const [pinDraft, setPinDraft] = useState('')
+  const [pinError, setPinError] = useState('')
   const [dispositivoDraft, setDispositivoDraft] = useState(() => getDispositivoId())
   const pageRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -404,7 +405,7 @@ export default function TabletRelojPage() {
     void ejecutarFlujoAuto()
   }, [modo, ejecutarFlujoAuto])
 
-  const { sensorActivo } = useMotionPresence(
+  const { sensorActivo } = useFacePresence(
     videoRef,
     modo === 'auto' &&
       paso === 'esperando' &&
@@ -471,6 +472,7 @@ export default function TabletRelojPage() {
       return
     }
     setPinDraft('')
+    setPinError('')
     setPinModal('manual')
   }
 
@@ -480,20 +482,32 @@ export default function TabletRelojPage() {
       return
     }
     setPinDraft('')
+    setPinError('')
     setPinModal('config')
   }
 
   const confirmarPin = () => {
     if (!unlockKiosk(pinDraft)) {
-      setMensajeError('PIN incorrecto')
+      setPinError('PIN incorrecto. El PIN por defecto es 7531.')
       return
     }
     setKioskUnlocked(true)
     setPinDraft('')
+    setPinError('')
     const dest = pinModal
     setPinModal(null)
-    if (dest === 'manual') cambiarModo('manual')
-    else if (dest === 'config') setMostrarConfig(true)
+    if (dest === 'manual') {
+      cambiarModo('manual')
+      void cargar()
+    } else if (dest === 'config') {
+      setMostrarConfig(true)
+    }
+  }
+
+  const cerrarPinModal = () => {
+    setPinModal(null)
+    setPinDraft('')
+    setPinError('')
   }
 
   const estadoTexto =
@@ -618,7 +632,7 @@ export default function TabletRelojPage() {
         </div>
       ) : null}
 
-      {error ? (
+      {error && modo === 'auto' ? (
         <div className="tablet-reloj-error-banner">
           <p>{error}</p>
           <button type="button" onClick={() => void cargar()}>
@@ -679,6 +693,14 @@ export default function TabletRelojPage() {
         </div>
       ) : (
         <>
+          {error ? (
+            <div className="tablet-reloj-error-banner tablet-reloj-error-banner--inline">
+              <p>{error}</p>
+              <button type="button" onClick={() => void cargar()}>
+                Reintentar
+              </button>
+            </div>
+          ) : null}
           <div className="tablet-reloj-search-wrap">
             <input
               type="search"
@@ -781,31 +803,42 @@ export default function TabletRelojPage() {
         </div>
       )}
 
-      {pinModal && (
-        <div className="tablet-reloj-overlay" role="dialog" aria-modal="true">
-          <div className="tablet-reloj-modal tablet-reloj-modal--pin">
-            <h2>PIN de administración</h2>
-            <p className="tablet-reloj-modal-hint">Solo personal autorizado</p>
-            <input
-              className="tablet-reloj-pin-input"
-              type="password"
-              inputMode="numeric"
-              value={pinDraft}
-              onChange={(e) => setPinDraft(e.target.value)}
-              placeholder="PIN"
-              autoFocus
-            />
-            <div className="tablet-reloj-modal-actions">
-              <button type="button" className="tablet-reloj-btn-ghost" onClick={() => setPinModal(null)}>
-                Cancelar
-              </button>
-              <button type="button" className="tablet-reloj-btn-primary" onClick={confirmarPin}>
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {pinModal
+        ? createPortal(
+            <div className="tablet-reloj-overlay tablet-reloj-overlay--pin" role="dialog" aria-modal="true">
+              <div className="tablet-reloj-modal tablet-reloj-modal--pin">
+                <h2>PIN de administración</h2>
+                <p className="tablet-reloj-modal-hint">Solo personal autorizado</p>
+                <input
+                  className="tablet-reloj-pin-input"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={pinDraft}
+                  onChange={(e) => {
+                    setPinDraft(e.target.value)
+                    if (pinError) setPinError('')
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') confirmarPin()
+                  }}
+                  placeholder="PIN"
+                  autoFocus
+                />
+                {pinError ? <p className="tablet-reloj-pin-error">{pinError}</p> : null}
+                <div className="tablet-reloj-modal-actions">
+                  <button type="button" className="tablet-reloj-btn-ghost" onClick={cerrarPinModal}>
+                    Cancelar
+                  </button>
+                  <button type="button" className="tablet-reloj-btn-primary" onClick={confirmarPin}>
+                    Confirmar
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   )
 }

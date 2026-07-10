@@ -10,12 +10,20 @@ export function isKioskUnlocked(): boolean {
 
 export function unlockKiosk(pin: string): boolean {
   if (pin.trim() !== DEFAULT_PIN) return false
-  sessionStorage.setItem(UNLOCK_KEY, '1')
+  try {
+    sessionStorage.setItem(UNLOCK_KEY, '1')
+  } catch {
+    /* modo privado / storage bloqueado — igual desbloqueamos la sesión en memoria */
+  }
   return true
 }
 
 export function lockKiosk(): void {
-  sessionStorage.removeItem(UNLOCK_KEY)
+  try {
+    sessionStorage.removeItem(UNLOCK_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 export function getDispositivoId(): string {

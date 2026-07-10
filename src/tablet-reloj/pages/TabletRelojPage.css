@@ -195,6 +195,22 @@
   z-index: 50;
 }
 
+.tablet-reloj-overlay--pin {
+  z-index: 200;
+}
+
+.tablet-reloj-pin-error {
+  margin: 10px 0 0;
+  text-align: center;
+  color: #f87171;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.tablet-reloj-error-banner--inline {
+  margin: 0 16px 12px;
+}
+
 .tablet-reloj-modal {
   width: min(520px, 100%);
   background: #121826;

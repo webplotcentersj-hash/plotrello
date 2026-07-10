@@ -6,6 +6,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   identificarEmpleadoRapido,
   stripDataUrl,
+  fetchImageAsBase64Cached,
+  verificarParFacial,
+  MATCH_MIN_AUTO,
   type EmpleadoConFotoUrl
 } from './reloj-tablet-identify-shared'
 
@@ -118,15 +121,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
+    const empleadoHit = (rows as EmpleadoRow[]).find((e) => e.id_usuario === hit.id_usuario)
+    const fotoLegajo = empleadoHit?.foto_url ? String(empleadoHit.foto_url) : ''
+    const referencia = fotoLegajo ? await fetchImageAsBase64Cached(fotoLegajo) : null
+    if (!referencia) {
+      res.status(200).json({
+        success: false,
+        match: false,
+        mensaje: 'No se pudo verificar la foto del legajo. Usá modo manual o pedí a RRHH.'
+      })
+      return
+    }
+
+    const nombreCompleto = hit.nombre
+    const ver = await verificarParFacial(apiKey, selfie, referencia, nombreCompleto)
+    if (!ver.match || ver.confianza < MATCH_MIN_AUTO) {
+      res.status(200).json({
+        success: false,
+        match: false,
+        confianza: ver.confianza,
+        mensaje: ver.match
+          ? `Verificación insuficiente (${ver.confianza}%). Parate de frente e intentá de nuevo.`
+          : ver.motivo || `No coincide con ${nombreCompleto}. Probá de nuevo.`
+      })
+      return
+    }
+
     const fotoUrl = await uploadSelfieTablet(supabase, hit.id_usuario, selfieRaw)
-    const detalle = `Auto tablet (${hit.confianza}%)`
+    const detalle = `Auto tablet · ident ${hit.confianza}% · verif ${ver.confianza}%`
 
     const { data, error } = await supabase.rpc('registrar_marcacion_tablet', {
       p_id_usuario: hit.id_usuario,
       p_tipo: null,
       p_hora: marcadoAt,
       p_foto_url: fotoUrl,
-      p_confianza: hit.confianza,
+      p_confianza: ver.confianza,
       p_detalle: detalle,
       p_dispositivo: dispositivoId
     })
@@ -140,7 +169,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: true,
       match: true,
       id_usuario: hit.id_usuario,
-      confianza: hit.confianza,
+      confianza: ver.confianza,
       nombre: hit.nombre,
       data
     })

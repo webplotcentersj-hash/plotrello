@@ -17,8 +17,13 @@ export type EmpleadoConFotoUrl = {
 const LEGAJO_CACHE = new Map<string, { mimeType: string; base64: string; at: number }>()
 const CACHE_TTL_MS = 20 * 60 * 1000
 const BATCH_SIZE = 8
-const MATCH_MIN = 68
-const EARLY_EXIT_CONF = 82
+/** Umbral mínimo para aceptar un candidato en identificación por lote */
+export const MATCH_MIN_IDENTIFY = 76
+/** Umbral mínimo para verificación 1:1 (manual y auto) */
+export const MATCH_MIN_VERIFY = 80
+/** Auto: exige verificación 1:1 además del candidato del lote */
+export const MATCH_MIN_AUTO = 82
+const EARLY_EXIT_CONF = 88
 const GEMINI_MODEL = 'gemini-2.5-flash'
 const GEMINI_TIMEOUT_MS = 22_000
 
@@ -114,8 +119,8 @@ Respondé SOLO JSON válido:
 {"id_usuario":number|null,"confianza":0-100,"nombre":"apellido nombre"}
 
 Reglas:
-- id_usuario solo si confianza >= ${MATCH_MIN} y hay coincidencia facial clara
-- Si hay duda, bajá confianza o devolvé id_usuario null
+- id_usuario solo si confianza >= ${MATCH_MIN_IDENTIFY} y hay coincidencia facial clara
+- Si hay duda, varias personas posibles, o rostro poco visible: id_usuario null y confianza baja
 - No inventes IDs que no estén en la lista`
     },
     { inlineData: { mimeType: selfie.mimeType, data: selfie.base64 } }
@@ -140,7 +145,7 @@ Reglas:
   const id = Number(parsed?.id_usuario)
   const nombre = String(parsed?.nombre ?? '')
 
-  if (!id || Number.isNaN(id) || confianza < MATCH_MIN) return null
+  if (!id || Number.isNaN(id) || confianza < MATCH_MIN_IDENTIFY) return null
   if (!candidatos.some((c) => c.id_usuario === id)) return null
 
   return { id_usuario: id, confianza, nombre: nombre || candidatos.find((c) => c.id_usuario === id)?.nombre || '' }
@@ -174,7 +179,7 @@ Solo JSON: {"match":true|false,"confianza":0-100}`
   )
   const parsed = tryParseJson(response.text ?? '')
   const confianza = Math.min(100, Math.max(0, Number(parsed?.confianza ?? 0)))
-  const match = parsed?.match === true && confianza >= MATCH_MIN
+  const match = parsed?.match === true && confianza >= MATCH_MIN_IDENTIFY
   if (!match) return null
   return { id_usuario: candidato.id_usuario, confianza, nombre: candidato.nombre }
 }
@@ -251,8 +256,9 @@ Respondé SOLO JSON válido:
 {"match":true|false,"confianza":0-100,"motivo":"breve en español"}
 
 Reglas:
-- match=true solo si confianza >= ${MATCH_MIN}
-- Si hay duda (gorro, barbijo, mala luz), bajá confianza
+- match=true solo si confianza >= ${MATCH_MIN_VERIFY}
+- Si no hay un solo rostro claro de frente, o hay más de una persona: match=false
+- Si hay duda (gorro, barbijo, mala luz, ángulo extremo), bajá confianza
 - No inventes datos`
             },
             { inlineData: { mimeType: selfie.mimeType, data: selfie.base64 } },
@@ -266,7 +272,7 @@ Reglas:
   )
   const parsed = tryParseJson(response.text ?? '')
   const confianza = Math.min(100, Math.max(0, Number(parsed?.confianza ?? 0)))
-  const match = parsed?.match === true && confianza >= MATCH_MIN
+  const match = parsed?.match === true && confianza >= MATCH_MIN_VERIFY
   const motivo = String(parsed?.motivo ?? (match ? 'Coincidencia facial' : 'No coincide con la foto del legajo'))
   return { match, confianza, motivo }
 }
