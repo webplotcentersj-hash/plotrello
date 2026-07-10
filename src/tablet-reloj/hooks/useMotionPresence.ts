@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 
-const MOTION_THRESHOLD = 0.045
-const MOTION_CHECKS = 1
-const MIN_FRAME_MS = 66
-const DETECT_COOLDOWN_MS = 800
+const MOTION_THRESHOLD = 0.052
+const MOTION_CHECKS = 2
+const MIN_FRAME_MS = 80
+const DETECT_COOLDOWN_MS = 1100
 
 /** Detección de presencia por cambio de píxeles — loop con rAF para mínima latencia. */
 export function useMotionPresence(

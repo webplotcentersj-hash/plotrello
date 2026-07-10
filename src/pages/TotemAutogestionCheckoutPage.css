@@ -216,6 +216,7 @@
 
 .totem-checkout-items li {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
@@ -223,6 +224,37 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--totem-line);
   font-size: 0.92rem;
+}
+
+.totem-checkout-items li > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.totem-checkout-remove {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.totem-checkout-remove:hover {
+  background: rgba(248, 113, 113, 0.22);
+  color: #fecaca;
+}
+
+.totem-checkout-remove:active {
+  transform: scale(0.94);
 }
 
 .totem-checkout-card--pay {

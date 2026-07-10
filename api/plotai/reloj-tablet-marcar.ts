@@ -1,14 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { beginPlotAiRequest } from './plotaiHttp'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { assertRelojTabletAuth } from './relojTabletAuth'
+import { getRelojTabletSupabase } from './relojTabletSupabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  ''
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
+export const maxDuration = 30
 
 type Body = {
   id_usuario?: number
@@ -19,17 +15,6 @@ type Body = {
   dispositivo_id?: string
   omitir_foto?: boolean
   marcado_at?: string
-}
-
-function assertRelojTabletAuth(req: VercelRequest, res: VercelResponse): boolean {
-  const expected = String(process.env.RELOJ_TABLET_API_KEY || '').trim()
-  if (!expected) return true
-  const got = String(req.headers['x-reloj-tablet-key'] || req.headers['X-Reloj-Tablet-Key'] || '').trim()
-  if (got !== expected) {
-    res.status(401).json({ success: false, error: 'No autorizado (tablet)' })
-    return false
-  }
-  return true
 }
 
 function stripDataUrl(dataUrl: string): { mimeType: string; base64: string } | null {
@@ -69,15 +54,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (!assertRelojTabletAuth(req, res)) return
 
+  const supabase = getRelojTabletSupabase()
+  if (!supabase) {
+    res.status(500).json({ success: false, error: 'Supabase no configurado' })
+    return
+  }
+
   const body = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as Body
   const idUsuario = Number(body?.id_usuario)
   if (!idUsuario || Number.isNaN(idUsuario)) {
     res.status(400).json({ success: false, error: 'id_usuario requerido' })
-    return
-  }
-
-  if (!supabase) {
-    res.status(500).json({ success: false, error: 'Supabase no configurado' })
     return
   }
 

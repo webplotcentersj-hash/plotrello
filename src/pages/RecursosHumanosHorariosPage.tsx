@@ -55,9 +55,10 @@ import {
   type MarcacionReloj,
   type PlanillaEmpleado
 } from '../services/relojBiometricoService'
+import RelojTabletMarcacionesTab from '../components/RelojTabletMarcacionesTab'
 import './RecursosHumanosHorariosPage.css'
 
-type TabType = 'horarios' | 'permisos' | 'asistencia' | 'reloj'
+type TabType = 'horarios' | 'permisos' | 'asistencia' | 'reloj' | 'tablet-reloj'
 
 const RecursosHumanosHorariosPage = () => {
   const navigate = useNavigate()
@@ -229,6 +230,12 @@ const RecursosHumanosHorariosPage = () => {
           >
             🕒 Reloj
           </button>
+          <button
+            className={`rrhh-tab ${activeTab === 'tablet-reloj' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tablet-reloj')}
+          >
+            📱 Tablet reloj
+          </button>
         </div>
 
         {/* Filtros */}
@@ -333,6 +340,12 @@ const RecursosHumanosHorariosPage = () => {
               setFechaHasta(hasta)
             }}
           />
+        )}
+
+        {activeTab === 'tablet-reloj' && (
+          <div className="rrhh-tab-content">
+            <RelojTabletMarcacionesTab />
+          </div>
         )}
       </div>
     </div>

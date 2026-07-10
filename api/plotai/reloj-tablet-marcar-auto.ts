@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { beginPlotAiRequest, getGeminiServerKey } from './plotaiHttp'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { assertRelojTabletAuth } from './relojTabletAuth'
+import { getRelojTabletSupabase } from './relojTabletSupabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   identificarEmpleadoRapido,
   stripDataUrl,
@@ -9,29 +11,10 @@ import {
 
 export const maxDuration = 60
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  ''
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
-
 type Body = {
   selfie_data_url?: string
   dispositivo_id?: string
   marcado_at?: string
-}
-
-function assertRelojTabletAuth(req: VercelRequest, res: VercelResponse): boolean {
-  const expected = String(process.env.RELOJ_TABLET_API_KEY || '').trim()
-  if (!expected) return true
-  const got = String(req.headers['x-reloj-tablet-key'] || req.headers['X-Reloj-Tablet-Key'] || '').trim()
-  if (got !== expected) {
-    res.status(401).json({ success: false, error: 'No autorizado (tablet)' })
-    return false
-  }
-  return true
 }
 
 async function uploadSelfieTablet(
@@ -79,6 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  const supabase = getRelojTabletSupabase()
   if (!supabase) {
     res.status(500).json({ success: false, error: 'Supabase no configurado' })
     return
@@ -98,6 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const marcadoAt = String(body.marcado_at || '').trim() || new Date().toISOString()
+  const dispositivoId = String(body.dispositivo_id || 'tablet-reloj-1').trim() || 'tablet-reloj-1'
 
   const { data: rows, error: listErr } = await supabase.rpc('listar_empleados_reloj_tablet')
   if (listErr) {
@@ -117,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({
       success: false,
       match: false,
-      error: 'Ningún empleado tiene foto de legajo. Usá modo manual.'
+      error: 'Ningún empleado tiene foto de legajo. Pedí a RRHH que carguen las fotos.'
     })
     return
   }
@@ -128,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(200).json({
         success: false,
         match: false,
-        mensaje: 'No se reconoció a ningún empleado. Probá de nuevo o usá modo manual.'
+        mensaje: 'No se reconoció a ningún empleado. Probá de nuevo o pedí ayuda a RRHH.'
       })
       return
     }
@@ -143,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       p_foto_url: fotoUrl,
       p_confianza: hit.confianza,
       p_detalle: detalle,
-      p_dispositivo: body.dispositivo_id ?? 'tablet-reloj-1'
+      p_dispositivo: dispositivoId
     })
 
     if (error) {

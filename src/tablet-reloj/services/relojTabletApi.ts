@@ -1,5 +1,6 @@
 import { plotLabFetch } from '../../utils/plotLabApiOrigin'
 import { getMarcacionTimestamptzIso } from '../../utils/dateUtils'
+import { getDispositivoId } from '../utils/tabletRelojKiosk'
 
 const STORAGE_KEY = 'reloj_tablet_api_key'
 
@@ -11,6 +12,9 @@ export type EmpleadoRelojTablet = {
   foto_url: string | null
   login: string
   nombre_completo: string
+  entrada_hoy?: string | null
+  salida_hoy?: string | null
+  tiene_foto_legajo?: boolean
 }
 
 export type MarcacionTabletResult = {
@@ -162,7 +166,7 @@ export async function marcarAutoRelojTablet(selfieDataUrl: string): Promise<{
       headers: { ...headers(), 'Content-Type': 'application/json' },
       body: JSON.stringify({
         selfie_data_url: selfieDataUrl,
-        dispositivo_id: 'tablet-reloj-1',
+        dispositivo_id: getDispositivoId(),
         marcado_at: getMarcacionTimestamptzIso()
       })
     },
@@ -197,18 +201,22 @@ export async function marcarRelojTablet(opts: {
   dispositivoId?: string
   marcadoAt?: string
 }): Promise<MarcacionTabletResult> {
-  const resp = await plotLabFetch('/api/plotai/reloj-tablet-marcar', {
-    method: 'POST',
-    headers: { ...headers(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id_usuario: opts.idUsuario,
-      selfie_data_url: opts.selfieDataUrl,
-      confianza: opts.confianza,
-      detalle: opts.detalle,
-      dispositivo_id: opts.dispositivoId || 'tablet-reloj-1',
-      marcado_at: opts.marcadoAt ?? getMarcacionTimestamptzIso()
-    })
-  })
+  const resp = await plotLabFetchTimeout(
+    '/api/plotai/reloj-tablet-marcar',
+    {
+      method: 'POST',
+      headers: { ...headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id_usuario: opts.idUsuario,
+        selfie_data_url: opts.selfieDataUrl,
+        confianza: opts.confianza,
+        detalle: opts.detalle,
+        dispositivo_id: opts.dispositivoId || getDispositivoId(),
+        marcado_at: opts.marcadoAt ?? getMarcacionTimestamptzIso()
+      })
+    },
+    35_000
+  )
   const json = await parseApiJson<{ success?: boolean; data?: MarcacionTabletResult; error?: string }>(resp)
   if (!resp.ok || !json.success || !json.data) {
     throw new Error(json.error || 'No se pudo registrar la marcación')

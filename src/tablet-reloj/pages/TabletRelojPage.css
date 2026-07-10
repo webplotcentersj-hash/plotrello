@@ -410,6 +410,79 @@
   gap: 12px;
 }
 
+.tablet-reloj-config input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+  color: #e8edf5;
+}
+
+.tablet-reloj-config-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.tablet-reloj-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #94a3b8;
+  padding: 24px 12px;
+}
+
+.tablet-reloj-estado {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.tablet-reloj-estado--none {
+  color: #94a3b8;
+}
+
+.tablet-reloj-estado--entrada {
+  color: #38bdf8;
+}
+
+.tablet-reloj-estado--completo {
+  color: #4ade80;
+}
+
+.tablet-reloj-estado--warn {
+  color: #fbbf24;
+}
+
+.tablet-reloj-card--done {
+  opacity: 0.55;
+}
+
+.tablet-reloj-card--nofoto {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.tablet-reloj-modal--pin {
+  max-width: 360px;
+}
+
+.tablet-reloj-pin-input {
+  width: 100%;
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  font-size: 1.25rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e8edf5;
+}
+
 .tablet-reloj-config label {
   display: flex;
   flex-direction: column;

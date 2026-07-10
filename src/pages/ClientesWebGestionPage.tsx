@@ -7,6 +7,7 @@ import { clientesPerfil } from '../utils/clientesRoutes'
 import './ClientesWebGestionPage.css'
 
 type FiltroAcceso = 'todos' | 'con_acceso' | 'sin_acceso'
+type FiltroSolicitud = 'pendiente' | 'procesada' | 'descartada' | 'todas'
 
 const MIN_BUSQUEDA = 1
 const LIMITE_BUSQUEDA = 100
@@ -31,6 +32,8 @@ const ClientesWebGestionPage = () => {
   const [sortField, setSortField] = useState<keyof ClienteRecord | ''>('nombre')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [solicitudes, setSolicitudes] = useState<ClienteSolicitudRegistro[]>([])
+  const [filtroSolicitud, setFiltroSolicitud] = useState<FiltroSolicitud>('pendiente')
+  const [solicitudAviso, setSolicitudAviso] = useState('')
   const [solicitudEnProceso, setSolicitudEnProceso] = useState<ClienteSolicitudRegistro | null>(null)
   const [formData, setFormData] = useState({
     usuario: '',
@@ -50,9 +53,14 @@ const ClientesWebGestionPage = () => {
   }, [])
 
   const refreshSolicitudes = useCallback(async () => {
-    const res = await apiService.listarSolicitudesRegistroCliente({ soloPendientes: true })
+    const res = await apiService.listarSolicitudesRegistroCliente()
     if (res.success && res.data) setSolicitudes(res.data)
   }, [])
+
+  const mostrarAvisoSolicitud = (mensaje: string) => {
+    setSolicitudAviso(mensaje)
+    window.setTimeout(() => setSolicitudAviso(''), 5000)
+  }
 
   const handleCrearDesdeSolicitud = (s: ClienteSolicitudRegistro) => {
     const partes = s.nombre.trim().split(/\s+/)
@@ -77,12 +85,26 @@ const ClientesWebGestionPage = () => {
 
   const handleMarcarSolicitud = async (
     s: ClienteSolicitudRegistro,
-    estado: 'procesada' | 'descartada'
+    estado: 'pendiente' | 'procesada' | 'descartada'
   ) => {
+    if (estado === 'procesada' && !confirm(
+      `¿Marcar como atendida la solicitud de ${s.nombre}?\n\nPasará al historial en «Procesadas».`
+    )) return
     if (estado === 'descartada' && !confirm(`¿Descartar la solicitud de ${s.nombre}?`)) return
+
     const res = await apiService.marcarSolicitudRegistroCliente(s.id, estado)
     if (res.success) {
-      setSolicitudes((prev) => prev.filter((x) => x.id !== s.id))
+      await refreshSolicitudes()
+      if (estado === 'procesada') {
+        setFiltroSolicitud('procesada')
+        mostrarAvisoSolicitud(`Solicitud de ${s.nombre} marcada como atendida. Ver en «Procesadas».`)
+      } else if (estado === 'descartada') {
+        setFiltroSolicitud('descartada')
+        mostrarAvisoSolicitud(`Solicitud de ${s.nombre} descartada. Ver en «Descartadas».`)
+      } else {
+        setFiltroSolicitud('pendiente')
+        mostrarAvisoSolicitud(`Solicitud de ${s.nombre} reabierta en «Pendientes».`)
+      }
     } else {
       alert(res.error || 'No se pudo actualizar la solicitud')
     }
@@ -314,8 +336,11 @@ const ClientesWebGestionPage = () => {
       if (response.success) {
         if (!editingCliente && solicitudEnProceso) {
           const solId = solicitudEnProceso.id
+          const solNombre = solicitudEnProceso.nombre
           await apiService.marcarSolicitudRegistroCliente(solId, 'procesada')
-          setSolicitudes((prev) => prev.filter((x) => x.id !== solId))
+          await refreshSolicitudes()
+          setFiltroSolicitud('procesada')
+          mostrarAvisoSolicitud(`Acceso creado para ${solNombre}. Solicitud en «Procesadas».`)
         }
         setShowCreateModal(false)
         resetForm()
@@ -420,6 +445,18 @@ const ClientesWebGestionPage = () => {
   const etiquetaVerTodos =
     filtroAcceso === 'sin_acceso' ? `Ver todos (${stats.sinPortal})` : `Ver todos (${stats.total})`
 
+  const solicitudesFiltradas = useMemo(() => {
+    if (filtroSolicitud === 'todas') return solicitudes
+    return solicitudes.filter((s) => s.estado === filtroSolicitud)
+  }, [solicitudes, filtroSolicitud])
+
+  const conteoSolicitudes = useMemo(() => ({
+    pendiente: solicitudes.filter((s) => s.estado === 'pendiente').length,
+    procesada: solicitudes.filter((s) => s.estado === 'procesada').length,
+    descartada: solicitudes.filter((s) => s.estado === 'descartada').length,
+    todas: solicitudes.length
+  }), [solicitudes])
+
   const filteredClientes = useMemo(() => {
     return clientes
       .filter((c) => {
@@ -495,20 +532,57 @@ const ClientesWebGestionPage = () => {
           </div>
         </header>
 
-        {solicitudes.length > 0 && (
-          <section className="cwg-solicitudes" aria-label="Solicitudes de registro">
-            <div className="cwg-solicitudes__head">
-              <h2>
-                Solicitudes de registro
-                <span className="cwg-solicitudes__count">{solicitudes.length}</span>
-              </h2>
-              <p className="cwg-solicitudes__hint">
-                Nuevos registros desde el portal. Creá el acceso y avisale al cliente su usuario y contraseña.
-              </p>
+        <section className="cwg-solicitudes" aria-label="Solicitudes de registro">
+          <div className="cwg-solicitudes__head">
+            <h2>
+              Solicitudes de registro
+              {conteoSolicitudes.pendiente > 0 && (
+                <span className="cwg-solicitudes__count">{conteoSolicitudes.pendiente}</span>
+              )}
+            </h2>
+            <p className="cwg-solicitudes__hint">
+              Nuevos registros desde el portal. Creá el acceso y avisale al cliente su usuario y contraseña.
+            </p>
+          </div>
+
+          {solicitudAviso && (
+            <div className="cwg-solicitudes__aviso" role="status">
+              {solicitudAviso}
             </div>
-            <div className="cwg-solicitudes__list">
-              {solicitudes.map((s) => (
-                <div key={s.id} className="cwg-solicitud">
+          )}
+
+          <div className="cwg-solicitudes__filters">
+            {([
+              ['pendiente', 'Pendientes', conteoSolicitudes.pendiente],
+              ['procesada', 'Procesadas', conteoSolicitudes.procesada],
+              ['descartada', 'Descartadas', conteoSolicitudes.descartada],
+              ['todas', 'Todas', conteoSolicitudes.todas]
+            ] as const).map(([key, label, count]) => (
+              <button
+                key={key}
+                type="button"
+                className={`cwg-pill${filtroSolicitud === key ? ' cwg-pill--active' : ''}`}
+                onClick={() => setFiltroSolicitud(key)}
+              >
+                {label} ({count})
+              </button>
+            ))}
+          </div>
+
+          <div className="cwg-solicitudes__list">
+            {solicitudesFiltradas.length === 0 ? (
+              <p className="cwg-solicitudes__empty">
+                {filtroSolicitud === 'pendiente'
+                  ? 'No hay solicitudes pendientes.'
+                  : filtroSolicitud === 'procesada'
+                    ? 'No hay solicitudes procesadas todavía.'
+                    : filtroSolicitud === 'descartada'
+                      ? 'No hay solicitudes descartadas.'
+                      : 'Todavía no hay solicitudes de registro.'}
+              </p>
+            ) : (
+              solicitudesFiltradas.map((s) => (
+                <div key={s.id} className={`cwg-solicitud cwg-solicitud--${s.estado}`}>
                   <div className="cwg-solicitud__info">
                     <div className="cwg-solicitud__name">
                       {s.nombre}
@@ -516,6 +590,11 @@ const ClientesWebGestionPage = () => {
                         <span className="cwg-badge cwg-badge--portal">Ya es cliente</span>
                       ) : (
                         <span className="cwg-badge cwg-badge--none">Nuevo</span>
+                      )}
+                      {s.estado !== 'pendiente' && (
+                        <span className={`cwg-badge cwg-badge--sol-${s.estado}`}>
+                          {s.estado === 'procesada' ? 'Atendida' : 'Descartada'}
+                        </span>
                       )}
                     </div>
                     <div className="cwg-solicitud__contact">
@@ -528,33 +607,45 @@ const ClientesWebGestionPage = () => {
                     </div>
                   </div>
                   <div className="cwg-solicitud__actions">
-                    <button
-                      type="button"
-                      className="cwg-btn cwg-btn--primary cwg-btn--xs"
-                      onClick={() => handleCrearDesdeSolicitud(s)}
-                    >
-                      Crear acceso
-                    </button>
-                    <button
-                      type="button"
-                      className="cwg-btn cwg-btn--muted cwg-btn--xs"
-                      onClick={() => void handleMarcarSolicitud(s, 'procesada')}
-                    >
-                      Listo
-                    </button>
-                    <button
-                      type="button"
-                      className="cwg-btn cwg-btn--warn cwg-btn--xs"
-                      onClick={() => void handleMarcarSolicitud(s, 'descartada')}
-                    >
-                      Descartar
-                    </button>
+                    {s.estado === 'pendiente' ? (
+                      <>
+                        <button
+                          type="button"
+                          className="cwg-btn cwg-btn--primary cwg-btn--xs"
+                          onClick={() => handleCrearDesdeSolicitud(s)}
+                        >
+                          Crear acceso
+                        </button>
+                        <button
+                          type="button"
+                          className="cwg-btn cwg-btn--muted cwg-btn--xs"
+                          onClick={() => void handleMarcarSolicitud(s, 'procesada')}
+                        >
+                          Marcar atendida
+                        </button>
+                        <button
+                          type="button"
+                          className="cwg-btn cwg-btn--warn cwg-btn--xs"
+                          onClick={() => void handleMarcarSolicitud(s, 'descartada')}
+                        >
+                          Descartar
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="cwg-btn cwg-btn--ghost cwg-btn--xs"
+                        onClick={() => void handleMarcarSolicitud(s, 'pendiente')}
+                      >
+                        Reabrir
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
+              ))
+            )}
+          </div>
+        </section>
 
         <section className="cwg-search-hero" aria-label="Buscar clientes">
           <label className="cwg-search-hero__wrap">

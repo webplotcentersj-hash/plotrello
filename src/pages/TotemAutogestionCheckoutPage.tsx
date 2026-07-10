@@ -8,7 +8,9 @@ import {
   cartTotal,
   clearTotemCart,
   descripcionPersonalizadaTotem,
-  readTotemCart
+  readTotemCart,
+  removeItem,
+  writeTotemCart
 } from './totemAutogestionCart'
 import './TotemAutogestionCheckoutPage.css'
 
@@ -18,11 +20,21 @@ type Step = 'review' | 'identify' | 'pay' | 'done'
 
 export default function TotemAutogestionCheckoutPage() {
   const navigate = useNavigate()
-  const [cart] = useState(() => readTotemCart())
+  const [cart, setCart] = useState(() => readTotemCart())
   const [step, setStep] = useState<Step>('review')
 
   const itemsCount = cartItemCount(cart.items)
   const total = cartTotal(cart.items)
+
+  const handleRemoveItem = (idArticulo: number, nombre: string) => {
+    if (!confirm(`¿Quitar "${nombre}" del pedido?`)) return
+    setCart((prev) => {
+      const items = removeItem(prev.items, idArticulo)
+      const next = { items, updatedAt: Date.now() }
+      writeTotemCart(next)
+      return next
+    })
+  }
 
   const [dniCuit, setDniCuit] = useState('')
   const [telefono, setTelefono] = useState('')
@@ -185,6 +197,15 @@ export default function TotemAutogestionCheckoutPage() {
                     {it.cantidad}× {it.nombre_articulo ?? `#${it.id_articulo}`}
                   </span>
                   <strong>${Number(it.precio_total || 0).toFixed(2)}</strong>
+                  <button
+                    type="button"
+                    className="totem-checkout-remove"
+                    aria-label={`Quitar ${it.nombre_articulo ?? 'ítem'}`}
+                    title="Quitar del pedido"
+                    onClick={() => handleRemoveItem(it.id_articulo, it.nombre_articulo ?? `#${it.id_articulo}`)}
+                  >
+                    ✕
+                  </button>
                 </li>
               ))}
             </ul>

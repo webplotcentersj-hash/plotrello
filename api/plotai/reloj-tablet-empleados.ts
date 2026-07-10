@@ -1,25 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { beginPlotAiRequest } from './plotaiHttp'
-import { createClient } from '@supabase/supabase-js'
+import { assertRelojTabletAuth } from './relojTabletAuth'
+import { getRelojTabletSupabase } from './relojTabletSupabase'
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  ''
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
-
-function assertRelojTabletAuth(req: VercelRequest, res: VercelResponse): boolean {
-  const expected = String(process.env.RELOJ_TABLET_API_KEY || '').trim()
-  if (!expected) return true
-  const got = String(req.headers['x-reloj-tablet-key'] || req.headers['X-Reloj-Tablet-Key'] || '').trim()
-  if (got !== expected) {
-    res.status(401).json({ success: false, error: 'No autorizado (tablet)' })
-    return false
-  }
-  return true
-}
+export const maxDuration = 15
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (beginPlotAiRequest(req, res, 'GET, OPTIONS')) return
@@ -30,6 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (!assertRelojTabletAuth(req, res)) return
 
+  const supabase = getRelojTabletSupabase()
   if (!supabase) {
     res.status(500).json({ success: false, error: 'Supabase no configurado' })
     return
@@ -48,7 +33,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     sector: String(row.sector ?? ''),
     foto_url: row.foto_url ? String(row.foto_url) : null,
     login: String(row.login ?? ''),
-    nombre_completo: [row.apellido, row.nombre].filter(Boolean).join(', ') || String(row.login ?? '')
+    nombre_completo: [row.apellido, row.nombre].filter(Boolean).join(', ') || String(row.login ?? ''),
+    entrada_hoy: row.entrada_hoy ? String(row.entrada_hoy) : null,
+    salida_hoy: row.salida_hoy ? String(row.salida_hoy) : null,
+    tiene_foto_legajo: Boolean(row.tiene_foto_legajo)
   }))
 
   res.status(200).json({ success: true, empleados })

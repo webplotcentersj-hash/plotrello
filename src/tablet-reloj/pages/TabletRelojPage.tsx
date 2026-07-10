@@ -19,19 +19,30 @@ import {
   type MarcacionTabletResult
 } from '../services/relojTabletApi'
 import { useMotionPresence } from '../hooks/useMotionPresence'
+import {
+  estadoMarcacionHoy,
+  getDispositivoId,
+  isKioskUnlocked,
+  lockKiosk,
+  playMarcacionSound,
+  requestScreenWakeLock,
+  setDispositivoId,
+  toggleFullscreen,
+  unlockKiosk
+} from '../utils/tabletRelojKiosk'
 import './TabletRelojPage.css'
 
 type Modo = 'auto' | 'manual'
-type Paso = 'esperando' | 'camara' | 'detectando' | 'procesando' | 'exito' | 'error'
+type Paso = 'esperando' | 'camara' | 'procesando' | 'exito' | 'error'
 
-const COOLDOWN_MS = 2000
-const EXITO_MS = 1200
-const AUTO_RESET_ERROR_MS = 2500
+const COOLDOWN_MS = 2500
+const EXITO_MS = 3200
+const AUTO_RESET_ERROR_MS = 3500
 const SELFIE_MAX_WIDTH = 640
 const SELFIE_JPEG_QUALITY = 0.72
 
 function tituloExitoMarcacion(tipo: 'entrada' | 'salida'): string {
-  return tipo === 'entrada' ? '¡Registrado!' : '¡Salida!'
+  return tipo === 'entrada' ? '¡Entrada registrada!' : '¡Salida registrada!'
 }
 
 function PanelExitoMarcacion({
@@ -93,7 +104,11 @@ export default function TabletRelojPage() {
   const [enCooldown, setEnCooldown] = useState(false)
   const [relojArgentina, setRelojArgentina] = useState('')
   const [ocupado, setOcupado] = useState(false)
-
+  const [kioskUnlocked, setKioskUnlocked] = useState(() => isKioskUnlocked())
+  const [pinModal, setPinModal] = useState<'manual' | 'config' | null>(null)
+  const [pinDraft, setPinDraft] = useState('')
+  const [dispositivoDraft, setDispositivoDraft] = useState(() => getDispositivoId())
+  const pageRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const captureCanvasRef = useRef<HTMLCanvasElement>(null)
   const standbyRef = useRef<HTMLDivElement>(null)
@@ -125,6 +140,25 @@ export default function TabletRelojPage() {
   useEffect(() => {
     void cargar()
   }, [cargar])
+
+  useEffect(() => {
+    let wake: WakeLockSentinel | null = null
+    void requestScreenWakeLock().then((w) => {
+      wake = w
+    })
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        void requestScreenWakeLock().then((w) => {
+          wake = w
+        })
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      void wake?.release()
+    }
+  }, [])
 
   useEffect(() => {
     const tick = () =>
@@ -296,11 +330,13 @@ export default function TabletRelojPage() {
         })
         setResultado(data)
         setPaso('exito')
+        playMarcacionSound('ok')
         iniciarCooldown()
         window.setTimeout(() => volverEspera(), EXITO_MS)
       } catch (e) {
         setPaso('error')
         setMensajeError(e instanceof Error ? e.message : 'Error al marcar')
+        playMarcacionSound('error')
         window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
       } finally {
         procesandoRef.current = false
@@ -345,11 +381,13 @@ export default function TabletRelojPage() {
       )
       setResultado(res.data)
       setPaso('exito')
+      playMarcacionSound('ok')
       iniciarCooldown()
       window.setTimeout(() => volverEspera(), EXITO_MS)
     } catch (e) {
       setPaso('error')
       setMensajeError(e instanceof Error ? e.message : 'No se pudo identificar')
+      playMarcacionSound('error')
       window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
     } finally {
       procesandoRef.current = false
@@ -424,15 +462,45 @@ export default function TabletRelojPage() {
     if (nuevo === modo) return
     volverEspera()
     setModo(nuevo)
+    if (nuevo === 'auto') setBusqueda('')
+  }
+
+  const solicitarModoManual = () => {
+    if (kioskUnlocked) {
+      cambiarModo('manual')
+      return
+    }
+    setPinDraft('')
+    setPinModal('manual')
+  }
+
+  const solicitarConfig = () => {
+    if (kioskUnlocked) {
+      setMostrarConfig((v) => !v)
+      return
+    }
+    setPinDraft('')
+    setPinModal('config')
+  }
+
+  const confirmarPin = () => {
+    if (!unlockKiosk(pinDraft)) {
+      setMensajeError('PIN incorrecto')
+      return
+    }
+    setKioskUnlocked(true)
+    setPinDraft('')
+    const dest = pinModal
+    setPinModal(null)
+    if (dest === 'manual') cambiarModo('manual')
+    else if (dest === 'config') setMostrarConfig(true)
   }
 
   const estadoTexto =
     paso === 'camara'
       ? 'Confirmá tu marcación'
-      : paso === 'detectando'
-        ? 'Posate frente a la cámara…'
-        : paso === 'procesando'
-          ? 'Identificando…'
+      : paso === 'procesando'
+        ? 'Identificando…'
           : paso === 'exito'
             ? 'Marcación registrada'
             : paso === 'error'
@@ -458,7 +526,10 @@ export default function TabletRelojPage() {
     empleados.length > 0
 
   return (
-    <div className={`tablet-reloj-page ${modo === 'auto' ? 'tablet-reloj-page--kiosco' : ''}`}>
+    <div
+      ref={pageRef}
+      className={`tablet-reloj-page ${modo === 'auto' ? 'tablet-reloj-page--kiosco' : ''}`}
+    >
       <header className="tablet-reloj-header">
         <div className="tablet-reloj-header-brand">
           <h1>Reloj Plot Lab</h1>
@@ -472,17 +543,26 @@ export default function TabletRelojPage() {
               Automático
             </button>
           ) : (
-            <button type="button" className="tablet-reloj-btn-ghost" onClick={() => cambiarModo('manual')}>
+            <button type="button" className="tablet-reloj-btn-ghost" onClick={solicitarModoManual}>
               Manual
             </button>
           )}
+          <button
+            type="button"
+            className="tablet-reloj-btn-ghost tablet-reloj-btn-icon"
+            onClick={() => void toggleFullscreen(pageRef.current)}
+            title="Pantalla completa"
+          >
+            ⛶
+          </button>
           <button type="button" className="tablet-reloj-btn-ghost tablet-reloj-btn-icon" onClick={() => void cargar()}>
             ↻
           </button>
           <button
             type="button"
             className="tablet-reloj-btn-ghost tablet-reloj-btn-icon"
-            onClick={() => setMostrarConfig((v) => !v)}
+            onClick={solicitarConfig}
+            title="Configuración"
           >
             ⚙
           </button>
@@ -492,25 +572,49 @@ export default function TabletRelojPage() {
       {mostrarConfig ? (
         <div className="tablet-reloj-config">
           <label>
-            Clave tablet (opcional)
+            ID dispositivo
+            <input
+              type="text"
+              value={dispositivoDraft}
+              onChange={(e) => setDispositivoDraft(e.target.value)}
+              placeholder="tablet-reloj-1"
+            />
+          </label>
+          <label>
+            Clave tablet (servidor)
             <input
               type="password"
               value={apiKeyDraft}
               onChange={(e) => setApiKeyDraft(e.target.value)}
-              placeholder="RELOJ_TABLET_API_KEY en servidor"
+              placeholder="RELOJ_TABLET_API_KEY en Vercel"
             />
           </label>
-          <button
-            type="button"
-            className="tablet-reloj-btn-primary"
-            onClick={() => {
-              setRelojTabletApiKey(apiKeyDraft)
-              setMostrarConfig(false)
-              void cargar()
-            }}
-          >
-            Guardar
-          </button>
+          <div className="tablet-reloj-config-actions">
+            <button
+              type="button"
+              className="tablet-reloj-btn-ghost"
+              onClick={() => {
+                lockKiosk()
+                setKioskUnlocked(false)
+                setMostrarConfig(false)
+                if (modo === 'manual') cambiarModo('auto')
+              }}
+            >
+              Bloquear kiosco
+            </button>
+            <button
+              type="button"
+              className="tablet-reloj-btn-primary"
+              onClick={() => {
+                setDispositivoId(dispositivoDraft)
+                setRelojTabletApiKey(apiKeyDraft)
+                setMostrarConfig(false)
+                void cargar()
+              }}
+            >
+              Guardar
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -539,7 +643,7 @@ export default function TabletRelojPage() {
                 {paso === 'esperando' ? 'Sensor activo' : 'Procesando'}
               </div>
               <p className="tablet-reloj-kiosco-hint">{estadoTexto}</p>
-              {(paso === 'procesando' || paso === 'detectando') && (
+              {(paso === 'procesando') && (
                 <div className="tablet-reloj-spinner tablet-reloj-spinner--lg" />
               )}
               {errorCamara && paso === 'esperando' && (
@@ -585,26 +689,44 @@ export default function TabletRelojPage() {
             />
           </div>
           <div className="tablet-reloj-grid">
-            {filtrados.map((emp) => {
-              const foto = fotoEmpleadoUrl(emp)
-              return (
-                <button
-                  key={emp.id_usuario}
-                  type="button"
-                  className="tablet-reloj-card"
-                  onClick={() => void elegirEmpleadoManual(emp)}
-                  disabled={ocupado || paso !== 'esperando'}
-                >
-                  <div className="tablet-reloj-avatar">
-                    {foto ? <img src={foto} alt="" /> : <span>{inicialesEmpleado(emp)}</span>}
-                  </div>
-                  <div className="tablet-reloj-card-text">
-                    <strong>{emp.nombre_completo || emp.login}</strong>
-                    {emp.sector ? <span>{emp.sector}</span> : null}
-                  </div>
-                </button>
-              )
-            })}
+            {filtrados.length === 0 ? (
+              <p className="tablet-reloj-empty">No hay empleados con ese criterio.</p>
+            ) : (
+              filtrados.map((emp) => {
+                const foto = fotoEmpleadoUrl(emp)
+                const estado = estadoMarcacionHoy(emp)
+                const sinFoto = emp.tiene_foto_legajo === false
+                const diaCompleto = Boolean(emp.salida_hoy)
+                return (
+                  <button
+                    key={emp.id_usuario}
+                    type="button"
+                    className={`tablet-reloj-card${diaCompleto ? ' tablet-reloj-card--done' : ''}${sinFoto ? ' tablet-reloj-card--nofoto' : ''}`}
+                    onClick={() => void elegirEmpleadoManual(emp)}
+                    disabled={ocupado || paso !== 'esperando' || sinFoto || diaCompleto}
+                    title={
+                      sinFoto
+                        ? 'Sin foto de legajo — pedí a RRHH que la carguen'
+                        : diaCompleto
+                          ? 'Ya marcó entrada y salida hoy'
+                          : undefined
+                    }
+                  >
+                    <div className="tablet-reloj-avatar">
+                      {foto ? <img src={foto} alt="" /> : <span>{inicialesEmpleado(emp)}</span>}
+                    </div>
+                    <div className="tablet-reloj-card-text">
+                      <strong>{emp.nombre_completo || emp.login}</strong>
+                      {emp.sector ? <span>{emp.sector}</span> : null}
+                      <span className={`tablet-reloj-estado tablet-reloj-estado--${estado.tone}`}>
+                        {estado.label}
+                      </span>
+                      {sinFoto ? <span className="tablet-reloj-estado tablet-reloj-estado--warn">Sin foto legajo</span> : null}
+                    </div>
+                  </button>
+                )
+              })
+            )}
           </div>
         </>
       )}
@@ -634,7 +756,7 @@ export default function TabletRelojPage() {
       {modo === 'manual' && paso !== 'esperando' && paso !== 'camara' && (
         <div className="tablet-reloj-overlay" role="status">
           <div className="tablet-reloj-modal">
-            {(paso === 'procesando' || paso === 'detectando') && (
+            {(paso === 'procesando') && (
               <div className="tablet-reloj-procesando">
                 <div className="tablet-reloj-spinner tablet-reloj-spinner--lg" />
                 <p>{estadoTexto}</p>
@@ -655,6 +777,32 @@ export default function TabletRelojPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {pinModal && (
+        <div className="tablet-reloj-overlay" role="dialog" aria-modal="true">
+          <div className="tablet-reloj-modal tablet-reloj-modal--pin">
+            <h2>PIN de administración</h2>
+            <p className="tablet-reloj-modal-hint">Solo personal autorizado</p>
+            <input
+              className="tablet-reloj-pin-input"
+              type="password"
+              inputMode="numeric"
+              value={pinDraft}
+              onChange={(e) => setPinDraft(e.target.value)}
+              placeholder="PIN"
+              autoFocus
+            />
+            <div className="tablet-reloj-modal-actions">
+              <button type="button" className="tablet-reloj-btn-ghost" onClick={() => setPinModal(null)}>
+                Cancelar
+              </button>
+              <button type="button" className="tablet-reloj-btn-primary" onClick={confirmarPin}>
+                Confirmar
+              </button>
+            </div>
           </div>
         </div>
       )}
