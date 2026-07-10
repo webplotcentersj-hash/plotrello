@@ -100,4 +100,49 @@ curl https://detector.plotcenter.com.ar/health
 Cuando `/health` y `/detectar` funcionen en la VPS, avisá y seguimos con:
 
 - **Paso 2:** proxy en Vercel (`RELOJ_DETECTOR_URL` + `RELOJ_DETECTOR_API_KEY`)
-- **Paso 3:** integración en la tablet antes de `marcar-auto`
+- **Paso 3:** integración en la tablet antes de `marcar-auto` (ya en plotrello)
+
+### Exponer el detector a internet (para Vercel)
+
+El puerto 8080 está solo en localhost. Instalá nginx:
+
+```bash
+apt install -y nginx
+nano /etc/nginx/sites-available/reloj-detector
+```
+
+Contenido (con subdominio o solo IP):
+
+```nginx
+server {
+    listen 80;
+    server_name detector.plotcenter.com.ar;   # o _ para cualquier host / solo IP
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_read_timeout 30s;
+        client_max_body_size 5m;
+    }
+}
+```
+
+```bash
+ln -sf /etc/nginx/sites-available/reloj-detector /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+Probar desde afuera:
+
+```bash
+curl http://TU_IP/health
+# o curl https://detector.plotcenter.com.ar/health
+```
+
+En **Vercel** → Environment Variables:
+
+| Variable | Ejemplo |
+|----------|---------|
+| `RELOJ_DETECTOR_URL` | `http://187.77.251.35/detectar` o `https://detector.plotcenter.com.ar/detectar` |
+| `RELOJ_DETECTOR_API_KEY` | la misma que `DETECTOR_API_KEY` en `.env` de la VPS |
+
+Redeploy plotrello en Vercel.

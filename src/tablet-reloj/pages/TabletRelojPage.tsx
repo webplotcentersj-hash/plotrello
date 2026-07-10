@@ -12,6 +12,7 @@ import {
   inicialesEmpleado,
   marcarAutoRelojTablet,
   marcarRelojTablet,
+  detectarPresenciaRelojTablet,
   precalentarLegajosRelojTablet,
   setRelojTabletApiKey,
   verificarSelfieRelojTablet,
@@ -367,6 +368,10 @@ export default function TabletRelojPage() {
     }
     setPaso('procesando')
     try {
+      const presencia = await detectarPresenciaRelojTablet(selfie)
+      if (!presencia.skipped && !presencia.ok) {
+        throw new Error(presencia.motivo || 'Parate frente a la cámara, solo una persona')
+      }
       const res = await marcarAutoRelojTablet(selfie)
       if (!res.match || !res.data) throw new Error(res.mensaje || 'No se reconoció ningún empleado')
       setSeleccionado(

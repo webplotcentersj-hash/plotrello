@@ -41,6 +41,14 @@ export type VerificacionTabletResult = {
   omitir_verificacion?: boolean
 }
 
+export type DetectorPresenciaResult = {
+  ok: boolean
+  skipped?: boolean
+  personas?: number
+  motivo?: string
+  ms?: number
+}
+
 export function getRelojTabletApiKey(): string {
   return localStorage.getItem(STORAGE_KEY) || ''
 }
@@ -112,6 +120,33 @@ export async function precalentarLegajosRelojTablet(): Promise<void> {
     })
   } catch {
     /* no bloquear la UI */
+  }
+}
+
+export async function detectarPresenciaRelojTablet(selfieDataUrl: string): Promise<DetectorPresenciaResult> {
+  const resp = await plotLabFetchTimeout(
+    '/api/plotai/reloj-tablet-detectar',
+    {
+      method: 'POST',
+      headers: { ...headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selfie_data_url: selfieDataUrl })
+    },
+    25_000
+  )
+  const json = await parseApiJson<
+    DetectorPresenciaResult & { success?: boolean; error?: string; skipped?: boolean }
+  >(resp)
+  if (!resp.ok || json.success === false) {
+    throw new Error(json.error || 'Detector no disponible')
+  }
+  if (json.skipped) {
+    return { ok: true, skipped: true, motivo: json.motivo }
+  }
+  return {
+    ok: Boolean(json.ok),
+    personas: json.personas,
+    motivo: json.motivo,
+    ms: json.ms
   }
 }
 

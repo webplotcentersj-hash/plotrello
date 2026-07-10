@@ -11,6 +11,7 @@
     "api/plotai/reloj-tablet-marcar.ts": { "maxDuration": 30 },
     "api/plotai/reloj-tablet-empleados.ts": { "maxDuration": 15 },
     "api/plotai/reloj-tablet-verificar.ts": { "maxDuration": 30 },
+    "api/plotai/reloj-tablet-detectar.ts": { "maxDuration": 25 },
     "api/rrhh/reloj-tablet-marcaciones.ts": { "maxDuration": 20 }
   },
   "buildCommand": "npm run build",
