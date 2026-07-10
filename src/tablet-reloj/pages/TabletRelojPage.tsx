@@ -61,17 +61,24 @@ function primerNombreDisplay(raw: string): string {
 
 function PanelExitoMarcacion({
   resultado,
-  nombre
+  nombre,
+  fotoUrl
 }: {
   resultado: MarcacionTabletResult
   nombre?: string | null
+  fotoUrl?: string | null
 }) {
   const nombreMostrar = nombre?.trim() || resultado.nombre?.trim() || ''
   const primerNombre = primerNombreDisplay(nombreMostrar)
+  const foto = fotoUrl?.trim() || null
   return (
     <div className="tablet-reloj-exito">
       <p className="tablet-reloj-exito-banner">{tituloExitoMarcacion(resultado.tipo)}</p>
-      <div className="tablet-reloj-exito-icon">✓</div>
+      {foto ? (
+        <img src={foto} alt="" className="tablet-reloj-exito-foto" />
+      ) : (
+        <div className="tablet-reloj-exito-icon">✓</div>
+      )}
       {primerNombre ? (
         <p className="tablet-reloj-exito-saludo">¡Hola, {primerNombre}!</p>
       ) : null}
@@ -79,6 +86,13 @@ function PanelExitoMarcacion({
       <p className="tablet-reloj-exito-hora">
         {horaMarcacionTabletDisplay(resultado)} · Argentina
       </p>
+      {resultado.tipo === 'entrada' && resultado.tarde ? (
+        <p className="tablet-reloj-exito-tarde">
+          Llegada tarde · {resultado.minutos_tarde || 0} min
+        </p>
+      ) : resultado.tipo === 'entrada' ? (
+        <p className="tablet-reloj-exito-puntual">A horario ✓</p>
+      ) : null}
       {resultado.tipo === 'salida' && resultado.horas_trabajadas != null ? (
         <p className="tablet-reloj-exito-detalle">{resultado.mensaje}</p>
       ) : null}
@@ -208,6 +222,9 @@ export default function TabletRelojPage() {
     )
   }, [empleados, busqueda])
 
+  const modoRef = useRef(modo)
+  modoRef.current = modo
+
   const detenerCamara = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
@@ -219,20 +236,29 @@ export default function TabletRelojPage() {
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error('Este navegador no soporta cámara')
     }
-    if (streamRef.current?.active) {
-      const video = videoRef.current ?? (await esperarElementoVideo(() => videoRef.current))
-      if (video) {
-        video.srcObject = streamRef.current
-        await video.play().catch(() => undefined)
+    const preferTrasera = modoRef.current === 'qr'
+    const pedirStream = async () => {
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: preferTrasera ? 'environment' : 'user' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        })
+      } catch {
+        return navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        })
       }
-      setCamaraLista(true)
-      setErrorCamara('')
-      return
     }
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-      audio: false
-    })
+    if (streamRef.current?.active) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+    const stream = await pedirStream()
     streamRef.current = stream
     const video = videoRef.current ?? (await esperarElementoVideo(() => videoRef.current))
     if (video) {
@@ -245,10 +271,13 @@ export default function TabletRelojPage() {
 
   const reintentarCamara = useCallback(() => {
     setErrorCamara('')
-    void iniciarCamara().catch(() => {
-      setErrorCamara('No se pudo acceder a la cámara. Revisá permisos del navegador.')
-    })
-  }, [iniciarCamara])
+    detenerCamara()
+    window.setTimeout(() => {
+      void iniciarCamara().catch(() => {
+        setErrorCamara('No se pudo acceder a la cámara. Tocá el candado en la barra del navegador y permití la cámara.')
+      })
+    }, 200)
+  }, [detenerCamara, iniciarCamara])
 
   useEffect(() => {
     let cancelled = false
@@ -545,6 +574,11 @@ export default function TabletRelojPage() {
 
   const esKiosco = modo === 'qr'
 
+  const fotoExitoActual =
+    (seleccionado && fotoEmpleadoUrl(seleccionado)) ||
+    empleados.find((e) => e.id_usuario === resultado?.id_usuario)?.foto_url ||
+    null
+
   return (
     <div
       ref={pageRef}
@@ -698,6 +732,7 @@ export default function TabletRelojPage() {
                 <PanelExitoMarcacion
                   resultado={resultado}
                   nombre={resultado.nombre || seleccionado?.nombre_completo}
+                  fotoUrl={fotoExitoActual}
                 />
               </div>
             )}
@@ -822,6 +857,7 @@ export default function TabletRelojPage() {
               <PanelExitoMarcacion
                 resultado={resultado}
                 nombre={resultado.nombre || seleccionado?.nombre_completo}
+                fotoUrl={fotoExitoActual}
               />
             )}
             {paso === 'error' && (

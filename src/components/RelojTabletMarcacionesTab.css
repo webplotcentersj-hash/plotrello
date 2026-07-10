@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  color: #0f172a;
 }
 
 .reloj-tablet-audit-head {
@@ -14,12 +15,20 @@
 
 .reloj-tablet-audit-head h3 {
   margin: 0 0 4px;
+  color: #0f172a;
 }
 
 .reloj-tablet-audit-head p {
   margin: 0;
-  color: var(--text-secondary, #64748b);
+  color: #475569;
   font-size: 0.92rem;
+}
+
+.reloj-tablet-audit-head code {
+  color: #c2410c;
+  background: #fff7ed;
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
 .reloj-tablet-audit-link {
@@ -41,12 +50,15 @@
   gap: 4px;
   font-size: 0.85rem;
   font-weight: 600;
+  color: #334155;
 }
 
 .reloj-tablet-audit-filters input[type='date'] {
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid var(--border-color, #cbd5e1);
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
 }
 
 .reloj-tablet-audit-btn {
@@ -69,25 +81,30 @@
 
 .reloj-tablet-audit-table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--border-color, #e2e8f0);
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
+  background: #ffffff;
 }
 
 .reloj-tablet-audit-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  background: #ffffff;
 }
 
 .reloj-tablet-audit-table th,
 .reloj-tablet-audit-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  border-bottom: 1px solid #e2e8f0;
   text-align: left;
+  color: #1e293b;
+  background: #ffffff;
 }
 
 .reloj-tablet-audit-table th {
-  background: var(--bg-secondary, #f8fafc);
+  background: #f1f5f9;
+  color: #334155;
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -95,7 +112,7 @@
 
 .reloj-tablet-audit-empty {
   text-align: center;
-  color: var(--text-secondary, #64748b);
+  color: #64748b;
 }
 
 .reloj-tablet-audit-detalle {
@@ -103,6 +120,31 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.reloj-tablet-audit-empleado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reloj-tablet-audit-foto {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
+}
+
+.reloj-tablet-audit-foto--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .reloj-tablet-audit-tipo {
@@ -122,4 +164,20 @@
 .reloj-tablet-audit-tipo--salida {
   background: #dcfce7;
   color: #15803d;
+}
+
+.reloj-tablet-audit-tarde {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.reloj-tablet-audit-ok {
+  color: #15803d;
+  font-weight: 600;
+  font-size: 0.85rem;
 }

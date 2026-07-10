@@ -16,6 +16,9 @@ type MarcacionRow = {
   verificacion_detalle: string | null
   dispositivo_id: string | null
   foto_url: string | null
+  legajo_foto_url?: string | null
+  tarde?: boolean
+  minutos_tarde?: number
 }
 
 export default function RelojTabletMarcacionesTab() {
@@ -90,9 +93,9 @@ export default function RelojTabletMarcacionesTab() {
               <th>Empleado</th>
               <th>Sector</th>
               <th>Tipo</th>
-              <th>Confianza</th>
-              <th>Dispositivo</th>
+              <th>Tardanza</th>
               <th>Detalle</th>
+              <th>Dispositivo</th>
             </tr>
           </thead>
           <tbody>
@@ -106,14 +109,33 @@ export default function RelojTabletMarcacionesTab() {
               rows.map((r) => (
                 <tr key={r.id}>
                   <td>{new Date(r.marcado_at).toLocaleString('es-AR')} ({r.hora_argentina})</td>
-                  <td>{r.empleado}</td>
+                  <td>
+                    <div className="reloj-tablet-audit-empleado">
+                      {r.legajo_foto_url ? (
+                        <img src={r.legajo_foto_url} alt="" className="reloj-tablet-audit-foto" />
+                      ) : (
+                        <span className="reloj-tablet-audit-foto reloj-tablet-audit-foto--empty">?</span>
+                      )}
+                      <span>{r.empleado}</span>
+                    </div>
+                  </td>
                   <td>{r.sector || '—'}</td>
                   <td>
                     <span className={`reloj-tablet-audit-tipo reloj-tablet-audit-tipo--${r.tipo}`}>{r.tipo}</span>
                   </td>
-                  <td>{r.verificacion_confianza != null ? `${r.verificacion_confianza}%` : '—'}</td>
-                  <td>{r.dispositivo_id || '—'}</td>
+                  <td>
+                    {r.tipo === 'entrada' && r.tarde ? (
+                      <span className="reloj-tablet-audit-tarde">
+                        Tarde {r.minutos_tarde ? `· ${r.minutos_tarde} min` : ''}
+                      </span>
+                    ) : r.tipo === 'entrada' ? (
+                      <span className="reloj-tablet-audit-ok">A horario</span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="reloj-tablet-audit-detalle">{r.verificacion_detalle || '—'}</td>
+                  <td>{r.dispositivo_id || '—'}</td>
                 </tr>
               ))
             )}

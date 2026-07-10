@@ -4,7 +4,8 @@
   gap: 14px;
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid var(--border-color, #e2e8f0);
+  border-top: 1px solid #e2e8f0;
+  color: #0f172a;
 }
 
 .reloj-tablet-tarjetas-head {
@@ -66,8 +67,36 @@
   justify-items: center;
 }
 
+.reloj-tablet-tarjeta-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.reloj-tablet-tarjeta-print-node {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.reloj-tablet-tarjeta-pdf-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.reloj-tablet-tarjeta-pdf-btn:hover {
+  border-color: #eb671b;
+  color: #eb671b;
+}
+
 .reloj-tablet-tarjetas-empty {
-  color: var(--text-secondary, #64748b);
+  color: #64748b;
 }
 
 @media print {
@@ -91,6 +120,7 @@
     justify-items: center;
   }
 
+  .reloj-tablet-tarjeta-pdf-btn,
   .reloj-tablet-tarjetas-actions,
   .reloj-tablet-tarjetas-search,
   .reloj-tablet-tarjetas-head p,

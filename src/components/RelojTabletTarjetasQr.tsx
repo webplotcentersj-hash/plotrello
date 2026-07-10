@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toDataURL } from 'qrcode'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
 import { getStaffAuthToken } from '../services/staffSession'
 import { buildRelojTabletQrPayload } from '../utils/relojTabletQr'
@@ -22,6 +24,59 @@ const CARD_BG =
 
 function formatIdEmpleado(id: number): string {
   return `PLT ${String(id).padStart(4, '0')}`
+}
+
+function slugNombre(emp: EmpleadoTarjeta): string {
+  return (emp.nombre_completo || emp.login || 'empleado').replace(/[^\w\s-]/g, '').replace(/\s+/g, '_')
+}
+
+function TarjetaEmpleadoItem({ emp }: { emp: TarjetaConQr }) {
+  const [descargando, setDescargando] = useState(false)
+
+  const descargarPdf = async () => {
+    const el = document.getElementById(`reloj-tarjeta-${emp.id_usuario}`)
+    if (!el) return
+    setDescargando(true)
+    try {
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#0f172a'
+      })
+      const img = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [54, 86] })
+      pdf.addImage(img, 'PNG', 0, 0, 86, 54)
+      pdf.save(`tarjeta-reloj_${slugNombre(emp)}.pdf`)
+    } finally {
+      setDescargando(false)
+    }
+  }
+
+  return (
+    <div className="reloj-tablet-tarjeta-item">
+      <div id={`reloj-tarjeta-${emp.id_usuario}`} className="reloj-tablet-tarjeta-print-node">
+        <VerificationCard
+          animate={false}
+          backgroundImage={CARD_BG}
+          label="TARJETA EMPLEADO"
+          idNumber={formatIdEmpleado(emp.id_usuario)}
+          name={(emp.nombre_completo || emp.login).toUpperCase()}
+          validThru={(emp.sector || 'PLOT LAB').toUpperCase()}
+          qrSrc={emp.qrSrc}
+          hint="Escaneá en la tablet para marcar"
+        />
+      </div>
+      <button
+        type="button"
+        className="reloj-tablet-tarjeta-pdf-btn"
+        onClick={() => void descargarPdf()}
+        disabled={descargando}
+      >
+        {descargando ? 'Generando PDF…' : 'Descargar PDF'}
+      </button>
+    </div>
+  )
 }
 
 export default function RelojTabletTarjetasQr() {
@@ -85,8 +140,8 @@ export default function RelojTabletTarjetasQr() {
         <div>
           <h3>Tarjetas QR para marcación</h3>
           <p>
-            Imprimí una tarjeta por empleado. En la tablet (<code>/tablet-reloj</code>) escanean el código para
-            marcar entrada o salida en segundos.
+            Imprimí o descargá en PDF una tarjeta por empleado. En la tablet (<code>/tablet-reloj</code>) escanean el
+            código para marcar entrada o salida.
           </p>
         </div>
         <div className="reloj-tablet-tarjetas-actions">
@@ -99,7 +154,7 @@ export default function RelojTabletTarjetasQr() {
             onClick={() => window.print()}
             disabled={loading || filtrados.length === 0}
           >
-            Imprimir tarjetas
+            Imprimir todas
           </button>
         </div>
       </div>
@@ -116,17 +171,7 @@ export default function RelojTabletTarjetasQr() {
 
       <div className="reloj-tablet-tarjetas-grid" id="reloj-tablet-tarjetas-print">
         {filtrados.map((emp) => (
-          <VerificationCard
-            key={emp.id_usuario}
-            animate={false}
-            backgroundImage={CARD_BG}
-            label="TARJETA EMPLEADO"
-            idNumber={formatIdEmpleado(emp.id_usuario)}
-            name={(emp.nombre_completo || emp.login).toUpperCase()}
-            validThru={(emp.sector || 'PLOT LAB').toUpperCase()}
-            qrSrc={emp.qrSrc}
-            hint="Escaneá en la tablet para marcar"
-          />
+          <TarjetaEmpleadoItem key={emp.id_usuario} emp={emp} />
         ))}
       </div>
 

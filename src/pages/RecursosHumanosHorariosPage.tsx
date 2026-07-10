@@ -866,14 +866,15 @@ const RelojImportTab = ({
   // como referencia hasta que se vuelva a cambiar. Actualiza el estado local
   // de forma optimista para recalcular en vivo.
   const guardarHorarioFijo = async (plotLabId: number, entrada: string, salida: string) => {
-    if (!plotLabId || !entrada || !salida) return
+    if (!plotLabId || !entrada) return
     const previo = horariosFijos[plotLabId]
+    const salidaFinal = salida || previo?.salida || '18:00'
     const horas = previo?.horas ?? null
     const trabajaSabado = previo?.trabajaSabado ?? true
-    setHorariosFijos((prev) => ({ ...prev, [plotLabId]: { entrada, salida, horas, trabajaSabado } }))
+    setHorariosFijos((prev) => ({ ...prev, [plotLabId]: { entrada, salida: salidaFinal, horas, trabajaSabado } }))
     setGuardandoFijo(plotLabId)
     try {
-      const r = await apiService.upsertHorarioFijo(plotLabId, entrada, salida, horas, mesActivo, trabajaSabado)
+      const r = await apiService.upsertHorarioFijo(plotLabId, entrada, salidaFinal, horas, mesActivo, trabajaSabado)
       if (!r.success) {
         // Revertir si falló.
         setHorariosFijos((prev) => {
@@ -1643,7 +1644,7 @@ const HorarioFijoEditor = ({
   }, [valor?.entrada, valor?.salida])
 
   const sucio = entrada !== (valor?.entrada || '') || salida !== (valor?.salida || '')
-  const valido = !!entrada && !!salida
+  const valido = !!entrada
 
   if (!plotLabId) {
     return <span className="reloj-fijo-novinc">Vinculá primero</span>
@@ -1655,25 +1656,26 @@ const HorarioFijoEditor = ({
         type="time"
         className="reloj-fijo-input"
         value={entrada}
-        title="Entrada esperada"
+        title="Hora de entrada esperada (define tardanzas)"
         onChange={(e) => setEntrada(e.target.value)}
       />
       <span className="reloj-fijo-sep">–</span>
       <input
         type="time"
-        className="reloj-fijo-input"
+        className="reloj-fijo-input reloj-fijo-input--opcional"
         value={salida}
-        title="Salida esperada"
+        title="Salida esperada (opcional)"
+        placeholder="18:00"
         onChange={(e) => setSalida(e.target.value)}
       />
       <button
         type="button"
         className="reloj-fijo-save"
         disabled={!valido || !sucio || guardando}
-        title={valor ? 'Actualizar horario fijo' : 'Guardar horario fijo'}
+        title="Guardar horario de entrada"
         onClick={() => valido && onGuardar(plotLabId, entrada, salida)}
       >
-        {guardando ? '…' : sucio ? '💾' : '✓'}
+        {guardando ? '…' : sucio ? 'Guardar' : '✓'}
       </button>
     </div>
   )
