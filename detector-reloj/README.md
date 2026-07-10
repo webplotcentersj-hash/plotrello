@@ -1,12 +1,17 @@
 # Detector reloj tablet (Paso 1)
 
-Servicio Python en la VPS Hostinger: **YOLO + supervision** para validar que hay **una persona** frente a la cámara antes de llamar a Gemini.
+Servicio Python en la VPS Hostinger, **adaptado al kiosco de marcación**:
+
+- **MediaPipe** → detecta **rostros** en la selfie (caso real de la tablet)
+- **supervision** → valida zona y tamaño del encuadre
+- **YOLO** → solo respaldo si no hay rostro visible
 
 ## Qué hace
 
-- `GET /health` — estado del servicio
-- `POST /detectar` — recibe JPEG, responde `{ ok: true/false, personas, motivo, ms }`
-- Header obligatorio: `X-Detector-Key: <DETECTOR_API_KEY>`
+- `GET /health` — estado (`modo: reloj_tablet`, `metodo: rostro_mediapipe+supervision`)
+- `POST /detectar` — recibe el mismo JPEG que va a Gemini
+- Header: `X-Detector-Key: <DETECTOR_API_KEY>`
+- Respuesta: `{ ok, rostros, metodo, motivo, sugerencia, ms }`
 
 ## Deploy en Hostinger (paso a paso)
 

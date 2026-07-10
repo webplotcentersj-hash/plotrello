@@ -9,14 +9,17 @@ type Body = { selfie_data_url?: string }
 
 type DetectorResult = {
   ok?: boolean
+  rostros?: number
   personas?: number
+  metodo?: string
   motivo?: string
+  sugerencia?: string
   ms?: number
   area?: number
   confianza?: number
 }
 
-/** Proxy hacia detector YOLO en VPS Hostinger. */
+/** Proxy hacia detector de rostro (tablet) en VPS Hostinger. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (beginPlotAiRequest(req, res, 'POST, OPTIONS')) return
 
@@ -60,7 +63,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const resp = await fetch(detectorUrl, {
       method: 'POST',
-      headers: { 'X-Detector-Key': detectorKey },
+      headers: {
+        'X-Detector-Key': detectorKey,
+        'X-Reloj-Modo': 'reloj_tablet'
+      },
       body: form,
       signal: AbortSignal.timeout(20_000)
     })
@@ -88,8 +94,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({
       success: true,
       ok: Boolean(json.ok),
-      personas: json.personas ?? 0,
-      motivo: json.motivo || (json.ok ? 'Persona detectada' : 'Sin persona válida'),
+      rostros: json.rostros ?? 0,
+      personas: json.personas ?? json.rostros ?? 0,
+      metodo: json.metodo,
+      motivo: json.motivo || (json.ok ? 'Rostro detectado' : 'Sin rostro válido'),
+      sugerencia: json.sugerencia,
       ms: json.ms,
       area: json.area,
       confianza: json.confianza

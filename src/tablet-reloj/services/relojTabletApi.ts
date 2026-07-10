@@ -44,8 +44,11 @@ export type VerificacionTabletResult = {
 export type DetectorPresenciaResult = {
   ok: boolean
   skipped?: boolean
+  rostros?: number
   personas?: number
+  metodo?: string
   motivo?: string
+  sugerencia?: string
   ms?: number
 }
 
@@ -135,7 +138,7 @@ export async function detectarPresenciaRelojTablet(selfieDataUrl: string): Promi
       25_000
     )
     const json = await parseApiJson<
-      DetectorPresenciaResult & { success?: boolean; error?: string; skipped?: boolean }
+      DetectorPresenciaResult & { success?: boolean; error?: string; skipped?: boolean; sugerencia?: string }
     >(resp)
     if (!resp.ok || json.success === false) {
       console.warn('Detector no disponible, se omite filtro YOLO:', json.error)
@@ -146,8 +149,11 @@ export async function detectarPresenciaRelojTablet(selfieDataUrl: string): Promi
     }
     return {
       ok: Boolean(json.ok),
+      rostros: json.rostros,
       personas: json.personas,
+      metodo: json.metodo,
       motivo: json.motivo,
+      sugerencia: json.sugerencia,
       ms: json.ms
     }
   } catch (e) {

@@ -369,10 +369,11 @@ export default function TabletRelojPage() {
     }
     setPaso('procesando')
     try {
-      setProcesoHint('Verificando que hay una persona…')
+      setProcesoHint('Mirá a la cámara — verificando rostro…')
       const presencia = await detectarPresenciaRelojTablet(selfie)
       if (!presencia.skipped && !presencia.ok) {
-        throw new Error(presencia.motivo || 'Parate frente a la cámara, solo una persona')
+        const hint = presencia.sugerencia ? ` ${presencia.sugerencia}` : ''
+        throw new Error((presencia.motivo || 'Parate frente a la cámara') + hint)
       }
       setProcesoHint('Identificando con IA…')
       const res = await marcarAutoRelojTablet(selfie)
@@ -535,7 +536,7 @@ export default function TabletRelojPage() {
                   : enCooldown
                     ? 'Esperá unos segundos antes de marcar de nuevo'
                     : camaraLista
-                      ? 'Acercate al reloj — el sensor te detecta solo'
+                      ? 'Mirá de frente a la cámara — marcamos cuando detectamos tu rostro'
                       : 'Activando cámara…'
 
   const puedeMarcarAuto =
