@@ -1,0 +1,102 @@
+.reloj-tablet-tarjetas {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.reloj-tablet-tarjetas-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.reloj-tablet-tarjetas-head h3 {
+  margin: 0 0 4px;
+}
+
+.reloj-tablet-tarjetas-head p {
+  margin: 0;
+  color: var(--text-secondary, #64748b);
+  font-size: 0.92rem;
+  max-width: 640px;
+}
+
+.reloj-tablet-tarjetas-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reloj-tablet-tarjetas-btn {
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reloj-tablet-tarjetas-btn--primary {
+  background: #eb671b;
+  border-color: #eb671b;
+  color: #fff;
+}
+
+.reloj-tablet-tarjetas-search {
+  max-width: 360px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #cbd5e1);
+}
+
+.reloj-tablet-tarjetas-error {
+  margin: 0;
+  color: #b91c1c;
+}
+
+.reloj-tablet-tarjetas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  justify-items: center;
+}
+
+.reloj-tablet-tarjetas-empty {
+  color: var(--text-secondary, #64748b);
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #reloj-tablet-tarjetas-print,
+  #reloj-tablet-tarjetas-print * {
+    visibility: visible;
+  }
+
+  #reloj-tablet-tarjetas-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    justify-items: center;
+  }
+
+  .reloj-tablet-tarjetas-actions,
+  .reloj-tablet-tarjetas-search,
+  .reloj-tablet-tarjetas-head p,
+  .reloj-tablet-audit-head,
+  .reloj-tablet-audit-filters,
+  .reloj-tablet-audit-table-wrap {
+    display: none !important;
+  }
+}

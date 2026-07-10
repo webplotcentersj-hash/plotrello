@@ -10,16 +10,15 @@ import {
   fotoEmpleadoUrl,
   getRelojTabletApiKey,
   inicialesEmpleado,
-  marcarAutoRelojTablet,
   marcarRelojTablet,
-  detectarPresenciaRelojTablet,
   precalentarLegajosRelojTablet,
   setRelojTabletApiKey,
   verificarSelfieRelojTablet,
   type EmpleadoRelojTablet,
   type MarcacionTabletResult
 } from '../services/relojTabletApi'
-import { useFacePresence } from '../hooks/useFacePresence'
+import { useQrScanner } from '../hooks/useQrScanner'
+import { parseRelojTabletQrPayload } from '../../utils/relojTabletQr'
 import {
   estadoMarcacionHoy,
   getDispositivoId,
@@ -35,7 +34,7 @@ import {
 } from '../utils/tabletRelojKiosk'
 import './TabletRelojPage.css'
 
-type Modo = 'auto' | 'manual'
+type Modo = 'qr' | 'manual'
 type Paso = 'esperando' | 'camara' | 'procesando' | 'exito' | 'error'
 
 const COOLDOWN_MS = 2500
@@ -113,7 +112,7 @@ export default function TabletRelojPage() {
   const [error, setError] = useState('')
   const [errorCamara, setErrorCamara] = useState('')
   const [busqueda, setBusqueda] = useState('')
-  const [modo, setModo] = useState<Modo>('auto')
+  const [modo, setModo] = useState<Modo>('qr')
   const [paso, setPaso] = useState<Paso>('esperando')
   const [seleccionado, setSeleccionado] = useState<EmpleadoRelojTablet | null>(null)
   const [resultado, setResultado] = useState<MarcacionTabletResult | null>(null)
@@ -273,7 +272,7 @@ export default function TabletRelojPage() {
   const videoTarget = useMemo(() => {
     if (paso === 'camara' && modalAnchor) return modalAnchor
     if (modo === 'manual' && paso === 'procesando' && modalAnchor) return modalAnchor
-    if (modo === 'auto' && kioscoAnchor && paso !== 'camara') return kioscoAnchor
+    if (modo === 'qr' && kioscoAnchor && paso !== 'camara') return kioscoAnchor
     return standbyRef.current
   }, [modo, paso, kioscoAnchor, modalAnchor])
 
@@ -328,12 +327,13 @@ export default function TabletRelojPage() {
     async (
       selfie: string,
       emp: EmpleadoRelojTablet,
-      opts?: { confianza?: number; detalle?: string; omitirVerificacion?: boolean }
+      opts?: { confianza?: number; detalle?: string; omitirVerificacion?: boolean; omitirFoto?: boolean }
     ) => {
       setPaso('procesando')
       try {
         let confianza = opts?.confianza
         let detalle = opts?.detalle
+        const sinFoto = !selfie || opts?.omitirFoto
 
         if (!opts?.omitirVerificacion) {
           const ver = await verificarSelfieRelojTablet(emp.id_usuario, selfie)
@@ -346,10 +346,11 @@ export default function TabletRelojPage() {
 
         const data = await marcarRelojTablet({
           idUsuario: emp.id_usuario,
-          selfieDataUrl: selfie,
+          selfieDataUrl: sinFoto ? undefined : selfie,
           confianza,
           detalle,
-          marcadoAt: getMarcacionTimestamptzIso()
+          marcadoAt: getMarcacionTimestamptzIso(),
+          omitirFoto: sinFoto
         })
         setResultado(data)
         setPaso('exito')
@@ -370,78 +371,54 @@ export default function TabletRelojPage() {
     [iniciarCooldown, volverEspera]
   )
 
-  const ejecutarFlujoAuto = useCallback(async () => {
-    const selfie = await capturarSelfie()
-    if (!selfie) {
-      setPaso('error')
-      setMensajeError('No se pudo capturar la foto. Mantenete frente a la cámara.')
-      procesandoRef.current = false
-      setOcupado(false)
-      window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
-      return
-    }
-    if (loading || empleados.length === 0) {
-      setPaso('error')
-      setMensajeError('Todavía se cargan los empleados. Esperá un segundo e intentá de nuevo.')
-      procesandoRef.current = false
-      setOcupado(false)
-      window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
-      return
-    }
-    setPaso('procesando')
-    try {
-      setProcesoHint('Mirá a la cámara — verificando rostro…')
-      const presencia = await detectarPresenciaRelojTablet(selfie)
-      if (!presencia.skipped && !presencia.ok) {
-        const hint = presencia.sugerencia ? ` ${presencia.sugerencia}` : ''
-        throw new Error((presencia.motivo || 'Parate frente a la cámara') + hint)
+  const marcarPorQr = useCallback(
+    async (idUsuario: number) => {
+      if (procesandoRef.current || enCooldownRef.current) return
+      const emp = empleados.find((e) => e.id_usuario === idUsuario)
+      if (!emp) {
+        setPaso('error')
+        setMensajeError('Tarjeta QR no válida. Pedí a RRHH una tarjeta actualizada.')
+        playMarcacionSound('error')
+        window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
+        return
       }
-      setProcesoHint('Identificando con IA…')
-      const res = await marcarAutoRelojTablet(selfie)
-      if (!res.match || !res.data) throw new Error(res.mensaje || 'No se reconoció ningún empleado')
-      const nombreMarcado = res.data.nombre || res.nombre || 'Empleado'
-      setSeleccionado(
-        empleados.find((e) => e.id_usuario === res.data!.id_usuario) || {
-          id_usuario: res.data.id_usuario,
-          nombre: '',
-          apellido: '',
-          sector: '',
-          foto_url: null,
-          login: '',
-          nombre_completo: nombreMarcado
-        }
-      )
-      const dataMarcacion = { ...res.data, nombre: nombreMarcado }
-      setResultado(dataMarcacion)
-      setPaso('exito')
-      playMarcacionSound('ok')
-      speakMarcacionExito(nombreMarcado, dataMarcacion.tipo)
-      iniciarCooldown()
-      window.setTimeout(() => volverEspera(), EXITO_MS)
-    } catch (e) {
-      setPaso('error')
-      setMensajeError(e instanceof Error ? e.message : 'No se pudo identificar')
-      playMarcacionSound('error')
-      window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
-    } finally {
-      setProcesoHint('')
-      procesandoRef.current = false
-      setOcupado(false)
-    }
-  }, [capturarSelfie, empleados, loading, iniciarCooldown, volverEspera])
+      procesandoRef.current = true
+      setOcupado(true)
+      setSeleccionado(emp)
+      setPaso('procesando')
+      setProcesoHint('Registrando marcación…')
+      try {
+        await procesarMarcacion('', emp, {
+          detalle: 'Marcación QR',
+          omitirVerificacion: true,
+          omitirFoto: true
+        })
+      } catch (e) {
+        setPaso('error')
+        setMensajeError(e instanceof Error ? e.message : 'Error al marcar')
+        playMarcacionSound('error')
+        procesandoRef.current = false
+        setOcupado(false)
+        window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
+      } finally {
+        setProcesoHint('')
+      }
+    },
+    [empleados, procesarMarcacion, volverEspera]
+  )
 
-  const dispararMarcacion = useCallback(() => {
-    if (modo !== 'auto') return
-    if (pasoRef.current !== 'esperando' || enCooldownRef.current || procesandoRef.current) return
-    procesandoRef.current = true
-    setOcupado(true)
-    setPaso('procesando')
-    void ejecutarFlujoAuto()
-  }, [modo, ejecutarFlujoAuto])
+  const onQrDetect = useCallback(
+    (payload: string) => {
+      const id = parseRelojTabletQrPayload(payload)
+      if (!id) return
+      void marcarPorQr(id)
+    },
+    [marcarPorQr]
+  )
 
-  const { sensorActivo } = useFacePresence(
+  useQrScanner(
     videoRef,
-    modo === 'auto' &&
+    modo === 'qr' &&
       paso === 'esperando' &&
       camaraLista &&
       !enCooldown &&
@@ -449,7 +426,7 @@ export default function TabletRelojPage() {
       !errorCamara &&
       !loading &&
       empleados.length > 0,
-    dispararMarcacion
+    onQrDetect
   )
 
   const elegirEmpleadoManual = async (emp: EmpleadoRelojTablet) => {
@@ -472,12 +449,13 @@ export default function TabletRelojPage() {
     if (!seleccionado || procesandoRef.current) return
     procesandoRef.current = true
     setOcupado(true)
+    setPaso('procesando')
+    setProcesoHint('Registrando marcación…')
     try {
       const selfie = await capturarSelfie()
-      if (!selfie) throw new Error('No se pudo capturar la foto. Mirá a la cámara e intentá de nuevo.')
-      setPaso('procesando')
-      await procesarMarcacion(selfie, seleccionado, {
-        detalle: 'Marcación manual'
+      await procesarMarcacion(selfie || '', seleccionado, {
+        detalle: 'Marcación manual',
+        omitirVerificacion: true
       })
     } catch (e) {
       setPaso('error')
@@ -485,6 +463,8 @@ export default function TabletRelojPage() {
       procesandoRef.current = false
       setOcupado(false)
       window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
+    } finally {
+      setProcesoHint('')
     }
   }
 
@@ -497,7 +477,7 @@ export default function TabletRelojPage() {
     if (nuevo === modo) return
     volverEspera()
     setModo(nuevo)
-    if (nuevo === 'auto') setBusqueda('')
+    if (nuevo === 'qr') setBusqueda('')
   }
 
   const solicitarModoManual = () => {
@@ -560,23 +540,15 @@ export default function TabletRelojPage() {
                   : enCooldown
                     ? 'Esperá unos segundos antes de marcar de nuevo'
                     : camaraLista
-                      ? 'Mirá de frente a la cámara — marcamos cuando detectamos tu rostro'
+                      ? 'Acercá tu tarjeta QR a la cámara'
                       : 'Activando cámara…'
 
-  const puedeMarcarAuto =
-    modo === 'auto' &&
-    paso === 'esperando' &&
-    !enCooldown &&
-    !ocupado &&
-    camaraLista &&
-    !errorCamara &&
-    !loading &&
-    empleados.length > 0
+  const esKiosco = modo === 'qr'
 
   return (
     <div
       ref={pageRef}
-      className={`tablet-reloj-page ${modo === 'auto' ? 'tablet-reloj-page--kiosco' : ''}`}
+      className={`tablet-reloj-page ${esKiosco ? 'tablet-reloj-page--kiosco' : ''}`}
     >
       <header className="tablet-reloj-header">
         <div className="tablet-reloj-header-brand">
@@ -587,8 +559,8 @@ export default function TabletRelojPage() {
         </div>
         <div className="tablet-reloj-header-actions">
           {modo === 'manual' ? (
-            <button type="button" className="tablet-reloj-btn-ghost" onClick={() => cambiarModo('auto')}>
-              Automático
+            <button type="button" className="tablet-reloj-btn-ghost" onClick={() => cambiarModo('qr')}>
+              Escanear QR
             </button>
           ) : (
             <button type="button" className="tablet-reloj-btn-ghost" onClick={solicitarModoManual}>
@@ -645,7 +617,7 @@ export default function TabletRelojPage() {
                 lockKiosk()
                 setKioskUnlocked(false)
                 setMostrarConfig(false)
-                if (modo === 'manual') cambiarModo('auto')
+                if (modo === 'manual') cambiarModo('qr')
               }}
             >
               Bloquear kiosco
@@ -666,7 +638,7 @@ export default function TabletRelojPage() {
         </div>
       ) : null}
 
-      {error && modo === 'auto' ? (
+      {error && esKiosco ? (
         <div className="tablet-reloj-error-banner">
           <p>{error}</p>
           <p className="tablet-reloj-error-hint">Revisá en ⚙ que la clave tablet coincida con Vercel (RELOJ_TABLET_API_KEY).</p>
@@ -674,7 +646,7 @@ export default function TabletRelojPage() {
             Reintentar
           </button>
         </div>
-      ) : modo === 'auto' ? (
+      ) : esKiosco ? (
         <div className="tablet-reloj-kiosco">
           {loading ? (
             <div className="tablet-reloj-loading-badge">
@@ -682,30 +654,30 @@ export default function TabletRelojPage() {
               <span>Cargando empleados…</span>
             </div>
           ) : null}
-          <div className={`tablet-reloj-kiosco-video-wrap${sensorActivo ? ' tablet-reloj-kiosco-video-wrap--live' : ''}${paso === 'procesando' ? ' tablet-reloj-kiosco-video-wrap--busy' : ''}`}>
+          <div className={`tablet-reloj-kiosco-video-wrap${paso === 'procesando' ? ' tablet-reloj-kiosco-video-wrap--busy' : camaraLista && paso === 'esperando' ? ' tablet-reloj-kiosco-video-wrap--live' : ''}`}>
             <div ref={setKioscoAnchor} className="tablet-reloj-video-anchor" />
             <div className="tablet-reloj-camera-vignette" aria-hidden />
             <div className="tablet-reloj-camera-frame" aria-hidden>
               <div className="tablet-reloj-face-guide">
-                <div className="tablet-reloj-face-oval" />
-                <p className="tablet-reloj-face-guide-label">Encuadrá tu rostro</p>
+                <div className="tablet-reloj-qr-frame" />
+                <p className="tablet-reloj-face-guide-label">Escaneá tu tarjeta QR</p>
               </div>
               <span className="tablet-reloj-corner tablet-reloj-corner--tl" />
               <span className="tablet-reloj-corner tablet-reloj-corner--tr" />
               <span className="tablet-reloj-corner tablet-reloj-corner--bl" />
               <span className="tablet-reloj-corner tablet-reloj-corner--br" />
-              {sensorActivo && paso === 'esperando' ? <div className="tablet-reloj-scan-line" /> : null}
+              {camaraLista && paso === 'esperando' ? <div className="tablet-reloj-scan-line" /> : null}
             </div>
             <div className="tablet-reloj-kiosco-overlay">
               <div className="tablet-reloj-kiosco-top">
                 <div
-                  className={`tablet-reloj-sensor ${sensorActivo ? 'tablet-reloj-sensor--activo' : ''} ${paso !== 'esperando' ? 'tablet-reloj-sensor--busy' : ''}`}
+                  className={`tablet-reloj-sensor ${camaraLista && paso === 'esperando' ? 'tablet-reloj-sensor--activo' : ''} ${paso !== 'esperando' ? 'tablet-reloj-sensor--busy' : ''}`}
                 >
                   <span className="tablet-reloj-sensor-dot" />
                   {paso === 'esperando'
-                    ? sensorActivo
-                      ? 'Rostro detectado'
-                      : 'Esperando rostro'
+                    ? camaraLista
+                      ? 'Listo para escanear'
+                      : 'Activando cámara'
                     : 'Procesando'}
                 </div>
               </div>
@@ -717,11 +689,6 @@ export default function TabletRelojPage() {
                 {errorCamara && paso === 'esperando' && (
                   <button type="button" className="tablet-reloj-btn-marcar" onClick={reintentarCamara}>
                     Activar cámara
-                  </button>
-                )}
-                {puedeMarcarAuto && (
-                  <button type="button" className="tablet-reloj-btn-marcar" onClick={dispararMarcacion}>
-                    Marcar ahora
                   </button>
                 )}
               </div>

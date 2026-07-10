@@ -251,6 +251,7 @@ export async function marcarRelojTablet(opts: {
   detalle?: string
   dispositivoId?: string
   marcadoAt?: string
+  omitirFoto?: boolean
 }): Promise<MarcacionTabletResult> {
   const resp = await plotLabFetchTimeout(
     '/api/plotai/reloj-tablet-marcar',
@@ -263,7 +264,8 @@ export async function marcarRelojTablet(opts: {
         confianza: opts.confianza,
         detalle: opts.detalle,
         dispositivo_id: opts.dispositivoId || getDispositivoId(),
-        marcado_at: opts.marcadoAt ?? getMarcacionTimestamptzIso()
+        marcado_at: opts.marcadoAt ?? getMarcacionTimestamptzIso(),
+        omitir_foto: opts.omitirFoto === true
       })
     },
     35_000

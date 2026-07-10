@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
 import { getStaffAuthToken } from '../services/staffSession'
+import RelojTabletTarjetasQr from './RelojTabletTarjetasQr'
 import './RelojTabletMarcacionesTab.css'
 
 type MarcacionRow = {
@@ -58,7 +59,7 @@ export default function RelojTabletMarcacionesTab() {
       <div className="reloj-tablet-audit-head">
         <div>
           <h3>Marcaciones tablet (auditoría)</h3>
-          <p>Registro facial del reloj en <code>/tablet-reloj</code>. También alimenta la pestaña Asistencia.</p>
+          <p>Marcaciones por QR o manual en <code>/tablet-reloj</code>. También alimenta la pestaña Asistencia.</p>
         </div>
         <a className="reloj-tablet-audit-link" href="/tablet-reloj" target="_blank" rel="noreferrer">
           Abrir tablet →
@@ -119,6 +120,8 @@ export default function RelojTabletMarcacionesTab() {
           </tbody>
         </table>
       </div>
+
+      <RelojTabletTarjetasQr />
     </div>
   )
 }
