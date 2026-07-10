@@ -87,6 +87,48 @@ export function playMarcacionSound(kind: 'ok' | 'error') {
   }
 }
 
+function nombreParaVoz(raw: string): string {
+  const t = raw.trim()
+  if (!t) return 'empleado'
+  if (t.includes(',')) {
+    const parts = t.split(',').map((s) => s.trim()).filter(Boolean)
+    if (parts.length >= 2) return parts[parts.length - 1]
+    return parts[0]
+  }
+  const words = t.split(/\s+/).filter(Boolean)
+  return words.length >= 2 ? words[words.length - 1] : words[0]
+}
+
+export function cancelMarcacionSpeech(): void {
+  try {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Dice el nombre y el tipo de marcación (entrada/salida) en voz alta. */
+export function speakMarcacionExito(nombre: string, tipo: 'entrada' | 'salida'): void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+  const n = nombreParaVoz(nombre)
+  const texto =
+    tipo === 'entrada'
+      ? `Hola, ${n}. Entrada registrada.`
+      : `Hola, ${n}. Salida registrada.`
+  try {
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(texto)
+    utterance.lang = 'es-AR'
+    utterance.rate = 0.94
+    utterance.pitch = 1
+    window.speechSynthesis.speak(utterance)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function estadoMarcacionHoy(emp: {
   entrada_hoy?: string | null
   salida_hoy?: string | null

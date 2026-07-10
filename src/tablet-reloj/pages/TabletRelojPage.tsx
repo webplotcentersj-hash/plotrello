@@ -28,6 +28,8 @@ import {
   playMarcacionSound,
   requestScreenWakeLock,
   setDispositivoId,
+  speakMarcacionExito,
+  cancelMarcacionSpeech,
   toggleFullscreen,
   unlockKiosk
 } from '../utils/tabletRelojKiosk'
@@ -37,13 +39,25 @@ type Modo = 'auto' | 'manual'
 type Paso = 'esperando' | 'camara' | 'procesando' | 'exito' | 'error'
 
 const COOLDOWN_MS = 2500
-const EXITO_MS = 3200
+const EXITO_MS = 4200
 const AUTO_RESET_ERROR_MS = 3500
 const SELFIE_MAX_WIDTH = 640
 const SELFIE_JPEG_QUALITY = 0.72
 
 function tituloExitoMarcacion(tipo: 'entrada' | 'salida'): string {
   return tipo === 'entrada' ? '¡Entrada registrada!' : '¡Salida registrada!'
+}
+
+function primerNombreDisplay(raw: string): string {
+  const t = raw.trim()
+  if (!t) return ''
+  if (t.includes(',')) {
+    const parts = t.split(',').map((s) => s.trim()).filter(Boolean)
+    if (parts.length >= 2) return parts[parts.length - 1]
+    return parts[0]
+  }
+  const words = t.split(/\s+/).filter(Boolean)
+  return words.length >= 2 ? words[words.length - 1] : words[0]
 }
 
 function PanelExitoMarcacion({
@@ -53,11 +67,16 @@ function PanelExitoMarcacion({
   resultado: MarcacionTabletResult
   nombre?: string | null
 }) {
+  const nombreMostrar = nombre?.trim() || resultado.nombre?.trim() || ''
+  const primerNombre = primerNombreDisplay(nombreMostrar)
   return (
     <div className="tablet-reloj-exito">
       <p className="tablet-reloj-exito-banner">{tituloExitoMarcacion(resultado.tipo)}</p>
       <div className="tablet-reloj-exito-icon">✓</div>
-      {nombre ? <h2 className="tablet-reloj-exito-nombre">{nombre}</h2> : null}
+      {primerNombre ? (
+        <p className="tablet-reloj-exito-saludo">¡Hola, {primerNombre}!</p>
+      ) : null}
+      {nombreMostrar ? <h2 className="tablet-reloj-exito-nombre">{nombreMostrar}</h2> : null}
       <p className="tablet-reloj-exito-hora">
         {horaMarcacionTabletDisplay(resultado)} · Argentina
       </p>
@@ -290,6 +309,7 @@ export default function TabletRelojPage() {
   }, [])
 
   const volverEspera = useCallback(() => {
+    cancelMarcacionSpeech()
     setPaso('esperando')
     setSeleccionado(null)
     setResultado(null)
@@ -334,6 +354,7 @@ export default function TabletRelojPage() {
         setResultado(data)
         setPaso('exito')
         playMarcacionSound('ok')
+        speakMarcacionExito(data.nombre || emp.nombre_completo || emp.nombre, data.tipo)
         iniciarCooldown()
         window.setTimeout(() => volverEspera(), EXITO_MS)
       } catch (e) {
@@ -378,6 +399,7 @@ export default function TabletRelojPage() {
       setProcesoHint('Identificando con IA…')
       const res = await marcarAutoRelojTablet(selfie)
       if (!res.match || !res.data) throw new Error(res.mensaje || 'No se reconoció ningún empleado')
+      const nombreMarcado = res.data.nombre || res.nombre || 'Empleado'
       setSeleccionado(
         empleados.find((e) => e.id_usuario === res.data!.id_usuario) || {
           id_usuario: res.data.id_usuario,
@@ -386,12 +408,14 @@ export default function TabletRelojPage() {
           sector: '',
           foto_url: null,
           login: '',
-          nombre_completo: res.data.nombre || res.nombre || 'Empleado'
+          nombre_completo: nombreMarcado
         }
       )
-      setResultado(res.data)
+      const dataMarcacion = { ...res.data, nombre: nombreMarcado }
+      setResultado(dataMarcacion)
       setPaso('exito')
       playMarcacionSound('ok')
+      speakMarcacionExito(nombreMarcado, dataMarcacion.tipo)
       iniciarCooldown()
       window.setTimeout(() => volverEspera(), EXITO_MS)
     } catch (e) {
@@ -658,29 +682,49 @@ export default function TabletRelojPage() {
               <span>Cargando empleados…</span>
             </div>
           ) : null}
-          <div className="tablet-reloj-kiosco-video-wrap">
+          <div className={`tablet-reloj-kiosco-video-wrap${sensorActivo ? ' tablet-reloj-kiosco-video-wrap--live' : ''}${paso === 'procesando' ? ' tablet-reloj-kiosco-video-wrap--busy' : ''}`}>
             <div ref={setKioscoAnchor} className="tablet-reloj-video-anchor" />
-            <div className="tablet-reloj-kiosco-overlay">
-              <div
-                className={`tablet-reloj-sensor ${sensorActivo ? 'tablet-reloj-sensor--activo' : ''} ${paso !== 'esperando' ? 'tablet-reloj-sensor--busy' : ''}`}
-              >
-                <span className="tablet-reloj-sensor-dot" />
-                {paso === 'esperando' ? 'Sensor activo' : 'Procesando'}
+            <div className="tablet-reloj-camera-vignette" aria-hidden />
+            <div className="tablet-reloj-camera-frame" aria-hidden>
+              <div className="tablet-reloj-face-guide">
+                <div className="tablet-reloj-face-oval" />
+                <p className="tablet-reloj-face-guide-label">Encuadrá tu rostro</p>
               </div>
-              <p className="tablet-reloj-kiosco-hint">{estadoTexto}</p>
-              {(paso === 'procesando') && (
-                <div className="tablet-reloj-spinner tablet-reloj-spinner--lg" />
-              )}
-              {errorCamara && paso === 'esperando' && (
-                <button type="button" className="tablet-reloj-btn-marcar" onClick={reintentarCamara}>
-                  Activar cámara
-                </button>
-              )}
-              {puedeMarcarAuto && (
-                <button type="button" className="tablet-reloj-btn-marcar" onClick={dispararMarcacion}>
-                  Marcar ahora
-                </button>
-              )}
+              <span className="tablet-reloj-corner tablet-reloj-corner--tl" />
+              <span className="tablet-reloj-corner tablet-reloj-corner--tr" />
+              <span className="tablet-reloj-corner tablet-reloj-corner--bl" />
+              <span className="tablet-reloj-corner tablet-reloj-corner--br" />
+              {sensorActivo && paso === 'esperando' ? <div className="tablet-reloj-scan-line" /> : null}
+            </div>
+            <div className="tablet-reloj-kiosco-overlay">
+              <div className="tablet-reloj-kiosco-top">
+                <div
+                  className={`tablet-reloj-sensor ${sensorActivo ? 'tablet-reloj-sensor--activo' : ''} ${paso !== 'esperando' ? 'tablet-reloj-sensor--busy' : ''}`}
+                >
+                  <span className="tablet-reloj-sensor-dot" />
+                  {paso === 'esperando'
+                    ? sensorActivo
+                      ? 'Rostro detectado'
+                      : 'Esperando rostro'
+                    : 'Procesando'}
+                </div>
+              </div>
+              <div className="tablet-reloj-kiosco-bottom">
+                <p className="tablet-reloj-kiosco-hint">{estadoTexto}</p>
+                {(paso === 'procesando') && (
+                  <div className="tablet-reloj-spinner tablet-reloj-spinner--lg" />
+                )}
+                {errorCamara && paso === 'esperando' && (
+                  <button type="button" className="tablet-reloj-btn-marcar" onClick={reintentarCamara}>
+                    Activar cámara
+                  </button>
+                )}
+                {puedeMarcarAuto && (
+                  <button type="button" className="tablet-reloj-btn-marcar" onClick={dispararMarcacion}>
+                    Marcar ahora
+                  </button>
+                )}
+              </div>
             </div>
             {paso === 'exito' && resultado && (
               <div className="tablet-reloj-exito-overlay">
@@ -773,7 +817,19 @@ export default function TabletRelojPage() {
           <div className="tablet-reloj-modal tablet-reloj-modal--camara">
             <h2>{seleccionado.nombre_completo || seleccionado.login}</h2>
             <p className="tablet-reloj-modal-hint">Mirá a la cámara y confirmá tu marcación</p>
-            <div ref={setModalAnchor} className="tablet-reloj-modal-video-hole" />
+            <div className="tablet-reloj-modal-video-hole tablet-reloj-modal-video-hole--fancy">
+              <div ref={setModalAnchor} className="tablet-reloj-modal-video-anchor" />
+              <div className="tablet-reloj-camera-vignette" aria-hidden />
+              <div className="tablet-reloj-camera-frame" aria-hidden>
+                <div className="tablet-reloj-face-guide tablet-reloj-face-guide--modal">
+                  <div className="tablet-reloj-face-oval" />
+                </div>
+                <span className="tablet-reloj-corner tablet-reloj-corner--tl" />
+                <span className="tablet-reloj-corner tablet-reloj-corner--tr" />
+                <span className="tablet-reloj-corner tablet-reloj-corner--bl" />
+                <span className="tablet-reloj-corner tablet-reloj-corner--br" />
+              </div>
+            </div>
             <div className="tablet-reloj-modal-actions">
               <button type="button" className="tablet-reloj-btn-ghost" onClick={volverEspera}>
                 Cancelar
