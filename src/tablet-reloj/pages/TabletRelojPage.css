@@ -211,6 +211,12 @@
   margin: 0 16px 12px;
 }
 
+.tablet-reloj-error-hint {
+  font-size: 0.88rem;
+  opacity: 0.9;
+  margin: 8px 0 12px;
+}
+
 .tablet-reloj-modal {
   width: min(520px, 100%);
   background: #121826;

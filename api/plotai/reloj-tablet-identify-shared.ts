@@ -18,11 +18,11 @@ const LEGAJO_CACHE = new Map<string, { mimeType: string; base64: string; at: num
 const CACHE_TTL_MS = 20 * 60 * 1000
 const BATCH_SIZE = 8
 /** Umbral mínimo para aceptar un candidato en identificación por lote */
-export const MATCH_MIN_IDENTIFY = 76
+export const MATCH_MIN_IDENTIFY = 72
 /** Umbral mínimo para verificación 1:1 (manual y auto) */
-export const MATCH_MIN_VERIFY = 80
+export const MATCH_MIN_VERIFY = 76
 /** Auto: exige verificación 1:1 además del candidato del lote */
-export const MATCH_MIN_AUTO = 82
+export const MATCH_MIN_AUTO = 78
 const EARLY_EXIT_CONF = 88
 const GEMINI_MODEL = 'gemini-2.5-flash'
 const GEMINI_TIMEOUT_MS = 22_000

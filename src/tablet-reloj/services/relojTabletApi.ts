@@ -124,29 +124,39 @@ export async function precalentarLegajosRelojTablet(): Promise<void> {
 }
 
 export async function detectarPresenciaRelojTablet(selfieDataUrl: string): Promise<DetectorPresenciaResult> {
-  const resp = await plotLabFetchTimeout(
-    '/api/plotai/reloj-tablet-detectar',
-    {
-      method: 'POST',
-      headers: { ...headers(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selfie_data_url: selfieDataUrl })
-    },
-    25_000
-  )
-  const json = await parseApiJson<
-    DetectorPresenciaResult & { success?: boolean; error?: string; skipped?: boolean }
-  >(resp)
-  if (!resp.ok || json.success === false) {
-    throw new Error(json.error || 'Detector no disponible')
-  }
-  if (json.skipped) {
-    return { ok: true, skipped: true, motivo: json.motivo }
-  }
-  return {
-    ok: Boolean(json.ok),
-    personas: json.personas,
-    motivo: json.motivo,
-    ms: json.ms
+  try {
+    const resp = await plotLabFetchTimeout(
+      '/api/plotai/reloj-tablet-detectar',
+      {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selfie_data_url: selfieDataUrl })
+      },
+      25_000
+    )
+    const json = await parseApiJson<
+      DetectorPresenciaResult & { success?: boolean; error?: string; skipped?: boolean }
+    >(resp)
+    if (!resp.ok || json.success === false) {
+      console.warn('Detector no disponible, se omite filtro YOLO:', json.error)
+      return { ok: true, skipped: true, motivo: json.error || 'Detector no disponible' }
+    }
+    if (json.skipped) {
+      return { ok: true, skipped: true, motivo: json.motivo }
+    }
+    return {
+      ok: Boolean(json.ok),
+      personas: json.personas,
+      motivo: json.motivo,
+      ms: json.ms
+    }
+  } catch (e) {
+    console.warn('Detector falló, se omite filtro YOLO:', e)
+    return {
+      ok: true,
+      skipped: true,
+      motivo: e instanceof Error ? e.message : 'Detector no disponible'
+    }
   }
 }
 

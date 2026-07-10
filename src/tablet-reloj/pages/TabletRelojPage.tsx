@@ -99,6 +99,7 @@ export default function TabletRelojPage() {
   const [seleccionado, setSeleccionado] = useState<EmpleadoRelojTablet | null>(null)
   const [resultado, setResultado] = useState<MarcacionTabletResult | null>(null)
   const [mensajeError, setMensajeError] = useState('')
+  const [procesoHint, setProcesoHint] = useState('')
   const [mostrarConfig, setMostrarConfig] = useState(false)
   const [apiKeyDraft, setApiKeyDraft] = useState(getRelojTabletApiKey())
   const [camaraLista, setCamaraLista] = useState(false)
@@ -368,10 +369,12 @@ export default function TabletRelojPage() {
     }
     setPaso('procesando')
     try {
+      setProcesoHint('Verificando que hay una persona…')
       const presencia = await detectarPresenciaRelojTablet(selfie)
       if (!presencia.skipped && !presencia.ok) {
         throw new Error(presencia.motivo || 'Parate frente a la cámara, solo una persona')
       }
+      setProcesoHint('Identificando con IA…')
       const res = await marcarAutoRelojTablet(selfie)
       if (!res.match || !res.data) throw new Error(res.mensaje || 'No se reconoció ningún empleado')
       setSeleccionado(
@@ -396,6 +399,7 @@ export default function TabletRelojPage() {
       playMarcacionSound('error')
       window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
     } finally {
+      setProcesoHint('')
       procesandoRef.current = false
       setOcupado(false)
     }
@@ -519,7 +523,7 @@ export default function TabletRelojPage() {
     paso === 'camara'
       ? 'Confirmá tu marcación'
       : paso === 'procesando'
-        ? 'Identificando…'
+        ? procesoHint || 'Identificando…'
           : paso === 'exito'
             ? 'Marcación registrada'
             : paso === 'error'
@@ -640,6 +644,7 @@ export default function TabletRelojPage() {
       {error && modo === 'auto' ? (
         <div className="tablet-reloj-error-banner">
           <p>{error}</p>
+          <p className="tablet-reloj-error-hint">Revisá en ⚙ que la clave tablet coincida con Vercel (RELOJ_TABLET_API_KEY).</p>
           <button type="button" onClick={() => void cargar()}>
             Reintentar
           </button>

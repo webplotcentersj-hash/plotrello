@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 
-const MOTION_THRESHOLD = 0.075
-const MOTION_CHECKS = 3
+const MOTION_THRESHOLD = 0.055
+const MOTION_CHECKS = 2
 const FACE_CHECKS = 2
 const MIN_FRAME_MS = 100
-const DETECT_COOLDOWN_MS = 1400
-const MIN_FACE_AREA_RATIO = 0.045
+const DETECT_COOLDOWN_MS = 1200
+const MIN_FACE_AREA_RATIO = 0.03
 
 type FaceDetectorLike = {
   detect: (source: ImageBitmapSource) => Promise<Array<{ boundingBox: DOMRectReadOnly }>>

@@ -16,8 +16,9 @@ from fastapi.responses import JSONResponse
 from ultralytics import YOLO
 
 API_KEY = os.getenv("DETECTOR_API_KEY", "").strip()
-MIN_PERSON_AREA = float(os.getenv("MIN_PERSON_AREA", "0.08"))
-MAX_PERSON_AREA = float(os.getenv("MAX_PERSON_AREA", "0.92"))
+MIN_PERSON_AREA = float(os.getenv("MIN_PERSON_AREA", "0.03"))
+MAX_PERSON_AREA = float(os.getenv("MAX_PERSON_AREA", "0.95"))
+YOLO_CONF = float(os.getenv("YOLO_CONF", "0.25"))
 MODEL_NAME = os.getenv("YOLO_MODEL", "yolov8n.pt")
 
 app = FastAPI(title="Plot Reloj Detector", version="1.0.0")
@@ -52,7 +53,7 @@ def analyze_frame(img: np.ndarray) -> dict[str, Any]:
     if h < 64 or w < 64:
         return {"ok": False, "personas": 0, "motivo": "Imagen demasiado chica"}
 
-    results = get_model()(img, classes=[0], verbose=False)[0]
+    results = get_model()(img, classes=[0], conf=YOLO_CONF, verbose=False)[0]
     detections = sv.Detections.from_ultralytics(results)
     count = len(detections)
 
@@ -66,19 +67,18 @@ def analyze_frame(img: np.ndarray) -> dict[str, Any]:
     area_ratio = float((x2 - x1) * (y2 - y1) / (w * h))
     conf = float(detections.confidence[0]) if detections.confidence is not None else 0.0
 
-    cx = float((x1 + x2) / 2)
-    cy = float((y1 + y2) / 2)
-    cx_norm = cx / w
-    cy_norm = cy / h
-
+    # Selfie de tablet: suele verse solo rostro/hombros (caja chica). Aceptar si confianza alta.
     if area_ratio < MIN_PERSON_AREA:
-        return {
-            "ok": False,
-            "personas": 1,
-            "area": round(area_ratio, 3),
-            "confianza": round(conf, 3),
-            "motivo": "Acercate más al reloj",
-        }
+        if conf >= 0.45 and area_ratio >= 0.02:
+            pass
+        else:
+            return {
+                "ok": False,
+                "personas": 1,
+                "area": round(area_ratio, 3),
+                "confianza": round(conf, 3),
+                "motivo": "Acercate más al reloj",
+            }
 
     if area_ratio > MAX_PERSON_AREA:
         return {
@@ -89,7 +89,12 @@ def analyze_frame(img: np.ndarray) -> dict[str, Any]:
             "motivo": "Alejate un poco",
         }
 
-    if cx_norm < 0.12 or cx_norm > 0.88 or cy_norm < 0.08 or cy_norm > 0.92:
+    cx = float((x1 + x2) / 2)
+    cy = float((y1 + y2) / 2)
+    cx_norm = cx / w
+    cy_norm = cy / h
+
+    if cx_norm < 0.06 or cx_norm > 0.94 or cy_norm < 0.04 or cy_norm > 0.96:
         return {
             "ok": False,
             "personas": 1,
