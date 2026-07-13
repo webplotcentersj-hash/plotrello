@@ -224,6 +224,61 @@
   margin-bottom: 40px;
 }
 
+.rrhh-section-collapsible {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.rrhh-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 20px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rrhh-section-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rrhh-section-toggle h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.rrhh-section-count {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.rrhh-section-chevron {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.rrhh-section-collapsible.is-open .rrhh-section-toggle {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-section-collapsible .rrhh-users-table,
+.rrhh-section-collapsible .rrhh-dashboard-inline-loading {
+  padding: 0 12px 16px;
+}
+
 .rrhh-roles-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

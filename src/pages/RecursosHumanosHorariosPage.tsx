@@ -32,9 +32,12 @@ import {
 import { etiquetaCodigoRrhhNovedad } from '../utils/rrhhNovedadCatalog'
 import { asistenciaHoraCorta } from '../utils/dateUtils'
 import {
-  calcularHorasExtraDia,
+  buildExtraAcumuladoPorEmpleado,
   calcularStatsAsistencia,
   diasEntre,
+  evaluarDiaAsistencia,
+  formatArs,
+  LS_VALOR_HORA_EXTRA,
   rankingPuntualidad,
   totalesStats,
   ultimoDiaMes,
@@ -65,6 +68,7 @@ import {
   type MarcacionReloj,
   type PlanillaEmpleado
 } from '../services/relojBiometricoService'
+import { detectarNovedadesDesdeAsistencia, sincronizarNovedadesDesdeAsistencia } from '../utils/rrhhAsistenciaNovedadSync'
 import RelojTabletMarcacionesTab from '../components/RelojTabletMarcacionesTab'
 import './RecursosHumanosHorariosPage.css'
 
@@ -341,6 +345,8 @@ const RecursosHumanosHorariosPage = () => {
             usuarios={usuarios}
             fechaDesde={fechaDesde}
             fechaHasta={fechaHasta}
+            registradoPorId={usuario?.id ?? null}
+            onNovedadesActualizadas={loadNovedades}
             onIrNovedades={() => navigate('/rrhh/novedades')}
           />
         )}
@@ -2088,7 +2094,9 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
   onIrAReloj: () => void
 }) => {
   // Horarios fijos (planilla editable): entrada/salida/jornada estándar por empleado.
-  const [fijos, setFijos] = useState<Record<number, { entrada: string; salida: string; horas?: number | null; trabajaSabado?: boolean }>>({})
+  const [fijos, setFijos] = useState<
+    Record<number, { entrada: string; salida: string; horas?: number | null; trabajaSabado?: boolean; vigenteDesde?: string; esDelMes?: boolean }>
+  >({})
   const [guardandoFijo, setGuardandoFijo] = useState<number | null>(null)
   const [guardandoNombre, setGuardandoNombre] = useState<number | null>(null)
   const [cargandoFijos, setCargandoFijos] = useState(true)
@@ -2130,7 +2138,10 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
   const upsertFijo = async (idUsuario: number, entrada: string, salida: string, horas: number | null, trabajaSabado: boolean) => {
     if (!idUsuario || !entrada || !salida) return
     const previo = fijos[idUsuario]
-    setFijos((prev) => ({ ...prev, [idUsuario]: { entrada, salida, horas, trabajaSabado } }))
+    setFijos((prev) => ({
+      ...prev,
+      [idUsuario]: { entrada, salida, horas, trabajaSabado, vigenteDesde: mes, esDelMes: true }
+    }))
     setGuardandoFijo(idUsuario)
     try {
       const r = await apiService.upsertHorarioFijo(idUsuario, entrada, salida, horas, mes, trabajaSabado)
@@ -2149,8 +2160,13 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
   }
 
   const eliminarFijo = async (idUsuario: number) => {
-    if (!fijos[idUsuario]) return
-    if (!confirm('¿Eliminar el horario fijo de este empleado para el mes seleccionado?')) return
+    const f = fijos[idUsuario]
+    if (!f?.entrada) return
+    if (!f.esDelMes) {
+      alert('Este horario viene de un mes anterior y sigue vigente. Para cambiarlo, editá y guardá (aplica desde este mes).')
+      return
+    }
+    if (!confirm('¿Quitar el horario guardado para este mes? Volverá a aplicarse el anterior si existía.')) return
     const previo = fijos[idUsuario]
     setFijos((prev) => {
       const next = { ...prev }
@@ -2163,6 +2179,22 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
       if (!r.success) {
         setFijos((prev) => ({ ...prev, [idUsuario]: previo }))
         alert('Error al eliminar: ' + (r.error || ''))
+      } else {
+        const rf = await apiService.obtenerHorariosFijos(mes)
+        if (rf.success && rf.data) {
+          setFijos((prev) => {
+            const next = { ...prev }
+            if (rf.data![idUsuario]) next[idUsuario] = rf.data![idUsuario]
+            else delete next[idUsuario]
+            return next
+          })
+        } else {
+          setFijos((prev) => {
+            const next = { ...prev }
+            delete next[idUsuario]
+            return next
+          })
+        }
       }
     } finally {
       setGuardandoFijo(null)
@@ -2258,9 +2290,9 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
           </div>
         </div>
         <p className="rrhh-fijos-help">
-          Misma planilla de horarios fijos que usa el importador del reloj biométrico. Entrada, salida y jornada
-          por mes son la referencia para puntualidad y horas extra. Se completan al importar la planilla
-          &quot;PERSONAL ACTUAL&quot; o desde la pestaña Reloj.
+          Los horarios fijos <strong>permanecen vigentes hasta que los cambies</strong>: no se borran solos al
+          cambiar de mes. El selector de mes muestra qué horario aplica en ese período (hereda el último guardado si
+          no hubo cambios). Editá y guardá para definir un horario nuevo a partir del mes seleccionado.
         </p>
         <div className="rrhh-fijos-tabla-wrap">
           <table className="rrhh-fijos-tabla">
@@ -2323,16 +2355,21 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
                       </button>
                     </td>
                     <td>
-                      {tieneHorario && (
+                      {tieneHorario && f?.esDelMes && (
                         <button
                           className="rrhh-fijos-del-btn"
-                          title="Eliminar horario fijo de este mes"
+                          title="Quitar horario guardado para este mes"
                           disabled={guardandoFijo === u.id}
                           onClick={() => eliminarFijo(u.id)}
                         >
                           🗑️
                         </button>
                       )}
+                      {tieneHorario && !f?.esDelMes && f?.vigenteDesde && f.vigenteDesde !== mes ? (
+                        <span className="rrhh-fijos-vigente" title={`Horario vigente desde ${f.vigenteDesde}`}>
+                          ↩ {f.vigenteDesde}
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
                 )
@@ -2355,12 +2392,88 @@ const pad2 = (n: number) => String(n).padStart(2, '0')
 
 const ASIS_DOW_CORTO = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa']
 
+const LiquidacionHorasExtraPanel = ({
+  stats,
+  valorHora,
+  onValorHoraChange,
+  periodoLabel
+}: {
+  stats: StatsEmpleadoAsistencia[]
+  valorHora: number
+  onValorHoraChange: (v: number) => void
+  periodoLabel: string
+}) => {
+  const conExtra = useMemo(
+    () => [...stats].filter((s) => s.totalHorasExtra > 0).sort((a, b) => b.costoExtra - a.costoExtra || b.totalHorasExtra - a.totalHorasExtra),
+    [stats]
+  )
+  const totales = useMemo(() => totalesStats(stats), [stats])
+  if (!conExtra.length) return null
+
+  return (
+    <div className="rrhh-extra-liquidacion">
+      <div className="rrhh-extra-liquidacion-head">
+        <div>
+          <h3>💰 Liquidación horas extra — {periodoLabel}</h3>
+          <p>Acumulado del período. HE 50% = hora × 1,5 · HE 100% (domingos) = hora × 2.</p>
+        </div>
+        <label className="rrhh-extra-valor-hora">
+          Valor hora normal ($)
+          <input
+            type="number"
+            min={0}
+            step={500}
+            value={valorHora || ''}
+            placeholder="Ej. 8000"
+            onChange={(e) => onValorHoraChange(Math.max(0, Number(e.target.value) || 0))}
+          />
+        </label>
+      </div>
+      <table className="rrhh-extra-liquidacion-tabla">
+        <thead>
+          <tr>
+            <th>Empleado</th>
+            <th>HE 50%</th>
+            <th>HE 100%</th>
+            <th>Total hs extra</th>
+            <th>Costo estimado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {conExtra.map((s) => (
+            <tr key={s.id}>
+              <td className="rrhh-extra-emp">{s.nombre}</td>
+              <td>{s.extra50 > 0 ? `${s.extra50.toFixed(1)} hs` : '—'}</td>
+              <td>{s.extra100 > 0 ? `${s.extra100.toFixed(1)} hs` : '—'}</td>
+              <td className="leyenda-extra">{formatHoras(s.totalHorasExtra)}</td>
+              <td className="rrhh-extra-costo">{valorHora > 0 ? formatArs(s.costoExtra) : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td><strong>Total</strong></td>
+            <td><strong>{totales.totalExtra50.toFixed(1)} hs</strong></td>
+            <td><strong>{totales.totalExtra100.toFixed(1)} hs</strong></td>
+            <td className="leyenda-extra"><strong>{formatHoras(totales.totalHorasExtra)}</strong></td>
+            <td className="rrhh-extra-costo">
+              <strong>{valorHora > 0 ? formatArs(totales.costoExtraTotal) : '—'}</strong>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  )
+}
+
 const AsistenciaTab = ({
   asistencia,
   novedades,
   usuarios,
   fechaDesde,
   fechaHasta,
+  registradoPorId,
+  onNovedadesActualizadas,
   onIrNovedades
 }: {
   asistencia: Asistencia[]
@@ -2368,12 +2481,32 @@ const AsistenciaTab = ({
   usuarios: UsuarioRecord[]
   fechaDesde: string
   fechaHasta: string
+  registradoPorId: number | null
+  onNovedadesActualizadas: () => void
   onIrNovedades: () => void
 }) => {
   const [novedadDetalle, setNovedadDetalle] = useState<RrhhNovedad | null>(null)
   const [asistenciaDetalle, setAsistenciaDetalle] = useState<Asistencia | null>(null)
   const [asistenciaDetalleExtra, setAsistenciaDetalleExtra] = useState<number | null>(null)
+  const [asistenciaDetalleAcum, setAsistenciaDetalleAcum] = useState<number | null>(null)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
+  const [valorHora, setValorHora] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem(LS_VALOR_HORA_EXTRA)
+      return v ? Math.max(0, Number(v)) : 0
+    } catch {
+      return 0
+    }
+  })
+
+  const guardarValorHora = (v: number) => {
+    setValorHora(v)
+    try {
+      localStorage.setItem(LS_VALOR_HORA_EXTRA, String(v))
+    } catch {
+      /* ignore */
+    }
+  }
 
   const dias = useMemo(() => diasEntre(fechaDesde, fechaHasta), [fechaDesde, fechaHasta])
 
@@ -2407,6 +2540,31 @@ const AsistenciaTab = ({
       cancelado = true
     }
   }, [mesesEnPeriodo])
+
+  useEffect(() => {
+    if (!registradoPorId || !asistencia.length) return
+    const pendientes = detectarNovedadesDesdeAsistencia({
+      asistencia,
+      novedades,
+      dias,
+      horariosPorMes
+    })
+    if (!pendientes.length) return
+    let cancelled = false
+    ;(async () => {
+      const r = await sincronizarNovedadesDesdeAsistencia({
+        asistencia,
+        novedades,
+        dias,
+        horariosPorMes,
+        registradoPor: registradoPorId
+      })
+      if (!cancelled && r.creadas > 0) onNovedadesActualizadas()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [asistencia, novedades, dias, horariosPorMes, registradoPorId, onNovedadesActualizadas])
 
   const nombres = useMemo(() => {
     const m = new Map<number, string>()
@@ -2443,16 +2601,34 @@ const AsistenciaTab = ({
     return [...map.values()].sort((x, y) => x.nombre.localeCompare(y.nombre))
   }, [asistencia, novedades, nombres])
 
-  const statsPorEmpleado = useMemo(() => {
-    const stats = calcularStatsAsistencia({
-      asistencia,
-      novedades,
-      dias,
-      nombres,
-      horariosPorMes
-    })
-    return new Map(stats.map((s) => [s.id, s]))
-  }, [asistencia, novedades, dias, nombres, horariosPorMes])
+  const statsLista = useMemo(
+    () =>
+      calcularStatsAsistencia({
+        asistencia,
+        novedades,
+        dias,
+        nombres,
+        horariosPorMes,
+        valorHoraBase: valorHora
+      }),
+    [asistencia, novedades, dias, nombres, horariosPorMes, valorHora]
+  )
+
+  const statsPorEmpleado = useMemo(() => new Map(statsLista.map((s) => [s.id, s])), [statsLista])
+
+  const { acumulado: extraAcumulado, porDia: extraPorDia } = useMemo(
+    () => buildExtraAcumuladoPorEmpleado({ asistencia, novedades, dias, horariosPorMes }),
+    [asistencia, novedades, dias, horariosPorMes]
+  )
+
+  const periodoLabel = useMemo(() => {
+    const d = new Date(fechaDesde + 'T12:00:00')
+    const h = new Date(fechaHasta + 'T12:00:00')
+    if (fechaDesde.slice(0, 7) === fechaHasta.slice(0, 7)) {
+      return d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+    }
+    return `${d.toLocaleDateString('es-AR')} – ${h.toLocaleDateString('es-AR')}`
+  }, [fechaDesde, fechaHasta])
 
   const novedadesPorUsuarioDia = useMemo(() => {
     const m = new Map<string, RrhhNovedad[]>()
@@ -2470,7 +2646,17 @@ const AsistenciaTab = ({
 
   const exportar = () => {
     if (!empleados.length) return
-    exportarAsistenciaPlanillaXlsx({ empleados, dias, novedades, fechaDesde, fechaHasta })
+    exportarAsistenciaPlanillaXlsx({
+      empleados,
+      dias,
+      novedades,
+      fechaDesde,
+      fechaHasta,
+      stats: statsLista,
+      extraPorDia,
+      extraAcumulado,
+      valorHora
+    })
   }
 
   type CeldaRender = {
@@ -2484,46 +2670,66 @@ const AsistenciaTab = ({
     const novs = novedadesPorUsuarioDia.get(`${empId}|${f}`) ?? []
     const finde = !esDiaHabil(f)
     const horario = horariosPorMes[f.slice(0, 7)]?.[empId] ?? null
+    const ev = evaluarDiaAsistencia({
+      idUsuario: empId,
+      fecha: f,
+      asistencia: a,
+      novedades: novs,
+      horario
+    })
+    const det = ev.extraDet
 
     const abrirDetalle = (reg: Asistencia) => {
       setAsistenciaDetalle(reg)
-      setAsistenciaDetalleExtra(calcularHorasExtraDia(reg, f, horario, novs))
+      setAsistenciaDetalleExtra(det.total)
+      setAsistenciaDetalleAcum(extraAcumulado.get(empId)?.get(f) ?? det.total)
+    }
+
+    const acum = extraAcumulado.get(empId)?.get(f) ?? 0
+    const extraBadge = (detTotal: number) =>
+      detTotal > 0 || acum > 0 ? (
+        <>
+          {detTotal > 0 ? <span className="celda-extra-hs">+{detTotal.toFixed(1)}</span> : null}
+          {acum > 0 ? <span className="celda-extra-acum">Σ{acum.toFixed(1)}</span> : null}
+        </>
+      ) : null
+
+    if (a && (ev.esAusenciaInjustificada || ev.esJustificado)) {
+      const nov = novs.find((n) => n.grupo === 'falta' || n.grupo === 'licencia') ?? novs[0]
+      const label = nov
+        ? abreviaturaCodigoNovedad(nov.codigo)
+        : ev.esJustificado
+          ? 'JUS'
+          : 'AUS'
+      return {
+        cls: `celda-aus${nov ? ' celda-nov-vinc' : ''}`,
+        contenido: <span className="celda-nov-label">{label}</span>,
+        title: [nov ? etiquetaCodigoRrhhNovedad(nov.codigo) : a.tipo_registro, a.observaciones, nov?.observaciones]
+          .filter(Boolean)
+          .join(' · '),
+        onClick: () => abrirDetalle(a)
+      }
     }
 
     if (a) {
-      if (a.tipo_registro === 'ausente' || a.tipo_registro === 'justificado') {
-        const nov = novs[0]
-        const label = nov
-          ? abreviaturaCodigoNovedad(nov.codigo)
-          : a.tipo_registro === 'justificado'
-            ? 'JUS'
-            : 'AUS'
-        return {
-          cls: `celda-aus${nov ? ' celda-nov-vinc' : ''}`,
-          contenido: <span className="celda-nov-label">{label}</span>,
-          title: [nov ? etiquetaCodigoRrhhNovedad(nov.codigo) : a.tipo_registro, a.observaciones, nov?.observaciones]
-            .filter(Boolean)
-            .join(' · '),
-          onClick: () => abrirDetalle(a)
-        }
-      }
       const e = asistenciaHoraCorta(a.hora_entrada)
       const s = asistenciaHoraCorta(a.hora_salida)
       const tardeNov = novs.find((n) => n.codigo === 'tardanza')
-      const extra = calcularHorasExtraDia(a, f, horario, novs)
       return {
-        cls: `${a.tipo_registro === 'tarde' || tardeNov ? 'celda-tarde' : 'celda-ok'}${!s && e ? ' celda-sin-salida' : ''}${extra > 0 ? ' celda-con-extra' : ''}`,
+        cls: `${ev.esTarde || a.tipo_registro === 'tarde' || tardeNov ? 'celda-tarde' : 'celda-ok'}${!s && e ? ' celda-sin-salida' : ''}${det.total > 0 ? ' celda-con-extra' : ''}`,
         contenido: (
           <>
             <span className="celda-h celda-h-entrada">{e || '—'}</span>
             <span className="celda-h celda-h-salida">{s || '—'}</span>
-            {extra > 0 ? <span className="celda-extra-hs">+{extra.toFixed(1)}</span> : null}
-            {tardeNov ? <span className="celda-nov-mini">T</span> : null}
+            {extraBadge(det.total)}
+            {(ev.esTarde || tardeNov) ? <span className="celda-nov-mini">T</span> : null}
           </>
         ),
         title: [
           e && s ? `${e}–${s}` : e ? `Entrada ${e}` : '',
-          extra > 0 ? `Horas extra: ${extra.toFixed(1)} hs` : '',
+          det.total > 0 ? `Extra del día: ${det.total.toFixed(1)} hs` : '',
+          acum > 0 ? `Acumulado: ${acum.toFixed(1)} hs` : '',
+          ev.esTarde ? 'Tardanza (automática o novedad)' : '',
           a.observaciones,
           tardeNov ? etiquetaCodigoRrhhNovedad(tardeNov.codigo) : '',
           'Clic para ver detalle'
@@ -2535,16 +2741,43 @@ const AsistenciaTab = ({
     }
 
     if (novs.length) {
-      const n = novs[0]
-      const extraNov = novs
-        .filter((nv) => nv.grupo === 'horas_extra' && nv.horas_extra_cantidad != null)
-        .reduce((sum, nv) => sum + (nv.horas_extra_cantidad || 0), 0)
+      const n =
+        novs.find((nv) => nv.grupo === 'falta' || nv.grupo === 'licencia') ??
+        novs.find((nv) => nv.codigo === 'tardanza') ??
+        novs[0]
+      const extraNov = det.total
+      if (ev.esAusenciaInjustificada || ev.esJustificado) {
+        return {
+          cls: `celda-aus celda-nov celda-nov--${n.grupo}`,
+          contenido: (
+            <>
+              <span className="celda-nov-label">{abreviaturaCodigoNovedad(n.codigo)}</span>
+              {extraBadge(extraNov)}
+            </>
+          ),
+          title: `${etiquetaCodigoRrhhNovedad(n.codigo)}${n.observaciones ? ` · ${n.observaciones}` : ''}`,
+          onClick: () => setNovedadDetalle(n)
+        }
+      }
+      if (ev.esTarde || n.codigo === 'tardanza') {
+        return {
+          cls: `celda-tarde celda-nov celda-nov--tardanza_retiro${extraNov > 0 ? ' celda-con-extra' : ''}`,
+          contenido: (
+            <>
+              <span className="celda-nov-label">{abreviaturaCodigoNovedad(n.codigo)}</span>
+              {extraBadge(extraNov)}
+            </>
+          ),
+          title: `${etiquetaCodigoRrhhNovedad(n.codigo)}${n.observaciones ? ` · ${n.observaciones}` : ''}`,
+          onClick: () => setNovedadDetalle(n)
+        }
+      }
       return {
         cls: `celda-nov celda-nov--${n.grupo}${extraNov > 0 ? ' celda-con-extra' : ''}`,
         contenido: (
           <>
             <span className="celda-nov-label">{abreviaturaCodigoNovedad(n.codigo)}</span>
-            {extraNov > 0 ? <span className="celda-extra-hs">+{extraNov.toFixed(1)}</span> : null}
+            {extraBadge(extraNov)}
           </>
         ),
         title: `${etiquetaCodigoRrhhNovedad(n.codigo)}${n.observaciones ? ` · ${n.observaciones}` : ''} (clic para ver novedad)`,
@@ -2588,8 +2821,10 @@ const AsistenciaTab = ({
           <p className="rrhh-asis-help">
             Planilla del período filtrado. Entrada en <strong className="leyenda-entrada">azul</strong>, salida en{' '}
             <strong className="leyenda-salida">violeta</strong>, extra en{' '}
-            <strong className="leyenda-extra">verde</strong>. Tardanzas en amarillo, ausencias en rojo.{' '}
-            <strong>S/M</strong> = sin marca en día hábil. Clic en celda para ver detalle (no elimina el registro).
+            <strong className="leyenda-extra">verde</strong> (<strong>Σ</strong> = acumulado del mes). Tardanzas en amarillo, ausencias en rojo.
+            Tardanzas y faltas se detectan automáticamente desde marcaciones y se sincronizan con novedades del legajo.
+            Las horas extra de novedades manuales se suman al acumulado.{' '}
+            <strong>S/M</strong> = sin marca en día hábil. Clic en celda para ver detalle.
           </p>
           <div className="rrhh-asis-leyenda">
             <span className="leyenda-entrada">▲ Entrada</span>
@@ -2597,6 +2832,7 @@ const AsistenciaTab = ({
             <span className="leyenda-ok">✓ A horario</span>
             <span className="leyenda-tarde">⏰ Tarde</span>
             <span className="leyenda-extra">⚡ Extra</span>
+            <span className="leyenda-extra">Σ Acumulado</span>
             <span className="leyenda-aus">F.I. / AUS</span>
             <span className="leyenda-nov">Novedad</span>
             <span className="leyenda-sm">S/M sin marca</span>
@@ -2618,7 +2854,7 @@ const AsistenciaTab = ({
                     )
                   })}
                   <th className="rrhh-asis-tot">Hs</th>
-                  <th className="rrhh-asis-tot rrhh-asis-tot-extra">Ext</th>
+                  <th className="rrhh-asis-tot rrhh-asis-tot-extra">Ext Σ</th>
                 </tr>
               </thead>
               <tbody>
@@ -2644,13 +2880,28 @@ const AsistenciaTab = ({
                     })}
                     <td className="rrhh-asis-tot">{emp.horas ? emp.horas.toFixed(1) : '—'}</td>
                     <td className="rrhh-asis-tot rrhh-asis-tot-extra">
-                      {st && st.totalHorasExtra > 0 ? formatHoras(st.totalHorasExtra) : '—'}
+                      {st && st.totalHorasExtra > 0 ? (
+                        <>
+                          <span>{formatHoras(st.totalHorasExtra)}</span>
+                          {valorHora > 0 && st.costoExtra > 0 ? (
+                            <span className="rrhh-asis-costo-mini">{formatArs(st.costoExtra)}</span>
+                          ) : null}
+                        </>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                   </tr>
                 )})}
               </tbody>
             </table>
           </div>
+          <LiquidacionHorasExtraPanel
+            stats={statsLista}
+            valorHora={valorHora}
+            onValorHoraChange={guardarValorHora}
+            periodoLabel={periodoLabel}
+          />
         </div>
       )}
 
@@ -2663,11 +2914,11 @@ const AsistenciaTab = ({
       ) : null}
 
       {asistenciaDetalle ? (
-        <div className="rrhh-asis-detalle-overlay" onMouseDown={() => { setAsistenciaDetalle(null); setAsistenciaDetalleExtra(null) }}>
+        <div className="rrhh-asis-detalle-overlay" onMouseDown={() => { setAsistenciaDetalle(null); setAsistenciaDetalleExtra(null); setAsistenciaDetalleAcum(null) }}>
           <div className="rrhh-asis-detalle-modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="rrhh-asis-detalle-head">
               <h3>Registro de asistencia</h3>
-              <button type="button" className="rrhh-asis-detalle-close" onClick={() => { setAsistenciaDetalle(null); setAsistenciaDetalleExtra(null) }}>
+              <button type="button" className="rrhh-asis-detalle-close" onClick={() => { setAsistenciaDetalle(null); setAsistenciaDetalleExtra(null); setAsistenciaDetalleAcum(null) }}>
                 ✕
               </button>
             </div>
@@ -2684,8 +2935,14 @@ const AsistenciaTab = ({
               <dd>{asistenciaDetalle.horas_trabajadas != null ? `${asistenciaDetalle.horas_trabajadas.toFixed(1)} hs` : '—'}</dd>
               {asistenciaDetalleExtra != null && asistenciaDetalleExtra > 0 ? (
                 <>
-                  <dt>Horas extra</dt>
+                  <dt>Extra del día</dt>
                   <dd className="leyenda-extra">{formatHoras(asistenciaDetalleExtra)}</dd>
+                  {asistenciaDetalleAcum != null ? (
+                    <>
+                      <dt>Acumulado</dt>
+                      <dd className="leyenda-extra">Σ {formatHoras(asistenciaDetalleAcum)}</dd>
+                    </>
+                  ) : null}
                 </>
               ) : null}
               <dt>Tipo</dt>
@@ -2728,6 +2985,23 @@ const EstadisticasAsistenciaTab = ({
   const [horarioFallback, setHorarioFallback] = useState<Record<number, HorarioFijoAsistencia>>({})
   const [legajos, setLegajos] = useState<Record<number, { nombre: string; apellido: string }>>({})
   const [cargando, setCargando] = useState(true)
+  const [valorHora, setValorHora] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem(LS_VALOR_HORA_EXTRA)
+      return v ? Math.max(0, Number(v)) : 0
+    } catch {
+      return 0
+    }
+  })
+
+  const guardarValorHora = (v: number) => {
+    setValorHora(v)
+    try {
+      localStorage.setItem(LS_VALOR_HORA_EXTRA, String(v))
+    } catch {
+      /* ignore */
+    }
+  }
 
   const periodo = useMemo(() => {
     if (modo === 'mes') {
@@ -2834,9 +3108,10 @@ const EstadisticasAsistenciaTab = ({
         dias,
         nombres,
         horariosPorMes,
-        horarioFallback: modo === 'anio' ? horarioFallback : undefined
+        horarioFallback: modo === 'anio' ? horarioFallback : undefined,
+        valorHoraBase: valorHora
       }),
-    [asistencia, novedades, dias, nombres, horariosPorMes, horarioFallback, modo]
+    [asistencia, novedades, dias, nombres, horariosPorMes, horarioFallback, modo, valorHora]
   )
 
   const rankingExtra = useMemo(
@@ -3005,6 +3280,12 @@ const EstadisticasAsistenciaTab = ({
               <span className="rrhh-stats-kpi-val">{formatHoras(totales.totalHorasExtra)}</span>
               <span className="rrhh-stats-kpi-lbl">Horas extra</span>
             </div>
+            {valorHora > 0 && totales.costoExtraTotal > 0 ? (
+              <div className="rrhh-stats-kpi rrhh-stats-kpi--extra">
+                <span className="rrhh-stats-kpi-val">{formatArs(totales.costoExtraTotal)}</span>
+                <span className="rrhh-stats-kpi-lbl">Costo extra</span>
+              </div>
+            ) : null}
             <div className="rrhh-stats-kpi">
               <span className="rrhh-stats-kpi-val">{totales.totalHoras}</span>
               <span className="rrhh-stats-kpi-lbl">Horas totales</span>
@@ -3114,6 +3395,9 @@ const EstadisticasAsistenciaTab = ({
                   <th>Sin marca</th>
                   <th>Horas</th>
                   <th>Extra</th>
+                  <th>HE 50%</th>
+                  <th>HE 100%</th>
+                  {valorHora > 0 ? <th>Costo extra</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -3137,11 +3421,22 @@ const EstadisticasAsistenciaTab = ({
                     <td>{s.sinMarca || '—'}</td>
                     <td>{s.totalHoras ? s.totalHoras.toFixed(1) : '—'}</td>
                     <td className="leyenda-extra">{s.totalHorasExtra > 0 ? formatHoras(s.totalHorasExtra) : '—'}</td>
+                    <td>{s.extra50 > 0 ? `${s.extra50.toFixed(1)} hs` : '—'}</td>
+                    <td>{s.extra100 > 0 ? `${s.extra100.toFixed(1)} hs` : '—'}</td>
+                    {valorHora > 0 ? (
+                      <td className="rrhh-extra-costo">{s.costoExtra > 0 ? formatArs(s.costoExtra) : '—'}</td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <LiquidacionHorasExtraPanel
+            stats={stats}
+            valorHora={valorHora}
+            onValorHoraChange={guardarValorHora}
+            periodoLabel={periodoLabel}
+          />
         </>
       )}
     </div>

@@ -3,7 +3,7 @@ import { toDataURL } from 'qrcode'
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
 import { getStaffAuthToken } from '../services/staffSession'
 import { buildRelojTabletQrPayload } from '../utils/relojTabletQr'
-import { generarTarjetaRelojPdf } from '../utils/relojTabletTarjetaPdf'
+import { generarTarjetaRelojPdfConLogo } from '../utils/relojTabletTarjetaPdf'
 import { VerificationCard } from './ui/verification-card'
 import './RelojTabletTarjetasQr.css'
 
@@ -32,10 +32,10 @@ function slugNombre(emp: EmpleadoTarjeta): string {
 function TarjetaEmpleadoItem({ emp }: { emp: TarjetaConQr }) {
   const [descargando, setDescargando] = useState(false)
 
-  const descargarPdf = () => {
+  const descargarPdf = async () => {
     setDescargando(true)
     try {
-      generarTarjetaRelojPdf({
+      await generarTarjetaRelojPdfConLogo({
         idUsuario: emp.id_usuario,
         nombreCompleto: emp.nombre_completo || emp.login,
         sector: emp.sector,
@@ -64,7 +64,7 @@ function TarjetaEmpleadoItem({ emp }: { emp: TarjetaConQr }) {
       <button
         type="button"
         className="reloj-tablet-tarjeta-pdf-btn"
-        onClick={() => descargarPdf()}
+        onClick={() => void descargarPdf()}
         disabled={descargando}
       >
         {descargando ? 'Generando PDF…' : 'Descargar PDF'}

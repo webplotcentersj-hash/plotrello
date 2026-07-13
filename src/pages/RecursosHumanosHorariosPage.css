@@ -1351,6 +1351,12 @@
   cursor: default;
 }
 
+.rrhh-fijos-vigente {
+  font-size: 0.68rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
 .rrhh-fijos-sab {
   text-align: center;
 }
@@ -1582,6 +1588,112 @@ thead .rrhh-asis-sticky {
   font-weight: 800;
   color: #059669;
   line-height: 1.1;
+}
+
+.celda-extra-acum {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #047857;
+  opacity: 0.9;
+  line-height: 1.05;
+}
+
+.rrhh-asis-costo-mini {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: #065f46;
+  margin-top: 2px;
+}
+
+.rrhh-extra-liquidacion {
+  margin-top: 20px;
+  padding: 16px 18px;
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 10px;
+}
+
+.rrhh-extra-liquidacion-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-bottom: 14px;
+}
+
+.rrhh-extra-liquidacion-head h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: #047857;
+}
+
+.rrhh-extra-liquidacion-head p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.rrhh-extra-valor-hora {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.rrhh-extra-valor-hora input {
+  width: 120px;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.rrhh-extra-liquidacion-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.rrhh-extra-liquidacion-tabla th,
+.rrhh-extra-liquidacion-tabla td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.rrhh-extra-liquidacion-tabla th {
+  font-weight: 700;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.rrhh-extra-liquidacion-tabla tfoot td {
+  border-top: 2px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.rrhh-extra-emp {
+  font-weight: 600;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rrhh-extra-costo {
+  font-weight: 700;
+  color: #065f46;
+  text-align: right;
+}
+
+.rrhh-extra-liquidacion-tabla th:last-child,
+.rrhh-extra-liquidacion-tabla td.rrhh-extra-costo {
+  text-align: right;
 }
 
 .rrhh-asis-celda.celda-con-extra {

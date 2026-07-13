@@ -11,6 +11,7 @@ const RecursosHumanosDashboardPage = () => {
   const canAccessRrhhDashboard =
     !!usuario && (canManageRecursosHumanos || usuario.rol === 'gerencia')
   const [statsLoading, setStatsLoading] = useState(true)
+  const [usuariosAbiertos, setUsuariosAbiertos] = useState(false)
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [stats, setStats] = useState({
     totalUsuarios: 0,
@@ -304,47 +305,66 @@ const RecursosHumanosDashboardPage = () => {
           </div>
         </div>
 
-        {/* Lista de usuarios recientes */}
-        <div className="rrhh-section">
-          <h2>Usuarios del Sistema</h2>
-          {statsLoading ? (
-            <p className="rrhh-dashboard-inline-loading">Cargando usuarios…</p>
+        {/* Lista de usuarios — desplegable */}
+        <div className={`rrhh-section rrhh-section-collapsible${usuariosAbiertos ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="rrhh-section-toggle"
+            aria-expanded={usuariosAbiertos}
+            onClick={() => setUsuariosAbiertos((v) => !v)}
+          >
+            <h2>
+              Usuarios del Sistema
+              {!statsLoading && usuarios.length > 0 ? (
+                <span className="rrhh-section-count">({usuarios.length})</span>
+              ) : null}
+            </h2>
+            <span className="rrhh-section-chevron" aria-hidden>
+              {usuariosAbiertos ? '▾' : '▸'}
+            </span>
+          </button>
+          {usuariosAbiertos ? (
+            <>
+              {statsLoading ? (
+                <p className="rrhh-dashboard-inline-loading">Cargando usuarios…</p>
+              ) : null}
+              <div className="rrhh-users-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Nombre</th>
+                      <th>Rol</th>
+                      <th>Última Actividad</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usuarios.map((user) => (
+                      <tr key={user.id}>
+                        <td>{user.id}</td>
+                        <td>{user.nombre}</td>
+                        <td>
+                          <span className="rrhh-role-badge">{user.rol}</span>
+                        </td>
+                        <td>Hoy</td>
+                        <td>
+                          <button
+                            className="btn-edit"
+                            onClick={() =>
+                              navigate('/rrhh/usuarios', { state: { openEditUserId: user.id } })
+                            }
+                          >
+                            Editar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           ) : null}
-          <div className="rrhh-users-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Nombre</th>
-                  <th>Rol</th>
-                  <th>Última Actividad</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usuarios.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.id}</td>
-                    <td>{user.nombre}</td>
-                    <td>
-                      <span className="rrhh-role-badge">{user.rol}</span>
-                    </td>
-                    <td>Hoy</td>
-                    <td>
-                      <button
-                        className="btn-edit"
-                        onClick={() =>
-                          navigate('/rrhh/usuarios', { state: { openEditUserId: user.id } })
-                        }
-                      >
-                        Editar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       </div>
     </div>

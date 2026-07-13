@@ -16290,25 +16290,43 @@ class ApiService {
   }
 
   /**
-   * Devuelve los horarios fijos estándar de todos los empleados
-   * (tipo_horario='fijo', dia_semana null) como mapa idUsuario → { entrada, salida, horas }.
+   * Devuelve los horarios fijos vigentes por empleado.
+   * Con `mes` (YYYY-MM): el horario activo en ese mes (el último guardado en o antes del mes).
+   * Sin mes: el horario más reciente de cada empleado.
    */
   async obtenerHorariosFijos(mes: string | null = null): Promise<
-    ApiResponse<Record<number, { entrada: string; salida: string; horas: number | null; trabajaSabado: boolean }>>
+    ApiResponse<
+      Record<
+        number,
+        {
+          entrada: string
+          salida: string
+          horas: number | null
+          trabajaSabado: boolean
+          /** Mes desde el que rige este horario (YYYY-MM). */
+          vigenteDesde?: string
+          /** true si fue guardado explícitamente para el mes consultado. */
+          esDelMes?: boolean
+        }
+      >
+    >
   > {
     if (!supabase) {
       return { success: false, error: 'No hay conexión a Supabase' }
     }
 
     try {
+      const mesInicio = mes ? (mes.length === 7 ? `${mes}-01` : mes) : null
+
       let query = supabase
         .from('horarios_empleados')
         .select('id_usuario, hora_entrada, hora_salida, horas_semanales, activo, fecha_inicio, trabaja_sabado')
         .eq('tipo_horario', 'fijo')
         .is('dia_semana', null)
+        .order('fecha_inicio', { ascending: false })
 
-      if (mes) {
-        query = query.eq('fecha_inicio', mes.length === 7 ? `${mes}-01` : mes)
+      if (mesInicio) {
+        query = query.lte('fecha_inicio', mesInicio)
       }
 
       const { data, error } = await query
@@ -16317,18 +16335,40 @@ class ApiService {
         return { success: false, error: error.message }
       }
 
-      const mapa: Record<number, { entrada: string; salida: string; horas: number | null; trabajaSabado: boolean }> = {}
-      for (const row of (data as Array<{ id_usuario: number; hora_entrada: string | null; hora_salida: string | null; horas_semanales: number | null; activo: boolean | null; trabaja_sabado: boolean | null }>) || []) {
+      const mapa: Record<
+        number,
+        {
+          entrada: string
+          salida: string
+          horas: number | null
+          trabajaSabado: boolean
+          vigenteDesde?: string
+          esDelMes?: boolean
+        }
+      > = {}
+
+      for (const row of (data as Array<{
+        id_usuario: number
+        hora_entrada: string | null
+        hora_salida: string | null
+        horas_semanales: number | null
+        activo: boolean | null
+        fecha_inicio: string | null
+        trabaja_sabado: boolean | null
+      }>) || []) {
         if (row.activo === false) continue
+        if (mapa[row.id_usuario]) continue
         const entrada = (row.hora_entrada || '').slice(0, 5)
         const salida = (row.hora_salida || '').slice(0, 5)
-        if (entrada) {
-          mapa[row.id_usuario] = {
-            entrada,
-            salida,
-            horas: row.horas_semanales != null ? Number(row.horas_semanales) : null,
-            trabajaSabado: row.trabaja_sabado !== false
-          }
+        if (!entrada) continue
+        const vigenteDesde = row.fecha_inicio ? String(row.fecha_inicio).slice(0, 7) : undefined
+        mapa[row.id_usuario] = {
+          entrada,
+          salida,
+          horas: row.horas_semanales != null ? Number(row.horas_semanales) : null,
+          trabajaSabado: row.trabaja_sabado !== false,
+          vigenteDesde,
+          esDelMes: mesInicio ? String(row.fecha_inicio || '').slice(0, 10) === mesInicio : undefined
         }
       }
 
