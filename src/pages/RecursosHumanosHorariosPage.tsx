@@ -70,9 +70,10 @@ import {
 } from '../services/relojBiometricoService'
 import { detectarNovedadesDesdeAsistencia, sincronizarNovedadesDesdeAsistencia } from '../utils/rrhhAsistenciaNovedadSync'
 import RelojTabletMarcacionesTab from '../components/RelojTabletMarcacionesTab'
+import RelojFacialTab from '../components/RelojFacialTab'
 import './RecursosHumanosHorariosPage.css'
 
-type TabType = 'horarios' | 'permisos' | 'asistencia' | 'estadisticas' | 'reloj' | 'tablet-reloj'
+type TabType = 'horarios' | 'permisos' | 'asistencia' | 'estadisticas' | 'reloj' | 'tablet-reloj' | 'reloj-facial'
 
 const RecursosHumanosHorariosPage = () => {
   const navigate = useNavigate()
@@ -242,6 +243,12 @@ const RecursosHumanosHorariosPage = () => {
           >
             📱 Tablet reloj
           </button>
+          <button
+            className={`rrhh-tab ${activeTab === 'reloj-facial' ? 'active' : ''}`}
+            onClick={() => setActiveTab('reloj-facial')}
+          >
+            👤 Reloj facial
+          </button>
         </div>
 
         {/* Filtros */}
@@ -374,6 +381,12 @@ const RecursosHumanosHorariosPage = () => {
         {activeTab === 'tablet-reloj' && (
           <div className="rrhh-tab-content">
             <RelojTabletMarcacionesTab />
+          </div>
+        )}
+
+        {activeTab === 'reloj-facial' && (
+          <div className="rrhh-tab-content">
+            <RelojFacialTab onVerAuditoria={() => setActiveTab('tablet-reloj')} />
           </div>
         )}
       </div>

@@ -43,7 +43,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     apellido: String(row.apellido ?? ''),
     sector: String(row.sector ?? ''),
     login: String(row.login ?? ''),
-    nombre_completo: [row.apellido, row.nombre].filter(Boolean).join(', ') || String(row.login ?? '')
+    nombre_completo: [row.apellido, row.nombre].filter(Boolean).join(', ') || String(row.login ?? ''),
+    foto_url: row.foto_url ? String(row.foto_url) : null,
+    tiene_foto_legajo: Boolean(row.tiene_foto_legajo ?? row.foto_url)
   }))
 
   res.status(200).json({ success: true, empleados })
