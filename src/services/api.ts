@@ -3772,90 +3772,87 @@ class ApiService {
     }
 
     try {
-      // Verificar que hay un usuario en localStorage (nuestro sistema de auth personalizado)
       const usuarioStr = localStorage.getItem('usuario')
       if (!usuarioStr) {
         return { success: false, error: 'Usuario no autenticado. Por favor, inicia sesión nuevamente.' }
       }
 
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-      // Usar un nombre único basado en el ID del usuario para permitir reemplazo
-      const fileName = `empleados/${idUsuario}.${fileExt}`
-      
-      console.log('📤 Subiendo foto:', fileName, 'Usuario ID:', idUsuario)
-      
-      // Subir la nueva foto con upsert habilitado (reemplaza si existe)
-      // Las políticas ahora permiten subida pública en la carpeta empleados/
-      let uploadData = null
-      let uploadError = null
-      
-      const uploadResult = await supabase.storage
-        .from('legajos')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: true // Reemplazar si existe
-        })
-      
-      uploadData = uploadResult.data
-      uploadError = uploadResult.error
+      const fileExtRaw = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const fileExt = fileExtRaw === 'jpeg' ? 'jpg' : fileExtRaw.replace(/[^a-z0-9]/g, '') || 'jpg'
 
-      if (uploadError) {
-        console.error('❌ Error de upload:', uploadError)
-        
-        // Mensajes de error más descriptivos
-        if (uploadError.message.includes('new row violates row-level security policy') || 
-            uploadError.message.includes('row-level security') ||
-            uploadError.message.includes('RLS')) {
-          return { 
-            success: false, 
-            error: 'Error de permisos. Las políticas de Storage están bloqueando la subida. Contacta al administrador.' 
-          }
-        }
-        
-        if (uploadError.message.includes('JWT') || uploadError.message.includes('token') || uploadError.message.includes('Unauthorized')) {
-          return { 
-            success: false, 
-            error: 'Error de autenticación. Por favor, recarga la página e intenta nuevamente.' 
-          }
-        }
-        
-        if (uploadError.message.includes('duplicate') || uploadError.message.includes('already exists')) {
-          // Si ya existe, intentar eliminar y volver a subir
-          console.log('⚠️ Archivo ya existe, intentando eliminar y volver a subir...')
-          await supabase.storage.from('legajos').remove([fileName])
-          
-          // Reintentar subida
-          const retryResult = await supabase.storage
-            .from('legajos')
-            .upload(fileName, file, {
-              cacheControl: '3600',
-              upsert: true
+      // 1) Preferir API staff + service role (evita RLS: el login custom no es Supabase Auth)
+      try {
+        const { getStaffAuthToken } = await import('./staffSession')
+        const { plotLabFetch } = await import('../utils/plotLabApiOrigin')
+        const token = getStaffAuthToken()
+        if (token) {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              const result = String(reader.result || '')
+              const comma = result.indexOf(',')
+              resolve(comma >= 0 ? result.slice(comma + 1) : result)
+            }
+            reader.onerror = () => reject(new Error('No se pudo leer la imagen'))
+            reader.readAsDataURL(file)
+          })
+
+          const resp = await plotLabFetch('/api/rrhh/upload-foto-legajo', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              id_usuario: idUsuario,
+              mime_type: file.type || `image/${fileExt}`,
+              file_ext: fileExt,
+              base64
             })
-          
-          if (retryResult.error) {
-            return { success: false, error: retryResult.error.message }
+          })
+          const json = (await resp.json()) as { success?: boolean; url?: string; error?: string }
+          if (resp.ok && json.success && json.url) {
+            return { success: true, data: json.url }
           }
-          
-          uploadData = retryResult.data
-        } else {
-          return { success: false, error: uploadError.message }
+          // Si JWT no aplica (503/401), seguimos con fallback Storage
+          if (resp.status !== 401 && resp.status !== 503) {
+            return { success: false, error: json.error || 'No se pudo subir la foto' }
+          }
         }
+      } catch (apiErr) {
+        console.warn('upload-foto-legajo API no disponible, fallback Storage:', apiErr)
       }
 
-      if (!uploadData) {
+      // 2) Fallback: INSERT con nombre único (RLS public permite INSERT; upsert falla en UPDATE)
+      const fileName = `empleados/${idUsuario}_${Date.now()}.${fileExt}`
+      console.log('📤 Subiendo foto (fallback):', fileName, 'Usuario ID:', idUsuario)
+
+      const uploadResult = await supabase.storage.from('legajos').upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+
+      if (uploadResult.error) {
+        console.error('❌ Error de upload:', uploadResult.error)
+        const msg = uploadResult.error.message || ''
+        if (msg.includes('row-level security') || msg.includes('RLS')) {
+          return {
+            success: false,
+            error:
+              'Error de permisos al subir la foto. Cerrá sesión, volvé a entrar e intentá de nuevo. Si sigue, contactá al administrador.'
+          }
+        }
+        return { success: false, error: msg }
+      }
+
+      if (!uploadResult.data) {
         return { success: false, error: 'No se recibieron datos del servidor después de subir la foto' }
       }
 
-      console.log('✅ Foto subida exitosamente:', uploadData.path)
-
-      // Obtener URL pública
-      const { data: urlData } = supabase.storage
-        .from('legajos')
-        .getPublicUrl(fileName)
-
+      const { data: urlData } = supabase.storage.from('legajos').getPublicUrl(fileName)
       if (urlData?.publicUrl) {
-        console.log('✅ URL pública obtenida:', urlData.publicUrl)
-        return { success: true, data: urlData.publicUrl }
+        const url = `${urlData.publicUrl}${urlData.publicUrl.includes('?') ? '&' : '?'}v=${Date.now()}`
+        return { success: true, data: url }
       }
 
       return { success: false, error: 'No se pudo obtener la URL de la imagen' }
