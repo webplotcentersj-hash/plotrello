@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Esquema Plot Lab — para imprimir</title>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #475569;
+      --paper: #fffaf5;
+      --line: #e2e8f0;
+      --orange: #ea580c;
+      --orange-soft: #ffedd5;
+      --navy: #1e3a5f;
+      --teal: #0d9488;
+      --teal-soft: #ccfbf1;
+      --violet: #7c3aed;
+      --violet-soft: #ede9fe;
+      --rose: #e11d48;
+      --rose-soft: #ffe4e6;
+      --sky: #0284c8;
+      --sky-soft: #e0f2fe;
+      --lime: #65a30d;
+      --lime-soft: #ecfccb;
+      --amber: #d97706;
+      --amber-soft: #fef3c7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background: #cbd5e1;
+      line-height: 1.35;
+    }
+
+    .sheet {
+      width: 297mm;
+      min-height: 210mm;
+      margin: 16px auto;
+      padding: 12mm 14mm;
+      background: var(--paper);
+      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.18);
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      background: #0f172a;
+      color: #fff;
+    }
+
+    .toolbar button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--orange);
+      color: #fff;
+    }
+
+    .toolbar span { font-size: 13px; opacity: 0.85; }
+
+    header.hero {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 4px solid var(--orange);
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .brand-mark {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      background: linear-gradient(145deg, #fb923c, #ea580c 55%, #c2410c);
+      color: #fff;
+      font-weight: 900;
+      font-size: 18px;
+      display: grid;
+      place-items: center;
+      letter-spacing: -0.5px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+      color: var(--navy);
+    }
+
+    .subtitle {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .b-orange { background: var(--orange-soft); color: #9a3412; }
+    .b-teal { background: var(--teal-soft); color: #115e59; }
+    .b-violet { background: var(--violet-soft); color: #5b21b6; }
+    .b-sky { background: var(--sky-soft); color: #075985; }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--navy);
+    }
+
+    /* Cadena de valor */
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .flow-step {
+      position: relative;
+      border-radius: 12px;
+      padding: 10px 8px;
+      color: #fff;
+      min-height: 78px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .flow-step strong {
+      font-size: 12.5px;
+      line-height: 1.2;
+    }
+
+    .flow-step span {
+      font-size: 10px;
+      opacity: 0.92;
+    }
+
+    .flow-step::after {
+      content: "›";
+      position: absolute;
+      right: -9px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      color: var(--ink);
+      font-weight: 900;
+      font-size: 14px;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,.15);
+    }
+
+    .flow-step:last-child::after { display: none; }
+
+    .f1 { background: #7c3aed; }
+    .f2 { background: #0284c8; }
+    .f3 { background: #ea580c; }
+    .f4 { background: #0d9488; }
+    .f5 { background: #db2777; }
+    .f6 { background: #1e3a5f; }
+
+    /* Módulos */
+    .modules {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .mod {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: #fff;
+    }
+
+    .mod-head {
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .mod-body {
+      padding: 8px 10px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .chip {
+      font-size: 10.5px;
+      padding: 5px 7px;
+      border-radius: 7px;
+      font-weight: 600;
+    }
+
+    .m-prod .mod-head { background: var(--orange); }
+    .m-prod .chip { background: var(--orange-soft); color: #9a3412; }
+
+    .m-ventas .mod-head { background: var(--sky); }
+    .m-ventas .chip { background: var(--sky-soft); color: #075985; }
+
+    .m-fin .mod-head { background: var(--navy); }
+    .m-fin .chip { background: #e2e8f0; color: #1e293b; }
+
+    .m-rrhh .mod-head { background: var(--teal); }
+    .m-rrhh .chip { background: var(--teal-soft); color: #115e59; }
+
+    .m-pub .mod-head { background: var(--violet); }
+    .m-pub .chip { background: var(--violet-soft); color: #5b21b6; }
+
+    /* Capas + atajos */
+    .bottom {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 10px;
+    }
+
+    .panel {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+    }
+
+    .layers {
+      display: grid;
+      gap: 6px;
+    }
+
+    .layer {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 8px;
+      align-items: center;
+      border-radius: 9px;
+      padding: 7px 9px;
+      font-size: 11px;
+    }
+
+    .layer b {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .l1 { background: var(--rose-soft); color: #9f1239; }
+    .l2 { background: var(--orange-soft); color: #9a3412; }
+    .l3 { background: var(--sky-soft); color: #075985; }
+    .l4 { background: var(--lime-soft); color: #3f6212; }
+
+    .shortcuts {
+      display: grid;
+      gap: 6px;
+    }
+
+    .shortcut {
+      border-radius: 9px;
+      padding: 8px 10px;
+      font-size: 11px;
+      display: grid;
+      gap: 2px;
+    }
+
+    .shortcut strong { font-size: 12px; }
+    .s1 { background: var(--amber-soft); color: #92400e; }
+    .s2 { background: var(--violet-soft); color: #5b21b6; }
+    .s3 { background: var(--teal-soft); color: #115e59; }
+    .s4 { background: var(--rose-soft); color: #9f1239; }
+
+    footer.meta {
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px dashed #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .roles {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .role {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      color: #334155;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none !important; }
+      .sheet {
+        margin: 0;
+        box-shadow: none;
+        width: 100%;
+        min-height: auto;
+        padding: 8mm 10mm;
+      }
+      @page {
+        size: A4 landscape;
+        margin: 6mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button type="button" onclick="window.print()">Imprimir / PDF</button>
+    <span>A4 horizontal · Abrí en el navegador y usá Ctrl+P</span>
+  </div>
+
+  <main class="sheet">
+    <header class="hero">
+      <div class="brand">
+        <div class="brand-mark">PL</div>
+        <div>
+          <h1>Plot Lab — Esquema del sistema</h1>
+          <p class="subtitle">
+            plotrello · trello.plotcenter.com.ar · Producción · Ventas · Finanzas · RRHH · Público
+          </p>
+        </div>
+      </div>
+      <div class="badge-row">
+        <span class="badge b-orange">Núcleo: OP Tablero</span>
+        <span class="badge b-teal">Supabase + Vercel</span>
+        <span class="badge b-violet">phi = sitio aparte</span>
+        <span class="badge b-sky">Staff + Público + Tablets</span>
+      </div>
+    </header>
+
+    <h2>1 · Cadena de valor</h2>
+    <section class="flow" aria-label="Cadena de valor">
+      <div class="flow-step f1">
+        <strong>Lead / Brief</strong>
+        <span>Web · WhatsApp · Tótem</span>
+      </div>
+      <div class="flow-step f2">
+        <strong>Asesor / Presupuesto</strong>
+        <span>/asesor-presupuestos</span>
+      </div>
+      <div class="flow-step f3">
+        <strong>OP Tablero</strong>
+        <span>Kanban por sectores</span>
+      </div>
+      <div class="flow-step f4">
+        <strong>Producción</strong>
+        <span>Diseño · Imprenta · Talleres</span>
+      </div>
+      <div class="flow-step f5">
+        <strong>Mostrador / Entrega</strong>
+        <span>Firma · consulta OP</span>
+      </div>
+      <div class="flow-step f6">
+        <strong>Caja / ERP</strong>
+        <span>Cobro · AFIP · CxC</span>
+      </div>
+    </section>
+
+    <h2>2 · Módulos</h2>
+    <section class="modules" aria-label="Módulos">
+      <article class="mod m-prod">
+        <div class="mod-head">Producción</div>
+        <div class="mod-body">
+          <div class="chip">Tablero OP · /tablero</div>
+          <div class="chip">Asesor Presupuestos</div>
+          <div class="chip">Plot Design / Bolsa</div>
+          <div class="chip">Calendario / Gantt</div>
+        </div>
+      </article>
+      <article class="mod m-ventas">
+        <div class="mod-head">Ventas</div>
+        <div class="mod-body">
+          <div class="chip">CRM /ventas</div>
+          <div class="chip">Mostrador</div>
+          <div class="chip">Clientes Web → OP</div>
+          <div class="chip">Atención público</div>
+        </div>
+      </article>
+      <article class="mod m-fin">
+        <div class="mod-head">Finanzas</div>
+        <div class="mod-body">
+          <div class="chip">Caja / arqueos</div>
+          <div class="chip">ERP Contable</div>
+          <div class="chip">AFIP facturas</div>
+          <div class="chip">Conciliación MP/Banco</div>
+        </div>
+      </article>
+      <article class="mod m-rrhh">
+        <div class="mod-head">RRHH / Logística</div>
+        <div class="mod-body">
+          <div class="chip">Legajos / horarios</div>
+          <div class="chip">Reloj tablet</div>
+          <div class="chip">Flota / talleres</div>
+          <div class="chip">Impresoras</div>
+        </div>
+      </article>
+      <article class="mod m-pub">
+        <div class="mod-head">Público / Kiosk</div>
+        <div class="mod-body">
+          <div class="chip">Chat embed WP</div>
+          <div class="chip">Tótem autogestión</div>
+          <div class="chip">Portal /cliente</div>
+          <div class="chip">OP pública / firma</div>
+        </div>
+      </article>
+    </section>
+
+    <div class="bottom">
+      <section class="panel">
+        <h2>3 · Capas</h2>
+        <div class="layers">
+          <div class="layer l1">
+            <b>Actores</b>
+            <span>Staff · Cliente B2B · Público · Operario externo · WordPress</span>
+          </div>
+          <div class="layer l2">
+            <b>App</b>
+            <span>StaffAppHost · Portal cliente · Embed/Tótem · Tablet firma/reloj</span>
+          </div>
+          <div class="layer l3">
+            <b>Plataforma</b>
+            <span>Vercel SPA + /api · Supabase (PG + RPC + Realtime) · Storage</span>
+          </div>
+          <div class="layer l4">
+            <b>Externos</b>
+            <span>Gemini · Mercado Pago · AFIP · Resend/Telegram · phi (Vercel)</span>
+          </div>
+        </div>
+        <div class="roles" aria-label="Roles">
+          <span class="role">admin / gerencia</span>
+          <span class="role">mostrador</span>
+          <span class="role">caja</span>
+          <span class="role">asesor / presupuestos</span>
+          <span class="role">diseño</span>
+          <span class="role">taller / imprenta</span>
+          <span class="role">instalaciones</span>
+          <span class="role">compras</span>
+          <span class="role">RRHH</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>4 · Atajos clave</h2>
+        <div class="shortcuts">
+          <div class="shortcut s1">
+            <strong>Comercio digital</strong>
+            <span>/cliente → pedidos → /clientes-web → convertir → Tablero OP</span>
+          </div>
+          <div class="shortcut s2">
+            <strong>Trabajo externo</strong>
+            <span>phi / postulación → /operario-externo → Plot Design o Bolsa</span>
+          </div>
+          <div class="shortcut s3">
+            <strong>Chat público</strong>
+            <span>WordPress iframe → /embed/chat → leads / atención</span>
+          </div>
+          <div class="shortcut s4">
+            <strong>Asistencia</strong>
+            <span>tablet-reloj → marcaciones → RRHH horarios / horas extra</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="meta">
+      <span>Plot Lab · esquema interno · no mezclar con repo phi-site</span>
+      <span>Sectores OP: Diseño · Imprenta · Taller Gráfico · Instalaciones · Metalúrgica · Mostrador · Caja</span>
+    </footer>
+  </main>
+</body>
+</html>
