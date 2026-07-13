@@ -221,7 +221,7 @@ export async function marcarAutoRelojTablet(selfieDataUrl: string): Promise<{
         marcado_at: getMarcacionTimestamptzIso()
       })
     },
-    55_000
+    35_000
   )
   const json = await parseApiJson<{
     success?: boolean

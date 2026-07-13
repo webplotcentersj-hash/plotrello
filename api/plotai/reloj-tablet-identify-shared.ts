@@ -16,16 +16,19 @@ export type EmpleadoConFotoUrl = {
 
 const LEGAJO_CACHE = new Map<string, { mimeType: string; base64: string; at: number }>()
 const CACHE_TTL_MS = 20 * 60 * 1000
-const BATCH_SIZE = 8
-/** Umbral mínimo para aceptar un candidato en identificación por lote */
-export const MATCH_MIN_IDENTIFY = 72
-/** Umbral mínimo para verificación 1:1 (manual y auto) */
-export const MATCH_MIN_VERIFY = 76
-/** Auto: exige verificación 1:1 además del candidato del lote */
-export const MATCH_MIN_AUTO = 78
-const EARLY_EXIT_CONF = 88
-const GEMINI_MODEL = 'gemini-2.5-flash'
-const GEMINI_TIMEOUT_MS = 22_000
+
+/** Umbral mínimo para aceptar un match 1:1 */
+export const MATCH_MIN_IDENTIFY = 68
+/** Umbral mínimo para verificación 1:1 (manual) */
+export const MATCH_MIN_VERIFY = 70
+/** Auto: confianza mínima para marcar sin segunda pasada */
+export const MATCH_MIN_AUTO = 70
+const EARLY_EXIT_CONF = 84
+/** Comparaciones 1:1 en paralelo por oleada */
+const CONCURRENCY = 6
+/** Modelo rápido (evita 2.5 que tarda mucho con varias imágenes) */
+const GEMINI_MODEL = 'gemini-2.0-flash'
+const GEMINI_TIMEOUT_MS = 10_000
 
 export function stripDataUrl(dataUrl: string): SelfieParsed | null {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
@@ -53,18 +56,26 @@ export function tryParseJson(text: string): Record<string, unknown> | null {
   }
 }
 
+/** Miniatura vía transform de Storage (mucho más liviana para Gemini). */
 export function legajoThumbUrl(url: string): string {
-  return String(url || '').trim()
+  const u = String(url || '').trim()
+  if (!u) return u
+  if (u.includes('/storage/v1/object/public/')) {
+    const rendered = u.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+    const sep = rendered.includes('?') ? '&' : '?'
+    return `${rendered}${sep}width=320&height=320&resize=contain&quality=70`
+  }
+  return u
 }
 
 async function fetchImageRaw(url: string): Promise<SelfieParsed | null> {
   try {
-    const resp = await fetch(url, { signal: AbortSignal.timeout(12_000) })
+    const resp = await fetch(url, { signal: AbortSignal.timeout(8_000) })
     if (!resp.ok) return null
     const buf = Buffer.from(await resp.arrayBuffer())
-    if (buf.length > 4_000_000) return null
+    if (buf.length > 2_500_000) return null
     const mimeType = resp.headers.get('content-type') || 'image/jpeg'
-    return { mimeType, base64: buf.toString('base64') }
+    return { mimeType: mimeType.startsWith('image/') ? mimeType : 'image/jpeg', base64: buf.toString('base64') }
   } catch {
     return null
   }
@@ -77,7 +88,11 @@ export async function fetchImageAsBase64Cached(url: string): Promise<SelfieParse
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
     return { mimeType: hit.mimeType, base64: hit.base64 }
   }
-  const parsed = await fetchImageRaw(key)
+  const thumb = legajoThumbUrl(key)
+  let parsed = await fetchImageRaw(thumb)
+  if (!parsed && thumb !== key) {
+    parsed = await fetchImageRaw(key)
+  }
   if (!parsed) return null
   LEGAJO_CACHE.set(key, { ...parsed, at: Date.now() })
   return parsed
@@ -97,60 +112,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
   }
 }
 
-async function identificarEnLote(
-  apiKey: string,
-  selfie: SelfieParsed,
-  candidatos: CandidatoReloj[]
-): Promise<{ id_usuario: number; confianza: number; nombre: string } | null> {
-  if (!candidatos.length) return null
-
-  const ai = new GoogleGenAI({ apiKey })
-  const lista = candidatos.map((c) => `- ID ${c.id_usuario}: ${c.nombre}`).join('\n')
-
-  const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
-    {
-      text: `Sistema de reloj laboral en Argentina.
-Hay una FOTO EN VIVO (selfie) y fotos de LEGAJO de referencia (cada una etiquetada con su ID).
-¿La persona del selfie coincide con algún empleado de esta lista?
-
-${lista}
-
-Respondé SOLO JSON válido:
-{"id_usuario":number|null,"confianza":0-100,"nombre":"apellido nombre"}
-
-Reglas:
-- id_usuario solo si confianza >= ${MATCH_MIN_IDENTIFY} y hay coincidencia facial clara
-- Si hay duda, varias personas posibles, o rostro poco visible: id_usuario null y confianza baja
-- No inventes IDs que no estén en la lista`
-    },
-    { inlineData: { mimeType: selfie.mimeType, data: selfie.base64 } }
-  ]
-
-  for (const c of candidatos) {
-    parts.push({ text: `Legajo ID ${c.id_usuario} — ${c.nombre}` })
-    parts.push({ inlineData: { mimeType: c.foto.mimeType, data: c.foto.base64 } })
-  }
-
-  const response = await withTimeout(
-    ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: [{ role: 'user', parts }]
-    }),
-    GEMINI_TIMEOUT_MS,
-    'Gemini'
-  )
-
-  const parsed = tryParseJson(response.text ?? '')
-  const confianza = Math.min(100, Math.max(0, Number(parsed?.confianza ?? 0)))
-  const id = Number(parsed?.id_usuario)
-  const nombre = String(parsed?.nombre ?? '')
-
-  if (!id || Number.isNaN(id) || confianza < MATCH_MIN_IDENTIFY) return null
-  if (!candidatos.some((c) => c.id_usuario === id)) return null
-
-  return { id_usuario: id, confianza, nombre: nombre || candidatos.find((c) => c.id_usuario === id)?.nombre || '' }
-}
-
+/** Comparación 1:1 — más fiable que “elegí entre 8 fotos”. */
 async function compararUnEmpleado(
   apiKey: string,
   selfie: SelfieParsed,
@@ -165,8 +127,10 @@ async function compararUnEmpleado(
           role: 'user',
           parts: [
             {
-              text: `Reloj laboral. ¿La selfie y la foto de legajo de "${candidato.nombre}" son la misma persona?
-Solo JSON: {"match":true|false,"confianza":0-100}`
+              text: `Reloj laboral. ¿La selfie EN VIVO y la foto de LEGAJO de "${candidato.nombre}" son LA MISMA PERSONA?
+Ignorá fondo, ropa, peinado, barba, gafas o luz distinta. Enfocá solo el rostro.
+Respondé SOLO JSON: {"match":true|false,"confianza":0-100}
+match=true solo si es claramente la misma persona.`
             },
             { inlineData: { mimeType: selfie.mimeType, data: selfie.base64 } },
             { inlineData: { mimeType: candidato.foto.mimeType, data: candidato.foto.base64 } }
@@ -174,7 +138,7 @@ Solo JSON: {"match":true|false,"confianza":0-100}`
         }
       ]
     }),
-    12_000,
+    GEMINI_TIMEOUT_MS,
     'Gemini'
   )
   const parsed = tryParseJson(response.text ?? '')
@@ -200,6 +164,10 @@ async function cargarCandidatosLote(empleados: EmpleadoConFotoUrl[]): Promise<Ca
     }))
 }
 
+/**
+ * Identifica al empleado con comparaciones 1:1 en paralelo (oleadas).
+ * Más rápido y fehaciente que lotes multi-cara + segunda verificación.
+ */
 export async function identificarEmpleadoRapido(
   apiKey: string,
   selfie: SelfieParsed,
@@ -207,31 +175,30 @@ export async function identificarEmpleadoRapido(
 ): Promise<{ id_usuario: number; confianza: number; nombre: string } | null> {
   if (!empleados.length) return null
 
+  const candidatos = await cargarCandidatosLote(empleados)
+  if (!candidatos.length) return null
+
   let mejor: { id_usuario: number; confianza: number; nombre: string } | null = null
 
-  for (let i = 0; i < empleados.length; i += BATCH_SIZE) {
-    const slice = empleados.slice(i, i + BATCH_SIZE)
-    const candidatos = await cargarCandidatosLote(slice)
-    if (!candidatos.length) continue
-
-    try {
-      const hit = await identificarEnLote(apiKey, selfie, candidatos)
-      if (hit && (!mejor || hit.confianza > mejor.confianza)) mejor = hit
-      if (mejor && mejor.confianza >= EARLY_EXIT_CONF) return mejor
-    } catch (e) {
-      console.warn('lote identificar falló, intento 1:1:', e)
-      for (const c of candidatos) {
+  for (let i = 0; i < candidatos.length; i += CONCURRENCY) {
+    const slice = candidatos.slice(i, i + CONCURRENCY)
+    const results = await Promise.all(
+      slice.map(async (c) => {
         try {
-          const hit = await compararUnEmpleado(apiKey, selfie, c)
-          if (hit && (!mejor || hit.confianza > mejor.confianza)) mejor = hit
-          if (mejor && mejor.confianza >= EARLY_EXIT_CONF) return mejor
-        } catch {
-          /* siguiente */
+          return await compararUnEmpleado(apiKey, selfie, c)
+        } catch (e) {
+          console.warn('comparar facial falló', c.id_usuario, e instanceof Error ? e.message : e)
+          return null
         }
-      }
+      })
+    )
+    for (const hit of results) {
+      if (hit && (!mejor || hit.confianza > mejor.confianza)) mejor = hit
     }
+    if (mejor && mejor.confianza >= EARLY_EXIT_CONF) return mejor
   }
 
+  if (!mejor || mejor.confianza < MATCH_MIN_IDENTIFY) return null
   return mejor
 }
 
@@ -252,13 +219,13 @@ export async function verificarParFacial(
             {
               text: `Sos un sistema de control de asistencia laboral en Argentina.
 Compará si la persona de la FOTO EN VIVO (selfie) es la misma persona que la FOTO DE REFERENCIA del legajo de "${nombreCompleto}".
+Ignorá fondo, ropa, peinado o luz. Enfocá el rostro.
 Respondé SOLO JSON válido:
 {"match":true|false,"confianza":0-100,"motivo":"breve en español"}
 
 Reglas:
 - match=true solo si confianza >= ${MATCH_MIN_VERIFY}
-- Si no hay un solo rostro claro de frente, o hay más de una persona: match=false
-- Si hay duda (gorro, barbijo, mala luz, ángulo extremo), bajá confianza
+- Si no hay un solo rostro claro: match=false
 - No inventes datos`
             },
             { inlineData: { mimeType: selfie.mimeType, data: selfie.base64 } },

@@ -6,7 +6,6 @@ import {
   horaMarcacionTabletDisplay
 } from '../../utils/dateUtils'
 import {
-  detectarPresenciaRelojTablet,
   fetchEmpleadosRelojTablet,
   fotoEmpleadoUrl,
   getRelojTabletApiKey,
@@ -44,8 +43,8 @@ const COOLDOWN_MS = 2500
 const COOLDOWN_FACIAL_MS = 4500
 const EXITO_MS = 4200
 const AUTO_RESET_ERROR_MS = 3500
-const SELFIE_MAX_WIDTH = 640
-const SELFIE_JPEG_QUALITY = 0.72
+const SELFIE_MAX_WIDTH = 480
+const SELFIE_JPEG_QUALITY = 0.62
 
 function modoInicialDesdeUrl(): Modo {
   try {
@@ -500,11 +499,7 @@ export default function TabletRelojPage() {
       if (!selfie) {
         throw new Error('No se pudo capturar la imagen. Acercate a la cámara de frente.')
       }
-      setProcesoHint('Validando rostro…')
-      const det = await detectarPresenciaRelojTablet(selfie)
-      if (!det.ok && !det.skipped) {
-        throw new Error(det.sugerencia || det.motivo || 'No se detectó un rostro claro. Parate de frente.')
-      }
+      // FaceDetector local ya validó el rostro; el proxy VPS solo sumaba demora.
       setProcesoHint('Reconociendo…')
       const res = await marcarAutoRelojTablet(selfie)
       if (!res.match || !res.data) {
