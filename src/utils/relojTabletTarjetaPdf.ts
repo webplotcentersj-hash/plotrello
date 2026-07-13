@@ -5,14 +5,20 @@ const PAGE_W = 54
 const PAGE_H = 86
 const MARGIN = 4
 
+export type LogoPlotLab = {
+  dataUrl: string
+  /** Relación ancho/alto nativa del PNG (evita estirarlo en el PDF). */
+  aspect: number
+}
+
 export type TarjetaRelojPdfInput = {
   idUsuario: number
   nombreCompleto: string
   sector: string
   qrSrc: string
   filename: string
-  /** Data URL del logo (PNG). Si falta, se omite la imagen. */
-  logoSrc?: string | null
+  /** Logo Plot Lab (data URL + aspect). Si falta, se omite la imagen. */
+  logo?: LogoPlotLab | null
 }
 
 function formatIdEmpleado(id: number): string {
@@ -49,25 +55,50 @@ function truncate(doc: jsPDF, text: string, maxWidth: number): string {
   return `${t}…`
 }
 
-/** Carga el logo Plot Lab desde /public para incrustarlo en el PDF. */
-export async function cargarLogoPlotLabDataUrl(): Promise<string | null> {
+/** Carga el logo Plot Lab desde /public con su proporción real. */
+export async function cargarLogoPlotLabDataUrl(): Promise<LogoPlotLab | null> {
   try {
     const resp = await fetch('/plot-lab-logo.png')
     if (!resp.ok) return null
     const blob = await resp.blob()
-    return await new Promise((resolve) => {
+    const dataUrl = await new Promise<string | null>((resolve) => {
       const reader = new FileReader()
       reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
       reader.onerror = () => resolve(null)
       reader.readAsDataURL(blob)
     })
+    if (!dataUrl) return null
+
+    const aspect = await new Promise<number>((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const w = img.naturalWidth || img.width
+        const h = img.naturalHeight || img.height
+        resolve(w > 0 && h > 0 ? w / h : 347 / 203)
+      }
+      img.onerror = () => resolve(347 / 203)
+      img.src = dataUrl
+    })
+
+    return { dataUrl, aspect }
   } catch {
     return null
   }
 }
 
+/** Encaja el logo en un rectángulo máximo respetando aspect ratio. */
+function logoFitSize(aspect: number, maxW: number, maxH: number): { w: number; h: number } {
+  let w = maxW
+  let h = w / aspect
+  if (h > maxH) {
+    h = maxH
+    w = h * aspect
+  }
+  return { w, h }
+}
+
 export function generarTarjetaRelojPdf(input: TarjetaRelojPdfInput): void {
-  const { idUsuario, nombreCompleto, sector, qrSrc, filename, logoSrc } = input
+  const { idUsuario, nombreCompleto, sector, qrSrc, filename, logo } = input
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [PAGE_W, PAGE_H] })
   const maxTextW = PAGE_W - MARGIN * 2
 
@@ -129,18 +160,21 @@ export function generarTarjetaRelojPdf(input: TarjetaRelojPdfInput): void {
   doc.setFontSize(7.8)
   doc.text(formatIdEmpleado(idUsuario), MARGIN, idLblY + 4)
 
-  // —— Encabezado con logo ——
+  // —— Encabezado con logo (proporción nativa, sin estirar) ——
   const headerY = 5.5
-  if (logoSrc) {
-    doc.addImage(logoSrc, 'PNG', MARGIN, headerY - 2.5, 9, 9)
+  if (logo?.dataUrl) {
+    const { w: logoW, h: logoH } = logoFitSize(logo.aspect || 347 / 203, 13, 7.2)
+    const logoY = headerY - 1.2
+    doc.addImage(logo.dataUrl, 'PNG', MARGIN, logoY, logoW, logoH)
+    const textX = MARGIN + logoW + 1.8
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(5)
-    doc.text('TARJETA EMPLEADO', MARGIN + 10.5, headerY + 1.5)
+    doc.text('TARJETA EMPLEADO', textX, headerY + 1.5)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(4.2)
     doc.setTextColor(180, 190, 210)
-    doc.text('PLOT LAB', MARGIN + 10.5, headerY + 5)
+    doc.text('PLOT LAB', textX, headerY + 5)
   } else {
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
@@ -170,7 +204,7 @@ export function generarTarjetaRelojPdf(input: TarjetaRelojPdfInput): void {
   doc.save(filename)
 }
 
-export async function generarTarjetaRelojPdfConLogo(input: Omit<TarjetaRelojPdfInput, 'logoSrc'>): Promise<void> {
-  const logoSrc = await cargarLogoPlotLabDataUrl()
-  generarTarjetaRelojPdf({ ...input, logoSrc })
+export async function generarTarjetaRelojPdfConLogo(input: Omit<TarjetaRelojPdfInput, 'logo'>): Promise<void> {
+  const logo = await cargarLogoPlotLabDataUrl()
+  generarTarjetaRelojPdf({ ...input, logo })
 }

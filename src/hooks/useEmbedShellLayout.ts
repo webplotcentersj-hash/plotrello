@@ -15,6 +15,7 @@ function syncEmbedViewportHeight() {
 /**
  * Fija altura html/body/#app para que el chat embebido ocupe todo el iframe (móvil).
  * Antes se usaba #root por error y el área de mensajes quedaba colapsada.
+ * En widget abierto también sigue visualViewport (teclado móvil).
  */
 export function useEmbedShellLayout(mode: EmbedShellMode, options?: EmbedShellOptions) {
   const active = options?.active !== false
@@ -27,6 +28,7 @@ export function useEmbedShellLayout(mode: EmbedShellMode, options?: EmbedShellOp
     const app = document.getElementById('app')
     const framed = window.self !== window.top
     const isPage = mode === 'page'
+    const useVh = isPage || mode === 'widget'
 
     const prev = {
       htmlHeight: html.style.height,
@@ -55,11 +57,14 @@ export function useEmbedShellLayout(mode: EmbedShellMode, options?: EmbedShellOp
     html.classList.add(isPage ? 'embed-shell-page' : 'embed-shell-widget')
     if (framed) html.classList.add('embed-shell--framed')
 
-    if (isPage) {
+    if (useVh) {
       syncEmbedViewportHeight()
       window.visualViewport?.addEventListener('resize', syncEmbedViewportHeight)
       window.visualViewport?.addEventListener('scroll', syncEmbedViewportHeight)
       window.addEventListener('resize', syncEmbedViewportHeight)
+    }
+
+    if (isPage) {
       html.style.position = 'fixed'
       html.style.width = '100%'
       html.style.top = '0'
@@ -70,25 +75,26 @@ export function useEmbedShellLayout(mode: EmbedShellMode, options?: EmbedShellOp
       body.style.left = '0'
     }
 
-    html.style.height = isPage ? 'var(--embed-vh, 100svh)' : '100%'
-    html.style.minHeight = isPage ? 'var(--embed-vh, 100svh)' : '100%'
+    const hExpr = useVh ? 'var(--embed-vh, 100svh)' : '100%'
+    html.style.height = hExpr
+    html.style.minHeight = hExpr
     html.style.overflow = 'hidden'
-    body.style.height = isPage ? 'var(--embed-vh, 100svh)' : '100%'
-    body.style.minHeight = isPage ? 'var(--embed-vh, 100svh)' : '100%'
+    body.style.height = hExpr
+    body.style.minHeight = hExpr
     body.style.margin = '0'
     body.style.padding = '0'
     body.style.overflow = 'hidden'
 
     if (app) {
-      app.style.height = isPage ? 'var(--embed-vh, 100svh)' : '100%'
-      app.style.minHeight = isPage ? 'var(--embed-vh, 100svh)' : '100%'
+      app.style.height = hExpr
+      app.style.minHeight = hExpr
       app.style.display = 'flex'
       app.style.flexDirection = 'column'
       app.style.overflow = 'hidden'
     }
 
     return () => {
-      if (isPage) {
+      if (useVh) {
         window.visualViewport?.removeEventListener('resize', syncEmbedViewportHeight)
         window.visualViewport?.removeEventListener('scroll', syncEmbedViewportHeight)
         window.removeEventListener('resize', syncEmbedViewportHeight)

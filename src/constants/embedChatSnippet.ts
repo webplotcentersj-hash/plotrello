@@ -38,8 +38,8 @@ export function buildEmbedWidgetSnippet(embedOrigin = getPlotLabEmbedOrigin()): 
     var iframe = document.getElementById('plotai-widget-iframe');
     if (!iframe) return;
     if (e.data.fullscreen) {
-      iframe.style.width = '100vw';
-      iframe.style.height = '100dvh';
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
       iframe.style.maxWidth = '100vw';
       iframe.style.maxHeight = '100dvh';
       iframe.style.bottom = '0';
@@ -47,6 +47,7 @@ export function buildEmbedWidgetSnippet(embedOrigin = getPlotLabEmbedOrigin()): 
       iframe.style.left = '0';
       iframe.style.top = '0';
       iframe.style.borderRadius = '0';
+      iframe.style.overflow = 'hidden';
     } else {
       iframe.style.width = e.data.width + 'px';
       iframe.style.height = e.data.height + 'px';
@@ -57,6 +58,7 @@ export function buildEmbedWidgetSnippet(embedOrigin = getPlotLabEmbedOrigin()): 
       iframe.style.borderRadius = '14px';
       iframe.style.maxWidth = 'calc(100vw - 16px)';
       iframe.style.maxHeight = 'calc(100dvh - 80px)';
+      iframe.style.overflow = 'visible';
     }
   });
 })();

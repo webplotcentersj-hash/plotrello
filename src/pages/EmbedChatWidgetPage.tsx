@@ -115,11 +115,13 @@ export default function EmbedChatWidgetPage() {
 
   useEffect(() => {
     const root = document.documentElement
-    const margin = 24
-    const btnMax = Math.min(96, viewportSize.w - margin, viewportSize.h - margin)
-    root.style.setProperty('--embed-btn-size', `${Math.max(32, btnMax)}px`)
-    return () => { root.style.removeProperty('--embed-btn-size') }
-  }, [viewportSize])
+    // Cerrado: tamaño fijo (el iframe es ~88px). Abierto: el botón se oculta, no agrandar.
+    const closedSize = Math.min(64, Math.max(48, Math.min(viewportSize.w, viewportSize.h) - 16))
+    root.style.setProperty('--embed-btn-size', `${open ? 56 : closedSize}px`)
+    return () => {
+      root.style.removeProperty('--embed-btn-size')
+    }
+  }, [viewportSize, open])
 
   useEmbedShellLayout('widget', { active: open })
 
@@ -344,19 +346,30 @@ export default function EmbedChatWidgetPage() {
   }
 
   return (
-    <div className="embed-widget-wrap embed-chat-scope">
+    <div className={`embed-widget-wrap embed-chat-scope${open ? ' is-open' : ''}`}>
       <button
         type="button"
         className="embed-widget-button"
         onClick={() => {
-          setOpen((o) => !o)
-          if (!open) {
+          // Evita :focus/:hover sticky en iOS que agranda y recorta el botón.
+          const next = !open
+          setOpen(next)
+          if (next) {
             setHasNewStaffReply(false)
             clearNewStaffReply()
           }
+          requestAnimationFrame(() => {
+            try {
+              ;(document.activeElement as HTMLElement | null)?.blur?.()
+            } catch {
+              /* ignore */
+            }
+          })
         }}
         aria-label={open ? 'Cerrar chat' : 'Abrir chat'}
         aria-expanded={open}
+        aria-hidden={open}
+        tabIndex={open ? -1 : 0}
       >
         {hasNewStaffReply && !open && <span className="embed-widget-badge" aria-hidden />}
         {!open && <EmbedChatOnlineStatus dotOnly />}

@@ -602,6 +602,11 @@ html.embed-shell--framed.embed-shell-page .embed-chat-scope--page {
   .embed-chat-scope .embed-chat-input {
     min-width: 0;
     flex: 1 1 auto;
+    font-size: 16px; /* evita zoom automático iOS al enfocar */
+  }
+
+  .embed-chat-scope .embed-chat-input-field {
+    font-size: 16px;
   }
 
   .embed-chat-scope .embed-chat-send-text {

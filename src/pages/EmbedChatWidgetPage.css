@@ -6,6 +6,7 @@ html.embed-widget-page {
   width: 100%;
   height: 100%;
   min-height: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html.embed-widget-page body {
@@ -17,6 +18,14 @@ html.embed-widget-page body {
   min-height: 0 !important;
 }
 
+html.embed-widget-page.embed-shell-widget {
+  overflow: hidden !important;
+}
+
+html.embed-widget-page.embed-shell-widget body {
+  overflow: hidden !important;
+}
+
 /* Fondo transparente: no afectar el diseño de la página WordPress; altura = iframe */
 .embed-widget-wrap {
   background: transparent !important;
@@ -25,6 +34,12 @@ html.embed-widget-page body {
   min-height: 0;
   overflow: visible;
   position: relative;
+}
+
+.embed-widget-wrap.is-open {
+  height: var(--embed-vh, 100%);
+  max-height: var(--embed-vh, 100%);
+  overflow: hidden;
 }
 
 /* Logo PlotAI en el header del panel */
@@ -51,6 +66,8 @@ html.embed-widget-page body {
   height: var(--embed-btn-size, 64px);
   min-width: 48px;
   min-height: 48px;
+  max-width: 72px;
+  max-height: 72px;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -60,26 +77,44 @@ html.embed-widget-page body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s ease, filter 0.2s ease, width 0.15s ease, height 0.15s ease;
-  position: relative;
+  transition: transform 0.2s ease, filter 0.2s ease;
   overflow: visible;
   box-sizing: border-box;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-.embed-widget-button:hover {
-  transform: scale(1.12);
-  filter: drop-shadow(0 2px 8px rgba(234, 88, 12, 0.5)) drop-shadow(0 4px 16px rgba(234, 88, 12, 0.25));
+.embed-widget-wrap.is-open .embed-widget-button {
+  /* Oculto detrás del panel: evita foco/hover sticky que deforma el launcher */
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .embed-widget-button:hover {
+    transform: scale(1.08);
+    filter: drop-shadow(0 2px 8px rgba(234, 88, 12, 0.5)) drop-shadow(0 4px 16px rgba(234, 88, 12, 0.25));
+  }
+
+  .embed-widget-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.5);
+  }
+
+  .embed-widget-button:hover .embed-widget-button-icon {
+    filter: none;
+  }
+}
+
+.embed-widget-button:active {
+  transform: scale(0.96);
 }
 
 .embed-widget-button:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.5);
-}
-
-.embed-widget-button:focus:hover {
-  transform: scale(1.12);
-  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.6);
-  filter: drop-shadow(0 2px 8px rgba(234, 88, 12, 0.5));
 }
 
 .embed-widget-badge {
@@ -106,16 +141,12 @@ html.embed-widget-page body {
   justify-content: center;
   line-height: 1;
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2)) drop-shadow(0 2px 6px rgba(234, 88, 12, 0.2));
-}
-
-.embed-widget-button:hover .embed-widget-button-icon,
-.embed-widget-button:focus .embed-widget-button-icon {
-  filter: none;
+  pointer-events: none;
 }
 
 .embed-widget-button-chat-icon {
-  width: clamp(48px, calc(var(--embed-btn-size, 64px) * 0.75), 72px);
-  height: clamp(48px, calc(var(--embed-btn-size, 64px) * 0.75), 72px);
+  width: clamp(40px, calc(var(--embed-btn-size, 64px) * 0.72), 52px);
+  height: clamp(40px, calc(var(--embed-btn-size, 64px) * 0.72), 52px);
   color: inherit;
   flex-shrink: 0;
 }
@@ -133,50 +164,81 @@ html.embed-widget-page body {
   inset: 0;
   z-index: 99999;
   width: 100%;
-  height: 100%;
+  height: var(--embed-vh, 100%);
+  max-height: var(--embed-vh, 100%);
   border-radius: 16px;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
   overflow: hidden;
-  animation: embed-widget-panel-in 0.25s ease-out;
+  animation: embed-widget-panel-in 0.22s ease-out;
+  display: flex;
+  flex-direction: column;
+  background: #0f1115;
+  touch-action: manipulation;
 }
 
 @media (max-width: 520px) {
+  .embed-widget-panel {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
   .embed-widget-panel .embed-chat-header {
-    padding: 8px 44px 8px 12px;
+    padding: 10px 12px;
+    padding-top: max(10px, env(safe-area-inset-top));
+  }
+
+  .embed-widget-panel .embed-chat-logo {
+    justify-content: flex-start;
+  }
+
+  .embed-widget-panel .embed-chat-logo-img {
+    width: 34px;
+    height: 34px;
   }
 
   .embed-widget-panel .embed-chat-msg {
-    max-width: 96%;
-    font-size: 0.8rem;
-    padding: 8px 10px;
+    max-width: 92%;
+    font-size: 0.875rem;
+    padding: 10px 12px;
   }
 
   .embed-widget-panel .embed-chat-footer {
-    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
-    gap: 6px;
+    padding: 8px 10px max(10px, env(safe-area-inset-bottom));
+    gap: 8px;
+    flex-wrap: nowrap;
   }
 
   .embed-widget-panel .embed-chat-input {
-    min-height: 40px;
-    font-size: 0.85rem;
+    min-height: 44px;
+    font-size: 16px; /* evita zoom automático iOS */
   }
 
   .embed-widget-panel .embed-attach,
   .embed-widget-panel .embed-chat-send,
   .embed-widget-panel .embed-voice-btn {
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .embed-widget-panel .embed-chat-send-text {
+    display: none;
   }
 }
 
 @keyframes embed-widget-panel-in {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .embed-widget-panel {
+    animation: none;
   }
 }
 
@@ -187,7 +249,8 @@ html.embed-widget-page body {
   max-height: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
+  border-radius: inherit;
+  flex: 1;
 }
 
 .embed-widget-panel-inner.embed-chat {
@@ -204,11 +267,24 @@ html.embed-widget-page body {
 
 .embed-widget-panel .embed-chat-header {
   flex-shrink: 0;
-  padding-right: 48px;
+  padding-right: 12px;
 }
 
 .embed-widget-panel .embed-chat-header-inner {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.embed-widget-panel .embed-chat-logo {
+  justify-content: flex-start;
+  min-width: 0;
+  flex: 1;
 }
 
 .embed-widget-header-actions {
@@ -216,48 +292,42 @@ html.embed-widget-page body {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
-.embed-widget-expand {
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: #e5e7eb;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.embed-widget-expand:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
+.embed-widget-expand,
 .embed-widget-close {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  position: static;
+  transform: none;
+  top: auto;
+  right: auto;
   border: none;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   border-radius: 10px;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 1rem;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.2s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
+.embed-widget-expand:hover,
 .embed-widget-close:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.embed-widget-expand:active,
+.embed-widget-close:active {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .embed-widget-panel .embed-chat-messages {
@@ -289,8 +359,8 @@ html.embed-widget-page body {
 
 @media (max-width: 420px) {
   .embed-widget-button-chat-icon {
-    width: clamp(36px, calc(var(--embed-btn-size, 64px) * 0.7), 56px);
-    height: clamp(36px, calc(var(--embed-btn-size, 64px) * 0.7), 56px);
+    width: clamp(36px, calc(var(--embed-btn-size, 64px) * 0.7), 48px);
+    height: clamp(36px, calc(var(--embed-btn-size, 64px) * 0.7), 48px);
   }
   .embed-widget-button-close {
     font-size: clamp(0.9rem, calc(var(--embed-btn-size, 64px) * 0.28), 1.25rem);
