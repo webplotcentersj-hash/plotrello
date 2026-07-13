@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useState, memo, startTransition } from
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import {
+  RRHH_POSTULACIONES_PAGE_SIZE,
   rrhhPostulacionActualizarEstado,
   rrhhPostulacionObtener,
+  rrhhPostulacionesContar,
   rrhhPostulacionesListar
 } from '../services/rrhhPostulacionesService'
 import type { RrhhPostulacion, RrhhPostulacionEstado } from '../types/api'
@@ -55,8 +57,6 @@ function fmtCount(n: number | null | undefined): string {
   return n.toLocaleString('es-AR')
 }
 
-const LIST_PAGE_SIZE = 16
-
 async function getPlotAiApi() {
   const m = await import('../services/api')
   return m.default
@@ -69,11 +69,12 @@ const RecursosHumanosPostulacionesPage = () => {
 
   const [rows, setRows] = useState<RrhhPostulacion[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [estadoFilter, setEstadoFilter] = useState<RrhhPostulacionEstado | ''>('nuevo')
   const [puestoFilter, setPuestoFilter] = useState('')
-  const [tipoFilter, setTipoFilter] = useState<'' | 'formulario' | 'cv'>('')
+  const [tipoFilter, setTipoFilter] = useState<'' | 'formulario' | 'cv'>('cv')
   const [aiQuery, setAiQuery] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiScores, setAiScores] = useState<Record<number, { score: number; motivo: string }>>({})
@@ -84,36 +85,65 @@ const RecursosHumanosPostulacionesPage = () => {
   const [reanalizando, setReanalizando] = useState(false)
   const [analizandoFormulario, setAnalizandoFormulario] = useState(false)
   const [resultCount, setResultCount] = useState<number | null>(null)
-  const [visibleLimit, setVisibleLimit] = useState(LIST_PAGE_SIZE)
 
   const listFilters = useCallback(
     () => ({
       usuarioId: usuario!.id,
       busqueda: busqueda.trim() || undefined,
       estado: estadoFilter || undefined,
-      puesto: puestoFilter || undefined
+      puesto: puestoFilter || undefined,
+      tipo: tipoFilter || undefined
     }),
-    [usuario?.id, busqueda, estadoFilter, puestoFilter]
+    [usuario?.id, busqueda, estadoFilter, puestoFilter, tipoFilter]
   )
 
   const load = useCallback(async (): Promise<RrhhPostulacion[]> => {
     if (!usuario?.id) return []
     setLoading(true)
     const filters = listFilters()
-    const res = await rrhhPostulacionesListar(filters)
+    const [res, countRes] = await Promise.all([
+      rrhhPostulacionesListar({
+        ...filters,
+        limite: RRHH_POSTULACIONES_PAGE_SIZE,
+        offset: 0
+      }),
+      rrhhPostulacionesContar(filters)
+    ])
     const data = res.success && res.data ? res.data : []
     if (res.success) {
       setRows(data)
       setHasSearched(true)
       setAiScores({})
-      setVisibleLimit(LIST_PAGE_SIZE)
-      setResultCount(data.length)
+      setResultCount(countRes.success && countRes.data != null ? countRes.data : data.length)
     } else if (res.error) {
       alert(res.error)
     }
     setLoading(false)
     return data
   }, [usuario?.id, listFilters])
+
+  const loadMore = useCallback(async () => {
+    if (!usuario?.id || loading || loadingMore) return
+    const total = resultCount ?? 0
+    if (rows.length >= total) return
+    setLoadingMore(true)
+    const filters = listFilters()
+    const res = await rrhhPostulacionesListar({
+      ...filters,
+      limite: RRHH_POSTULACIONES_PAGE_SIZE,
+      offset: rows.length
+    })
+    if (res.success && res.data) {
+      setRows((prev) => {
+        const seen = new Set(prev.map((r) => r.id))
+        const next = res.data!.filter((r) => !seen.has(r.id))
+        return next.length ? [...prev, ...next] : prev
+      })
+    } else if (res.error) {
+      alert(res.error)
+    }
+    setLoadingMore(false)
+  }, [usuario?.id, loading, loadingMore, resultCount, rows.length, listFilters])
 
   useEffect(() => {
     if (authLoading) return
@@ -141,11 +171,6 @@ const RecursosHumanosPostulacionesPage = () => {
 
   const sortedRows = useMemo(() => {
     let list = rows
-    if (tipoFilter === 'formulario') {
-      list = list.filter((r) => isFormularioExterno(r))
-    } else if (tipoFilter === 'cv') {
-      list = list.filter((r) => !isFormularioExterno(r))
-    }
     if (Object.keys(aiScores).length > 0) {
       list = list.filter((r) => aiScores[r.id] != null)
     }
@@ -155,7 +180,7 @@ const RecursosHumanosPostulacionesPage = () => {
       const sb = aiScores[b.id]?.score ?? -1
       return sb - sa
     })
-  }, [rows, aiScores, tipoFilter])
+  }, [rows, aiScores])
 
   const buildCandidatosParaIA = (list: RrhhPostulacion[]) =>
     list.map((r) => {
@@ -324,11 +349,8 @@ const RecursosHumanosPostulacionesPage = () => {
 
   const aiMatchCount = Object.keys(aiScores).length
   const visibleCount = sortedRows.length
-  const displayedRows = useMemo(
-    () => sortedRows.slice(0, visibleLimit),
-    [sortedRows, visibleLimit]
-  )
-  const hasMoreRows = sortedRows.length > visibleLimit
+  const hasMoreRows = resultCount != null && rows.length < resultCount
+  const remainingRows = hasMoreRows ? Math.max(0, (resultCount ?? 0) - rows.length) : 0
   const listLimitNote =
     hasSearched && resultCount != null && resultCount > rows.length
       ? ` (mostrando ${fmtCount(rows.length)} de ${fmtCount(resultCount)})`
@@ -400,8 +422,8 @@ const RecursosHumanosPostulacionesPage = () => {
           </select>
           <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value as '' | 'formulario' | 'cv')}>
             <option value="">Todos los tipos</option>
-            <option value="formulario">📋 Solo formularios</option>
             <option value="cv">📎 Solo con CV</option>
+            <option value="formulario">📋 Solo formularios</option>
           </select>
           <button type="button" className="rrhh-post-btn-primary" onClick={() => void load()}>
             Buscar
@@ -473,7 +495,7 @@ const RecursosHumanosPostulacionesPage = () => {
         </div>
       ) : (
         <div className="rrhh-post-grid">
-          {displayedRows.map((row) => {
+          {sortedRows.map((row) => {
             const ia = row.metadata_ia as Record<string, unknown>
             const esFormulario = isFormularioExterno(row)
             const formResp = esFormulario ? getFormularioRespuestas(row) : {}
@@ -517,14 +539,14 @@ const RecursosHumanosPostulacionesPage = () => {
                   <p className="rrhh-post-resumen">{formResp.motivacion_plot.slice(0, 120)}…</p>
                 )}
                 <div className="rrhh-post-card-actions" onClick={(e) => e.stopPropagation()}>
-                  {row.cv_url && (
+                  {row.cv_url ? (
                     <a href={row.cv_url} target="_blank" rel="noopener noreferrer" className="rrhh-post-btn-mini">
                       📎 CV
                     </a>
+                  ) : (
+                    <span className="rrhh-post-btn-mini rrhh-post-btn-mini--muted">Sin CV</span>
                   )}
-                  {esFormulario && !row.cv_url && (
-                    <span className="rrhh-post-btn-mini rrhh-post-btn-mini--muted">📋 Sin CV</span>
-                  )}
+                  {esFormulario && <span className="rrhh-post-btn-mini rrhh-post-btn-mini--muted">📋 Form</span>}
                   {wa && (
                     <a href={wa} target="_blank" rel="noopener noreferrer" className="rrhh-post-btn-wa">
                       WhatsApp
@@ -542,9 +564,12 @@ const RecursosHumanosPostulacionesPage = () => {
           <button
             type="button"
             className="rrhh-post-btn-outline"
-            onClick={() => setVisibleLimit((n) => n + LIST_PAGE_SIZE)}
+            onClick={() => void loadMore()}
+            disabled={loadingMore}
           >
-            Cargar más ({fmtCount(sortedRows.length - visibleLimit)} restantes)
+            {loadingMore
+              ? 'Cargando…'
+              : `Cargar más (${fmtCount(Math.min(RRHH_POSTULACIONES_PAGE_SIZE, remainingRows))} de ${fmtCount(remainingRows)} restantes)`}
           </button>
         </div>
       )}
@@ -663,10 +688,26 @@ const RecursosHumanosPostulacionesPage = () => {
                   </p>
                 )}
                 {renderPlotAiMeta()}
-                {!selectedEsFormulario && selected.cv_url && isPdf(selected) && (
+                {selected.cv_url && isPdf(selected) ? (
+                  <div className="rrhh-post-cv-viewer">
+                    <div className="rrhh-post-cv-viewer-head">
+                      <strong>Vista previa del CV</strong>
+                      <a href={selected.cv_url} target="_blank" rel="noopener noreferrer">
+                        Abrir en pestaña
+                      </a>
+                    </div>
+                    <iframe
+                      title={`CV ${selected.nombre}`}
+                      src={`${selected.cv_url}#toolbar=1&navpanes=0`}
+                      className="rrhh-post-modal-pdf"
+                    />
+                  </div>
+                ) : selected.cv_url ? (
                   <a href={selected.cv_url} target="_blank" rel="noopener noreferrer" className="rrhh-post-btn-outline">
-                    Abrir CV en nueva pestaña
+                    Abrir CV ({selected.cv_nombre || 'archivo'})
                   </a>
+                ) : (
+                  <p className="rrhh-post-form-modal-note">Esta postulación no tiene archivo de CV adjunto.</p>
                 )}
               </div>
             </div>

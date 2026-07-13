@@ -3,6 +3,8 @@ import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
 import { isTransientSupabaseError, withSupabaseRetry } from '../utils/supabaseRetry'
 import type { RrhhPostulacion, RrhhPostulacionEstado } from '../types/api'
 
+export const RRHH_POSTULACIONES_PAGE_SIZE = 50
+
 function errMsg(e: unknown, fallback: string): string {
   if (e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string') {
     return formatSupabaseStatementTimeoutError((e as { message: string }).message)
@@ -48,13 +50,19 @@ function mapRow(row: Record<string, unknown>): RrhhPostulacion {
   }
 }
 
-export async function rrhhPostulacionesListar(filters: {
+export type RrhhPostulacionesListFilters = {
   usuarioId: number
   busqueda?: string
   estado?: string
   puesto?: string
+  tipo?: '' | 'formulario' | 'cv'
   limite?: number
-}): Promise<{ success: boolean; data?: RrhhPostulacion[]; error?: string }> {
+  offset?: number
+}
+
+export async function rrhhPostulacionesListar(
+  filters: RrhhPostulacionesListFilters
+): Promise<{ success: boolean; data?: RrhhPostulacion[]; error?: string }> {
   if (!supabase) return { success: false, error: 'Supabase no inicializado' }
   const sb = supabase
   try {
@@ -65,7 +73,9 @@ export async function rrhhPostulacionesListar(filters: {
           p_busqueda: filters.busqueda || null,
           p_estado: filters.estado || null,
           p_puesto: filters.puesto || null,
-          p_limite: filters.limite ?? 50
+          p_limite: filters.limite ?? RRHH_POSTULACIONES_PAGE_SIZE,
+          p_offset: filters.offset ?? 0,
+          p_tipo: filters.tipo || null
         })
         if (res.error && isTransientSupabaseError(res.error)) throw res.error
         return res
@@ -85,6 +95,7 @@ export async function rrhhPostulacionesContar(filters: {
   busqueda?: string
   estado?: string
   puesto?: string
+  tipo?: '' | 'formulario' | 'cv'
 }): Promise<{ success: boolean; data?: number; error?: string }> {
   if (!supabase) return { success: false, error: 'Supabase no inicializado' }
   try {
@@ -92,7 +103,8 @@ export async function rrhhPostulacionesContar(filters: {
       p_usuario_id: filters.usuarioId,
       p_busqueda: filters.busqueda || null,
       p_estado: filters.estado || null,
-      p_puesto: filters.puesto || null
+      p_puesto: filters.puesto || null,
+      p_tipo: filters.tipo || null
     })
     if (error) throw error
     return { success: true, data: Number(data) || 0 }
