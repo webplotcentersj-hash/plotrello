@@ -3779,8 +3779,9 @@ class ApiService {
 
       const fileExtRaw = file.name.split('.').pop()?.toLowerCase() || 'jpg'
       const fileExt = fileExtRaw === 'jpeg' ? 'jpg' : fileExtRaw.replace(/[^a-z0-9]/g, '') || 'jpg'
+      const fileName = `empleados/${idUsuario}.${fileExt}`
 
-      // 1) Preferir API staff + service role (evita RLS: el login custom no es Supabase Auth)
+      // 1) API staff + service role (si hay JWT). Ante cualquier fallo → Storage directo.
       try {
         const { getStaffAuthToken } = await import('./staffSession')
         const { plotLabFetch } = await import('../utils/plotLabApiOrigin')
@@ -3810,49 +3811,61 @@ class ApiService {
               base64
             })
           })
-          const json = (await resp.json()) as { success?: boolean; url?: string; error?: string }
+          const json = (await resp.json().catch(() => ({}))) as {
+            success?: boolean
+            url?: string
+            error?: string
+          }
           if (resp.ok && json.success && json.url) {
             return { success: true, data: json.url }
           }
-          // Si JWT no aplica (503/401), seguimos con fallback Storage
-          if (resp.status !== 401 && resp.status !== 503) {
-            return { success: false, error: json.error || 'No se pudo subir la foto' }
-          }
+          console.warn('upload-foto-legajo falló, pruebo Storage directo:', resp.status, json.error)
         }
       } catch (apiErr) {
-        console.warn('upload-foto-legajo API no disponible, fallback Storage:', apiErr)
+        console.warn('upload-foto-legajo API no disponible, Storage directo:', apiErr)
       }
 
-      // 2) Fallback: INSERT con nombre único (RLS public permite INSERT; upsert falla en UPDATE)
-      const fileName = `empleados/${idUsuario}_${Date.now()}.${fileExt}`
-      console.log('📤 Subiendo foto (fallback):', fileName, 'Usuario ID:', idUsuario)
-
+      // 2) Storage directo (anon). Policies permiten INSERT/UPDATE en empleados/%
+      console.log('📤 Subiendo foto:', fileName, 'Usuario ID:', idUsuario)
       const uploadResult = await supabase.storage.from('legajos').upload(fileName, file, {
         cacheControl: '3600',
-        upsert: false
+        upsert: true
       })
 
       if (uploadResult.error) {
         console.error('❌ Error de upload:', uploadResult.error)
         const msg = uploadResult.error.message || ''
-        if (msg.includes('row-level security') || msg.includes('RLS')) {
+        if (msg.includes('row-level security') || msg.includes('RLS') || msg.toLowerCase().includes('policy')) {
+          // Último intento: nombre único (solo INSERT)
+          const altName = `empleados/${idUsuario}_${Date.now()}.${fileExt}`
+          const alt = await supabase.storage.from('legajos').upload(altName, file, {
+            cacheControl: '3600',
+            upsert: false
+          })
+          if (!alt.error && alt.data) {
+            const { data: urlAlt } = supabase.storage.from('legajos').getPublicUrl(altName)
+            if (urlAlt?.publicUrl) {
+              return {
+                success: true,
+                data: `${urlAlt.publicUrl}${urlAlt.publicUrl.includes('?') ? '&' : '?'}v=${Date.now()}`
+              }
+            }
+          }
           return {
             success: false,
             error:
-              'Error de permisos al subir la foto. Cerrá sesión, volvé a entrar e intentá de nuevo. Si sigue, contactá al administrador.'
+              'Error de permisos al subir la foto. Recargá la página e intentá de nuevo. Si sigue, contactá al administrador.'
           }
         }
         return { success: false, error: msg }
       }
 
-      if (!uploadResult.data) {
-        return { success: false, error: 'No se recibieron datos del servidor después de subir la foto' }
-      }
-
       const { data: urlData } = supabase.storage.from('legajos').getPublicUrl(fileName)
       if (urlData?.publicUrl) {
-        const url = `${urlData.publicUrl}${urlData.publicUrl.includes('?') ? '&' : '?'}v=${Date.now()}`
-        return { success: true, data: url }
+        return {
+          success: true,
+          data: `${urlData.publicUrl}${urlData.publicUrl.includes('?') ? '&' : '?'}v=${Date.now()}`
+        }
       }
 
       return { success: false, error: 'No se pudo obtener la URL de la imagen' }

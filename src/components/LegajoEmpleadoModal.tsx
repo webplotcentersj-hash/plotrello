@@ -101,8 +101,20 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
       const uploadResponse = await apiService.uploadFotoEmpleado(file, usuario.id)
       
       if (uploadResponse.success && uploadResponse.data) {
-        setLegajo({ ...legajo, foto_url: uploadResponse.data })
-        alert('✅ Foto subida exitosamente')
+        const next = { ...legajo, foto_url: uploadResponse.data }
+        setLegajo(next)
+        setFotoPreview(uploadResponse.data)
+        // Persistir URL de inmediato (no hace falta pulsar Guardar solo por la foto)
+        try {
+          await apiService.crearActualizarLegajo(usuario.id, {
+            ...next,
+            id_usuario: usuario.id,
+            foto_url: uploadResponse.data
+          })
+        } catch (persistErr) {
+          console.warn('Foto subida pero no se pudo persistir en legajo aún:', persistErr)
+        }
+        alert('✅ Foto subida y guardada en el legajo')
         console.log('✅ Foto guardada en:', uploadResponse.data)
       } else {
         const errorMsg = uploadResponse.error || 'Error desconocido'
