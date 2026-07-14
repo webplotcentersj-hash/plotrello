@@ -38,12 +38,16 @@ import {
   evaluarDiaAsistencia,
   formatArs,
   LS_VALOR_HORA_EXTRA,
+  mergeTabletMarcacionesIntoAsistencia,
   rankingPuntualidad,
   totalesStats,
   ultimoDiaMes,
   type HorarioFijoAsistencia,
-  type StatsEmpleadoAsistencia
+  type StatsEmpleadoAsistencia,
+  type TabletMarcacionParaStats
 } from '../utils/asistenciaStats'
+import { plotLabFetch } from '../utils/plotLabApiOrigin'
+import { getStaffAuthToken } from '../services/staffSession'
 import {
   procesarArchivoReloj,
   exportarRelojXlsx,
@@ -3047,6 +3051,33 @@ const EstadisticasAsistenciaTab = ({
             return map
           })
 
+    const tabletPromise = (async (): Promise<TabletMarcacionParaStats[]> => {
+      try {
+        const token = getStaffAuthToken()
+        const resp = await plotLabFetch(
+          `/api/rrhh/reloj-tablet-marcaciones?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        )
+        const json = (await resp.json()) as {
+          success?: boolean
+          data?: Array<{ id_usuario: number; tipo: string; marcado_at: string; empleado?: string | null }>
+        }
+        if (!resp.ok || !json.success || !json.data) return []
+        let rows = json.data
+        if (usuarioSeleccionado != null) {
+          rows = rows.filter((r) => r.id_usuario === usuarioSeleccionado)
+        }
+        return rows.map((r) => ({
+          id_usuario: r.id_usuario,
+          tipo: r.tipo,
+          marcado_at: r.marcado_at,
+          empleado: r.empleado
+        }))
+      } catch {
+        return []
+      }
+    })()
+
     Promise.all([
       apiService.obtenerAsistencia(usuarioSeleccionado, desde, hasta),
       apiService.rrhhNovedadesListar({
@@ -3055,10 +3086,12 @@ const EstadisticasAsistenciaTab = ({
         fechaHasta: hasta
       }),
       apiService.obtenerLegajosBasico(),
-      horariosPromise
-    ]).then(([ra, rn, rl, rhMap]) => {
+      horariosPromise,
+      tabletPromise
+    ]).then(([ra, rn, rl, rhMap, tabletRows]) => {
       if (cancelado) return
-      setAsistencia(ra.success && ra.data ? ra.data : [])
+      const baseAsis = ra.success && ra.data ? ra.data : []
+      setAsistencia(mergeTabletMarcacionesIntoAsistencia(baseAsis, tabletRows))
       setNovedades(rn.success && rn.data ? rn.data : [])
       if (rl.success && rl.data) {
         const map: Record<number, { nombre: string; apellido: string }> = {}
@@ -3086,12 +3119,8 @@ const EstadisticasAsistenciaTab = ({
           mapMes[mesKey] = entradas
           fb = { ...fb, ...entradas }
         }
-        if (modo === 'mes') {
-          setHorariosPorMes((prev) => ({ ...prev, ...mapMes }))
-        } else {
-          setHorariosPorMes(mapMes)
-          setHorarioFallback(fb)
-        }
+        setHorariosPorMes(mapMes)
+        setHorarioFallback(fb)
       }
       setCargando(false)
     })
@@ -3116,6 +3145,18 @@ const EstadisticasAsistenciaTab = ({
 
   const dias = useMemo(() => diasEntre(periodo.desde, periodo.hasta), [periodo])
 
+  const idsConHorario = useMemo(() => {
+    const ids = new Set<number>()
+    for (const mesMap of Object.values(horariosPorMes)) {
+      for (const id of Object.keys(mesMap)) ids.add(Number(id))
+    }
+    for (const id of Object.keys(horarioFallback)) ids.add(Number(id))
+    if (usuarioSeleccionado != null) {
+      return ids.has(usuarioSeleccionado) ? [usuarioSeleccionado] : []
+    }
+    return [...ids]
+  }, [horariosPorMes, horarioFallback, usuarioSeleccionado])
+
   const stats = useMemo(
     () =>
       calcularStatsAsistencia({
@@ -3124,10 +3165,11 @@ const EstadisticasAsistenciaTab = ({
         dias,
         nombres,
         horariosPorMes,
-        horarioFallback: modo === 'anio' ? horarioFallback : undefined,
+        horarioFallback,
+        idsConHorario,
         valorHoraBase: valorHora
       }),
-    [asistencia, novedades, dias, nombres, horariosPorMes, horarioFallback, modo, valorHora]
+    [asistencia, novedades, dias, nombres, horariosPorMes, horarioFallback, idsConHorario, valorHora]
   )
 
   const rankingExtra = useMemo(
@@ -3259,6 +3301,10 @@ const EstadisticasAsistenciaTab = ({
       <p className="rrhh-stats-subtitle">
         Período: <strong>{periodoLabel}</strong>
         {usuarioSeleccionado ? ` · Empleado filtrado` : ' · Todos los empleados'}
+        <br />
+        Puntualidad y tardanzas: marcas de{' '}
+        <strong>reloj facial / tablet</strong> (y asistencia) vs{' '}
+        <strong>Horarios reloj</strong> (tolerancia 15 min).
       </p>
 
       {cargando ? (

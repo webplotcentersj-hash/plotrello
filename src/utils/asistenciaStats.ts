@@ -1,6 +1,6 @@
 import type { Asistencia, RrhhNovedad } from '../types/api'
 import { CONFIG_CALCULO_DEFAULT, type ConfigCalculo } from '../services/relojBiometricoService'
-import { asistenciaHoraCorta } from './dateUtils'
+import { asistenciaHoraCorta, isoToArgentinaDateKey } from './dateUtils'
 import { esDiaHabil, novedadEnDia } from './rrhhNovedadDates'
 
 export type HorarioFijoAsistencia = {
@@ -249,29 +249,105 @@ export function buildExtraAcumuladoPorEmpleado(params: {
   return { porDia, acumulado }
 }
 
-function detectarTardeMarcacion(
+/**
+ * Tardanza vs base de Horarios reloj (misma regla que auditoría tablet / registrar_marcacion).
+ * Prioriza comparación hora real vs entrada esperada (+15 min); tipo_registro / novedad son fallback.
+ */
+export function detectarTardeMarcacion(
   a: Asistencia,
   novs: RrhhNovedad[],
   horaEsperada: string | null
 ): { tarde: boolean; minutos: number } {
-  if (a.tipo_registro === 'tarde') {
-    return { tarde: true, minutos: 0 }
+  if (a.hora_entrada && horaEsperada) {
+    const real = minutosDesdeIso(a.hora_entrada)
+    const esperada = minutosDesdeHora(horaEsperada)
+    if (real != null && esperada != null) {
+      const limite = esperada + TOLERANCIA_TARDANZA_MIN
+      if (real > limite) {
+        return { tarde: true, minutos: real - esperada }
+      }
+      return { tarde: false, minutos: 0 }
+    }
   }
   if (novs.some((n) => n.codigo === 'tardanza')) {
     const novT = novs.find((n) => n.codigo === 'tardanza')
     return { tarde: true, minutos: novT?.duracion_minutos ?? 0 }
   }
-  if (!a.hora_entrada || !horaEsperada) {
-    return { tarde: false, minutos: 0 }
-  }
-  const real = minutosDesdeIso(a.hora_entrada)
-  const esperada = minutosDesdeHora(horaEsperada)
-  if (real == null || esperada == null) return { tarde: false, minutos: 0 }
-  const limite = esperada + TOLERANCIA_TARDANZA_MIN
-  if (real > limite) {
-    return { tarde: true, minutos: real - esperada }
+  if (a.tipo_registro === 'tarde') {
+    return { tarde: true, minutos: 0 }
   }
   return { tarde: false, minutos: 0 }
+}
+
+/** Marcación tablet (facial / QR / manual) mínima para fusionar en stats. */
+export type TabletMarcacionParaStats = {
+  id_usuario: number
+  tipo: string
+  marcado_at: string
+  empleado?: string | null
+}
+
+/**
+ * Incorpora entradas/salidas del reloj tablet (incl. facial) cuando faltan en `asistencia`.
+ * La tardanza se recalcula luego contra Horarios reloj.
+ */
+export function mergeTabletMarcacionesIntoAsistencia(
+  asistencia: Asistencia[],
+  tablet: TabletMarcacionParaStats[]
+): Asistencia[] {
+  if (!tablet.length) return asistencia
+
+  const map = new Map<string, Asistencia>()
+  for (const a of asistencia) {
+    map.set(`${a.id_usuario}|${a.fecha.slice(0, 10)}`, { ...a })
+  }
+
+  type Acc = { entrada?: string; salida?: string; nombre?: string }
+  const porDia = new Map<string, Acc>()
+
+  for (const t of tablet) {
+    const fecha = isoToArgentinaDateKey(t.marcado_at)
+    if (!fecha) continue
+    const k = `${t.id_usuario}|${fecha}`
+    const cur = porDia.get(k) ?? {}
+    const tipo = (t.tipo || '').toLowerCase()
+    if (tipo === 'entrada' || tipo === 'in') {
+      if (!cur.entrada || t.marcado_at < cur.entrada) cur.entrada = t.marcado_at
+    } else if (tipo === 'salida' || tipo === 'out') {
+      if (!cur.salida || t.marcado_at > cur.salida) cur.salida = t.marcado_at
+    } else if (!cur.entrada) {
+      cur.entrada = t.marcado_at
+    }
+    if (t.empleado) cur.nombre = t.empleado
+    porDia.set(k, cur)
+  }
+
+  for (const [k, v] of porDia) {
+    const [idStr, fecha] = k.split('|')
+    const idUsuario = Number(idStr)
+    const existing = map.get(k)
+    if (existing) {
+      if (!existing.hora_entrada && v.entrada) existing.hora_entrada = v.entrada
+      if (!existing.hora_salida && v.salida) existing.hora_salida = v.salida
+      if (!existing.nombre_usuario && v.nombre) existing.nombre_usuario = v.nombre
+      continue
+    }
+    map.set(k, {
+      id: 0,
+      id_usuario: idUsuario,
+      nombre_usuario: v.nombre || undefined,
+      fecha,
+      hora_entrada: v.entrada ?? null,
+      hora_salida: v.salida ?? null,
+      horas_trabajadas: null,
+      tipo_registro: 'normal',
+      observaciones: 'Reloj tablet (facial / QR / manual)',
+      created_at: '',
+      updated_at: ''
+    })
+  }
+
+  return [...map.values()]
 }
 
 export type EvaluacionDiaAsistencia = {
@@ -386,6 +462,8 @@ export function calcularStatsAsistencia(params: {
   nombres: Map<number, string>
   horariosPorMes?: Record<string, Record<number, HorarioFijoAsistencia>>
   horarioFallback?: Record<number, HorarioFijoAsistencia>
+  /** Empleados con Horarios reloj aunque no tengan marcas en el período. */
+  idsConHorario?: number[]
   config?: ConfigCalculo
   valorHoraBase?: number
 }): StatsEmpleadoAsistencia[] {
@@ -396,6 +474,7 @@ export function calcularStatsAsistencia(params: {
     nombres,
     horariosPorMes = {},
     horarioFallback,
+    idsConHorario,
     config = CONFIG_CALCULO_DEFAULT,
     valorHoraBase = 0
   } = params
@@ -403,6 +482,7 @@ export function calcularStatsAsistencia(params: {
   const ids = new Set<number>()
   asistencia.forEach((a) => ids.add(a.id_usuario))
   novedades.forEach((n) => ids.add(n.id_usuario))
+  idsConHorario?.forEach((id) => ids.add(id))
 
   const porUsuarioDia = new Map<string, Asistencia>()
   for (const a of asistencia) {
