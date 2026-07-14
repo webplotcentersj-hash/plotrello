@@ -14,7 +14,7 @@ export function setCorsRestricted(req: VercelRequest, res: VercelResponse, metho
     res.setHeader('Vary', 'Origin')
   }
   res.setHeader('Access-Control-Allow-Methods', methods)
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Reloj-Tablet-Key')
 }
 
 export function handleOptions(req: VercelRequest, res: VercelResponse): boolean {

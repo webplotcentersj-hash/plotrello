@@ -662,9 +662,7 @@ export default function TabletRelojPage() {
                   ? 'Esperá unos segundos antes de marcar de nuevo'
                   : camaraLista
                     ? modo === 'facial'
-                      ? sensorFacialActivo
-                        ? 'Rostro detectado…'
-                        : 'Mirá a la cámara de frente'
+                      ? 'Mirá de frente y tocá Marcar ahora'
                       : 'Acercá tu tarjeta QR a la cámara'
                     : 'Activando cámara…'
 
@@ -838,6 +836,15 @@ export default function TabletRelojPage() {
                 {errorCamara && paso === 'esperando' && (
                   <button type="button" className="tablet-reloj-btn-marcar" onClick={reintentarCamara}>
                     Activar cámara
+                  </button>
+                )}
+                {modo === 'facial' && paso === 'esperando' && camaraLista && !errorCamara && !ocupado && (
+                  <button
+                    type="button"
+                    className="tablet-reloj-btn-marcar"
+                    onClick={() => void marcarPorFacial()}
+                  >
+                    Marcar ahora
                   </button>
                 )}
               </div>
