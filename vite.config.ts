@@ -45,7 +45,9 @@ export default defineConfig({
           '**/pdf.worker*.mjs',
           '**/main*.js',
           '**/api*.js',
-          '**/vendor-*.js'
+          '**/vendor-*.js',
+          // face-api (~1.3MB): se carga on-demand en tablet-reloj, no en el SW
+          '**/face-api*.js'
         ],
         maximumFileSizeToCacheInBytes: 400_000
       }
