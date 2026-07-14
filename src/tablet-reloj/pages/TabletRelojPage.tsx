@@ -250,6 +250,7 @@ export default function TabletRelojPage() {
 
   const modoRef = useRef(modo)
   modoRef.current = modo
+  const camStartGenRef = useRef(0)
 
   const detenerCamara = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -258,72 +259,126 @@ export default function TabletRelojPage() {
     setCamaraLista(false)
   }, [])
 
-  const preferTrasera = modo === 'qr'
-
-  const iniciarCamara = useCallback(async () => {
+  const iniciarCamara = useCallback(async (facing: 'user' | 'environment' = 'user') => {
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error('Este navegador no soporta cámara')
     }
-    const pedirStream = async () => {
-      try {
-        return await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: preferTrasera ? 'environment' : 'user' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
-        })
-      } catch {
-        return navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false
-        })
-      }
-    }
-    if (streamRef.current?.active) {
+
+    if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
+      if (videoRef.current) videoRef.current.srcObject = null
+      // Android/tablet: liberar el device antes de pedir de nuevo
+      await new Promise((r) => window.setTimeout(r, 280))
     }
-    const stream = await pedirStream()
+
+    const attempts: MediaStreamConstraints[] = [
+      {
+        video: {
+          facingMode: { ideal: facing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      },
+      {
+        video: { facingMode: facing },
+        audio: false
+      },
+      {
+        video: { facingMode: facing === 'environment' ? 'user' : 'environment' },
+        audio: false
+      },
+      { video: true, audio: false }
+    ]
+
+    let stream: MediaStream | null = null
+    let lastErr: unknown = null
+    for (const constraints of attempts) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints)
+        break
+      } catch (e) {
+        lastErr = e
+      }
+    }
+    if (!stream) {
+      const name = lastErr && typeof lastErr === 'object' && 'name' in lastErr ? String((lastErr as { name: string }).name) : ''
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        throw new Error('Permiso de cámara denegado. Tocá el candado del navegador y permití la cámara.')
+      }
+      if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        throw new Error('No se encontró ninguna cámara en este dispositivo.')
+      }
+      if (name === 'NotReadableError' || name === 'TrackStartError') {
+        throw new Error('La cámara está ocupada por otra app. Cerrala e intentá de nuevo.')
+      }
+      throw lastErr instanceof Error ? lastErr : new Error('No se pudo abrir la cámara')
+    }
+
     streamRef.current = stream
     const video = videoRef.current ?? (await esperarElementoVideo(() => videoRef.current))
     if (video) {
+      video.setAttribute('playsinline', 'true')
+      video.setAttribute('webkit-playsinline', 'true')
+      video.muted = true
       video.srcObject = stream
       await video.play().catch(() => undefined)
     }
     setCamaraLista(true)
     setErrorCamara('')
-  }, [preferTrasera])
+  }, [])
 
   const reintentarCamara = useCallback(() => {
     setErrorCamara('')
-    detenerCamara()
-    window.setTimeout(() => {
-      void iniciarCamara().catch(() => {
-        setErrorCamara('No se pudo acceder a la cámara. Tocá el candado en la barra del navegador y permití la cámara.')
-      })
-    }, 200)
-  }, [detenerCamara, iniciarCamara])
-
-  useEffect(() => {
-    let cancelled = false
+    const facing = modoRef.current === 'qr' ? 'environment' : 'user'
+    const gen = ++camStartGenRef.current
     void (async () => {
-      await esperarElementoVideo(() => videoRef.current)
-      if (cancelled) return
       try {
-        await iniciarCamara()
-      } catch {
-        if (!cancelled) {
-          setErrorCamara('No se pudo acceder a la cámara. Revisá permisos del navegador.')
-        }
+        await iniciarCamara(facing)
+        if (gen !== camStartGenRef.current) return
+      } catch (e) {
+        if (gen !== camStartGenRef.current) return
+        setErrorCamara(
+          e instanceof Error
+            ? e.message
+            : 'No se pudo acceder a la cámara. Tocá el candado y permití la cámara.'
+        )
       }
     })()
+  }, [iniciarCamara])
+
+  // Arranca / reinicia cámara según modo (qr = trasera, facial/manual = frontal)
+  useEffect(() => {
+    if (modo === 'manual') return
+    const facing = modo === 'qr' ? 'environment' : 'user'
+    const gen = ++camStartGenRef.current
+    let cancelled = false
+
+    void (async () => {
+      await esperarElementoVideo(() => videoRef.current, 4000)
+      if (cancelled || gen !== camStartGenRef.current) return
+      try {
+        await iniciarCamara(facing)
+      } catch (e) {
+        if (cancelled || gen !== camStartGenRef.current) return
+        setErrorCamara(
+          e instanceof Error ? e.message : 'No se pudo acceder a la cámara. Revisá permisos del navegador.'
+        )
+      }
+    })()
+
     return () => {
       cancelled = true
+    }
+  }, [modo, iniciarCamara])
+
+  useEffect(() => {
+    return () => {
+      camStartGenRef.current += 1
       detenerCamara()
     }
-  }, [iniciarCamara, detenerCamara])
+  }, [detenerCamara])
 
   const videoTarget = useMemo(() => {
     if (paso === 'camara' && modalAnchor) return modalAnchor
@@ -548,7 +603,7 @@ export default function TabletRelojPage() {
     setMensajeError('')
     setPaso('camara')
     try {
-      await iniciarCamara()
+      await iniciarCamara('user')
       const video = videoRef.current
       if (video) await esperarVideoListo(video)
     } catch {
@@ -772,23 +827,27 @@ export default function TabletRelojPage() {
         </div>
       ) : null}
 
-      {error && esKiosco ? (
-        <div className="tablet-reloj-error-banner">
-          <p>{error}</p>
-          <p className="tablet-reloj-error-hint">Revisá en ⚙ que la clave tablet coincida con Vercel (RELOJ_TABLET_API_KEY).</p>
-          <button type="button" onClick={() => void cargar()}>
-            Reintentar
-          </button>
-        </div>
-      ) : esKiosco ? (
+      {esKiosco ? (
         <div className="tablet-reloj-kiosco">
+          {error ? (
+            <div className="tablet-reloj-error-banner tablet-reloj-error-banner--overlay">
+              <p>{error}</p>
+              <p className="tablet-reloj-error-hint">
+                Revisá en ⚙ que la clave tablet coincida con Vercel (RELOJ_TABLET_API_KEY). La cámara igual puede
+                usarse.
+              </p>
+              <button type="button" onClick={() => void cargar()}>
+                Reintentar lista
+              </button>
+            </div>
+          ) : null}
           {loading ? (
             <div className="tablet-reloj-loading-badge">
               <div className="tablet-reloj-spinner" />
               <span>Cargando empleados…</span>
             </div>
           ) : null}
-          <div className={`tablet-reloj-kiosco-video-wrap${paso === 'procesando' ? ' tablet-reloj-kiosco-video-wrap--busy' : camaraLista && paso === 'esperando' ? ' tablet-reloj-kiosco-video-wrap--live' : ''}${modo === 'facial' && sensorFacialActivo ? ' tablet-reloj-kiosco-video-wrap--face' : ''}`}>
+          <div className={`tablet-reloj-kiosco-video-wrap${paso === 'procesando' ? ' tablet-reloj-kiosco-video-wrap--busy' : camaraLista && paso === 'esperando' ? ' tablet-reloj-kiosco-video-wrap--live' : ''}${modo === 'facial' && sensorFacialActivo ? ' tablet-reloj-kiosco-video-wrap--face' : ''}${!camaraLista ? ' tablet-reloj-kiosco-video-wrap--nocam' : ''}`}>
             <div ref={setKioscoAnchor} className="tablet-reloj-video-anchor" />
             <div className="tablet-reloj-camera-vignette" aria-hidden />
             <div className="tablet-reloj-camera-frame" aria-hidden>
@@ -824,7 +883,7 @@ export default function TabletRelojPage() {
                           ? 'Rostro en cuadro'
                           : 'Esperando rostro'
                         : 'Listo para escanear'
-                      : 'Activando cámara'
+                      : 'Cámara apagada'
                     : 'Procesando'}
                 </div>
               </div>
@@ -833,9 +892,9 @@ export default function TabletRelojPage() {
                 {(paso === 'procesando') && (
                   <div className="tablet-reloj-spinner tablet-reloj-spinner--lg" />
                 )}
-                {errorCamara && paso === 'esperando' && (
+                {paso === 'esperando' && (!camaraLista || errorCamara) && (
                   <button type="button" className="tablet-reloj-btn-marcar" onClick={reintentarCamara}>
-                    Activar cámara
+                    {camaraLista ? 'Reintentar cámara' : 'Activar cámara'}
                   </button>
                 )}
                 {modo === 'facial' && paso === 'esperando' && camaraLista && !errorCamara && !ocupado && (
