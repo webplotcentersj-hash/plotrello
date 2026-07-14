@@ -107,6 +107,38 @@ export async function fetchEmpleadosRelojTablet(): Promise<EmpleadoRelojTablet[]
   return json.empleados ?? []
 }
 
+export async function fetchFacialIndiceRelojTablet(): Promise<{
+  descriptores: import('./faceLocalMatch').FaceDescriptorRecord[]
+  meta: {
+    indexed_count?: number
+    failed_count?: number
+    total_fotos?: number
+    built_at?: string | null
+    signature?: string
+  } | null
+}> {
+  const resp = await plotLabFetch('/api/plotai/reloj-tablet-facial-indice', { headers: headers() })
+  const json = await parseApiJson<{
+    success?: boolean
+    error?: string
+    meta?: {
+      indexed_count?: number
+      failed_count?: number
+      total_fotos?: number
+      built_at?: string | null
+      signature?: string
+    } | null
+    descriptores?: import('./faceLocalMatch').FaceDescriptorRecord[]
+  }>(resp)
+  if (!resp.ok || !json.success) {
+    throw new Error(json.error || 'No se pudo cargar el índice facial')
+  }
+  return {
+    descriptores: json.descriptores ?? [],
+    meta: json.meta ?? null
+  }
+}
+
 export type IdentificacionTabletResult = {
   match: boolean
   id_usuario?: number

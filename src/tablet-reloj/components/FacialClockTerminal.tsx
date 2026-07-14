@@ -11,14 +11,16 @@ import {
 } from 'lucide-react'
 import {
   fotoEmpleadoUrl,
+  fetchFacialIndiceRelojTablet,
   marcarRelojTablet,
   type EmpleadoRelojTablet,
   type MarcacionTabletResult
 } from '../services/relojTabletApi'
 import {
-  buildFaceGallery,
+  ensureFaceModels,
   getFaceGalleryCount,
   hasFaceInVideo,
+  hydrateFaceGalleryFromRecords,
   matchSelfieDataUrl
 } from '../services/faceLocalMatch'
 import { horaMarcacionTabletDisplay } from '../../utils/dateUtils'
@@ -82,44 +84,47 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     setGalleryReady(false)
     setEngineError('')
     void (async () => {
-      if (employeesCount === 0) {
-        setEngineStatus('Sin fotos de legajo')
-        return
-      }
       try {
-        setEngineStatus('Cargando modelos face-api…')
-        setEngineStatus('Indexando fotos de legajo…')
-        const stats = await buildFaceGallery(conFoto, (done, total) => {
-          if (!cancelled) setEngineStatus(`Indexando rostros ${done}/${total}…`)
-        })
+        setEngineStatus('Cargando modelos…')
+        await ensureFaceModels()
         if (cancelled) return
+        setEngineStatus('Descargando índice facial…')
+        const { descriptores, meta } = await fetchFacialIndiceRelojTablet()
+        if (cancelled) return
+        const stats = hydrateFaceGalleryFromRecords(descriptores)
         if (stats.indexed === 0) {
-          setEngineError(
-            'No se pudo leer ningún rostro en las fotos de legajo. Revisá que sean fotos de frente claras.'
-          )
           setGalleryReady(false)
-          setEngineStatus('Sin rostros indexados')
+          setEngineError(
+            'Índice facial vacío. En Recursos humanos → Reloj facial tocá “Indexar rostros”.'
+          )
+          setEngineStatus('Sin índice facial')
           return
         }
         setGalleryReady(true)
+        const when = meta?.built_at
+          ? new Date(meta.built_at).toLocaleString('es-AR', {
+              day: '2-digit',
+              month: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : null
         setEngineStatus(
-          stats.failed
-            ? `Listo · ${stats.indexed} rostros (${stats.failed} fotos sin rostro)`
-            : `Listo · ${stats.indexed} rostros indexados`
+          when
+            ? `Listo · ${stats.indexed} rostros (índice ${when})`
+            : `Listo · ${stats.indexed} rostros`
         )
       } catch (e) {
         if (cancelled) return
         setGalleryReady(false)
-        setEngineError(e instanceof Error ? e.message : 'No se pudieron cargar los modelos faciales')
-        setEngineStatus('Error al cargar face-api')
+        setEngineError(e instanceof Error ? e.message : 'No se pudo cargar el índice facial')
+        setEngineStatus('Error al cargar índice')
       }
     })()
     return () => {
       cancelled = true
     }
-    // conFoto identity: depend on empleados list + foto urls via count + signature of urls
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empleados])
+  }, [])
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -398,7 +403,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
               <div className="facial-clock-oval" />
               <span className="facial-clock-guide">
                 {!galleryReady
-                  ? 'Indexando…'
+                  ? 'Cargando…'
                   : cooldown > 0
                     ? `Listo en ${cooldown}s`
                     : 'Alineá tu rostro'}

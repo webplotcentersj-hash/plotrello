@@ -18,10 +18,19 @@ export type FaceMatchHit = {
   foto_url: string
 }
 
+export type FaceDescriptorRecord = {
+  id_usuario: number
+  nombre: string
+  foto_url: string
+  foto_key: string
+  descriptor: number[]
+}
+
 type GalleryEntry = {
   id_usuario: number
   nombre: string
   foto_url: string
+  foto_key: string
   descriptor: Float32Array
 }
 
@@ -44,6 +53,13 @@ export function distanciaAConfianza(distancia: number): number {
   return Math.round(clamp(((0.6 - distancia) / 0.6) * 100, 0, 100))
 }
 
+export function fotoKeyFromUrl(fotoUrl: string): string {
+  return String(fotoUrl || '')
+    .trim()
+    .replace(/([?&])v=\d+/g, '')
+    .replace(/\?$/, '')
+}
+
 export function legajoImageUrlForFace(url: string): string {
   let u = String(url || '').trim()
   if (!u) return u
@@ -52,7 +68,7 @@ export function legajoImageUrlForFace(url: string): string {
     parsed.searchParams.delete('v')
     u = parsed.toString()
   } catch {
-    u = u.replace(/([?&])v=\d+/g, '').replace(/\?$/, '')
+    u = fotoKeyFromUrl(u)
   }
   if (u.includes('/storage/v1/object/public/')) {
     const rendered = u.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
@@ -109,7 +125,7 @@ async function loadImageElement(url: string): Promise<HTMLImageElement> {
 }
 
 async function descriptorFromFotoUrl(fotoUrl: string): Promise<Float32Array | null> {
-  const key = fotoUrl.replace(/([?&])v=\d+/g, '').replace(/\?$/, '')
+  const key = fotoKeyFromUrl(fotoUrl)
   const cached = descriptorCache.get(key)
   if (cached) return cached
 
@@ -142,54 +158,148 @@ function employeeNombre(emp: EmpleadoRelojTablet): string {
   )
 }
 
-function gallerySig(empleados: EmpleadoRelojTablet[]): string {
+export function gallerySigFromEmpleados(empleados: EmpleadoRelojTablet[]): string {
   return empleados
-    .map((e) => `${e.id_usuario}:${(e.foto_url || '').trim()}`)
+    .filter((e) => Boolean(e.foto_url?.trim()))
+    .map((e) => `${e.id_usuario}:${fotoKeyFromUrl(String(e.foto_url))}`)
     .sort()
     .join('|')
 }
 
+/** Carga índice guardado en servidor (kiosco). No procesa fotos. */
+export function hydrateFaceGalleryFromRecords(records: FaceDescriptorRecord[]): FaceGalleryStats {
+  const next: GalleryEntry[] = []
+  for (const row of records) {
+    if (!Array.isArray(row.descriptor) || row.descriptor.length < 64) continue
+    const floats = Float32Array.from(row.descriptor.map(Number))
+    if (floats.some((n) => !Number.isFinite(n))) continue
+    const foto_url = String(row.foto_url || '').trim()
+    const foto_key = String(row.foto_key || fotoKeyFromUrl(foto_url)).trim()
+    next.push({
+      id_usuario: Number(row.id_usuario),
+      nombre: String(row.nombre || `Empleado ${row.id_usuario}`),
+      foto_url,
+      foto_key,
+      descriptor: floats
+    })
+    if (foto_key) descriptorCache.set(foto_key, floats)
+  }
+  gallery = next
+  gallerySignature = next
+    .map((e) => `${e.id_usuario}:${e.foto_key}`)
+    .sort()
+    .join('|')
+  return { indexed: gallery.length, failed: 0, total: gallery.length }
+}
+
+export function getFaceGalleryCount(): number {
+  return gallery.length
+}
+
+export function getFaceGallerySignature(): string {
+  return gallerySignature
+}
+
+/**
+ * Indexa fotos de legajo en este navegador (panel RRHH).
+ * No lo llama el kiosco en cada refresh.
+ */
 export async function buildFaceGallery(
   empleados: EmpleadoRelojTablet[],
-  onProgress?: (done: number, total: number) => void
-): Promise<FaceGalleryStats> {
+  onProgress?: (done: number, total: number) => void,
+  options?: { onlyChangedKeys?: Set<string> }
+): Promise<FaceGalleryStats & { records: FaceDescriptorRecord[] }> {
   await ensureFaceModels()
 
   const conFoto = empleados.filter((e) => Boolean(e.foto_url?.trim()))
-  const sig = gallerySig(conFoto)
-  if (sig === gallerySignature && gallery.length > 0) {
-    return { indexed: gallery.length, failed: 0, total: conFoto.length }
+  const onlyKeys = options?.onlyChangedKeys
+  const toProcess = onlyKeys?.size
+    ? conFoto.filter((e) => onlyKeys.has(fotoKeyFromUrl(String(e.foto_url))))
+    : conFoto
+
+  const keepById = new Map<number, GalleryEntry>()
+  if (onlyKeys?.size) {
+    for (const entry of gallery) {
+      const emp = conFoto.find((e) => e.id_usuario === entry.id_usuario)
+      if (!emp) continue
+      const key = fotoKeyFromUrl(String(emp.foto_url))
+      if (entry.foto_key === key && !onlyKeys.has(key)) {
+        keepById.set(entry.id_usuario, entry)
+      }
+    }
   }
 
-  const next: GalleryEntry[] = []
+  const next = new Map<number, GalleryEntry>(keepById)
   let failed = 0
   let done = 0
-  const total = conFoto.length
+  const total = toProcess.length
 
-  for (const emp of conFoto) {
+  for (const emp of toProcess) {
     const foto_url = String(emp.foto_url).trim()
+    const foto_key = fotoKeyFromUrl(foto_url)
     const descriptor = await descriptorFromFotoUrl(foto_url)
     done += 1
     onProgress?.(done, total)
     if (!descriptor) {
       failed += 1
+      next.delete(emp.id_usuario)
       continue
     }
-    next.push({
+    next.set(emp.id_usuario, {
       id_usuario: emp.id_usuario,
       nombre: employeeNombre(emp),
       foto_url,
+      foto_key,
       descriptor
     })
   }
 
-  gallery = next
-  gallerySignature = sig
-  return { indexed: gallery.length, failed, total }
+  // Full rebuild: drop anyone not in current conFoto
+  if (!onlyKeys?.size) {
+    for (const id of [...next.keys()]) {
+      if (!conFoto.some((e) => e.id_usuario === id)) next.delete(id)
+    }
+  } else {
+    for (const emp of conFoto) {
+      if (!next.has(emp.id_usuario) && !onlyKeys.has(fotoKeyFromUrl(String(emp.foto_url)))) {
+        /* keep unchanged already in next via keepById */
+      }
+    }
+  }
+
+  gallery = [...next.values()]
+  gallerySignature = gallerySigFromEmpleados(conFoto)
+
+  const records: FaceDescriptorRecord[] = gallery.map((e) => ({
+    id_usuario: e.id_usuario,
+    nombre: e.nombre,
+    foto_url: e.foto_url,
+    foto_key: e.foto_key,
+    descriptor: Array.from(e.descriptor)
+  }))
+
+  return {
+    indexed: gallery.length,
+    failed,
+    total: conFoto.length,
+    records
+  }
 }
 
-export function getFaceGalleryCount(): number {
-  return gallery.length
+/** Compara fotos actuales vs índice guardado: cuántas faltan o cambiaron. */
+export function countPendingFacialIndex(
+  empleados: Array<{ id_usuario: number; foto_url?: string | null }>,
+  indexed: Array<{ id_usuario: number; foto_key: string }>
+): number {
+  const byId = new Map(indexed.map((r) => [r.id_usuario, r.foto_key]))
+  let pending = 0
+  for (const e of empleados) {
+    const url = e.foto_url?.trim()
+    if (!url) continue
+    const key = fotoKeyFromUrl(url)
+    if (byId.get(e.id_usuario) !== key) pending += 1
+  }
+  return pending
 }
 
 export async function matchSelfieDataUrl(
@@ -198,7 +308,10 @@ export async function matchSelfieDataUrl(
 ): Promise<{ hit: FaceMatchHit | null; motivo?: string }> {
   await ensureFaceModels()
   if (!gallery.length) {
-    return { hit: null, motivo: 'No hay rostros indexados. Revisá fotos de legajo.' }
+    return {
+      hit: null,
+      motivo: 'No hay índice facial. En RRHH → Reloj facial usá “Indexar rostros”.'
+    }
   }
 
   const api = await loadFaceApi()
