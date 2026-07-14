@@ -11,19 +11,26 @@ import {
 } from 'lucide-react'
 import {
   fotoEmpleadoUrl,
-  marcarAutoRelojTablet,
+  marcarRelojTablet,
   type EmpleadoRelojTablet,
   type MarcacionTabletResult
 } from '../services/relojTabletApi'
+import {
+  buildFaceGallery,
+  getFaceGalleryCount,
+  hasFaceInVideo,
+  matchSelfieDataUrl,
+  type FaceGalleryStats
+} from '../services/faceLocalMatch'
 import { horaMarcacionTabletDisplay } from '../../utils/dateUtils'
 import { playMarcacionSound, speakMarcacionExito, cancelMarcacionSpeech } from '../utils/tabletRelojKiosk'
 import './FacialClockTerminal.css'
 
-const SELFIE_MAX_W = 480
-const SELFIE_JPEG_Q = 0.62
-const AUTO_SCAN_MS = 4000
+const SELFIE_MAX_W = 640
+const SELFIE_JPEG_Q = 0.85
+const AUTO_SCAN_MS = 2800
 const COOLDOWN_OK_S = 8
-const COOLDOWN_FAIL_S = 6
+const COOLDOWN_FAIL_S = 5
 
 type FacialResult = {
   recognized: boolean
@@ -54,6 +61,10 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
   const [isAutoMode, setIsAutoMode] = useState(true)
   const [cooldown, setCooldown] = useState(0)
   const [clock, setClock] = useState(() => new Date())
+  const [engineStatus, setEngineStatus] = useState('Preparando reconocimiento…')
+  const [galleryReady, setGalleryReady] = useState(false)
+  const [galleryStats, setGalleryStats] = useState<FaceGalleryStats | null>(null)
+  const [engineError, setEngineError] = useState('')
 
   const conFoto = empleados.filter((e) => e.tiene_foto_legajo || Boolean(e.foto_url?.trim()))
   const employeesCount = conFoto.length
@@ -68,6 +79,51 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     const t = window.setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000)
     return () => window.clearInterval(t)
   }, [cooldown])
+
+  useEffect(() => {
+    let cancelled = false
+    setGalleryReady(false)
+    setEngineError('')
+    void (async () => {
+      if (employeesCount === 0) {
+        setEngineStatus('Sin fotos de legajo')
+        return
+      }
+      try {
+        setEngineStatus('Cargando modelos face-api…')
+        setEngineStatus('Indexando fotos de legajo…')
+        const stats = await buildFaceGallery(conFoto, (done, total) => {
+          if (!cancelled) setEngineStatus(`Indexando rostros ${done}/${total}…`)
+        })
+        if (cancelled) return
+        setGalleryStats(stats)
+        if (stats.indexed === 0) {
+          setEngineError(
+            'No se pudo leer ningún rostro en las fotos de legajo. Revisá que sean fotos de frente claras.'
+          )
+          setGalleryReady(false)
+          setEngineStatus('Sin rostros indexados')
+          return
+        }
+        setGalleryReady(true)
+        setEngineStatus(
+          stats.failed
+            ? `Listo · ${stats.indexed} rostros (${stats.failed} fotos sin rostro)`
+            : `Listo · ${stats.indexed} rostros indexados`
+        )
+      } catch (e) {
+        if (cancelled) return
+        setGalleryReady(false)
+        setEngineError(e instanceof Error ? e.message : 'No se pudieron cargar los modelos faciales')
+        setEngineStatus('Error al cargar face-api')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // conFoto identity: depend on empleados list + foto urls via count + signature of urls
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empleados])
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -159,7 +215,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
       try {
         await video.play()
       } catch {
-        /* gesto del usuario cubierto por Reintentar */
+        /* gesto usuario */
       }
 
       if (video.videoWidth < 2) {
@@ -177,12 +233,13 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
   }, [])
 
   useEffect(() => {
+    if (employeesCount === 0) return
     void startCamera()
     return () => {
       cancelMarcacionSpeech()
       stopCamera()
     }
-  }, [startCamera, stopCamera])
+  }, [startCamera, stopCamera, employeesCount])
 
   const captureSelfie = useCallback((): string | null => {
     const video = videoRef.current
@@ -196,14 +253,13 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     canvas.height = Math.round(srcH * scale)
     const ctx = canvas.getContext('2d')
     if (!ctx) return null
-    // Sin espejar: mismo pipeline que plotai identify
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
     return canvas.toDataURL('image/jpeg', SELFIE_JPEG_Q)
   }, [])
 
   const handleRecognize = useCallback(async () => {
     if (capturingRef.current || cooldown > 0) return
-    if (!camaraLista || employeesCount === 0) return
+    if (!camaraLista || employeesCount === 0 || !galleryReady) return
 
     capturingRef.current = true
     setIsCapturing(true)
@@ -216,37 +272,43 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
         throw new Error('No se pudo capturar la imagen. Acercate de frente a la cámara.')
       }
 
-      setStatusMessage('Reconociendo rostro…')
-      const res = await marcarAutoRelojTablet(selfie)
-
-      if (!res.match || !res.data) {
-        const message = res.mensaje || 'No se reconoció el rostro. Probá de nuevo o usá QR.'
-        setResult({ recognized: false, message, confianza: res.confianza })
+      setStatusMessage('Comparando rostros (local)…')
+      const { hit, motivo } = await matchSelfieDataUrl(selfie)
+      if (!hit) {
+        setResult({ recognized: false, message: motivo || 'No se reconoció el rostro.' })
         if (soundEnabled) playMarcacionSound('error')
         setCooldown(COOLDOWN_FAIL_S)
         return
       }
 
-      const emp = empleados.find((e) => e.id_usuario === res.data!.id_usuario) || null
-      const foto = (emp && fotoEmpleadoUrl(emp)) || emp?.foto_url || null
+      setStatusMessage(`Registrando ${hit.nombre}…`)
+      const data = await marcarRelojTablet({
+        idUsuario: hit.id_usuario,
+        selfieDataUrl: selfie,
+        confianza: hit.confianza,
+        detalle: `Facial local face-api · dist ${hit.distancia.toFixed(3)} · ${hit.confianza}%`
+      })
+
+      const emp = empleados.find((e) => e.id_usuario === hit.id_usuario) || null
+      const foto = hit.foto_url || (emp && fotoEmpleadoUrl(emp)) || emp?.foto_url || null
       setResult({
         recognized: true,
-        message: res.data.mensaje || res.mensaje || 'Marcación registrada',
-        confianza: res.confianza,
+        message: data.mensaje || 'Marcación registrada',
+        confianza: hit.confianza,
         empleado: emp,
-        data: res.data,
+        data,
         foto
       })
       if (soundEnabled) {
         playMarcacionSound('ok')
-        speakMarcacionExito(res.data.nombre || emp?.nombre_completo || '', res.data.tipo)
+        speakMarcacionExito(data.nombre || hit.nombre, data.tipo)
       }
       setCooldown(COOLDOWN_OK_S)
       onMarked?.()
     } catch (e) {
       setResult({
         recognized: false,
-        message: e instanceof Error ? e.message : 'Error al comunicar con el servidor'
+        message: e instanceof Error ? e.message : 'Error al marcar'
       })
       if (soundEnabled) playMarcacionSound('error')
       setCooldown(COOLDOWN_FAIL_S)
@@ -261,22 +323,38 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     cooldown,
     empleados,
     employeesCount,
+    galleryReady,
     onMarked,
     soundEnabled
   ])
 
   useEffect(() => {
-    if (!isAutoMode || isCapturing || cooldown > 0 || employeesCount === 0 || !camaraLista) return
+    if (!isAutoMode || isCapturing || cooldown > 0 || !camaraLista || !galleryReady) return
+    if (getFaceGalleryCount() === 0) return
+
+    let cancelled = false
     const timer = window.setTimeout(() => {
-      void handleRecognize()
+      void (async () => {
+        const video = videoRef.current
+        if (!video || cancelled) return
+        const face = await hasFaceInVideo(video)
+        if (cancelled || !face) return
+        void handleRecognize()
+      })()
     }, AUTO_SCAN_MS)
-    return () => window.clearTimeout(timer)
-  }, [isAutoMode, isCapturing, cooldown, employeesCount, camaraLista, handleRecognize])
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [isAutoMode, isCapturing, cooldown, camaraLista, galleryReady, handleRecognize])
 
   const horaStr = clock.toLocaleTimeString('es-AR', {
     hour12: false,
     timeZone: 'America/Argentina/Buenos_Aires'
   })
+
+  const canScan = camaraLista && galleryReady && !isCapturing && cooldown === 0
 
   return (
     <div className="facial-clock">
@@ -287,7 +365,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
           </span>
           <div>
             <h2>Terminal facial</h2>
-            <p>Escaneo biométrico plotLAB</p>
+            <p>face-api · reconocimiento local</p>
           </div>
         </div>
         <div className="facial-clock-header-actions">
@@ -310,7 +388,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
         <div className="facial-clock-auto-row">
           <div>
             <h4>Modo automático</h4>
-            <p>Registra al detectar un rostro. Entrada/salida la decide RRHH.</p>
+            <p>{engineStatus}. Entrada/salida la decide RRHH.</p>
           </div>
           <button
             type="button"
@@ -340,16 +418,25 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
             <h3>Sin fotos de legajo</h3>
             <p>Cargá la foto facial en el legajo de cada colaborador en RRHH para habilitar el reconocimiento.</p>
           </div>
+        ) : engineError && !galleryReady ? (
+          <div className="facial-clock-empty facial-clock-empty--err">
+            <AlertCircle size={36} />
+            <p>{engineError}</p>
+          </div>
         ) : (
           <div className={`facial-clock-viewport${camaraLista ? ' facial-clock-viewport--live' : ''}`}>
             <video ref={videoRef} autoPlay playsInline muted className="facial-clock-video" />
             <div className="facial-clock-frame" aria-hidden>
               <div className="facial-clock-oval" />
               <span className="facial-clock-guide">
-                {cooldown > 0 ? `Listo en ${cooldown}s` : 'Alineá tu rostro'}
+                {!galleryReady
+                  ? 'Indexando…'
+                  : cooldown > 0
+                    ? `Listo en ${cooldown}s`
+                    : 'Alineá tu rostro'}
               </span>
             </div>
-            {isAutoMode ? (
+            {isAutoMode && galleryReady ? (
               <div className="facial-clock-badges">
                 <span className="facial-clock-badge facial-clock-badge--auto">Auto activo</span>
                 {cooldown > 0 ? (
@@ -359,25 +446,28 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
                 )}
               </div>
             ) : null}
-            {statusMessage ? (
+            {!galleryReady || statusMessage ? (
               <div className="facial-clock-busy">
                 <Loader2 size={40} className="facial-clock-spin" />
-                <p>{statusMessage}</p>
+                <p>{statusMessage || engineStatus}</p>
               </div>
             ) : null}
           </div>
         )}
       </div>
 
-      {!cameraError && employeesCount > 0 ? (
+      {!cameraError && employeesCount > 0 && galleryReady ? (
         <div className="facial-clock-footer">
           {isAutoMode ? (
             <>
-              <p>Parate de frente a la cámara. La marcación es automática.</p>
+              <p>
+                Parate de frente. Match local
+                {galleryStats ? ` · ${galleryStats.indexed} legajos` : ''}.
+              </p>
               <button
                 type="button"
                 className="facial-clock-btn facial-clock-btn--ghost"
-                disabled={isCapturing || cooldown > 0}
+                disabled={!canScan}
                 onClick={() => void handleRecognize()}
               >
                 {cooldown > 0 ? `Esperá ${cooldown}s` : 'Marcar ahora'}
@@ -387,7 +477,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
             <button
               type="button"
               className="facial-clock-btn facial-clock-btn--primary"
-              disabled={isCapturing || cooldown > 0 || !camaraLista}
+              disabled={!canScan}
               onClick={() => void handleRecognize()}
             >
               <Camera size={16} /> Marcar ahora
@@ -416,9 +506,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
                   {result.confianza != null ? ` · ${Math.round(result.confianza)}%` : ''}
                 </span>
                 <h3>{result.data.nombre || result.empleado?.nombre_completo}</h3>
-                <p>
-                  {horaMarcacionTabletDisplay(result.data)} · Argentina
-                </p>
+                <p>{horaMarcacionTabletDisplay(result.data)} · Argentina</p>
                 {result.data.tipo === 'entrada' && result.data.tarde ? (
                   <p className="facial-clock-late">Tardanza: {result.data.minutos_tarde} min</p>
                 ) : null}

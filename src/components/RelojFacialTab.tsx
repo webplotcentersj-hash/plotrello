@@ -66,8 +66,8 @@ export default function RelojFacialTab({ onVerAuditoria }: RelojFacialTabProps) 
         <div>
           <h3>Reloj con reconocimiento facial</h3>
           <p>
-            El kiosco facial de plotLAB identifica al empleado con la selfie frente a la foto de legajo
-            (Gemini + API tablet). Sin foto de legajo no puede marcar por rostro. Entrada/salida la decide
+            El kiosco facial usa reconocimiento local (face-api) contra la foto de legajo y registra la
+            marcación en plotLAB. Sin foto de legajo no puede marcar por rostro. Entrada/salida la decide
             automáticamente RRHH.
           </p>
         </div>
@@ -147,7 +147,7 @@ export default function RelojFacialTab({ onVerAuditoria }: RelojFacialTabProps) 
         <h4>Cómo usarlo</h4>
         <ol>
           <li>Abrí el kiosco facial en una tablet fija (pantalla completa, HTTPS).</li>
-          <li>El modo automático escanea y marca si hay coincidencia con foto de legajo.</li>
+          <li>El modo automático compara el rostro en vivo con las fotos de legajo (face-api en el navegador) y marca si hay coincidencia.</li>
           <li>Si no reconoce, el empleado puede usar QR o Manual como respaldo.</li>
         </ol>
       </div>
