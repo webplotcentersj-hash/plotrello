@@ -15,14 +15,21 @@
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
 }
 
-.facial-clock-header {
+.facial-clock-chrome {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  background: #05070d;
-  border-bottom: 1px solid var(--fc-border);
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 12px 0;
+  background: transparent;
+}
+
+.facial-clock-header {
+  display: none;
+}
+
+.facial-clock-toolbar {
+  display: none;
 }
 
 .facial-clock-brand {

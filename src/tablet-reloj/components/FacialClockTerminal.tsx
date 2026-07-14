@@ -19,8 +19,7 @@ import {
   buildFaceGallery,
   getFaceGalleryCount,
   hasFaceInVideo,
-  matchSelfieDataUrl,
-  type FaceGalleryStats
+  matchSelfieDataUrl
 } from '../services/faceLocalMatch'
 import { horaMarcacionTabletDisplay } from '../../utils/dateUtils'
 import { playMarcacionSound, speakMarcacionExito, cancelMarcacionSpeech } from '../utils/tabletRelojKiosk'
@@ -58,12 +57,10 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [result, setResult] = useState<FacialResult | null>(null)
   const [soundEnabled, setSoundEnabled] = useState(true)
-  const [isAutoMode, setIsAutoMode] = useState(true)
   const [cooldown, setCooldown] = useState(0)
   const [clock, setClock] = useState(() => new Date())
   const [engineStatus, setEngineStatus] = useState('Preparando reconocimiento…')
   const [galleryReady, setGalleryReady] = useState(false)
-  const [galleryStats, setGalleryStats] = useState<FaceGalleryStats | null>(null)
   const [engineError, setEngineError] = useState('')
 
   const conFoto = empleados.filter((e) => e.tiene_foto_legajo || Boolean(e.foto_url?.trim()))
@@ -96,7 +93,6 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
           if (!cancelled) setEngineStatus(`Indexando rostros ${done}/${total}…`)
         })
         if (cancelled) return
-        setGalleryStats(stats)
         if (stats.indexed === 0) {
           setEngineError(
             'No se pudo leer ningún rostro en las fotos de legajo. Revisá que sean fotos de frente claras.'
@@ -329,7 +325,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
   ])
 
   useEffect(() => {
-    if (!isAutoMode || isCapturing || cooldown > 0 || !camaraLista || !galleryReady) return
+    if (isCapturing || cooldown > 0 || !camaraLista || !galleryReady) return
     if (getFaceGalleryCount() === 0) return
 
     let cancelled = false
@@ -347,7 +343,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [isAutoMode, isCapturing, cooldown, camaraLista, galleryReady, handleRecognize])
+  }, [isCapturing, cooldown, camaraLista, galleryReady, handleRecognize])
 
   const horaStr = clock.toLocaleTimeString('es-AR', {
     hour12: false,
@@ -358,47 +354,19 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
 
   return (
     <div className="facial-clock">
-      <div className="facial-clock-header">
-        <div className="facial-clock-brand">
-          <span className="facial-clock-brand-icon" aria-hidden>
-            <Camera size={16} />
-          </span>
-          <div>
-            <h2>Terminal facial</h2>
-            <p>face-api · reconocimiento local</p>
-          </div>
+      <div className="facial-clock-chrome" aria-hidden={false}>
+        <div className="facial-clock-time">
+          <Clock size={12} />
+          <span>{horaStr}</span>
         </div>
-        <div className="facial-clock-header-actions">
-          <div className="facial-clock-time">
-            <Clock size={12} />
-            <span>{horaStr}</span>
-          </div>
-          <button
-            type="button"
-            className="facial-clock-icon-btn"
-            onClick={() => setSoundEnabled((v) => !v)}
-            title={soundEnabled ? 'Silenciar' : 'Activar sonido'}
-          >
-            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-          </button>
-        </div>
-      </div>
-
-      <div className="facial-clock-toolbar">
-        <div className="facial-clock-auto-row">
-          <div>
-            <h4>Modo automático</h4>
-            <p>{engineStatus}. Entrada/salida la decide RRHH.</p>
-          </div>
-          <button
-            type="button"
-            className={`facial-clock-switch${isAutoMode ? ' facial-clock-switch--on' : ''}`}
-            onClick={() => setIsAutoMode((v) => !v)}
-            aria-pressed={isAutoMode}
-          >
-            <span className="facial-clock-switch-knob" />
-          </button>
-        </div>
+        <button
+          type="button"
+          className="facial-clock-icon-btn"
+          onClick={() => setSoundEnabled((v) => !v)}
+          title={soundEnabled ? 'Silenciar' : 'Activar sonido'}
+        >
+          {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+        </button>
       </div>
 
       <div className="facial-clock-stage">
@@ -436,14 +404,9 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
                     : 'Alineá tu rostro'}
               </span>
             </div>
-            {isAutoMode && galleryReady ? (
+            {galleryReady && cooldown > 0 ? (
               <div className="facial-clock-badges">
-                <span className="facial-clock-badge facial-clock-badge--auto">Auto activo</span>
-                {cooldown > 0 ? (
-                  <span className="facial-clock-badge facial-clock-badge--pause">Pausa {cooldown}s</span>
-                ) : (
-                  <span className="facial-clock-badge facial-clock-badge--scan">Escaneando…</span>
-                )}
+                <span className="facial-clock-badge facial-clock-badge--pause">Pausa {cooldown}s</span>
               </div>
             ) : null}
             {!galleryReady || statusMessage ? (
@@ -458,12 +421,6 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
 
       {!cameraError && employeesCount > 0 && galleryReady ? (
         <div className="facial-clock-footer">
-          {isAutoMode ? (
-            <p className="facial-clock-footer-hint">
-              Parate de frente. Match local
-              {galleryStats ? ` · ${galleryStats.indexed} legajos` : ''}.
-            </p>
-          ) : null}
           <button
             type="button"
             className="facial-clock-btn facial-clock-btn--marcar"
