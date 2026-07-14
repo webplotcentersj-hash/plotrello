@@ -386,7 +386,10 @@ const RecursosHumanosHorariosPage = () => {
 
         {activeTab === 'reloj-facial' && (
           <div className="rrhh-tab-content">
-            <RelojFacialTab onVerAuditoria={() => setActiveTab('tablet-reloj')} />
+            <RelojFacialTab
+              onVerAuditoria={() => setActiveTab('tablet-reloj')}
+              onIrAHorarios={() => setActiveTab('horarios')}
+            />
           </div>
         )}
       </div>

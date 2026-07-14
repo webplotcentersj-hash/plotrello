@@ -1,5 +1,6 @@
 -- Horario fijo vigente: el último guardado en o antes del mes de la fecha.
--- Alineado con obtenerHorariosFijos en el front (hereda meses anteriores).
+-- Alineado con obtenerHorariosFijos en el front (hereda meses previos).
+-- Fuente de verdad para tardanzas del reloj facial/tablet: pestaña «Horarios reloj».
 
 CREATE OR REPLACE FUNCTION public.obtener_hora_entrada_fijo_vigente(
   p_id_usuario integer,
@@ -23,10 +24,10 @@ AS $$
   LIMIT 1;
 $$;
 
+REVOKE ALL ON FUNCTION public.obtener_hora_entrada_fijo_vigente(integer, date) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.obtener_hora_entrada_fijo_vigente(integer, date)
-  TO anon, authenticated, service_role;
+  TO authenticated, service_role;
 
--- Parche mínimo sobre registrar_marcacion_tablet (misma firma que 2026-07-10_reloj_tablet_mejoras).
 CREATE OR REPLACE FUNCTION public.registrar_marcacion_tablet(
   p_id_usuario integer,
   p_tipo text DEFAULT NULL,
@@ -105,6 +106,7 @@ BEGIN
     RAISE EXCEPTION 'Ya registraste salida hoy (%).', to_char(v_salida AT TIME ZONE 'America/Argentina/Buenos_Aires', 'HH24:MI');
   END IF;
 
+  -- Base: horario fijo de la pestaña «Horarios reloj» (vigente por mes, hereda meses previos)
   v_esperada := public.obtener_hora_entrada_fijo_vigente(p_id_usuario, v_fecha);
 
   IF v_tipo = 'entrada' THEN
@@ -118,7 +120,7 @@ BEGIN
       IF v_minutos_tarde > 0 THEN
         v_tarde := true;
         v_tipo_registro := 'tarde';
-        v_obs := format('Tardanza %s min (tablet).', v_minutos_tarde);
+        v_obs := format('Tardanza %s min (tablet · horario base %s).', v_minutos_tarde, to_char(v_esperada, 'HH24:MI'));
       END IF;
     END IF;
 
@@ -184,11 +186,13 @@ BEGIN
     'fecha', v_fecha,
     'hora', p_hora,
     'hora_argentina', v_hora_argentina,
+    'hora_esperada', CASE WHEN v_esperada IS NULL THEN NULL ELSE to_char(v_esperada, 'HH24:MI') END,
     'tarde', v_tarde,
     'minutos_tarde', v_minutos_tarde,
     'horas_trabajadas', v_horas,
     'mensaje', CASE
-      WHEN v_tipo = 'entrada' AND v_tarde THEN format('Entrada registrada · %s min de tardanza', v_minutos_tarde)
+      WHEN v_tipo = 'entrada' AND v_tarde THEN format('Entrada registrada · %s min de tardanza (base %s)', v_minutos_tarde, to_char(v_esperada, 'HH24:MI'))
+      WHEN v_tipo = 'entrada' AND v_esperada IS NOT NULL THEN format('Entrada registrada · a horario (base %s)', to_char(v_esperada, 'HH24:MI'))
       WHEN v_tipo = 'entrada' THEN 'Entrada registrada'
       ELSE format('Salida registrada · %s hs trabajadas', coalesce(v_horas::text, '0'))
     END

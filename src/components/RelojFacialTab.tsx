@@ -13,9 +13,10 @@ type EmpleadoFotoRow = {
 
 type RelojFacialTabProps = {
   onVerAuditoria?: () => void
+  onIrAHorarios?: () => void
 }
 
-export default function RelojFacialTab({ onVerAuditoria }: RelojFacialTabProps) {
+export default function RelojFacialTab({ onVerAuditoria, onIrAHorarios }: RelojFacialTabProps) {
   const [empleados, setEmpleados] = useState<EmpleadoFotoRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -66,9 +67,9 @@ export default function RelojFacialTab({ onVerAuditoria }: RelojFacialTabProps) 
         <div>
           <h3>Reloj con reconocimiento facial</h3>
           <p>
-            El kiosco facial usa reconocimiento local (face-api) contra la foto de legajo y registra la
-            marcación en plotLAB. Sin foto de legajo no puede marcar por rostro. Entrada/salida la decide
-            automáticamente RRHH.
+            El kiosco facial reconoce con face-api y marca en plotLAB. La base de entrada/tardanza es el
+            horario fijo de la pestaña <strong>Horarios reloj</strong> (tolerancia 15 min). Sin foto de
+            legajo no puede marcar por rostro.
           </p>
         </div>
         <div className="reloj-facial-hero-actions">
@@ -80,6 +81,11 @@ export default function RelojFacialTab({ onVerAuditoria }: RelojFacialTabProps) 
           >
             Abrir kiosco facial →
           </a>
+          {onIrAHorarios ? (
+            <button type="button" className="reloj-facial-btn-ghost" onClick={onIrAHorarios}>
+              Ver Horarios reloj
+            </button>
+          ) : null}
           {onVerAuditoria ? (
             <button type="button" className="reloj-facial-btn-ghost" onClick={onVerAuditoria}>
               Ver auditoría
@@ -146,8 +152,12 @@ export default function RelojFacialTab({ onVerAuditoria }: RelojFacialTabProps) 
       <div className="reloj-facial-howto">
         <h4>Cómo usarlo</h4>
         <ol>
+          <li>
+            Configurá el horario fijo de cada empleado en <strong>Horarios reloj</strong>: esa es la base
+            para puntualidad/tardanza del facial.
+          </li>
           <li>Abrí el kiosco facial en una tablet fija (pantalla completa, HTTPS).</li>
-          <li>El modo automático compara el rostro en vivo con las fotos de legajo (face-api en el navegador) y marca si hay coincidencia.</li>
+          <li>El reconocimiento compara el rostro con la foto de legajo y marca entrada o salida automática.</li>
           <li>Si no reconoce, el empleado puede usar QR o Manual como respaldo.</li>
         </ol>
       </div>
