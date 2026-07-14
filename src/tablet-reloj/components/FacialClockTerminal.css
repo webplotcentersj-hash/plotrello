@@ -391,16 +391,18 @@
 
 .facial-clock-btn--marcar {
   width: 100%;
-  min-height: 72px;
-  padding: 18px 28px;
-  border-radius: 20px;
-  font-size: 1.35rem;
+  max-width: 420px;
+  align-self: center;
+  min-height: 52px;
+  padding: 14px 24px;
+  border-radius: 16px;
+  font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   color: #fff;
   background: linear-gradient(135deg, #f07a28 0%, #eb671b 45%, #d95a12 100%);
   box-shadow:
-    0 12px 32px rgba(235, 103, 27, 0.45),
+    0 8px 22px rgba(235, 103, 27, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.12) inset;
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
@@ -411,10 +413,9 @@
 
 @media (min-width: 900px) {
   .facial-clock-btn--marcar {
-    min-height: 88px;
-    font-size: 1.55rem;
-    border-radius: 24px;
-    padding: 22px 32px;
+    min-height: 56px;
+    font-size: 1.1rem;
+    padding: 14px 28px;
   }
 }
 

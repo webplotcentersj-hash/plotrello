@@ -427,7 +427,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
             disabled={!canScan}
             onClick={() => void handleRecognize()}
           >
-            <Camera size={28} />
+            <Camera size={20} />
             {cooldown > 0 ? `Esperá ${cooldown}s` : 'Marcar ahora'}
           </button>
         </div>
