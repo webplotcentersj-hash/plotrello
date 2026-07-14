@@ -10,7 +10,6 @@ import {
   fotoEmpleadoUrl,
   getRelojTabletApiKey,
   inicialesEmpleado,
-  marcarAutoRelojTablet,
   marcarRelojTablet,
   precalentarLegajosRelojTablet,
   setRelojTabletApiKey,
@@ -18,8 +17,8 @@ import {
   type EmpleadoRelojTablet,
   type MarcacionTabletResult
 } from '../services/relojTabletApi'
-import { useFacePresence } from '../hooks/useFacePresence'
 import { useQrScanner } from '../hooks/useQrScanner'
+import FacialClockTerminal from '../components/FacialClockTerminal'
 import { parseRelojTabletQrPayload } from '../../utils/relojTabletQr'
 import {
   estadoMarcacionHoy,
@@ -40,7 +39,6 @@ type Modo = 'qr' | 'manual' | 'facial'
 type Paso = 'esperando' | 'camara' | 'procesando' | 'exito' | 'error'
 
 const COOLDOWN_MS = 2500
-const COOLDOWN_FACIAL_MS = 4500
 const EXITO_MS = 4200
 const AUTO_RESET_ERROR_MS = 3500
 const SELFIE_MAX_WIDTH = 480
@@ -149,7 +147,6 @@ export default function TabletRelojPage() {
   const [paso, setPaso] = useState<Paso>('esperando')
   const [seleccionado, setSeleccionado] = useState<EmpleadoRelojTablet | null>(null)
   const [resultado, setResultado] = useState<MarcacionTabletResult | null>(null)
-  const [confianzaFacial, setConfianzaFacial] = useState<number | null>(null)
   const [mensajeError, setMensajeError] = useState('')
   const [procesoHint, setProcesoHint] = useState('')
   const [mostrarConfig, setMostrarConfig] = useState(false)
@@ -251,6 +248,7 @@ export default function TabletRelojPage() {
   const modoRef = useRef(modo)
   modoRef.current = modo
   const camStartGenRef = useRef(0)
+  const [mirrorVideo, setMirrorVideo] = useState(true)
 
   const detenerCamara = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -268,7 +266,6 @@ export default function TabletRelojPage() {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
       if (videoRef.current) videoRef.current.srcObject = null
-      // Android/tablet: liberar el device antes de pedir de nuevo
       await new Promise((r) => window.setTimeout(r, 280))
     }
 
@@ -316,15 +313,51 @@ export default function TabletRelojPage() {
       throw lastErr instanceof Error ? lastErr : new Error('No se pudo abrir la cámara')
     }
 
+    const track = stream.getVideoTracks()[0]
+    const settings = track?.getSettings?.() || {}
+    const usedFacing = String(settings.facingMode || facing)
+    setMirrorVideo(usedFacing !== 'environment')
+
     streamRef.current = stream
-    const video = videoRef.current ?? (await esperarElementoVideo(() => videoRef.current))
-    if (video) {
-      video.setAttribute('playsinline', 'true')
-      video.setAttribute('webkit-playsinline', 'true')
-      video.muted = true
-      video.srcObject = stream
-      await video.play().catch(() => undefined)
+    const video = videoRef.current ?? (await esperarElementoVideo(() => videoRef.current, 4000))
+    if (!video) {
+      stream.getTracks().forEach((t) => t.stop())
+      throw new Error('No se encontró el elemento de video en pantalla.')
     }
+
+    video.setAttribute('playsinline', 'true')
+    video.setAttribute('webkit-playsinline', 'true')
+    video.muted = true
+    video.srcObject = stream
+
+    await new Promise<void>((resolve) => {
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        resolve()
+        return
+      }
+      const onReady = () => {
+        video.removeEventListener('loadeddata', onReady)
+        video.removeEventListener('loadedmetadata', onReady)
+        resolve()
+      }
+      video.addEventListener('loadeddata', onReady)
+      video.addEventListener('loadedmetadata', onReady)
+      window.setTimeout(onReady, 2500)
+    })
+
+    try {
+      await video.play()
+    } catch {
+      /* WebView puede exigir gesto; botón Activar cámara lo cubre */
+    }
+
+    if (video.videoWidth < 2) {
+      stream.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+      video.srcObject = null
+      throw new Error('La cámara abrió pero no hay imagen. Probá Activar cámara de nuevo.')
+    }
+
     setCamaraLista(true)
     setErrorCamara('')
   }, [])
@@ -348,9 +381,9 @@ export default function TabletRelojPage() {
     })()
   }, [iniciarCamara])
 
-  // Arranca / reinicia cámara según modo (qr = trasera, facial/manual = frontal)
+  // Arranca / reinicia cámara según modo (qr = trasera). Facial tiene su propia cámara.
   useEffect(() => {
-    if (modo === 'manual') return
+    if (modo === 'manual' || modo === 'facial') return
     const facing = modo === 'qr' ? 'environment' : 'user'
     const gen = ++camStartGenRef.current
     let cancelled = false
@@ -383,19 +416,9 @@ export default function TabletRelojPage() {
   const videoTarget = useMemo(() => {
     if (paso === 'camara' && modalAnchor) return modalAnchor
     if (modo === 'manual' && paso === 'procesando' && modalAnchor) return modalAnchor
-    if ((modo === 'qr' || modo === 'facial') && kioscoAnchor && paso !== 'camara') return kioscoAnchor
+    if (modo === 'qr' && kioscoAnchor && paso !== 'camara') return kioscoAnchor
     return standbyRef.current
   }, [modo, paso, kioscoAnchor, modalAnchor])
-
-  useEffect(() => {
-    const video = videoRef.current
-    const stream = streamRef.current
-    if (!video || !stream?.active) return
-    if (video.srcObject !== stream) {
-      video.srcObject = stream
-      void video.play().catch(() => undefined)
-    }
-  }, [videoTarget, camaraLista])
 
   const capturarSelfie = useCallback(async (): Promise<string | null> => {
     const video = videoRef.current
@@ -423,7 +446,6 @@ export default function TabletRelojPage() {
     setPaso('esperando')
     setSeleccionado(null)
     setResultado(null)
-    setConfianzaFacial(null)
     setMensajeError('')
     procesandoRef.current = false
     setOcupado(false)
@@ -541,62 +563,6 @@ export default function TabletRelojPage() {
     onQrDetect
   )
 
-  const marcarPorFacial = useCallback(async () => {
-    if (procesandoRef.current || enCooldownRef.current) return
-    if (modoRef.current !== 'facial' || pasoRef.current !== 'esperando') return
-    procesandoRef.current = true
-    setOcupado(true)
-    setPaso('procesando')
-    setConfianzaFacial(null)
-    setProcesoHint('Capturando…')
-    try {
-      const selfie = await capturarSelfie()
-      if (!selfie) {
-        throw new Error('No se pudo capturar la imagen. Acercate a la cámara de frente.')
-      }
-      // FaceDetector local ya validó el rostro; el proxy VPS solo sumaba demora.
-      setProcesoHint('Reconociendo…')
-      const res = await marcarAutoRelojTablet(selfie)
-      if (!res.match || !res.data) {
-        throw new Error(res.mensaje || 'No se reconoció el rostro. Probá de nuevo o usá QR.')
-      }
-      const emp =
-        empleadosRef.current.find((e) => e.id_usuario === res.data!.id_usuario) || null
-      setSeleccionado(emp)
-      setResultado(res.data)
-      setConfianzaFacial(res.confianza ?? null)
-      setPaso('exito')
-      playMarcacionSound('ok')
-      speakMarcacionExito(res.data.nombre || emp?.nombre_completo || emp?.nombre || '', res.data.tipo)
-      iniciarCooldown(COOLDOWN_FACIAL_MS)
-      window.setTimeout(() => volverEspera(), EXITO_MS)
-    } catch (e) {
-      setPaso('error')
-      setMensajeError(e instanceof Error ? e.message : 'Error al marcar')
-      playMarcacionSound('error')
-      window.setTimeout(() => volverEspera(), AUTO_RESET_ERROR_MS)
-    } finally {
-      setProcesoHint('')
-      procesandoRef.current = false
-      setOcupado(false)
-    }
-  }, [capturarSelfie, iniciarCooldown, volverEspera])
-
-  const { sensorActivo: sensorFacialActivo } = useFacePresence(
-    videoRef,
-    modo === 'facial' &&
-      paso === 'esperando' &&
-      camaraLista &&
-      !enCooldown &&
-      !ocupado &&
-      !errorCamara &&
-      !loading &&
-      empleados.length > 0,
-    () => {
-      void marcarPorFacial()
-    }
-  )
-
   const elegirEmpleadoManual = async (emp: EmpleadoRelojTablet) => {
     if (ocupado || procesandoRef.current) return
     setSeleccionado(emp)
@@ -636,14 +602,35 @@ export default function TabletRelojPage() {
     }
   }
 
+  // Nodo estable: no remountar al espejar (en Android el remount deja la cámara en negro).
   const videoNode = useMemo(
     () => <video ref={videoRef} playsInline muted autoPlay className="tablet-reloj-video-fill" />,
     []
   )
 
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.classList.toggle('tablet-reloj-video-fill--mirror', mirrorVideo)
+  }, [mirrorVideo, videoTarget])
+
+  useEffect(() => {
+    const video = videoRef.current
+    const stream = streamRef.current
+    if (!video || !stream?.active) return
+    if (video.srcObject !== stream) {
+      video.srcObject = stream
+    }
+    void video.play().catch(() => undefined)
+  }, [videoTarget, camaraLista, mirrorVideo])
+
   const cambiarModo = (nuevo: Modo) => {
     if (nuevo === modo) return
     volverEspera()
+    if (nuevo === 'facial') {
+      camStartGenRef.current += 1
+      detenerCamara()
+    }
     setModo(nuevo)
     if (nuevo === 'qr') setBusqueda('')
     try {
@@ -716,9 +703,7 @@ export default function TabletRelojPage() {
                 : enCooldown
                   ? 'Esperá unos segundos antes de marcar de nuevo'
                   : camaraLista
-                    ? modo === 'facial'
-                      ? 'Mirá de frente y tocá Marcar ahora'
-                      : 'Acercá tu tarjeta QR a la cámara'
+                    ? 'Acercá tu tarjeta QR a la cámara'
                     : 'Activando cámara…'
 
   const esKiosco = modo === 'qr' || modo === 'facial'
@@ -841,88 +826,74 @@ export default function TabletRelojPage() {
               </button>
             </div>
           ) : null}
-          {loading ? (
-            <div className="tablet-reloj-loading-badge">
-              <div className="tablet-reloj-spinner" />
-              <span>Cargando empleados…</span>
-            </div>
-          ) : null}
-          <div className={`tablet-reloj-kiosco-video-wrap${paso === 'procesando' ? ' tablet-reloj-kiosco-video-wrap--busy' : camaraLista && paso === 'esperando' ? ' tablet-reloj-kiosco-video-wrap--live' : ''}${modo === 'facial' && sensorFacialActivo ? ' tablet-reloj-kiosco-video-wrap--face' : ''}${!camaraLista ? ' tablet-reloj-kiosco-video-wrap--nocam' : ''}`}>
-            <div ref={setKioscoAnchor} className="tablet-reloj-video-anchor" />
-            <div className="tablet-reloj-camera-vignette" aria-hidden />
-            <div className="tablet-reloj-camera-frame" aria-hidden>
-              <div className="tablet-reloj-face-guide">
-                {modo === 'facial' ? (
-                  <>
-                    <div className="tablet-reloj-face-oval" />
-                    <p className="tablet-reloj-face-guide-label">Mirá de frente a la cámara</p>
-                  </>
-                ) : (
-                  <>
+          {modo === 'facial' ? (
+            <FacialClockTerminal empleados={empleados} onMarked={() => void cargar()} />
+          ) : (
+            <>
+              {loading ? (
+                <div className="tablet-reloj-loading-badge">
+                  <div className="tablet-reloj-spinner" />
+                  <span>Cargando empleados…</span>
+                </div>
+              ) : null}
+              <div
+                className={`tablet-reloj-kiosco-video-wrap${paso === 'procesando' ? ' tablet-reloj-kiosco-video-wrap--busy' : camaraLista && paso === 'esperando' ? ' tablet-reloj-kiosco-video-wrap--live' : ''}${!camaraLista ? ' tablet-reloj-kiosco-video-wrap--nocam' : ''}`}
+              >
+                <div ref={setKioscoAnchor} className="tablet-reloj-video-anchor" />
+                <div className="tablet-reloj-camera-vignette" aria-hidden />
+                <div className="tablet-reloj-camera-frame" aria-hidden>
+                  <div className="tablet-reloj-face-guide">
                     <div className="tablet-reloj-qr-frame" />
                     <p className="tablet-reloj-face-guide-label">Escaneá tu tarjeta QR</p>
-                  </>
-                )}
-              </div>
-              <span className="tablet-reloj-corner tablet-reloj-corner--tl" />
-              <span className="tablet-reloj-corner tablet-reloj-corner--tr" />
-              <span className="tablet-reloj-corner tablet-reloj-corner--bl" />
-              <span className="tablet-reloj-corner tablet-reloj-corner--br" />
-              {camaraLista && paso === 'esperando' ? <div className="tablet-reloj-scan-line" /> : null}
-            </div>
-            <div className="tablet-reloj-kiosco-overlay">
-              <div className="tablet-reloj-kiosco-top">
-                <div
-                  className={`tablet-reloj-sensor ${camaraLista && paso === 'esperando' ? 'tablet-reloj-sensor--activo' : ''} ${paso !== 'esperando' ? 'tablet-reloj-sensor--busy' : ''} ${modo === 'facial' && sensorFacialActivo ? 'tablet-reloj-sensor--face' : ''}`}
-                >
-                  <span className="tablet-reloj-sensor-dot" />
-                  {paso === 'esperando'
-                    ? camaraLista
-                      ? modo === 'facial'
-                        ? sensorFacialActivo
-                          ? 'Rostro en cuadro'
-                          : 'Esperando rostro'
-                        : 'Listo para escanear'
-                      : 'Cámara apagada'
-                    : 'Procesando'}
+                  </div>
+                  <span className="tablet-reloj-corner tablet-reloj-corner--tl" />
+                  <span className="tablet-reloj-corner tablet-reloj-corner--tr" />
+                  <span className="tablet-reloj-corner tablet-reloj-corner--bl" />
+                  <span className="tablet-reloj-corner tablet-reloj-corner--br" />
+                  {camaraLista && paso === 'esperando' ? <div className="tablet-reloj-scan-line" /> : null}
                 </div>
-              </div>
-              <div className="tablet-reloj-kiosco-bottom">
-                <p className="tablet-reloj-kiosco-hint">{estadoTexto}</p>
-                {(paso === 'procesando') && (
-                  <div className="tablet-reloj-spinner tablet-reloj-spinner--lg" />
+                <div className="tablet-reloj-kiosco-overlay">
+                  <div className="tablet-reloj-kiosco-top">
+                    <div
+                      className={`tablet-reloj-sensor ${camaraLista && paso === 'esperando' ? 'tablet-reloj-sensor--activo' : ''} ${paso !== 'esperando' ? 'tablet-reloj-sensor--busy' : ''}`}
+                    >
+                      <span className="tablet-reloj-sensor-dot" />
+                      {paso === 'esperando'
+                        ? camaraLista
+                          ? 'Listo para escanear'
+                          : 'Cámara apagada'
+                        : 'Procesando'}
+                    </div>
+                  </div>
+                  <div className="tablet-reloj-kiosco-bottom">
+                    <p className="tablet-reloj-kiosco-hint">{estadoTexto}</p>
+                    {paso === 'procesando' && (
+                      <div className="tablet-reloj-spinner tablet-reloj-spinner--lg" />
+                    )}
+                    {paso === 'esperando' && (!camaraLista || errorCamara) && (
+                      <button type="button" className="tablet-reloj-btn-marcar" onClick={reintentarCamara}>
+                        {camaraLista ? 'Reintentar cámara' : 'Activar cámara'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {paso === 'exito' && resultado && (
+                  <div className="tablet-reloj-exito-overlay">
+                    <PanelExitoMarcacion
+                      resultado={resultado}
+                      nombre={resultado.nombre || seleccionado?.nombre_completo}
+                      fotoUrl={fotoExitoActual}
+                      confianza={null}
+                    />
+                  </div>
                 )}
-                {paso === 'esperando' && (!camaraLista || errorCamara) && (
-                  <button type="button" className="tablet-reloj-btn-marcar" onClick={reintentarCamara}>
-                    {camaraLista ? 'Reintentar cámara' : 'Activar cámara'}
-                  </button>
-                )}
-                {modo === 'facial' && paso === 'esperando' && camaraLista && !errorCamara && !ocupado && (
-                  <button
-                    type="button"
-                    className="tablet-reloj-btn-marcar"
-                    onClick={() => void marcarPorFacial()}
-                  >
-                    Marcar ahora
-                  </button>
-                )}
               </div>
-            </div>
-            {paso === 'exito' && resultado && (
-              <div className="tablet-reloj-exito-overlay">
-                <PanelExitoMarcacion
-                  resultado={resultado}
-                  nombre={resultado.nombre || seleccionado?.nombre_completo}
-                  fotoUrl={fotoExitoActual}
-                  confianza={modo === 'facial' ? confianzaFacial : null}
-                />
-              </div>
-            )}
-          </div>
-          {paso === 'error' && (
-            <div className="tablet-reloj-error-kiosco">
-              <p>{mensajeError}</p>
-            </div>
+              {paso === 'error' && (
+                <div className="tablet-reloj-error-kiosco">
+                  <p>{mensajeError}</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       ) : loading ? (
