@@ -726,20 +726,23 @@ export default function TabletRelojPage() {
           </p>
         </div>
         <div className="tablet-reloj-header-actions">
-          {modo !== 'qr' ? (
-            <button type="button" className="tablet-reloj-btn-ghost" onClick={() => cambiarModo('qr')}>
-              QR
-            </button>
-          ) : null}
+          {/* En facial (kiosco grande) no mostrar QR/Manual: experiencia a pantalla limpia */}
           {modo !== 'facial' ? (
-            <button type="button" className="tablet-reloj-btn-ghost" onClick={() => cambiarModo('facial')}>
-              Facial
-            </button>
-          ) : null}
-          {modo !== 'manual' ? (
-            <button type="button" className="tablet-reloj-btn-ghost" onClick={solicitarModoManual}>
-              Manual
-            </button>
+            <>
+              {modo !== 'qr' ? (
+                <button type="button" className="tablet-reloj-btn-ghost" onClick={() => cambiarModo('qr')}>
+                  QR
+                </button>
+              ) : null}
+              <button type="button" className="tablet-reloj-btn-ghost" onClick={() => cambiarModo('facial')}>
+                Facial
+              </button>
+              {modo !== 'manual' ? (
+                <button type="button" className="tablet-reloj-btn-ghost" onClick={solicitarModoManual}>
+                  Manual
+                </button>
+              ) : null}
+            </>
           ) : null}
           <button
             type="button"

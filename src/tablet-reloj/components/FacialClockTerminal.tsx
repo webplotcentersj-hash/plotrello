@@ -459,30 +459,20 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
       {!cameraError && employeesCount > 0 && galleryReady ? (
         <div className="facial-clock-footer">
           {isAutoMode ? (
-            <>
-              <p>
-                Parate de frente. Match local
-                {galleryStats ? ` · ${galleryStats.indexed} legajos` : ''}.
-              </p>
-              <button
-                type="button"
-                className="facial-clock-btn facial-clock-btn--ghost"
-                disabled={!canScan}
-                onClick={() => void handleRecognize()}
-              >
-                {cooldown > 0 ? `Esperá ${cooldown}s` : 'Marcar ahora'}
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              className="facial-clock-btn facial-clock-btn--primary"
-              disabled={!canScan}
-              onClick={() => void handleRecognize()}
-            >
-              <Camera size={16} /> Marcar ahora
-            </button>
-          )}
+            <p className="facial-clock-footer-hint">
+              Parate de frente. Match local
+              {galleryStats ? ` · ${galleryStats.indexed} legajos` : ''}.
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="facial-clock-btn facial-clock-btn--marcar"
+            disabled={!canScan}
+            onClick={() => void handleRecognize()}
+          >
+            <Camera size={28} />
+            {cooldown > 0 ? `Esperá ${cooldown}s` : 'Marcar ahora'}
+          </button>
         </div>
       ) : null}
 

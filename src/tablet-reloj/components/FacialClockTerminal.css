@@ -328,14 +328,20 @@
 }
 
 .facial-clock-footer {
-  padding: 12px 14px 14px;
+  padding: 14px 16px 18px;
   border-top: 1px solid var(--fc-border);
   background: #05070d;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  align-items: stretch;
+  gap: 10px;
   text-align: center;
+}
+
+.facial-clock-footer-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
 }
 
 .facial-clock-footer p {
@@ -374,6 +380,35 @@
   border: 1px solid rgba(235, 103, 27, 0.35);
   padding: 8px 14px;
   font-size: 0.75rem;
+}
+
+.facial-clock-btn--marcar {
+  width: 100%;
+  min-height: 72px;
+  padding: 18px 28px;
+  border-radius: 20px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: linear-gradient(135deg, #f07a28 0%, #eb671b 45%, #d95a12 100%);
+  box-shadow:
+    0 12px 32px rgba(235, 103, 27, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.facial-clock-btn--marcar:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+@media (min-width: 900px) {
+  .facial-clock-btn--marcar {
+    min-height: 88px;
+    font-size: 1.55rem;
+    border-radius: 24px;
+    padding: 22px 32px;
+  }
 }
 
 .facial-clock-result {
