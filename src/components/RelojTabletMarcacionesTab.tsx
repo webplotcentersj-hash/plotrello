@@ -19,6 +19,7 @@ type MarcacionRow = {
   legajo_foto_url?: string | null
   tarde?: boolean
   minutos_tarde?: number
+  hora_esperada?: string | null
 }
 
 export default function RelojTabletMarcacionesTab() {
@@ -62,7 +63,10 @@ export default function RelojTabletMarcacionesTab() {
       <div className="reloj-tablet-audit-head">
         <div>
           <h3>Marcaciones tablet (auditoría)</h3>
-          <p>Marcaciones por QR o manual en <code>/tablet-reloj</code>. También alimenta la pestaña Asistencia.</p>
+          <p>
+            Marcaciones por facial, QR o manual en <code>/tablet-reloj</code>. La columna Tardanza se
+            calcula con el horario fijo de <strong>Horarios reloj</strong> (tolerancia 15 min).
+          </p>
         </div>
         <a className="reloj-tablet-audit-link" href="/tablet-reloj" target="_blank" rel="noreferrer">
           Abrir tablet →
@@ -124,12 +128,19 @@ export default function RelojTabletMarcacionesTab() {
                     <span className={`reloj-tablet-audit-tipo reloj-tablet-audit-tipo--${r.tipo}`}>{r.tipo}</span>
                   </td>
                   <td>
-                    {r.tipo === 'entrada' && r.tarde ? (
+                    {r.tipo === 'entrada' && !r.hora_esperada ? (
+                      <span className="reloj-tablet-audit-sin-horario" title="Sin horario fijo en Horarios reloj">
+                        Sin horario base
+                      </span>
+                    ) : r.tipo === 'entrada' && r.tarde ? (
                       <span className="reloj-tablet-audit-tarde">
                         Tarde {r.minutos_tarde ? `· ${r.minutos_tarde} min` : ''}
+                        {r.hora_esperada ? ` (base ${r.hora_esperada})` : ''}
                       </span>
                     ) : r.tipo === 'entrada' ? (
-                      <span className="reloj-tablet-audit-ok">A horario</span>
+                      <span className="reloj-tablet-audit-ok">
+                        A horario{r.hora_esperada ? ` · ${r.hora_esperada}` : ''}
+                      </span>
                     ) : (
                       '—'
                     )}

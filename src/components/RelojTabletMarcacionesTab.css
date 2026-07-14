@@ -181,3 +181,13 @@
   font-weight: 600;
   font-size: 0.85rem;
 }
+
+.reloj-tablet-audit-sin-horario {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #64748b;
+}
