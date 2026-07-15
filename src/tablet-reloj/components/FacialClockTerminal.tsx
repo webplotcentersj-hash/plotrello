@@ -350,11 +350,12 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
       const emp = empleados.find((e) => e.id_usuario === hit.id_usuario) ?? null
       setStatusMessage(`Hola ${hit.nombre}…`)
       const data = await marcarRelojTablet({
-        id_usuario: hit.id_usuario,
-        verificacion_confianza: hit.confianza,
-        detalle: `Facial local face-api · dist ${hit.distancia.toFixed(3)} · ${hit.confianza}%`
+        idUsuario: hit.id_usuario,
+        confianza: hit.confianza,
+        detalle: `Facial local face-api · dist ${hit.distancia.toFixed(3)} · ${hit.confianza}%`,
+        omitirFoto: true
       })
-      const foto = fotoEmpleadoUrl(emp) || hit.foto_url || null
+      const foto = (emp ? fotoEmpleadoUrl(emp) : null) || hit.foto_url || null
       setResult({
         recognized: true,
         message: data.mensaje || '',
@@ -456,13 +457,15 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
             <div className="facial-clock-frame" aria-hidden>
               <div className="facial-clock-oval" />
               <span className="facial-clock-guide">
-                {cameraOpening && !camaraLista
-                  ? 'Abriendo cámara…'
-                  : !galleryReady
-                    ? 'Cámara lista · cargando reconocimiento…'
-                    : cooldown > 0
-                      ? `Listo en ${cooldown}s`
-                      : 'Alineá tu rostro'}
+                {statusMessage
+                  ? statusMessage
+                  : cameraOpening && !camaraLista
+                    ? 'Abriendo cámara…'
+                    : !galleryReady
+                      ? 'Cámara lista · cargando reconocimiento…'
+                      : cooldown > 0
+                        ? `Listo en ${cooldown}s`
+                        : 'Alineá tu rostro'}
               </span>
             </div>
             <div className="facial-clock-badges">
