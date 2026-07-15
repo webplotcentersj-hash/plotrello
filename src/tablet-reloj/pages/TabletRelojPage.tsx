@@ -199,10 +199,7 @@ export default function TabletRelojPage() {
   useEffect(() => {
     if (modo !== 'facial') return
     void precalentarLegajosRelojTablet()
-    // Precarga modelos + índice mientras monta el kiosco (menos espera al marcar).
-    void import('../services/faceLocalMatch')
-      .then((m) => m.ensureFaceModels())
-      .catch(() => {})
+    // Solo índice (ligero). NO precargar face-api acá: traba getUserMedia en tablets.
     void fetchFacialIndiceRelojTablet().catch(() => {})
   }, [modo])
 

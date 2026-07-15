@@ -16,13 +16,6 @@ import {
   type EmpleadoRelojTablet,
   type MarcacionTabletResult
 } from '../services/relojTabletApi'
-import {
-  ensureFaceModels,
-  getFaceGalleryCount,
-  hasFaceInVideo,
-  hydrateFaceGalleryFromRecords,
-  matchSelfieDataUrl
-} from '../services/faceLocalMatch'
 import { horaMarcacionTabletDisplay } from '../../utils/dateUtils'
 import { playMarcacionSound, speakMarcacionExito, cancelMarcacionSpeech } from '../utils/tabletRelojKiosk'
 import './FacialClockTerminal.css'
@@ -32,8 +25,8 @@ const SELFIE_JPEG_Q = 0.85
 const AUTO_SCAN_MS = 2800
 const COOLDOWN_OK_S = 8
 const COOLDOWN_FAIL_S = 5
-/** Pocos reintentos cortos: el arranque no debe tardar varios segundos “por diseño”. */
-const CAM_RETRY_DELAYS_MS = [0, 350, 800]
+/** Si getUserMedia no responde, cortar (en tablets a veces queda colgado). */
+const GUM_TIMEOUT_MS = 8_000
 
 function sleep(ms: number) {
   return new Promise<void>((r) => window.setTimeout(r, ms))
@@ -44,42 +37,36 @@ function mediaErrorName(err: unknown): string {
   return ''
 }
 
-function isRetryableCameraError(err: unknown): boolean {
-  const name = mediaErrorName(err)
-  return (
-    name === 'NotFoundError' ||
-    name === 'DevicesNotFoundError' ||
-    name === 'NotReadableError' ||
-    name === 'TrackStartError' ||
-    name === 'AbortError' ||
-    name === 'OverconstrainedError' ||
-    name === 'ConstraintNotSatisfiedError'
-  )
-}
-
-async function pickFrontCameraDeviceId(): Promise<string | undefined> {
+/**
+ * getUserMedia con timeout. Si se cancela o vence el tiempo, corta tracks
+ * para no dejar la cámara “tomada” (causa clásica de esperas de minutos).
+ */
+async function getUserMediaSafe(
+  constraints: MediaStreamConstraints,
+  isCancelled: () => boolean,
+  timeoutMs = GUM_TIMEOUT_MS
+): Promise<MediaStream> {
+  let timer = 0
+  const gum = navigator.mediaDevices.getUserMedia(constraints)
+  const timeout = new Promise<never>((_, reject) => {
+    timer = window.setTimeout(() => reject(Object.assign(new Error('TIMEOUT_CAMERA'), { name: 'TimeoutError' })), timeoutMs)
+  })
   try {
-    const devices = await navigator.mediaDevices.enumerateDevices()
-    const videos = devices.filter((d) => d.kind === 'videoinput' && d.deviceId)
-    if (!videos.length) return undefined
-    const front = videos.find((d) => /front|user|face|frontal|delantera/i.test(d.label || ''))
-    return (front || videos[0]).deviceId
-  } catch {
-    return undefined
+    const stream = await Promise.race([gum, timeout])
+    if (isCancelled()) {
+      stream.getTracks().forEach((t) => t.stop())
+      throw Object.assign(new Error('CANCELLED'), { name: 'AbortError' })
+    }
+    return stream
+  } catch (e) {
+    // Si el timeout ganó, el GUM real puede resolverse después: soltar tracks.
+    void gum
+      .then((s) => s.getTracks().forEach((t) => t.stop()))
+      .catch(() => {})
+    throw e
+  } finally {
+    window.clearTimeout(timer)
   }
-}
-
-async function waitForVideoElement(
-  getEl: () => HTMLVideoElement | null,
-  timeoutMs: number
-): Promise<HTMLVideoElement | null> {
-  const start = Date.now()
-  let el = getEl()
-  while (!el && Date.now() - start < timeoutMs) {
-    await sleep(80)
-    el = getEl()
-  }
-  return el
 }
 
 type FacialResult = {
@@ -101,7 +88,8 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const capturingRef = useRef(false)
-  const camStartGenRef = useRef(0)
+  const cancelledRef = useRef(false)
+  const startingCamRef = useRef(false)
 
   const [camaraLista, setCamaraLista] = useState(false)
   const [cameraError, setCameraError] = useState('')
@@ -112,12 +100,10 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [cooldown, setCooldown] = useState(0)
   const [clock, setClock] = useState(() => new Date())
-  const [engineStatus, setEngineStatus] = useState('Preparando reconocimiento…')
+  const [engineStatus, setEngineStatus] = useState('Esperando cámara…')
   const [galleryReady, setGalleryReady] = useState(false)
   const [engineError, setEngineError] = useState('')
-
-  const conFoto = empleados.filter((e) => e.tiene_foto_legajo || Boolean(e.foto_url?.trim()))
-  const employeesCount = conFoto.length
+  const [galleryCount, setGalleryCount] = useState(0)
 
   useEffect(() => {
     const t = window.setInterval(() => setClock(new Date()), 1000)
@@ -130,70 +116,28 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     return () => window.clearInterval(t)
   }, [cooldown])
 
-  useEffect(() => {
-    let cancelled = false
-    setGalleryReady(false)
-    setEngineError('')
-    void (async () => {
+  const releaseStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => {
       try {
-        setEngineStatus('Preparando reconocimiento…')
-        // Modelos + índice en paralelo (antes era secuencial y demoraba el kiosco).
-        const [, indice] = await Promise.all([
-          ensureFaceModels(),
-          fetchFacialIndiceRelojTablet()
-        ])
-        if (cancelled) return
-        const stats = hydrateFaceGalleryFromRecords(indice.descriptores)
-        if (stats.indexed === 0) {
-          setGalleryReady(false)
-          setEngineError(
-            'Índice facial vacío. En Recursos humanos → Reloj facial tocá “Indexar rostros”.'
-          )
-          setEngineStatus('Sin índice facial')
-          return
-        }
-        setGalleryReady(true)
-        const when = indice.meta?.built_at
-          ? new Date(indice.meta.built_at).toLocaleString('es-AR', {
-              day: '2-digit',
-              month: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit'
-            })
-          : null
-        setEngineStatus(
-          when
-            ? `Listo · ${stats.indexed} rostros (índice ${when})`
-            : `Listo · ${stats.indexed} rostros`
-        )
-      } catch (e) {
-        if (cancelled) return
-        setGalleryReady(false)
-        setEngineError(e instanceof Error ? e.message : 'No se pudo cargar el índice facial')
-        setEngineStatus('Error al cargar índice')
+        t.stop()
+      } catch {
+        /* ignore */
       }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const stopCamera = useCallback(() => {
-    camStartGenRef.current += 1
-    streamRef.current?.getTracks().forEach((t) => t.stop())
+    })
     streamRef.current = null
-    if (videoRef.current) videoRef.current.srcObject = null
-    setCamaraLista(false)
-    setCameraOpening(false)
+    const video = videoRef.current
+    if (video) video.srcObject = null
   }, [])
 
   const startCamera = useCallback(async () => {
-    const gen = ++camStartGenRef.current
+    if (startingCamRef.current) return
+    startingCamRef.current = true
+    cancelledRef.current = false
     setCameraError('')
     setCameraOpening(true)
     setCamaraLista(false)
 
-    const stillCurrent = () => gen === camStartGenRef.current
+    const isCancelled = () => cancelledRef.current
 
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -204,145 +148,163 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
         )
       }
 
-      let lastErr: unknown = null
+      // Esperar 1 frame para que el <video> esté en el DOM.
+      await new Promise<void>((r) => requestAnimationFrame(() => r()))
+      if (isCancelled()) return
 
-      for (let round = 0; round < CAM_RETRY_DELAYS_MS.length; round++) {
-        if (!stillCurrent()) return
-        const delay = CAM_RETRY_DELAYS_MS[round]
-        if (delay > 0) {
-          setStatusMessage(`Reintentando cámara (${round + 1}/${CAM_RETRY_DELAYS_MS.length})…`)
-          await sleep(delay)
-          if (!stillCurrent()) return
+      releaseStream()
+
+      let stream: MediaStream
+      try {
+        stream = await getUserMediaSafe({ video: true, audio: false }, isCancelled)
+      } catch (first) {
+        if (isCancelled()) return
+        // Un solo fallback rápido (sin enumerateDevices: en tablets suele colgarse).
+        try {
+          stream = await getUserMediaSafe({ video: { facingMode: 'user' }, audio: false }, isCancelled, 6_000)
+        } catch {
+          throw first
         }
+      }
 
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((t) => t.stop())
-          streamRef.current = null
-          if (videoRef.current) videoRef.current.srcObject = null
-          await sleep(180)
-          if (!stillCurrent()) return
-        }
+      if (isCancelled()) {
+        stream.getTracks().forEach((t) => t.stop())
+        return
+      }
 
-        // 1 intento rápido con lo mínimo; fallbacks solo si falla.
-        const attempts: MediaStreamConstraints[] = [{ video: true, audio: false }]
-        if (round > 0) {
-          const deviceId = await pickFrontCameraDeviceId()
-          if (deviceId) attempts.push({ video: { deviceId: { exact: deviceId } }, audio: false })
-          attempts.push(
-            { video: { facingMode: 'user' }, audio: false },
-            { video: { facingMode: 'environment' }, audio: false }
-          )
-        }
+      streamRef.current = stream
+      const video = videoRef.current
+      if (!video) {
+        stream.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+        throw new Error('No se encontró el elemento de video.')
+      }
 
-        let mediaStream: MediaStream | null = null
-        for (const constraints of attempts) {
-          if (!stillCurrent()) return
-          try {
-            mediaStream = await navigator.mediaDevices.getUserMedia(constraints)
-            break
-          } catch (e) {
-            lastErr = e
-          }
-        }
+      video.setAttribute('playsinline', 'true')
+      video.setAttribute('webkit-playsinline', 'true')
+      video.muted = true
+      video.playsInline = true
+      video.srcObject = stream
 
-        if (!mediaStream) {
-          if (isRetryableCameraError(lastErr) && round < CAM_RETRY_DELAYS_MS.length - 1) continue
-          const name = mediaErrorName(lastErr)
-          if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-            throw new Error('Permiso de cámara denegado. Activá la cámara en el candado del navegador.')
-          }
-          if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-            throw new Error('No se encontró ninguna cámara. Reintentá en unos segundos.')
-          }
-          if (name === 'NotReadableError' || name === 'TrackStartError') {
-            throw new Error('La cámara está ocupada o aún iniciando. Tocá Activar cámara.')
-          }
-          throw lastErr instanceof Error ? lastErr : new Error('No se pudo abrir la cámara')
-        }
-
-        if (!stillCurrent()) {
-          mediaStream.getTracks().forEach((t) => t.stop())
-          return
-        }
-
-        streamRef.current = mediaStream
-        const video = await waitForVideoElement(() => videoRef.current, 2000)
-        if (!video) {
-          mediaStream.getTracks().forEach((t) => t.stop())
-          streamRef.current = null
-          lastErr = new Error('No se encontró el elemento de video.')
-          if (round < CAM_RETRY_DELAYS_MS.length - 1) continue
-          throw lastErr
-        }
-
-        video.setAttribute('playsinline', 'true')
-        video.setAttribute('webkit-playsinline', 'true')
-        video.muted = true
-        video.playsInline = true
-        video.srcObject = mediaStream
-
-        // Mostrar preview en cuanto haya metadata (no esperar frame perfecto).
-        await new Promise<void>((resolve) => {
+      await Promise.race([
+        new Promise<void>((resolve) => {
           if (video.readyState >= 1 || video.videoWidth > 0) {
             resolve()
             return
           }
-          const onReady = () => {
-            video.removeEventListener('loadeddata', onReady)
-            video.removeEventListener('loadedmetadata', onReady)
+          const done = () => {
+            video.removeEventListener('loadedmetadata', done)
+            video.removeEventListener('loadeddata', done)
             resolve()
           }
-          video.addEventListener('loadeddata', onReady)
-          video.addEventListener('loadedmetadata', onReady)
-          window.setTimeout(onReady, 1200)
-        })
+          video.addEventListener('loadedmetadata', done)
+          video.addEventListener('loadeddata', done)
+        }),
+        sleep(1500)
+      ])
 
-        if (!stillCurrent()) return
+      if (isCancelled()) return
 
-        try {
-          await video.play()
-        } catch {
-          /* gesto usuario / WebView */
-        }
-
-        if (video.videoWidth < 2) {
-          await sleep(200)
-        }
-
-        if (!stillCurrent()) return
-
-        if (video.videoWidth < 2) {
-          mediaStream.getTracks().forEach((t) => t.stop())
-          streamRef.current = null
-          video.srcObject = null
-          lastErr = new Error('La cámara abrió pero no hay imagen.')
-          if (round < CAM_RETRY_DELAYS_MS.length - 1) continue
-          throw new Error('La cámara abrió pero no hay imagen. Tocá Activar cámara.')
-        }
-
-        setCamaraLista(true)
-        setCameraError('')
-        setCameraOpening(false)
-        setStatusMessage(null)
-        return
+      try {
+        await video.play()
+      } catch {
+        /* WebView puede pedir gesto */
       }
-    } catch (e) {
-      if (!stillCurrent()) return
-      setCamaraLista(false)
-      setCameraError(e instanceof Error ? e.message : 'No se pudo abrir la cámara')
-    } finally {
-      if (stillCurrent()) setCameraOpening(false)
-    }
-  }, [])
 
-  // Cámara en paralelo al índice/modelos: la vista en vivo no espera el face-api.
-  useEffect(() => {
-    void startCamera()
-    return () => {
-      cancelMarcacionSpeech()
-      stopCamera()
+      if (isCancelled()) return
+
+      // Si aún no hay frame, igual marcar lista: el preview suele llegar un instante después.
+      setCamaraLista(true)
+      setCameraError('')
+      setStatusMessage(null)
+    } catch (e) {
+      if (isCancelled()) return
+      releaseStream()
+      setCamaraLista(false)
+      const name = mediaErrorName(e)
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        setCameraError('Permiso de cámara denegado. Activá la cámara en el candado del navegador.')
+      } else if (name === 'TimeoutError') {
+        setCameraError('La cámara tardó demasiado en responder. Tocá Activar cámara.')
+      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+        setCameraError('La cámara está ocupada. Cerrá otras apps y tocá Activar cámara.')
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setCameraError('No se encontró ninguna cámara en este dispositivo.')
+      } else {
+        setCameraError(e instanceof Error ? e.message : 'No se pudo abrir la cámara')
+      }
+    } finally {
+      startingCamRef.current = false
+      if (!cancelledRef.current) setCameraOpening(false)
     }
-  }, [startCamera, stopCamera])
+  }, [releaseStream])
+
+  // 1) Cámara primero (sin face-api). 2) Después modelos + índice.
+  useEffect(() => {
+    cancelledRef.current = false
+    void startCamera()
+
+    return () => {
+      cancelledRef.current = true
+      cancelMarcacionSpeech()
+      releaseStream()
+      setCamaraLista(false)
+      setCameraOpening(false)
+    }
+  }, [startCamera, releaseStream])
+
+  // Recién cuando la cámara está viva cargamos face-api (si va junto, en tablets se traba minutos).
+  useEffect(() => {
+    if (!camaraLista) return
+    let cancelled = false
+    setEngineError('')
+    setEngineStatus('Cargando reconocimiento…')
+
+    void (async () => {
+      try {
+        const face = await import('../services/faceLocalMatch')
+        if (cancelled) return
+        const [, indice] = await Promise.all([
+          face.ensureFaceModels(),
+          fetchFacialIndiceRelojTablet()
+        ])
+        if (cancelled) return
+        const stats = face.hydrateFaceGalleryFromRecords(indice.descriptores)
+        if (stats.indexed === 0) {
+          setGalleryReady(false)
+          setGalleryCount(0)
+          setEngineError(
+            'Índice facial vacío. En Recursos humanos → Reloj facial tocá “Indexar rostros”.'
+          )
+          setEngineStatus('Sin índice facial')
+          return
+        }
+        setGalleryCount(stats.indexed)
+        setGalleryReady(true)
+        const when = indice.meta?.built_at
+          ? new Date(indice.meta.built_at).toLocaleString('es-AR', {
+              day: '2-digit',
+              month: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : null
+        setEngineStatus(
+          when ? `Listo · ${stats.indexed} rostros (${when})` : `Listo · ${stats.indexed} rostros`
+        )
+      } catch (e) {
+        if (cancelled) return
+        setGalleryReady(false)
+        setGalleryCount(0)
+        setEngineError(e instanceof Error ? e.message : 'No se pudo cargar el reconocimiento')
+        setEngineStatus('Error de reconocimiento')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [camaraLista])
 
   const captureSelfie = useCallback((): string | null => {
     const video = videoRef.current
@@ -362,7 +324,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
 
   const handleRecognize = useCallback(async () => {
     if (capturingRef.current || cooldown > 0) return
-    if (!camaraLista || employeesCount === 0 || !galleryReady) return
+    if (!camaraLista || !galleryReady) return
 
     capturingRef.current = true
     setIsCapturing(true)
@@ -375,8 +337,9 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
         throw new Error('No se pudo capturar la imagen. Acercate de frente a la cámara.')
       }
 
-      setStatusMessage('Comparando rostros (local)…')
-      const { hit, motivo } = await matchSelfieDataUrl(selfie)
+      setStatusMessage('Comparando rostros…')
+      const face = await import('../services/faceLocalMatch')
+      const { hit, motivo } = await face.matchSelfieDataUrl(selfie)
       if (!hit) {
         setResult({ recognized: false, message: motivo || 'No se reconoció el rostro.' })
         if (soundEnabled) playMarcacionSound('error')
@@ -384,19 +347,17 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
         return
       }
 
-      setStatusMessage(`Registrando ${hit.nombre}…`)
+      const emp = empleados.find((e) => e.id_usuario === hit.id_usuario) ?? null
+      setStatusMessage(`Hola ${hit.nombre}…`)
       const data = await marcarRelojTablet({
-        idUsuario: hit.id_usuario,
-        selfieDataUrl: selfie,
-        confianza: hit.confianza,
+        id_usuario: hit.id_usuario,
+        verificacion_confianza: hit.confianza,
         detalle: `Facial local face-api · dist ${hit.distancia.toFixed(3)} · ${hit.confianza}%`
       })
-
-      const emp = empleados.find((e) => e.id_usuario === hit.id_usuario) || null
-      const foto = hit.foto_url || (emp && fotoEmpleadoUrl(emp)) || emp?.foto_url || null
+      const foto = fotoEmpleadoUrl(emp) || hit.foto_url || null
       setResult({
         recognized: true,
-        message: data.mensaje || 'Marcación registrada',
+        message: data.mensaje || '',
         confianza: hit.confianza,
         empleado: emp,
         data,
@@ -420,29 +381,24 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
       setIsCapturing(false)
       capturingRef.current = false
     }
-  }, [
-    camaraLista,
-    captureSelfie,
-    cooldown,
-    empleados,
-    employeesCount,
-    galleryReady,
-    onMarked,
-    soundEnabled
-  ])
+  }, [camaraLista, captureSelfie, cooldown, empleados, galleryReady, onMarked, soundEnabled])
 
   useEffect(() => {
-    if (isCapturing || cooldown > 0 || !camaraLista || !galleryReady) return
-    if (getFaceGalleryCount() === 0) return
+    if (isCapturing || cooldown > 0 || !camaraLista || !galleryReady || galleryCount === 0) return
 
     let cancelled = false
     const timer = window.setTimeout(() => {
       void (async () => {
         const video = videoRef.current
         if (!video || cancelled) return
-        const face = await hasFaceInVideo(video)
-        if (cancelled || !face) return
-        void handleRecognize()
+        try {
+          const face = await import('../services/faceLocalMatch')
+          const has = await face.hasFaceInVideo(video)
+          if (cancelled || !has) return
+          void handleRecognize()
+        } catch {
+          /* ignore auto-scan errors */
+        }
       })()
     }, AUTO_SCAN_MS)
 
@@ -450,15 +406,14 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [isCapturing, cooldown, camaraLista, galleryReady, handleRecognize])
+  }, [isCapturing, cooldown, camaraLista, galleryReady, galleryCount, handleRecognize])
 
   const horaStr = clock.toLocaleTimeString('es-AR', {
     hour12: false,
     timeZone: 'America/Argentina/Buenos_Aires'
   })
 
-  const canScan =
-    camaraLista && galleryReady && !isCapturing && cooldown === 0 && getFaceGalleryCount() > 0
+  const canScan = camaraLista && galleryReady && !isCapturing && cooldown === 0 && galleryCount > 0
 
   return (
     <div className="facial-clock">
@@ -484,18 +439,19 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
           <div className="facial-clock-empty facial-clock-empty--err">
             <AlertCircle size={36} />
             <p>{cameraError}</p>
-            <button type="button" className="facial-clock-btn" onClick={() => void startCamera()}>
+            <button
+              type="button"
+              className="facial-clock-btn"
+              onClick={() => {
+                cancelledRef.current = false
+                void startCamera()
+              }}
+            >
               <RefreshCw size={14} /> Activar cámara
             </button>
           </div>
-        ) : engineError && !galleryReady && !camaraLista ? (
-          <div className="facial-clock-empty facial-clock-empty--err">
-            <AlertCircle size={36} />
-            <p>{engineError}</p>
-          </div>
         ) : (
           <div className={`facial-clock-viewport${camaraLista ? ' facial-clock-viewport--live' : ''}`}>
-            {/* El <video> debe montar siempre: si no, getUserMedia espera al DOM y parece “colgado”. */}
             <video ref={videoRef} autoPlay playsInline muted className="facial-clock-video" />
             <div className="facial-clock-frame" aria-hidden>
               <div className="facial-clock-oval" />
@@ -510,17 +466,20 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
               </span>
             </div>
             <div className="facial-clock-badges">
-              {!galleryReady && camaraLista ? (
+              {camaraLista && !galleryReady ? (
                 <span className="facial-clock-badge facial-clock-badge--scan">{engineStatus}</span>
+              ) : null}
+              {engineError && camaraLista ? (
+                <span className="facial-clock-badge facial-clock-badge--pause">{engineError}</span>
               ) : null}
               {galleryReady && cooldown > 0 ? (
                 <span className="facial-clock-badge facial-clock-badge--pause">Pausa {cooldown}s</span>
               ) : null}
             </div>
-            {!camaraLista && (cameraOpening || statusMessage) ? (
+            {!camaraLista && cameraOpening ? (
               <div className="facial-clock-busy">
                 <Loader2 size={40} className="facial-clock-spin" />
-                <p>{statusMessage || 'Abriendo cámara…'}</p>
+                <p>Abriendo cámara…</p>
               </div>
             ) : null}
           </div>
@@ -546,7 +505,9 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
       ) : null}
 
       {result ? (
-        <div className={`facial-clock-result${result.recognized ? ' facial-clock-result--ok' : ' facial-clock-result--err'}`}>
+        <div
+          className={`facial-clock-result${result.recognized ? ' facial-clock-result--ok' : ' facial-clock-result--err'}`}
+        >
           {result.recognized && result.data ? (
             <>
               <div className="facial-clock-result-photo">
@@ -586,6 +547,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
           )}
         </div>
       ) : null}
+
     </div>
   )
 }
