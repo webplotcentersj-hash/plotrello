@@ -234,6 +234,13 @@
   background: rgba(239, 68, 68, 0.12);
 }
 
+.ver-legajo-vac-link {
+  margin-left: 10px;
+  font-size: 0.85rem;
+  color: #93c5fd;
+  text-decoration: underline;
+}
+
 .ver-legajo-stats-row {
   display: flex;
   flex-wrap: wrap;

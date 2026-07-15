@@ -1579,7 +1579,8 @@ export type RrhhPostulacionEstado =
   | 'nuevo'
   | 'en_revision'
   | 'entrevista'
-  | 'aprobado'
+  | 'oferta'
+  | 'ingresado'
   | 'descartado'
 
 export interface RrhhPostulacion {
@@ -1602,6 +1603,63 @@ export interface RrhhPostulacion {
   updated_at: string
   revisado_por: number | null
   revisado_at: string | null
+  entrevista_at?: string | null
+  oferta_at?: string | null
+  ingresado_at?: string | null
+  id_usuario?: number | null
+}
+
+export interface RrhhPostulacionesFunnel {
+  postulan: number
+  en_revision: number
+  entrevista: number
+  oferta: number
+  ingresado: number
+  descartado: number
+}
+
+/** Período de cierre mensual RRHH (borrador / cerrado). */
+export interface RrhhLiquidacionPeriodo {
+  id: number
+  periodo: string
+  estado: 'borrador' | 'cerrado'
+  valor_hora_default: number
+  notas: string | null
+  cerrado_por: number | null
+  cerrado_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Línea por empleado en un cierre de liquidación. */
+export interface RrhhLiquidacionLinea {
+  id?: number
+  id_periodo?: number
+  id_usuario: number
+  nombre: string
+  dias_trabajados: number
+  tardanzas: number
+  minutos_tarde: number
+  ausencias: number
+  he50: number
+  he100: number
+  costo_he: number
+  faltas_injustificadas: number
+  anticipacion_sueldo: number
+  descuento_comida: number
+  detalle_json?: Record<string, unknown>
+  created_at?: string
+}
+
+/** Ajuste manual (+/-) al cupo de vacaciones LCT de un empleado/año. */
+export interface RrhhVacacionesAjuste {
+  id: number
+  id_usuario: number
+  anio: number
+  dias_ajuste: number
+  motivo: string | null
+  registrado_por: number | null
+  created_at: string
 }
 
 export interface SolicitudPermiso {

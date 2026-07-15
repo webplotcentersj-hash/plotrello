@@ -62,18 +62,26 @@
 .rrhh-filter-select,
 .rrhh-date-input {
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 8px;
-  color: var(--text-primary);
+  color: #f1f5f9;
   font-size: 0.9rem;
+  color-scheme: dark;
 }
 
 .rrhh-filter-select:focus,
 .rrhh-date-input:focus {
   outline: none;
   border-color: #3b82f6;
-  background: rgba(255, 255, 255, 0.08);
+  background: #0f172a;
+}
+
+/* Evita lista desplegable blanca en Chrome/Edge/Windows */
+.rrhh-filter-select option,
+.rrhh-evaluaciones-page select option {
+  background-color: #1e293b;
+  color: #f8fafc;
 }
 
 /* Lista de evaluaciones */
@@ -187,7 +195,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(2, 6, 23, 0.82);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -196,14 +205,17 @@
 }
 
 .rrhh-modal {
-  background: var(--bg-primary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 12px;
   padding: 24px;
   max-width: 600px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  color: #f1f5f9;
+  color-scheme: dark;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
 }
 
 .rrhh-modal-large {
@@ -212,11 +224,12 @@
 
 /*
  * Solo modal "Nueva Evaluación" en /rrhh/evaluaciones (no Editar, ni otros módulos RRHH):
- * encabezado, etiquetas de formulario y campos en blanco.
- * Selector largo + !important en color para ganar a .form-group label global y a --text-primary.
+ * panel opaco y tipografía clara (sin heredar --bg-primary transparente).
  */
 .rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva {
   color-scheme: dark;
+  background: #0f172a !important;
+  color: #f8fafc;
 }
 
 .rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-modal-header h2 {
@@ -243,6 +256,9 @@
 .rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group select,
 .rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group textarea {
   color: #ffffff !important;
+  background: #1e293b !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  color-scheme: dark;
 }
 
 .rrhh-evaluaciones-page .rrhh-modal-overlay .rrhh-evaluacion-modal--nueva .rrhh-evaluacion-form .form-group input::placeholder,
@@ -319,12 +335,18 @@
 .form-group select,
 .form-group textarea {
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 8px;
-  color: var(--text-primary);
+  color: #f1f5f9;
   font-size: 0.9rem;
   font-family: inherit;
+  color-scheme: dark;
+}
+
+.form-group select option {
+  background-color: #1e293b;
+  color: #f8fafc;
 }
 
 .form-group input:focus,
@@ -332,7 +354,7 @@
 .form-group textarea:focus {
   outline: none;
   border-color: #3b82f6;
-  background: rgba(255, 255, 255, 0.08);
+  background: #0f172a;
 }
 
 .form-group textarea {

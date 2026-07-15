@@ -78,6 +78,9 @@ import type {
   RrhhNovedad,
   RrhhNovedadAdjunto,
   RrhhNovedadGrupo,
+  RrhhLiquidacionPeriodo,
+  RrhhLiquidacionLinea,
+  RrhhVacacionesAjuste,
   RrhhPostulacion,
   RrhhPostulacionEstado,
   Evaluacion,
@@ -16850,6 +16853,334 @@ class ApiService {
     }
   }
 
+  // ============================================
+  // LIQUIDACIÓN MENSUAL + VACACIONES
+  // ============================================
+
+  private mapRrhhLiquidacionPeriodo(row: Record<string, unknown>): RrhhLiquidacionPeriodo {
+    return {
+      id: Number(row.id),
+      periodo: String(row.periodo),
+      estado: (row.estado === 'cerrado' ? 'cerrado' : 'borrador') as RrhhLiquidacionPeriodo['estado'],
+      valor_hora_default: Number(row.valor_hora_default) || 0,
+      notas: row.notas != null ? String(row.notas) : null,
+      cerrado_por: row.cerrado_por != null ? Number(row.cerrado_por) : null,
+      cerrado_at: row.cerrado_at != null ? String(row.cerrado_at) : null,
+      created_at: String(row.created_at || ''),
+      updated_at: String(row.updated_at || '')
+    }
+  }
+
+  private mapRrhhLiquidacionLinea(row: Record<string, unknown>): RrhhLiquidacionLinea {
+    const detalle = row.detalle_json
+    return {
+      id: row.id != null ? Number(row.id) : undefined,
+      id_periodo: row.id_periodo != null ? Number(row.id_periodo) : undefined,
+      id_usuario: Number(row.id_usuario),
+      nombre: String(row.nombre || ''),
+      dias_trabajados: Number(row.dias_trabajados) || 0,
+      tardanzas: Number(row.tardanzas) || 0,
+      minutos_tarde: Number(row.minutos_tarde) || 0,
+      ausencias: Number(row.ausencias) || 0,
+      he50: Number(row.he50) || 0,
+      he100: Number(row.he100) || 0,
+      costo_he: Number(row.costo_he) || 0,
+      faltas_injustificadas: Number(row.faltas_injustificadas) || 0,
+      anticipacion_sueldo: Number(row.anticipacion_sueldo) || 0,
+      descuento_comida: Number(row.descuento_comida) || 0,
+      detalle_json:
+        detalle && typeof detalle === 'object' && !Array.isArray(detalle)
+          ? (detalle as Record<string, unknown>)
+          : {},
+      created_at: row.created_at != null ? String(row.created_at) : undefined
+    }
+  }
+
+  private mapRrhhVacacionesAjuste(row: Record<string, unknown>): RrhhVacacionesAjuste {
+    return {
+      id: Number(row.id),
+      id_usuario: Number(row.id_usuario),
+      anio: Number(row.anio),
+      dias_ajuste: Number(row.dias_ajuste) || 0,
+      motivo: row.motivo != null ? String(row.motivo) : null,
+      registrado_por: row.registrado_por != null ? Number(row.registrado_por) : null,
+      created_at: String(row.created_at || '')
+    }
+  }
+
+  async rrhhLiquidacionPeriodoObtener(
+    periodo: string
+  ): Promise<ApiResponse<RrhhLiquidacionPeriodo | null>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('rrhh_liquidacion_periodos')
+        .select('*')
+        .eq('periodo', periodo)
+        .maybeSingle()
+      if (error) throw error
+      return {
+        success: true,
+        data: data ? this.mapRrhhLiquidacionPeriodo(data as Record<string, unknown>) : null
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al obtener período de liquidación')
+      }
+    }
+  }
+
+  async rrhhLiquidacionPeriodosListar(): Promise<ApiResponse<RrhhLiquidacionPeriodo[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('rrhh_liquidacion_periodos')
+        .select('*')
+        .order('periodo', { ascending: false })
+      if (error) throw error
+      return {
+        success: true,
+        data: ((data ?? []) as Record<string, unknown>[]).map((r) => this.mapRrhhLiquidacionPeriodo(r))
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al listar períodos de liquidación')
+      }
+    }
+  }
+
+  async rrhhLiquidacionPeriodoUpsert(input: {
+    periodo: string
+    valor_hora_default?: number
+    notas?: string | null
+    estado?: 'borrador' | 'cerrado'
+    cerrado_por?: number | null
+    cerrado_at?: string | null
+  }): Promise<ApiResponse<RrhhLiquidacionPeriodo>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const now = new Date().toISOString()
+      const payload: Record<string, unknown> = {
+        periodo: input.periodo,
+        updated_at: now
+      }
+      if (input.valor_hora_default != null) payload.valor_hora_default = input.valor_hora_default
+      if (input.notas !== undefined) payload.notas = input.notas
+      if (input.estado) payload.estado = input.estado
+      if (input.cerrado_por !== undefined) payload.cerrado_por = input.cerrado_por
+      if (input.cerrado_at !== undefined) payload.cerrado_at = input.cerrado_at
+
+      const { data, error } = await supabase
+        .from('rrhh_liquidacion_periodos')
+        .upsert(payload, { onConflict: 'periodo' })
+        .select('*')
+        .single()
+      if (error) throw error
+      return { success: true, data: this.mapRrhhLiquidacionPeriodo(data as Record<string, unknown>) }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al guardar período de liquidación')
+      }
+    }
+  }
+
+  async rrhhLiquidacionLineasListar(idPeriodo: number): Promise<ApiResponse<RrhhLiquidacionLinea[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('rrhh_liquidacion_lineas')
+        .select('*')
+        .eq('id_periodo', idPeriodo)
+        .order('nombre', { ascending: true })
+      if (error) throw error
+      return {
+        success: true,
+        data: ((data ?? []) as Record<string, unknown>[]).map((r) => this.mapRrhhLiquidacionLinea(r))
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al listar líneas de liquidación')
+      }
+    }
+  }
+
+  /** Reemplaza todas las líneas del período (cerrar / guardar snapshot). */
+  async rrhhLiquidacionLineasReemplazar(
+    idPeriodo: number,
+    lineas: RrhhLiquidacionLinea[]
+  ): Promise<ApiResponse<RrhhLiquidacionLinea[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { error: delErr } = await supabase
+        .from('rrhh_liquidacion_lineas')
+        .delete()
+        .eq('id_periodo', idPeriodo)
+      if (delErr) throw delErr
+
+      if (lineas.length === 0) {
+        return { success: true, data: [] }
+      }
+
+      const rows = lineas.map((l) => ({
+        id_periodo: idPeriodo,
+        id_usuario: l.id_usuario,
+        nombre: l.nombre,
+        dias_trabajados: l.dias_trabajados,
+        tardanzas: l.tardanzas,
+        minutos_tarde: l.minutos_tarde,
+        ausencias: l.ausencias,
+        he50: l.he50,
+        he100: l.he100,
+        costo_he: l.costo_he,
+        faltas_injustificadas: l.faltas_injustificadas,
+        anticipacion_sueldo: l.anticipacion_sueldo,
+        descuento_comida: l.descuento_comida,
+        detalle_json: l.detalle_json ?? {}
+      }))
+
+      const { data, error } = await supabase
+        .from('rrhh_liquidacion_lineas')
+        .insert(rows)
+        .select('*')
+      if (error) throw error
+      return {
+        success: true,
+        data: ((data ?? []) as Record<string, unknown>[]).map((r) => this.mapRrhhLiquidacionLinea(r))
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al guardar líneas de liquidación')
+      }
+    }
+  }
+
+  async rrhhLiquidacionPeriodoCerrar(input: {
+    periodo: string
+    valor_hora_default: number
+    notas?: string | null
+    cerrado_por: number
+    lineas: RrhhLiquidacionLinea[]
+  }): Promise<ApiResponse<RrhhLiquidacionPeriodo>> {
+    const upsert = await this.rrhhLiquidacionPeriodoUpsert({
+      periodo: input.periodo,
+      valor_hora_default: input.valor_hora_default,
+      notas: input.notas ?? null,
+      estado: 'cerrado',
+      cerrado_por: input.cerrado_por,
+      cerrado_at: new Date().toISOString()
+    })
+    if (!upsert.success || !upsert.data) {
+      return { success: false, error: upsert.error || 'No se pudo cerrar el período' }
+    }
+    const lineasRes = await this.rrhhLiquidacionLineasReemplazar(upsert.data.id, input.lineas)
+    if (!lineasRes.success) {
+      return { success: false, error: lineasRes.error || 'Período cerrado pero falló el snapshot' }
+    }
+    return upsert
+  }
+
+  async rrhhLiquidacionPeriodoReabrir(
+    periodo: string
+  ): Promise<ApiResponse<RrhhLiquidacionPeriodo>> {
+    return this.rrhhLiquidacionPeriodoUpsert({
+      periodo,
+      estado: 'borrador',
+      cerrado_por: null,
+      cerrado_at: null
+    })
+  }
+
+  async rrhhVacacionesAjustesListar(filters?: {
+    idUsuario?: number
+    anio?: number
+  }): Promise<ApiResponse<RrhhVacacionesAjuste[]>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      let q = supabase
+        .from('rrhh_vacaciones_ajustes')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (filters?.idUsuario) q = q.eq('id_usuario', filters.idUsuario)
+      if (filters?.anio) q = q.eq('anio', filters.anio)
+      const { data, error } = await q
+      if (error) throw error
+      return {
+        success: true,
+        data: ((data ?? []) as Record<string, unknown>[]).map((r) => this.mapRrhhVacacionesAjuste(r))
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al listar ajustes de vacaciones')
+      }
+    }
+  }
+
+  async rrhhVacacionesAjusteCrear(input: {
+    id_usuario: number
+    anio: number
+    dias_ajuste: number
+    motivo?: string | null
+    registrado_por: number
+  }): Promise<ApiResponse<RrhhVacacionesAjuste>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { data, error } = await supabase
+        .from('rrhh_vacaciones_ajustes')
+        .insert({
+          id_usuario: input.id_usuario,
+          anio: input.anio,
+          dias_ajuste: input.dias_ajuste,
+          motivo: input.motivo ?? null,
+          registrado_por: input.registrado_por
+        })
+        .select('*')
+        .single()
+      if (error) throw error
+      return { success: true, data: this.mapRrhhVacacionesAjuste(data as Record<string, unknown>) }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al crear ajuste de vacaciones')
+      }
+    }
+  }
+
+  async rrhhVacacionesAjusteEliminar(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { error } = await supabase.from('rrhh_vacaciones_ajustes').delete().eq('id', id)
+      if (error) throw error
+      return { success: true, data: true }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al eliminar ajuste de vacaciones')
+      }
+    }
+  }
+
   /** Sube archivo al bucket `archivos` bajo `rrhh-novedades/`. */
   async rrhhNovedadSubirAdjunto(
     file: File,
@@ -23187,7 +23518,7 @@ class ApiService {
       puesto: String(row.puesto || ''),
       categoria_puesto: row.categoria_puesto == null ? null : String(row.categoria_puesto),
       mensaje: row.mensaje == null ? null : String(row.mensaje),
-      cv_url: String(row.cv_url || ''),
+      cv_url: row.cv_url == null ? null : String(row.cv_url),
       cv_nombre: row.cv_nombre == null ? null : String(row.cv_nombre),
       cv_mime: row.cv_mime == null ? null : String(row.cv_mime),
       estado: String(row.estado || 'nuevo') as RrhhPostulacionEstado,
@@ -23197,7 +23528,11 @@ class ApiService {
       created_at: String(row.created_at || ''),
       updated_at: String(row.updated_at || ''),
       revisado_por: row.revisado_por == null ? null : Number(row.revisado_por),
-      revisado_at: row.revisado_at == null ? null : String(row.revisado_at)
+      revisado_at: row.revisado_at == null ? null : String(row.revisado_at),
+      entrevista_at: row.entrevista_at == null ? null : String(row.entrevista_at),
+      oferta_at: row.oferta_at == null ? null : String(row.oferta_at),
+      ingresado_at: row.ingresado_at == null ? null : String(row.ingresado_at),
+      id_usuario: row.id_usuario == null ? null : Number(row.id_usuario)
     }
   }
 
@@ -23237,7 +23572,8 @@ class ApiService {
     usuarioId: number,
     id: number,
     estado: RrhhPostulacionEstado,
-    notas?: string
+    notas?: string,
+    opts?: { entrevistaAt?: string | null; idUsuario?: number | null }
   ): Promise<ApiResponse<RrhhPostulacion>> {
     if (!supabase) return { success: false, error: 'Supabase no inicializado' }
     try {
@@ -23245,7 +23581,9 @@ class ApiService {
         p_usuario_id: usuarioId,
         p_id: id,
         p_estado: estado,
-        p_notas_rrhh: notas || null
+        p_notas_rrhh: notas || null,
+        p_entrevista_at: opts?.entrevistaAt || null,
+        p_id_usuario: opts?.idUsuario ?? null
       })
       if (error) throw error
       return {

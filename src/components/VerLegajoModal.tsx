@@ -30,6 +30,7 @@ import {
   type BenchmarkSectorColaborador,
   type LegajoSectorBasico
 } from '../utils/rrhhNovedadesSectorStats'
+import { calcularSaldoVacaciones } from '../utils/rrhhVacacionesSaldo'
 import './VerLegajoModal.css'
 
 type VerLegajoModalProps = {
@@ -112,6 +113,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
   const [hvError, setHvError] = useState<string | null>(null)
   const [hojaVidaEventos, setHojaVidaEventos] = useState<HojaVidaEvento[]>([])
   const [hvLoaded, setHvLoaded] = useState(false)
+  const [vacacionesSaldoChip, setVacacionesSaldoChip] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen && usuario.id) {
@@ -123,9 +125,40 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
       setHvLoaded(false)
       setHojaVidaEventos([])
       setHvError(null)
+      setVacacionesSaldoChip(null)
       loadLegajo()
     }
   }, [isOpen, usuario.id])
+
+  const loadVacacionesChip = async (fechaIngreso: string | null | undefined) => {
+    const anio = new Date().getFullYear()
+    const yearStart = `${anio}-01-01`
+    const yearEnd = `${anio}-12-31`
+    try {
+      const [solRes, novRes, ajRes] = await Promise.all([
+        apiService.obtenerSolicitudesPermisos(usuario.id, 'aprobado', 'vacaciones'),
+        apiService.rrhhNovedadesListar({
+          idUsuario: usuario.id,
+          codigo: 'licencia_vacaciones',
+          fechaDesde: yearStart,
+          fechaHasta: yearEnd
+        }),
+        apiService.rrhhVacacionesAjustesListar({ idUsuario: usuario.id, anio })
+      ])
+      const saldo = calcularSaldoVacaciones({
+        idUsuario: usuario.id,
+        nombre: '',
+        fechaIngreso,
+        anio,
+        solicitudes: solRes.success && solRes.data ? solRes.data : [],
+        novedades: novRes.success && novRes.data ? novRes.data : [],
+        ajustes: ajRes.success && ajRes.data ? ajRes.data : []
+      })
+      setVacacionesSaldoChip(`Vacaciones ${anio}: saldo ${saldo.saldo}`)
+    } catch {
+      setVacacionesSaldoChip(null)
+    }
+  }
 
   const loadLegajo = async () => {
     setLoading(true)
@@ -133,15 +166,17 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
       const response = await apiService.getLegajoEmpleado(usuario.id)
       if (response.success && response.data) {
         const d = response.data
+        const ingreso = d.fecha_ingreso
+          ? isoToArgentinaDateKey(String(d.fecha_ingreso)) || d.fecha_ingreso
+          : d.fecha_ingreso
         setLegajo({
           ...d,
-          fecha_ingreso: d.fecha_ingreso
-            ? isoToArgentinaDateKey(String(d.fecha_ingreso)) || d.fecha_ingreso
-            : d.fecha_ingreso,
+          fecha_ingreso: ingreso,
           fecha_nacimiento: d.fecha_nacimiento
             ? isoToArgentinaDateKey(String(d.fecha_nacimiento)) || d.fecha_nacimiento
             : d.fecha_nacimiento
         })
+        void loadVacacionesChip(ingreso)
       } else {
         setLegajo(null)
       }
@@ -955,6 +990,14 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
                     {formatDate(legajo.fecha_ingreso)}
                   </span>
                 </div>
+                {vacacionesSaldoChip ? (
+                  <div className="ver-legajo-info-item ver-legajo-full-width">
+                    <span className="ver-legajo-badge ver-legajo-badge--ok">{vacacionesSaldoChip}</span>
+                    <Link to="/rrhh/vacaciones" className="ver-legajo-vac-link" onClick={onClose}>
+                      Ver saldos
+                    </Link>
+                  </div>
+                ) : null}
                 <div className="ver-legajo-info-item ver-legajo-full-width">
                   <span className="ver-legajo-label">Funciones:</span>
                   <span className="ver-legajo-value">

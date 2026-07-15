@@ -47,3 +47,8 @@ export function etiquetaCodigoRrhhNovedad(codigo: string): string {
   }
   return codigo
 }
+
+export function etiquetaGrupoRrhhNovedad(grupo: RrhhNovedadGrupo | string): string {
+  const f = RRHH_NOVEDAD_GRUPOS.find((x) => x.value === grupo)
+  return f?.label || String(grupo)
+}

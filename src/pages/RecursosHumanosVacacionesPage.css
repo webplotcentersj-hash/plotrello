@@ -1,0 +1,256 @@
+.rrhh-vac-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.rrhh-vac-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 16px;
+}
+
+.rrhh-vac-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.rrhh-vac-breadcrumb {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.rrhh-vac-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.rrhh-vac-subtitle {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  max-width: 640px;
+  font-size: 0.95rem;
+}
+
+.rrhh-vac-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.rrhh-vac-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.rrhh-vac-toolbar input {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #1e293b;
+  color: inherit;
+  color-scheme: dark;
+}
+
+.rrhh-vac-search {
+  flex: 1;
+  min-width: 180px;
+}
+
+.rrhh-vac-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #334155;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.rrhh-vac-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rrhh-vac-btn.ghost {
+  background: transparent;
+}
+
+.rrhh-vac-btn.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.rrhh-vac-error {
+  color: #f87171;
+}
+
+.rrhh-vac-inline,
+.rrhh-vac-muted {
+  color: var(--text-muted);
+}
+
+.rrhh-vac-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 360px);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .rrhh-vac-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rrhh-vac-table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rrhh-vac-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.rrhh-vac-table th,
+.rrhh-vac-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-vac-table th {
+  background: #0f172a;
+  position: sticky;
+  top: 0;
+}
+
+.rrhh-vac-table tbody tr {
+  cursor: pointer;
+}
+
+.rrhh-vac-table tbody tr:hover,
+.rrhh-vac-table tbody tr.active {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.rrhh-vac-table td.neg {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.rrhh-vac-detalle {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rrhh-vac-detalle h2 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+}
+
+.rrhh-vac-detalle h3 {
+  margin: 16px 0 8px;
+  font-size: 0.95rem;
+}
+
+.rrhh-vac-saldo-chip {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  font-size: 0.9rem;
+}
+
+.rrhh-vac-dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0;
+}
+
+.rrhh-vac-dl div {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.rrhh-vac-dl dt {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.rrhh-vac-dl dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+
+.rrhh-vac-tomados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rrhh-vac-tomados li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.85rem;
+}
+
+.rrhh-vac-link {
+  background: none;
+  border: none;
+  color: #f87171;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+}
+
+.rrhh-vac-ajuste-form {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rrhh-vac-ajuste-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.rrhh-vac-ajuste-form input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #0f172a;
+  color: inherit;
+}

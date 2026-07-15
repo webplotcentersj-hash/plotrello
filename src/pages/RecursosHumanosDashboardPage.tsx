@@ -192,7 +192,7 @@ const RecursosHumanosDashboardPage = () => {
             >
               <div className="rrhh-action-icon">📄</div>
               <h3>Postulaciones / CVs</h3>
-              <p>Bandeja PlotLab: CVs públicos y formularios de convocatoria (ej. Community Manager)</p>
+              <p>Bandeja, pipeline (entrevista → oferta → ingreso) y funnel de conversión</p>
             </button>
 
             <button
@@ -211,6 +211,24 @@ const RecursosHumanosDashboardPage = () => {
               <div className="rrhh-action-icon">🕐</div>
               <h3>Horarios y Turnos</h3>
               <p>Gestionar horarios de trabajo y asignación de turnos</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/liquidacion')}
+            >
+              <div className="rrhh-action-icon">📑</div>
+              <h3>Liquidación mensual</h3>
+              <p>Cierre del mes, HE, novedades y Excel para el estudio contable</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/vacaciones')}
+            >
+              <div className="rrhh-action-icon">🏖️</div>
+              <h3>Vacaciones / saldos</h3>
+              <p>Cupo LCT, días tomados, ajustes manuales y saldo por empleado</p>
             </button>
 
             <button

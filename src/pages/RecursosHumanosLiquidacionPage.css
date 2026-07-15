@@ -1,0 +1,218 @@
+.rrhh-liq-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.rrhh-liq-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 16px;
+}
+
+.rrhh-liq-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.rrhh-liq-breadcrumb {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.rrhh-liq-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.rrhh-liq-subtitle {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  max-width: 640px;
+  font-size: 0.95rem;
+}
+
+.rrhh-liq-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.rrhh-liq-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.rrhh-liq-toolbar input[type='month'],
+.rrhh-liq-toolbar input[type='number'] {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #1e293b;
+  color: inherit;
+  color-scheme: dark;
+  min-width: 140px;
+}
+
+.rrhh-liq-badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  align-self: center;
+}
+
+.rrhh-liq-badge.borrador {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.rrhh-liq-badge.cerrado {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.rrhh-liq-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #334155;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.rrhh-liq-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rrhh-liq-btn.ghost {
+  background: transparent;
+}
+
+.rrhh-liq-btn.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.rrhh-liq-btn.warn {
+  background: #b45309;
+  border-color: #b45309;
+}
+
+.rrhh-liq-notas {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.rrhh-liq-notas textarea {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #1e293b;
+  color: inherit;
+  resize: vertical;
+}
+
+.rrhh-liq-error {
+  color: #f87171;
+}
+
+.rrhh-liq-msg {
+  color: #34d399;
+}
+
+.rrhh-liq-avisos {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.rrhh-liq-avisos ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.rrhh-liq-totales {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rrhh-liq-totales > div {
+  background: #1e293b;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rrhh-liq-totales span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.rrhh-liq-totales strong {
+  font-size: 1.1rem;
+}
+
+.rrhh-liq-table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rrhh-liq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.rrhh-liq-table th,
+.rrhh-liq-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+.rrhh-liq-table th {
+  background: #0f172a;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.rrhh-liq-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rrhh-liq-inline-loading {
+  color: var(--text-muted);
+}

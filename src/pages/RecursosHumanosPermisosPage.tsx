@@ -56,6 +56,46 @@ const RecursosHumanosPermisosPage = () => {
     )
 
     if (response.success) {
+      if (solicitud.tipo_solicitud === 'vacaciones') {
+        try {
+          const { calcularSaldoVacaciones, diasEnAnio } = await import('../utils/rrhhVacacionesSaldo')
+          const anio = new Date().getFullYear()
+          const yearStart = `${anio}-01-01`
+          const yearEnd = `${anio}-12-31`
+          const [legRes, solRes, novRes, ajRes] = await Promise.all([
+            apiService.obtenerLegajosBasico(),
+            apiService.obtenerSolicitudesPermisos(solicitud.id_usuario, 'aprobado', 'vacaciones'),
+            apiService.rrhhNovedadesListar({
+              idUsuario: solicitud.id_usuario,
+              codigo: 'licencia_vacaciones',
+              fechaDesde: yearStart,
+              fechaHasta: yearEnd
+            }),
+            apiService.rrhhVacacionesAjustesListar({ idUsuario: solicitud.id_usuario, anio })
+          ])
+          const ingreso = legRes.data?.[solicitud.id_usuario]?.fecha_ingreso ?? null
+          const saldo = calcularSaldoVacaciones({
+            idUsuario: solicitud.id_usuario,
+            nombre: '',
+            fechaIngreso: ingreso,
+            anio,
+            solicitudes: solRes.success && solRes.data ? solRes.data : [],
+            novedades: novRes.success && novRes.data ? novRes.data : [],
+            ajustes: ajRes.success && ajRes.data ? ajRes.data : []
+          })
+          const diasPedido =
+            solicitud.dias_solicitados != null && solicitud.dias_solicitados > 0
+              ? Number(solicitud.dias_solicitados)
+              : solicitud.fecha_inicio && solicitud.fecha_fin
+                ? diasEnAnio(solicitud.fecha_inicio, solicitud.fecha_fin, anio)
+                : 0
+          alert(
+            `Vacaciones aprobadas (${diasPedido} días). Saldo estimado ${anio}: ${saldo.saldo} días restantes.`
+          )
+        } catch {
+          /* aviso opcional */
+        }
+      }
       loadSolicitudes()
       setMostrarModalAprobar(false)
       setSolicitudSeleccionada(null)

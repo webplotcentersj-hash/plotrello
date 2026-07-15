@@ -317,8 +317,105 @@
 .rrhh-post-estado.nuevo { color: #93c5fd; }
 .rrhh-post-estado.en_revision { color: #fcd34d; }
 .rrhh-post-estado.entrevista { color: #c4b5fd; }
-.rrhh-post-estado.aprobado { color: #86efac; }
+.rrhh-post-estado.oferta { color: #6ee7b7; }
+.rrhh-post-estado.ingresado { color: #34d399; }
 .rrhh-post-estado.descartado { color: #fca5a5; }
+
+.rrhh-post-funnel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 720px) {
+  .rrhh-post-funnel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.rrhh-post-funnel-step {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.55);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.rrhh-post-funnel-step:hover,
+.rrhh-post-funnel-step.active {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(37, 99, 235, 0.18);
+}
+
+.rrhh-post-funnel-step strong {
+  font-size: 1.25rem;
+}
+
+.rrhh-post-funnel-step span {
+  font-size: 0.78rem;
+  color: #9aa3b5;
+}
+
+.rrhh-post-ingresar-overlay {
+  z-index: 60;
+}
+
+.rrhh-post-ingresar-modal {
+  max-width: 420px;
+  width: 100%;
+  background: #121826;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 20px;
+}
+
+.rrhh-post-ingresar-modal h3 {
+  margin: 0 0 8px;
+}
+
+.rrhh-post-ingresar-modal p {
+  margin: 0 0 14px;
+  color: #9aa3b5;
+  font-size: 0.9rem;
+}
+
+.rrhh-post-ingresar-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 0.8rem;
+  color: #9aa3b5;
+}
+
+.rrhh-post-ingresar-modal input,
+.rrhh-post-ingresar-modal select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #0f172a;
+  color: inherit;
+}
+
+.rrhh-post-ingresar-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  justify-content: flex-end;
+}
+
+.rrhh-post-pipeline-hint {
+  font-size: 0.8rem;
+  color: #9aa3b5;
+  margin: 4px 0 10px;
+}
 
 .rrhh-post-fecha {
   color: #6b7280;

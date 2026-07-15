@@ -490,7 +490,28 @@ const RecursosHumanosUsuariosPage = () => {
                           : '—'}
                       </td>
                       <td className="rrhh-baja-motivo">{b.motivo}</td>
-                      <td>{b.adjuntos.length > 0 ? b.adjuntos.length : '—'}</td>
+                      <td className="rrhh-baja-docs">
+                        {b.adjuntos.length === 0 ? (
+                          '—'
+                        ) : (
+                          <ul className="rrhh-baja-docs-list">
+                            {b.adjuntos.map((a, i) => (
+                              <li key={`${b.id}-${i}-${a.url}`}>
+                                <a
+                                  href={a.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download={a.nombre || undefined}
+                                  title={`Descargar ${a.nombre || 'documento'}`}
+                                  className="rrhh-baja-doc-link"
+                                >
+                                  ⬇ {a.nombre || `Doc ${i + 1}`}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
                       <td>{nombreRegistrador(b.registrado_por)}</td>
                       <td>
                         <button

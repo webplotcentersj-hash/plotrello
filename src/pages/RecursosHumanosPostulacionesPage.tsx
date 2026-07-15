@@ -4,11 +4,14 @@ import { useAuth } from '../hooks/useAuth'
 import {
   RRHH_POSTULACIONES_PAGE_SIZE,
   rrhhPostulacionActualizarEstado,
+  rrhhPostulacionIngresar,
   rrhhPostulacionObtener,
   rrhhPostulacionesContar,
-  rrhhPostulacionesListar
+  rrhhPostulacionesFunnel,
+  rrhhPostulacionesListar,
+  sugerirNombreUsuarioLogin
 } from '../services/rrhhPostulacionesService'
-import type { RrhhPostulacion, RrhhPostulacionEstado } from '../types/api'
+import type { RrhhPostulacion, RrhhPostulacionEstado, RrhhPostulacionesFunnel, UserRole } from '../types/api'
 import { PUESTOS_POSTULACION } from '../data/puestosPostulacion'
 import { buildWhatsappLink } from '../utils/whatsappLink'
 import {
@@ -25,7 +28,8 @@ const ESTADOS: { value: RrhhPostulacionEstado | ''; label: string }[] = [
   { value: 'nuevo', label: 'Nuevo' },
   { value: 'en_revision', label: 'En revisión' },
   { value: 'entrevista', label: 'Entrevista' },
-  { value: 'aprobado', label: 'Aprobado' },
+  { value: 'oferta', label: 'Oferta' },
+  { value: 'ingresado', label: 'Ingresado' },
   { value: 'descartado', label: 'Descartado' }
 ]
 
@@ -33,8 +37,50 @@ const ESTADO_LABEL: Record<RrhhPostulacionEstado, string> = {
   nuevo: 'Nuevo',
   en_revision: 'En revisión',
   entrevista: 'Entrevista',
-  aprobado: 'Aprobado',
+  oferta: 'Oferta',
+  ingresado: 'Ingresado',
   descartado: 'Descartado'
+}
+
+const FUNNEL_STEPS: { key: keyof RrhhPostulacionesFunnel; label: string; estado: RrhhPostulacionEstado | '' }[] = [
+  { key: 'postulan', label: 'Postulan', estado: '' },
+  { key: 'entrevista', label: 'Entrevista', estado: 'entrevista' },
+  { key: 'oferta', label: 'Oferta', estado: 'oferta' },
+  { key: 'ingresado', label: 'Ingresaron', estado: 'ingresado' }
+]
+
+const ROLES_ALTA: { value: UserRole; label: string }[] = [
+  { value: 'mostrador', label: 'Mostrador' },
+  { value: 'diseno', label: 'Diseño' },
+  { value: 'imprenta', label: 'Imprenta' },
+  { value: 'taller-grafico', label: 'Taller gráfico' },
+  { value: 'instalaciones', label: 'Instalaciones' },
+  { value: 'metalurgica', label: 'Metalúrgica' },
+  { value: 'caja', label: 'Caja' },
+  { value: 'compras', label: 'Compras' },
+  { value: 'asesor-tecnico', label: 'Asesor técnico' },
+  { value: 'presupuestos', label: 'Presupuestos' },
+  { value: 'administracion', label: 'Administración' },
+  { value: 'recursos-humanos', label: 'Recursos humanos' }
+]
+
+function toDatetimeLocalValue(iso: string | null | undefined): string {
+  if (!iso) return ''
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  } catch {
+    return ''
+  }
+}
+
+function fromDatetimeLocalValue(local: string): string | null {
+  if (!local.trim()) return null
+  const d = new Date(local)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString()
 }
 
 function fmtFecha(iso: string): string {
@@ -78,10 +124,17 @@ const RecursosHumanosPostulacionesPage = () => {
   const [selected, setSelected] = useState<RrhhPostulacion | null>(null)
   const [detailNotas, setDetailNotas] = useState('')
   const [detailEstado, setDetailEstado] = useState<RrhhPostulacionEstado>('nuevo')
+  const [detailEntrevistaLocal, setDetailEntrevistaLocal] = useState('')
   const [saving, setSaving] = useState(false)
   const [reanalizando, setReanalizando] = useState(false)
   const [analizandoFormulario, setAnalizandoFormulario] = useState(false)
   const [resultCount, setResultCount] = useState<number | null>(null)
+  const [funnel, setFunnel] = useState<RrhhPostulacionesFunnel | null>(null)
+  const [showIngresarModal, setShowIngresarModal] = useState(false)
+  const [ingresarLogin, setIngresarLogin] = useState('')
+  const [ingresarPassword, setIngresarPassword] = useState('')
+  const [ingresarRol, setIngresarRol] = useState<UserRole>('mostrador')
+  const [ingresando, setIngresando] = useState(false)
 
   const listFilters = useCallback(
     () => ({
@@ -94,6 +147,15 @@ const RecursosHumanosPostulacionesPage = () => {
     [usuario?.id, busqueda, estadoFilter, puestoFilter, tipoFilter]
   )
 
+  const loadFunnel = useCallback(async () => {
+    if (!usuario?.id) return
+    const res = await rrhhPostulacionesFunnel({
+      usuarioId: usuario.id,
+      tipo: tipoFilter || undefined
+    })
+    if (res.success && res.data) setFunnel(res.data)
+  }, [usuario?.id, tipoFilter])
+
   const load = useCallback(async (): Promise<RrhhPostulacion[]> => {
     if (!usuario?.id) return []
     setLoading(true)
@@ -104,7 +166,8 @@ const RecursosHumanosPostulacionesPage = () => {
         limite: RRHH_POSTULACIONES_PAGE_SIZE,
         offset: 0
       }),
-      rrhhPostulacionesContar(filters)
+      rrhhPostulacionesContar(filters),
+      loadFunnel()
     ])
     const data = res.success && res.data ? res.data : []
     if (res.success) {
@@ -116,7 +179,7 @@ const RecursosHumanosPostulacionesPage = () => {
     }
     setLoading(false)
     return data
-  }, [usuario?.id, listFilters])
+  }, [usuario?.id, listFilters, loadFunnel])
 
   const loadMore = useCallback(async () => {
     if (!usuario?.id || loading || loadingMore) return
@@ -170,6 +233,8 @@ const RecursosHumanosPostulacionesPage = () => {
       setSelected(row)
       setDetailEstado(row.estado)
       setDetailNotas(row.notas_rrhh || '')
+      setDetailEntrevistaLocal(toDatetimeLocalValue(row.entrevista_at))
+      setShowIngresarModal(false)
     })
     void rrhhPostulacionObtener(row.id).then((res) => {
       if (res.success && res.data) {
@@ -177,6 +242,7 @@ const RecursosHumanosPostulacionesPage = () => {
           setSelected(res.data!)
           setDetailEstado(res.data!.estado)
           setDetailNotas(res.data!.notas_rrhh || '')
+          setDetailEntrevistaLocal(toDatetimeLocalValue(res.data!.entrevista_at))
         })
       }
     })
@@ -184,15 +250,67 @@ const RecursosHumanosPostulacionesPage = () => {
 
   const saveDetail = async () => {
     if (!selected || !usuario?.id) return
+    if (detailEstado === 'ingresado' && !selected.id_usuario) {
+      setIngresarLogin(sugerirNombreUsuarioLogin(selected))
+      setIngresarPassword('')
+      setIngresarRol('mostrador')
+      setShowIngresarModal(true)
+      return
+    }
+    if (detailEstado === 'entrevista') {
+      const iso = fromDatetimeLocalValue(detailEntrevistaLocal)
+      if (!iso && !selected.entrevista_at) {
+        alert('Indicá fecha y hora de la entrevista')
+        return
+      }
+    }
     setSaving(true)
-    const res = await rrhhPostulacionActualizarEstado(usuario.id, selected.id, detailEstado, detailNotas)
+    const res = await rrhhPostulacionActualizarEstado(usuario.id, selected.id, detailEstado, detailNotas, {
+      entrevistaAt: fromDatetimeLocalValue(detailEntrevistaLocal),
+      idUsuario: selected.id_usuario ?? null
+    })
     if (res.success && res.data) {
       setRows((prev) => prev.map((r) => (r.id === res.data!.id ? res.data! : r)))
       setSelected(res.data)
+      setDetailEntrevistaLocal(toDatetimeLocalValue(res.data.entrevista_at))
+      void loadFunnel()
     } else {
       alert(res.error || 'Error al guardar')
     }
     setSaving(false)
+  }
+
+  const confirmarIngreso = async () => {
+    if (!selected || !usuario?.id) return
+    if (!ingresarLogin.trim() || ingresarPassword.length < 4) {
+      alert('Completá usuario (login) y una contraseña de al menos 4 caracteres')
+      return
+    }
+    setIngresando(true)
+    const res = await rrhhPostulacionIngresar({
+      gestorId: usuario.id,
+      postulacion: selected,
+      loginNombre: ingresarLogin.trim(),
+      password: ingresarPassword,
+      rol: ingresarRol,
+      notas: detailNotas
+    })
+    if (res.success && res.data) {
+      setRows((prev) => prev.map((r) => (r.id === res.data!.id ? res.data! : r)))
+      setSelected(res.data)
+      setDetailEstado('ingresado')
+      setShowIngresarModal(false)
+      void loadFunnel()
+      if (res.error) alert(res.error)
+      else alert(`Ingreso OK. Usuario #${res.data.id_usuario} y legajo creados.`)
+    } else {
+      alert(res.error || 'No se pudo completar el ingreso')
+    }
+    setIngresando(false)
+  }
+
+  const applyFunnelFilter = (estado: RrhhPostulacionEstado | '') => {
+    setEstadoFilter(estado)
   }
 
   const reanalizar = async () => {
@@ -287,7 +405,7 @@ const RecursosHumanosPostulacionesPage = () => {
               </span>
             )}
           </div>
-          <p>Bandeja PlotLab · candidatos y formularios de convocatoria</p>
+          <p>Bandeja PlotLab · pipeline de selección y conversión</p>
         </div>
         <div className="rrhh-post-header-actions">
           <button
@@ -309,6 +427,27 @@ const RecursosHumanosPostulacionesPage = () => {
           </button>
         </div>
       </header>
+
+      {funnel && (
+        <div className="rrhh-post-funnel" role="navigation" aria-label="Funnel de conversión">
+          {FUNNEL_STEPS.map((step) => (
+            <button
+              key={step.key}
+              type="button"
+              className={`rrhh-post-funnel-step${estadoFilter === step.estado ? ' active' : ''}`}
+              onClick={() => applyFunnelFilter(step.estado)}
+              title={
+                step.estado
+                  ? `Filtrar por ${step.label}`
+                  : 'Ver todas las postulaciones (sin filtro de estado)'
+              }
+            >
+              <strong>{fmtCount(funnel[step.key])}</strong>
+              <span>{step.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="rrhh-post-filters">
         <div className="rrhh-post-search-hero">
@@ -407,8 +546,14 @@ const RecursosHumanosPostulacionesPage = () => {
                 <p className="rrhh-post-puesto">{row.puesto}</p>
                 <p className="rrhh-post-email">{row.email}</p>
                 <div className="rrhh-post-card-meta">
-                  <span className={`rrhh-post-estado ${row.estado}`}>{ESTADO_LABEL[row.estado]}</span>
+                  <span className={`rrhh-post-estado ${row.estado}`}>{ESTADO_LABEL[row.estado] || row.estado}</span>
                   {esFormulario && <span className="rrhh-post-form-badge">📋 Formulario</span>}
+                  {row.id_usuario != null && <span className="rrhh-post-form-badge">Usuario #{row.id_usuario}</span>}
+                  {row.entrevista_at && (
+                    <span className="rrhh-post-fecha" title="Entrevista">
+                      Entrevista {fmtFecha(row.entrevista_at)}
+                    </span>
+                  )}
                   {row.legacy_id != null && <span className="rrhh-post-legacy">Histórico</span>}
                   <span className="rrhh-post-fecha">{fmtFecha(row.created_at)}</span>
                 </div>
@@ -504,13 +649,50 @@ const RecursosHumanosPostulacionesPage = () => {
                     ))}
                   </select>
                 </label>
+                <p className="rrhh-post-pipeline-hint">
+                  Pipeline: Nuevo → En revisión → Entrevista → Oferta → Ingresado
+                </p>
+                {(detailEstado === 'entrevista' || selected.entrevista_at) && (
+                  <label>
+                    Fecha y hora de entrevista
+                    <input
+                      type="datetime-local"
+                      value={detailEntrevistaLocal}
+                      onChange={(e) => setDetailEntrevistaLocal(e.target.value)}
+                    />
+                  </label>
+                )}
+                {selected.id_usuario != null && (
+                  <p>
+                    <strong>Usuario vinculado:</strong> #{selected.id_usuario}{' '}
+                    <button
+                      type="button"
+                      className="rrhh-post-btn-outline"
+                      onClick={() =>
+                        navigate('/rrhh/usuarios', { state: { openEditUserId: selected.id_usuario } })
+                      }
+                    >
+                      Ir a legajo / usuario
+                    </button>
+                  </p>
+                )}
+                {selected.oferta_at && (
+                  <p className="rrhh-post-pipeline-hint">Oferta: {fmtFecha(selected.oferta_at)}</p>
+                )}
+                {selected.ingresado_at && (
+                  <p className="rrhh-post-pipeline-hint">Ingresado: {fmtFecha(selected.ingresado_at)}</p>
+                )}
                 <label>
                   Notas RRHH
                   <textarea value={detailNotas} onChange={(e) => setDetailNotas(e.target.value)} rows={3} />
                 </label>
                 <div className="rrhh-post-modal-actions">
                   <button type="button" className="rrhh-post-btn-primary" onClick={() => void saveDetail()} disabled={saving}>
-                    {saving ? 'Guardando…' : 'Guardar'}
+                    {saving
+                      ? 'Guardando…'
+                      : detailEstado === 'ingresado' && !selected.id_usuario
+                        ? 'Continuar alta…'
+                        : 'Guardar'}
                   </button>
                   {selectedEsFormulario && (
                     <button
@@ -590,6 +772,73 @@ const RecursosHumanosPostulacionesPage = () => {
                   <p className="rrhh-post-form-modal-note">Esta postulación no tiene archivo de CV adjunto.</p>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showIngresarModal && selected && (
+        <div
+          className="rrhh-post-modal-overlay rrhh-post-ingresar-overlay"
+          onClick={() => !ingresando && setShowIngresarModal(false)}
+        >
+          <div className="rrhh-post-ingresar-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Alta automática</h3>
+            <p>
+              Se creará usuario + legajo para <strong>{selected.nombre}</strong> ({selected.email}) y la
+              postulación pasará a Ingresado.
+            </p>
+            <label>
+              Usuario (login)
+              <input
+                type="text"
+                value={ingresarLogin}
+                onChange={(e) => setIngresarLogin(e.target.value)}
+                disabled={ingresando}
+                autoComplete="off"
+              />
+            </label>
+            <label>
+              Contraseña temporal
+              <input
+                type="text"
+                value={ingresarPassword}
+                onChange={(e) => setIngresarPassword(e.target.value)}
+                disabled={ingresando}
+                autoComplete="new-password"
+              />
+            </label>
+            <label>
+              Rol
+              <select
+                value={ingresarRol}
+                onChange={(e) => setIngresarRol(e.target.value as UserRole)}
+                disabled={ingresando}
+              >
+                {ROLES_ALTA.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="rrhh-post-ingresar-actions">
+              <button
+                type="button"
+                className="rrhh-post-btn-outline"
+                disabled={ingresando}
+                onClick={() => setShowIngresarModal(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="rrhh-post-btn-primary"
+                disabled={ingresando}
+                onClick={() => void confirmarIngreso()}
+              >
+                {ingresando ? 'Creando…' : 'Crear usuario e ingresar'}
+              </button>
             </div>
           </div>
         </div>

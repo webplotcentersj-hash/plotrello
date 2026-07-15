@@ -220,6 +220,35 @@
   font-size: 0.88rem;
 }
 
+.rrhh-baja-docs {
+  min-width: 120px;
+  max-width: 220px;
+}
+
+.rrhh-baja-docs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rrhh-baja-doc-link {
+  display: inline-block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #93c5fd;
+  font-size: 0.82rem;
+  text-decoration: underline;
+}
+
+.rrhh-baja-doc-link:hover {
+  color: #bfdbfe;
+}
+
 .btn-edit {
   padding: 6px 12px;
   background: rgba(59, 130, 246, 0.2);
