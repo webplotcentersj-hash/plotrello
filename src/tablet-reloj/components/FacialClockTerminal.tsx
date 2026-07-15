@@ -32,7 +32,8 @@ const SELFIE_JPEG_Q = 0.85
 const AUTO_SCAN_MS = 2800
 const COOLDOWN_OK_S = 8
 const COOLDOWN_FAIL_S = 5
-const CAM_RETRY_DELAYS_MS = [0, 500, 1100, 2000, 3200]
+/** Pocos reintentos cortos: el arranque no debe tardar varios segundos “por diseño”. */
+const CAM_RETRY_DELAYS_MS = [0, 350, 800]
 
 function sleep(ms: number) {
   return new Promise<void>((r) => window.setTimeout(r, ms))
@@ -135,13 +136,14 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     setEngineError('')
     void (async () => {
       try {
-        setEngineStatus('Cargando modelos…')
-        await ensureFaceModels()
+        setEngineStatus('Preparando reconocimiento…')
+        // Modelos + índice en paralelo (antes era secuencial y demoraba el kiosco).
+        const [, indice] = await Promise.all([
+          ensureFaceModels(),
+          fetchFacialIndiceRelojTablet()
+        ])
         if (cancelled) return
-        setEngineStatus('Descargando índice facial…')
-        const { descriptores, meta } = await fetchFacialIndiceRelojTablet()
-        if (cancelled) return
-        const stats = hydrateFaceGalleryFromRecords(descriptores)
+        const stats = hydrateFaceGalleryFromRecords(indice.descriptores)
         if (stats.indexed === 0) {
           setGalleryReady(false)
           setEngineError(
@@ -151,8 +153,8 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
           return
         }
         setGalleryReady(true)
-        const when = meta?.built_at
-          ? new Date(meta.built_at).toLocaleString('es-AR', {
+        const when = indice.meta?.built_at
+          ? new Date(indice.meta.built_at).toLocaleString('es-AR', {
               day: '2-digit',
               month: '2-digit',
               hour: '2-digit',
@@ -208,42 +210,29 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
         if (!stillCurrent()) return
         const delay = CAM_RETRY_DELAYS_MS[round]
         if (delay > 0) {
-          setStatusMessage(`Abriendo cámara… intento ${round + 1}/${CAM_RETRY_DELAYS_MS.length}`)
+          setStatusMessage(`Reintentando cámara (${round + 1}/${CAM_RETRY_DELAYS_MS.length})…`)
           await sleep(delay)
           if (!stillCurrent()) return
-        } else {
-          setStatusMessage('Abriendo cámara…')
         }
 
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((t) => t.stop())
           streamRef.current = null
           if (videoRef.current) videoRef.current.srcObject = null
-          await sleep(450)
+          await sleep(180)
           if (!stillCurrent()) return
         }
 
-        // Constraints simples primero: en tablets falla menos / arranca más rápido.
-        const deviceId = await pickFrontCameraDeviceId()
-        const attempts: MediaStreamConstraints[] = [
-          { video: true, audio: false },
-          { video: { facingMode: 'user' }, audio: false },
-          { video: { facingMode: { ideal: 'user' } }, audio: false }
-        ]
-        if (deviceId) {
-          attempts.splice(1, 0, { video: { deviceId: { exact: deviceId } }, audio: false })
+        // 1 intento rápido con lo mínimo; fallbacks solo si falla.
+        const attempts: MediaStreamConstraints[] = [{ video: true, audio: false }]
+        if (round > 0) {
+          const deviceId = await pickFrontCameraDeviceId()
+          if (deviceId) attempts.push({ video: { deviceId: { exact: deviceId } }, audio: false })
+          attempts.push(
+            { video: { facingMode: 'user' }, audio: false },
+            { video: { facingMode: 'environment' }, audio: false }
+          )
         }
-        attempts.push(
-          {
-            video: {
-              facingMode: { ideal: 'user' },
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            },
-            audio: false
-          },
-          { video: { facingMode: 'environment' }, audio: false }
-        )
 
         let mediaStream: MediaStream | null = null
         for (const constraints of attempts) {
@@ -277,7 +266,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
         }
 
         streamRef.current = mediaStream
-        const video = await waitForVideoElement(() => videoRef.current, 4000)
+        const video = await waitForVideoElement(() => videoRef.current, 2000)
         if (!video) {
           mediaStream.getTracks().forEach((t) => t.stop())
           streamRef.current = null
@@ -292,8 +281,9 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
         video.playsInline = true
         video.srcObject = mediaStream
 
+        // Mostrar preview en cuanto haya metadata (no esperar frame perfecto).
         await new Promise<void>((resolve) => {
-          if (video.readyState >= 2 && video.videoWidth > 0) {
+          if (video.readyState >= 1 || video.videoWidth > 0) {
             resolve()
             return
           }
@@ -304,7 +294,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
           }
           video.addEventListener('loadeddata', onReady)
           video.addEventListener('loadedmetadata', onReady)
-          window.setTimeout(onReady, 4000)
+          window.setTimeout(onReady, 1200)
         })
 
         if (!stillCurrent()) return
@@ -315,9 +305,8 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
           /* gesto usuario / WebView */
         }
 
-        // A veces el primer frame tarda; dar un respiro corto.
         if (video.videoWidth < 2) {
-          await sleep(350)
+          await sleep(200)
         }
 
         if (!stillCurrent()) return
@@ -346,15 +335,14 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     }
   }, [])
 
-  // Abrir cámara recién cuando el índice está listo: evita pelear CPU/USB con face-api al arrancar.
+  // Cámara en paralelo al índice/modelos: la vista en vivo no espera el face-api.
   useEffect(() => {
-    if (!galleryReady) return
     void startCamera()
     return () => {
       cancelMarcacionSpeech()
       stopCamera()
     }
-  }, [galleryReady, startCamera, stopCamera])
+  }, [startCamera, stopCamera])
 
   const captureSelfie = useCallback((): string | null => {
     const video = videoRef.current
@@ -469,7 +457,8 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     timeZone: 'America/Argentina/Buenos_Aires'
   })
 
-  const canScan = camaraLista && galleryReady && !isCapturing && cooldown === 0
+  const canScan =
+    camaraLista && galleryReady && !isCapturing && cooldown === 0 && getFaceGalleryCount() > 0
 
   return (
     <div className="facial-clock">
@@ -499,48 +488,46 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
               <RefreshCw size={14} /> Activar cámara
             </button>
           </div>
-        ) : employeesCount === 0 ? (
-          <div className="facial-clock-empty facial-clock-empty--warn">
-            <AlertCircle size={36} />
-            <h3>Sin fotos de legajo</h3>
-            <p>Cargá la foto facial en el legajo de cada colaborador en RRHH para habilitar el reconocimiento.</p>
-          </div>
-        ) : engineError && !galleryReady ? (
+        ) : engineError && !galleryReady && !camaraLista ? (
           <div className="facial-clock-empty facial-clock-empty--err">
             <AlertCircle size={36} />
             <p>{engineError}</p>
           </div>
         ) : (
           <div className={`facial-clock-viewport${camaraLista ? ' facial-clock-viewport--live' : ''}`}>
+            {/* El <video> debe montar siempre: si no, getUserMedia espera al DOM y parece “colgado”. */}
             <video ref={videoRef} autoPlay playsInline muted className="facial-clock-video" />
             <div className="facial-clock-frame" aria-hidden>
               <div className="facial-clock-oval" />
               <span className="facial-clock-guide">
-                {!galleryReady
-                  ? 'Cargando…'
-                  : cameraOpening
-                    ? 'Abriendo cámara…'
+                {cameraOpening && !camaraLista
+                  ? 'Abriendo cámara…'
+                  : !galleryReady
+                    ? 'Cámara lista · cargando reconocimiento…'
                     : cooldown > 0
                       ? `Listo en ${cooldown}s`
                       : 'Alineá tu rostro'}
               </span>
             </div>
-            {galleryReady && cooldown > 0 ? (
-              <div className="facial-clock-badges">
+            <div className="facial-clock-badges">
+              {!galleryReady && camaraLista ? (
+                <span className="facial-clock-badge facial-clock-badge--scan">{engineStatus}</span>
+              ) : null}
+              {galleryReady && cooldown > 0 ? (
                 <span className="facial-clock-badge facial-clock-badge--pause">Pausa {cooldown}s</span>
-              </div>
-            ) : null}
-            {!galleryReady || cameraOpening || statusMessage ? (
+              ) : null}
+            </div>
+            {!camaraLista && (cameraOpening || statusMessage) ? (
               <div className="facial-clock-busy">
                 <Loader2 size={40} className="facial-clock-spin" />
-                <p>{statusMessage || (cameraOpening ? 'Abriendo cámara…' : engineStatus)}</p>
+                <p>{statusMessage || 'Abriendo cámara…'}</p>
               </div>
             ) : null}
           </div>
         )}
       </div>
 
-      {!cameraError && employeesCount > 0 && galleryReady ? (
+      {!cameraError ? (
         <div className="facial-clock-footer">
           <button
             type="button"
@@ -549,7 +536,11 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
             onClick={() => void handleRecognize()}
           >
             <Camera size={20} />
-            {cooldown > 0 ? `Esperá ${cooldown}s` : 'Marcar ahora'}
+            {cooldown > 0
+              ? `Esperá ${cooldown}s`
+              : !galleryReady
+                ? 'Preparando…'
+                : 'Marcar ahora'}
           </button>
         </div>
       ) : null}

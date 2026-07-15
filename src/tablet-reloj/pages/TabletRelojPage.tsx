@@ -7,6 +7,7 @@ import {
 } from '../../utils/dateUtils'
 import {
   fetchEmpleadosRelojTablet,
+  fetchFacialIndiceRelojTablet,
   fotoEmpleadoUrl,
   getRelojTabletApiKey,
   inicialesEmpleado,
@@ -196,7 +197,13 @@ export default function TabletRelojPage() {
   }, [cargar])
 
   useEffect(() => {
-    if (modo === 'facial') void precalentarLegajosRelojTablet()
+    if (modo !== 'facial') return
+    void precalentarLegajosRelojTablet()
+    // Precarga modelos + índice mientras monta el kiosco (menos espera al marcar).
+    void import('../services/faceLocalMatch')
+      .then((m) => m.ensureFaceModels())
+      .catch(() => {})
+    void fetchFacialIndiceRelojTablet().catch(() => {})
   }, [modo])
 
   useEffect(() => {

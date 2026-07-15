@@ -107,7 +107,7 @@ export async function fetchEmpleadosRelojTablet(): Promise<EmpleadoRelojTablet[]
   return json.empleados ?? []
 }
 
-export async function fetchFacialIndiceRelojTablet(): Promise<{
+type FacialIndicePayload = {
   descriptores: import('./faceLocalMatch').FaceDescriptorRecord[]
   meta: {
     indexed_count?: number
@@ -116,27 +116,40 @@ export async function fetchFacialIndiceRelojTablet(): Promise<{
     built_at?: string | null
     signature?: string
   } | null
-}> {
-  const resp = await plotLabFetch('/api/plotai/reloj-tablet-facial-indice', { headers: headers() })
-  const json = await parseApiJson<{
-    success?: boolean
-    error?: string
-    meta?: {
-      indexed_count?: number
-      failed_count?: number
-      total_fotos?: number
-      built_at?: string | null
-      signature?: string
-    } | null
-    descriptores?: import('./faceLocalMatch').FaceDescriptorRecord[]
-  }>(resp)
-  if (!resp.ok || !json.success) {
-    throw new Error(json.error || 'No se pudo cargar el índice facial')
+}
+
+let facialIndiceCache: { at: number; data: FacialIndicePayload } | null = null
+let facialIndiceInflight: Promise<FacialIndicePayload> | null = null
+const FACIAL_INDICE_TTL_MS = 5 * 60 * 1000
+
+export async function fetchFacialIndiceRelojTablet(force = false): Promise<FacialIndicePayload> {
+  if (!force && facialIndiceCache && Date.now() - facialIndiceCache.at < FACIAL_INDICE_TTL_MS) {
+    return facialIndiceCache.data
   }
-  return {
-    descriptores: json.descriptores ?? [],
-    meta: json.meta ?? null
-  }
+  if (!force && facialIndiceInflight) return facialIndiceInflight
+
+  facialIndiceInflight = (async () => {
+    const resp = await plotLabFetch('/api/plotai/reloj-tablet-facial-indice', { headers: headers() })
+    const json = await parseApiJson<{
+      success?: boolean
+      error?: string
+      meta?: FacialIndicePayload['meta']
+      descriptores?: FacialIndicePayload['descriptores']
+    }>(resp)
+    if (!resp.ok || !json.success) {
+      throw new Error(json.error || 'No se pudo cargar el índice facial')
+    }
+    const data: FacialIndicePayload = {
+      descriptores: json.descriptores ?? [],
+      meta: json.meta ?? null
+    }
+    facialIndiceCache = { at: Date.now(), data }
+    return data
+  })().finally(() => {
+    facialIndiceInflight = null
+  })
+
+  return facialIndiceInflight
 }
 
 export type IdentificacionTabletResult = {
