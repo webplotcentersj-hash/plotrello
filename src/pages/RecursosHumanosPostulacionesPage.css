@@ -87,29 +87,76 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 18px;
+  padding: 20px;
   margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.rrhh-post-search-row,
-.rrhh-post-ai-row {
+.rrhh-post-search-hero {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.rrhh-post-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  padding: 18px 22px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+}
+
+.rrhh-post-search-input::placeholder {
+  color: #8b93a7;
+  font-weight: 400;
+}
+
+.rrhh-post-search-input:focus {
+  outline: none;
+  border-color: rgba(96, 165, 250, 0.55);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.rrhh-post-btn-search {
+  flex: 0 0 auto;
+  padding: 18px 28px;
+  font-size: 1.05rem;
+  border-radius: 14px;
+  min-width: 120px;
+}
+
+.rrhh-post-filter-row {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
   align-items: center;
-}
-
-.rrhh-post-ai-row {
-  margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.rrhh-post-filters input[type='search'],
-.rrhh-post-filters input[type='text'],
-.rrhh-post-filters select {
-  flex: 1;
+.rrhh-post-filter-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8b93a7;
+  margin-right: 4px;
+}
+
+.rrhh-post-filter-row select {
+  flex: 1 1 160px;
   min-width: 160px;
+  max-width: 280px;
   padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -118,13 +165,23 @@
   font-size: 0.9rem;
 }
 
-.rrhh-post-ai-badge {
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.35), rgba(59, 130, 246, 0.25));
-  font-size: 0.8rem;
-  font-weight: 600;
-  white-space: nowrap;
+@media (max-width: 640px) {
+  .rrhh-post-search-hero {
+    flex-direction: column;
+  }
+
+  .rrhh-post-search-input {
+    font-size: 1.05rem;
+    padding: 16px 18px;
+  }
+
+  .rrhh-post-btn-search {
+    width: 100%;
+  }
+
+  .rrhh-post-filter-row select {
+    max-width: none;
+  }
 }
 
 .rrhh-post-btn-primary,

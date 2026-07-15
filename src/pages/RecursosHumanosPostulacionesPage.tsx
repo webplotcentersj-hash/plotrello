@@ -75,9 +75,6 @@ const RecursosHumanosPostulacionesPage = () => {
   const [estadoFilter, setEstadoFilter] = useState<RrhhPostulacionEstado | ''>('nuevo')
   const [puestoFilter, setPuestoFilter] = useState('')
   const [tipoFilter, setTipoFilter] = useState<'' | 'formulario' | 'cv'>('cv')
-  const [aiQuery, setAiQuery] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiScores, setAiScores] = useState<Record<number, { score: number; motivo: string }>>({})
   const [selected, setSelected] = useState<RrhhPostulacion | null>(null)
   const [detailNotas, setDetailNotas] = useState('')
   const [detailEstado, setDetailEstado] = useState<RrhhPostulacionEstado>('nuevo')
@@ -113,7 +110,6 @@ const RecursosHumanosPostulacionesPage = () => {
     if (res.success) {
       setRows(data)
       setHasSearched(true)
-      setAiScores({})
       setResultCount(countRes.success && countRes.data != null ? countRes.data : data.length)
     } else if (res.error) {
       alert(res.error)
@@ -168,81 +164,6 @@ const RecursosHumanosPostulacionesPage = () => {
     () => PUESTOS_POSTULACION.flatMap((g) => g.puestos),
     []
   )
-
-  const sortedRows = useMemo(() => {
-    let list = rows
-    if (Object.keys(aiScores).length > 0) {
-      list = list.filter((r) => aiScores[r.id] != null)
-    }
-    if (!Object.keys(aiScores).length) return list
-    return [...list].sort((a, b) => {
-      const sa = aiScores[a.id]?.score ?? -1
-      const sb = aiScores[b.id]?.score ?? -1
-      return sb - sa
-    })
-  }, [rows, aiScores])
-
-  const buildCandidatosParaIA = (list: RrhhPostulacion[]) =>
-    list.map((r) => {
-      const meta = (r.metadata_ia || {}) as Record<string, unknown>
-      return {
-        id: r.id,
-        nombre: r.nombre,
-        puesto: r.puesto,
-        resumen: typeof meta.resumen === 'string' ? meta.resumen : null,
-        habilidades: Array.isArray(meta.habilidades) ? (meta.habilidades as string[]) : [],
-        score_plot: r.score_ia ?? (typeof meta.score_plot === 'number' ? meta.score_plot : null)
-      }
-    })
-
-  const runAiFilter = async () => {
-    const q = aiQuery.trim()
-    if (!q) {
-      alert('Escribí qué perfil buscás (ej: diseñador con Illustrator).')
-      return
-    }
-
-    setAiLoading(true)
-    try {
-      let candidatos = rows
-      if (!hasSearched || candidatos.length === 0) {
-        if (!busqueda.trim() && !estadoFilter && !puestoFilter) {
-          alert('Primero pulsá Buscar con un criterio (nombre, estado o puesto) para acotar candidatos.')
-          setAiLoading(false)
-          return
-        }
-        candidatos = await load()
-      }
-
-      if (!candidatos.length) {
-        alert('No hay postulaciones con esos filtros.')
-        setAiLoading(false)
-        return
-      }
-
-      const api = await getPlotAiApi()
-      const res = await api.rrhhPostulacionesFiltrarPlotAI(q, buildCandidatosParaIA(candidatos))
-      if (res.success && res.data?.resultados) {
-        const map: Record<number, { score: number; motivo: string }> = {}
-        res.data.resultados.forEach((r) => {
-          map[r.id] = { score: r.match_score, motivo: r.motivo }
-        })
-        setAiScores(map)
-        if (!Object.keys(map).length) {
-          alert('PlotAI no encontró candidatos que encajen con esa búsqueda.')
-        }
-      } else {
-        alert(res.error || 'No se pudo aplicar el filtro PlotAI')
-      }
-    } finally {
-      setAiLoading(false)
-    }
-  }
-
-  const clearAiFilter = () => {
-    setAiQuery('')
-    setAiScores({})
-  }
 
   const openDetail = (row: RrhhPostulacion) => {
     startTransition(() => {
@@ -347,8 +268,6 @@ const RecursosHumanosPostulacionesPage = () => {
     </>
   )
 
-  const aiMatchCount = Object.keys(aiScores).length
-  const visibleCount = sortedRows.length
   const hasMoreRows = resultCount != null && rows.length < resultCount
   const remainingRows = hasMoreRows ? Math.max(0, (resultCount ?? 0) - rows.length) : 0
   const listLimitNote =
@@ -367,13 +286,8 @@ const RecursosHumanosPostulacionesPage = () => {
                 {fmtCount(resultCount)} resultado{resultCount === 1 ? '' : 's'}
               </span>
             )}
-            {aiMatchCount > 0 && (
-              <span className="rrhh-post-count-badge rrhh-post-count-badge--ai" title="Coincidencias PlotAI">
-                {fmtCount(visibleCount)} con PlotAI
-              </span>
-            )}
           </div>
-          <p>Bandeja PlotLab · candidatos y formularios de convocatoria · PlotAI</p>
+          <p>Bandeja PlotLab · candidatos y formularios de convocatoria</p>
         </div>
         <div className="rrhh-post-header-actions">
           <button
@@ -397,14 +311,22 @@ const RecursosHumanosPostulacionesPage = () => {
       </header>
 
       <div className="rrhh-post-filters">
-        <div className="rrhh-post-search-row">
+        <div className="rrhh-post-search-hero">
           <input
             type="search"
+            className="rrhh-post-search-input"
             placeholder="Buscar por nombre, email, puesto, skills…"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void load()}
+            aria-label="Buscar postulaciones"
           />
+          <button type="button" className="rrhh-post-btn-primary rrhh-post-btn-search" onClick={() => void load()}>
+            Buscar
+          </button>
+        </div>
+        <div className="rrhh-post-filter-row">
+          <span className="rrhh-post-filter-label">Filtros</span>
           <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value as RrhhPostulacionEstado | '')}>
             {ESTADOS.map((o) => (
               <option key={o.value || 'all'} value={o.value}>
@@ -425,45 +347,14 @@ const RecursosHumanosPostulacionesPage = () => {
             <option value="cv">📎 Solo con CV</option>
             <option value="formulario">📋 Solo formularios</option>
           </select>
-          <button type="button" className="rrhh-post-btn-primary" onClick={() => void load()}>
-            Buscar
-          </button>
-        </div>
-
-        <div className="rrhh-post-ai-row">
-          <span className="rrhh-post-ai-badge">✨ PlotAI</span>
-          <input
-            type="text"
-            placeholder='Ej: "diseñador con Illustrator y buena actitud en equipo"'
-            value={aiQuery}
-            onChange={(e) => setAiQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && void runAiFilter()}
-          />
-          <button type="button" className="rrhh-post-btn-ai" onClick={() => void runAiFilter()} disabled={aiLoading}>
-            {aiLoading ? 'Filtrando…' : 'Filtrar con IA'}
-          </button>
-          {Object.keys(aiScores).length > 0 && (
-            <button type="button" className="rrhh-post-btn-outline" onClick={clearAiFilter}>
-              Limpiar IA
-            </button>
-          )}
         </div>
       </div>
 
       {hasSearched && resultCount != null && !loading && (
         <p className="rrhh-post-results-bar">
-          {aiMatchCount > 0 ? (
-            <>
-              Mostrando <strong>{fmtCount(visibleCount)}</strong> candidatos con PlotAI
-              {resultCount > visibleCount ? ` (de ${fmtCount(resultCount)} en la búsqueda)` : ''}
-            </>
-          ) : (
-            <>
-              <strong>{fmtCount(resultCount)}</strong> postulación{resultCount === 1 ? '' : 'es'} encontrada
-              {resultCount === 1 ? '' : 's'}
-              {listLimitNote}
-            </>
-          )}
+          <strong>{fmtCount(resultCount)}</strong> postulación{resultCount === 1 ? '' : 'es'} encontrada
+          {resultCount === 1 ? '' : 's'}
+          {listLimitNote}
         </p>
       )}
 
@@ -484,23 +375,17 @@ const RecursosHumanosPostulacionesPage = () => {
             Copiar link del formulario CV
           </button>
         </div>
-      ) : sortedRows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="rrhh-post-empty">
           <p>No hay postulaciones con esos criterios.</p>
-          {Object.keys(aiScores).length > 0 && (
-            <button type="button" className="rrhh-post-btn-outline" onClick={clearAiFilter}>
-              Limpiar filtro PlotAI
-            </button>
-          )}
         </div>
       ) : (
         <div className="rrhh-post-grid">
-          {sortedRows.map((row) => {
+          {rows.map((row) => {
             const ia = row.metadata_ia as Record<string, unknown>
             const esFormulario = isFormularioExterno(row)
             const formResp = esFormulario ? getFormularioRespuestas(row) : {}
             const scorePlot = row.score_ia ?? (ia.score_plot as number | undefined)
-            const aiMatch = aiScores[row.id]
             const wa = buildWhatsappLink(
               row.telefono,
               `Hola ${row.nombre}, te escribimos desde Recursos Humanos de Plot Center respecto a tu postulación como ${row.puesto}.`
@@ -508,7 +393,7 @@ const RecursosHumanosPostulacionesPage = () => {
             return (
               <article
                 key={row.id}
-                className={`rrhh-post-card estado-${row.estado}${aiMatch ? ' ai-highlight' : ''}`}
+                className={`rrhh-post-card estado-${row.estado}`}
                 onClick={() => openDetail(row)}
               >
                 <div className="rrhh-post-card-top">
@@ -516,11 +401,6 @@ const RecursosHumanosPostulacionesPage = () => {
                   {scorePlot != null && Number.isFinite(scorePlot) && (
                     <span className="rrhh-post-score" title="Score Plot">
                       {Math.round(scorePlot)}%
-                    </span>
-                  )}
-                  {aiMatch && (
-                    <span className="rrhh-post-ai-match" title={aiMatch.motivo}>
-                      IA {aiMatch.score}%
                     </span>
                   )}
                 </div>
