@@ -231,6 +231,36 @@ const RecursosHumanosDashboardPage = () => {
               <p>Cupo LCT, días tomados, ajustes manuales y saldo por empleado</p>
             </button>
 
+            <button className="rrhh-action-card" onClick={() => navigate('/rrhh/onboarding')}>
+              <div className="rrhh-action-icon">✅</div>
+              <h3>Onboarding</h3>
+              <p>Checklist de ingreso: docs, inducción, accesos y ART</p>
+            </button>
+
+            <button className="rrhh-action-card" onClick={() => navigate('/rrhh/organigrama')}>
+              <div className="rrhh-action-icon">🏢</div>
+              <h3>Organigrama</h3>
+              <p>Puestos, jerarquía y asignación de jefes</p>
+            </button>
+
+            <button className="rrhh-action-card" onClick={() => navigate('/rrhh/medicina')}>
+              <div className="rrhh-action-icon">🩺</div>
+              <h3>Medicina / ART</h3>
+              <p>Exámenes, aptos y vencimientos</p>
+            </button>
+
+            <button className="rrhh-action-card" onClick={() => navigate('/rrhh/recibos')}>
+              <div className="rrhh-action-icon">🧾</div>
+              <h3>Recibos firmados</h3>
+              <p>Lotes mensuales y seguimiento de firmas</p>
+            </button>
+
+            <button className="rrhh-action-card" onClick={() => navigate('/rrhh/clima')}>
+              <div className="rrhh-action-icon">📊</div>
+              <h3>Clima laboral</h3>
+              <p>Encuestas anónimas eNPS y resultados</p>
+            </button>
+
             <button
               className="rrhh-action-card"
               onClick={() => navigate('/rrhh/evaluaciones')}

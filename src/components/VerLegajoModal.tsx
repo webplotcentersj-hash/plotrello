@@ -31,6 +31,7 @@ import {
   type LegajoSectorBasico
 } from '../utils/rrhhNovedadesSectorStats'
 import { calcularSaldoVacaciones } from '../utils/rrhhVacacionesSaldo'
+import { rrhhOnboardingResumenUsuario, rrhhMedicinaListar } from '../services/rrhhExtendidoService'
 import './VerLegajoModal.css'
 
 type VerLegajoModalProps = {
@@ -114,6 +115,8 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
   const [hojaVidaEventos, setHojaVidaEventos] = useState<HojaVidaEvento[]>([])
   const [hvLoaded, setHvLoaded] = useState(false)
   const [vacacionesSaldoChip, setVacacionesSaldoChip] = useState<string | null>(null)
+  const [onboardingChip, setOnboardingChip] = useState<string | null>(null)
+  const [medicinaChip, setMedicinaChip] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen && usuario.id) {
@@ -126,9 +129,25 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
       setHojaVidaEventos([])
       setHvError(null)
       setVacacionesSaldoChip(null)
+      setOnboardingChip(null)
+      setMedicinaChip(null)
       loadLegajo()
     }
   }, [isOpen, usuario.id])
+
+  const loadChipsExtra = async () => {
+    const [ob, med] = await Promise.all([
+      rrhhOnboardingResumenUsuario(usuario.id),
+      rrhhMedicinaListar(usuario.id)
+    ])
+    if (ob.success && ob.data) {
+      setOnboardingChip(`Onboarding: ${ob.data.hechos}/${ob.data.total}`)
+    }
+    if (med.success && med.data && med.data.length > 0) {
+      const last = med.data[0]
+      setMedicinaChip(`Medicina: ${last.resultado}${last.proxima_revision ? ` · próx. ${last.proxima_revision}` : ''}`)
+    }
+  }
 
   const loadVacacionesChip = async (fechaIngreso: string | null | undefined) => {
     const anio = new Date().getFullYear()
@@ -177,6 +196,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
             : d.fecha_nacimiento
         })
         void loadVacacionesChip(ingreso)
+        void loadChipsExtra()
       } else {
         setLegajo(null)
       }
@@ -995,6 +1015,22 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
                     <span className="ver-legajo-badge ver-legajo-badge--ok">{vacacionesSaldoChip}</span>
                     <Link to="/rrhh/vacaciones" className="ver-legajo-vac-link" onClick={onClose}>
                       Ver saldos
+                    </Link>
+                  </div>
+                ) : null}
+                {onboardingChip ? (
+                  <div className="ver-legajo-info-item ver-legajo-full-width">
+                    <span className="ver-legajo-badge ver-legajo-badge--ok">{onboardingChip}</span>
+                    <Link to="/rrhh/onboarding" className="ver-legajo-vac-link" onClick={onClose}>
+                      Ver checklist
+                    </Link>
+                  </div>
+                ) : null}
+                {medicinaChip ? (
+                  <div className="ver-legajo-info-item ver-legajo-full-width">
+                    <span className="ver-legajo-badge">{medicinaChip}</span>
+                    <Link to="/rrhh/medicina" className="ver-legajo-vac-link" onClick={onClose}>
+                      Medicina
                     </Link>
                   </div>
                 ) : null}

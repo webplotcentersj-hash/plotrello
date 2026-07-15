@@ -378,8 +378,107 @@ export interface LegajoEmpleado {
   contacto_emergencia_nombre?: string | null
   contacto_emergencia_telefono?: string | null
   observaciones?: string | null
+  id_puesto?: number | null
+  id_jefe?: number | null
   created_at?: string
   updated_at?: string
+}
+
+export interface RrhhOnboardingItem {
+  id: number
+  id_plantilla: number
+  titulo: string
+  orden: number
+  obligatorio: boolean
+  responsable_rol: string | null
+}
+
+export interface RrhhOnboardingProgreso {
+  id: number
+  id_instancia: number
+  id_item: number
+  hecho: boolean
+  hecho_por: number | null
+  hecho_at: string | null
+  nota: string | null
+  item?: RrhhOnboardingItem
+}
+
+export interface RrhhOnboardingInstancia {
+  id: number
+  id_usuario: number
+  id_plantilla: number
+  estado: 'borrador' | 'en_curso' | 'completo'
+  started_at: string
+  completed_at: string | null
+  progreso?: RrhhOnboardingProgreso[]
+  nombre_usuario?: string
+}
+
+export interface RrhhPuesto {
+  id: number
+  nombre: string
+  sector: string | null
+  id_puesto_padre: number | null
+  activo: boolean
+  descripcion: string | null
+}
+
+export type RrhhMedicinaTipo = 'preocupacional' | 'periodico' | 'egreso' | 'accidente' | 'otro'
+export type RrhhMedicinaResultado = 'apto' | 'apto_con_restricciones' | 'no_apto' | 'pendiente'
+
+export interface RrhhMedicinaRegistro {
+  id: number
+  id_usuario: number
+  tipo: RrhhMedicinaTipo
+  fecha: string
+  resultado: RrhhMedicinaResultado
+  proxima_revision: string | null
+  proveedor: string | null
+  observaciones: string | null
+  adjuntos: Array<{ url: string; nombre: string; mime?: string }>
+  registrado_por: number | null
+  created_at: string
+  nombre_usuario?: string
+}
+
+export interface RrhhDocLote {
+  id: number
+  periodo: string
+  tipo: 'recibo_sueldo' | 'otro'
+  estado: 'borrador' | 'enviado' | 'cerrado'
+  titulo: string
+  created_by: number | null
+  created_at: string
+}
+
+export interface RrhhDocItem {
+  id: number
+  id_lote: number
+  id_usuario: number
+  archivo_url: string
+  archivo_nombre: string | null
+  estado: 'pendiente' | 'firmado' | 'rechazado'
+  firma_data_url: string | null
+  firmado_at: string | null
+  nombre_usuario?: string
+}
+
+export interface RrhhClimaEncuesta {
+  id: number
+  titulo: string
+  estado: 'borrador' | 'activa' | 'cerrada'
+  anonima: boolean
+  fecha_cierre: string | null
+  created_at: string
+}
+
+export interface RrhhClimaPregunta {
+  id: number
+  id_encuesta: number
+  texto: string
+  tipo: 'likert_1_5' | 'texto' | 'enps'
+  orden: number
 }
 
 /** Fila de listar_fechas_plot_hoy (cumples / aniversarios de alta hoy, visible para todo el equipo) */

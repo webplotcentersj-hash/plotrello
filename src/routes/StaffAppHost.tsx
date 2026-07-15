@@ -77,6 +77,13 @@ const RecursosHumanosDesvinculacionesPage = lazy(
 )
 const RecursosHumanosLiquidacionPage = lazy(() => import('../pages/RecursosHumanosLiquidacionPage'))
 const RecursosHumanosVacacionesPage = lazy(() => import('../pages/RecursosHumanosVacacionesPage'))
+const RecursosHumanosOnboardingPage = lazy(() => import('../pages/RecursosHumanosOnboardingPage'))
+const RecursosHumanosOrganigramaPage = lazy(() => import('../pages/RecursosHumanosOrganigramaPage'))
+const RecursosHumanosMedicinaPage = lazy(() => import('../pages/RecursosHumanosMedicinaPage'))
+const RecursosHumanosRecibosPage = lazy(() => import('../pages/RecursosHumanosRecibosPage'))
+const RecursosHumanosClimaPage = lazy(() => import('../pages/RecursosHumanosClimaPage'))
+const MisRecibosPage = lazy(() => import('../pages/MisRecibosPage'))
+const EncuestaClimaPage = lazy(() => import('../pages/EncuestaClimaPage'))
 const MisPruebasPage = lazy(() => import('../pages/MisPruebasPage'))
 const CapacitacionesPage = lazy(() => import('../pages/CapacitacionesPage'))
 const MenuDiarioPage = lazy(() => import('../pages/MenuDiarioPage'))
@@ -1227,6 +1234,28 @@ function AppRoutes({
         path="/rrhh/vacaciones"
         element={<RecursosHumanosVacacionesPage />}
       />
+      <Route
+        path="/rrhh/onboarding"
+        element={<RecursosHumanosOnboardingPage />}
+      />
+      <Route
+        path="/rrhh/organigrama"
+        element={<RecursosHumanosOrganigramaPage />}
+      />
+      <Route
+        path="/rrhh/medicina"
+        element={<RecursosHumanosMedicinaPage />}
+      />
+      <Route
+        path="/rrhh/recibos"
+        element={<RecursosHumanosRecibosPage />}
+      />
+      <Route
+        path="/rrhh/clima"
+        element={<RecursosHumanosClimaPage />}
+      />
+      <Route path="/mis-recibos" element={<MisRecibosPage />} />
+      <Route path="/encuesta-clima/:id" element={<EncuestaClimaPage />} />
       <Route
         path="/mis-pruebas"
         element={<MisPruebasPage />}

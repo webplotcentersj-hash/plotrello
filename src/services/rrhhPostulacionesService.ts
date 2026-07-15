@@ -240,6 +240,14 @@ export async function rrhhPostulacionIngresar(params: {
     const linked = await rrhhPostulacionActualizarEstado(gestorId, postulacion.id, 'ingresado', notas, {
       idUsuario: postulacion.id_usuario
     })
+    if (linked.success) {
+      try {
+        const { rrhhOnboardingIniciar } = await import('./rrhhExtendidoService')
+        await rrhhOnboardingIniciar(postulacion.id_usuario)
+      } catch {
+        /* onboarding no crítico */
+      }
+    }
     return linked
   }
 
@@ -287,7 +295,22 @@ export async function rrhhPostulacionIngresar(params: {
       }
     }
 
-    return rrhhPostulacionActualizarEstado(gestorId, postulacion.id, 'ingresado', notas, { idUsuario })
+    const ingresado = await rrhhPostulacionActualizarEstado(
+      gestorId,
+      postulacion.id,
+      'ingresado',
+      notas,
+      { idUsuario }
+    )
+    if (ingresado.success) {
+      try {
+        const { rrhhOnboardingIniciar } = await import('./rrhhExtendidoService')
+        await rrhhOnboardingIniciar(idUsuario)
+      } catch {
+        /* onboarding no crítico */
+      }
+    }
+    return ingresado
   } catch (e) {
     return { success: false, error: errMsg(e, 'Error al ingresar candidato') }
   }
