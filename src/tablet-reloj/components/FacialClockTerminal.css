@@ -195,6 +195,18 @@
   color: #fecaca;
 }
 
+.facial-clock-empty--overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  justify-content: center;
+  border-radius: inherit;
+  background: rgba(15, 23, 42, 0.9);
+}
+
 .facial-clock-empty--warn {
   background: rgba(120, 53, 15, 0.28);
   border: 1px solid rgba(251, 191, 36, 0.35);

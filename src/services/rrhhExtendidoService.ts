@@ -188,6 +188,40 @@ export async function rrhhPuestoCrear(input: {
   }
 }
 
+export async function rrhhPuestoActualizar(
+  id: number,
+  input: {
+    nombre: string
+    sector?: string | null
+    id_puesto_padre?: number | null
+    descripcion?: string | null
+    activo?: boolean
+  }
+) {
+  if (!supabase) return { success: false as const, error: 'Supabase no inicializado' }
+  try {
+    if (input.id_puesto_padre != null && Number(input.id_puesto_padre) === id) {
+      return { success: false as const, error: 'Un puesto no puede ser padre de sí mismo' }
+    }
+    const { data, error } = await supabase
+      .from('rrhh_puestos')
+      .update({
+        nombre: input.nombre,
+        sector: input.sector ?? null,
+        id_puesto_padre: input.id_puesto_padre ?? null,
+        descripcion: input.descripcion ?? null,
+        activo: input.activo ?? true
+      })
+      .eq('id', id)
+      .select('*')
+      .single()
+    if (error) throw error
+    return { success: true as const, data: data as RrhhPuesto }
+  } catch (e) {
+    return { success: false as const, error: err(e, 'Error al actualizar puesto') }
+  }
+}
+
 export async function rrhhLegajoAsignarPuestoJefe(params: {
   idUsuario: number
   idPuesto: number | null
@@ -215,6 +249,7 @@ export async function rrhhLegajosOrgListar(): Promise<{
     sector: string
     id_puesto: number | null
     id_jefe: number | null
+    foto_url: string | null
   }>
   error?: string
 }> {
@@ -222,7 +257,7 @@ export async function rrhhLegajosOrgListar(): Promise<{
   try {
     const { data, error } = await supabase
       .from('legajos_empleados')
-      .select('id_usuario, nombre, apellido, sector, id_puesto, id_jefe')
+      .select('id_usuario, nombre, apellido, sector, id_puesto, id_jefe, foto_url')
     if (error) throw error
     return {
       success: true,
@@ -232,7 +267,8 @@ export async function rrhhLegajosOrgListar(): Promise<{
         apellido: String(r.apellido || ''),
         sector: String(r.sector || ''),
         id_puesto: r.id_puesto == null ? null : Number(r.id_puesto),
-        id_jefe: r.id_jefe == null ? null : Number(r.id_jefe)
+        id_jefe: r.id_jefe == null ? null : Number(r.id_jefe),
+        foto_url: r.foto_url ? String(r.foto_url) : null
       }))
     }
   } catch (e) {
