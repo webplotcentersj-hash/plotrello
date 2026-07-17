@@ -185,7 +185,11 @@ export default function TotemDisenadorTabletPage() {
         pushSolicitud(fromBroadcastPayload(parsed))
       })
 
-    void channel.subscribe()
+    void channel.subscribe((status) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.warn('TotemDisenadorTabletPage: error de canal Realtime broadcast')
+      }
+    })
 
     const pgChannel = sb
       .channel('totem-disenador-atenciones')
@@ -200,7 +204,39 @@ export default function TotemDisenadorTabletPage() {
       )
       .subscribe()
 
+    /** Poll: el broadcast es efímero y la tabla puede no estar en Realtime. */
+    let cancelled = false
+    const syncDesdeBd = async () => {
+      try {
+        const desde = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+        const res = await apiService.obtenerAtencionesMostrador(desde)
+        if (cancelled || !res.success || !Array.isArray(res.data)) return
+        const rows = res.data
+          .filter((a) => (a.notas || '').includes(TOTEM_SOLICITUD_DISENADOR_MARKER))
+          .slice(0, 40)
+        // Orden desc: la más nueva primero → queda como `active` si no hay otra
+        for (const row of rows) {
+          const solicitud = fromAtencionRow({
+            id: row.id,
+            cliente_nombre: row.cliente_nombre,
+            notas: row.notas,
+            fecha_atencion: row.fecha_atencion
+          })
+          if (solicitud) pushSolicitud(solicitud)
+        }
+      } catch (err) {
+        console.warn('TotemDisenadorTabletPage: poll atenciones falló', err)
+      }
+    }
+
+    void syncDesdeBd()
+    const pollId = window.setInterval(() => {
+      void syncDesdeBd()
+    }, 4000)
+
     return () => {
+      cancelled = true
+      window.clearInterval(pollId)
       void sb.removeChannel(channel)
       void sb.removeChannel(pgChannel)
     }
