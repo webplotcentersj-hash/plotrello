@@ -43,8 +43,9 @@ export function readPendingDisenadorAtencion(): TotemDisenoPendingAtencion | nul
     const raw = sessionStorage.getItem(TOTEM_DISENO_PENDING_ATENCION_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as TotemDisenoPendingAtencion
-    if (!parsed?.atencionId || !Number.isFinite(Number(parsed.atencionId))) return null
-    return parsed
+    const id = Number(parsed?.atencionId)
+    if (!Number.isFinite(id) || id <= 0) return null
+    return { ...parsed, atencionId: id }
   } catch {
     return null
   }
@@ -90,7 +91,11 @@ export async function solicitarDisenadorTotem(
       return { ok: false, mensaje: res.error || 'No se pudo avisar a un diseñador.' }
     }
 
-    const atencionId = typeof res.data === 'number' ? res.data : undefined
+    // RPC puede devolver number o string; sin esto no se guarda pending y el tótem nunca ve la respuesta
+    const atencionIdRaw = Number(res.data)
+    const atencionId =
+      Number.isFinite(atencionIdRaw) && atencionIdRaw > 0 ? atencionIdRaw : undefined
+
     const broadcastRes = await apiService.broadcastTotemSolicitudDisenador({
       atencionId,
       clienteNombre: nombre,
@@ -175,11 +180,11 @@ export function listenDisenadorEnCamino(
     onMsg(payload)
   }
 
-  const listenCh = sb.channel(TOTEM_SOLICITUD_DISENADOR_CHANNEL, {
+  const mainCh = sb.channel(TOTEM_SOLICITUD_DISENADOR_CHANNEL, {
     config: { broadcast: { ack: false, self: false } }
   })
 
-  listenCh.on('broadcast', { event: TOTEM_DISENADOR_EN_CAMINO_EVENT }, (msg: unknown) => {
+  const onBroadcast = (msg: unknown) => {
     const raw =
       msg && typeof msg === 'object' && 'payload' in msg
         ? (msg as { payload: unknown }).payload
@@ -194,45 +199,67 @@ export function listenDisenadorEnCamino(
     const matchNonce =
       Boolean(match.requestNonce) &&
       (parsed.requestNonce === match.requestNonce || parsed.nonce === match.requestNonce)
-    const esperando = match.atencionId != null || Boolean(match.requestNonce)
-    // Tótem de piso: si hay una llamada pendiente, aceptar la respuesta aunque falte correlación
-    if (!matchAtencion && !matchNonce && !esperando) return
+    const hasFilter = match.atencionId != null || Boolean(match.requestNonce)
+    // Con filtro: exigir match. Sin filtro: aceptar cualquier «en camino».
+    if (hasFilter && !matchAtencion && !matchNonce) return
 
     deliver(parsed)
-  })
+  }
 
-  void listenCh.subscribe()
+  mainCh.on('broadcast', { event: TOTEM_DISENADOR_EN_CAMINO_EVENT }, onBroadcast)
+  void mainCh.subscribe()
 
-  const pendingId = match.atencionId ?? readPendingDisenadorAtencion()?.atencionId
-  const pollId = window.setInterval(() => {
-    if (cancelled || delivered || !pendingId) return
-    void (async () => {
-      try {
-        const desde = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
-        const res = await apiService.obtenerAtencionesMostrador(desde)
-        if (!res.success || !Array.isArray(res.data)) return
-        const row = res.data.find((a) => a.id === pendingId)
-        const mensaje = parseDisenadorEnCaminoFromNotas(row?.notas)
-        if (!mensaje) return
-        const nombre =
-          mensaje.replace(/\s+ya vendrá a ayudarte\.?$/i, '').trim() || 'Un diseñador'
-        deliver({
-          atencionId: pendingId,
-          requestNonce: match.requestNonce,
-          disenadorNombre: nombre,
-          mensaje,
-          sentAt: new Date().toISOString(),
-          nonce: `poll-${pendingId}-${Date.now()}`
+  const pending = readPendingDisenadorAtencion()
+  const pendingId = match.atencionId ?? pending?.atencionId
+  const createdAtMs = pending?.createdAt ? Date.parse(pending.createdAt) : Date.now() - 60_000
+
+  const pollOnce = async () => {
+    if (cancelled || delivered) return
+    try {
+      const desde = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
+      const res = await apiService.obtenerAtencionesMostrador(desde)
+      if (!res.success || !Array.isArray(res.data)) return
+
+      let row = pendingId != null ? res.data.find((a) => Number(a.id) === Number(pendingId)) : undefined
+
+      // Fallback: última solicitud de diseñador con respuesta, posterior a la llamada
+      if (!row || !parseDisenadorEnCaminoFromNotas(row.notas)) {
+        const candidatas = res.data.filter((a) => {
+          const notas = a.notas || ''
+          if (!notas.includes(TOTEM_SOLICITUD_DISENADOR_MARKER)) return false
+          if (!parseDisenadorEnCaminoFromNotas(notas)) return false
+          const t = Date.parse(a.fecha_atencion)
+          return Number.isFinite(t) ? t >= createdAtMs - 30_000 : true
         })
-      } catch {
-        /* ignore */
+        row = candidatas[0]
       }
-    })()
-  }, 2500)
+
+      if (!row) return
+      const mensaje = parseDisenadorEnCaminoFromNotas(row.notas)
+      if (!mensaje) return
+      const nombre =
+        mensaje.replace(/\s+ya vendrá a ayudarte\.?$/i, '').trim() || 'Un diseñador'
+      deliver({
+        atencionId: Number(row.id),
+        requestNonce: match.requestNonce,
+        disenadorNombre: nombre,
+        mensaje,
+        sentAt: new Date().toISOString(),
+        nonce: `poll-${row.id}-${Date.now()}`
+      })
+    } catch {
+      /* ignore */
+    }
+  }
+
+  void pollOnce()
+  const pollId = window.setInterval(() => {
+    void pollOnce()
+  }, 2000)
 
   return () => {
     cancelled = true
     window.clearInterval(pollId)
-    void sb.removeChannel(listenCh)
+    void sb.removeChannel(mainCh)
   }
 }

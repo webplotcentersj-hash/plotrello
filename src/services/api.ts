@@ -3464,20 +3464,16 @@ class ApiService {
         config: { broadcast: { ack: false } }
       })
 
-      const done = async (out: ApiResponse<{ nonce: string }>) => {
+      const done = (out: ApiResponse<{ nonce: string }>) => {
         if (settled) return
         settled = true
         window.clearTimeout(timeoutId)
-        try {
-          await sb.removeChannel(ch)
-        } catch {
-          /* ignore */
-        }
+        // No removeChannel: en el mismo cliente del tótem mata el listener de «en camino»
         resolve(out)
       }
 
       const timeoutId = window.setTimeout(() => {
-        void done({ success: false, error: 'Tiempo de espera al avisar al diseñador. Reintentá.' })
+        done({ success: false, error: 'Tiempo de espera al avisar al diseñador. Reintentá.' })
       }, 12000)
 
       ch.subscribe((status) => {
@@ -3490,17 +3486,17 @@ class ApiService {
               payload
             })
             .then((sendResult) => {
-              if (sendResult === 'ok') void done({ success: true, data: { nonce } })
-              else void done({ success: false, error: `Realtime: ${String(sendResult)}` })
+              if (sendResult === 'ok') done({ success: true, data: { nonce } })
+              else done({ success: false, error: `Realtime: ${String(sendResult)}` })
             })
             .catch((e: unknown) => {
-              void done({
+              done({
                 success: false,
                 error: e instanceof Error ? e.message : 'No se pudo enviar el aviso'
               })
             })
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          void done({ success: false, error: `Canal Realtime: ${status}` })
+          done({ success: false, error: `Canal Realtime: ${status}` })
         }
       })
     })
@@ -3553,21 +3549,17 @@ class ApiService {
         config: { broadcast: { ack: false } }
       })
 
-      const done = async (out: ApiResponse<void>) => {
+      const done = (out: ApiResponse<void>) => {
         if (settled) return
         settled = true
         window.clearTimeout(timeoutId)
-        try {
-          await sb.removeChannel(ch)
-        } catch {
-          /* ignore */
-        }
+        // No removeChannel: no matar listeners del tótem / tablet en el mismo topic
         resolve(out)
       }
 
       const timeoutId = window.setTimeout(() => {
         // Aunque el broadcast timeoutee, la BD ya puede tener la respuesta
-        void done({ success: true })
+        done({ success: true })
       }, 12000)
 
       ch.subscribe((status) => {
@@ -3579,15 +3571,14 @@ class ApiService {
               event: TOTEM_DISENADOR_EN_CAMINO_EVENT,
               payload
             })
-            .then((sendResult) => {
-              if (sendResult === 'ok') void done({ success: true })
-              else void done({ success: true }) // BD es la fuente de verdad
+            .then(() => {
+              done({ success: true })
             })
             .catch(() => {
-              void done({ success: true })
+              done({ success: true })
             })
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          void done({ success: true })
+          done({ success: true })
         }
       })
     })
@@ -10853,7 +10844,11 @@ class ApiService {
           return { success: false, error: error.message }
         }
 
-        return { success: true, data: result as number }
+        const id = Number(result)
+        if (!Number.isFinite(id) || id <= 0) {
+          return { success: false, error: 'La atención se creó pero no se obtuvo un id válido' }
+        }
+        return { success: true, data: id }
       } catch (error) {
         console.error('Error creando atención:', error)
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
