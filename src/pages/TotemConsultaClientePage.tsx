@@ -5,8 +5,8 @@ import apiService from '../services/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { historialPorOrdenId, historialUnificadoMismoNumeroOp } from '../utils/consultaOpHistorial'
-import { TOTEM_SOLICITUD_ASESOR_MARKER } from '../constants/totemSolicitudAsesor'
 import { TOTEM_FINALIZADO_TALLER_PATH } from '../constants/totemFinalizadoTaller'
+import { listenAsesorEnCamino, solicitarAsesorTotem } from '../utils/totemSolicitarAsesor'
 import {
   isOpEnAlmacenEntrega,
   isOpFinalizadoEnTaller
@@ -126,6 +126,7 @@ const TotemConsultaClientePage = () => {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const { toggle: toggleKioskFullscreen } = useTotemKioskFullscreen()
   const pageRef = useRef<HTMLDivElement>(null)
+  const unsubAsesorEnCaminoRef = useRef<(() => void) | null>(null)
 
   const registrarInteraccion = () => setLastInteraction(Date.now())
 
@@ -138,6 +139,8 @@ const TotemConsultaClientePage = () => {
 
   const volverAWelcome = () => {
     registrarInteraccion()
+    unsubAsesorEnCaminoRef.current?.()
+    unsubAsesorEnCaminoRef.current = null
     setSearchOp('')
     setOrdenes([])
     setHistorial({})
@@ -161,10 +164,19 @@ const TotemConsultaClientePage = () => {
   }, [])
 
   useEffect(() => {
+    return () => {
+      unsubAsesorEnCaminoRef.current?.()
+      unsubAsesorEnCaminoRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
     const id = setInterval(() => {
       const elapsed = Date.now() - lastInteraction
       if (step === 'idle') return
       if (elapsed > INACTIVITY_MS || elapsed > IDLE_MS) {
+        unsubAsesorEnCaminoRef.current?.()
+        unsubAsesorEnCaminoRef.current = null
         setSearchOp('')
         setOrdenes([])
         setHistorial({})
@@ -322,37 +334,28 @@ const TotemConsultaClientePage = () => {
     registrarInteraccion()
     try {
       const nombre = primerOrden?.cliente || 'Cliente tótem'
-      const notas = `Sector sugerido: ${sectorDestino}. ${TOTEM_SOLICITUD_ASESOR_MARKER}`
-      const res = await apiService.crearAtencionMostrador({
-        cliente_nombre: nombre,
-        tipo: 'consulta',
-        usuario_id: 1,
-        usuario_nombre: 'Totem autoservicio',
-        orden_id: primerOrden?.id ?? undefined,
-        notas,
-        sector_destino: 'Asesor',
-        orden_numero_op: primerOrden?.numero_op ?? undefined
+      const r = await solicitarAsesorTotem({
+        clienteNombre: nombre,
+        numeroOp: primerOrden?.numero_op ? String(primerOrden.numero_op) : undefined,
+        ordenId: primerOrden?.id,
+        sectorDestino,
+        contexto: `Consulta OP desde tótem. Sector sugerido: ${sectorDestino}.`
       })
-      if (!res.success) {
-        setError(res.error || 'No se pudo avisar a un asesor. Avisá en mostrador.')
+      if (!r.ok) {
+        setError(r.mensaje || 'No se pudo avisar a un asesor. Avisá en mostrador.')
         return
       }
 
-      const broadcastRes = await apiService.broadcastTotemSolicitudAsesor({
-        atencionId: res.data,
-        clienteNombre: nombre,
-        numeroOp: primerOrden?.numero_op ? String(primerOrden.numero_op) : undefined,
-        sectorDestino,
-        notas
-      })
-
-      if (!broadcastRes.success) {
-        setMensaje(
-          '📞 Registramos tu solicitud. Si nadie viene enseguida, acercate a mostrador.'
-        )
-      } else {
-        setMensaje('📞 Avisamos a un asesor que necesitás ayuda. En breve te atienden.')
-      }
+      setMensaje(r.mensaje)
+      unsubAsesorEnCaminoRef.current?.()
+      unsubAsesorEnCaminoRef.current = listenAsesorEnCamino(
+        { atencionId: r.atencionId, requestNonce: r.requestNonce },
+        (payload) => {
+          setMensaje(`✅ ${payload.mensaje}`)
+          unsubAsesorEnCaminoRef.current?.()
+          unsubAsesorEnCaminoRef.current = null
+        }
+      )
     } catch (err) {
       console.error('Error llamando asesor desde tótem:', err)
       setError('No se pudo avisar a un asesor. Avisá en mostrador.')
@@ -700,6 +703,23 @@ const TotemConsultaClientePage = () => {
                             ? 'Subí al 1° piso por las escaleras y seguí las flechas en el piso hasta llegar a tu destino.'
                             : 'Seguí las flechas en el piso hasta llegar a tu destino.'}
                         </p>
+                        {sector.id === 'diseno' && (
+                          <div className="totem-direccion-diseno-cta">
+                            <button
+                              type="button"
+                              className="totem-cta-button"
+                              onClick={() => {
+                                registrarInteraccion()
+                                navigate('/totem/diseno')
+                              }}
+                            >
+                              ✨ Ir al tótem de Diseño · armar brief
+                            </button>
+                            <p className="totem-direccion-diseno-cta-hint">
+                              En el 1° piso también podés completar el brief, ver mockup e imagen con IA.
+                            </p>
+                          </div>
+                        )}
                         <div className="totem-direccion-aviso-form">
                           <div className="totem-direccion-field">
                             <label htmlFor="totem-aviso-nombre">Tu nombre</label>

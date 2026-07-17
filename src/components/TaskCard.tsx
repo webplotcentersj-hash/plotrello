@@ -25,6 +25,12 @@ import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
+import {
+  DESTINOS_RECLAMO_UI,
+  esEstadoTerminalReclamo,
+  resolverDestinoProduccionReclamo,
+  type SectorProduccionReclamo
+} from '../utils/reclamoDestinoProduccion'
 import { getBoardDragEndedAt } from '../utils/boardDragSync'
 import { activityEventsEqual, draggableInlineStylesEqual } from './boardRbdMemo'
 const CONTEXT_MENU_MIN_WIDTH = 200
@@ -190,6 +196,9 @@ const TaskCardInner = ({
   const [showEtapasMetalurgicaModal, setShowEtapasMetalurgicaModal] = useState(false)
   const [marcandoEntregado, setMarcandoEntregado] = useState(false)
   const [marcandoReclamo, setMarcandoReclamo] = useState(false)
+  const [showReclamoModal, setShowReclamoModal] = useState(false)
+  const [reclamoMotivo, setReclamoMotivo] = useState('')
+  const [reclamoDestino, setReclamoDestino] = useState<SectorProduccionReclamo | ''>('')
   const [contextMenu, setContextMenu] = useState<{ left: number; top: number } | null>(null)
   const [moveSheetOpen, setMoveSheetOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(true)
@@ -253,6 +262,22 @@ const TaskCardInner = ({
   const isTallerImprenta = task.assignedSector === 'Taller de Imprenta' || task.status === 'taller-imprenta'
   const isImprentaArea = task.assignedSector === 'Imprenta (Área de Impresión)' || task.status === 'imprenta'
   const isMetalurgica = task.assignedSector === 'Metalúrgica' || task.status === 'metalurgica'
+  const reclamoEnTerminal =
+    task.status === 'almacen-entrega' ||
+    task.status === 'finalizado-taller' ||
+    task.entregado === true ||
+    esEstadoTerminalReclamo(task.assignedSector)
+
+  const sugerirDestinoReclamo = (): SectorProduccionReclamo => {
+    const raw = resolverDestinoProduccionReclamo({
+      sectorInicial: task.sectorInicial,
+      sectores: task.sectores,
+      descripcion: task.description,
+      materiales: Array.isArray(task.materials) ? task.materials.join(' ') : String(task.materials || '')
+    })
+    if (raw === 'Imprenta (Área de Impresión)') return 'Taller de Imprenta'
+    return (DESTINOS_RECLAMO_UI.some((d) => d.value === raw) ? raw : 'Taller de Imprenta') as SectorProduccionReclamo
+  }
 
   // Helper para obtener color e icono de etapa por sector
   const getEtapaInfo = (sector: string, etapa: string | null | undefined): { color: string; icon: string } | null => {
@@ -763,32 +788,12 @@ const TaskCardInner = ({
                 className="task-action-btn task-reclamo-btn"
                 disabled={(moveBlocked && !isAdmin) || marcandoReclamo}
                 aria-label="Marcar reclamo"
-                onClick={async (e) => {
+                onClick={(e) => {
                   e.stopPropagation()
                   if (moveBlocked && !isAdmin) return
-                  if (
-                    !window.confirm(
-                      '¿Marcar RECLAMO? Quedará indicado que el trabajo debe rehacerse. Se guarda comentario e historial.'
-                    )
-                  ) {
-                    return
-                  }
-                  const detalle = window.prompt('Motivo o detalle (opcional):', '')
-                  if (detalle === null) return
-                  setMarcandoReclamo(true)
-                  try {
-                    const nombre = nombreVisible?.trim() || 'Usuario'
-                    const r = await (await getApiService()).marcarReclamoOrden(
-                      ordenId,
-                      detalle.trim() || undefined,
-                      nombre
-                    )
-                    if (!r.success) {
-                      window.alert(r.error || 'No se pudo registrar el reclamo.')
-                    }
-                  } finally {
-                    setMarcandoReclamo(false)
-                  }
+                  setReclamoMotivo('')
+                  setReclamoDestino(reclamoEnTerminal ? sugerirDestinoReclamo() : '')
+                  setShowReclamoModal(true)
                 }}
                 title="Marcar reclamo (debe rehacerse el trabajo)"
               >
@@ -1681,6 +1686,137 @@ const TaskCardInner = ({
                   disabled={asignandoImpresora || !impresoraSeleccionada || !metrosManuales || parseFloat(metrosManuales) <= 0}
                 >
                   {asignandoImpresora ? 'Asignando...' : 'Asignar Impresora'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showReclamoModal && !isReadOnly && (
+          <div
+            className="modal-overlay"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget && !marcandoReclamo) setShowReclamoModal(false)
+            }}
+          >
+            <div
+              className="modal-content task-reclamo-modal"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: '420px' }}
+            >
+              <header className="modal-header">
+                <h3>Marcar reclamo — {etiquetaOrden} {displayNumeroOrden}</h3>
+                <button
+                  type="button"
+                  className="modal-close"
+                  disabled={marcandoReclamo}
+                  onClick={() => setShowReclamoModal(false)}
+                >
+                  ×
+                </button>
+              </header>
+              <div className="modal-body">
+                <p style={{ color: '#d1d5db', fontSize: '13px', margin: '0 0 14px' }}>
+                  El trabajo debe rehacerse.
+                  {reclamoEnTerminal
+                    ? ' Elegí a qué taller vuelve la ficha.'
+                    : ' Podés dejarla donde está o enviarla a un taller.'}
+                </p>
+                <label style={{ display: 'block', marginBottom: '14px', color: '#fff' }}>
+                  Volver a producción en
+                  {reclamoEnTerminal ? ' *' : ''}
+                  <select
+                    value={reclamoDestino}
+                    onChange={(e) =>
+                      setReclamoDestino((e.target.value || '') as SectorProduccionReclamo | '')
+                    }
+                    disabled={marcandoReclamo}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      marginTop: '6px',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: '#fff',
+                      fontSize: '14px'
+                    }}
+                  >
+                    {!reclamoEnTerminal && (
+                      <option value="" style={{ background: '#1a1d2e', color: '#fff' }}>
+                        Quedarse en la columna actual
+                      </option>
+                    )}
+                    {DESTINOS_RECLAMO_UI.map((d) => (
+                      <option key={d.value} value={d.value} style={{ background: '#1a1d2e', color: '#fff' }}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'block', color: '#fff' }}>
+                  Motivo o detalle (opcional)
+                  <textarea
+                    value={reclamoMotivo}
+                    onChange={(e) => setReclamoMotivo(e.target.value)}
+                    disabled={marcandoReclamo}
+                    rows={3}
+                    placeholder="Ej: mal corte, error de color…"
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      marginTop: '6px',
+                      borderRadius: '6px',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: '#fff',
+                      fontSize: '14px',
+                      resize: 'vertical'
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="cancel-button"
+                  disabled={marcandoReclamo}
+                  onClick={() => setShowReclamoModal(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="confirm-button"
+                  disabled={marcandoReclamo || (reclamoEnTerminal && !reclamoDestino)}
+                  onClick={async () => {
+                    if (reclamoEnTerminal && !reclamoDestino) {
+                      window.alert('Elegí a qué taller vuelve la ficha.')
+                      return
+                    }
+                    setMarcandoReclamo(true)
+                    try {
+                      const nombre = nombreVisible?.trim() || 'Usuario'
+                      const r = await (await getApiService()).marcarReclamoOrden(
+                        ordenId,
+                        reclamoMotivo.trim() || undefined,
+                        nombre,
+                        reclamoDestino || null
+                      )
+                      if (!r.success) {
+                        window.alert(r.error || 'No se pudo registrar el reclamo.')
+                        return
+                      }
+                      setShowReclamoModal(false)
+                      if (r.data) {
+                        const { applyOrdenRestartLocally } = await import('../utils/ordenLocalSync')
+                        applyOrdenRestartLocally(r.data)
+                      }
+                    } finally {
+                      setMarcandoReclamo(false)
+                    }
+                  }}
+                >
+                  {marcandoReclamo ? 'Guardando…' : 'Confirmar reclamo'}
                 </button>
               </div>
             </div>

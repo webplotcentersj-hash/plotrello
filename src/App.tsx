@@ -29,7 +29,10 @@ const TotemAutogestionImprimirPage = lazy(() => import('./pages/TotemAutogestion
 const TotemSubirArchivoQrPage = lazy(() => import('./pages/TotemSubirArchivoQrPage'))
 const TotemConsultaClientePage = lazy(() => import('./pages/TotemConsultaClientePage'))
 const TotemFinalizadoTallerPage = lazy(() => import('./pages/TotemFinalizadoTallerPage'))
+const TotemDisenoHomePage = lazy(() => import('./pages/TotemDisenoHomePage'))
+const TotemDisenoBriefPage = lazy(() => import('./pages/TotemDisenoBriefPage'))
 const TotemAsesorTabletPage = lazy(() => import('./pages/TotemAsesorTabletPage'))
+const TotemDisenadorTabletPage = lazy(() => import('./pages/TotemDisenadorTabletPage'))
 const TotemPantallaPage = lazy(() => import('./pages/TotemPantallaPage'))
 const ClienteConsultaPage = lazy(() => import('./pages/ClienteConsultaPage'))
 const DashboardPantallasPage = lazy(() => import('./pages/DashboardPantallasPage'))
@@ -280,6 +283,30 @@ function AppInner() {
               }
             />
             <Route
+              path="/totem/diseno"
+              element={
+                <Suspense
+                  fallback={
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando Diseño…</div>
+                  }
+                >
+                  <TotemDisenoHomePage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/totem/diseno/brief"
+              element={
+                <Suspense
+                  fallback={
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando brief…</div>
+                  }
+                >
+                  <TotemDisenoBriefPage />
+                </Suspense>
+              }
+            />
+            <Route
               path="/totem/consulta-cliente/entrada-taller"
               element={<Navigate to="/totem/finalizado-taller" replace />}
             />
@@ -289,6 +316,14 @@ function AppInner() {
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando panel asesor…</div>}>
                 <TotemAsesorTabletPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/disenador"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando panel diseñador…</div>}>
+                <TotemDisenadorTabletPage />
               </Suspense>
             }
           />

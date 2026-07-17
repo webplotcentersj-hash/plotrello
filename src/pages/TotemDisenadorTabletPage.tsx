@@ -3,25 +3,25 @@ import { supabase } from '../services/supabaseClient'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import {
-  TOTEM_SOLICITUD_ASESOR_CHANNEL,
-  TOTEM_SOLICITUD_ASESOR_EVENT,
-  TOTEM_SOLICITUD_ASESOR_MARKER,
-  mensajeAsesorEnCamino,
-  type TotemSolicitudAsesorPayload
-} from '../constants/totemSolicitudAsesor'
+  TOTEM_SOLICITUD_DISENADOR_CHANNEL,
+  TOTEM_SOLICITUD_DISENADOR_EVENT,
+  TOTEM_SOLICITUD_DISENADOR_MARKER,
+  mensajeDisenadorEnCamino,
+  type TotemSolicitudDisenadorPayload
+} from '../constants/totemSolicitudDisenador'
 import { playPedidoTallerAlertSound } from '../utils/playPedidoTallerAlertSound'
-import './TotemAsesorTabletPage.css'
+import './TotemDisenadorTabletPage.css'
 
 const LOGO_URL = '/plot-lab-logo.png'
 
-type SolicitudAsesor = {
+type SolicitudDisenador = {
   key: string
   atencionId?: number
   requestNonce?: string
   clienteNombre: string
-  numeroOp?: string
   sectorDestino?: string
   notas?: string
+  briefToken?: string
   sentAt: string
 }
 
@@ -50,11 +50,10 @@ function formatReloj(d: Date): string {
   }
 }
 
-function parseBroadcastPayload(raw: unknown): TotemSolicitudAsesorPayload | null {
+function parseBroadcastPayload(raw: unknown): TotemSolicitudDisenadorPayload | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
-  const clienteNombre =
-    typeof o.clienteNombre === 'string' ? o.clienteNombre.trim() : ''
+  const clienteNombre = typeof o.clienteNombre === 'string' ? o.clienteNombre.trim() : ''
   const nonce = typeof o.nonce === 'string' ? o.nonce : ''
   const sentAt = typeof o.sentAt === 'string' ? o.sentAt : new Date().toISOString()
   if (!clienteNombre || !nonce) return null
@@ -66,56 +65,53 @@ function parseBroadcastPayload(raw: unknown): TotemSolicitudAsesorPayload | null
           ? Number(o.atencionId)
           : undefined,
     clienteNombre,
-    numeroOp: typeof o.numeroOp === 'string' ? o.numeroOp.trim() : undefined,
     sectorDestino: typeof o.sectorDestino === 'string' ? o.sectorDestino.trim() : undefined,
     notas: typeof o.notas === 'string' ? o.notas.trim() : undefined,
+    briefToken: typeof o.briefToken === 'string' ? o.briefToken.trim() : undefined,
     sentAt,
     nonce
   }
 }
 
-function fromAtencionRow(row: Record<string, unknown>): SolicitudAsesor | null {
+function fromAtencionRow(row: Record<string, unknown>): SolicitudDisenador | null {
   const notas = typeof row.notas === 'string' ? row.notas : ''
-  if (!notas.includes(TOTEM_SOLICITUD_ASESOR_MARKER)) return null
+  if (!notas.includes(TOTEM_SOLICITUD_DISENADOR_MARKER)) return null
   const id = typeof row.id === 'number' ? row.id : Number(row.id)
   const clienteNombre =
     typeof row.cliente_nombre === 'string' ? row.cliente_nombre.trim() : ''
   if (!clienteNombre) return null
   const fecha =
-    typeof row.fecha_atencion === 'string'
-      ? row.fecha_atencion
-      : new Date().toISOString()
-  const opMatch = notas.match(/OP[:\s#]*(\d[\d-]*)/i)
-  const sectorMatch = notas.match(/Sector sugerido:\s*([^.]+)/i)
+    typeof row.fecha_atencion === 'string' ? row.fecha_atencion : new Date().toISOString()
+  const tokenMatch = notas.match(/Brief token:\s*([a-zA-Z0-9-]+)/i)
   return {
     key: `db-${id}`,
     atencionId: Number.isFinite(id) ? id : undefined,
     clienteNombre,
-    numeroOp: opMatch?.[1],
-    sectorDestino: sectorMatch?.[1]?.trim(),
+    sectorDestino: 'Diseño gráfico',
     notas,
+    briefToken: tokenMatch?.[1],
     sentAt: fecha
   }
 }
 
-function fromBroadcastPayload(p: TotemSolicitudAsesorPayload): SolicitudAsesor {
+function fromBroadcastPayload(p: TotemSolicitudDisenadorPayload): SolicitudDisenador {
   return {
     key: `rt-${p.nonce}`,
     atencionId: p.atencionId,
     requestNonce: p.nonce,
     clienteNombre: p.clienteNombre,
-    numeroOp: p.numeroOp,
     sectorDestino: p.sectorDestino,
     notas: p.notas,
+    briefToken: p.briefToken,
     sentAt: p.sentAt
   }
 }
 
-export default function TotemAsesorTabletPage() {
+export default function TotemDisenadorTabletPage() {
   const { nombreVisible, usuario } = useAuth()
   const [now, setNow] = useState(() => new Date())
-  const [pendientes, setPendientes] = useState<SolicitudAsesor[]>([])
-  const [active, setActive] = useState<SolicitudAsesor | null>(null)
+  const [pendientes, setPendientes] = useState<SolicitudDisenador[]>([])
+  const [active, setActive] = useState<SolicitudDisenador | null>(null)
   const [atendidas, setAtendidas] = useState<Set<string>>(() => new Set())
   const [avisandoKey, setAvisandoKey] = useState<string | null>(null)
   const [avisoError, setAvisoError] = useState<string | null>(null)
@@ -123,13 +119,10 @@ export default function TotemAsesorTabletPage() {
   const lastNonceRef = useRef<string | null>(null)
   const beepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const asesorNombre =
-    nombreVisible?.trim() ||
-    usuario?.nombre?.trim() ||
-    nombreManual.trim() ||
-    ''
+  const disenadorNombre =
+    nombreVisible?.trim() || usuario?.nombre?.trim() || nombreManual.trim() || ''
 
-  const pushSolicitud = useCallback((solicitud: SolicitudAsesor) => {
+  const pushSolicitud = useCallback((solicitud: SolicitudDisenador) => {
     setPendientes((prev) => {
       if (prev.some((p) => p.key === solicitud.key)) return prev
       if (
@@ -176,24 +169,26 @@ export default function TotemAsesorTabletPage() {
     if (!supabase) return
     const sb = supabase
 
-    const channel = sb.channel(TOTEM_SOLICITUD_ASESOR_CHANNEL, {
-      config: { broadcast: { ack: false, self: false } }
-    }).on('broadcast', { event: TOTEM_SOLICITUD_ASESOR_EVENT }, (msg: unknown) => {
-      const rawPayload =
-        msg && typeof msg === 'object' && 'payload' in msg
-          ? (msg as { payload: unknown }).payload
-          : msg
-      const parsed = parseBroadcastPayload(rawPayload)
-      if (!parsed) return
-      if (lastNonceRef.current === parsed.nonce) return
-      lastNonceRef.current = parsed.nonce
-      pushSolicitud(fromBroadcastPayload(parsed))
-    })
+    const channel = sb
+      .channel(TOTEM_SOLICITUD_DISENADOR_CHANNEL, {
+        config: { broadcast: { ack: false, self: false } }
+      })
+      .on('broadcast', { event: TOTEM_SOLICITUD_DISENADOR_EVENT }, (msg: unknown) => {
+        const rawPayload =
+          msg && typeof msg === 'object' && 'payload' in msg
+            ? (msg as { payload: unknown }).payload
+            : msg
+        const parsed = parseBroadcastPayload(rawPayload)
+        if (!parsed) return
+        if (lastNonceRef.current === parsed.nonce) return
+        lastNonceRef.current = parsed.nonce
+        pushSolicitud(fromBroadcastPayload(parsed))
+      })
 
     void channel.subscribe()
 
     const pgChannel = sb
-      .channel('totem-asesor-atenciones')
+      .channel('totem-disenador-atenciones')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'atenciones_mostrador' },
@@ -211,7 +206,7 @@ export default function TotemAsesorTabletPage() {
     }
   }, [pushSolicitud])
 
-  const marcarAtendida = useCallback((solicitud: SolicitudAsesor) => {
+  const marcarAtendida = useCallback((solicitud: SolicitudDisenador) => {
     setPendientes((list) => {
       setAtendidas((attended) => {
         const nextAttended = new Set(attended)
@@ -227,9 +222,9 @@ export default function TotemAsesorTabletPage() {
   }, [])
 
   const avisarYAtender = useCallback(
-    async (solicitud: SolicitudAsesor) => {
+    async (solicitud: SolicitudDisenador) => {
       if (avisandoKey) return
-      const nombre = asesorNombre.trim()
+      const nombre = disenadorNombre.trim()
       if (!nombre) {
         setAvisoError('Ingresá tu nombre arriba para que el cliente sepa quién va.')
         return
@@ -237,11 +232,11 @@ export default function TotemAsesorTabletPage() {
       setAvisoError(null)
       setAvisandoKey(solicitud.key)
       try {
-        const r = await apiService.broadcastAsesorEnCaminoTotem({
+        const r = await apiService.broadcastDisenadorEnCaminoTotem({
           atencionId: solicitud.atencionId,
           requestNonce: solicitud.requestNonce,
-          asesorNombre: nombre,
-          mensaje: mensajeAsesorEnCamino(nombre)
+          disenadorNombre: nombre,
+          mensaje: mensajeDisenadorEnCamino(nombre)
         })
         if (!r.success) {
           setAvisoError(r.error || 'No se pudo avisar al tótem. Reintentá.')
@@ -252,7 +247,7 @@ export default function TotemAsesorTabletPage() {
         setAvisandoKey(null)
       }
     },
-    [asesorNombre, avisandoKey, marcarAtendida]
+    [avisandoKey, disenadorNombre, marcarAtendida]
   )
 
   const pendientesVisibles = pendientes.filter((p) => !atendidas.has(p.key))
@@ -262,10 +257,12 @@ export default function TotemAsesorTabletPage() {
       <header className="totem-asesor-header">
         <img src={LOGO_URL} alt="Plot Center" className="totem-asesor-logo" />
         <div className="totem-asesor-header-text">
-          <h1>Panel Asesor</h1>
-          <p>Solicitudes desde el tótem de autoservicio</p>
+          <h1>Panel Diseñador</h1>
+          <p>Solicitudes desde el tótem de Diseño (1° piso)</p>
           {nombreVisible?.trim() || usuario?.nombre?.trim() ? (
-            <p className="totem-asesor-quien">Atendés como <strong>{asesorNombre}</strong></p>
+            <p className="totem-asesor-quien">
+              Atendés como <strong>{disenadorNombre}</strong>
+            </p>
           ) : (
             <label className="totem-asesor-nombre-label">
               Tu nombre (lo ve el cliente)
@@ -297,23 +294,24 @@ export default function TotemAsesorTabletPage() {
             <div className="totem-asesor-idle-pulse" aria-hidden />
             <p className="totem-asesor-idle-title">Esperando solicitudes</p>
             <p className="totem-asesor-idle-sub">
-              Cuando un cliente toque <strong>«Llamar a un asesor»</strong> en el tótem, vas a ver el
-              aviso acá con sonido. Al confirmar, el cliente ve tu nombre en el tótem.
+              Cuando un cliente toque <strong>«Llamar diseñador»</strong> en el tótem de Diseño, vas a
+              ver el aviso acá. Al confirmar, el cliente ve tu nombre en pantalla.
             </p>
           </div>
         ) : (
           <ul className="totem-asesor-list">
             {pendientesVisibles.map((s) => (
               <li key={s.key}>
-                <article className={`totem-asesor-card${active?.key === s.key ? ' totem-asesor-card--active' : ''}`}>
+                <article
+                  className={`totem-asesor-card${active?.key === s.key ? ' totem-asesor-card--active' : ''}`}
+                >
                   <div className="totem-asesor-card-top">
                     <span className="totem-asesor-card-time">{formatHora(s.sentAt)}</span>
                     <span className="totem-asesor-card-badge">Nueva solicitud</span>
                   </div>
                   <h2 className="totem-asesor-card-name">{s.clienteNombre}</h2>
-                  {s.numeroOp && <p className="totem-asesor-card-op">OP #{s.numeroOp}</p>}
-                  {s.sectorDestino && (
-                    <p className="totem-asesor-card-sector">Sector sugerido: {s.sectorDestino}</p>
+                  {s.briefToken && (
+                    <p className="totem-asesor-card-op">Brief: {s.briefToken.slice(0, 8)}…</p>
                   )}
                   <button
                     type="button"
@@ -323,8 +321,8 @@ export default function TotemAsesorTabletPage() {
                   >
                     {avisandoKey === s.key
                       ? 'Avisando al tótem…'
-                      : asesorNombre
-                        ? `✓ ${asesorNombre.split(' ')[0]} va a ayudarlo`
+                      : disenadorNombre
+                        ? `✓ ${disenadorNombre.split(' ')[0]} va a ayudarlo`
                         : '✓ Voy a ayudarlo'}
                   </button>
                 </article>
@@ -339,27 +337,19 @@ export default function TotemAsesorTabletPage() {
           className="totem-asesor-overlay"
           role="alertdialog"
           aria-modal="true"
-          aria-labelledby="totem-asesor-alert-title"
+          aria-labelledby="totem-disenador-alert-title"
         >
           <div className="totem-asesor-overlay-led totem-asesor-overlay-led--top" aria-hidden />
           <div className="totem-asesor-overlay-led totem-asesor-overlay-led--bottom" aria-hidden />
           <div className="totem-asesor-overlay-card">
             <div className="totem-asesor-overlay-pulse" aria-hidden />
-            <span className="totem-asesor-overlay-badge">📞 Cliente en tótem</span>
-            <h2 id="totem-asesor-alert-title" className="totem-asesor-overlay-title">
+            <span className="totem-asesor-overlay-badge">🎨 Cliente en tótem Diseño</span>
+            <h2 id="totem-disenador-alert-title" className="totem-asesor-overlay-title">
               {active.clienteNombre}
             </h2>
-            {active.numeroOp && (
-              <p className="totem-asesor-overlay-op">OP #{active.numeroOp}</p>
-            )}
-            {active.sectorDestino && (
-              <p className="totem-asesor-overlay-meta">
-                Sector sugerido: <strong>{active.sectorDestino}</strong>
-              </p>
-            )}
             <p className="totem-asesor-overlay-hint">
-              Un cliente pidió hablar con un asesor. Al confirmar, el tótem mostrará que{' '}
-              <strong>{asesorNombre || 'vos'}</strong> ya vas a ayudarlo.
+              Pidió un diseñador. Al confirmar, el tótem mostrará que{' '}
+              <strong>{disenadorNombre || 'vos'}</strong> ya vas a ayudarlo.
             </p>
             <div className="totem-asesor-overlay-actions">
               <button
@@ -370,8 +360,8 @@ export default function TotemAsesorTabletPage() {
               >
                 {avisandoKey === active.key
                   ? 'Avisando al tótem…'
-                  : asesorNombre
-                    ? `✓ ${asesorNombre} ya va a ayudarlo`
+                  : disenadorNombre
+                    ? `✓ ${disenadorNombre} ya va a ayudarlo`
                     : '✓ Voy a ayudarlo'}
               </button>
             </div>

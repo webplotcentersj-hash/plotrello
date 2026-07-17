@@ -224,6 +224,25 @@
   text-align: center;
 }
 
+.totem-brief__asesor-msg--en-camino {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #e0f2fe;
+  font-size: 1.05rem;
+  font-weight: 800;
+  animation: totem-brief-en-camino-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes totem-brief-en-camino-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
 .totem-brief__urgente {
   margin-top: 12px;
 }

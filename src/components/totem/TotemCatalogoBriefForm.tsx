@@ -1,7 +1,7 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ClienteBriefFormData } from '../../constants/clienteBriefForm'
 import { TIPOS_PRODUCTO_BRIEF } from '../../constants/clienteBriefForm'
-import { solicitarAsesorTotem } from '../../utils/totemSolicitarAsesor'
+import { listenAsesorEnCamino, solicitarAsesorTotem } from '../../utils/totemSolicitarAsesor'
 import './TotemCatalogoBriefForm.css'
 
 type Props = {
@@ -87,6 +87,15 @@ function Chip({
 export default function TotemCatalogoBriefForm({ value, onChange, productoNombre }: Props) {
   const [asesorMsg, setAsesorMsg] = useState<string | null>(null)
   const [llamandoAsesor, setLlamandoAsesor] = useState(false)
+  const [asesorEnCamino, setAsesorEnCamino] = useState(false)
+  const unsubEnCaminoRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => {
+      unsubEnCaminoRef.current?.()
+      unsubEnCaminoRef.current = null
+    }
+  }, [])
 
   const patch = useCallback(
     (partial: Partial<ClienteBriefFormData>) => onChange({ ...value, ...partial }),
@@ -104,13 +113,27 @@ export default function TotemCatalogoBriefForm({ value, onChange, productoNombre
     if (value.necesita_asesoramiento || llamandoAsesor) return
     patch({ necesita_asesoramiento: true })
     setLlamandoAsesor(true)
+    setAsesorEnCamino(false)
     void solicitarAsesorTotem({
       productoNombre,
       contexto: 'El cliente marcó que necesita asesoramiento en el brief del catálogo.'
     }).then((r) => {
       setAsesorMsg(r.mensaje)
       setLlamandoAsesor(false)
-      if (!r.ok) patch({ necesita_asesoramiento: false })
+      if (!r.ok) {
+        patch({ necesita_asesoramiento: false })
+        return
+      }
+      unsubEnCaminoRef.current?.()
+      unsubEnCaminoRef.current = listenAsesorEnCamino(
+        { atencionId: r.atencionId, requestNonce: r.requestNonce },
+        (payload) => {
+          setAsesorEnCamino(true)
+          setAsesorMsg(`✅ ${payload.mensaje}`)
+          unsubEnCaminoRef.current?.()
+          unsubEnCaminoRef.current = null
+        }
+      )
     })
   }
 
@@ -159,11 +182,18 @@ export default function TotemCatalogoBriefForm({ value, onChange, productoNombre
             <small>Llamar a un asesor para ayudarme</small>
           </span>
           {llamandoAsesor && <span className="totem-brief__asesor-loading">Avisando…</span>}
-          {value.necesita_asesoramiento && !llamandoAsesor && (
+          {value.necesita_asesoramiento && !llamandoAsesor && !asesorEnCamino && (
             <span className="totem-brief__asesor-ok">✓ Asesor avisado</span>
           )}
+          {asesorEnCamino && (
+            <span className="totem-brief__asesor-ok">✓ En camino</span>
+          )}
         </button>
-        {asesorMsg && <p className="totem-brief__asesor-msg">{asesorMsg}</p>}
+        {asesorMsg && (
+          <p className={`totem-brief__asesor-msg${asesorEnCamino ? ' totem-brief__asesor-msg--en-camino' : ''}`}>
+            {asesorMsg}
+          </p>
+        )}
       </section>
 
       {mostrarDetalles && (

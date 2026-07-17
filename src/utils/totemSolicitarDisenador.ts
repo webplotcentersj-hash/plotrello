@@ -1,22 +1,19 @@
 import { supabase } from '../services/supabaseClient'
 import apiService from '../services/api'
 import {
-  TOTEM_ASESOR_EN_CAMINO_EVENT,
-  TOTEM_SOLICITUD_ASESOR_CHANNEL,
-  TOTEM_SOLICITUD_ASESOR_MARKER,
-  type TotemAsesorEnCaminoPayload
-} from '../constants/totemSolicitudAsesor'
+  TOTEM_DISENADOR_EN_CAMINO_EVENT,
+  TOTEM_SOLICITUD_DISENADOR_CHANNEL,
+  TOTEM_SOLICITUD_DISENADOR_MARKER,
+  type TotemDisenadorEnCaminoPayload
+} from '../constants/totemSolicitudDisenador'
 
-export type SolicitarAsesorTotemOpts = {
+export type SolicitarDisenadorTotemOpts = {
   clienteNombre?: string
-  productoNombre?: string
   contexto?: string
-  numeroOp?: string
-  ordenId?: number
-  sectorDestino?: string
+  briefToken?: string
 }
 
-export type SolicitarAsesorTotemResult = {
+export type SolicitarDisenadorTotemResult = {
   ok: boolean
   mensaje: string
   atencionId?: number
@@ -30,18 +27,14 @@ function newClientNonce(): string {
   return `${Date.now()}-${Math.random()}`
 }
 
-/** Avisa a mostrador + broadcast a tablet /asesor (misma lógica que consulta tótem). */
-export async function solicitarAsesorTotem(
-  opts: SolicitarAsesorTotemOpts = {}
-): Promise<SolicitarAsesorTotemResult> {
-  const nombre = opts.clienteNombre?.trim() || 'Cliente tótem catálogo'
-  const detalle = opts.productoNombre
-    ? `Producto: ${opts.productoNombre}. ${opts.contexto || ''}`.trim()
-    : opts.contexto || ''
-  const sectorDestino = opts.sectorDestino?.trim() || 'Catálogo tótem'
-  const notas = [detalle, `Sector sugerido: Asesor.`, TOTEM_SOLICITUD_ASESOR_MARKER]
-    .filter(Boolean)
-    .join(' ')
+/** Avisa a Diseño + broadcast a tablet /disenador. */
+export async function solicitarDisenadorTotem(
+  opts: SolicitarDisenadorTotemOpts = {}
+): Promise<SolicitarDisenadorTotemResult> {
+  const nombre = opts.clienteNombre?.trim() || 'Cliente tótem diseño'
+  const detalle = opts.contexto?.trim() || 'Cliente en tótem de Diseño necesita ayuda.'
+  const briefNota = opts.briefToken ? ` Brief token: ${opts.briefToken}.` : ''
+  const notas = `${detalle}${briefNota} ${TOTEM_SOLICITUD_DISENADOR_MARKER}`.trim()
   const clientNonce = newClientNonce()
 
   try {
@@ -49,23 +42,21 @@ export async function solicitarAsesorTotem(
       cliente_nombre: nombre,
       tipo: 'consulta',
       usuario_id: 1,
-      usuario_nombre: 'Totem autoservicio',
-      orden_id: opts.ordenId,
+      usuario_nombre: 'Totem diseño',
       notas,
-      sector_destino: 'Asesor',
-      orden_numero_op: opts.numeroOp
+      sector_destino: 'Diseño gráfico'
     })
     if (!res.success) {
-      return { ok: false, mensaje: res.error || 'No se pudo avisar a un asesor.' }
+      return { ok: false, mensaje: res.error || 'No se pudo avisar a un diseñador.' }
     }
 
     const atencionId = typeof res.data === 'number' ? res.data : undefined
-    const broadcastRes = await apiService.broadcastTotemSolicitudAsesor({
+    const broadcastRes = await apiService.broadcastTotemSolicitudDisenador({
       atencionId,
       clienteNombre: nombre,
-      numeroOp: opts.numeroOp,
-      sectorDestino,
+      sectorDestino: 'Diseño gráfico',
       notas,
+      briefToken: opts.briefToken,
       clientNonce
     })
 
@@ -75,29 +66,29 @@ export async function solicitarAsesorTotem(
     if (!broadcastRes.success) {
       return {
         ok: true,
-        mensaje: '📞 Registramos tu solicitud. Un asesor te va a atender en breve.',
+        mensaje: '🎨 Registramos tu pedido. Un diseñador te va a atender en breve.',
         atencionId,
         requestNonce
       }
     }
     return {
       ok: true,
-      mensaje: '📞 Avisamos a un asesor. En breve te atienden en mostrador.',
+      mensaje: '🎨 Avisamos a un diseñador. En breve te atienden en el 1° piso.',
       atencionId,
       requestNonce
     }
   } catch {
-    return { ok: false, mensaje: 'No se pudo avisar a un asesor. Acercate a mostrador.' }
+    return { ok: false, mensaje: 'No se pudo avisar a un diseñador. Acercate al sector Diseño.' }
   }
 }
 
-function parseEnCaminoPayload(raw: unknown): TotemAsesorEnCaminoPayload | null {
+function parseEnCaminoPayload(raw: unknown): TotemDisenadorEnCaminoPayload | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
-  const asesorNombre = typeof o.asesorNombre === 'string' ? o.asesorNombre.trim() : ''
+  const disenadorNombre = typeof o.disenadorNombre === 'string' ? o.disenadorNombre.trim() : ''
   const mensaje = typeof o.mensaje === 'string' ? o.mensaje.trim() : ''
   const nonce = typeof o.nonce === 'string' ? o.nonce : ''
-  if (!asesorNombre || !mensaje || !nonce) return null
+  if (!disenadorNombre || !mensaje || !nonce) return null
   const atencionIdRaw = o.atencionId
   const atencionId =
     typeof atencionIdRaw === 'number'
@@ -108,28 +99,24 @@ function parseEnCaminoPayload(raw: unknown): TotemAsesorEnCaminoPayload | null {
   return {
     atencionId,
     requestNonce: typeof o.requestNonce === 'string' ? o.requestNonce : undefined,
-    asesorNombre,
+    disenadorNombre,
     mensaje,
     sentAt: typeof o.sentAt === 'string' ? o.sentAt : new Date().toISOString(),
     nonce
   }
 }
 
-/**
- * Escucha en el tótem la confirmación del asesor («ya voy»).
- * Devuelve cleanup para desuscribir.
- */
-export function listenAsesorEnCamino(
+export function listenDisenadorEnCamino(
   match: { atencionId?: number; requestNonce?: string },
-  onMsg: (payload: TotemAsesorEnCaminoPayload) => void
+  onMsg: (payload: TotemDisenadorEnCaminoPayload) => void
 ): () => void {
   if (!supabase) return () => undefined
   const sb = supabase
-  const channel = sb.channel(TOTEM_SOLICITUD_ASESOR_CHANNEL, {
+  const channel = sb.channel(TOTEM_SOLICITUD_DISENADOR_CHANNEL, {
     config: { broadcast: { ack: false, self: false } }
   })
 
-  channel.on('broadcast', { event: TOTEM_ASESOR_EN_CAMINO_EVENT }, (msg: unknown) => {
+  channel.on('broadcast', { event: TOTEM_DISENADOR_EN_CAMINO_EVENT }, (msg: unknown) => {
     const raw =
       msg && typeof msg === 'object' && 'payload' in msg
         ? (msg as { payload: unknown }).payload
@@ -144,8 +131,6 @@ export function listenAsesorEnCamino(
     const matchNonce =
       Boolean(match.requestNonce) &&
       (parsed.requestNonce === match.requestNonce || parsed.nonce === match.requestNonce)
-
-    // Sin correlación fuerte (p. ej. solo un tótem): aceptar si no hay filtros
     const sinFiltro = match.atencionId == null && !match.requestNonce
     if (!matchAtencion && !matchNonce && !sinFiltro) return
 

@@ -5,6 +5,10 @@ import apiService from '../services/api'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { isOpEnAlmacenEntrega, isOpFinalizadoEnTaller } from '../utils/totemConsultaOpEstado'
+import {
+  etiquetaTalleresPedidoEntrega,
+  resolverTalleresPedidoEntrega
+} from '../utils/pedidoEntregaTalleres'
 import { TOTEM_FINALIZADO_TALLER_PATH } from '../constants/totemFinalizadoTaller'
 import './TotemConsultaClientePage.css'
 import './TotemConsultaEntradaTallerPage.css'
@@ -51,6 +55,15 @@ export default function TotemFinalizadoTallerPage() {
     () => ordenes.filter((o) => isOpEnAlmacenEntrega(o.estado)),
     [ordenes]
   )
+
+  const talleresHintLabel = useMemo(() => {
+    if (ordenesEntradaTaller.length === 0) return 'Taller Gráfico o Taller de Imprenta'
+    const destinos = [
+      ...new Set(ordenesEntradaTaller.flatMap((o) => resolverTalleresPedidoEntrega(o)))
+    ]
+    return etiquetaTalleresPedidoEntrega(destinos)
+  }, [ordenesEntradaTaller])
+
 
   const mostrarResultado = ordenesEntradaTaller.length > 0
 
@@ -177,6 +190,12 @@ export default function TotemFinalizadoTallerPage() {
       ]
       const opLabel = numerosOp.length === 1 ? numerosOp[0] : numerosOp.join(', ')
 
+      const destinosUnion = new Set(
+        ordenesEntradaTaller.flatMap((o) => resolverTalleresPedidoEntrega(o))
+      )
+      const destinosLista = [...destinosUnion]
+      const talleresLabel = etiquetaTalleresPedidoEntrega(destinosLista)
+
       const atencionRes = await apiService.crearAtencionMostrador({
         cliente_nombre: primerOrden.cliente || 'Cliente tótem',
         tipo: 'consulta',
@@ -185,7 +204,7 @@ export default function TotemFinalizadoTallerPage() {
         orden_id: primerOrden.id,
         notas:
           `Cliente en tótem Finalizado en Taller (entrada a mostrador/caja). ` +
-          `OP: ${opLabel}. Aviso enviado a Taller Gráfico para traer el pedido.`,
+          `OP: ${opLabel}. Aviso enviado a ${talleresLabel} para traer el pedido.`,
         sector_destino: 'Caja',
         orden_numero_op: primerOrden.numero_op ?? undefined
       })
@@ -195,28 +214,35 @@ export default function TotemFinalizadoTallerPage() {
         return
       }
 
-      let tgOk = 0
-      let tgFail = 0
+      let tallerOk = 0
+      let tallerFail = 0
       for (const orden of ordenesEntradaTaller) {
         if (!orden.id) continue
-        const tgRes = await apiService.broadcastPedidoTallerGraficoDesdeEntrega({
+        const payload = {
           idOrden: orden.id,
           numeroOp: String(orden.numero_op ?? '').trim(),
           cliente: String(orden.cliente ?? '').trim(),
           solicitanteNombre: 'Cliente en tótem',
           solicitanteRol: 'totem'
-        })
-        if (tgRes.success) tgOk++
-        else tgFail++
+        }
+        const destinos = resolverTalleresPedidoEntrega(orden)
+        for (const destino of destinos) {
+          const res =
+            destino === 'taller-imprenta'
+              ? await apiService.broadcastPedidoTallerImprentaDesdeEntrega(payload)
+              : await apiService.broadcastPedidoTallerGraficoDesdeEntrega(payload)
+          if (res.success) tallerOk++
+          else tallerFail++
+        }
       }
 
-      if (tgOk === 0 && tgFail > 0) {
+      if (tallerOk === 0 && tallerFail > 0) {
         setMensaje(
-          '✅ Avisamos a Caja que estás esperando. No pudimos contactar a Taller Gráfico; un asesor te va a atender.'
+          `✅ Avisamos a Caja que estás esperando. No pudimos contactar a ${talleresLabel}; un asesor te va a atender.`
         )
       } else {
         setMensaje(
-          '✅ Aviso enviado: Caja y Taller Gráfico fueron notificados. Quedate en mostrador/caja, te llamamos en breve.'
+          `✅ Aviso enviado: Caja y ${talleresLabel} fueron notificados. Quedate en mostrador/caja, te llamamos en breve.`
         )
       }
     } catch (err) {
@@ -331,7 +357,7 @@ export default function TotemFinalizadoTallerPage() {
                 <div className="totem-entrada-taller-step">
                   <span className="totem-entrada-taller-step-num">1</span>
                   <p>
-                    Taller Gráfico recibe el aviso y prepara el material para mostrador.
+                    {talleresHintLabel} recibe el aviso y prepara el material para mostrador.
                   </p>
                 </div>
                 <div className="totem-entrada-taller-step">
@@ -392,7 +418,7 @@ export default function TotemFinalizadoTallerPage() {
                   Buscar otra OP
                 </button>
                 <p className="totem-entrada-taller-cta-hint">
-                  Avisamos a <strong>Caja</strong> y a <strong>Taller Gráfico</strong>.
+                  Avisamos a <strong>Caja</strong> y a <strong>{talleresHintLabel}</strong>.
                 </p>
               </div>
 

@@ -151,10 +151,26 @@ import {
   type TallerGraficoPedidoEntregaInput
 } from '../constants/tallerGraficoPedidoEntrega'
 import {
+  TALLER_IMPRENTA_PEDIDO_ENTREGA_CHANNEL,
+  TALLER_IMPRENTA_PEDIDO_ENTREGA_EVENT,
+  type TallerImprentaPedidoEntregaInput
+} from '../constants/tallerImprentaPedidoEntrega'
+import {
   TOTEM_SOLICITUD_ASESOR_CHANNEL,
   TOTEM_SOLICITUD_ASESOR_EVENT,
-  type TotemSolicitudAsesorInput
+  TOTEM_ASESOR_EN_CAMINO_EVENT,
+  mensajeAsesorEnCamino,
+  type TotemSolicitudAsesorInput,
+  type TotemAsesorEnCaminoInput
 } from '../constants/totemSolicitudAsesor'
+import {
+  TOTEM_SOLICITUD_DISENADOR_CHANNEL,
+  TOTEM_SOLICITUD_DISENADOR_EVENT,
+  TOTEM_DISENADOR_EN_CAMINO_EVENT,
+  mensajeDisenadorEnCamino,
+  type TotemSolicitudDisenadorInput,
+  type TotemDisenadorEnCaminoInput
+} from '../constants/totemSolicitudDisenador'
 
 import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
 import { isTransientSupabaseError, withSupabaseRetry } from '../utils/supabaseRetry'
@@ -3202,10 +3218,12 @@ class ApiService {
   }
 
   /**
-   * Aviso inmediato a la tablet /asesor (Supabase Realtime Broadcast).
-   * Se dispara cuando un cliente toca «Llamar a un asesor» en el tótem.
+   * Aviso inmediato a Taller de Imprenta (Supabase Realtime Broadcast).
+   * Misma mecánica que Taller Gráfico: overlay + alerta sonora para rol imprenta.
    */
-  async broadcastTotemSolicitudAsesor(input: TotemSolicitudAsesorInput): Promise<ApiResponse<void>> {
+  async broadcastPedidoTallerImprentaDesdeEntrega(
+    input: TallerImprentaPedidoEntregaInput
+  ): Promise<ApiResponse<void>> {
     const sb = supabase
     if (!sb) {
       return { success: false, error: 'No hay conexión a Supabase' }
@@ -3213,6 +3231,154 @@ class ApiService {
 
     const payload = {
       ...input,
+      sentAt: new Date().toISOString(),
+      nonce:
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`
+    }
+
+    return await new Promise((resolve) => {
+      let settled = false
+      const ch = sb.channel(TALLER_IMPRENTA_PEDIDO_ENTREGA_CHANNEL, {
+        config: { broadcast: { ack: false } }
+      })
+
+      const done = async (out: ApiResponse<void>) => {
+        if (settled) return
+        settled = true
+        window.clearTimeout(timeoutId)
+        try {
+          await sb.removeChannel(ch)
+        } catch {
+          /* ignore */
+        }
+        resolve(out)
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        void done({
+          success: false,
+          error: 'Tiempo de espera al enviar el aviso a Taller de Imprenta. Reintentá.'
+        })
+      }, 12000)
+
+      ch.subscribe((status) => {
+        if (settled) return
+        if (status === 'SUBSCRIBED') {
+          void ch
+            .send({
+              type: 'broadcast',
+              event: TALLER_IMPRENTA_PEDIDO_ENTREGA_EVENT,
+              payload
+            })
+            .then((sendResult) => {
+              if (sendResult === 'ok') void done({ success: true })
+              else void done({ success: false, error: `Realtime: ${String(sendResult)}` })
+            })
+            .catch((e: unknown) => {
+              void done({
+                success: false,
+                error: e instanceof Error ? e.message : 'No se pudo enviar el aviso'
+              })
+            })
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          void done({ success: false, error: `Canal Realtime: ${status}` })
+        }
+      })
+    })
+  }
+
+  /**
+   * Aviso inmediato a la tablet /asesor (Supabase Realtime Broadcast).
+   * Se dispara cuando un cliente toca «Llamar a un asesor» en el tótem.
+   */
+  async broadcastTotemSolicitudAsesor(
+    input: TotemSolicitudAsesorInput
+  ): Promise<ApiResponse<{ nonce: string }>> {
+    const sb = supabase
+    if (!sb) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    const { clientNonce, ...rest } = input
+    const nonce =
+      (clientNonce && String(clientNonce).trim()) ||
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`)
+
+    const payload = {
+      ...rest,
+      sentAt: new Date().toISOString(),
+      nonce
+    }
+
+    return await new Promise((resolve) => {
+      let settled = false
+      const ch = sb.channel(TOTEM_SOLICITUD_ASESOR_CHANNEL, {
+        config: { broadcast: { ack: false } }
+      })
+
+      const done = async (out: ApiResponse<{ nonce: string }>) => {
+        if (settled) return
+        settled = true
+        window.clearTimeout(timeoutId)
+        try {
+          await sb.removeChannel(ch)
+        } catch {
+          /* ignore */
+        }
+        resolve(out)
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        void done({ success: false, error: 'Tiempo de espera al avisar al asesor. Reintentá.' })
+      }, 12000)
+
+      ch.subscribe((status) => {
+        if (settled) return
+        if (status === 'SUBSCRIBED') {
+          void ch
+            .send({
+              type: 'broadcast',
+              event: TOTEM_SOLICITUD_ASESOR_EVENT,
+              payload
+            })
+            .then((sendResult) => {
+              if (sendResult === 'ok') void done({ success: true, data: { nonce } })
+              else void done({ success: false, error: `Realtime: ${String(sendResult)}` })
+            })
+            .catch((e: unknown) => {
+              void done({
+                success: false,
+                error: e instanceof Error ? e.message : 'No se pudo enviar el aviso'
+              })
+            })
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          void done({ success: false, error: `Canal Realtime: ${status}` })
+        }
+      })
+    })
+  }
+
+  /**
+   * Asesor confirma desde /asesor: avisa al tótem que ya va a ayudar al cliente.
+   */
+  async broadcastAsesorEnCaminoTotem(
+    input: TotemAsesorEnCaminoInput
+  ): Promise<ApiResponse<void>> {
+    const sb = supabase
+    if (!sb) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    const asesorNombre = (input.asesorNombre || '').trim() || 'Un asesor'
+    const payload = {
+      atencionId: input.atencionId,
+      requestNonce: input.requestNonce,
+      asesorNombre,
+      mensaje: (input.mensaje || '').trim() || mensajeAsesorEnCamino(asesorNombre),
       sentAt: new Date().toISOString(),
       nonce:
         typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -3239,7 +3405,7 @@ class ApiService {
       }
 
       const timeoutId = window.setTimeout(() => {
-        void done({ success: false, error: 'Tiempo de espera al avisar al asesor. Reintentá.' })
+        void done({ success: false, error: 'Tiempo de espera al avisar al tótem. Reintentá.' })
       }, 12000)
 
       ch.subscribe((status) => {
@@ -3248,7 +3414,151 @@ class ApiService {
           void ch
             .send({
               type: 'broadcast',
-              event: TOTEM_SOLICITUD_ASESOR_EVENT,
+              event: TOTEM_ASESOR_EN_CAMINO_EVENT,
+              payload
+            })
+            .then((sendResult) => {
+              if (sendResult === 'ok') void done({ success: true })
+              else void done({ success: false, error: `Realtime: ${String(sendResult)}` })
+            })
+            .catch((e: unknown) => {
+              void done({
+                success: false,
+                error: e instanceof Error ? e.message : 'No se pudo enviar el aviso'
+              })
+            })
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          void done({ success: false, error: `Canal Realtime: ${status}` })
+        }
+      })
+    })
+  }
+
+  /**
+   * Aviso inmediato a la tablet /disenador (tótem de Diseño, 1° piso).
+   */
+  async broadcastTotemSolicitudDisenador(
+    input: TotemSolicitudDisenadorInput
+  ): Promise<ApiResponse<{ nonce: string }>> {
+    const sb = supabase
+    if (!sb) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    const { clientNonce, ...rest } = input
+    const nonce =
+      (clientNonce && String(clientNonce).trim()) ||
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`)
+
+    const payload = {
+      ...rest,
+      sentAt: new Date().toISOString(),
+      nonce
+    }
+
+    return await new Promise((resolve) => {
+      let settled = false
+      const ch = sb.channel(TOTEM_SOLICITUD_DISENADOR_CHANNEL, {
+        config: { broadcast: { ack: false } }
+      })
+
+      const done = async (out: ApiResponse<{ nonce: string }>) => {
+        if (settled) return
+        settled = true
+        window.clearTimeout(timeoutId)
+        try {
+          await sb.removeChannel(ch)
+        } catch {
+          /* ignore */
+        }
+        resolve(out)
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        void done({ success: false, error: 'Tiempo de espera al avisar al diseñador. Reintentá.' })
+      }, 12000)
+
+      ch.subscribe((status) => {
+        if (settled) return
+        if (status === 'SUBSCRIBED') {
+          void ch
+            .send({
+              type: 'broadcast',
+              event: TOTEM_SOLICITUD_DISENADOR_EVENT,
+              payload
+            })
+            .then((sendResult) => {
+              if (sendResult === 'ok') void done({ success: true, data: { nonce } })
+              else void done({ success: false, error: `Realtime: ${String(sendResult)}` })
+            })
+            .catch((e: unknown) => {
+              void done({
+                success: false,
+                error: e instanceof Error ? e.message : 'No se pudo enviar el aviso'
+              })
+            })
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          void done({ success: false, error: `Canal Realtime: ${status}` })
+        }
+      })
+    })
+  }
+
+  /**
+   * Diseñador confirma desde /disenador: avisa al tótem que ya va.
+   */
+  async broadcastDisenadorEnCaminoTotem(
+    input: TotemDisenadorEnCaminoInput
+  ): Promise<ApiResponse<void>> {
+    const sb = supabase
+    if (!sb) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    const disenadorNombre = (input.disenadorNombre || '').trim() || 'Un diseñador'
+    const payload = {
+      atencionId: input.atencionId,
+      requestNonce: input.requestNonce,
+      disenadorNombre,
+      mensaje: (input.mensaje || '').trim() || mensajeDisenadorEnCamino(disenadorNombre),
+      sentAt: new Date().toISOString(),
+      nonce:
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`
+    }
+
+    return await new Promise((resolve) => {
+      let settled = false
+      const ch = sb.channel(TOTEM_SOLICITUD_DISENADOR_CHANNEL, {
+        config: { broadcast: { ack: false } }
+      })
+
+      const done = async (out: ApiResponse<void>) => {
+        if (settled) return
+        settled = true
+        window.clearTimeout(timeoutId)
+        try {
+          await sb.removeChannel(ch)
+        } catch {
+          /* ignore */
+        }
+        resolve(out)
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        void done({ success: false, error: 'Tiempo de espera al avisar al tótem. Reintentá.' })
+      }, 12000)
+
+      ch.subscribe((status) => {
+        if (settled) return
+        if (status === 'SUBSCRIBED') {
+          void ch
+            .send({
+              type: 'broadcast',
+              event: TOTEM_DISENADOR_EN_CAMINO_EVENT,
               payload
             })
             .then((sendResult) => {
@@ -7705,17 +8015,22 @@ class ApiService {
 
   /**
    * Marca la ficha en reclamo (trabajo a rehacer): comentario, historial y `en_reclamo` en BD.
+   * Si estaba en Almacén / Finalizado / Entregado, la vuelve a producción (no queda “estacionada”).
    */
   async marcarReclamoOrden(
     ordenId: number,
     detalleOpcional: string | undefined,
-    usuarioNombre: string
+    usuarioNombre: string,
+    /** Si el usuario eligió taller, mueve la OP ahí (requerido desde Almacén/Finalizado). */
+    destinoProduccionElegido?: string | null
   ): Promise<ApiResponse<OrdenTrabajo>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
 
     const { data: row, error: fetchErr } = await supabase
       .from('ordenes_trabajo')
-      .select('id, estado, en_reclamo')
+      .select(
+        'id, estado, sector, sector_inicial, sectores, en_reclamo, entregado, visible_en_tablero, descripcion, materiales, tipo_impresion'
+      )
       .eq('id', ordenId)
       .maybeSingle()
 
@@ -7735,18 +8050,80 @@ class ApiService {
     if (ya) return { success: false, error: 'Esta ficha ya está marcada con reclamo.' }
 
     const estado = (row as { estado?: string | null }).estado ?? null
+    const sector = (row as { sector?: string | null }).sector ?? null
+    const sectorInicial = (row as { sector_inicial?: string | null }).sector_inicial?.trim() || null
+    const sectoresRaw = (row as { sectores?: unknown }).sectores
+    const sectoresLista = Array.isArray(sectoresRaw)
+      ? sectoresRaw.map((s) => String(s))
+      : typeof sectoresRaw === 'string' && sectoresRaw.trim()
+        ? [sectoresRaw.trim()]
+        : []
     const detalle = (detalleOpcional ?? '').trim()
     const textoComentario = `[RECLAMO] El trabajo debe rehacerse.${detalle ? ` Motivo: ${detalle}` : ''}`
 
+    const {
+      resolverDestinoProduccionReclamo,
+      esEstadoTerminalReclamo,
+      esDestinoProduccionReclamo
+    } = await import('../utils/reclamoDestinoProduccion')
+    const estadoActual = (estado || sector || '').trim()
+    const estaEnTerminal = esEstadoTerminalReclamo(estadoActual)
+    const elegido = (destinoProduccionElegido ?? '').trim()
+    const destinoValido = esDestinoProduccionReclamo(elegido) ? elegido : null
+
+    let destinoProduccion: string | null = destinoValido
+    if (!destinoProduccion && estaEnTerminal) {
+      let historialEstados: Array<{ estado_anterior?: string | null; estado_nuevo?: string | null }> = []
+      try {
+        const { data: hist } = await supabase
+          .from('historial_movimientos')
+          .select('estado_anterior, estado_nuevo')
+          .eq('id_orden', ordenId)
+          .order('timestamp', { ascending: false })
+          .limit(40)
+        if (Array.isArray(hist)) historialEstados = hist
+      } catch {
+        /* historial opcional */
+      }
+      destinoProduccion = resolverDestinoProduccionReclamo({
+        sectorInicial,
+        sectores: sectoresLista,
+        historialEstados,
+        descripcion: (row as { descripcion?: string | null }).descripcion,
+        materiales: (row as { materiales?: string | null }).materiales,
+        tipoImpresion: (row as { tipo_impresion?: string | null }).tipo_impresion
+      })
+    }
+
+    const vuelveAProduccion = Boolean(destinoProduccion) && (estaEnTerminal || Boolean(destinoValido))
+
     const motivoDb = detalle || null
-    let { error: upErr } = await supabase
-      .from('ordenes_trabajo')
-      .update({ en_reclamo: true, reclamo_motivo: motivoDb })
-      .eq('id', ordenId)
+    const patch: Record<string, unknown> = {
+      en_reclamo: true,
+      reclamo_motivo: motivoDb,
+      visible_en_tablero: true
+    }
+    if (vuelveAProduccion && destinoProduccion) {
+      patch.estado = destinoProduccion
+      patch.sector = destinoProduccion
+      patch.entregado = false
+      patch.fecha_entrega_efectiva = null
+      if (destinoProduccion === 'Taller de Imprenta') {
+        patch.etapa_taller_imprenta = null
+      }
+    }
+
+    let { error: upErr } = await supabase.from('ordenes_trabajo').update(patch).eq('id', ordenId)
 
     if (upErr && /reclamo_motivo/i.test(String(upErr.message))) {
-      const r2 = await supabase.from('ordenes_trabajo').update({ en_reclamo: true }).eq('id', ordenId)
+      const { reclamo_motivo: _rm, ...patchSinMotivo } = patch
+      const r2 = await supabase.from('ordenes_trabajo').update(patchSinMotivo).eq('id', ordenId)
       upErr = r2.error
+    }
+    if (upErr && /etapa_taller_imprenta/i.test(String(upErr.message))) {
+      const { etapa_taller_imprenta: _et, ...patchSinEtapa } = patch
+      const r3 = await supabase.from('ordenes_trabajo').update(patchSinEtapa).eq('id', ordenId)
+      upErr = r3.error
     }
 
     if (upErr) {
@@ -7765,13 +8142,24 @@ class ApiService {
       console.warn('Reclamo: no se pudo guardar comentario:', com.error)
     }
 
+    const estadoNuevo = vuelveAProduccion && destinoProduccion ? destinoProduccion : estado
     await this.registrarCambioHistorial(
       ordenId,
       estado,
-      estado,
-      textoComentario,
+      estadoNuevo,
+      vuelveAProduccion && destinoProduccion
+        ? `${textoComentario} · Devuelta a ${destinoProduccion} para rehacer.`
+        : textoComentario,
       'reclamo',
-      { en_reclamo: { anterior: false, nuevo: true } }
+      {
+        en_reclamo: { anterior: false, nuevo: true },
+        ...(vuelveAProduccion && destinoProduccion
+          ? {
+              estado: { anterior: estado, nuevo: destinoProduccion },
+              sector: { anterior: sector, nuevo: destinoProduccion }
+            }
+          : {})
+      }
     )
 
     const { data: full, error: fullErr } = await supabase
@@ -7786,7 +8174,15 @@ class ApiService {
         data: {
           ...(row as OrdenTrabajo),
           en_reclamo: true,
-          reclamo_motivo: motivoDb
+          reclamo_motivo: motivoDb,
+          ...(vuelveAProduccion && destinoProduccion
+            ? {
+                estado: destinoProduccion,
+                sector: destinoProduccion,
+                entregado: false,
+                visible_en_tablero: true
+              }
+            : {})
         } as OrdenTrabajo
       }
     }

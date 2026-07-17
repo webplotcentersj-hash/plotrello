@@ -1058,6 +1058,22 @@
   line-height: 1.4;
 }
 
+.totem-direccion-diseno-cta {
+  margin: 12px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.totem-direccion-diseno-cta-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.88rem;
+  color: #94a3b8;
+}
+
 .totem-direccion-aviso-form {
   width: 100%;
   max-width: 420px;
