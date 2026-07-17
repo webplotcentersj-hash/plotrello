@@ -3,6 +3,7 @@ import { supabase } from '../services/supabaseClient'
 import apiService from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import {
+  TOTEM_DISENADOR_EN_CAMINO_MARKER,
   TOTEM_SOLICITUD_DISENADOR_CHANNEL,
   TOTEM_SOLICITUD_DISENADOR_EVENT,
   TOTEM_SOLICITUD_DISENADOR_MARKER,
@@ -13,6 +14,9 @@ import { playPedidoTallerAlertSound } from '../utils/playPedidoTallerAlertSound'
 import './TotemDisenadorTabletPage.css'
 
 const LOGO_URL = '/plot-lab-logo.png'
+/** Solo solicitudes recientes: el poll no debe reabrir llamadas viejas de prueba. */
+const SOLICITUD_MAX_AGE_MS = 25 * 60 * 1000
+const DISMISSED_ATENCIONES_KEY = 'plotlab_disenador_dismissed_atenciones'
 
 type SolicitudDisenador = {
   key: string
@@ -73,15 +77,45 @@ function parseBroadcastPayload(raw: unknown): TotemSolicitudDisenadorPayload | n
   }
 }
 
+function readDismissedAtencionIds(): Set<number> {
+  try {
+    const raw = sessionStorage.getItem(DISMISSED_ATENCIONES_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw) as unknown
+    if (!Array.isArray(arr)) return new Set()
+    return new Set(
+      arr.map((x) => Number(x)).filter((n) => Number.isFinite(n) && n > 0)
+    )
+  } catch {
+    return new Set()
+  }
+}
+
+function persistDismissedAtencionId(id: number): void {
+  if (!Number.isFinite(id) || id <= 0) return
+  try {
+    const next = readDismissedAtencionIds()
+    next.add(id)
+    sessionStorage.setItem(DISMISSED_ATENCIONES_KEY, JSON.stringify([...next].slice(-80)))
+  } catch {
+    /* ignore */
+  }
+}
+
 function fromAtencionRow(row: Record<string, unknown>): SolicitudDisenador | null {
   const notas = typeof row.notas === 'string' ? row.notas : ''
   if (!notas.includes(TOTEM_SOLICITUD_DISENADOR_MARKER)) return null
+  // Ya confirmada desde /disenador → no volver a mostrar
+  if (notas.includes(TOTEM_DISENADOR_EN_CAMINO_MARKER)) return null
   const id = typeof row.id === 'number' ? row.id : Number(row.id)
   const clienteNombre =
     typeof row.cliente_nombre === 'string' ? row.cliente_nombre.trim() : ''
   if (!clienteNombre) return null
   const fecha =
     typeof row.fecha_atencion === 'string' ? row.fecha_atencion : new Date().toISOString()
+  const sentMs = Date.parse(fecha)
+  if (Number.isFinite(sentMs) && Date.now() - sentMs > SOLICITUD_MAX_AGE_MS) return null
+  if (Number.isFinite(id) && readDismissedAtencionIds().has(id)) return null
   const tokenMatch = notas.match(/Brief token:\s*([a-zA-Z0-9-]+)/i)
   return {
     key: `db-${id}`,
@@ -123,6 +157,15 @@ export default function TotemDisenadorTabletPage() {
     nombreVisible?.trim() || usuario?.nombre?.trim() || nombreManual.trim() || ''
 
   const pushSolicitud = useCallback((solicitud: SolicitudDisenador) => {
+    if (
+      solicitud.atencionId != null &&
+      readDismissedAtencionIds().has(Number(solicitud.atencionId))
+    ) {
+      return
+    }
+    const sentMs = Date.parse(solicitud.sentAt)
+    if (Number.isFinite(sentMs) && Date.now() - sentMs > SOLICITUD_MAX_AGE_MS) return
+
     setPendientes((prev) => {
       if (prev.some((p) => p.key === solicitud.key)) return prev
       if (
@@ -131,7 +174,7 @@ export default function TotemDisenadorTabletPage() {
       ) {
         return prev
       }
-      return [solicitud, ...prev].slice(0, 40)
+      return [solicitud, ...prev].slice(0, 20)
     })
     setActive((current) => current ?? solicitud)
   }, [])
@@ -208,21 +251,44 @@ export default function TotemDisenadorTabletPage() {
     let cancelled = false
     const syncDesdeBd = async () => {
       try {
-        const desde = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+        const desde = new Date(Date.now() - SOLICITUD_MAX_AGE_MS).toISOString()
         const res = await apiService.obtenerAtencionesMostrador(desde)
         if (cancelled || !res.success || !Array.isArray(res.data)) return
-        const rows = res.data
-          .filter((a) => (a.notas || '').includes(TOTEM_SOLICITUD_DISENADOR_MARKER))
-          .slice(0, 40)
-        // Orden desc: la más nueva primero → queda como `active` si no hay otra
-        for (const row of rows) {
+
+        const abiertas: SolicitudDisenador[] = []
+        const cerradasIds = new Set<number>()
+        for (const row of res.data) {
+          const notas = row.notas || ''
+          if (!notas.includes(TOTEM_SOLICITUD_DISENADOR_MARKER)) continue
+          const id = Number(row.id)
+          if (notas.includes(TOTEM_DISENADOR_EN_CAMINO_MARKER)) {
+            if (Number.isFinite(id) && id > 0) cerradasIds.add(id)
+            continue
+          }
           const solicitud = fromAtencionRow({
             id: row.id,
             cliente_nombre: row.cliente_nombre,
             notas: row.notas,
             fecha_atencion: row.fecha_atencion
           })
-          if (solicitud) pushSolicitud(solicitud)
+          if (solicitud) abiertas.push(solicitud)
+        }
+
+        // Sacar del panel las que ya tienen respuesta en BD (p. ej. otra pestaña)
+        if (cerradasIds.size > 0) {
+          for (const id of cerradasIds) persistDismissedAtencionId(id)
+          setPendientes((prev) =>
+            prev.filter((p) => p.atencionId == null || !cerradasIds.has(Number(p.atencionId)))
+          )
+          setActive((current) =>
+            current?.atencionId != null && cerradasIds.has(Number(current.atencionId))
+              ? null
+              : current
+          )
+        }
+
+        for (const solicitud of abiertas) {
+          pushSolicitud(solicitud)
         }
       } catch (err) {
         console.warn('TotemDisenadorTabletPage: poll atenciones falló', err)
@@ -243,17 +309,37 @@ export default function TotemDisenadorTabletPage() {
   }, [pushSolicitud])
 
   const marcarAtendida = useCallback((solicitud: SolicitudDisenador) => {
+    if (solicitud.atencionId != null) {
+      persistDismissedAtencionId(Number(solicitud.atencionId))
+    }
+    setAtendidas((attended) => {
+      const nextAttended = new Set(attended)
+      nextAttended.add(solicitud.key)
+      if (solicitud.atencionId != null) {
+        nextAttended.add(`db-${solicitud.atencionId}`)
+        nextAttended.add(`id-${solicitud.atencionId}`)
+      }
+      return nextAttended
+    })
     setPendientes((list) => {
-      setAtendidas((attended) => {
-        const nextAttended = new Set(attended)
-        nextAttended.add(solicitud.key)
-        setActive((current) => {
-          if (current?.key !== solicitud.key) return current
-          return list.find((p) => !nextAttended.has(p.key)) ?? null
-        })
-        return nextAttended
+      const next = list.filter((p) => {
+        if (p.key === solicitud.key) return false
+        if (
+          solicitud.atencionId != null &&
+          p.atencionId != null &&
+          Number(p.atencionId) === Number(solicitud.atencionId)
+        ) {
+          return false
+        }
+        return true
       })
-      return list
+      setActive((current) => {
+        if (!current) return next[0] ?? null
+        const stillThere = next.some((p) => p.key === current.key)
+        if (stillThere) return current
+        return next[0] ?? null
+      })
+      return next
     })
   }, [])
 
