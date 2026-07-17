@@ -272,7 +272,7 @@ const TaskCardInner = ({
     const raw = resolverDestinoProduccionReclamo({
       sectorInicial: task.sectorInicial,
       sectores: task.sectores,
-      descripcion: task.description,
+      descripcion: task.summary || task.title,
       materiales: Array.isArray(task.materials) ? task.materials.join(' ') : String(task.materials || '')
     })
     if (raw === 'Imprenta (Área de Impresión)') return 'Taller de Imprenta'
