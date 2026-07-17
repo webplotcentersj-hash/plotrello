@@ -495,11 +495,11 @@ const TotemConsultaClientePage = () => {
                 <p className="totem-idle-horarios-title">Horarios de atención</p>
                 <p className="totem-idle-horario">
                   <span className="totem-idle-horario-day">Lun – Vie</span>
-                  <span className="totem-idle-horario-time">7:00 – 21:30 hs</span>
+                  <span className="totem-idle-horario-time">6:00 – 22:00 hs</span>
                 </p>
                 <p className="totem-idle-horario">
                   <span className="totem-idle-horario-day">Sábado</span>
-                  <span className="totem-idle-horario-time">8:00 – 20:00 hs</span>
+                  <span className="totem-idle-horario-time">9:00 – 18:00 hs</span>
                 </p>
               </div>
             </div>

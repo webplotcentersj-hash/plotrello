@@ -1,0 +1,27 @@
+---
+description: Mercado Pago Checkout Pro en Plot Lab (sin MCP)
+alwaysApply: false
+globs: api/mp/**/*,api/totem/mp-*,api/_lib/mercadopago.ts,src/components/payments/**/*,src/components/totem/TotemMercadoPago*
+---
+
+# Mercado Pago (Plot Lab)
+
+## Env en Vercel (nunca `VITE_`)
+
+- `MERCADOPAGO_ACCESS_TOKEN` — Access Token de la app (prueba primero)
+- `MERCADOPAGO_WEBHOOK_URL=https://www.plotcenterlab.com.ar`
+- `MERCADOPAGO_SANDBOX=true` en sandbox
+
+Credenciales: [panel developers](https://www.mercadopago.com.ar/developers/panel/app)
+
+## Código
+
+- Preferencias: `api/_lib/mercadopago.ts`
+- Checkout / webhook: `api/mp/checkout.ts`, `api/mp/webhook.ts`
+- UI: `MercadoPagoCheckoutPanel`, `TotemMercadoPagoPayPanel`
+
+## Helpers
+
+- `node scripts/mp-onboard.mjs` / `--check` / `--preference` / `--ping-webhook`
+- `scripts/mp-set-vercel-env.ps1`
+- `node scripts/mp-e2e-smoke.mjs`

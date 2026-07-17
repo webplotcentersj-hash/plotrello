@@ -92,10 +92,15 @@ const RecursosHumanosLiquidacionPage = () => {
         }
         setNombres(mapNombres)
 
-        const asistencia = (asistRes.data || []) as Asistencia[]
-        const novs = novRes.data || []
+        const activos = new Set(mapNombres.keys())
+        const asistencia = ((asistRes.data || []) as Asistencia[]).filter((a) =>
+          activos.has(a.id_usuario)
+        )
+        const novs = (novRes.data || []).filter((n) => activos.has(n.id_usuario))
         setNovedades(novs)
-        const descuentos = (descRes.success ? descRes.data : []) as MenuDescuentoBeneficioComida[]
+        const descuentos = ((descRes.success ? descRes.data : []) as MenuDescuentoBeneficioComida[]).filter(
+          (d) => activos.has(d.id_usuario)
+        )
 
         const horariosPorMes: Record<string, Record<number, HorarioFijoAsistencia>> = {}
         if (horRes.success && horRes.data) {

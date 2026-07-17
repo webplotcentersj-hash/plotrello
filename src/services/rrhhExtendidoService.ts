@@ -18,6 +18,18 @@ function err(e: unknown, fb: string): string {
   return fb
 }
 
+/** IDs de personal activo (`listar_usuarios`). Las bajas no deben figurar en módulos operativos. */
+async function idsUsuariosActivos(): Promise<Set<number>> {
+  if (!supabase) return new Set()
+  const { data, error } = await supabase.rpc('listar_usuarios')
+  if (error) throw error
+  return new Set(
+    ((data as Array<{ id: number }> | null) || [])
+      .map((u) => Number(u.id))
+      .filter((id) => id > 0)
+  )
+}
+
 // ——— Onboarding ———
 
 export async function rrhhOnboardingIniciar(idUsuario: number) {
@@ -46,7 +58,10 @@ export async function rrhhOnboardingListarInstancias(): Promise<{
       .select('*')
       .order('started_at', { ascending: false })
     if (error) throw error
-    const instancias = (data || []) as RrhhOnboardingInstancia[]
+    const activos = await idsUsuariosActivos()
+    const instancias = ((data || []) as RrhhOnboardingInstancia[]).filter((i) =>
+      activos.has(Number(i.id_usuario))
+    )
     const ids = instancias.map((i) => i.id_usuario)
     const nameById = new Map<number, string>()
     if (ids.length) {
@@ -255,21 +270,32 @@ export async function rrhhLegajosOrgListar(): Promise<{
 }> {
   if (!supabase) return { success: false, error: 'Supabase no inicializado' }
   try {
-    const { data, error } = await supabase
-      .from('legajos_empleados')
-      .select('id_usuario, nombre, apellido, sector, id_puesto, id_jefe, foto_url')
+    const [{ data, error }, { data: users, error: usersErr }] = await Promise.all([
+      supabase
+        .from('legajos_empleados')
+        .select('id_usuario, nombre, apellido, sector, id_puesto, id_jefe, foto_url'),
+      supabase.rpc('listar_usuarios')
+    ])
     if (error) throw error
+    if (usersErr) throw usersErr
+    const activos = new Set(
+      ((users as Array<{ id: number }> | null) || [])
+        .map((u) => Number(u.id))
+        .filter((id) => id > 0)
+    )
     return {
       success: true,
-      data: (data || []).map((r) => ({
-        id_usuario: Number(r.id_usuario),
-        nombre: String(r.nombre || ''),
-        apellido: String(r.apellido || ''),
-        sector: String(r.sector || ''),
-        id_puesto: r.id_puesto == null ? null : Number(r.id_puesto),
-        id_jefe: r.id_jefe == null ? null : Number(r.id_jefe),
-        foto_url: r.foto_url ? String(r.foto_url) : null
-      }))
+      data: (data || [])
+        .filter((r) => activos.has(Number(r.id_usuario)))
+        .map((r) => ({
+          id_usuario: Number(r.id_usuario),
+          nombre: String(r.nombre || ''),
+          apellido: String(r.apellido || ''),
+          sector: String(r.sector || ''),
+          id_puesto: r.id_puesto == null ? null : Number(r.id_puesto),
+          id_jefe: r.id_jefe == null ? null : Number(r.id_jefe),
+          foto_url: r.foto_url ? String(r.foto_url) : null
+        }))
     }
   } catch (e) {
     return { success: false, error: err(e, 'Error al listar legajos org') }
@@ -289,7 +315,11 @@ export async function rrhhMedicinaListar(idUsuario?: number): Promise<{
     if (idUsuario) q = q.eq('id_usuario', idUsuario)
     const { data, error } = await q
     if (error) throw error
-    const rows = (data || []) as RrhhMedicinaRegistro[]
+    let rows = (data || []) as RrhhMedicinaRegistro[]
+    if (!idUsuario) {
+      const activos = await idsUsuariosActivos()
+      rows = rows.filter((r) => activos.has(Number(r.id_usuario)))
+    }
     const ids = [...new Set(rows.map((r) => r.id_usuario))]
     const nameById = new Map<number, string>()
     if (ids.length) {
@@ -406,7 +436,12 @@ export async function rrhhDocItemsListar(idLote?: number, idUsuario?: number): P
     if (idUsuario) q = q.eq('id_usuario', idUsuario)
     const { data, error } = await q
     if (error) throw error
-    const rows = (data || []) as RrhhDocItem[]
+    let rows = (data || []) as RrhhDocItem[]
+    // En listados generales (sin lote/usuario), ocultar ítems de personal de baja.
+    if (!idLote && !idUsuario) {
+      const activos = await idsUsuariosActivos()
+      rows = rows.filter((r) => activos.has(Number(r.id_usuario)))
+    }
     const ids = [...new Set(rows.map((r) => r.id_usuario))]
     const nameById = new Map<number, string>()
     if (ids.length) {

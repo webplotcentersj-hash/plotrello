@@ -2510,6 +2510,7 @@ const AsistenciaTab = ({
   const [asistenciaDetalleExtra, setAsistenciaDetalleExtra] = useState<number | null>(null)
   const [asistenciaDetalleAcum, setAsistenciaDetalleAcum] = useState<number | null>(null)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
+  const syncNovedadesRef = useRef(false)
   const [valorHora, setValorHora] = useState<number>(() => {
     try {
       const v = localStorage.getItem(LS_VALOR_HORA_EXTRA)
@@ -2562,7 +2563,7 @@ const AsistenciaTab = ({
   }, [mesesEnPeriodo])
 
   useEffect(() => {
-    if (!registradoPorId || !asistencia.length) return
+    if (!registradoPorId || !asistencia.length || syncNovedadesRef.current) return
     const pendientes = detectarNovedadesDesdeAsistencia({
       asistencia,
       novedades,
@@ -2571,15 +2572,20 @@ const AsistenciaTab = ({
     })
     if (!pendientes.length) return
     let cancelled = false
+    syncNovedadesRef.current = true
     ;(async () => {
-      const r = await sincronizarNovedadesDesdeAsistencia({
-        asistencia,
-        novedades,
-        dias,
-        horariosPorMes,
-        registradoPor: registradoPorId
-      })
-      if (!cancelled && r.creadas > 0) onNovedadesActualizadas()
+      try {
+        const r = await sincronizarNovedadesDesdeAsistencia({
+          asistencia,
+          novedades,
+          dias,
+          horariosPorMes,
+          registradoPor: registradoPorId
+        })
+        if (!cancelled && r.creadas > 0) onNovedadesActualizadas()
+      } finally {
+        syncNovedadesRef.current = false
+      }
     })()
     return () => {
       cancelled = true
@@ -2596,11 +2602,16 @@ const AsistenciaTab = ({
   }, [usuarios, asistencia])
 
   const empleados = useMemo(() => {
+    const activos = new Set(usuarios.map((u) => u.id))
     const ids = new Set<number>()
-    asistencia.forEach((a) => ids.add(a.id_usuario))
+    asistencia.forEach((a) => {
+      if (activos.has(a.id_usuario)) ids.add(a.id_usuario)
+    })
     novedades
       .filter((n) => n.grupo === 'falta' || n.grupo === 'licencia' || n.grupo === 'tardanza_retiro' || n.grupo === 'horas_extra')
-      .forEach((n) => ids.add(n.id_usuario))
+      .forEach((n) => {
+        if (activos.has(n.id_usuario)) ids.add(n.id_usuario)
+      })
 
     const map = new Map<number, { id: number; nombre: string; dias: Record<string, Asistencia>; horas: number; horasExtra: number }>()
     for (const id of ids) {
@@ -2619,26 +2630,42 @@ const AsistenciaTab = ({
       emp.horas += a.horas_trabajadas || 0
     }
     return [...map.values()].sort((x, y) => x.nombre.localeCompare(y.nombre))
-  }, [asistencia, novedades, nombres])
+  }, [asistencia, novedades, nombres, usuarios])
+
+  const asistenciaActiva = useMemo(() => {
+    const activos = new Set(usuarios.map((u) => u.id))
+    return asistencia.filter((a) => activos.has(a.id_usuario))
+  }, [asistencia, usuarios])
+
+  const novedadesActivas = useMemo(() => {
+    const activos = new Set(usuarios.map((u) => u.id))
+    return novedades.filter((n) => activos.has(n.id_usuario))
+  }, [novedades, usuarios])
 
   const statsLista = useMemo(
     () =>
       calcularStatsAsistencia({
-        asistencia,
-        novedades,
+        asistencia: asistenciaActiva,
+        novedades: novedadesActivas,
         dias,
         nombres,
         horariosPorMes,
         valorHoraBase: valorHora
       }),
-    [asistencia, novedades, dias, nombres, horariosPorMes, valorHora]
+    [asistenciaActiva, novedadesActivas, dias, nombres, horariosPorMes, valorHora]
   )
 
   const statsPorEmpleado = useMemo(() => new Map(statsLista.map((s) => [s.id, s])), [statsLista])
 
   const { acumulado: extraAcumulado, porDia: extraPorDia } = useMemo(
-    () => buildExtraAcumuladoPorEmpleado({ asistencia, novedades, dias, horariosPorMes }),
-    [asistencia, novedades, dias, horariosPorMes]
+    () =>
+      buildExtraAcumuladoPorEmpleado({
+        asistencia: asistenciaActiva,
+        novedades: novedadesActivas,
+        dias,
+        horariosPorMes
+      }),
+    [asistenciaActiva, novedadesActivas, dias, horariosPorMes]
   )
 
   const periodoLabel = useMemo(() => {
@@ -2652,7 +2679,7 @@ const AsistenciaTab = ({
 
   const novedadesPorUsuarioDia = useMemo(() => {
     const m = new Map<string, RrhhNovedad[]>()
-    for (const n of novedades) {
+    for (const n of novedadesActivas) {
       for (const f of dias) {
         if (!novedadEnDia(n, f)) continue
         const k = `${n.id_usuario}|${f}`
@@ -2662,14 +2689,14 @@ const AsistenciaTab = ({
       }
     }
     return m
-  }, [novedades, dias])
+  }, [novedadesActivas, dias])
 
   const exportar = () => {
     if (!empleados.length) return
     exportarAsistenciaPlanillaXlsx({
       empleados,
       dias,
-      novedades,
+      novedades: novedadesActivas,
       fechaDesde,
       fechaHasta,
       stats: statsLista,
@@ -3146,31 +3173,37 @@ const EstadisticasAsistenciaTab = ({
   const dias = useMemo(() => diasEntre(periodo.desde, periodo.hasta), [periodo])
 
   const idsConHorario = useMemo(() => {
+    const activos = new Set(usuarios.map((u) => u.id))
     const ids = new Set<number>()
     for (const mesMap of Object.values(horariosPorMes)) {
-      for (const id of Object.keys(mesMap)) ids.add(Number(id))
+      for (const id of Object.keys(mesMap)) {
+        const n = Number(id)
+        if (activos.has(n)) ids.add(n)
+      }
     }
-    for (const id of Object.keys(horarioFallback)) ids.add(Number(id))
+    for (const id of Object.keys(horarioFallback)) {
+      const n = Number(id)
+      if (activos.has(n)) ids.add(n)
+    }
     if (usuarioSeleccionado != null) {
       return ids.has(usuarioSeleccionado) ? [usuarioSeleccionado] : []
     }
     return [...ids]
-  }, [horariosPorMes, horarioFallback, usuarioSeleccionado])
+  }, [horariosPorMes, horarioFallback, usuarioSeleccionado, usuarios])
 
-  const stats = useMemo(
-    () =>
-      calcularStatsAsistencia({
-        asistencia,
-        novedades,
-        dias,
-        nombres,
-        horariosPorMes,
-        horarioFallback,
-        idsConHorario,
-        valorHoraBase: valorHora
-      }),
-    [asistencia, novedades, dias, nombres, horariosPorMes, horarioFallback, idsConHorario, valorHora]
-  )
+  const stats = useMemo(() => {
+    const activos = new Set(usuarios.map((u) => u.id))
+    return calcularStatsAsistencia({
+      asistencia: asistencia.filter((a) => activos.has(a.id_usuario)),
+      novedades: novedades.filter((n) => activos.has(n.id_usuario)),
+      dias,
+      nombres,
+      horariosPorMes,
+      horarioFallback,
+      idsConHorario,
+      valorHoraBase: valorHora
+    })
+  }, [asistencia, novedades, dias, nombres, horariosPorMes, horarioFallback, idsConHorario, valorHora, usuarios])
 
   const rankingExtra = useMemo(
     () => [...stats].filter((s) => s.totalHorasExtra > 0).sort((a, b) => b.totalHorasExtra - a.totalHorasExtra),

@@ -37,20 +37,20 @@ function inRange(nowMin: number, start: DayParts, end: DayParts): boolean {
   return nowMin >= startMin && nowMin < endMin
 }
 
-/** Lun–Vie 7:00–21:30, Sáb 8:00–20:00, Dom cerrado. */
+/** Lun–Vie 6:00–22:00, Sáb 9:00–18:00, Dom cerrado. */
 export function isPlotCenterBusinessHours(now = new Date()): boolean {
   const { weekday, hour, minute } = getZonedParts(now)
   const nowMin = minutesSinceMidnight(hour, minute)
 
   if (weekday >= 1 && weekday <= 5) {
-    return inRange(nowMin, { hour: 7, minute: 0 }, { hour: 21, minute: 30 })
+    return inRange(nowMin, { hour: 6, minute: 0 }, { hour: 22, minute: 0 })
   }
   if (weekday === 6) {
-    return inRange(nowMin, { hour: 8, minute: 0 }, { hour: 20, minute: 0 })
+    return inRange(nowMin, { hour: 9, minute: 0 }, { hour: 18, minute: 0 })
   }
   return false
 }
 
 export function plotCenterBusinessHoursLabel(): string {
-  return 'Lun–Vie 7:00–21:30 · Sáb 8:00–20:00'
+  return 'Lun–Vie 6:00–22:00 · Sáb 9:00–18:00'
 }

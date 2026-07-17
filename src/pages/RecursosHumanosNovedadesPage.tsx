@@ -148,7 +148,10 @@ const RecursosHumanosNovedadesPage = () => {
         setUsuarios(filtrarUsuariosRrhhOperarios(u.data))
         if (n.success && n.data) {
           const excluidos = idsUsuariosGenericosRrhh(u.data)
-          setNovedades(n.data.filter((nov) => !excluidos.has(nov.id_usuario)))
+          const activos = new Set(filtrarUsuariosRrhhOperarios(u.data).map((x) => x.id))
+          setNovedades(
+            n.data.filter((nov) => !excluidos.has(nov.id_usuario) && activos.has(nov.id_usuario))
+          )
         }
       } else if (n.success && n.data) {
         setNovedades(n.data)

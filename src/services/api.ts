@@ -166,7 +166,9 @@ export { formatSupabaseStatementTimeoutError }
 const ORDENES_TABLERO_SELECT =
   'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,fecha_ingreso,entregado,eliminada,visible_en_tablero,motivo_eliminacion,fecha_eliminacion,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final,numero_ficha_original,planilla_preliminar,ficha_tecnica_pdf_url,ficha_tecnica_cargada,ficha_tecnica_incompleta,presupuesto_enviado_cliente,presupuesto_armado,presupuesto_en_espera'
 
-const ORDENES_TABLERO_LIMIT = 220
+const ORDENES_TABLERO_LIMIT = 320
+/** OP en reclamo activas se fusionan al tablero aunque queden fuera del tope por id. */
+const ORDENES_TABLERO_RECLAMO_LIMIT = 150
 /** Páginas para biblioteca (catálogo completo bajo demanda; no usa orden_lineas_m2). */
 const ORDENES_BIBLIOTECA_PAGE_SIZE = 400
 const ORDENES_BIBLIOTECA_SEARCH_LIMIT = 50
@@ -886,6 +888,47 @@ class ApiService {
           ubicacion_link: orden.ubicacion_link || null,
           drive_link: orden.drive_link || null
         }))
+
+        // Reclamos activos (y recién restarteados) pueden quedar fuera del tope por id.
+        // Se fusionan para que vuelvan a verse en el kanban.
+        if (options?.soloActivasEnTablero) {
+          try {
+            let rq = sb
+              .from('ordenes_trabajo')
+              .select(ORDENES_TABLERO_SELECT)
+              .eq('en_reclamo', true)
+              .or('entregado.is.null,entregado.eq.false')
+              .order('id', { ascending: false })
+              .limit(ORDENES_TABLERO_RECLAMO_LIMIT)
+            const reclamosRes = await withQueryTimeout(Promise.resolve(rq), 'getOrdenes-reclamos')
+            if (!reclamosRes.error && Array.isArray(reclamosRes.data) && reclamosRes.data.length) {
+              const byId = new Map<number, (typeof normalizedData)[0]>()
+              for (const row of normalizedData) {
+                const id = Number((row as { id?: number }).id)
+                if (id > 0) byId.set(id, row)
+              }
+              for (const raw of reclamosRes.data as Record<string, unknown>[]) {
+                const id = Number(raw.id)
+                if (!(id > 0) || byId.has(id)) continue
+                byId.set(id, {
+                  ...raw,
+                  foto_url: raw.foto_url || null,
+                  telefono_cliente: raw.telefono_cliente || null,
+                  email_cliente: raw.email_cliente || null,
+                  direccion_cliente: raw.direccion_cliente || null,
+                  whatsapp_link: raw.whatsapp_link || null,
+                  ubicacion_link: raw.ubicacion_link || null,
+                  drive_link: raw.drive_link || null
+                } as (typeof normalizedData)[0])
+              }
+              normalizedData = [...byId.values()].sort(
+                (a, b) => Number((b as { id?: number }).id || 0) - Number((a as { id?: number }).id || 0)
+              )
+            }
+          } catch (e) {
+            console.warn('getOrdenes: no se pudieron fusionar reclamos al tablero', e)
+          }
+        }
 
         const { isOrdenVisibleOnTablero } = await import('../utils/dataMappers')
         normalizedData = normalizedData.filter((orden) => isOrdenVisibleOnTablero(orden))
@@ -4082,30 +4125,11 @@ class ApiService {
     return { success: true, data: filtrarUsuariosRrhhOperarios(resp.data) }
   }
 
-  /** Incluye usuarios inactivos (baja) para vincular planillas históricas del reloj. */
+  /**
+   * Empleados para vincular planillas del reloj.
+   * Solo personal activo: las bajas no deben figurar en RRHH operativo.
+   */
   async getUsuariosParaRelojMatch(): Promise<ApiResponse<UsuarioRecord[]>> {
-    if (supabase) {
-      const { enrichUsuariosRecordsConLegajo } = await import('../utils/usuarioDisplayName')
-      const { data, error } = await supabase.rpc('listar_usuarios_reloj')
-      if (!error && Array.isArray(data)) {
-        const filtered = filtrarUsuariosRrhhOperarios(data as UsuarioRecord[])
-        const enriched = await enrichUsuariosRecordsConLegajo(filtered)
-        return { success: true, data: enriched }
-      }
-
-      const { data: rows, error: selErr } = await supabase
-        .from('usuarios')
-        .select('id, nombre, rol')
-        .order('nombre')
-      if (!selErr && Array.isArray(rows) && rows.length > 0) {
-        const filtered = filtrarUsuariosRrhhOperarios(rows as UsuarioRecord[])
-        const enriched = await enrichUsuariosRecordsConLegajo(filtered)
-        return { success: true, data: enriched }
-      }
-
-      console.warn('listar_usuarios_reloj no disponible, usando solo activos:', error?.message)
-      return this.getUsuariosRrhhOperarios()
-    }
     return this.getUsuariosRrhhOperarios()
   }
 
@@ -16394,8 +16418,13 @@ class ApiService {
   /**
    * Lista básica de legajos (nombre, apellido, sector) por id de usuario,
    * para mostrar nombre completo y área en planillas.
+   * Por defecto solo personal activo (`usuarios.activo`); las bajas no figuran
+   * en módulos operativos. Usar `{ soloActivos: false }` solo para historial
+   * (desvinculaciones / contexto de baja).
    */
-  async obtenerLegajosBasico(): Promise<
+  async obtenerLegajosBasico(opts?: {
+    soloActivos?: boolean
+  }): Promise<
     ApiResponse<
       Record<
         number,
@@ -16407,6 +16436,8 @@ class ApiService {
       return { success: false, error: 'No hay conexión a Supabase' }
     }
 
+    const soloActivos = opts?.soloActivos !== false
+
     try {
       const { data, error } = await supabase
         .from('legajos_empleados')
@@ -16416,18 +16447,33 @@ class ApiService {
         return { success: false, error: error.message }
       }
 
-      const mapa: Record<
-        number,
-        { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null; email: string | null }
-      > = {}
-      for (const row of (data as Array<{
+      let rows = (data as Array<{
         id_usuario: number
         nombre: string | null
         apellido: string | null
         sector: string | null
         fecha_ingreso: string | null
         email: string | null
-      }>) || []) {
+      }>) || []
+
+      if (soloActivos) {
+        const { data: users, error: usersErr } = await supabase.rpc('listar_usuarios')
+        if (usersErr) {
+          return { success: false, error: usersErr.message }
+        }
+        const activos = new Set(
+          ((users as Array<{ id: number }> | null) || [])
+            .map((u) => Number(u.id))
+            .filter((id) => id > 0)
+        )
+        rows = rows.filter((row) => activos.has(Number(row.id_usuario)))
+      }
+
+      const mapa: Record<
+        number,
+        { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null; email: string | null }
+      > = {}
+      for (const row of rows) {
         mapa[row.id_usuario] = {
           nombre: row.nombre || '',
           apellido: row.apellido || '',

@@ -109,9 +109,7 @@ export async function loadLegajoDisplayRegistry(): Promise<void> {
         const legajo = legajoPorId.get(u.id)
         if (legajo) registerUsuarioLegajoDisplay(u.id, u.nombre, legajo)
       }
-      for (const [uid, legajo] of legajoPorId) {
-        if (!maps.byId.has(uid)) maps.byId.set(uid, legajo)
-      }
+      // Solo personal activo: no registrar legajos de bajas.
     } catch {
       /* registry opcional; fallback en resolveDisplayNombre */
     } finally {

@@ -57,7 +57,7 @@ const RecursosHumanosDesvinculacionesPage = () => {
     try {
       const [bajasRes, legajosRes, usuariosRes] = await Promise.all([
         apiService.getUsuariosBajasLog(),
-        apiService.obtenerLegajosBasico(),
+        apiService.obtenerLegajosBasico({ soloActivos: false }),
         apiService.getUsuarios()
       ])
 

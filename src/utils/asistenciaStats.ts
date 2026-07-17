@@ -251,14 +251,22 @@ export function buildExtraAcumuladoPorEmpleado(params: {
 
 /**
  * Tardanza vs base de Horarios reloj (misma regla que auditoría tablet / registrar_marcacion).
- * Prioriza comparación hora real vs entrada esperada (+15 min); tipo_registro / novedad son fallback.
+ * Solo compara HORA DE ENTRADA vs entrada esperada (+15 min). La salida no genera tardanza.
  */
 export function detectarTardeMarcacion(
   a: Asistencia,
   novs: RrhhNovedad[],
   horaEsperada: string | null
 ): { tarde: boolean; minutos: number } {
-  if (a.hora_entrada && horaEsperada) {
+  if (!a.hora_entrada) {
+    // Sin entrada no hay tardanza (aunque haya salida o tipo_registro).
+    if (novs.some((n) => n.codigo === 'tardanza')) {
+      const novT = novs.find((n) => n.codigo === 'tardanza')
+      return { tarde: true, minutos: novT?.duracion_minutos ?? 0 }
+    }
+    return { tarde: false, minutos: 0 }
+  }
+  if (horaEsperada) {
     const real = minutosDesdeIso(a.hora_entrada)
     const esperada = minutosDesdeHora(horaEsperada)
     if (real != null && esperada != null) {
