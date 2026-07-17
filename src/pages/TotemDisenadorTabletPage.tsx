@@ -265,6 +265,10 @@ export default function TotemDisenadorTabletPage() {
         setAvisoError('Ingresá tu nombre arriba para que el cliente sepa quién va.')
         return
       }
+      if (!solicitud.atencionId) {
+        setAvisoError('No se pudo identificar la solicitud. Pedile al cliente que vuelva a llamar.')
+        return
+      }
       setAvisoError(null)
       setAvisandoKey(solicitud.key)
       try {

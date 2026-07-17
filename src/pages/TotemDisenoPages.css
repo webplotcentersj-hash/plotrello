@@ -99,6 +99,27 @@
   line-height: 1.45;
 }
 
+.totem-diseno-home-alert {
+  position: relative;
+  z-index: 2;
+  max-width: 960px;
+  margin: 0 auto 18px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fdba74;
+  background: rgba(249, 115, 22, 0.16);
+  border: 1px solid rgba(249, 115, 22, 0.45);
+}
+
+.totem-diseno-home-alert--ok {
+  color: #e0f2fe;
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.5);
+}
+
 .totem-diseno-home-grid {
   position: relative;
   z-index: 1;

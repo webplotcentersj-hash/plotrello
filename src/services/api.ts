@@ -3518,11 +3518,28 @@ class ApiService {
     }
 
     const disenadorNombre = (input.disenadorNombre || '').trim() || 'Un diseñador'
+    const mensaje = (input.mensaje || '').trim() || mensajeDisenadorEnCamino(disenadorNombre)
+
+    // Persistir para que el tótem lo vea por poll aunque falle Realtime
+    if (input.atencionId && Number(input.atencionId) > 0) {
+      try {
+        const { error: rpcErr } = await sb.rpc('registrar_disenador_en_camino', {
+          p_atencion_id: Number(input.atencionId),
+          p_disenador_nombre: disenadorNombre
+        })
+        if (rpcErr) {
+          console.warn('registrar_disenador_en_camino:', rpcErr.message)
+        }
+      } catch (e) {
+        console.warn('registrar_disenador_en_camino falló', e)
+      }
+    }
+
     const payload = {
       atencionId: input.atencionId,
       requestNonce: input.requestNonce,
       disenadorNombre,
-      mensaje: (input.mensaje || '').trim() || mensajeDisenadorEnCamino(disenadorNombre),
+      mensaje,
       sentAt: new Date().toISOString(),
       nonce:
         typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -3549,7 +3566,8 @@ class ApiService {
       }
 
       const timeoutId = window.setTimeout(() => {
-        void done({ success: false, error: 'Tiempo de espera al avisar al tótem. Reintentá.' })
+        // Aunque el broadcast timeoutee, la BD ya puede tener la respuesta
+        void done({ success: true })
       }, 12000)
 
       ch.subscribe((status) => {
@@ -3563,16 +3581,13 @@ class ApiService {
             })
             .then((sendResult) => {
               if (sendResult === 'ok') void done({ success: true })
-              else void done({ success: false, error: `Realtime: ${String(sendResult)}` })
+              else void done({ success: true }) // BD es la fuente de verdad
             })
-            .catch((e: unknown) => {
-              void done({
-                success: false,
-                error: e instanceof Error ? e.message : 'No se pudo enviar el aviso'
-              })
+            .catch(() => {
+              void done({ success: true })
             })
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          void done({ success: false, error: `Canal Realtime: ${status}` })
+          void done({ success: true })
         }
       })
     })

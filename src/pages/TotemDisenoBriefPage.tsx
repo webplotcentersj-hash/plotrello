@@ -12,6 +12,7 @@ import { generarMockupImagenIa } from '../services/clienteBriefAiService'
 import ClienteBriefMockupStudio from '../components/cliente/ClienteBriefMockupStudio'
 import {
   listenDisenadorEnCamino,
+  readPendingDisenadorAtencion,
   solicitarDisenadorTotem
 } from '../utils/totemSolicitarDisenador'
 import './TotemDisenoPages.css'
@@ -95,6 +96,21 @@ export default function TotemDisenoBriefPage() {
       unsubRef.current?.()
       unsubRef.current = null
     }
+  }, [])
+
+  /** Si volvemos al brief con una llamada pendiente, seguir escuchando la respuesta. */
+  useEffect(() => {
+    const pending = readPendingDisenadorAtencion()
+    if (!pending?.atencionId || unsubRef.current) return
+    setDisenadorMsg((prev) => prev || '🎨 Ya avisamos a un diseñador. Esperando respuesta…')
+    unsubRef.current = listenDisenadorEnCamino(
+      { atencionId: pending.atencionId, requestNonce: pending.requestNonce },
+      (payload) => {
+        setDisenadorMsg(`✅ ${payload.mensaje}`)
+        unsubRef.current?.()
+        unsubRef.current = null
+      }
+    )
   }, [])
 
   useEffect(() => {

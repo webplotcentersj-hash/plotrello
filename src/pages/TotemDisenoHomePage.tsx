@@ -1,4 +1,9 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  listenDisenadorEnCamino,
+  readPendingDisenadorAtencion
+} from '../utils/totemSolicitarDisenador'
 import './TotemDisenoPages.css'
 
 const LOGO_URL = '/plot-lab-logo.png'
@@ -8,6 +13,22 @@ const LOGO_URL = '/plot-lab-logo.png'
  */
 export default function TotemDisenoHomePage() {
   const navigate = useNavigate()
+  const [respuestaDisenador, setRespuestaDisenador] = useState<string | null>(null)
+  const [esperando, setEsperando] = useState(false)
+
+  useEffect(() => {
+    const pending = readPendingDisenadorAtencion()
+    if (!pending?.atencionId) return
+    setEsperando(true)
+    const unsub = listenDisenadorEnCamino(
+      { atencionId: pending.atencionId, requestNonce: pending.requestNonce },
+      (payload) => {
+        setRespuestaDisenador(`✅ ${payload.mensaje}`)
+        setEsperando(false)
+      }
+    )
+    return () => unsub()
+  }, [])
 
   return (
     <div className="totem-diseno-page">
@@ -27,6 +48,16 @@ export default function TotemDisenoHomePage() {
           </p>
         </div>
       </header>
+
+      {(esperando || respuestaDisenador) && (
+        <div
+          className={`totem-diseno-home-alert${respuestaDisenador ? ' totem-diseno-home-alert--ok' : ''}`}
+          role="status"
+          aria-live="polite"
+        >
+          {respuestaDisenador || '🎨 Ya avisamos a un diseñador. En breve te responden acá…'}
+        </div>
+      )}
 
       <main className="totem-diseno-home-grid">
         <button
