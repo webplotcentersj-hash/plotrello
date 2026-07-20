@@ -492,7 +492,17 @@ export default function TotemDisenoBriefPage() {
           <span className="totem-diseno-success-badge">Diseño avisado</span>
           <h1>¡Listo, {nombre.split(' ')[0]}!</h1>
           <p>{mensaje}</p>
-          {disenadorMsg && <p className="totem-diseno-call-feedback">{disenadorMsg}</p>}
+          {disenadorMsg && (
+            <p
+              className={`totem-diseno-call-feedback${
+                disenadorMsg.startsWith('✅') ? '' : ' totem-diseno-call-feedback--pending'
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              {disenadorMsg.replace(/^✅\s*/, '')}
+            </p>
+          )}
           <div className="totem-diseno-success-actions">
             <button type="button" className="totem-diseno-btn-primary" onClick={() => void llamarDisenador()}>
               {llamando ? 'Avisando…' : '🎨 Llamar a un diseñador'}
@@ -845,7 +855,17 @@ export default function TotemDisenoBriefPage() {
           {(error || disenadorMsg) && (
             <div className="totem-diseno-feedback">
               {error && <p className="totem-diseno-error">{error}</p>}
-              {disenadorMsg && <p className="totem-diseno-call-feedback">{disenadorMsg}</p>}
+              {disenadorMsg && (
+            <p
+              className={`totem-diseno-call-feedback${
+                disenadorMsg.startsWith('✅') ? '' : ' totem-diseno-call-feedback--pending'
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              {disenadorMsg.replace(/^✅\s*/, '')}
+            </p>
+          )}
             </div>
           )}
 

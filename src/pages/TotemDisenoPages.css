@@ -104,20 +104,21 @@
   z-index: 2;
   max-width: 960px;
   margin: 0 auto 18px;
-  padding: 16px 18px;
-  border-radius: 16px;
+  padding: 18px 22px;
+  border-radius: 18px;
   text-align: center;
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 800;
-  color: #fdba74;
-  background: rgba(249, 115, 22, 0.16);
-  border: 1px solid rgba(249, 115, 22, 0.45);
+  color: #ffedd5;
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.32), rgba(15, 23, 42, 0.92));
+  border: 2px solid rgba(251, 146, 60, 0.7);
+  box-shadow: 0 12px 32px rgba(234, 88, 12, 0.25);
 }
 
 .totem-diseno-home-alert--ok {
-  color: #e0f2fe;
-  background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 0.5);
+  color: #fff7ed;
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.35), rgba(2, 8, 20, 0.95));
+  border-color: rgba(251, 146, 60, 0.8);
 }
 
 .totem-diseno-home-grid {
@@ -635,14 +636,75 @@
 }
 
 .totem-diseno-call-feedback {
-  margin: 8px 0 0;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(56, 189, 248, 0.14);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #e0f2fe;
+  margin: 14px 0 0;
+  padding: 18px 20px 18px 18px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.28) 0%, rgba(15, 23, 42, 0.95) 55%, rgba(2, 8, 20, 0.98) 100%);
+  border: 2px solid rgba(251, 146, 60, 0.75);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+    0 12px 36px rgba(234, 88, 12, 0.28),
+    0 0 40px rgba(251, 146, 60, 0.18);
+  color: #fff7ed;
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: 1.2rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  animation: totem-diseno-call-in 0.45s ease-out both;
+}
+
+.totem-diseno-call-feedback::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: linear-gradient(180deg, #fdba74, #ea580c);
+}
+
+.totem-diseno-call-feedback::after {
+  content: 'Diseñador en camino';
+  display: block;
+  margin: 0 0 6px;
+  padding-left: 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fdba74;
+}
+
+.totem-diseno-call-feedback--pending {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22) 0%, rgba(15, 23, 42, 0.95) 55%, rgba(2, 8, 20, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 12px 36px rgba(14, 165, 233, 0.22);
+  color: #e0f2fe;
+}
+
+.totem-diseno-call-feedback--pending::before {
+  background: linear-gradient(180deg, #7dd3fc, #0284c7);
+}
+
+.totem-diseno-call-feedback--pending::after {
+  content: 'Esperando respuesta';
+  color: #7dd3fc;
+}
+
+@keyframes totem-diseno-call-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .totem-diseno-success {
