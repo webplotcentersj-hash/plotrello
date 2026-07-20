@@ -1535,6 +1535,39 @@ export interface Notification {
   timestamp: string
 }
 
+/** Sesión de uso de Plot Lab (admin / actividad). */
+export interface PlatformSessionRow {
+  id: string
+  usuario_id: number
+  nombre_usuario: string
+  rol_usuario: string
+  client_session_id: string
+  started_at: string
+  last_seen_at: string
+  ended_at: string | null
+  entry_path: string | null
+  user_agent: string | null
+  ip_address: string | null
+  device_info: Record<string, unknown> | null
+  kind: string
+  page_view_count: number
+  duracion_segundos: number
+}
+
+export interface PlatformPageViewRow {
+  id: number
+  session_id: string
+  usuario_id: number
+  path: string
+  title: string | null
+  referrer_path: string | null
+  viewed_at: string
+  visibility: string | null
+  viewport_w: number | null
+  viewport_h: number | null
+  meta: Record<string, unknown> | null
+}
+
 export interface TareaRecord {
   id: number
   id_orden: number

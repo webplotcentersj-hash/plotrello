@@ -475,6 +475,17 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     accent: '#f43f5e'
   },
   {
+    id: 'actividad-usuarios',
+    title: 'Actividad de usuarios',
+    description: 'Quién abrió Plot Lab, dispositivo, horario y pantallas visitadas',
+    icon: '📡',
+    path: '/admin/actividad-usuarios',
+    category: 'sistemas',
+    roles: 'admin',
+    accent: '#fb7185',
+    featured: true
+  },
+  {
     id: 'reportes-admin',
     title: 'Estadísticas',
     description: 'Informes y métricas del tablero',

@@ -37,6 +37,8 @@ import type {
   HistorialEtapaMetalurgica,
   MaterialRecord,
   Notification,
+  PlatformSessionRow,
+  PlatformPageViewRow,
   OrdenTrabajo,
   OrdenSeguimientoPublico,
   OrdenLineaM2,
@@ -24265,6 +24267,136 @@ class ApiService {
         success: false,
         error: e instanceof Error ? e.message : 'Error al analizar formulario'
       }
+    }
+  }
+
+  // ——— Actividad / sesiones Plot Lab (admin) ———
+
+  async abrirSesionPlataforma(params: {
+    usuarioId: number
+    clientSessionId: string
+    entryPath?: string | null
+    userAgent?: string | null
+    ipAddress?: string | null
+    deviceInfo?: Record<string, unknown> | null
+    kind?: string
+  }): Promise<ApiResponse<string>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('abrir_sesion_plataforma', {
+        p_usuario_id: params.usuarioId,
+        p_client_session_id: params.clientSessionId,
+        p_entry_path: params.entryPath ?? null,
+        p_user_agent: params.userAgent ?? null,
+        p_ip_address: params.ipAddress ?? null,
+        p_device_info: params.deviceInfo ?? {},
+        p_kind: params.kind ?? 'staff'
+      })
+      if (error) throw error
+      return { success: true, data: String(data) }
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Error al abrir sesión' }
+    }
+  }
+
+  async registrarVistaPlataforma(params: {
+    usuarioId: number
+    clientSessionId: string
+    path: string
+    title?: string | null
+    referrerPath?: string | null
+    visibility?: string | null
+    viewportW?: number | null
+    viewportH?: number | null
+    meta?: Record<string, unknown> | null
+  }): Promise<ApiResponse<number>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('registrar_vista_plataforma', {
+        p_usuario_id: params.usuarioId,
+        p_client_session_id: params.clientSessionId,
+        p_path: params.path,
+        p_title: params.title ?? null,
+        p_referrer_path: params.referrerPath ?? null,
+        p_visibility: params.visibility ?? null,
+        p_viewport_w: params.viewportW ?? null,
+        p_viewport_h: params.viewportH ?? null,
+        p_meta: params.meta ?? {}
+      })
+      if (error) throw error
+      return { success: true, data: Number(data) }
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Error al registrar vista' }
+    }
+  }
+
+  async pingSesionPlataforma(usuarioId: number, clientSessionId: string): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('ping_sesion_plataforma', {
+        p_usuario_id: usuarioId,
+        p_client_session_id: clientSessionId
+      })
+      if (error) throw error
+      return { success: true, data: Boolean(data) }
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Error al ping' }
+    }
+  }
+
+  async cerrarSesionPlataforma(usuarioId: number, clientSessionId: string): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('cerrar_sesion_plataforma', {
+        p_usuario_id: usuarioId,
+        p_client_session_id: clientSessionId
+      })
+      if (error) throw error
+      return { success: true, data: Boolean(data) }
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Error al cerrar sesión' }
+    }
+  }
+
+  async listarSesionesPlataforma(params: {
+    solicitanteId: number
+    fechaDesde?: string | null
+    fechaHasta?: string | null
+    usuarioId?: number | null
+    limit?: number
+  }): Promise<ApiResponse<PlatformSessionRow[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('listar_sesiones_plataforma', {
+        p_solicitante_id: params.solicitanteId,
+        p_fecha_desde: params.fechaDesde ?? null,
+        p_fecha_hasta: params.fechaHasta ?? null,
+        p_usuario_id: params.usuarioId ?? null,
+        p_limit: params.limit ?? 200
+      })
+      if (error) throw error
+      return { success: true, data: (data || []) as PlatformSessionRow[] }
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Error al listar sesiones' }
+    }
+  }
+
+  async listarVistasSesionPlataforma(
+    solicitanteId: number,
+    sessionId: string,
+    limit = 300
+  ): Promise<ApiResponse<PlatformPageViewRow[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('listar_vistas_sesion_plataforma', {
+        p_solicitante_id: solicitanteId,
+        p_session_id: sessionId,
+        p_limit: limit
+      })
+      if (error) throw error
+      return { success: true, data: (data || []) as PlatformPageViewRow[] }
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Error al listar vistas' }
     }
   }
 }

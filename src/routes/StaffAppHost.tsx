@@ -90,6 +90,7 @@ const CapacitacionesPage = lazy(() => import('../pages/CapacitacionesPage'))
 const MenuDiarioPage = lazy(() => import('../pages/MenuDiarioPage'))
 const MenuOnlyPage = lazy(() => import('../pages/MenuOnlyPage'))
 const AdminHomePage = lazy(() => import('../pages/AdminHomePage'))
+const AdminActividadUsuariosPage = lazy(() => import('../pages/AdminActividadUsuariosPage'))
 const CRMVentasPage = lazy(() => import('../pages/CRMVentasPage'))
 const ReportesVentasPage = lazy(() => import('../pages/ReportesVentasPage'))
 const FlotaPage = lazy(() => import('../pages/FlotaPage'))
@@ -137,6 +138,7 @@ const AdminBackLink = lazy(() => import('../components/AdminBackLink'))
 const TallerGraficoPedidoEntregaOverlay = lazy(() => import('../components/TallerGraficoPedidoEntregaOverlay'))
 const TallerImprentaPedidoEntregaOverlay = lazy(() => import('../components/TallerImprentaPedidoEntregaOverlay'))
 import { useAuth } from '../hooks/useAuth'
+import { usePlatformActivityTracker } from '../hooks/usePlatformActivityTracker'
 import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import { clearPlotlabAuthStorage } from '../utils/plotlabSession'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
@@ -197,7 +199,8 @@ export default function StaffAppHost() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [sectores, setSectores] = useState<SectorRecord[]>(DEFAULT_SECTORES)
   const [materiales, setMateriales] = useState<MaterialRecord[]>([])
-  const { setUsuario } = useAuth()
+  const { setUsuario, usuario } = useAuth()
+  usePlatformActivityTracker(usuario?.id)
   const [dataLoading, setDataLoading] = useState(false)
   const [dataError, setDataError] = useState<string | null>(null)
   const isBoardDraggingRef = useRef(false)
@@ -865,6 +868,7 @@ function AppRoutes({
           />
         }
       />
+      <Route path="/admin/actividad-usuarios" element={<AdminActividadUsuariosPage />} />
       <Route
         path="/kanban-etapas/:slug"
         element={
