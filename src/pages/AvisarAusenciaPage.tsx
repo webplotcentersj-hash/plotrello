@@ -45,6 +45,9 @@ export default function AvisarAusenciaPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [okMsg, setOkMsg] = useState<string | null>(null)
+  /** 1 = avisar · 2 = certificado · 3 = listo */
+  const [formPaso, setFormPaso] = useState<1 | 2 | 3>(1)
+  const [avisoCreadoId, setAvisoCreadoId] = useState<number | null>(null)
   const [historial, setHistorial] = useState<SolicitudPermiso[]>([])
   const [histLoading, setHistLoading] = useState(false)
   const [comunicados, setComunicados] = useState<Notification[]>([])
@@ -140,7 +143,16 @@ export default function AvisarAusenciaPage() {
 
     const solRaw = searchParams.get('solicitud')
     const solId = solRaw ? Number(solRaw) : NaN
-    setHighlightSolicitudId(Number.isFinite(solId) && solId > 0 ? solId : null)
+    const hasSol = Number.isFinite(solId) && solId > 0
+    setHighlightSolicitudId(hasSol ? solId : null)
+    if (hasSol) setAvisoCreadoId(solId)
+
+    const pasoRaw = searchParams.get('paso')
+    if (pasoRaw === '2' || pasoRaw === '3') {
+      setFormPaso(Number(pasoRaw) as 2 | 3)
+    } else if (hasSol) {
+      setFormPaso(2)
+    }
 
     const comRaw = searchParams.get('comunicado')
     const comId = comRaw ? Number(comRaw) : NaN
@@ -155,6 +167,15 @@ export default function AvisarAusenciaPage() {
     if (openMsg) setShowMensajeria(true)
     setDmPeerId(Number.isFinite(dmId) && dmId > 0 ? dmId : null)
   }, [searchParams])
+
+  useEffect(() => {
+    if (!avisoCreadoId || histLoading || historial.length === 0) return
+    const s = historial.find((x) => x.id === avisoCreadoId)
+    if (!s) return
+    if (s.archivo_adjunto_url && formPaso === 2) {
+      setFormPaso(3)
+    }
+  }, [avisoCreadoId, historial, histLoading, formPaso])
 
   useEffect(() => {
     if (!showMensajeria) return
@@ -195,7 +216,7 @@ export default function AvisarAusenciaPage() {
     setComunicados((prev) => prev.map((c) => (c.id === n.id ? { ...c, is_read: true } : c)))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitAviso = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!usuario?.id) return
     if (!ubicacion.trim()) {
@@ -212,23 +233,12 @@ export default function AvisarAusenciaPage() {
     setError(null)
     setOkMsg(null)
     try {
-      let adjuntoUrl: string | null = null
-      if (archivo) {
-        const up = await apiService.subirAdjuntoSolicitudPermiso(archivo, usuario.id)
-        if (!up.success || !up.data?.url) {
-          setError(up.error || 'No se pudo subir el certificado.')
-          return
-        }
-        adjuntoUrl = up.data.url
-      }
-
       const titulo = `Ausencia: ${motivoFinal}`
       const descripcion = [
         `Motivo: ${motivoFinal}`,
         `Ubicación: ${ubicacion.trim()}`,
         detalle.trim() ? `Detalle: ${detalle.trim()}` : '',
-        adjuntoUrl ? `Certificado/adjunto: ${adjuntoUrl}` : null,
-        'Aviso desde /avisar-ausencia (celular). Solo plataforma — no WhatsApp.'
+        'Paso 1: aviso desde /avisar-ausencia. Certificado en paso siguiente (24 hs).'
       ]
         .filter(Boolean)
         .join('\n')
@@ -244,45 +254,119 @@ export default function AvisarAusenciaPage() {
         fechaFin || fechaInicio || hoy,
         dias,
         ubicacion.trim(),
-        adjuntoUrl
+        null
       )
 
-      if (!res.success) {
+      if (!res.success || !res.data?.id) {
         setError(res.error || 'No se pudo registrar el aviso.')
         return
       }
 
-      // Seguridad: si el insert no guardó la URL, forzar adjunto
-      if (adjuntoUrl && res.data?.id && !res.data.archivo_adjunto_url) {
-        await apiService.adjuntarArchivoSolicitudPermiso(res.data.id, usuario.id, adjuntoUrl)
-      }
-
-      setOkMsg(
-        adjuntoUrl
-          ? '✅ Ausencia avisada con certificado. RRHH ya puede ver el adjunto.'
-          : '✅ Ausencia avisada. Si tenés certificado, subilo en “Tus últimos avisos” dentro de las 24 hs.'
-      )
-      setDetalle('')
+      setAvisoCreadoId(res.data.id)
+      setHighlightSolicitudId(res.data.id)
+      setFormPaso(2)
+      setOkMsg('✅ Paso 1 listo: RRHH ya recibió tu aviso. Ahora podés subir el certificado.')
       setArchivo(null)
-      setMotivoOtro('')
       void loadHistorial()
-      if (res.data?.id) {
-        setHighlightSolicitudId(res.data.id)
-        setSearchParams(
-          (prev) => {
-            const next = new URLSearchParams(prev)
-            next.set('solicitud', String(res.data!.id))
-            next.delete('comunicado')
-            return next
-          },
-          { replace: true }
-        )
-      }
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('solicitud', String(res.data!.id))
+          next.set('paso', '2')
+          next.delete('comunicado')
+          return next
+        },
+        { replace: true }
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al avisar la ausencia')
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSubmitCertificado = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!usuario?.id || !avisoCreadoId) return
+    if (!archivo) {
+      setError('Elegí una foto o PDF del certificado.')
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+    try {
+      const up = await apiService.subirAdjuntoSolicitudPermiso(archivo, usuario.id)
+      if (!up.success || !up.data?.url) {
+        setError(up.error || 'No se pudo subir el certificado.')
+        return
+      }
+      const adj = await apiService.adjuntarArchivoSolicitudPermiso(
+        avisoCreadoId,
+        usuario.id,
+        up.data.url
+      )
+      if (!adj.success) {
+        setError(adj.error || 'No se pudo enviar el certificado a RRHH')
+        return
+      }
+      setArchivo(null)
+      setFormPaso(3)
+      setOkMsg('✅ Certificado enviado. RRHH lo revisa y te avisa el resultado.')
+      void loadHistorial()
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('paso', '3')
+          return next
+        },
+        { replace: true }
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al subir el certificado')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saltarCertificado = () => {
+    setError(null)
+    setFormPaso(3)
+    setOkMsg(
+      'Aviso registrado. Recordá subir el certificado dentro de las 24 hs (abajo en tus avisos o volviendo a esta pantalla).'
+    )
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('paso', '3')
+        return next
+      },
+      { replace: true }
+    )
+  }
+
+  const reiniciarFlujo = () => {
+    setFormPaso(1)
+    setAvisoCreadoId(null)
+    setArchivo(null)
+    setDetalle('')
+    setMotivoOtro('')
+    setUbicacion('')
+    setOkMsg(null)
+    setError(null)
+    setMotivo(MOTIVOS[0])
+    const hoy = new Date().toISOString().slice(0, 10)
+    setFechaInicio(hoy)
+    setFechaFin(hoy)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('paso')
+        next.delete('solicitud')
+        return next
+      },
+      { replace: true }
+    )
   }
 
   const handleAdjuntarAHistorial = async (solicitudId: number, file: File | null) => {
@@ -306,6 +390,8 @@ export default function AvisarAusenciaPage() {
       }
       setOkMsg('✅ Certificado enviado a RRHH.')
       setHighlightSolicitudId(solicitudId)
+      setAvisoCreadoId(solicitudId)
+      setFormPaso(3)
       void loadHistorial()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al adjuntar')
@@ -449,19 +535,19 @@ export default function AvisarAusenciaPage() {
 
       <section className="avisar-ausencia-steps" aria-label="Pasos">
         <ol>
-          <li>
+          <li className={formPaso === 1 ? 'is-current' : formPaso > 1 ? 'is-done' : undefined}>
             <strong>1. Avisá apenas lo sepas</strong>
-            <span>Dentro de las primeras 2 horas de tu jornada.</span>
+            <span>Motivo, dónde estás y fechas. Solo esto primero.</span>
           </li>
-          <li>
-            <strong>2. Pedile al médico el certificado digital</strong>
-            <span>Diagnóstico, días de reposo, matrícula y firma.</span>
+          <li className={formPaso === 2 ? 'is-current' : formPaso > 2 ? 'is-done' : 'is-locked'}>
+            <strong>2. Certificado médico</strong>
+            <span>Se habilita después del aviso. Pedilo digital al médico.</span>
           </li>
-          <li>
-            <strong>3. Subilo acá dentro de las 24 hs</strong>
-            <span>Foto clara o PDF del certificado.</span>
+          <li className={formPaso === 3 ? 'is-current' : formPaso > 2 ? 'is-done' : 'is-locked'}>
+            <strong>3. Subilo acá (24 hs)</strong>
+            <span>Foto o PDF. RRHH lo recibe en la misma solicitud.</span>
           </li>
-          <li>
+          <li className={formPaso === 3 ? 'is-done' : 'is-locked'}>
             <strong>4. El sistema hace el resto</strong>
             <span>RRHH revisa y te notifica el resultado.</span>
           </li>
@@ -473,106 +559,161 @@ export default function AvisarAusenciaPage() {
         pérdida de presentismo y sanciones).
       </div>
 
-      <form className="avisar-ausencia-form" onSubmit={(e) => void handleSubmit(e)}>
-        <label>
-          Motivo
-          <select value={motivo} onChange={(e) => setMotivo(e.target.value)}>
-            {MOTIVOS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {motivo === 'Otro' && (
+      {formPaso === 1 && (
+        <form className="avisar-ausencia-form" onSubmit={(e) => void handleSubmitAviso(e)}>
+          <p className="avisar-ausencia-paso-label">Paso 1 de 3 · Solo el aviso</p>
           <label>
-            Especificá el motivo
+            Motivo
+            <select value={motivo} onChange={(e) => setMotivo(e.target.value)}>
+              {MOTIVOS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {motivo === 'Otro' && (
+            <label>
+              Especificá el motivo
+              <input
+                value={motivoOtro}
+                onChange={(e) => setMotivoOtro(e.target.value)}
+                placeholder="Ej: trámite judicial"
+                required
+              />
+            </label>
+          )}
+
+          <label>
+            ¿Dónde estás? *
             <input
-              value={motivoOtro}
-              onChange={(e) => setMotivoOtro(e.target.value)}
-              placeholder="Ej: trámite judicial"
+              value={ubicacion}
+              onChange={(e) => setUbicacion(e.target.value)}
+              placeholder="Ciudad / domicilio / clínica"
               required
+              autoComplete="street-address"
             />
           </label>
-        )}
 
-        <label>
-          ¿Dónde estás? *
-          <input
-            value={ubicacion}
-            onChange={(e) => setUbicacion(e.target.value)}
-            placeholder="Ciudad / domicilio / clínica"
-            required
-            autoComplete="street-address"
-          />
-        </label>
+          <div className="avisar-ausencia-dates">
+            <label>
+              Desde
+              <input
+                type="date"
+                value={fechaInicio}
+                onChange={(e) => {
+                  setFechaInicio(e.target.value)
+                  if (fechaFin < e.target.value) setFechaFin(e.target.value)
+                }}
+                required
+              />
+            </label>
+            <label>
+              Hasta
+              <input
+                type="date"
+                value={fechaFin}
+                min={fechaInicio}
+                onChange={(e) => setFechaFin(e.target.value)}
+                required
+              />
+            </label>
+          </div>
+          <p className="avisar-ausencia-hint">{dias} día{dias === 1 ? '' : 's'} de ausencia</p>
 
-        <div className="avisar-ausencia-dates">
           <label>
-            Desde
-            <input
-              type="date"
-              value={fechaInicio}
-              onChange={(e) => {
-                setFechaInicio(e.target.value)
-                if (fechaFin < e.target.value) setFechaFin(e.target.value)
-              }}
-              required
+            Detalle (opcional)
+            <textarea
+              rows={3}
+              value={detalle}
+              onChange={(e) => setDetalle(e.target.value)}
+              placeholder="Síntomas, turno médico, etc."
             />
           </label>
-          <label>
-            Hasta
+
+          <p className="avisar-ausencia-hint">
+            El certificado se habilita en el siguiente paso, después de enviar el aviso.
+          </p>
+
+          {error && (
+            <p className="avisar-ausencia-error" role="alert">
+              {error}
+            </p>
+          )}
+
+          <button type="submit" className="avisar-ausencia-submit" disabled={saving}>
+            {saving ? 'Enviando aviso…' : '1. Enviar aviso a RRHH'}
+          </button>
+        </form>
+      )}
+
+      {formPaso === 2 && (
+        <form className="avisar-ausencia-form" onSubmit={(e) => void handleSubmitCertificado(e)}>
+          <p className="avisar-ausencia-paso-label">Paso 2 de 3 · Certificado</p>
+          {okMsg && (
+            <p className="avisar-ausencia-ok" role="status">
+              {okMsg}
+            </p>
+          )}
+          <div className="avisar-ausencia-paso-box">
+            <strong>Pedile al médico el certificado digital</strong>
+            <span>
+              Debe incluir diagnóstico, tratamiento, días de reposo, fecha, matrícula y firma. Sin eso
+              no es válido.
+            </span>
+          </div>
+          <label className="avisar-ausencia-file">
+            Subí foto o PDF del certificado *
             <input
-              type="date"
-              value={fechaFin}
-              min={fechaInicio}
-              onChange={(e) => setFechaFin(e.target.value)}
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
               required
             />
+            <span>{archivo ? archivo.name : 'Dentro de las 24 horas del aviso.'}</span>
           </label>
+
+          {error && (
+            <p className="avisar-ausencia-error" role="alert">
+              {error}
+            </p>
+          )}
+
+          <button type="submit" className="avisar-ausencia-submit" disabled={saving || !archivo}>
+            {saving ? 'Subiendo…' : '2. Enviar certificado a RRHH'}
+          </button>
+          <button
+            type="button"
+            className="avisar-ausencia-ghost avisar-ausencia-ghost--block"
+            onClick={saltarCertificado}
+            disabled={saving}
+          >
+            Todavía no lo tengo — seguir sin certificado
+          </button>
+        </form>
+      )}
+
+      {formPaso === 3 && (
+        <div className="avisar-ausencia-form avisar-ausencia-form--done">
+          <p className="avisar-ausencia-paso-label">Paso 3 · Listo</p>
+          {okMsg && (
+            <p className="avisar-ausencia-ok" role="status">
+              {okMsg}
+            </p>
+          )}
+          <div className="avisar-ausencia-paso-box">
+            <strong>El sistema hace el resto</strong>
+            <span>
+              RRHH revisa tu aviso{avisoCreadoId ? ` (#${avisoCreadoId})` : ''} y te notifica el
+              resultado. Si falta el certificado, subilo desde “Tus últimos avisos”.
+            </span>
+          </div>
+          <button type="button" className="avisar-ausencia-submit" onClick={reiniciarFlujo}>
+            Avisar otra ausencia
+          </button>
         </div>
-        <p className="avisar-ausencia-hint">{dias} día{dias === 1 ? '' : 's'} de ausencia</p>
-
-        <label>
-          Detalle (opcional)
-          <textarea
-            rows={3}
-            value={detalle}
-            onChange={(e) => setDetalle(e.target.value)}
-            placeholder="Síntomas, turno médico, etc."
-          />
-        </label>
-
-        <label className="avisar-ausencia-file">
-          Certificado / constancia (opcional ahora)
-          <input
-            type="file"
-            accept="image/*,application/pdf"
-            onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-          />
-          <span>
-            {archivo
-              ? archivo.name
-              : 'Si es por enfermedad, subí foto o PDF dentro de las 24 hs.'}
-          </span>
-        </label>
-
-        {error && (
-          <p className="avisar-ausencia-error" role="alert">
-            {error}
-          </p>
-        )}
-        {okMsg && (
-          <p className="avisar-ausencia-ok" role="status">
-            {okMsg}
-          </p>
-        )}
-
-        <button type="submit" className="avisar-ausencia-submit" disabled={saving}>
-          {saving ? 'Enviando…' : 'Enviar aviso a RRHH'}
-        </button>
-      </form>
+      )}
 
       <section className="avisar-ausencia-hist">
         <h2>Tus últimos avisos</h2>
