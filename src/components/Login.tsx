@@ -1,6 +1,6 @@
 import { flushSync } from 'react-dom'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { staffLogin } from '../services/staffAuthApi'
 import {
   isOperarioExternoRol,
@@ -14,8 +14,22 @@ type LoginProps = {
   onLogin: (usuario: any) => void
 }
 
+function safeNextPath(raw: string | null): string | null {
+  if (!raw) return null
+  let decoded = raw
+  try {
+    decoded = decodeURIComponent(raw)
+  } catch {
+    /* keep raw */
+  }
+  if (!decoded.startsWith('/') || decoded.startsWith('//')) return null
+  if (decoded.startsWith('/login')) return null
+  return decoded
+}
+
 const Login = ({ onLogin }: LoginProps) => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [usuario, setUsuario] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -43,6 +57,11 @@ const Login = ({ onLogin }: LoginProps) => {
           loginName: response.data.loginName ?? usuario.trim()
         })
         flushSync(() => onLogin(usuarioData))
+        const next = safeNextPath(searchParams.get('next'))
+        if (next) {
+          navigate(next, { replace: true })
+          return
+        }
         const adminHome = adminStaffHomeRoute(usuarioData.rol)
         navigate(adminHome ?? '/', { replace: true })
       } else {

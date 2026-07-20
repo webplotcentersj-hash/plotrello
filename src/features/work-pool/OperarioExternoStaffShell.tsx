@@ -13,14 +13,15 @@ function isOperarioExternoPath(pathname: string): boolean {
 
 type Props = {
   isAuthenticated: boolean
-  login: ReactNode
+  /** @deprecated El shell redirige a /login?next=…; se mantiene por compatibilidad. */
+  login?: ReactNode
   staff: ReactNode
 }
 
 /** Operario externo nunca entra al tablero Plot Lab: redirige a /operario-externo/*. */
-export default function OperarioExternoStaffShell({ isAuthenticated, login, staff }: Props) {
+export default function OperarioExternoStaffShell({ isAuthenticated, staff }: Props) {
   const { operarioExternoHome } = useAuth()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const externoUser = readOperarioExternoUsuario()
   const home = operarioExternoHome ?? (externoUser ? operarioExternoHomeRoute(externoUser.rol) : null)
 
@@ -28,6 +29,9 @@ export default function OperarioExternoStaffShell({ isAuthenticated, login, staf
     return <Navigate to={home} replace />
   }
 
-  if (!isAuthenticated) return <>{login}</>
+  if (!isAuthenticated) {
+    const next = encodeURIComponent(`${pathname}${search}`)
+    return <Navigate to={`/login?next=${next}`} replace />
+  }
   return <>{staff}</>
 }

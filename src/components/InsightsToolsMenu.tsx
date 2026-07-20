@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import ChatFloatingButton from './ChatFloatingButton'
-import SolicitudPermisoModal from './SolicitudPermisoModal'
 import './InsightsToolsMenu.css'
 
 type InsightsToolsMenuProps = {
@@ -23,7 +22,6 @@ export default function InsightsToolsMenu({
   const { usuario } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
-  const [solicitudesOpen, setSolicitudesOpen] = useState(false)
   const [pendientesCount, setPendientesCount] = useState(0)
   const [chatUnread, setChatUnread] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -156,14 +154,14 @@ export default function InsightsToolsMenu({
               role="menuitem"
               className="insights-tools-item insights-tools-item--solicitudes"
               onClick={() => {
-                setSolicitudesOpen(true)
                 setMenuOpen(false)
+                navigate('/avisar-ausencia')
               }}
             >
               <span className="insights-tools-item-icon">📋</span>
               <span className="insights-tools-item-text">
-                <span className="insights-tools-item-title">Permisos / turnos</span>
-                <span className="insights-tools-item-sub">Solicitar o ver pendientes</span>
+                <span className="insights-tools-item-title">Avisar ausencia</span>
+                <span className="insights-tools-item-sub">Desde el celular · solo plataforma</span>
               </span>
               {pendientesCount > 0 && (
                 <span className="insights-tools-item-badge">{pendientesCount}</span>
@@ -184,16 +182,6 @@ export default function InsightsToolsMenu({
         }}
         onUnreadChange={setChatUnread}
       />
-
-      {solicitudesOpen && (
-        <SolicitudPermisoModal
-          onClose={() => {
-            setSolicitudesOpen(false)
-            void loadPendientesCount()
-          }}
-          onSolicitudCreada={() => void loadPendientesCount()}
-        />
-      )}
     </div>
   )
 }

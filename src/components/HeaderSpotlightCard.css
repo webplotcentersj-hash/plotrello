@@ -436,6 +436,8 @@
 .header-spotlight-comunicado-item {
   --comunicado-accent: #a5b4fc;
   display: block;
+  width: 100%;
+  text-align: left;
   padding: 0.65rem 0.75rem 0.65rem 0.85rem;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -453,6 +455,12 @@
     'Apple Color Emoji',
     'Noto Color Emoji',
     sans-serif;
+  color: inherit;
+  cursor: pointer;
+}
+
+button.header-spotlight-comunicado-item:hover {
+  border-color: rgba(253, 186, 116, 0.45);
 }
 
 .header-spotlight-comunicado-item--info {

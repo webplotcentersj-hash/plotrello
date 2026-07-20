@@ -16,11 +16,29 @@ type RrhhMessagingCenterProps = {
   usuarios: UsuarioRecord[]
   currentUserId: number
   currentUserName: string
+  /** Título visible (default: Mensajería RRHH). */
+  title?: string
+  /** Subtítulo; si se omite, copy RRHH por defecto. */
+  subtitle?: string
+  /** Oculta el aviso largo de “distinto del chat general”. */
+  compact?: boolean
+  /** Abrir conversación con este usuario al montar. */
+  initialPeerId?: number | null
 }
 
-const RrhhMessagingCenter = ({ usuarios, currentUserId, currentUserName }: RrhhMessagingCenterProps) => {
+const RrhhMessagingCenter = ({
+  usuarios,
+  currentUserId,
+  currentUserName,
+  title = 'Mensajería RRHH',
+  subtitle,
+  compact = false,
+  initialPeerId = null
+}: RrhhMessagingCenterProps) => {
   const [search, setSearch] = useState('')
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(
+    initialPeerId != null && initialPeerId > 0 ? initialPeerId : null
+  )
   const [roomId, setRoomId] = useState<number | null>(null)
   const [messages, setMessages] = useState<ThreadMsg[]>([])
   const [loadingThread, setLoadingThread] = useState(false)
@@ -28,6 +46,12 @@ const RrhhMessagingCenter = ({ usuarios, currentUserId, currentUserName }: RrhhM
   const [error, setError] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (initialPeerId != null && initialPeerId > 0) {
+      setSelectedId(initialPeerId)
+    }
+  }, [initialPeerId])
 
   const peers = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -121,22 +145,28 @@ const RrhhMessagingCenter = ({ usuarios, currentUserId, currentUserName }: RrhhM
   }
 
   return (
-    <section className="rrhh-msg" aria-label="Mensajería interna RRHH, distinta del chat general">
+    <section className={`rrhh-msg${compact ? ' rrhh-msg--compact' : ''}`} aria-label="Mensajería interna">
       <div className="rrhh-msg-header">
         <div>
-          <h2 className="rrhh-msg-title">Mensajería RRHH</h2>
+          <h2 className="rrhh-msg-title">{title}</h2>
           <p className="rrhh-msg-sub">
-            Comunicación <strong>1 a 1</strong> con cada usuario del sistema ({peers.length} contactos). No es el{' '}
-            <strong>Chat general</strong> (canales tipo #general). Sesión: <strong>{currentUserName}</strong>
+            {subtitle ?? (
+              <>
+                Comunicación <strong>1 a 1</strong> con cada usuario del sistema ({peers.length} contactos). No es el{' '}
+                <strong>Chat general</strong> (canales tipo #general). Sesión: <strong>{currentUserName}</strong>
+              </>
+            )}
           </p>
         </div>
       </div>
 
-      <p className="rrhh-msg-notice" role="note">
-        Uso: avisos, seguimiento y mensajes privados desde Recursos Humanos. La conversación es{' '}
-        <strong>bidireccional</strong>: el otro usuario puede responderte en el mismo hilo. El chat grupal del
-        tablero sigue en <strong>Chat</strong> en el menú principal.
-      </p>
+      {!compact && (
+        <p className="rrhh-msg-notice" role="note">
+          Uso: avisos, seguimiento y mensajes privados desde Recursos Humanos. La conversación es{' '}
+          <strong>bidireccional</strong>: el otro usuario puede responderte en el mismo hilo. El chat grupal del
+          tablero sigue en <strong>Chat</strong> en el menú principal.
+        </p>
+      )}
 
       <div className="rrhh-msg-layout">
         <aside className="rrhh-msg-sidebar">
@@ -172,7 +202,7 @@ const RrhhMessagingCenter = ({ usuarios, currentUserId, currentUserName }: RrhhM
         <div className="rrhh-msg-main">
           {selectedId == null && (
             <div className="rrhh-msg-placeholder">
-              <p>Elegí un usuario para abrir la conversación de mensajería.</p>
+              <p>Elegí un contacto para escribirle por mensajería interna.</p>
             </div>
           )}
 
@@ -183,7 +213,7 @@ const RrhhMessagingCenter = ({ usuarios, currentUserId, currentUserName }: RrhhM
                   <strong>{selectedUser.nombre}</strong>
                   <span className="rrhh-msg-thread-meta">{selectedUser.rol}</span>
                 </div>
-                <span className="rrhh-msg-thread-badge">Mensajería · no es chat general</span>
+                <span className="rrhh-msg-thread-badge">Mensajería interna</span>
               </div>
 
               {error && (
@@ -228,7 +258,7 @@ const RrhhMessagingCenter = ({ usuarios, currentUserId, currentUserName }: RrhhM
                 <textarea
                   className="rrhh-msg-input"
                   rows={2}
-                  placeholder="Escribí un mensaje interno (mensajería RRHH)…"
+                  placeholder="Escribí un mensaje…"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {

@@ -47,10 +47,14 @@ export function useDmMensajeriaUnread(usuarioId: number | null | undefined) {
       Notification.permission === 'granted'
     ) {
       try {
-        new Notification('Mensajes nuevos en mensajería', {
+        const bn = new Notification('Mensajes nuevos en mensajería', {
           body: next === 1 ? 'Tenés 1 mensaje sin leer.' : `Tenés ${next} mensajes sin leer en mensajería interna.`,
           tag: 'plot-mensajeria-dm'
         })
+        bn.onclick = () => {
+          window.focus()
+          window.location.assign('/avisar-ausencia?mensajeria=1')
+        }
       } catch {
         /* ignore */
       }

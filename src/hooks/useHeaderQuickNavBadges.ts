@@ -104,10 +104,27 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
 
           if ('Notification' in window && Notification.permission === 'granted' && !n.is_read) {
             if (n.solicitud_id != null) {
-              new Notification(n.title || 'Permisos', {
+              const bn = new Notification(n.title || 'Permisos', {
                 body: n.description || 'Novedad en solicitud de permisos',
                 tag: `permisos-${n.id}`
               })
+              bn.onclick = () => {
+                window.focus()
+                const dest =
+                  canManageRecursosHumanos
+                    ? `/rrhh/permisos?solicitud=${n.solicitud_id}`
+                    : `/avisar-ausencia?solicitud=${n.solicitud_id}`
+                window.location.assign(dest)
+              }
+            } else if (n.origen === 'rrhh_masivo') {
+              const bn = new Notification(n.title || 'Comunicado RRHH', {
+                body: n.description || 'Nuevo comunicado de Recursos Humanos',
+                tag: `comunicado-${n.id}`
+              })
+              bn.onclick = () => {
+                window.focus()
+                window.location.assign(`/avisar-ausencia?comunicado=${n.id}`)
+              }
             } else if (n.pedido_id != null) {
               new Notification(n.title || 'Pedido de productos', {
                 body: n.description || 'Actualización de tu solicitud',
@@ -142,7 +159,7 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
     return () => {
       if (supabase) void supabase.removeChannel(channel)
     }
-  }, [usuario?.id, refresh])
+  }, [usuario?.id, refresh, canManageRecursosHumanos])
 
   useEffect(() => {
     if (!canAccessAtencionPublico || !supabase) return

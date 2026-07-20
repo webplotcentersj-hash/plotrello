@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { FechaPlotHoyItem, Notification } from '../types/api'
 import {
@@ -155,6 +156,7 @@ function comunicadoAccentClass(type: Notification['type']): string {
 }
 
 export default function HeaderSpotlightCard({ userId, compact = false }: Props) {
+  const navigate = useNavigate()
   const [cumple, setCumple] = useState(false)
   const [aniversario, setAniversario] = useState(false)
   const [aniosEmpresa, setAniosEmpresa] = useState<number | null>(null)
@@ -387,16 +389,26 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
               <ul className="header-spotlight-comunicados-list">
                 {notifs.map((n) => (
                   <li key={n.id}>
-                    <article
+                    <button
+                      type="button"
                       className={`header-spotlight-comunicado-item ${comunicadoAccentClass(n.type)}${
                         n.is_read ? '' : ' header-spotlight-comunicado-item--nuevo'
                       }`}
+                      onClick={() => {
+                        if (!n.is_read) {
+                          void apiService.markNotificationAsRead(n.id)
+                          setNotifs((prev) =>
+                            prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x))
+                          )
+                        }
+                        navigate(`/avisar-ausencia?comunicado=${n.id}`)
+                      }}
                     >
                       <div className="header-spotlight-comunicado-copy">
                         <p className="header-spotlight-comunicado-title">{n.title}</p>
                         {n.description ? <ComunicadoDescripcion text={n.description} /> : null}
                       </div>
-                    </article>
+                    </button>
                   </li>
                 ))}
               </ul>

@@ -123,6 +123,27 @@ function LoadingScreen() {
   )
 }
 
+function safeNextPath(raw: string | null): string | null {
+  if (!raw) return null
+  let decoded = raw
+  try {
+    decoded = decodeURIComponent(raw)
+  } catch {
+    /* keep raw */
+  }
+  if (!decoded.startsWith('/') || decoded.startsWith('//')) return null
+  if (decoded.startsWith('/login')) return null
+  return decoded
+}
+
+/** Si ya hay sesión y entraron a /login?next=…, ir al destino pedido. */
+function StaffLoginRedirect() {
+  const { search } = useLocation()
+  const next = safeNextPath(new URLSearchParams(search).get('next'))
+  const rol = readStaffUsuario()?.rol
+  return <Navigate to={next ?? adminStaffHomeRoute(rol) ?? '/'} replace />
+}
+
 function App() {
   return (
     <PwaUpdateProvider>
@@ -507,10 +528,7 @@ function AppInner() {
                   replace
                 />
               ) : isStaffAuthenticated ? (
-                <Navigate
-                  to={adminStaffHomeRoute(readStaffUsuario()?.rol ?? usuario?.rol) ?? '/'}
-                  replace
-                />
+                <StaffLoginRedirect />
               ) : (
                 <Login onLogin={handleLogin} />
               )

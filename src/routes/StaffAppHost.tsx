@@ -83,6 +83,7 @@ const RecursosHumanosMedicinaPage = lazy(() => import('../pages/RecursosHumanosM
 const RecursosHumanosRecibosPage = lazy(() => import('../pages/RecursosHumanosRecibosPage'))
 const RecursosHumanosClimaPage = lazy(() => import('../pages/RecursosHumanosClimaPage'))
 const MisRecibosPage = lazy(() => import('../pages/MisRecibosPage'))
+const AvisarAusenciaPage = lazy(() => import('../pages/AvisarAusenciaPage'))
 const EncuestaClimaPage = lazy(() => import('../pages/EncuestaClimaPage'))
 const MisPruebasPage = lazy(() => import('../pages/MisPruebasPage'))
 const CapacitacionesPage = lazy(() => import('../pages/CapacitacionesPage'))
@@ -1259,6 +1260,8 @@ function AppRoutes({
         element={<RecursosHumanosClimaPage />}
       />
       <Route path="/mis-recibos" element={<MisRecibosPage />} />
+      <Route path="/avisar-ausencia" element={<AvisarAusenciaPage />} />
+      <Route path="/permisos" element={<AvisarAusenciaPage />} />
       <Route path="/encuesta-clima/:id" element={<EncuestaClimaPage />} />
       <Route
         path="/mis-pruebas"

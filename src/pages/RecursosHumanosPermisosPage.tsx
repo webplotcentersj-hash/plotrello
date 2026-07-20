@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { SolicitudPermiso } from '../types/api'
@@ -7,6 +7,7 @@ import './RecursosHumanosPermisosPage.css'
 
 const RecursosHumanosPermisosPage = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { canManageRecursosHumanos, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [solicitudes, setSolicitudes] = useState<SolicitudPermiso[]>([])
@@ -19,6 +20,7 @@ const RecursosHumanosPermisosPage = () => {
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<SolicitudPermiso | null>(null)
   const [mostrarModalAprobar, setMostrarModalAprobar] = useState(false)
   const [motivoRechazo, setMotivoRechazo] = useState('')
+  const deepLinkDone = useRef(false)
 
   useEffect(() => {
     if (authLoading) return
@@ -29,6 +31,36 @@ const RecursosHumanosPermisosPage = () => {
     loadSolicitudes()
     setLoading(false)
   }, [canManageRecursosHumanos, navigate, authLoading, filtros])
+
+  useEffect(() => {
+    if (deepLinkDone.current || loading) return
+    const raw = searchParams.get('solicitud')
+    const id = raw ? Number(raw) : NaN
+    if (!Number.isFinite(id) || id <= 0) return
+
+    const openMatch = (match: SolicitudPermiso) => {
+      deepLinkDone.current = true
+      setSolicitudSeleccionada(match)
+      setMostrarModalAprobar(true)
+    }
+
+    const found = solicitudes.find((s) => s.id === id)
+    if (found) {
+      openMatch(found)
+      return
+    }
+
+    void (async () => {
+      const res = await apiService.obtenerSolicitudesPermisos(null, null, null, null, null)
+      const match = res.data?.find((s) => s.id === id)
+      if (match) {
+        setFiltros((f) => (f.estado === null ? f : { ...f, estado: null }))
+        openMatch(match)
+      } else {
+        deepLinkDone.current = true
+      }
+    })()
+  }, [searchParams, solicitudes, loading])
 
   const loadSolicitudes = async () => {
     const response = await apiService.obtenerSolicitudesPermisos(

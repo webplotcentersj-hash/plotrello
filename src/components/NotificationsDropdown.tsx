@@ -42,7 +42,7 @@ type NotificationsDropdownProps = {
 }
 
 const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownProps) => {
-  const { usuario } = useAuth()
+  const { usuario, canManageRecursosHumanos, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isOpen, setIsOpen] = useState(false)
@@ -342,9 +342,18 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         navigate(ventasConOportunidadId(notification.oportunidad_id))
         return
       }
-      // Solicitud de permiso / RRHH
+      // Solicitud de permiso / ausencia
       if (notification.solicitud_id != null) {
-        navigate('/rrhh/permisos')
+        if (canManageRecursosHumanos || isAdmin) {
+          navigate(`/rrhh/permisos?solicitud=${notification.solicitud_id}`)
+        } else {
+          navigate(`/avisar-ausencia?solicitud=${notification.solicitud_id}`)
+        }
+        return
+      }
+      // Comunicados RRHH (notificador masivo)
+      if (notification.origen === 'rrhh_masivo') {
+        navigate(`/avisar-ausencia?comunicado=${notification.id}`)
         return
       }
       // Capacitación
