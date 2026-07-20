@@ -156,7 +156,7 @@ function App() {
 }
 
 function AppInner() {
-  const { usuario, loading, setUsuario } = useAuth()
+  const { loading, setUsuario } = useAuth()
   const isStaffAuthenticated = isStaffSession()
 
   useEffect(() => {
