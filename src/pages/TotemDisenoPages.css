@@ -493,6 +493,93 @@
 .totem-diseno-mockup-wrap .brief-mockup-studio {
   max-height: calc(100dvh - 40px);
   overflow: auto;
+  background: linear-gradient(165deg, #0a0a0a 0%, #111827 50%, #0b1220 100%);
+  border-color: rgba(148, 163, 184, 0.28);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.totem-diseno-mockup-wrap .brief-mockup-studio__glow {
+  opacity: 0.35;
+}
+
+.totem-diseno-mockup-wrap .brief-mockup-studio__title,
+.totem-diseno-mockup-wrap .brief-mockup-studio__progress-copy strong {
+  color: #f8fafc;
+}
+
+.totem-diseno-mockup-wrap .brief-mockup-studio__sub,
+.totem-diseno-mockup-wrap .brief-mockup-studio__progress-copy span,
+.totem-diseno-mockup-wrap .brief-mockup-studio__hint {
+  color: #94a3b8;
+}
+
+.totem-diseno-mockup-wrap .brief-mockup-studio__progress {
+  background: rgba(2, 8, 20, 0.85);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.totem-diseno-mockup-wrap .brief-mockup-studio__progress-ring::before {
+  background: #0b1220;
+}
+
+.totem-diseno-mockup-wrap .brief-mockup-studio__chip {
+  background: rgba(235, 103, 27, 0.18);
+  border-color: rgba(235, 103, 27, 0.4);
+}
+
+.totem-diseno-mockup-wrap .brief-mockup-studio__btn--secondary {
+  background: #0b1220;
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.totem-diseno-mockup-wrap .pedido-mockup {
+  background: #050505;
+  border-color: rgba(148, 163, 184, 0.28);
+  box-shadow: none;
+  color: #e2e8f0;
+}
+
+.totem-diseno-mockup-wrap .pedido-mockup--empty {
+  background: #000;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.totem-diseno-mockup-wrap .pedido-mockup__placeholder-title {
+  color: #fb923c;
+}
+
+.totem-diseno-mockup-wrap .pedido-mockup__placeholder-text {
+  color: #94a3b8;
+}
+
+.totem-diseno-mockup-wrap .pedido-mockup__badge {
+  background: #111827;
+  color: #fdba74;
+  border: 1px solid rgba(251, 146, 60, 0.35);
+}
+
+.totem-diseno-mockup-wrap .pedido-mockup__scene {
+  background: #0a0a0a;
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.totem-diseno-mockup-wrap .pedido-mockup__detalle,
+.totem-diseno-mockup-wrap .pedido-mockup__detalle--spec,
+.totem-diseno-mockup-wrap .pedido-mockup__spec-snippet {
+  background: #000;
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.totem-diseno-mockup-wrap .pedido-mockup__detalle-k {
+  color: #fb923c;
+}
+
+.totem-diseno-mockup-wrap .pedido-mockup__ai-frame {
+  background: #000;
+  border-color: rgba(148, 163, 184, 0.25);
 }
 
 .totem-diseno-review dl {

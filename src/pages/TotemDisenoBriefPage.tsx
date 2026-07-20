@@ -9,6 +9,7 @@ import {
   calcBriefProgress,
   resolveBriefMockup
 } from '../utils/clienteBriefMockup'
+import { buildBriefMockupFile } from '../utils/capturePedidoMockup'
 import { generarMockupImagenIa } from '../services/clienteBriefAiService'
 import ClienteBriefMockupStudio from '../components/cliente/ClienteBriefMockupStudio'
 import {
@@ -61,6 +62,7 @@ export default function TotemDisenoBriefPage() {
   const [enviado, setEnviado] = useState(false)
   const [briefToken, setBriefToken] = useState<string | null>(null)
   const [mockupAiUrl, setMockupAiUrl] = useState<string | null>(null)
+  const mockupAiUrlRef = useRef<string | null>(null)
   const [mockupAiLoading, setMockupAiLoading] = useState(false)
   const [llamando, setLlamando] = useState(false)
   const [disenadorMsg, setDisenadorMsg] = useState<string | null>(null)
@@ -189,10 +191,30 @@ export default function TotemDisenoBriefPage() {
     return () => window.clearInterval(id)
   }, [lastTouch, navigate, saving])
 
+  const keepMockupAi = (url: string | null) => {
+    mockupAiUrlRef.current = url
+    setMockupAiUrl(url)
+  }
+
   const patch = (partial: Partial<ClienteBriefFormData>) => {
     touch()
     setForm((prev) => ({ ...prev, ...partial }))
-    setMockupAiUrl(null)
+    // Solo invalidar la imagen IA si cambia algo que redefine el mockup visual
+    const keys = Object.keys(partial) as Array<keyof ClienteBriefFormData>
+    const afectaMockup = keys.some((k) =>
+      [
+        'tipo_producto_servicio',
+        'tipo_producto_otro',
+        'necesita_asesoramiento',
+        'donde_colocados',
+        'digital_o_impresion',
+        'objetivo_proyecto',
+        'brief_publico',
+        'estilo_diseno',
+        'cantidades'
+      ].includes(k)
+    )
+    if (afectaMockup) keepMockupAi(null)
   }
 
   const toggleTipo = (tipo: string) => {
@@ -278,7 +300,7 @@ export default function TotemDisenoBriefPage() {
         cantidades: form.cantidades
       })
       const dataUrl = await generarMockupImagenIa(prompt)
-      setMockupAiUrl(dataUrl)
+      keepMockupAi(dataUrl)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo generar la imagen')
     } finally {
@@ -357,24 +379,37 @@ export default function TotemDisenoBriefPage() {
       }
 
       const briefInfo = await apiService.obtenerBriefPorToken(token)
-      const idBrief =
-        briefInfo.success && briefInfo.data?.id != null ? Number(briefInfo.data.id) : null
+      const idBriefRaw =
+        briefInfo.success && briefInfo.data
+          ? Number(
+              (briefInfo.data as { id?: number | string }).id ??
+                (briefInfo.data as { id_brief?: number | string }).id_brief
+            )
+          : NaN
+      const idBrief = Number.isFinite(idBriefRaw) && idBriefRaw > 0 ? idBriefRaw : null
 
       let adjuntoOk = false
-      if (idBrief && mockupAiUrl?.startsWith('data:')) {
+      const aiUrl = mockupAiUrlRef.current || mockupAiUrl
+      if (idBrief && aiUrl) {
         try {
-          const blob = await (await fetch(mockupAiUrl)).blob()
-          const file = new File([blob], `mockup-totem-${Date.now()}.png`, {
-            type: blob.type || 'image/png'
-          })
-          const up = await apiService.uploadArchivoBriefPublico(file, idBrief, {
-            tipoEtiqueta: 'mockup_ia',
-            nombreArchivo: file.name
-          })
-          adjuntoOk = Boolean(up.success)
-        } catch {
-          /* mockup opcional */
+          const file = await buildBriefMockupFile({ idBrief, aiDataUrl: aiUrl })
+          if (file) {
+            const up = await apiService.uploadArchivoBriefPublico(file, idBrief, {
+              tipoEtiqueta: 'mockup_ia',
+              nombreArchivo: file.name
+            })
+            adjuntoOk = Boolean(up.success)
+            if (!up.success) {
+              console.warn('TotemDiseño: no se pudo adjuntar mockup IA', up.error)
+            }
+          }
+        } catch (err) {
+          console.warn('TotemDiseño: error adjuntando mockup IA', err)
         }
+      }
+
+      if (aiUrl && !adjuntoOk) {
+        console.warn('TotemDiseño: mockup IA no adjuntado', { idBrief, hasUrl: Boolean(aiUrl) })
       }
 
       await apiService.crearAtencionMostrador({
@@ -385,7 +420,7 @@ export default function TotemDisenoBriefPage() {
         notas: `Brief desde tótem Diseño (1° piso). Token: ${token}. Productos: ${
           form.tipo_producto_servicio.join(', ') || 'asesoramiento'
         }.${form.es_urgencia ? ` Urgente (+${URGENCIA_RECARGO}).` : ''}${
-          adjuntoOk ? ' Incluye mockup IA adjunto.' : ''
+          adjuntoOk ? ' Incluye mockup IA adjunto.' : aiUrl ? ' (mockup IA no adjuntado)' : ''
         }`,
         sector_destino: 'Diseño gráfico'
       })
@@ -393,7 +428,9 @@ export default function TotemDisenoBriefPage() {
       setMensaje(
         adjuntoOk
           ? '✅ Brief enviado a Diseño con la imagen generada. Ya pueden verlo en Briefs pendientes.'
-          : '✅ Brief enviado a Diseño. Ya pueden verlo en Briefs pendientes.'
+          : aiUrl
+            ? '✅ Brief enviado, pero la imagen no se pudo adjuntar. Avisá en mostrador o regenerá y reintentá.'
+            : '✅ Brief enviado a Diseño. Ya pueden verlo en Briefs pendientes.'
       )
       setEnviado(true)
     } catch (err) {
@@ -702,7 +739,11 @@ export default function TotemDisenoBriefPage() {
                 <input
                   type="checkbox"
                   checked={form.es_urgencia}
-                  onChange={(e) => patch({ es_urgencia: e.target.checked })}
+                  onChange={(e) => {
+                    touch()
+                    // No usar patch: no debe borrar la imagen generada
+                    setForm((prev) => ({ ...prev, es_urgencia: e.target.checked }))
+                  }}
                 />
                 <span>
                   Es urgente
