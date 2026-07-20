@@ -588,9 +588,6 @@ export default function AvisarAusenciaPage() {
         <p>
           Consultas: <a href="mailto:sol.oliver@plotcenter.com.ar">sol.oliver@plotcenter.com.ar</a>
         </p>
-        <button type="button" className="avisar-ausencia-ghost" onClick={() => navigate('/')}>
-          Ir al tablero
-        </button>
       </footer>
     </div>
   )
