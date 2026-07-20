@@ -52,3 +52,7 @@ CREATE INDEX IF NOT EXISTS idx_platform_page_views_viewed
 
 ALTER TABLE public.platform_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platform_page_views ENABLE ROW LEVEL SECURITY;
+
+-- Fix 2026-07-20: "column reference id is ambiguous" en RETURNS TABLE
+-- (variables de salida shadowean usuarios.id). Ver migración
+-- fix_platform_activity_ambiguous_id aplicada en plot2.
