@@ -55,6 +55,7 @@
   margin-bottom: 32px;
   padding-bottom: 24px;
   border-bottom: 2px solid rgba(235, 103, 27, 0.3);
+  gap: 16px;
 }
 
 .header-content h1 {
@@ -62,6 +63,44 @@
   color: #fff;
   font-size: 2rem;
   font-weight: 700;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.briefs-nuevos-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #0f172a;
+  background: linear-gradient(135deg, #fdba74, #ea580c);
+  box-shadow: 0 4px 16px rgba(234, 88, 12, 0.35);
+}
+
+.briefs-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-mark-seen {
+  padding: 10px 16px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #e0f2fe;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-mark-seen:hover {
+  background: rgba(56, 189, 248, 0.25);
 }
 
 .header-description {
@@ -139,6 +178,29 @@
   border-color: rgba(235, 103, 27, 0.5);
 }
 
+.brief-card--nuevo {
+  border-color: rgba(251, 146, 60, 0.85);
+  box-shadow:
+    0 0 0 1px rgba(251, 146, 60, 0.35),
+    0 8px 28px rgba(234, 88, 12, 0.25);
+}
+
+.brief-card--highlight {
+  animation: brief-card-pulse 1.2s ease-in-out 3;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35), 0 12px 32px rgba(14, 165, 233, 0.3);
+}
+
+@keyframes brief-card-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.015);
+  }
+}
+
 .brief-card.urgent {
   border-color: #ef4444;
   background: rgba(239, 68, 68, 0.05);
@@ -178,6 +240,24 @@
 .status-badge.urgent {
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
+}
+
+.status-badge.nuevo {
+  background: linear-gradient(135deg, #fb923c, #ea580c);
+  color: #0f172a;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  animation: brief-nuevo-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes brief-nuevo-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.75;
+  }
 }
 
 .brief-date {

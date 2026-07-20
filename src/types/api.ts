@@ -1522,6 +1522,7 @@ export interface Notification {
   origen?: string | null
   orden_id: number | null
   pedido_id: number | null
+  brief_id?: number | null
   solicitud_id?: number | null
   solicitud_chat_id?: number | null
   capacitacion_id?: number | null

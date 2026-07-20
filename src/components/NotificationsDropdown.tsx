@@ -15,6 +15,11 @@ import {
   notificationIsTotemAtencionMostrador,
   notificationIsTotemSolicitudAsesor,
 } from '../utils/totemNotifications'
+import {
+  briefsPendientesPath,
+  notificationIsBriefPublico,
+  parseBriefIdFromNotification
+} from '../utils/briefsPendientesNuevos'
 
 function notificationIsWorkPoolBolsa(n: Pick<Notification, 'title'>): boolean {
   const title = (n.title ?? '').trim()
@@ -275,6 +280,11 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         } else {
           navigate(`${route}?view=mis`)
         }
+        return
+      }
+      // Briefs públicos → lista de pendientes (con highlight si hay id)
+      if (notificationIsBriefPublico(notification)) {
+        navigate(briefsPendientesPath(parseBriefIdFromNotification(notification)))
         return
       }
       // Atención al público / chat de solicitud
