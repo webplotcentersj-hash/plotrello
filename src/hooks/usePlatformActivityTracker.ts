@@ -111,6 +111,9 @@ export function usePlatformActivityTracker(usuarioId: number | null | undefined)
     let cancelled = false
 
     const boot = async () => {
+      // Primero el servidor (IP real + geo); si falla, igual abrimos por RPC
+      await enrichSessionWithServerIp(clientSessionId, path, device)
+      if (cancelled) return
       await apiService.abrirSesionPlataforma({
         usuarioId,
         clientSessionId,
@@ -119,7 +122,6 @@ export function usePlatformActivityTracker(usuarioId: number | null | undefined)
         deviceInfo: device
       })
       if (cancelled) return
-      void enrichSessionWithServerIp(clientSessionId, path, device)
       sessionReadyRef.current = true
       lastPathRef.current = path
       await apiService.registrarVistaPlataforma({
