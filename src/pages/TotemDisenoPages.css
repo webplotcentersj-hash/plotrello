@@ -393,12 +393,22 @@
   color: var(--td-muted);
 }
 
-.totem-diseno-recargo-hint {
-  margin: 10px 0 0;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--td-muted);
-  line-height: 1.4;
+.totem-diseno-ia-early,
+.totem-diseno-ia-final {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.totem-diseno-ia-final {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  border-top: 0;
+  padding-top: 0;
 }
 
 .totem-diseno-recargo-hint--ok {

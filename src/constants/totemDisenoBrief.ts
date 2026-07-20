@@ -32,7 +32,7 @@ export const TOTEM_DISENO_STEP_META = [
   {
     id: 'producto',
     title: '¿Qué necesitás?',
-    hint: 'Elegí una o más opciones. Tocá para ver de qué se trata.'
+    hint: 'Elegí opciones y, si querés, completá los textos con IA acá al principio.'
   },
   {
     id: 'uso',
@@ -41,12 +41,12 @@ export const TOTEM_DISENO_STEP_META = [
   },
   {
     id: 'estilo',
-    title: 'Estilo y mockup',
-    hint: 'Contanos el look y generá una vista previa con IA.'
+    title: 'Estilo y detalle',
+    hint: 'Definí el look. La imagen con IA se genera al final, al confirmar.'
   },
   {
     id: 'enviar',
-    title: 'Confirmar',
-    hint: 'Revisá y enviá el brief al sector Diseño.'
+    title: 'Imagen y envío',
+    hint: 'Generá el mockup con IA (opcional) y enviá el brief a Diseño.'
   }
 ] as const

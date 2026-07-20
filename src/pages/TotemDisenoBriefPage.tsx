@@ -5,12 +5,13 @@ import type { ClienteRecord } from '../types/api'
 import { TIPOS_PRODUCTO_BRIEF, emptyClienteBriefForm, type ClienteBriefFormData } from '../constants/clienteBriefForm'
 import { TOTEM_DISENO_STEP_META, TOTEM_DISENO_TIPO_HINTS } from '../constants/totemDisenoBrief'
 import {
+  buildBriefIaContext,
   buildBriefMockupImagePrompt,
   calcBriefProgress,
   resolveBriefMockup
 } from '../utils/clienteBriefMockup'
 import { buildBriefMockupFile } from '../utils/capturePedidoMockup'
-import { generarMockupImagenIa } from '../services/clienteBriefAiService'
+import { generarBriefCamposIa, generarMockupImagenIa } from '../services/clienteBriefAiService'
 import ClienteBriefMockupStudio from '../components/cliente/ClienteBriefMockupStudio'
 import {
   listenDisenadorEnCamino,
@@ -64,6 +65,7 @@ export default function TotemDisenoBriefPage() {
   const [mockupAiUrl, setMockupAiUrl] = useState<string | null>(null)
   const mockupAiUrlRef = useRef<string | null>(null)
   const [mockupAiLoading, setMockupAiLoading] = useState(false)
+  const [textosIaLoading, setTextosIaLoading] = useState(false)
   const [llamando, setLlamando] = useState(false)
   const [disenadorMsg, setDisenadorMsg] = useState<string | null>(null)
   const [lastTouch, setLastTouch] = useState(() => Date.now())
@@ -276,6 +278,49 @@ export default function TotemDisenoBriefPage() {
       tipo_producto_servicio: []
     })
     void llamarDisenador()
+  }
+
+  const handleGenerarTextosIa = async () => {
+    if (form.tipo_producto_servicio.length === 0 && !form.necesita_asesoramiento) {
+      setError('Elegí al menos un producto para que la IA arme los textos.')
+      return
+    }
+    touch()
+    setTextosIaLoading(true)
+    setError(null)
+    try {
+      const contexto = buildBriefIaContext({
+        tipos_producto: form.tipo_producto_servicio,
+        tipo_producto_otro: form.tipo_producto_otro,
+        necesita_asesoramiento: form.necesita_asesoramiento,
+        donde_colocados: form.donde_colocados,
+        digital_o_impresion: form.digital_o_impresion,
+        cantidades: form.cantidades,
+        objetivo_proyecto: form.objetivo_proyecto,
+        brief_publico: form.brief_publico,
+        estilo_diseno: form.estilo_diseno,
+        cliente_empresa: empresa
+      })
+      const result = await generarBriefCamposIa({
+        contexto:
+          contexto ||
+          `Cliente tótem Diseño. Productos: ${form.tipo_producto_servicio.join(', ') || 'asesoramiento'}.`,
+        campo: 'all'
+      })
+      // setForm directo: no invalidar mockup (aún no hay imagen al principio)
+      setForm((prev) => ({
+        ...prev,
+        objetivo_proyecto: result.objetivo_proyecto || prev.objetivo_proyecto,
+        brief_publico: result.brief_publico || prev.brief_publico,
+        estilo_diseno: result.estilo_diseno || prev.estilo_diseno
+      }))
+      setMensaje(null)
+      setDisenadorMsg(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron generar los textos')
+    } finally {
+      setTextosIaLoading(false)
+    }
   }
 
   const handleGenerarMockupIa = async () => {
@@ -612,6 +657,26 @@ export default function TotemDisenoBriefPage() {
               <p className="totem-diseno-recargo-hint">
                 Al tocar, avisamos a un diseñador. Atención personal: <strong>+{URGENCIA_RECARGO}</strong>.
               </p>
+              {(form.tipo_producto_servicio.length > 0 || form.necesita_asesoramiento) && (
+                <div className="totem-diseno-ia-early">
+                  <button
+                    type="button"
+                    className="totem-diseno-btn-primary"
+                    disabled={textosIaLoading}
+                    onClick={() => void handleGenerarTextosIa()}
+                  >
+                    {textosIaLoading ? 'Redactando con IA…' : '✨ Completar textos con IA'}
+                  </button>
+                  <p className="totem-diseno-recargo-hint">
+                    Al principio del brief: arma objetivo, descripción y estilo. La imagen IA va al final.
+                  </p>
+                  {(form.objetivo_proyecto || form.brief_publico) && (
+                    <p className="totem-diseno-recargo-hint totem-diseno-recargo-hint--ok">
+                      Textos listos — podés seguir y editarlos en los próximos pasos.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -686,24 +751,33 @@ export default function TotemDisenoBriefPage() {
                   placeholder="Colores, textos, referencias, lo que no puede faltar…"
                 />
               </label>
-              <button
-                type="button"
-                className="totem-diseno-btn-primary"
-                disabled={mockupAiLoading || mockup.empty}
-                onClick={() => void handleGenerarMockupIa()}
-              >
-                {mockupAiLoading ? 'Generando imagen…' : '✨ Generar imagen con IA'}
-              </button>
-              {mockupAiUrl && (
-                <p className="totem-diseno-recargo-hint totem-diseno-recargo-hint--ok">
-                  Imagen lista: se adjunta al enviar el brief.
-                </p>
-              )}
+              <p className="totem-diseno-recargo-hint">
+                La imagen con IA se genera en el último paso, al confirmar el envío.
+              </p>
             </div>
           )}
 
           {step.id === 'enviar' && (
             <div className="totem-diseno-review">
+              <div className="totem-diseno-ia-final">
+                <button
+                  type="button"
+                  className="totem-diseno-btn-primary"
+                  disabled={mockupAiLoading || mockup.empty}
+                  onClick={() => void handleGenerarMockupIa()}
+                >
+                  {mockupAiLoading ? 'Generando imagen…' : '✨ Generar imagen con IA'}
+                </button>
+                {mockupAiUrl ? (
+                  <p className="totem-diseno-recargo-hint totem-diseno-recargo-hint--ok">
+                    Imagen lista: se adjunta al enviar el brief.
+                  </p>
+                ) : (
+                  <p className="totem-diseno-recargo-hint">
+                    Opcional: generá el mockup acá, al final, antes de enviar.
+                  </p>
+                )}
+              </div>
               <dl>
                 <div>
                   <dt>Cliente</dt>
@@ -803,9 +877,11 @@ export default function TotemDisenoBriefPage() {
             aiImageUrl={mockupAiUrl}
             loadingAi={mockupAiLoading}
             userImageUrl={null}
-            iaLoading={false}
-            onGenerarMockupIa={() => void handleGenerarMockupIa()}
-            onGenerarTodoIa={() => void handleGenerarMockupIa()}
+            iaLoading={textosIaLoading}
+            showTextIaAction={false}
+            showImageIaAction={false}
+            onGenerarMockupIa={() => undefined}
+            onGenerarTodoIa={() => undefined}
           />
         </div>
       </div>

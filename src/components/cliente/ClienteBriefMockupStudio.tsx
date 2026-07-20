@@ -22,6 +22,10 @@ type Props = {
   iaLoading: boolean
   onGenerarMockupIa: () => void
   onGenerarTodoIa: () => void
+  /** Si false, oculta el botón de textos IA (evita duplicar fuera del studio). */
+  showTextIaAction?: boolean
+  /** Si false, oculta el botón de imagen IA. */
+  showImageIaAction?: boolean
   captureRef?: RefObject<HTMLDivElement | null>
 }
 
@@ -43,11 +47,15 @@ export default function ClienteBriefMockupStudio({
   iaLoading,
   onGenerarMockupIa,
   onGenerarTodoIa,
+  showTextIaAction = true,
+  showImageIaAction = true,
   captureRef
 }: Props) {
   const specForMockup =
     especificacion.trim() ||
     (estiloDiseno.trim() ? `Estilo: ${estiloDiseno.trim()}` : '')
+
+  const showActions = showTextIaAction || showImageIaAction
 
   return (
     <aside className="brief-mockup-studio" aria-label="Estudio de vista previa">
@@ -58,7 +66,9 @@ export default function ClienteBriefMockupStudio({
           <h2 className="brief-mockup-studio__title">Tu proyecto en vivo</h2>
         </div>
         <p className="brief-mockup-studio__sub">
-          El mockup se actualiza mientras completás el brief. Usá IA para una vista realista o para redactar textos.
+          {showActions
+            ? 'El mockup se actualiza mientras completás el brief. Usá IA para textos o una vista realista.'
+            : 'El mockup se actualiza en vivo con lo que elegís en el brief.'}
         </p>
       </header>
 
@@ -109,30 +119,38 @@ export default function ClienteBriefMockupStudio({
         />
       </div>
 
-      <div className="brief-mockup-studio__actions">
-        <button
-          type="button"
-          className="brief-mockup-studio__btn brief-mockup-studio__btn--primary"
-          disabled={empty || iaLoading}
-          onClick={onGenerarTodoIa}
-        >
-          <Wand2 size={17} aria-hidden />
-          {iaLoading ? 'Generando textos…' : 'Completar textos con IA'}
-        </button>
-        <button
-          type="button"
-          className="brief-mockup-studio__btn brief-mockup-studio__btn--secondary"
-          disabled={empty || loadingAi}
-          onClick={onGenerarMockupIa}
-        >
-          <ImageIcon size={17} aria-hidden />
-          {loadingAi ? 'Generando imagen…' : 'Mockup realista (IA)'}
-        </button>
-        <p className="brief-mockup-studio__hint">
-          <Sparkles size={14} aria-hidden />
-          La vista animada cambia al instante; la imagen IA tarda unos segundos.
-        </p>
-      </div>
+      {showActions && (
+        <div className="brief-mockup-studio__actions">
+          {showTextIaAction && (
+            <button
+              type="button"
+              className="brief-mockup-studio__btn brief-mockup-studio__btn--primary"
+              disabled={empty || iaLoading}
+              onClick={onGenerarTodoIa}
+            >
+              <Wand2 size={17} aria-hidden />
+              {iaLoading ? 'Generando textos…' : 'Completar textos con IA'}
+            </button>
+          )}
+          {showImageIaAction && (
+            <button
+              type="button"
+              className="brief-mockup-studio__btn brief-mockup-studio__btn--secondary"
+              disabled={empty || loadingAi}
+              onClick={onGenerarMockupIa}
+            >
+              <ImageIcon size={17} aria-hidden />
+              {loadingAi ? 'Generando imagen…' : 'Mockup realista (IA)'}
+            </button>
+          )}
+          <p className="brief-mockup-studio__hint">
+            <Sparkles size={14} aria-hidden />
+            {showImageIaAction
+              ? 'La vista animada cambia al instante; la imagen IA tarda unos segundos.'
+              : 'La vista se actualiza al instante con tus elecciones.'}
+          </p>
+        </div>
+      )}
     </aside>
   )
 }
