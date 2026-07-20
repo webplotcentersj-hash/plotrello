@@ -1,6 +1,5 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { plotLabFetch } from '../../utils/plotLabApiOrigin'
 import { etiquetaUsuarioNombre } from '../../utils/etiquetaUsuarioNombre'
 import type { Task, TeamMember, ActivityEvent } from '../../types/board'
 import PlotAIChat from '../../components/PlotAIChat'
@@ -50,10 +49,6 @@ export default function AdminDashboard({
   const [backupLoading, setBackupLoading] = useState(false)
   const [pdfFichasLoading, setPdfFichasLoading] = useState(false)
   const [nowTick, setNowTick] = useState(Date.now())
-  const [ttsLoading, setTtsLoading] = useState(false)
-  const [ttsError, setTtsError] = useState<string | null>(null)
-  const ttsAudioRef = useRef<HTMLAudioElement | null>(null)
-  const ttsObjectUrlRef = useRef<string | null>(null)
 
   // Manejar instalación PWA
   useEffect(() => {
@@ -80,32 +75,12 @@ export default function AdminDashboard({
     return () => window.clearInterval(t)
   }, [])
 
-  const revokeTtsObjectUrl = useCallback(() => {
-    if (ttsObjectUrlRef.current) {
-      URL.revokeObjectURL(ttsObjectUrlRef.current)
-      ttsObjectUrlRef.current = null
+  // Por si quedó voz de una sesión anterior, cancelar al entrar
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
     }
   }, [])
-
-  const stopTts = useCallback(() => {
-    if (ttsAudioRef.current) {
-      ttsAudioRef.current.pause()
-      try {
-        ttsAudioRef.current.currentTime = 0
-      } catch {
-        /* noop */
-      }
-      ttsAudioRef.current = null
-    }
-    revokeTtsObjectUrl()
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
-  }, [revokeTtsObjectUrl])
-
-  useEffect(() => {
-    return () => {
-      stopTts()
-    }
-  }, [stopTts])
 
   const handleDescargarBackup = async () => {
     setBackupLoading(true)
@@ -346,65 +321,6 @@ export default function AdminDashboard({
     pedidosPendientes.length
   ])
 
-  const stripEmojisForTTS = (text: string): string =>
-    text
-      .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F1E0}-\u{1F1FF}]/gu, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-
-  const formatVoiceText = (text: string): string => {
-    let s = stripEmojisForTTS(text)
-    s = s.replace(/\*/g, '')
-    s = s.replace(/,/g, ' ')
-    s = s.replace(/\.(?=\s|$)/g, ' ')
-    return s.replace(/\s+/g, ' ').trim()
-  }
-
-  const handleSpeakResumen = useCallback(async () => {
-    const clean = formatVoiceText(resumenEjecutivoTexto)
-    if (!clean) return
-    setTtsError(null)
-    setTtsLoading(true)
-    stopTts()
-    try {
-      // Gemini para redactar una versión más “hablable” del resumen.
-      const prompt = [
-        'Generá un resumen hablado, muy claro y ejecutivo, en español rioplatense.',
-        'Debe durar 20 a 35 segundos.',
-        'Sin bullets, sin markdown, sin números de lista.',
-        'Mantené todos los números EXACTOS como aparecen (no inventes).',
-        'Texto base:',
-        clean
-      ].join('\n')
-
-      const res = await plotLabFetch('/api/plotai/chat-public', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: prompt, modo: 'admin' })
-      })
-      const j = (await res.json().catch(() => null)) as { reply?: string; error?: string } | null
-      const spoken = String(j?.reply || clean).trim() || clean
-
-      if (!('speechSynthesis' in window)) {
-        setTtsError('Este navegador no soporta síntesis de voz.')
-        return
-      }
-      window.speechSynthesis.cancel()
-      const u = new SpeechSynthesisUtterance(spoken)
-      u.lang = 'es-AR'
-      u.rate = 0.92
-      u.onend = () => setTtsLoading(false)
-      u.onerror = () => setTtsLoading(false)
-      window.speechSynthesis.speak(u)
-    } catch (e) {
-      setTtsError(e instanceof Error ? e.message : 'No se pudo generar el audio.')
-    } finally {
-      // En speechSynthesis cerramos loading en onend/onerror
-      // Si falló antes de hablar, cerramos acá.
-      setTimeout(() => setTtsLoading(false), 400)
-    }
-  }, [resumenEjecutivoTexto, stopTts])
-
   return (
     <div className="admin-dashboard">
       {/* Header ejecutivo (desktop por defecto; compacto en móvil) */}
@@ -468,37 +384,9 @@ export default function AdminDashboard({
               <span className="admin-btn-icon">📊</span>
               <span className="admin-btn-text">Reportes</span>
             </button>
-            <button
-              type="button"
-              className="admin-btn admin-btn-voice"
-              onClick={() => void handleSpeakResumen()}
-              disabled={ttsLoading}
-              title="Escuchar resumen hablado (Gemini + voz del dispositivo)"
-            >
-              <span className="admin-btn-icon">🔊</span>
-              <span className="admin-btn-text">{ttsLoading ? 'Audio…' : 'Audio resumen'}</span>
-            </button>
-            <button
-              type="button"
-              className="admin-btn admin-btn-secondary"
-              onClick={stopTts}
-              title="Detener audio"
-            >
-              <span className="admin-btn-icon">⏹️</span>
-              <span className="admin-btn-text">Stop</span>
-            </button>
           </div>
         </div>
       </header>
-
-      {ttsError && (
-        <section className="admin-banner">
-          <div className="admin-banner-inner">
-            <div className="admin-banner-title">Audio</div>
-            <div className="admin-banner-text">{ttsError}</div>
-          </div>
-        </section>
-      )}
 
       <section className="admin-hero">
         <div className="admin-hero-card">
@@ -507,13 +395,6 @@ export default function AdminDashboard({
           <div className="admin-hero-actions">
             <button className="admin-hero-btn" onClick={onRefresh} disabled={loading}>
               {loading ? 'Actualizando…' : 'Actualizar ahora'}
-            </button>
-            <button
-              className="admin-hero-btn admin-hero-btn-ghost"
-              onClick={() => void handleSpeakResumen()}
-              disabled={ttsLoading}
-            >
-              {ttsLoading ? 'Generando audio…' : 'Escuchar'}
             </button>
           </div>
         </div>
