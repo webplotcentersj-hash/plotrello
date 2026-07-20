@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
+import type { ClienteRecord } from '../types/api'
 import { TIPOS_PRODUCTO_BRIEF, emptyClienteBriefForm, type ClienteBriefFormData } from '../constants/clienteBriefForm'
 import { TOTEM_DISENO_STEP_META, TOTEM_DISENO_TIPO_HINTS } from '../constants/totemDisenoBrief'
 import {
@@ -19,6 +20,7 @@ import './TotemDisenoPages.css'
 
 const LOGO_URL = '/plot-lab-logo.png'
 const IDLE_MS = 180_000
+const URGENCIA_RECARGO = '30%'
 
 const DONDE = [
   'En el local / comercio',
@@ -47,6 +49,11 @@ export default function TotemDisenoBriefPage() {
   const [nombre, setNombre] = useState('')
   const [empresa, setEmpresa] = useState('')
   const [telefono, setTelefono] = useState('')
+  const [clienteId, setClienteId] = useState<number | null>(null)
+  const [nombreSugerencias, setNombreSugerencias] = useState<ClienteRecord[]>([])
+  const [nombreLoading, setNombreLoading] = useState(false)
+  const [nombreMenuOpen, setNombreMenuOpen] = useState(false)
+  const nombreWrapRef = useRef<HTMLLabelElement | null>(null)
   const [hintTipo, setHintTipo] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
@@ -90,6 +97,66 @@ export default function TotemDisenoBriefPage() {
       ),
     [form]
   )
+
+  const applyClienteDetectado = useCallback((c: ClienteRecord) => {
+    const nom = [c.nombre, c.apellido].filter(Boolean).join(' ').trim()
+    setClienteId(c.id)
+    if (nom) setNombre(nom)
+    const emp = String(c.empresa ?? '').trim()
+    if (emp) setEmpresa(emp)
+    const tel = String(c.telefono ?? '').trim()
+    if (tel) setTelefono(tel)
+    setNombreSugerencias([])
+    setNombreMenuOpen(false)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const q = nombre.trim()
+    if (q.length < 3) {
+      setNombreSugerencias([])
+      setNombreLoading(false)
+      setNombreMenuOpen(false)
+      return
+    }
+    setNombreLoading(true)
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const res = await apiService.buscarClientes(q)
+        if (cancelled) return
+        setNombreLoading(false)
+        if (!res.success || !res.data) {
+          setNombreSugerencias([])
+          setNombreMenuOpen(false)
+          return
+        }
+        const lista = res.data
+        const unico = lista.length === 1 ? lista[0]! : null
+        if (unico) {
+          const linea = [unico.nombre, unico.apellido].filter(Boolean).join(' ').trim()
+          if (linea.toLowerCase() === q.toLowerCase()) {
+            applyClienteDetectado(unico)
+            return
+          }
+        }
+        setNombreSugerencias(lista)
+        setNombreMenuOpen(lista.length > 0)
+      })()
+    }, 380)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [nombre, applyClienteDetectado])
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      const el = nombreWrapRef.current
+      if (!el?.contains(e.target as Node)) setNombreMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -147,10 +214,12 @@ export default function TotemDisenoBriefPage() {
         clienteNombre: nombre.trim() || 'Cliente tótem diseño',
         briefToken: briefToken || undefined,
         contexto:
-          'Cliente en tótem 1° piso Diseño tocó «Llamar a un diseñador».' +
+          'Cliente en tótem 1° piso Diseño tocó «Llamar a un diseñador» (+30%).' +
           (form.tipo_producto_servicio.length
             ? ` Interés: ${form.tipo_producto_servicio.join(', ')}.`
-            : '')
+            : form.necesita_asesoramiento
+              ? ' Pidió asesoramiento (no sabe qué necesita).'
+              : '')
       })
       setDisenadorMsg(r.mensaje)
       if (!r.ok) {
@@ -169,13 +238,23 @@ export default function TotemDisenoBriefPage() {
     } finally {
       setLlamando(false)
     }
-  }, [briefToken, form.tipo_producto_servicio, llamando, nombre])
+  }, [briefToken, form.necesita_asesoramiento, form.tipo_producto_servicio, llamando, nombre])
 
   useEffect(() => {
     if (!autoLlamar || autoLlamarDone.current) return
     autoLlamarDone.current = true
     void llamarDisenador()
   }, [autoLlamar, llamarDisenador])
+
+  const pedirAsesoramiento = () => {
+    touch()
+    setHintTipo(TOTEM_DISENO_TIPO_HINTS['No sé bien lo que necesito, quiero asesoramiento'])
+    patch({
+      necesita_asesoramiento: true,
+      tipo_producto_servicio: []
+    })
+    void llamarDisenador()
+  }
 
   const handleGenerarMockupIa = async () => {
     if (mockup.empty) {
@@ -247,7 +326,7 @@ export default function TotemDisenoBriefPage() {
     setSaving(true)
     setError(null)
     try {
-      const created = await apiService.crearBriefPublico()
+      const created = await apiService.crearBriefPublico(undefined, clienteId ?? undefined)
       if (!created.success || !created.data) {
         setError(created.error || 'No se pudo crear el brief.')
         return
@@ -257,6 +336,7 @@ export default function TotemDisenoBriefPage() {
 
       const updated = await apiService.actualizarBriefPublico({
         token,
+        id_cliente: clienteId ?? undefined,
         cliente_nombre_completo: nombre.trim(),
         cliente_empresa: empresa.trim() || undefined,
         telefono_cliente: telefono.trim() || undefined,
@@ -280,14 +360,18 @@ export default function TotemDisenoBriefPage() {
       const idBrief =
         briefInfo.success && briefInfo.data?.id != null ? Number(briefInfo.data.id) : null
 
+      let adjuntoOk = false
       if (idBrief && mockupAiUrl?.startsWith('data:')) {
         try {
           const blob = await (await fetch(mockupAiUrl)).blob()
-          const file = new File([blob], `mockup-totem-${Date.now()}.png`, { type: blob.type || 'image/png' })
-          await apiService.uploadArchivoBriefPublico(file, idBrief, {
+          const file = new File([blob], `mockup-totem-${Date.now()}.png`, {
+            type: blob.type || 'image/png'
+          })
+          const up = await apiService.uploadArchivoBriefPublico(file, idBrief, {
             tipoEtiqueta: 'mockup_ia',
             nombreArchivo: file.name
           })
+          adjuntoOk = Boolean(up.success)
         } catch {
           /* mockup opcional */
         }
@@ -300,11 +384,17 @@ export default function TotemDisenoBriefPage() {
         usuario_nombre: 'Totem diseño',
         notas: `Brief desde tótem Diseño (1° piso). Token: ${token}. Productos: ${
           form.tipo_producto_servicio.join(', ') || 'asesoramiento'
-        }.`,
+        }.${form.es_urgencia ? ` Urgente (+${URGENCIA_RECARGO}).` : ''}${
+          adjuntoOk ? ' Incluye mockup IA adjunto.' : ''
+        }`,
         sector_destino: 'Diseño gráfico'
       })
 
-      setMensaje('✅ Brief enviado a Diseño. Ya pueden verlo en Briefs pendientes.')
+      setMensaje(
+        adjuntoOk
+          ? '✅ Brief enviado a Diseño con la imagen generada. Ya pueden verlo en Briefs pendientes.'
+          : '✅ Brief enviado a Diseño. Ya pueden verlo en Briefs pendientes.'
+      )
       setEnviado(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al enviar el brief')
@@ -325,6 +415,10 @@ export default function TotemDisenoBriefPage() {
             <button type="button" className="totem-diseno-btn-primary" onClick={() => void llamarDisenador()}>
               {llamando ? 'Avisando…' : '🎨 Llamar a un diseñador'}
             </button>
+            <p className="totem-diseno-recargo-hint">
+              Atención personal con diseñador: <strong>+{URGENCIA_RECARGO}</strong> sobre el valor de
+              diseño.
+            </p>
             <button type="button" className="totem-diseno-btn-ghost" onClick={() => navigate('/totem/diseno')}>
               Volver al inicio
             </button>
@@ -346,8 +440,9 @@ export default function TotemDisenoBriefPage() {
           className="totem-diseno-call-fab"
           disabled={llamando}
           onClick={() => void llamarDisenador()}
+          title={`Atención personal: +${URGENCIA_RECARGO}`}
         >
-          {llamando ? 'Avisando…' : '🎨 Llamar diseñador'}
+          {llamando ? 'Avisando…' : `🎨 Llamar (+${URGENCIA_RECARGO})`}
         </button>
       </header>
 
@@ -377,17 +472,51 @@ export default function TotemDisenoBriefPage() {
 
           {step.id === 'contacto' && (
             <div className="totem-diseno-fields">
-              <label>
+              <label ref={nombreWrapRef} className="totem-diseno-nombre-wrap">
                 Tu nombre *
                 <input
                   value={nombre}
                   onChange={(e) => {
                     touch()
+                    setClienteId(null)
                     setNombre(e.target.value)
                   }}
-                  placeholder="Nombre y apellido"
-                  autoComplete="name"
+                  onFocus={() => {
+                    if (nombreSugerencias.length > 0) setNombreMenuOpen(true)
+                  }}
+                  placeholder="Nombre y apellido (buscamos en clientes)"
+                  autoComplete="off"
+                  className={clienteId != null ? 'totem-diseno-input--matched' : undefined}
                 />
+                {nombreLoading && <span className="totem-diseno-nombre-status">Buscando…</span>}
+                {clienteId != null && !nombreLoading && (
+                  <span className="totem-diseno-nombre-status totem-diseno-nombre-status--ok">
+                    Cliente registrado
+                  </span>
+                )}
+                {nombreMenuOpen && nombreSugerencias.length > 0 && (
+                  <ul className="totem-diseno-suggest" role="listbox">
+                    {nombreSugerencias.map((c) => {
+                      const line = [c.nombre, c.apellido].filter(Boolean).join(' ').trim()
+                      const extra = [c.empresa, c.dni_cuit, c.telefono].filter(Boolean).join(' · ')
+                      return (
+                        <li key={c.id}>
+                          <button
+                            type="button"
+                            className="totem-diseno-suggestBtn"
+                            onClick={() => {
+                              touch()
+                              applyClienteDetectado(c)
+                            }}
+                          >
+                            <span className="totem-diseno-suggestTitle">{line || c.nombre}</span>
+                            {extra ? <span className="totem-diseno-suggestMeta">{extra}</span> : null}
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
               </label>
               <label>
                 Empresa (opcional)
@@ -436,17 +565,16 @@ export default function TotemDisenoBriefPage() {
               <button
                 type="button"
                 className={`totem-diseno-asesor-chip${form.necesita_asesoramiento ? ' is-active' : ''}`}
-                onClick={() => {
-                  touch()
-                  setHintTipo(TOTEM_DISENO_TIPO_HINTS['No sé bien lo que necesito, quiero asesoramiento'])
-                  patch({
-                    necesita_asesoramiento: !form.necesita_asesoramiento,
-                    tipo_producto_servicio: []
-                  })
-                }}
+                disabled={llamando}
+                onClick={pedirAsesoramiento}
               >
-                No sé bien lo que necesito — quiero que me ayuden
+                {llamando
+                  ? 'Avisando a un diseñador…'
+                  : 'No sé bien lo que necesito — quiero que me ayuden'}
               </button>
+              <p className="totem-diseno-recargo-hint">
+                Al tocar, avisamos a un diseñador. Atención personal: <strong>+{URGENCIA_RECARGO}</strong>.
+              </p>
             </div>
           )}
 
@@ -529,6 +657,11 @@ export default function TotemDisenoBriefPage() {
               >
                 {mockupAiLoading ? 'Generando imagen…' : '✨ Generar imagen con IA'}
               </button>
+              {mockupAiUrl && (
+                <p className="totem-diseno-recargo-hint totem-diseno-recargo-hint--ok">
+                  Imagen lista: se adjunta al enviar el brief.
+                </p>
+              )}
             </div>
           )}
 
@@ -539,6 +672,7 @@ export default function TotemDisenoBriefPage() {
                   <dt>Cliente</dt>
                   <dd>
                     {nombre}
+                    {clienteId != null ? ' · registrado' : ''}
                     {empresa ? ` · ${empresa}` : ''}
                     {telefono ? ` · ${telefono}` : ''}
                   </dd>
@@ -559,6 +693,10 @@ export default function TotemDisenoBriefPage() {
                       .join(' · ') || '—'}
                   </dd>
                 </div>
+                <div>
+                  <dt>Imagen</dt>
+                  <dd>{mockupAiUrl ? 'Mockup IA listo para adjuntar' : 'Sin imagen generada (opcional)'}</dd>
+                </div>
               </dl>
               <label className="totem-diseno-check">
                 <input
@@ -566,7 +704,13 @@ export default function TotemDisenoBriefPage() {
                   checked={form.es_urgencia}
                   onChange={(e) => patch({ es_urgencia: e.target.checked })}
                 />
-                Es urgente
+                <span>
+                  Es urgente
+                  <small className="totem-diseno-check-extra">
+                    {' '}
+                    · recargo <strong>+{URGENCIA_RECARGO}</strong> sobre el valor de diseño
+                  </small>
+                </span>
               </label>
               <button
                 type="button"
@@ -574,7 +718,11 @@ export default function TotemDisenoBriefPage() {
                 disabled={saving}
                 onClick={() => void handleEnviar()}
               >
-                {saving ? 'Enviando a Diseño…' : 'Enviar brief a Diseño'}
+                {saving
+                  ? 'Enviando a Diseño…'
+                  : mockupAiUrl
+                    ? 'Enviar brief + imagen a Diseño'
+                    : 'Enviar brief a Diseño'}
               </button>
             </div>
           )}

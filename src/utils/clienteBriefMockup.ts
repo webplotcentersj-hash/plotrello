@@ -33,9 +33,20 @@ export function resolveBriefMockup(
   }
 
   const labelSource =
-    tipos[0] || tipoOtro.trim() || (necesitaAsesoramiento ? 'Asesoramiento personalizado' : 'Proyecto gráfico')
+    tipos.find((t) => resolveMockupProduct(t) !== 'generic') ||
+    tipos[0] ||
+    tipoOtro.trim() ||
+    (necesitaAsesoramiento ? 'Asesoramiento personalizado' : 'Proyecto gráfico')
   const allText = [...tipos, tipoOtro].join(' ')
-  const productKind = resolveMockupProduct(allText)
+  // Preferir el primer tipo concreto (Flyer, Carpetas…) sobre genéricos tipo “Diseño de una pieza…”
+  let productKind = resolveMockupProduct(allText)
+  for (const t of tipos) {
+    const k = resolveMockupProduct(t)
+    if (k !== 'generic') {
+      productKind = k
+      break
+    }
+  }
   const sceneKind = resolveMockupScene(dondeColocados, productKind, digitalOImpresion)
 
   return {

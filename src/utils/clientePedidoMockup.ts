@@ -7,26 +7,36 @@ export type MockupProductKind =
   | 'logo'
   | 'sign'
   | 'vehicle'
+  | 'folder'
+  | 'notebook'
+  | 'packaging'
+  | 'presentation'
   | 'generic'
 
-export type MockupSceneKind = 'storefront' | 'interior' | 'vehicle' | 'digital' | 'window'
+export type MockupSceneKind = 'storefront' | 'interior' | 'vehicle' | 'digital' | 'window' | 'event'
 
 const PRODUCT_RULES: Array<{ match: RegExp; kind: MockupProductKind }> = [
-  { match: /banner|lona|gigantograf/i, kind: 'banner' },
   { match: /roll\s*up|rollup|pendón vertical/i, kind: 'banner-vertical' },
-  { match: /flyer|folleto|catálogo|catalogo|brochure|diptico|díptico/i, kind: 'flyer' },
+  { match: /banner|lona|gigantograf/i, kind: 'banner' },
+  { match: /flyer|folleto|brochure|diptico|díptico/i, kind: 'flyer' },
+  { match: /carpeta/i, kind: 'folder' },
+  { match: /agenda|cuaderno|calendario/i, kind: 'notebook' },
+  { match: /packaging|envase|caja/i, kind: 'packaging' },
+  { match: /presentaci[oó]n|\bpdf\b/i, kind: 'presentation' },
   { match: /tarjeta/i, kind: 'card' },
-  { match: /sticker|calcoman|vinilo/i, kind: 'sticker' },
-  { match: /logo|isotipo|identidad/i, kind: 'logo' },
-  { match: /vehicul|plotear|auto|camioneta/i, kind: 'vehicle' },
-  { match: /cartel|señalet|senalét|letrero|ploteo.*vidriera/i, kind: 'sign' }
+  { match: /sticker|calcoman|vinilo(?!\s*vehicul)/i, kind: 'sticker' },
+  { match: /logo|isotipo|identidad|redi[s]?eño/i, kind: 'logo' },
+  { match: /vehicul|plotear|auto|camioneta|flota/i, kind: 'vehicle' },
+  { match: /cartel|señalet|senalet|letrero|vidriera|comercio|ploteo/i, kind: 'sign' }
 ]
 
 const SCENE_RULES: Array<{ match: RegExp; scene: MockupSceneKind }> = [
-  { match: /afuera|exterior|fachada|calle|entrada|vereda|local|tienda|comercio|vidriera/i, scene: 'storefront' },
   { match: /vehicul|auto|camioneta|flota|plotear/i, scene: 'vehicle' },
   { match: /redes|instagram|facebook|web|digital|pantalla|mail|newsletter/i, scene: 'digital' },
+  { match: /evento|feria|stand|expo|feria/i, scene: 'event' },
   { match: /ventana|vidrio|escaparate/i, scene: 'window' },
+  { match: /afuera|exterior|fachada|calle|entrada|vereda|carteler[ií]a exterior/i, scene: 'storefront' },
+  { match: /local|tienda|comercio|vidriera/i, scene: 'storefront' },
   { match: /interior|pared|mostrador|salón|salon|recepción|recepcion|oficina/i, scene: 'interior' }
 ]
 
@@ -44,6 +54,8 @@ export function resolveMockupScene(
   digitalOImpresion?: string
 ): MockupSceneKind {
   if (digitalOImpresion === 'digital') return 'digital'
+  if (productKind === 'presentation' && !ubicacion.trim()) return 'digital'
+  if (productKind === 'vehicle') return 'vehicle'
 
   const text = ubicacion.trim()
   if (text) {
@@ -51,7 +63,17 @@ export function resolveMockupScene(
       if (rule.match.test(text)) return rule.scene
     }
   }
-  if (productKind === 'vehicle') return 'vehicle'
+  // Piezas de mano: no forzar pared interior si no eligieron ubicación
+  if (
+    productKind === 'flyer' ||
+    productKind === 'card' ||
+    productKind === 'folder' ||
+    productKind === 'notebook' ||
+    productKind === 'packaging' ||
+    productKind === 'sticker'
+  ) {
+    return 'interior'
+  }
   return 'interior'
 }
 
@@ -122,7 +144,8 @@ export function buildMockupImagePrompt(input: {
     interior: 'displayed on an interior wall of a shop',
     vehicle: 'applied as wrap on a commercial van',
     digital: 'shown on a modern digital screen mockup',
-    window: 'behind a shop window glass'
+    window: 'behind a shop window glass',
+    event: 'at a trade fair booth or event stand'
   }
   const productLabels: Record<MockupProductKind, string> = {
     banner: 'large horizontal printed banner',
@@ -133,6 +156,10 @@ export function buildMockupImagePrompt(input: {
     logo: 'logo signage',
     sign: 'outdoor sign',
     vehicle: 'vehicle wrap graphics',
+    folder: 'branded presentation folders',
+    notebook: 'branded notebook or agenda',
+    packaging: 'custom product packaging box',
+    presentation: 'digital presentation slides on screen',
     generic: 'printed graphic product'
   }
   const ubicacion = input.donde_colocados.trim()

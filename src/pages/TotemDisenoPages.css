@@ -327,6 +327,89 @@
   font-size: 1rem;
 }
 
+.totem-diseno-nombre-wrap {
+  position: relative;
+}
+
+.totem-diseno-input--matched {
+  border-color: rgba(34, 197, 94, 0.55) !important;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25);
+}
+
+.totem-diseno-nombre-status {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--td-muted);
+}
+
+.totem-diseno-nombre-status--ok {
+  color: #86efac;
+}
+
+.totem-diseno-suggest {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #0b1220;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.totem-diseno-suggestBtn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+}
+
+.totem-diseno-suggestBtn:hover {
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.totem-diseno-suggestTitle {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.totem-diseno-suggestMeta {
+  font-size: 0.78rem;
+  color: var(--td-muted);
+}
+
+.totem-diseno-recargo-hint {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--td-muted);
+  line-height: 1.4;
+}
+
+.totem-diseno-recargo-hint--ok {
+  color: #86efac;
+}
+
+.totem-diseno-check-extra {
+  font-weight: 600;
+  color: #fbbf24;
+}
+
 .totem-diseno-chips {
   display: flex;
   flex-wrap: wrap;

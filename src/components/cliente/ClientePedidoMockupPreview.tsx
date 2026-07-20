@@ -20,10 +20,11 @@ type Props = {
 
 const SCENE_LABELS: Record<MockupSceneKind, string> = {
   storefront: 'Exterior del local',
-  interior: 'Interior / pared',
+  interior: 'Interior / mesa',
   vehicle: 'Vehículo',
   digital: 'Pantalla digital',
-  window: 'Vidriera'
+  window: 'Vidriera',
+  event: 'Evento / feria'
 }
 
 const PRODUCT_LABELS: Record<MockupProductKind, string> = {
@@ -35,6 +36,10 @@ const PRODUCT_LABELS: Record<MockupProductKind, string> = {
   logo: 'Logo',
   sign: 'Cartelería',
   vehicle: 'Plotado vehicular',
+  folder: 'Carpetas',
+  notebook: 'Agenda / cuaderno',
+  packaging: 'Packaging',
+  presentation: 'Presentación',
   generic: 'Producto gráfico'
 }
 
@@ -173,6 +178,13 @@ export default function ClientePedidoMockupPreview({
         {sceneKind === 'interior' && (
           <div className="mockup-interior-wall">
             <div className="mockup-shelf" />
+            <div className="mockup-table" />
+          </div>
+        )}
+        {sceneKind === 'event' && (
+          <div className="mockup-event-booth">
+            <div className="mockup-event-backwall" />
+            <div className="mockup-event-counter" />
           </div>
         )}
         {sceneKind === 'vehicle' && (
