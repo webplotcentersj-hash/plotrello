@@ -144,6 +144,58 @@
   font-weight: 500;
 }
 
+.rrhh-solicitud-adjunto {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(234, 88, 12, 0.08);
+  border: 1px solid rgba(234, 88, 12, 0.28);
+}
+
+.rrhh-solicitud-adjunto strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #c2410c;
+}
+
+.rrhh-solicitud-adjunto-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.btn-adjunto {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #ea580c;
+  color: #fff !important;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.btn-adjunto:hover {
+  background: #c2410c;
+}
+
+.rrhh-solicitud-adjunto-preview {
+  max-width: min(100%, 320px);
+  max-height: 240px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  object-fit: contain;
+  background: #fff;
+}
+
+.rrhh-solicitud-sin-adjunto {
+  margin-top: 8px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
 .rrhh-solicitud-actions {
   display: flex;
   gap: 8px;

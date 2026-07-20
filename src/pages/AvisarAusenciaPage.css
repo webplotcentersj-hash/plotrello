@@ -422,6 +422,27 @@
   font-size: 0.85rem;
 }
 
+.avisar-ausencia-adjuntar {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px dashed rgba(253, 186, 116, 0.55);
+  color: #fdba74;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.avisar-ausencia-adjuntar input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
 .avisar-ausencia-badge {
   flex-shrink: 0;
   padding: 3px 8px;

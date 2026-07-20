@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useDmMensajeriaUnread } from '../hooks/useDmMensajeriaUnread'
 import apiService from '../services/api'
-import { supabase } from '../services/supabaseClient'
 import RrhhMessagingCenter from '../components/RrhhMessagingCenter'
 import type { Notification, SolicitudPermiso, UsuarioRecord } from '../types/api'
 import './AvisarAusenciaPage.css'
@@ -16,20 +15,6 @@ const MOTIVOS = [
 ] as const
 
 const LOGO_URL = '/plot-lab-logo.png'
-
-async function uploadCertificado(userId: number, file: File): Promise<string> {
-  if (!supabase) throw new Error('No hay conexión a Supabase')
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
-  const path = `solicitudes-permisos/${userId}/${Date.now()}.${ext}`
-  const { error } = await supabase.storage.from('archivos').upload(path, file, {
-    upsert: true,
-    contentType: file.type || undefined
-  })
-  if (error) throw new Error(error.message)
-  const { data } = supabase.storage.from('archivos').getPublicUrl(path)
-  if (!data?.publicUrl) throw new Error('No se obtuvo la URL del archivo')
-  return data.publicUrl
-}
 
 function formatNotifTime(iso: string): string {
   try {
@@ -70,6 +55,7 @@ export default function AvisarAusenciaPage() {
   const [msgLoading, setMsgLoading] = useState(false)
   const [dmPeerId, setDmPeerId] = useState<number | null>(null)
   const [showMensajeria, setShowMensajeria] = useState(false)
+  const [uploadingAdjuntoId, setUploadingAdjuntoId] = useState<number | null>(null)
 
   const histRefs = useRef<Map<number, HTMLLIElement>>(new Map())
   const comRefs = useRef<Map<number, HTMLLIElement>>(new Map())
@@ -228,7 +214,12 @@ export default function AvisarAusenciaPage() {
     try {
       let adjuntoUrl: string | null = null
       if (archivo) {
-        adjuntoUrl = await uploadCertificado(usuario.id, archivo)
+        const up = await apiService.subirAdjuntoSolicitudPermiso(archivo, usuario.id)
+        if (!up.success || !up.data?.url) {
+          setError(up.error || 'No se pudo subir el certificado.')
+          return
+        }
+        adjuntoUrl = up.data.url
       }
 
       const titulo = `Ausencia: ${motivoFinal}`
@@ -236,6 +227,7 @@ export default function AvisarAusenciaPage() {
         `Motivo: ${motivoFinal}`,
         `Ubicación: ${ubicacion.trim()}`,
         detalle.trim() ? `Detalle: ${detalle.trim()}` : '',
+        adjuntoUrl ? `Certificado/adjunto: ${adjuntoUrl}` : null,
         'Aviso desde /avisar-ausencia (celular). Solo plataforma — no WhatsApp.'
       ]
         .filter(Boolean)
@@ -260,10 +252,15 @@ export default function AvisarAusenciaPage() {
         return
       }
 
+      // Seguridad: si el insert no guardó la URL, forzar adjunto
+      if (adjuntoUrl && res.data?.id && !res.data.archivo_adjunto_url) {
+        await apiService.adjuntarArchivoSolicitudPermiso(res.data.id, usuario.id, adjuntoUrl)
+      }
+
       setOkMsg(
         adjuntoUrl
-          ? '✅ Ausencia avisada con certificado. RRHH ya fue notificado.'
-          : '✅ Ausencia avisada. Si tenés certificado médico, subilo dentro de las 24 hs desde este mismo lugar (o adjuntálo en un nuevo aviso con el PDF).'
+          ? '✅ Ausencia avisada con certificado. RRHH ya puede ver el adjunto.'
+          : '✅ Ausencia avisada. Si tenés certificado, subilo en “Tus últimos avisos” dentro de las 24 hs.'
       )
       setDetalle('')
       setArchivo(null)
@@ -285,6 +282,35 @@ export default function AvisarAusenciaPage() {
       setError(err instanceof Error ? err.message : 'Error al avisar la ausencia')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleAdjuntarAHistorial = async (solicitudId: number, file: File | null) => {
+    if (!usuario?.id || !file) return
+    setUploadingAdjuntoId(solicitudId)
+    setError(null)
+    try {
+      const up = await apiService.subirAdjuntoSolicitudPermiso(file, usuario.id)
+      if (!up.success || !up.data?.url) {
+        setError(up.error || 'No se pudo subir el archivo')
+        return
+      }
+      const adj = await apiService.adjuntarArchivoSolicitudPermiso(
+        solicitudId,
+        usuario.id,
+        up.data.url
+      )
+      if (!adj.success) {
+        setError(adj.error || 'No se pudo asociar el adjunto a la solicitud')
+        return
+      }
+      setOkMsg('✅ Certificado enviado a RRHH.')
+      setHighlightSolicitudId(solicitudId)
+      void loadHistorial()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al adjuntar')
+    } finally {
+      setUploadingAdjuntoId(null)
     }
   }
 
@@ -575,9 +601,23 @@ export default function AvisarAusenciaPage() {
                 </p>
                 {s.archivo_adjunto_url ? (
                   <a href={s.archivo_adjunto_url} target="_blank" rel="noreferrer">
-                    Ver adjunto
+                    Ver adjunto enviado a RRHH
                   </a>
-                ) : null}
+                ) : (
+                  <label className="avisar-ausencia-adjuntar">
+                    {uploadingAdjuntoId === s.id ? 'Subiendo…' : '📎 Subir certificado a RRHH'}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      disabled={uploadingAdjuntoId === s.id}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null
+                        e.target.value = ''
+                        void handleAdjuntarAHistorial(s.id, f)
+                      }}
+                    />
+                  </label>
+                )}
               </li>
             ))}
           </ul>

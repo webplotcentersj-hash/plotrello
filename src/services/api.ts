@@ -16954,10 +16954,17 @@ class ApiService {
             otro: '📝'
           }[tipoSolicitud] || '📋'
 
+          const conAdjunto = Boolean(archivoAdjuntoUrl)
           await this.createNotification({
             user_id: usuarioRRHH.id,
-            title: `${tipoIcon} Nueva Solicitud de ${tipoSolicitud}`,
-            description: `${nombreUsuario} ha creado una solicitud: "${titulo}"${descripcion ? ` - ${descripcion}` : ''}`,
+            title: `${tipoIcon} Nueva Solicitud de ${tipoSolicitud}${conAdjunto ? ' (con adjunto)' : ''}`,
+            description: [
+              `${nombreUsuario} creó: "${titulo}"`,
+              descripcion ? descripcion.slice(0, 280) : null,
+              conAdjunto ? `📎 Certificado/adjunto: ${archivoAdjuntoUrl}` : null
+            ]
+              .filter(Boolean)
+              .join('\n'),
             type: 'info',
             solicitud_id: solicitud.id
           })
@@ -16973,6 +16980,94 @@ class ApiService {
       return {
         success: false,
         error: error.message || 'Error al crear solicitud'
+      }
+    }
+  }
+
+  /** Sube PDF/foto de certificado al bucket `archivos` (solicitudes-permisos/). */
+  async subirAdjuntoSolicitudPermiso(
+    file: File,
+    idUsuario: number
+  ): Promise<ApiResponse<{ url: string; path: string }>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    const maxBytes = 12 * 1024 * 1024
+    if (file.size > maxBytes) {
+      return { success: false, error: 'El archivo supera 12 MB' }
+    }
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+    const allowedExt = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'])
+    if (!allowedExt.has(ext)) {
+      return { success: false, error: 'Formato no permitido (PDF o imagen).' }
+    }
+    const path = `solicitudes-permisos/${idUsuario}/${Date.now()}.${ext}`
+    try {
+      const contentType =
+        file.type ||
+        (ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : 'image/jpeg')
+      const { error: uploadError } = await supabase.storage.from('archivos').upload(path, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType
+      })
+      if (uploadError) {
+        return { success: false, error: uploadError.message }
+      }
+      const { data: urlData } = supabase.storage.from('archivos').getPublicUrl(path)
+      const publicUrl = urlData?.publicUrl
+      if (!publicUrl) {
+        return { success: false, error: 'No se pudo obtener la URL del archivo' }
+      }
+      return { success: true, data: { url: publicUrl, path } }
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Error al subir adjunto' }
+    }
+  }
+
+  /** Asocia una URL de certificado a una solicitud existente (empleado dueño o RRHH). */
+  async adjuntarArchivoSolicitudPermiso(
+    idSolicitud: number,
+    idUsuario: number,
+    archivoAdjuntoUrl: string
+  ): Promise<ApiResponse<SolicitudPermiso>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+    try {
+      const { data, error } = await supabase.rpc('adjuntar_archivo_solicitud_permiso', {
+        p_id: idSolicitud,
+        p_id_usuario: idUsuario,
+        p_archivo_adjunto_url: archivoAdjuntoUrl
+      })
+      if (error) throw error
+
+      const solicitud = data as SolicitudPermiso
+
+      // Avisar a RRHH que llegó el certificado
+      const usuariosResponse = await this.getUsuarios()
+      if (usuariosResponse.success && usuariosResponse.data) {
+        const solicitante = usuariosResponse.data.find((u) => u.id === solicitud.id_usuario)
+        const nombreUsuario = solicitante?.nombre || 'Usuario'
+        const usuariosRRHH = usuariosResponse.data.filter(
+          (u) => u.rol === 'recursos-humanos' || u.rol === 'administracion'
+        )
+        for (const usuarioRRHH of usuariosRRHH) {
+          await this.createNotification({
+            user_id: usuarioRRHH.id,
+            title: '📎 Certificado adjunto a solicitud',
+            description: `${nombreUsuario} adjuntó un certificado/foto a "${solicitud.titulo}".\n📎 ${archivoAdjuntoUrl}`,
+            type: 'info',
+            solicitud_id: solicitud.id
+          })
+        }
+      }
+
+      return { success: true, data: solicitud }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Error al adjuntar archivo'
       }
     }
   }

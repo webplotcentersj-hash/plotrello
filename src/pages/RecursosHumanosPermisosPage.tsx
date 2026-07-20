@@ -306,6 +306,43 @@ const RecursosHumanosPermisosPage = () => {
                         <strong>Motivo de rechazo:</strong> {solicitud.motivo_rechazo}
                       </p>
                     )}
+                    {solicitud.observaciones && (
+                      <p className="rrhh-solicitud-observaciones">
+                        <strong>Ubicación / observaciones:</strong> {solicitud.observaciones}
+                      </p>
+                    )}
+                    {solicitud.archivo_adjunto_url ? (
+                      <div className="rrhh-solicitud-adjunto">
+                        <strong>📎 Certificado / adjunto</strong>
+                        <div className="rrhh-solicitud-adjunto-actions">
+                          <a
+                            className="btn-adjunto"
+                            href={solicitud.archivo_adjunto_url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Abrir PDF / foto
+                          </a>
+                          {/\.(png|jpe?g|webp|gif|heic)(\?|$)/i.test(solicitud.archivo_adjunto_url) ||
+                          /image/i.test(solicitud.archivo_adjunto_url) ? (
+                            <a
+                              href={solicitud.archivo_adjunto_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rrhh-solicitud-adjunto-preview-link"
+                            >
+                              <img
+                                src={solicitud.archivo_adjunto_url}
+                                alt="Certificado adjunto"
+                                className="rrhh-solicitud-adjunto-preview"
+                              />
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="rrhh-solicitud-sin-adjunto">Sin certificado adjunto</p>
+                    )}
                     <p className="rrhh-solicitud-fecha">
                       <strong>Fecha de solicitud:</strong> {new Date(solicitud.fecha_solicitud).toLocaleDateString()}
                     </p>
