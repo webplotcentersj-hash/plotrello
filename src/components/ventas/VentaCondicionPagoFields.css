@@ -20,7 +20,7 @@
   border-radius: 8px;
   background: rgba(251, 191, 36, 0.12);
   border: 1px solid rgba(251, 191, 36, 0.35);
-  color: #fde68a;
+  color: #111827;
   font-size: 0.82rem;
   line-height: 1.4;
 }
@@ -85,6 +85,10 @@
   color: #475569;
 }
 
+.venta-condicion-fields--transferencia .form-group > label {
+  font-weight: 800;
+}
+
 .venta-rapida-modal.venta-rapida-modal--mostrador .venta-condicion-cuenta-card {
   background: #eff6ff;
   border-color: #bfdbfe;
@@ -96,6 +100,23 @@
 
 .venta-rapida-modal.venta-rapida-modal--mostrador .venta-condicion-cuenta-card code {
   color: #0f172a;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador
+  .venta-condicion-fields--cheque
+  .form-group
+  > label {
+  color: #111827 !important;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador
+  .venta-condicion-fields--cheque
+  .form-select,
+.venta-rapida-modal.venta-rapida-modal--mostrador
+  .venta-condicion-fields--cheque
+  .form-select
+  option {
+  color: #111827 !important;
 }
 
 .venta-rapida-mp-panel {

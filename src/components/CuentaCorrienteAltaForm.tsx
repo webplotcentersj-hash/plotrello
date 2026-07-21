@@ -38,12 +38,6 @@ const DOC_LABELS: Record<DocKey, string> = {
 const MAX_DOC_MB = 8
 const DOC_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*'
 
-function defaultVencimiento(): string {
-  const d = new Date()
-  d.setDate(d.getDate() + 30)
-  return d.toISOString().slice(0, 10)
-}
-
 function valuesFromRecord(
   cc: ClienteCuentaCorrienteRecord | null,
   cliente?: ClienteRecord | null,
@@ -201,8 +195,6 @@ export default function CuentaCorrienteAltaForm({
     domicilio: initialRecord?.url_comprobante_domicilio ?? '',
     documento_dni: initialRecord?.url_documento_dni ?? ''
   })
-  const [pagareMonto, setPagareMonto] = useState('')
-  const [pagareVencimiento, setPagareVencimiento] = useState(defaultVencimiento)
   const [pagareConcepto, setPagareConcepto] = useState('')
   const [pagareUrl, setPagareUrl] = useState(initialRecord?.url_pagare ?? '')
   const [generandoPagare, setGenerandoPagare] = useState(false)
@@ -300,11 +292,6 @@ export default function CuentaCorrienteAltaForm({
       setFormError(err)
       return
     }
-    const monto = parseFloat(pagareMonto.replace(',', '.'))
-    if (!Number.isFinite(monto) || monto <= 0) {
-      setFormError('Indicá un monto válido para el pagaré')
-      return
-    }
     setFormError(null)
     setGenerandoPagare(true)
     try {
@@ -313,8 +300,6 @@ export default function CuentaCorrienteAltaForm({
           tipo: tipoCliente,
           nombreDeudor: nombreCompleto(values, tipoCliente),
           cuit: values.cuit.trim(),
-          monto,
-          fechaVencimiento: pagareVencimiento || undefined,
           concepto: pagareConcepto.trim() || undefined,
           domicilio: values.domicilio.trim(),
           localidad: values.localidad.trim(),
@@ -539,29 +524,10 @@ export default function CuentaCorrienteAltaForm({
         <section className="cc-alta-pagare">
           <h3 className="cc-alta-pagare__title">Pagaré prearmado</h3>
           <p className="cc-alta-pagare__hint">
-            Completá monto y vencimiento, luego generá el pagaré: se guarda en el sistema y se descarga
-            una copia para imprimir y firmar. Es obligatorio antes de enviar la solicitud.
+            El pagaré se genera sin monto y con vencimiento a un año vista. Se guarda en el sistema y
+            se descarga una copia para imprimir y firmar. Es obligatorio antes de enviar la solicitud.
           </p>
           <div className="cc-alta-pagare__grid">
-            <label className="cc-alta-field">
-              <span>Monto ($) *</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={pagareMonto}
-                onChange={(e) => setPagareMonto(e.target.value)}
-                placeholder="0.00"
-              />
-            </label>
-            <label className="cc-alta-field">
-              <span>Vencimiento</span>
-              <input
-                type="date"
-                value={pagareVencimiento}
-                onChange={(e) => setPagareVencimiento(e.target.value)}
-              />
-            </label>
             <label className="cc-alta-field cc-alta-field--wide">
               <span>Concepto (opcional)</span>
               <input

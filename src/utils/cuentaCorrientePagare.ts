@@ -1,6 +1,5 @@
 import { jsPDF } from 'jspdf'
 import { formatArgentinaDate } from './dateUtils'
-import { numeroALetras } from './crmExportUtils'
 import { uploadAttachmentAndGetUrl } from './storage'
 
 export type TipoClienteCuentaCorriente = 'empresa' | 'persona_fisica'
@@ -9,8 +8,6 @@ export type PagareCuentaCorrienteInput = {
   tipo: TipoClienteCuentaCorriente
   nombreDeudor: string
   cuit: string
-  monto: number
-  fechaVencimiento?: string
   concepto?: string
   domicilio?: string
   localidad?: string
@@ -38,13 +35,7 @@ export function buildPagareCuentaCorrienteDoc(input: PagareCuentaCorrienteInput)
   const margin = 20
   let yPos = margin
 
-  const monto = Math.max(0, input.monto || 0)
-  const montoLetras =
-    numeroALetras(monto).charAt(0).toUpperCase() + numeroALetras(monto).slice(1)
   const hoy = new Date()
-  const fechaVenc = input.fechaVencimiento
-    ? new Date(input.fechaVencimiento + 'T12:00:00')
-    : new Date(hoy.getTime() + 30 * 24 * 60 * 60 * 1000)
 
   const tipoLabel = input.tipo === 'persona_fisica' ? 'Persona física' : 'Empresa'
   const ref = `CC-${input.cuit.replace(/\D/g, '').slice(-8) || 'NUEVO'}-${Date.now().toString(36).slice(-4).toUpperCase()}`
@@ -73,7 +64,7 @@ export function buildPagareCuentaCorrienteDoc(input: PagareCuentaCorrienteInput)
   const domicilioDeudor = [input.domicilio, input.localidad, input.provincia].filter(Boolean).join(', ')
   const textoPagare = `Por el presente, ${input.nombreDeudor || '___________________'} (CUIT/DNI: ${input.cuit || '___________________'})${
     domicilioDeudor ? `, con domicilio en ${domicilioDeudor}` : ''
-  }, me comprometo a pagar incondicionalmente a la orden de PLOT CENTER S.R.L., la suma de ${montoLetras} ($${monto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}) con vencimiento ${fechaLarga(fechaVenc)}, en San Juan o en el lugar que el acreedor indique.`
+  }, me comprometo a pagar incondicionalmente a la orden de PLOT CENTER S.R.L. las obligaciones derivadas de las operaciones realizadas en cuenta corriente, con vencimiento a un año vista, en San Juan o en el lugar que el acreedor indique.`
 
   doc.setFontSize(11)
   const lines = doc.splitTextToSize(textoPagare, pageWidth - margin * 2)
@@ -83,17 +74,17 @@ export function buildPagareCuentaCorrienteDoc(input: PagareCuentaCorrienteInput)
   })
   yPos += 10
 
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Concepto / detalle:', margin, yPos)
-  yPos += 7
-  doc.setFont('helvetica', 'normal')
-  const concepto =
-    input.concepto?.trim() ||
-    'Operaciones a cuenta corriente en Plot Center según condiciones comerciales acordadas.'
-  const conceptoLines = doc.splitTextToSize(concepto, pageWidth - margin * 2 - 5)
-  doc.text(conceptoLines, margin + 5, yPos)
-  yPos += conceptoLines.length * 5 + 12
+  const concepto = input.concepto?.trim()
+  if (concepto) {
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Concepto / detalle:', margin, yPos)
+    yPos += 7
+    doc.setFont('helvetica', 'normal')
+    const conceptoLines = doc.splitTextToSize(concepto, pageWidth - margin * 2 - 5)
+    doc.text(conceptoLines, margin + 5, yPos)
+    yPos += conceptoLines.length * 5 + 12
+  }
 
   doc.setFontSize(9)
   doc.setTextColor(100, 100, 100)

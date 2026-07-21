@@ -189,6 +189,7 @@ const FiltersBar = ({
               type="button"
               className="venta-rapida-button filters-bar-phone-add"
               onClick={() => setShowVentaRapida(true)}
+              title="Venta rápida (tecla V)"
             >
               💰 Venta rápida
             </button>
@@ -273,7 +274,7 @@ const FiltersBar = ({
               type="button"
               className="venta-rapida-button"
               onClick={() => setShowVentaRapida(true)}
-              title="Registrar una venta sin salir del tablero"
+              title="Registrar una venta sin salir del tablero (tecla V)"
             >
               💰 Venta rápida
             </button>

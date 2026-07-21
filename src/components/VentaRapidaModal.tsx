@@ -784,11 +784,11 @@ const VentaRapidaModal = ({
           </div>
         )}
         <div className="venta-rapida-modal-header">
-          <h2>{ventaCreada ? '✅ Venta realizada' : '💰 Venta Rápida'}</h2>
+          <h2>{ventaCreada && !showMpCheckout ? '✅ Venta realizada' : '💰 Venta Rápida'}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
-        {ventaCreada && (
+        {ventaCreada && !showMpCheckout && (
           <div className="venta-realizada-banner">
             Venta realizada — Nº {ventaCreada.numero_venta}
             {ventaCreada.numero_op && ` • OP: ${ventaCreada.numero_op}`}
@@ -796,7 +796,7 @@ const VentaRapidaModal = ({
         )}
 
         {/* En el mismo modal: opción de convertir a OP (visible sin scroll) */}
-        {ventaCreada && (
+        {ventaCreada && !showMpCheckout && (
           <div className="venta-realizada-convertir" ref={convertirRef}>
             {ventaCreada.numero_op ? (
               <p className="venta-realizada-convertir-ok">✓ Convertida a OP: <strong>{ventaCreada.numero_op}</strong></p>

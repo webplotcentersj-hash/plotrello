@@ -491,7 +491,7 @@ const MostradorDashboardPage = () => {
     [usuario, handleRegistrarAtencionSuccess]
   )
 
-  // Atajos: V = venta rápida; Alt+1/2/3 = registro rápido de atención
+  // Atajos rápidos de atención (Venta rápida usa el atajo global V).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!usuario || loading) return
@@ -502,12 +502,6 @@ const MostradorDashboardPage = () => {
         const tag = target.tagName
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
         if (target.isContentEditable) return
-      }
-
-      if ((e.key === 'v' || e.key === 'V') && !e.altKey && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault()
-        navigate(ventasNuevaVenta())
-        return
       }
 
       if (e.altKey && e.key === '1') {

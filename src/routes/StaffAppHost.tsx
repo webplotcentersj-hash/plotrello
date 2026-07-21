@@ -138,6 +138,7 @@ const AdminBackLink = lazy(() => import('../components/AdminBackLink'))
 const TallerGraficoPedidoEntregaOverlay = lazy(() => import('../components/TallerGraficoPedidoEntregaOverlay'))
 const TallerImprentaPedidoEntregaOverlay = lazy(() => import('../components/TallerImprentaPedidoEntregaOverlay'))
 import { useAuth } from '../hooks/useAuth'
+import { ventasNuevaVenta } from '../utils/ventasRoutes'
 import { usePlatformActivityTracker } from '../hooks/usePlatformActivityTracker'
 import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import { clearPlotlabAuthStorage } from '../utils/plotlabSession'
@@ -199,7 +200,7 @@ export default function StaffAppHost() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [sectores, setSectores] = useState<SectorRecord[]>(DEFAULT_SECTORES)
   const [materiales, setMateriales] = useState<MaterialRecord[]>([])
-  const { setUsuario, usuario } = useAuth()
+  const { setUsuario, usuario, canAccessMostradorViews } = useAuth()
   usePlatformActivityTracker(usuario?.id)
   const [dataLoading, setDataLoading] = useState(false)
   const [dataError, setDataError] = useState<string | null>(null)
@@ -230,6 +231,27 @@ export default function StaffAppHost() {
       if (tid != null) window.clearTimeout(tid)
     }
   }, [])
+
+  // Atajo global: V abre Venta rápida, excepto mientras el usuario está escribiendo.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!usuario || !canAccessMostradorViews || event.defaultPrevented || event.repeat) return
+      if (event.key.toLowerCase() !== 'v' || event.altKey || event.ctrlKey || event.metaKey) return
+
+      const target = event.target as HTMLElement | null
+      if (target) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return
+      }
+      if (document.querySelector('.venta-rapida-modal-overlay')) return
+
+      event.preventDefault()
+      navigate(ventasNuevaVenta())
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [usuario, canAccessMostradorViews, navigate])
 
   useEffect(() => {
     if (!import.meta.env.DEV) return
