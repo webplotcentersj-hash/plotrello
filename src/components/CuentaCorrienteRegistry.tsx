@@ -97,6 +97,7 @@ export default function CuentaCorrienteRegistry({
 }: Props) {
   const navigate = useNavigate()
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [sectionOpen, setSectionOpen] = useState(true)
 
   const toggleExpand = (id: number) => {
     setExpandedId((prev) => (prev === id ? null : id))
@@ -105,51 +106,64 @@ export default function CuentaCorrienteRegistry({
   const rechazadosCount = registros.filter((r) => normalizeEstadoCc(r) === 'rechazada').length
 
   return (
-    <section className="cc-registry" aria-labelledby="cc-registry-title">
-      <header className="cc-registry__toolbar">
-        <div>
+    <section
+      className={`cc-registry${sectionOpen ? ' cc-registry--open' : ''}`}
+      aria-labelledby="cc-registry-title"
+    >
+      <button
+        type="button"
+        className="cc-registry__toggle"
+        aria-expanded={sectionOpen}
+        aria-controls="cc-registry-panel"
+        onClick={() => setSectionOpen((v) => !v)}
+      >
+        <span className="cc-registry__toggle-chevron" aria-hidden />
+        <div className="cc-registry__toggle-text">
           <h2 id="cc-registry-title">Cartera de clientes</h2>
           <p className="cc-registry__subtitle">
-            {totalRegistros} {totalRegistros === 1 ? 'cuenta registrada' : 'cuentas registradas'} ·
-            expandí una fila para ver el detalle completo
+            {totalRegistros} {totalRegistros === 1 ? 'cuenta registrada' : 'cuentas registradas'}
+            {sectionOpen ? ' · expandí una fila para ver el detalle completo' : ''}
           </p>
         </div>
-        <div className="cc-registry__filters">
-          <div className="cc-estado-tabs" role="tablist" aria-label="Filtrar por estado">
-            {(['todos', 'pendiente', 'aprobada', 'rechazada'] as const).map((est) => {
-              const count =
-                est === 'todos'
-                  ? registros.length
-                  : est === 'pendiente'
-                    ? pendientes.length
-                    : est === 'aprobada'
-                      ? aprobados.length
-                      : rechazadosCount
-              return (
-                <button
-                  key={est}
-                  type="button"
-                  role="tab"
-                  aria-selected={filtroEstado === est}
-                  className={`cc-estado-tab${filtroEstado === est ? ' cc-estado-tab--active' : ''}${est === 'pendiente' && pendientes.length > 0 ? ' cc-estado-tab--alert' : ''}${est === 'aprobada' ? ' cc-estado-tab--ok' : ''}`}
-                  onClick={() => onFiltroEstado(est)}
-                >
-                  {est === 'todos' ? `Todos (${count})` : `${ESTADO_CC_LABELS[est]} (${count})`}
-                </button>
-              )
-            })}
+      </button>
+
+      {sectionOpen ? (
+        <div id="cc-registry-panel" className="cc-registry__panel">
+          <div className="cc-registry__filters">
+            <div className="cc-estado-tabs" role="tablist" aria-label="Filtrar por estado">
+              {(['todos', 'pendiente', 'aprobada', 'rechazada'] as const).map((est) => {
+                const count =
+                  est === 'todos'
+                    ? registros.length
+                    : est === 'pendiente'
+                      ? pendientes.length
+                      : est === 'aprobada'
+                        ? aprobados.length
+                        : rechazadosCount
+                return (
+                  <button
+                    key={est}
+                    type="button"
+                    role="tab"
+                    aria-selected={filtroEstado === est}
+                    className={`cc-estado-tab${filtroEstado === est ? ' cc-estado-tab--active' : ''}${est === 'pendiente' && pendientes.length > 0 ? ' cc-estado-tab--alert' : ''}${est === 'aprobada' ? ' cc-estado-tab--ok' : ''}`}
+                    onClick={() => onFiltroEstado(est)}
+                  >
+                    {est === 'todos' ? `Todos (${count})` : `${ESTADO_CC_LABELS[est]} (${count})`}
+                  </button>
+                )
+              })}
+            </div>
+            {registros.length > 0 && (
+              <input
+                type="search"
+                className="cc-registry__search cuenta-corriente-input"
+                placeholder="Buscar nombre o CUIT…"
+                value={filtroLista}
+                onChange={(e) => onFiltroLista(e.target.value)}
+              />
+            )}
           </div>
-          {registros.length > 0 && (
-            <input
-              type="search"
-              className="cc-registry__search cuenta-corriente-input"
-              placeholder="Buscar nombre o CUIT…"
-              value={filtroLista}
-              onChange={(e) => onFiltroLista(e.target.value)}
-            />
-          )}
-        </div>
-      </header>
 
       {registros.length === 0 ? (
         <div className="cc-registry__empty">
@@ -358,6 +372,8 @@ export default function CuentaCorrienteRegistry({
           </ul>
         </div>
       )}
+        </div>
+      ) : null}
     </section>
   )
 }

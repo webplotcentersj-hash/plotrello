@@ -6,6 +6,7 @@ import { operarioExternoHomeRoute } from '../features/work-pool/workPoolOperario
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import type { Notification } from '../types/api'
+import { CLIENTES_CUENTA_CORRIENTE, clientesCcPerfil } from '../utils/clientesRoutes'
 import { ventasConOportunidadId, ventasConVentaId } from '../utils/ventasRoutes'
 import './NotificationsDropdown.css'
 
@@ -132,6 +133,28 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
   useEffect(() => {
     loadNotifications()
   }, [usuario?.id])
+
+  // Una vez por día: generar alertas de vencimiento CC (idempotente en DB)
+  useEffect(() => {
+    if (!usuario?.id) return
+    const rol = (usuario.rol || '').toLowerCase().trim()
+    const puedeCc =
+      ['administracion', 'gerencia', 'caja', 'mostrador', 'admin'].includes(rol) ||
+      Boolean(isAdmin)
+    if (!puedeCc) return
+    const key = `cc-venc-alertas:${usuario.id}:${new Date().toISOString().slice(0, 10)}`
+    try {
+      if (sessionStorage.getItem(key)) return
+      sessionStorage.setItem(key, '1')
+    } catch {
+      /* ignore */
+    }
+    void apiService.verificarAlertasVencimientoCc().then((res) => {
+      if (res.success && (res.data?.notificaciones_creadas ?? 0) > 0) {
+        void loadNotifications()
+      }
+    })
+  }, [usuario?.id, usuario?.rol, isAdmin])
 
   // Suscripción a Realtime para nuevas notificaciones
   useEffect(() => {
@@ -330,6 +353,22 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         } else {
           navigate('/')
         }
+        return
+      }
+      // Cuenta corriente: vencimiento de pago → perfil del cliente
+      if (notification.origen === 'cc_vencimiento') {
+        if (notification.venta_id != null && supabase) {
+          const { data: venta } = await supabase
+            .from('ventas')
+            .select('id_cliente')
+            .eq('id', notification.venta_id)
+            .maybeSingle()
+          if (venta?.id_cliente != null) {
+            navigate(clientesCcPerfil(venta.id_cliente))
+            return
+          }
+        }
+        navigate(CLIENTES_CUENTA_CORRIENTE)
         return
       }
       // Venta (CRM)

@@ -1518,7 +1518,7 @@ export interface Notification {
   title: string
   description: string | null
   type: 'info' | 'success' | 'warning' | 'error' | 'mention'
-  /** sistema | rrhh_masivo (notificador masivo en /rrhh/notificaciones) */
+  /** sistema | rrhh_masivo | cc_vencimiento (alertas de pago CC) */
   origen?: string | null
   orden_id: number | null
   pedido_id: number | null

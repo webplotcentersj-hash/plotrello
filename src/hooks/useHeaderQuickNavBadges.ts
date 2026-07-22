@@ -125,6 +125,11 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
                 window.focus()
                 window.location.assign(`/avisar-ausencia?comunicado=${n.id}`)
               }
+            } else if (n.origen === 'cc_vencimiento') {
+              new Notification(n.title || 'Vencimiento cuenta corriente', {
+                body: n.description || 'Hay un pago de CC por vencer o vencido',
+                tag: `cc-venc-${n.id}`
+              })
             } else if (n.pedido_id != null) {
               new Notification(n.title || 'Pedido de productos', {
                 body: n.description || 'Actualización de tu solicitud',

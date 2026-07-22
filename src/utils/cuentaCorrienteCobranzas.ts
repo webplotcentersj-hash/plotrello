@@ -132,6 +132,44 @@ export function estadoCobroVenta(diasVencido: number): { label: string; cls: str
   return { label: 'Al día', cls: 'cc-cob--ok' }
 }
 
+export type CcAlertaVencimientoResumen = {
+  vencidas: { count: number; monto: number; items: CcCobranzaVentaItem[] }
+  porVencer: { count: number; monto: number; items: CcCobranzaVentaItem[] }
+  totalAlertas: number
+}
+
+/** Ventas abiertas vencidas o dentro de los próximos `diasAviso` (default 7). */
+export function resumenAlertasVencimientoCc(
+  items: Array<
+    Pick<CcCobranzaVentaItem, 'dias_vencido' | 'monto_pendiente'> & Partial<CcCobranzaVentaItem>
+  >,
+  diasAviso = 7
+): CcAlertaVencimientoResumen {
+  const vencidasItems: CcCobranzaVentaItem[] = []
+  const porVencerItems: CcCobranzaVentaItem[] = []
+  let montoVencido = 0
+  let montoPorVencer = 0
+
+  for (const it of items) {
+    const dias = Number(it.dias_vencido) || 0
+    const monto = Number(it.monto_pendiente) || 0
+    if (monto <= 0.009) continue
+    if (dias > 0) {
+      vencidasItems.push(it as CcCobranzaVentaItem)
+      montoVencido += monto
+    } else if (dias >= -diasAviso) {
+      porVencerItems.push(it as CcCobranzaVentaItem)
+      montoPorVencer += monto
+    }
+  }
+
+  return {
+    vencidas: { count: vencidasItems.length, monto: montoVencido, items: vencidasItems },
+    porVencer: { count: porVencerItems.length, monto: montoPorVencer, items: porVencerItems },
+    totalAlertas: vencidasItems.length + porVencerItems.length
+  }
+}
+
 type VentaDetalleCobranza = Pick<
   Venta,
   'id' | 'id_vendedor' | 'nombre_vendedor' | 'monto_pagado' | 'estado_pago' | 'fecha_venta' | 'valor_total'

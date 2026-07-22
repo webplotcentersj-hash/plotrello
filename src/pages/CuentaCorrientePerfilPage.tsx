@@ -34,9 +34,21 @@ import {
   downloadPerfilCsvPack
 } from '../utils/cuentaCorrienteExport'
 import CcExportMenu from '../components/CcExportMenu'
+import CuentaCorrienteVencimientoAlertas from '../components/CuentaCorrienteVencimientoAlertas'
 import './CuentaCorrientePerfilPage.css'
 
 type TabId = 'cuenta' | 'ventas' | 'pago'
+
+const MEDIOS_PAGO_CC = [
+  'Transferencia',
+  'Depósito',
+  'Efectivo',
+  'Cheque',
+  'Mercado Pago',
+  'Otro'
+] as const
+
+type LineaPagoMultiple = { metodo: string; monto: string }
 
 export default function CuentaCorrientePerfilPage() {
   const { idCliente: idParam } = useParams<{ idCliente: string }>()
@@ -54,6 +66,10 @@ export default function CuentaCorrientePerfilPage() {
   const [pagoMonto, setPagoMonto] = useState('')
   const [pagoFecha, setPagoFecha] = useState(() => new Date().toISOString().slice(0, 10))
   const [pagoMetodo, setPagoMetodo] = useState('Transferencia')
+  const [pagoLineas, setPagoLineas] = useState<LineaPagoMultiple[]>([
+    { metodo: 'Transferencia', monto: '' },
+    { metodo: 'Efectivo', monto: '' }
+  ])
   const [pagoRef, setPagoRef] = useState('')
   const [pagoNotas, setPagoNotas] = useState('')
   const [pagoVentaId, setPagoVentaId] = useState<string>('')
@@ -162,6 +178,26 @@ export default function CuentaCorrientePerfilPage() {
       setError('Indicá un monto válido')
       return
     }
+    let detalleMedios: Array<{ metodo: string; monto: number }> | null = null
+    if (pagoMetodo === 'Pago múltiple') {
+      detalleMedios = pagoLineas
+        .map((l) => ({
+          metodo: l.metodo,
+          monto: parseMontoArsInput(l.monto) ?? 0
+        }))
+        .filter((l) => l.monto > 0)
+      if (detalleMedios.length < 2) {
+        setError('En pago múltiple cargá al menos dos medios con monto.')
+        return
+      }
+      const sumaLineas = detalleMedios.reduce((s, l) => s + l.monto, 0)
+      if (Math.abs(sumaLineas - monto) > 0.02) {
+        setError(
+          `La suma de medios (${formatMontoArs(sumaLineas)}) debe coincidir con el monto total (${formatMontoArs(monto)}).`
+        )
+        return
+      }
+    }
     if (pagoVentaId) {
       const venta = perfil.ventas_cc.find((v) => String(v.id) === pagoVentaId)
       if (venta && monto < venta.valor_total) {
@@ -189,7 +225,8 @@ export default function CuentaCorrientePerfilPage() {
         id_usuario: usuario.id,
         referencia: pagoRef.trim() || undefined,
         notas: pagoNotas.trim() || undefined,
-        id_venta: pagoVentaId ? Number(pagoVentaId) : null
+        id_venta: pagoVentaId ? Number(pagoVentaId) : null,
+        detalle_medios: detalleMedios
       })
       if (!res.success) throw new Error(res.error || 'No se pudo registrar')
       setPagoOk('Pago registrado. La cuenta y el scoring se actualizaron automáticamente.')
@@ -199,6 +236,11 @@ export default function CuentaCorrientePerfilPage() {
       setPagoVentaId('')
       setPagoComprobanteUrl('')
       setPagoComprobanteNombre('')
+      setPagoMetodo('Transferencia')
+      setPagoLineas([
+        { metodo: 'Transferencia', monto: '' },
+        { metodo: 'Efectivo', monto: '' }
+      ])
       setTab('cuenta')
       await cargarPerfil(false)
     } catch (ex) {
@@ -338,6 +380,28 @@ export default function CuentaCorrientePerfilPage() {
           </button>
         </div>
       )}
+
+      <CuentaCorrienteVencimientoAlertas
+        titulo="Vencimientos de este cliente"
+        conLinks={false}
+        items={perfil.ventas_cc
+          .filter((v) => (v.monto_pendiente ?? 0) > 0.009)
+          .map((v) => ({
+            id_venta: v.id,
+            numero_venta: v.numero_venta,
+            id_cliente: idCliente,
+            cliente_nombre: nombre,
+            valor_total: v.valor_total,
+            monto_pendiente: v.monto_pendiente ?? v.valor_total,
+            estado_pago: v.estado_pago,
+            fecha_venta: v.fecha_venta?.slice(0, 10) ?? '',
+            fecha_vencimiento: v.fecha_vencimiento ?? '',
+            dias_vencido: v.dias_vencido ?? 0,
+            bucket: (v.bucket ?? 'al_dia') as CcCobranzaAgingBucket,
+            id_vendedor: v.id_vendedor ?? null,
+            nombre_vendedor: v.nombre_vendedor?.trim() || 'Sin vendedor'
+          }))}
+      />
 
       <section className="cc-perfil-kpis">
         <article className={`cc-perfil-kpi${excedeLimite ? ' cc-perfil-kpi--warn' : ''}`}>
@@ -560,14 +624,74 @@ export default function CuentaCorrientePerfilPage() {
             <label>
               <span>Método</span>
               <select value={pagoMetodo} onChange={(e) => setPagoMetodo(e.target.value)}>
-                <option value="Transferencia">Transferencia</option>
-                <option value="Depósito">Depósito</option>
-                <option value="Efectivo">Efectivo</option>
-                <option value="Cheque">Cheque</option>
-                <option value="Mercado Pago">Mercado Pago</option>
-                <option value="Otro">Otro</option>
+                {MEDIOS_PAGO_CC.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+                <option value="Pago múltiple">Pago múltiple</option>
               </select>
             </label>
+            {pagoMetodo === 'Pago múltiple' ? (
+              <div className="cc-perfil-pago-multiple wide">
+                <span className="cc-perfil-pago-multiple__title">Desglose por medio *</span>
+                <p className="cc-perfil-pago-multiple__hint">
+                  La suma de las líneas debe coincidir con el monto total.
+                </p>
+                {pagoLineas.map((linea, idx) => (
+                  <div key={idx} className="cc-perfil-pago-multiple__row">
+                    <select
+                      value={linea.metodo}
+                      onChange={(e) => {
+                        const metodo = e.target.value
+                        setPagoLineas((prev) =>
+                          prev.map((l, i) => (i === idx ? { ...l, metodo } : l))
+                        )
+                      }}
+                    >
+                      {MEDIOS_PAGO_CC.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Monto"
+                      value={linea.monto}
+                      onChange={(e) => {
+                        const monto = e.target.value
+                        setPagoLineas((prev) =>
+                          prev.map((l, i) => (i === idx ? { ...l, monto } : l))
+                        )
+                      }}
+                    />
+                    {pagoLineas.length > 2 ? (
+                      <button
+                        type="button"
+                        className="cc-btn cc-btn--secondary cc-btn--sm"
+                        onClick={() =>
+                          setPagoLineas((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                      >
+                        Quitar
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="cc-btn cc-btn--secondary cc-btn--sm"
+                  onClick={() =>
+                    setPagoLineas((prev) => [...prev, { metodo: 'Transferencia', monto: '' }])
+                  }
+                >
+                  + Agregar medio
+                </button>
+              </div>
+            ) : null}
             <label>
               <span>Referencia / N° operación</span>
               <input

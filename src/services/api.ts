@@ -6048,6 +6048,7 @@ class ApiService {
     referencia?: string
     notas?: string
     id_venta?: number | null
+    detalle_medios?: Array<{ metodo: string; monto: number }> | null
   }): Promise<ApiResponse<{ id_movimiento: number; id_cliente: number }>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
@@ -6060,7 +6061,8 @@ class ApiService {
         p_id_usuario: payload.id_usuario,
         p_referencia: payload.referencia ?? null,
         p_notas: payload.notas ?? null,
-        p_id_venta: payload.id_venta ?? null
+        p_id_venta: payload.id_venta ?? null,
+        p_detalle_medios: payload.detalle_medios?.length ? payload.detalle_medios : null
       })
       if (error) return { success: false, error: error.message }
       const row = data as { id_movimiento: number; id_cliente: number }
@@ -6083,6 +6085,36 @@ class ApiService {
       return { success: true, data: { recalculados: row.recalculados ?? 0 } }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al recalcular scoring' }
+    }
+  }
+
+  /** Genera notificaciones de vencimiento CC (vencidas / por vencer). Idempotente por día. */
+  async verificarAlertasVencimientoCc(
+    diasAviso = 7
+  ): Promise<
+    ApiResponse<{ revisadas: number; notificaciones_creadas: number; dias_aviso: number }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('cc_verificar_alertas_vencimiento', {
+        p_dias_aviso: diasAviso
+      })
+      if (error) return { success: false, error: error.message }
+      const row = (data ?? {}) as {
+        revisadas?: number
+        notificaciones_creadas?: number
+        dias_aviso?: number
+      }
+      return {
+        success: true,
+        data: {
+          revisadas: Number(row.revisadas) || 0,
+          notificaciones_creadas: Number(row.notificaciones_creadas) || 0,
+          dias_aviso: Number(row.dias_aviso) || diasAviso
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al verificar alertas de vencimiento' }
     }
   }
 

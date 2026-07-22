@@ -11,6 +11,7 @@ import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
 import { downloadCarteraCsv } from '../utils/cuentaCorrienteExport'
 import CcExportMenu from '../components/CcExportMenu'
 import CuentaCorrienteCobranzasPanel from '../components/CuentaCorrienteCobranzasPanel'
+import CuentaCorrienteVencimientoAlertas from '../components/CuentaCorrienteVencimientoAlertas'
 import type { ClienteCuentaCorrienteRecord, ClienteRecord, CcCobranzasPanelData, ClienteCcEnriquecido } from '../types/api'
 import { normalizeEstadoCc, type EstadoCuentaCorriente } from '../constants/cuentaCorriente'
 import { CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
@@ -56,6 +57,7 @@ const CuentaCorrientePage = () => {
     setCobranzasLoading(true)
     setCobranzasError(null)
     try {
+      void apiService.verificarAlertasVencimientoCc().catch(() => undefined)
       const res = await apiService.listCobranzasCcPanel()
       if (res.success && res.data) setCobranzas(res.data)
       else setCobranzasError(res.error || 'No se pudieron cargar las cobranzas')
@@ -557,6 +559,9 @@ const CuentaCorrientePage = () => {
 
       {modoForm === 'cerrado' && (
         <>
+          {cobranzas && cobranzas.ventas_abiertas.length > 0 && (
+            <CuentaCorrienteVencimientoAlertas items={cobranzas.ventas_abiertas} />
+          )}
           <CuentaCorrienteCobranzasPanel
             data={cobranzas}
             loading={cobranzasLoading}
