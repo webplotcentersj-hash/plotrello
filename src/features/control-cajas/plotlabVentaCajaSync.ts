@@ -38,6 +38,7 @@ export type PlotLabVentaCajaSyncInput = {
   usuarioId?: number
   usuarioNombre?: string
   cajaSlug?: string
+  esAdmin?: boolean
 }
 
 export type PlotLabVentaCajaSyncResult =
@@ -226,8 +227,18 @@ export function metodoPagoPlotLabAMedios(
 async function resolverCajaSlugVenta(
   usuarioNombre: string,
   usuarioId?: number,
-  override?: string
+  override?: string,
+  esAdmin?: boolean
 ): Promise<string | null> {
+  // Caja = usuario: sin admin, siempre la del titular (se ignora override ajeno).
+  if (usuarioId != null && !esAdmin) {
+    const op = await obtenerCajaOperativa(usuarioId, usuarioNombre)
+    const ov = override?.trim()
+    if (ov && ov !== op.slug) {
+      console.warn(`Caja ajena ignorada (${ov}); usando ${op.slug}`)
+    }
+    return op.slug
+  }
   if (override?.trim()) return override.trim()
   if (usuarioId != null) {
     const op = await obtenerCajaOperativa(usuarioId, usuarioNombre)
@@ -266,11 +277,21 @@ function mensajeSyncOk(cajaSlug: string, monto: number, metodo: string): string 
 
 export async function syncDesdeVentaRecord(
   venta: VentaCajaSyncRecord,
-  opts?: { cajaSlug?: string; silencioso?: boolean }
+  opts?: {
+    cajaSlug?: string
+    silencioso?: boolean
+    /** Quién cobró / opera la caja (logueado). Si no hay, se usa el vendedor. */
+    actorId?: number
+    actorNombre?: string
+    esAdmin?: boolean
+  }
 ): Promise<PlotLabVentaCajaSyncResult> {
   const ref = refVentaPlotLab(venta.id)
   const existente = await buscarMovimientoPlotLabPorRef(ref)
-  const cajaOverride = opts?.cajaSlug || venta.caja_slug_cobro || undefined
+  const actorId = opts?.actorId ?? venta.id_vendedor ?? undefined
+  const actorNombre = opts?.actorNombre || venta.nombre_vendedor || (venta.id_pedido_cliente ? 'Portal/Tótem' : 'PlotLab')
+  // Solo admin puede forzar otra caja; operadores siempre van a la suya.
+  const cajaOverride = opts?.esAdmin ? opts?.cajaSlug || venta.caja_slug_cobro || undefined : undefined
 
   if (!ventaDebeSincronizarCaja(venta)) {
     if (existente) {
@@ -302,7 +323,6 @@ export async function syncDesdeVentaRecord(
     }
   }
 
-  const canal = venta.id_pedido_cliente ? 'Portal/Tótem' : 'PlotLab'
   const metodo = normalizarMetodoPago(venta.metodo_pago)
   const r = await syncVentaPlotLabACaja({
     tipo: 'venta',
@@ -313,9 +333,10 @@ export async function syncDesdeVentaRecord(
     metodoPago: metodo,
     estadoPago: (venta.estado_pago as PlotLabVentaCajaSyncInput['estadoPago']) || 'Pagado',
     fecha: (venta.fecha_venta || getArgentinaDateString()).slice(0, 10),
-    usuarioId: venta.id_vendedor ?? undefined,
-    usuarioNombre: venta.nombre_vendedor || canal,
-    cajaSlug: cajaOverride
+    usuarioId: actorId,
+    usuarioNombre: actorNombre,
+    cajaSlug: cajaOverride,
+    esAdmin: opts?.esAdmin
   })
 
   if (!opts?.silencioso) {
@@ -335,7 +356,13 @@ export async function syncDesdeVentaRecord(
 
 export function dispararSyncCajaVenta(
   venta: VentaCajaSyncRecord,
-  opts?: { cajaSlug?: string; silencioso?: boolean }
+  opts?: {
+    cajaSlug?: string
+    silencioso?: boolean
+    actorId?: number
+    actorNombre?: string
+    esAdmin?: boolean
+  }
 ): void {
   void syncDesdeVentaRecord(venta, { silencioso: true, ...opts }).then((r) => {
     if (!r.ok && !r.omitido) console.warn('PlotLab → caja:', r.error)
@@ -345,7 +372,7 @@ export function dispararSyncCajaVenta(
 /** Fuerza re-sincronización (admin / corrección manual). */
 export async function forceResyncVenta(
   venta: VentaCajaSyncRecord,
-  opts?: { cajaSlug?: string }
+  opts?: { cajaSlug?: string; actorId?: number; actorNombre?: string; esAdmin?: boolean }
 ): Promise<PlotLabVentaCajaSyncResult> {
   return syncDesdeVentaRecord(venta, { ...opts, silencioso: false })
 }
@@ -367,7 +394,7 @@ export async function syncVentaPlotLabACaja(
     const usuarioNombre = input.usuarioNombre?.trim() || 'PlotLab'
     const cajaSlug =
       existente?.destino_slug ||
-      (await resolverCajaSlugVenta(usuarioNombre, input.usuarioId, input.cajaSlug))
+      (await resolverCajaSlugVenta(usuarioNombre, input.usuarioId, input.cajaSlug, input.esAdmin))
     if (!cajaSlug) {
       return { ok: false, error: 'No se pudo determinar la caja operativa del usuario mostrador.' }
     }

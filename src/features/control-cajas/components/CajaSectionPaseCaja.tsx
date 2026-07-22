@@ -223,28 +223,33 @@ export default function CajaSectionPaseCaja({
     }
     setSaving(true)
     try {
-      await saveMovimiento({
-        fecha,
-        hora,
-        concepto: 'Pase de caja',
-        origen_slug: origen,
-        destino_slug: destino,
-        efectivo: calc.pase_efectivo,
-        otros: calc.pase_otros,
-        nro_comprobante: nro || null,
-        observacion: observacion || null,
-        id_usuario: usuarioId ?? null,
-        usuario_nombre: usuarioNombre,
-        origen_importacion: 'manual',
-        origen_efectivo_antes: calc.origen_efectivo_antes,
-        origen_otros_antes: calc.origen_otros_antes,
-        destino_efectivo_antes: calc.destino_efectivo_antes,
-        destino_otros_antes: calc.destino_otros_antes,
-        origen_efectivo_despues: calc.origen_efectivo_despues,
-        origen_otros_despues: calc.origen_otros_despues,
-        destino_efectivo_despues: calc.destino_efectivo_despues,
-        destino_otros_despues: calc.destino_otros_despues
-      })
+      await saveMovimiento(
+        {
+          fecha,
+          hora,
+          concepto: 'Pase de caja',
+          origen_slug: origen,
+          destino_slug: destino,
+          efectivo: calc.pase_efectivo,
+          otros: calc.pase_otros,
+          nro_comprobante: nro || null,
+          observacion: observacion || null,
+          id_usuario: usuarioId ?? null,
+          usuario_nombre: usuarioNombre,
+          origen_importacion: 'manual',
+          origen_efectivo_antes: calc.origen_efectivo_antes,
+          origen_otros_antes: calc.origen_otros_antes,
+          destino_efectivo_antes: calc.destino_efectivo_antes,
+          destino_otros_antes: calc.destino_otros_antes,
+          origen_efectivo_despues: calc.origen_efectivo_despues,
+          origen_otros_despues: calc.origen_otros_despues,
+          destino_efectivo_despues: calc.destino_efectivo_despues,
+          destino_otros_despues: calc.destino_otros_despues
+        },
+        usuarioId != null
+          ? { actor: { id: usuarioId, esAdmin: !soloMisPases }, cajas }
+          : undefined
+      )
       setPaseEf('')
       setPaseOt('')
       setNro('')

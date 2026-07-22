@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useCajaOperativa } from '../hooks/useCajaOperativa'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import type {
@@ -223,6 +224,7 @@ const CRMVentasPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { canAccessMostradorViews, usuario, nombreVisible, isAdmin, isPresupuestos, loading: authLoading } = useAuth()
+  const { slug: cajaSlugPropia, nombre: cajaNombrePropia } = useCajaOperativa()
   const vistaPropia = esVistaVentasPropiaVendedor(isAdmin, isPresupuestos)
   const idVendedorScope = idVendedorParaConsulta(isAdmin, isPresupuestos, usuario?.id)
   const usuarioEtiquetaCaja = nombreVisible || resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario')
@@ -1643,7 +1645,14 @@ const CRMVentasPage = () => {
       if (error) throw error
 
       const { dispararSyncCajaVenta } = await import('../features/control-cajas/plotlabVentaCajaSync')
-      dispararSyncCajaVenta({ ...venta, estado_pago: nuevoEstado })
+      dispararSyncCajaVenta(
+        { ...venta, estado_pago: nuevoEstado },
+        {
+          actorId: usuario?.id,
+          actorNombre: nombreVisible || usuario?.nombre,
+          esAdmin: isAdmin
+        }
+      )
 
       await loadData()
     } catch (error: any) {
@@ -1661,19 +1670,31 @@ const CRMVentasPage = () => {
       monto_pagado: estadoDestino === 'Parcial' ? data.montoPagado ?? null : venta.valor_total
     })
     if (!r.success) throw new Error(r.error || 'No se pudo actualizar la venta')
-    await forceResyncVenta({
-      ...venta,
-      estado_pago: estadoDestino,
-      caja_slug_cobro: data.cajaSlug,
-      monto_pagado: estadoDestino === 'Parcial' ? data.montoPagado : venta.valor_total
-    })
+    await forceResyncVenta(
+      {
+        ...venta,
+        estado_pago: estadoDestino,
+        caja_slug_cobro: data.cajaSlug,
+        monto_pagado: estadoDestino === 'Parcial' ? data.montoPagado : venta.valor_total
+      },
+      {
+        cajaSlug: data.cajaSlug,
+        actorId: usuario?.id,
+        actorNombre: nombreVisible || usuario?.nombre,
+        esAdmin: isAdmin
+      }
+    )
     await loadData()
   }
 
   const handleResyncCajaVenta = async (venta: Venta) => {
     setResyncVentaId(venta.id)
     try {
-      const r = await forceResyncVenta(venta)
+      const r = await forceResyncVenta(venta, {
+        actorId: usuario?.id,
+        actorNombre: nombreVisible || usuario?.nombre,
+        esAdmin: isAdmin
+      })
       if (!r.ok && !r.omitido) alert(r.error)
     } finally {
       setResyncVentaId(null)
@@ -1692,7 +1713,14 @@ const CRMVentasPage = () => {
         alert('Error al actualizar método de pago: ' + (r.error || 'desconocido'))
         return
       }
-      await forceResyncVenta({ ...venta, metodo_pago: nuevoMetodo })
+      await forceResyncVenta(
+        { ...venta, metodo_pago: nuevoMetodo },
+        {
+          actorId: usuario?.id,
+          actorNombre: nombreVisible || usuario?.nombre,
+          esAdmin: isAdmin
+        }
+      )
       await loadData()
     } catch (error: any) {
       console.error('Error actualizando método de pago:', error)
@@ -4275,6 +4303,17 @@ const CRMVentasPage = () => {
           estadoDestino={cobroCajaModal.estadoDestino}
           onClose={() => setCobroCajaModal(null)}
           onConfirm={confirmarCobroCaja}
+          isAdmin={isAdmin}
+          cajaPropia={
+            cajaSlugPropia
+              ? { slug: cajaSlugPropia, nombre: cajaNombrePropia || cajaSlugPropia }
+              : usuario?.id
+                ? {
+                    slug: `u-${usuario.id}`,
+                    nombre: `Caja ${nombreVisible || usuario.nombre}`
+                  }
+                : null
+          }
         />
       )}
 

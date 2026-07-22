@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCajaOperativa } from '../../../hooks/useCajaOperativa'
 import {
   createEgresoSolicitud,
   listCajas,
@@ -25,6 +26,9 @@ export default function CajaSectionEgresos({
   usuarioId,
   filtroCajaSlug = null
 }: Props) {
+  const { slug: cajaSlugOp, nombre: cajaNombreOp, loading: cajaOpLoading } = useCajaOperativa({
+    enabled: !isAdmin
+  })
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [lista, setLista] = useState<CajaEgresoSolicitud[]>([])
   const [fecha, setFecha] = useState(getArgentinaDateString())
@@ -50,45 +54,52 @@ export default function CajaSectionEgresos({
     const [c, s] = await Promise.all([listCajas(), listEgresoSolicitudes(egresoOpts)])
     setCajas(c.filter((x) => x.slug !== 'admin' && x.slug !== 'vuelto'))
     setLista(s)
-    if (c.length && !cajaSlug) {
-      const op =
-        (filtroCajaSlug && c.find((x) => x.slug === filtroCajaSlug)?.slug) ||
-        c.find((x) => x.slug !== 'admin')?.slug ||
-        c[0].slug
-      setCajaSlug(op)
-    }
-  }, [isAdmin, cajaSlug, usuarioId, filtroCajaSlug])
+  }, [isAdmin, usuarioId])
 
   useEffect(() => {
     void reload()
   }, [reload])
 
   useEffect(() => {
+    if (!isAdmin && cajaSlugOp) {
+      setCajaSlug(cajaSlugOp)
+      return
+    }
     if (filtroCajaSlug) setCajaSlug(filtroCajaSlug)
-  }, [filtroCajaSlug])
+  }, [isAdmin, cajaSlugOp, filtroCajaSlug])
 
   const solicitar = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!cajaSlug || !concepto.trim()) return
+    const slug = (!isAdmin && cajaSlugOp) || cajaSlug
+    if (!slug || !concepto.trim()) return
+    if (!isAdmin && usuarioId == null) {
+      setMsg('Usuario sin ID; no se puede solicitar egreso.')
+      return
+    }
     setSaving(true)
     setMsg(null)
     try {
-      await createEgresoSolicitud({
-        fecha,
-        caja_slug: cajaSlug,
-        concepto: concepto.trim(),
-        monto_efectivo: parseFloat(montoEf) || 0,
-        monto_otros: parseFloat(montoOt) || 0,
-        solicitante_id: usuarioId ?? null,
-        solicitante_nombre: usuarioNombre,
-        observacion: obs || null
-      })
+      await createEgresoSolicitud(
+        {
+          fecha,
+          caja_slug: slug,
+          concepto: concepto.trim(),
+          monto_efectivo: parseFloat(montoEf) || 0,
+          monto_otros: parseFloat(montoOt) || 0,
+          solicitante_id: usuarioId ?? null,
+          solicitante_nombre: usuarioNombre,
+          observacion: obs || null
+        },
+        usuarioId != null ? { actor: { id: usuarioId, esAdmin: isAdmin } } : undefined
+      )
       setConcepto('')
       setMontoEf('')
       setMontoOt('')
       setObs('')
       setMsg('Solicitud enviada. Administración debe aprobarla antes de que el egreso se ejecute.')
       await reload()
+    } catch (ex) {
+      setMsg(ex instanceof Error ? ex.message : 'No se pudo enviar la solicitud.')
     } finally {
       setSaving(false)
     }
@@ -228,13 +239,20 @@ export default function CajaSectionEgresos({
             </label>
             <label className="caja-cc-field">
               Caja
-              <select value={cajaSlug} onChange={(e) => setCajaSlug(e.target.value)} required>
-                {cajas.map((c) => (
-                  <option key={c.slug} value={c.slug}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
+              {cajaSlugOp ? (
+                <>
+                  <input type="text" value={cajaNombreOp || cajaSlugOp} readOnly disabled />
+                  <span className="caja-cc-field-hint">Tu caja personal; no podés egresar de otra.</span>
+                </>
+              ) : (
+                <select value={cajaSlug} onChange={(e) => setCajaSlug(e.target.value)} required disabled={cajaOpLoading}>
+                  {cajas.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
+              )}
             </label>
           </div>
           <label className="caja-cc-field">

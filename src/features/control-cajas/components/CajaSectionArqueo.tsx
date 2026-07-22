@@ -209,29 +209,32 @@ export default function CajaSectionArqueo({
     setMsg(null)
     try {
       const dif = teorico != null ? total - teorico.teorico : null
-      await saveArqueo({
-        fecha,
-        caja_slug: cajaSlug,
-        turno,
-        id_usuario: usuarioId ?? null,
-        usuario_nombre: usuarioNombre,
-        billetes,
-        total,
-        teorico_fisico: teorico?.teorico ?? null,
-        diferencia: dif,
-        estado_arqueo: dif != null ? estadoArqueo(dif) : null,
-        saldos: teorico
-          ? {
-              teorico_fisico: teorico.teorico,
-              contado: total,
-              fondo_fijo: teorico.fondo_fijo,
-              ingresos_fisicos: teorico.ingresos_fisicos,
-              egresos_fisicos: teorico.egresos_fisicos,
-              neto_fisico: teorico.neto_fisico
-            }
-          : null,
-        firma_data_url: firmaDataUrl
-      })
+      await saveArqueo(
+        {
+          fecha,
+          caja_slug: cajaSlug,
+          turno,
+          id_usuario: usuarioId ?? null,
+          usuario_nombre: usuarioNombre,
+          billetes,
+          total,
+          teorico_fisico: teorico?.teorico ?? null,
+          diferencia: dif,
+          estado_arqueo: dif != null ? estadoArqueo(dif) : null,
+          saldos: teorico
+            ? {
+                teorico_fisico: teorico.teorico,
+                contado: total,
+                fondo_fijo: teorico.fondo_fijo,
+                ingresos_fisicos: teorico.ingresos_fisicos,
+                egresos_fisicos: teorico.egresos_fisicos,
+                neto_fisico: teorico.neto_fisico
+              }
+            : null,
+          firma_data_url: firmaDataUrl
+        },
+        usuarioId != null ? { actor: { id: usuarioId, esAdmin: !fijarCajaUsuario } } : undefined
+      )
       setMsg(`Arqueo guardado — total $ ${fmtArs(total)}`)
       notifyArqueoCompletado(cajaAsignadaNombre || cajaActiva?.nombre || 'caja', total)
       setBilletes({})

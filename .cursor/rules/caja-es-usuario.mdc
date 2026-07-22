@@ -1,0 +1,12 @@
+---
+description: Cada caja operativa es un usuario; nadie opera la caja de otro
+alwaysApply: true
+---
+
+# Caja = usuario
+
+- Una caja operativa (`u-{id}`, `id_usuario`) **es** ese usuario (ej. «Caja FACUNDO GUTIERREZ» = solo Facundo).
+- No son cosas distintas: no elegir caja ajena para cobros, egresos, arqueos ni movimientos.
+- Solo el titular (o rol admin/gerencia) puede escribir en esa caja.
+- Traspaso de fondo hacia otra caja sí: el origen debe ser la propia.
+- Al crear caja: `ensureCajaOperativaUsuario` / `buildCajaRegistroUsuario` con `id_usuario` y slug `u-{id}`.

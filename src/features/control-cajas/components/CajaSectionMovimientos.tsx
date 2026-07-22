@@ -86,20 +86,23 @@ export default function CajaSectionMovimientos({
     if (!origen || !destino) return
     setSaving(true)
     try {
-      await saveMovimiento({
-        fecha,
-        hora,
-        concepto,
-        origen_slug: origen,
-        destino_slug: destino,
-        efectivo: parseNum(efectivo),
-        otros: parseNum(otros),
-        nro_comprobante: nro || null,
-        observacion: observacion || null,
-        id_usuario: usuarioId ?? null,
-        usuario_nombre: usuarioNombre,
-        origen_importacion: 'manual'
-      })
+      await saveMovimiento(
+        {
+          fecha,
+          hora,
+          concepto,
+          origen_slug: origen,
+          destino_slug: destino,
+          efectivo: parseNum(efectivo),
+          otros: parseNum(otros),
+          nro_comprobante: nro || null,
+          observacion: observacion || null,
+          id_usuario: usuarioId ?? null,
+          usuario_nombre: usuarioNombre,
+          origen_importacion: 'manual'
+        },
+        { actor: { id: usuarioId ?? 0, esAdmin: true }, cajas }
+      )
       setEfectivo('')
       setOtros('')
       setNro('')

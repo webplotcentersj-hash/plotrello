@@ -4,6 +4,11 @@ import {
   buildCajaRegistroUsuario,
   cajaSlugForUsuario
 } from './cajaPorUsuario'
+import {
+  assertPuedeGrabarMovimiento,
+  assertPuedeOperarCaja,
+  type CajaActor
+} from './cajaOwnership'
 import { fetchNombreDisplayUsuario, usuarioCajaActivo } from './cajaUsuarioDb'
 import { cierreFromCalculado } from './cierreCalculations'
 import { newId } from './format'
@@ -298,9 +303,15 @@ function mapArqueoRow(r: Record<string, unknown>): CajaArqueo {
   }
 }
 
+export type { CajaActor } from './cajaOwnership'
+
 export async function saveArqueo(
-  arqueo: Omit<CajaArqueo, 'id' | 'created_at'> & { id?: string }
+  arqueo: Omit<CajaArqueo, 'id' | 'created_at'> & { id?: string },
+  opts?: { actor?: CajaActor }
 ): Promise<CajaArqueo> {
+  if (opts?.actor) {
+    assertPuedeOperarCaja(opts.actor, arqueo.caja_slug)
+  }
   const id = arqueo.id ?? newId()
   const record: CajaArqueo = { ...arqueo, id }
 
@@ -597,9 +608,13 @@ export async function assertMovimientoEditable(cierreId?: string | null): Promis
 }
 
 export async function saveMovimiento(
-  mov: Omit<CajaMovimiento, 'id' | 'created_at'> & { id?: string }
+  mov: Omit<CajaMovimiento, 'id' | 'created_at'> & { id?: string },
+  opts?: { actor?: CajaActor; cajas?: CajaRegistro[] }
 ): Promise<CajaMovimiento> {
   await assertMovimientoEditable(mov.cierre_id)
+  if (opts?.actor) {
+    assertPuedeGrabarMovimiento(opts.actor, mov, opts.cajas)
+  }
   const id = mov.id ?? newId()
   const record: CajaMovimiento = { ...mov, id, origen_importacion: mov.origen_importacion ?? 'manual' }
 
@@ -641,10 +656,17 @@ export async function saveMovimientosBulk(
   opts?: {
     onProgress?: (done: number, total: number) => void
     cajas?: CajaRegistro[]
+    actor?: CajaActor
   }
 ): Promise<SaveMovimientosBulkResult> {
   if (!rows.length) {
     return { records: [], persistedRemote: false, persistedLocal: false }
+  }
+
+  if (opts?.actor) {
+    for (const row of rows) {
+      assertPuedeGrabarMovimiento(opts.actor, row, opts.cajas)
+    }
   }
 
   const total = rows.length
@@ -806,8 +828,14 @@ export async function saveEgresoSolicitudImportado(
 }
 
 export async function createEgresoSolicitud(
-  input: Omit<CajaEgresoSolicitud, 'id' | 'estado' | 'created_at' | 'updated_at' | 'aprobador_id' | 'aprobador_nombre' | 'motivo_rechazo' | 'id_movimiento'>
+  input: Omit<CajaEgresoSolicitud, 'id' | 'estado' | 'created_at' | 'updated_at' | 'aprobador_id' | 'aprobador_nombre' | 'motivo_rechazo' | 'id_movimiento'>,
+  opts?: { actor?: CajaActor }
 ): Promise<CajaEgresoSolicitud> {
+  if (opts?.actor) {
+    assertPuedeOperarCaja(opts.actor, input.caja_slug)
+  } else if (input.solicitante_id != null) {
+    assertPuedeOperarCaja({ id: input.solicitante_id }, input.caja_slug)
+  }
   const id = newId()
   const now = new Date().toISOString()
   const record: CajaEgresoSolicitud = {
@@ -1466,8 +1494,12 @@ export function cierresEnFecha(cierres: CajaCierre[], fecha: string): CajaCierre
 }
 
 export async function saveCierre(
-  cierre: Omit<CajaCierre, 'id' | 'created_at'> & { id?: string }
+  cierre: Omit<CajaCierre, 'id' | 'created_at'> & { id?: string },
+  opts?: { actor?: CajaActor }
 ): Promise<CajaCierre> {
+  if (opts?.actor) {
+    assertPuedeOperarCaja(opts.actor, cierre.caja_slug)
+  }
   const id = cierre.id ?? newId()
   const record: CajaCierre = { ...cierre, id }
 

@@ -17,12 +17,13 @@ export function cajaNombreForUsuario(usuarioNombre: string): string {
   return `Caja ${n}`
 }
 
-/** Caja operativa nueva: fondo en 0 hasta que lo configure el operador/admin. */
+/** Caja operativa = el usuario. Una por persona (slug u-{id}, id_usuario). Fondo en 0 hasta configurarlo. */
 export function buildCajaRegistroUsuario(usuarioId: number, usuarioNombre: string): CajaRegistro {
   return {
     slug: cajaSlugForUsuario(usuarioId),
     nombre: cajaNombreForUsuario(usuarioNombre),
     fondo_fijo: 0,
-    activa: true
+    activa: true,
+    id_usuario: usuarioId
   }
 }

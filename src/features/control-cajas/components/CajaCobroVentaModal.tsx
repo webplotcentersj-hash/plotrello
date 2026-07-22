@@ -13,28 +13,45 @@ type Props = {
     cajaSlug: string
     montoPagado?: number
   }) => Promise<void>
+  /** Caja del usuario logueado. Si no es admin, el cobro va siempre acá. */
+  cajaPropia?: { slug: string; nombre: string } | null
+  isAdmin?: boolean
 }
 
-export default function CajaCobroVentaModal({ venta, estadoDestino, onClose, onConfirm }: Props) {
+export default function CajaCobroVentaModal({
+  venta,
+  estadoDestino,
+  onClose,
+  onConfirm,
+  cajaPropia = null,
+  isAdmin = false
+}: Props) {
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
-  const [cajaSlug, setCajaSlug] = useState(venta.caja_slug_cobro || '')
+  const [cajaSlug, setCajaSlug] = useState(cajaPropia?.slug || venta.caja_slug_cobro || '')
   const [monto, setMonto] = useState(String(venta.monto_pagado || venta.valor_total || ''))
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
+  const fijarPropia = !isAdmin
+
   useEffect(() => {
+    if (fijarPropia) {
+      if (cajaPropia?.slug) setCajaSlug(cajaPropia.slug)
+      return
+    }
     void listCajas().then((list) => {
       const op = list.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto' && c.activa)
       const usable = op.length ? op : DEFAULT_CAJAS.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
       setCajas(usable)
-      setCajaSlug((prev) => prev || venta.caja_slug_cobro || usable[0]?.slug || '')
+      setCajaSlug((prev) => prev || cajaPropia?.slug || venta.caja_slug_cobro || usable[0]?.slug || '')
     })
-  }, [venta.id, venta.caja_slug_cobro])
+  }, [venta.id, venta.caja_slug_cobro, fijarPropia, cajaPropia])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!cajaSlug) {
-      setErr('Elegí la caja donde se cobró.')
+    const slugFinal = fijarPropia ? cajaPropia?.slug || cajaSlug : cajaSlug
+    if (!slugFinal) {
+      setErr(fijarPropia ? 'No se pudo determinar tu caja. Recargá o contactá a administración.' : 'Elegí la caja donde se cobró.')
       return
     }
     const montoNum = Number(String(monto).replace(',', '.'))
@@ -46,7 +63,7 @@ export default function CajaCobroVentaModal({ venta, estadoDestino, onClose, onC
     setErr(null)
     try {
       await onConfirm({
-        cajaSlug,
+        cajaSlug: slugFinal,
         montoPagado: estadoDestino === 'Parcial' ? montoNum : undefined
       })
       onClose()
@@ -66,17 +83,25 @@ export default function CajaCobroVentaModal({ venta, estadoDestino, onClose, onC
           {venta.id_pedido_cliente ? ' · Portal/Tótem' : ''}
         </p>
 
-        <label className="caja-cc-field">
-          Caja donde se cobró
-          <select value={cajaSlug} onChange={(e) => setCajaSlug(e.target.value)} required>
-            <option value="">Elegir…</option>
-            {cajas.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+        {fijarPropia ? (
+          <label className="caja-cc-field">
+            Caja (la tuya)
+            <input type="text" value={cajaPropia?.nombre || cajaPropia?.slug || '—'} readOnly disabled />
+            <span className="caja-cc-field-hint">El cobro queda en tu caja; no se puede elegir la de otro.</span>
+          </label>
+        ) : (
+          <label className="caja-cc-field">
+            Caja donde se cobró
+            <select value={cajaSlug} onChange={(e) => setCajaSlug(e.target.value)} required>
+              <option value="">Elegir…</option>
+              {cajas.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         {estadoDestino === 'Parcial' && (
           <label className="caja-cc-field">

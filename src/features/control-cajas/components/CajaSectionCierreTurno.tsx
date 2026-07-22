@@ -282,7 +282,10 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
           cajaSlug: slugOrigen,
           fecha: fechaImp
         })
-        if (movs.length) await saveMovimientosBulk(movs)
+        if (movs.length) await saveMovimientosBulk(movs, {
+          cajas,
+          actor: usuarioId != null ? { id: usuarioId } : undefined
+        })
       }
 
       const arqFondo = await getUltimoArqueoCaja(cajaFondoDestino, fecha)
@@ -341,7 +344,10 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
           loteId
         )
         if (compMovs.length) {
-          const bulk = await saveMovimientosBulk(compMovs, { cajas })
+          const bulk = await saveMovimientosBulk(compMovs, {
+            cajas,
+            actor: usuarioId != null ? { id: usuarioId } : undefined
+          })
           movIds.push(...bulk.records.map((r) => r.id))
         }
       }
@@ -357,7 +363,10 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
       })
 
       for (const m of movs) {
-        const saved = await saveMovimiento(m)
+        const saved = await saveMovimiento(
+          m,
+          usuarioId != null ? { actor: { id: usuarioId }, cajas } : undefined
+        )
         movIds.push(saved.id)
       }
 
