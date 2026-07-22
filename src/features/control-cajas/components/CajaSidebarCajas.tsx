@@ -14,7 +14,9 @@ import {
   listTransferenciaLotes
 } from '../cajaRepository'
 import { fmtArs, fmtDateAr } from '../format'
+import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
 import type { CajaRegistro, CajaSectionId } from '../types'
+import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
 
 type Props = {
   selectedSlug: string | null
@@ -105,120 +107,267 @@ export default function CajaSidebarCajas({
   )
 }
 
+/**
+ * Caja = usuario: solo ventas del titular (`id_vendedor`).
+ * No mezclar por `caja_slug_cobro` ajeno (evita ver a Facundo en caja de Alejandro).
+ */
 function ventaPerteneceACaja(v: Venta, caja: CajaRegistro): boolean {
-  const slugCobro = (v.caja_slug_cobro || '').trim()
-  if (slugCobro) return slugCobro === caja.slug
-  if (caja.id_usuario != null && v.id_vendedor === caja.id_usuario) return true
-  return false
+  if (caja.id_usuario == null) return false
+  return v.id_vendedor === caja.id_usuario
 }
 
-function agrupadasPorVendedor(ventas: Venta[]): Array<{ vendedor: string; ventas: Venta[] }> {
-  const map = new Map<string, Venta[]>()
-  for (const v of ventas) {
-    const key = (v.nombre_vendedor || 'Sin vendedor').trim() || 'Sin vendedor'
-    const list = map.get(key) ?? []
-    list.push(v)
-    map.set(key, list)
-  }
-  return [...map.entries()]
-    .map(([vendedor, list]) => ({
-      vendedor,
-      ventas: list.sort((a, b) => (b.fecha_venta || '').localeCompare(a.fecha_venta || '') || b.id - a.id)
-    }))
-    .sort((a, b) => a.vendedor.localeCompare(b.vendedor, 'es'))
+function ordenarVentas(ventas: Venta[]): Venta[] {
+  return [...ventas].sort(
+    (a, b) => (b.fecha_venta || '').localeCompare(a.fecha_venta || '') || b.id - a.id
+  )
 }
 
-function VentasPorVendedorTabla({
+function VentasTablaBody({ ventas, emptyLabel }: { ventas: Venta[]; emptyLabel: string }) {
+  if (ventas.length === 0) return <p className="caja-cc-empty">{emptyLabel}</p>
+  return (
+    <div className="caja-cc-table-wrap">
+      <table className="caja-cc-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Nº venta</th>
+            <th>Cliente</th>
+            <th>OP</th>
+            <th>Pago</th>
+            <th>Estado</th>
+            <th className="num">Monto</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {ventas.map((v) => (
+            <tr key={v.id}>
+              <td>{fmtDateAr(v.fecha_venta)}</td>
+              <td>
+                <Link className="caja-cc-link" to={ventasConVentaId(v.id)}>
+                  {v.numero_venta}
+                </Link>
+              </td>
+              <td>
+                {v.id_cliente ? (
+                  <Link className="caja-cc-link" to={clientesPerfil(v.id_cliente)}>
+                    {v.cliente_nombre || '—'}
+                  </Link>
+                ) : (
+                  v.cliente_nombre || '—'
+                )}
+              </td>
+              <td>
+                {v.numero_op || v.id_op ? (
+                  <Link
+                    className="caja-cc-link"
+                    to={`/op/${encodeURIComponent(String(v.numero_op || v.id_op))}`}
+                  >
+                    {v.numero_op || `OP-${v.id_op}`}
+                  </Link>
+                ) : (
+                  '—'
+                )}
+              </td>
+              <td>{v.metodo_pago || '—'}</td>
+              <td>{v.estado_pago || '—'}</td>
+              <td className="num">$ {fmtArs(v.valor_total || 0)}</td>
+              <td>
+                <Link className="btn-small" to={ventasConVentaId(v.id)}>
+                  Detalle
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function VentasCajaTabla({
   titulo,
-  grupos,
+  ventas,
   emptyLabel
 }: {
   titulo: string
-  grupos: Array<{ vendedor: string; ventas: Venta[] }>
+  ventas: Venta[]
   emptyLabel: string
 }) {
-  const total = grupos.reduce((s, g) => s + g.ventas.length, 0)
-
+  const total = ventas.length
+  const monto = ventas.reduce((s, v) => s + (v.valor_total || 0), 0)
   return (
     <section className="caja-cc-card caja-cc-detalle-caja-ventas">
       <h3>
         {titulo}{' '}
         <span className="caja-cc-detalle-caja-ventas-count">
-          ({total} venta{total === 1 ? '' : 's'})
+          ({total} · $ {fmtArs(monto)})
         </span>
       </h3>
-      {total === 0 ? (
-        <p className="caja-cc-empty">{emptyLabel}</p>
-      ) : (
-        grupos.map((g) => (
-          <div key={g.vendedor} className="caja-cc-detalle-caja-vendedor">
-            <h4>
-              Vendedor: {g.vendedor}{' '}
-              <span>
-                ({g.ventas.length} · $ {fmtArs(g.ventas.reduce((s, v) => s + (v.valor_total || 0), 0))})
-              </span>
-            </h4>
-            <div className="caja-cc-table-wrap">
-              <table className="caja-cc-table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Nº venta</th>
-                    <th>Cliente</th>
-                    <th>OP</th>
-                    <th>Pago</th>
-                    <th>Estado</th>
-                    <th className="num">Monto</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {g.ventas.map((v) => (
-                    <tr key={v.id}>
-                      <td>{fmtDateAr(v.fecha_venta)}</td>
-                      <td>
-                        <Link className="caja-cc-link" to={ventasConVentaId(v.id)}>
-                          {v.numero_venta}
-                        </Link>
-                      </td>
-                      <td>
-                        {v.id_cliente ? (
-                          <Link className="caja-cc-link" to={clientesPerfil(v.id_cliente)}>
-                            {v.cliente_nombre || '—'}
-                          </Link>
-                        ) : (
-                          v.cliente_nombre || '—'
-                        )}
-                      </td>
-                      <td>
-                        {v.numero_op || v.id_op ? (
-                          <Link
-                            className="caja-cc-link"
-                            to={`/op/${encodeURIComponent(String(v.numero_op || v.id_op))}`}
-                          >
-                            {v.numero_op || `OP-${v.id_op}`}
-                          </Link>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td>{v.metodo_pago || '—'}</td>
-                      <td>{v.estado_pago || '—'}</td>
-                      <td className="num">$ {fmtArs(v.valor_total || 0)}</td>
-                      <td>
-                        <Link className="btn-small" to={ventasConVentaId(v.id)}>
-                          Detalle
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))
-      )}
+      <VentasTablaBody ventas={ventas} emptyLabel={emptyLabel} />
     </section>
+  )
+}
+
+const ESTADOS_PAGO = ['Pagado', 'Parcial', 'Pendiente', 'Cancelado'] as const
+
+function VentasHistoricoFiltrado({ ventas }: { ventas: Venta[] }) {
+  const [search, setSearch] = useState('')
+  const [desde, setDesde] = useState('')
+  const [hasta, setHasta] = useState('')
+  const [estado, setEstado] = useState('')
+  const [metodo, setMetodo] = useState('')
+  const [limit, setLimit] = useState(LIST_PAGE_SIZE)
+
+  const metodosDisponibles = useMemo(() => {
+    const set = new Set<string>()
+    for (const v of ventas) {
+      const m = (v.metodo_pago || '').trim()
+      if (m) set.add(m)
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'es'))
+  }, [ventas])
+
+  const filtradas = useMemo(() => {
+    return ventas.filter((v) => {
+      const fecha = (v.fecha_venta || '').slice(0, 10)
+      if (desde && fecha < desde) return false
+      if (hasta && fecha > hasta) return false
+      if (estado && (v.estado_pago || '') !== estado) return false
+      if (metodo && (v.metodo_pago || '') !== metodo) return false
+      return matchSearchQuery(search, [
+        v.numero_venta,
+        v.cliente_nombre,
+        v.numero_op,
+        v.metodo_pago,
+        v.estado_pago,
+        fecha,
+        fmtArs(v.valor_total || 0)
+      ])
+    })
+  }, [ventas, search, desde, hasta, estado, metodo])
+
+  const visibles = filtradas.slice(0, limit)
+  const montoFiltrado = filtradas.reduce((s, v) => s + (v.valor_total || 0), 0)
+  const hayFiltros = Boolean(search || desde || hasta || estado || metodo)
+
+  const toolbar = (
+    <div className="caja-cc-card-toolbar caja-cc-card-toolbar--stack">
+      <CajaListSearch
+        value={search}
+        onChange={(v) => {
+          setSearch(v)
+          setLimit(LIST_PAGE_SIZE)
+        }}
+        placeholder="Buscar nº venta, cliente, OP, monto…"
+      />
+      <div className="caja-cc-filters-row">
+        <label className="caja-cc-filter-chip">
+          <span>Desde</span>
+          <input
+            type="date"
+            value={desde}
+            onChange={(e) => {
+              setDesde(e.target.value)
+              setLimit(LIST_PAGE_SIZE)
+            }}
+          />
+        </label>
+        <label className="caja-cc-filter-chip">
+          <span>Hasta</span>
+          <input
+            type="date"
+            value={hasta}
+            onChange={(e) => {
+              setHasta(e.target.value)
+              setLimit(LIST_PAGE_SIZE)
+            }}
+          />
+        </label>
+        <label className="caja-cc-filter-chip">
+          <span>Estado</span>
+          <select
+            value={estado}
+            onChange={(e) => {
+              setEstado(e.target.value)
+              setLimit(LIST_PAGE_SIZE)
+            }}
+          >
+            <option value="">Todos</option>
+            {ESTADOS_PAGO.map((e) => (
+              <option key={e} value={e}>
+                {e}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="caja-cc-filter-chip">
+          <span>Pago</span>
+          <select
+            value={metodo}
+            onChange={(e) => {
+              setMetodo(e.target.value)
+              setLimit(LIST_PAGE_SIZE)
+            }}
+          >
+            <option value="">Todos</option>
+            {metodosDisponibles.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </label>
+        {hayFiltros && (
+          <button
+            type="button"
+            className="btn-tiny"
+            onClick={() => {
+              setSearch('')
+              setDesde('')
+              setHasta('')
+              setEstado('')
+              setMetodo('')
+              setLimit(LIST_PAGE_SIZE)
+            }}
+          >
+            Limpiar filtros
+          </button>
+        )}
+      </div>
+      {hayFiltros && (
+        <p className="caja-cc-help" style={{ margin: '4px 0 0' }}>
+          {filtradas.length} resultado{filtradas.length === 1 ? '' : 's'} · $ {fmtArs(montoFiltrado)}
+        </p>
+      )}
+    </div>
+  )
+
+  return (
+    <CajaCollapsibleCard
+      title={`Histórico de ventas (${filtradas.length} · $ ${fmtArs(montoFiltrado)})`}
+      count={filtradas.length}
+      defaultOpen={false}
+      className="caja-cc-detalle-caja-ventas"
+      toolbar={toolbar}
+    >
+      <VentasTablaBody
+        ventas={visibles}
+        emptyLabel={
+          hayFiltros ? 'Sin coincidencias con los filtros.' : 'Sin ventas del titular en esta caja.'
+        }
+      />
+      {filtradas.length > visibles.length && (
+        <button
+          type="button"
+          className="btn-secondary"
+          style={{ marginTop: 12 }}
+          onClick={() => setLimit((n) => n + LIST_PAGE_SIZE)}
+        >
+          Ver más ({visibles.length} de {filtradas.length})
+        </button>
+      )}
+    </CajaCollapsibleCard>
   )
 }
 
@@ -280,11 +429,18 @@ export function CajaDetallePorCaja({
   }, [slug, fechaHoy, refreshKey])
 
   const ventasHoy = useMemo(
-    () => ventas.filter((v) => (v.fecha_venta || '').slice(0, 10) === fechaHoy),
+    () => ordenarVentas(ventas.filter((v) => (v.fecha_venta || '').slice(0, 10) === fechaHoy)),
     [ventas, fechaHoy]
   )
-  const gruposHoy = useMemo(() => agrupadasPorVendedor(ventasHoy), [ventasHoy])
-  const gruposTodo = useMemo(() => agrupadasPorVendedor(ventas), [ventas])
+  const ventasHist = useMemo(() => ordenarVentas(ventas), [ventas])
+  const ventasHoyTotal = useMemo(
+    () => ventasHoy.reduce((s, v) => s + (v.valor_total || 0), 0),
+    [ventasHoy]
+  )
+  const ventasTodoTotal = useMemo(
+    () => ventasHist.reduce((s, v) => s + (v.valor_total || 0), 0),
+    [ventasHist]
+  )
 
   if (loading) return <p className="caja-cc-help">Cargando detalle de caja…</p>
   if (!hoy && !todo && !caja) return <p className="caja-cc-empty">No se encontró la caja.</p>
@@ -296,7 +452,7 @@ export function CajaDetallePorCaja({
       <div className="caja-cc-page-head">
         <div>
           <h2>{nombre}</h2>
-          <p>Ventas por vendedor, egresos, arqueos y cierres de esta caja.</p>
+          <p>Caja personal del titular: ventas, egresos, arqueos y cierres.</p>
         </div>
       </div>
 
@@ -307,8 +463,7 @@ export function CajaDetallePorCaja({
             <li>
               <strong>Ventas</strong>
               <span>
-                {hoy?.ventasCount ?? ventasHoy.length} · ${' '}
-                {fmtArs(hoy?.ventasTotal ?? ventasHoy.reduce((s, v) => s + (v.valor_total || 0), 0))}
+                {ventasHoy.length} · $ {fmtArs(ventasHoyTotal)}
               </span>
             </li>
             <li>
@@ -338,8 +493,7 @@ export function CajaDetallePorCaja({
             <li>
               <strong>Ventas</strong>
               <span>
-                {todo?.ventasCount ?? ventas.length} · ${' '}
-                {fmtArs(todo?.ventasTotal ?? ventas.reduce((s, v) => s + (v.valor_total || 0), 0))}
+                {ventasHist.length} · $ {fmtArs(ventasTodoTotal)}
               </span>
             </li>
             <li>
@@ -366,17 +520,13 @@ export function CajaDetallePorCaja({
 
       {errVentas ? <p className="caja-cc-help">{errVentas}</p> : null}
 
-      <VentasPorVendedorTabla
-        titulo={`Ventas de hoy`}
-        grupos={gruposHoy}
-        emptyLabel="Sin ventas registradas hoy en esta caja."
+      <VentasCajaTabla
+        titulo="Ventas de hoy"
+        ventas={ventasHoy}
+        emptyLabel="Sin ventas del titular hoy."
       />
 
-      <VentasPorVendedorTabla
-        titulo="Histórico de ventas"
-        grupos={gruposTodo}
-        emptyLabel="Sin ventas vinculadas a esta caja."
-      />
+      <VentasHistoricoFiltrado ventas={ventasHist} />
 
       <div className="caja-cc-detalle-caja-actions">
         <button type="button" className="btn-secondary" onClick={() => onNavigate('arqueos_admin')}>
