@@ -55,10 +55,33 @@ export async function prepararCajaOperativaEnLogin(
   }
 }
 
-/** Admin: cajas auto de mostradores (slug u-* o id_usuario). */
+/** Admin: cajas operativas activas de usuarios activos (mostrador/caja). */
 export async function listCajasOperativasUsuarios(): Promise<CajaRegistro[]> {
   const todas = await listCajas()
-  return todas.filter((c) => esCajaSlugUsuario(c.slug) || c.id_usuario != null)
+  const candidatas = todas.filter(
+    (c) => c.activa && (esCajaSlugUsuario(c.slug) || c.id_usuario != null)
+  )
+  if (candidatas.length === 0) return []
+
+  const ids = [
+    ...new Set(
+      candidatas
+        .map((c) => c.id_usuario)
+        .filter((id): id is number => typeof id === 'number' && id > 0)
+    )
+  ]
+
+  const activos = new Set<number>()
+  await Promise.all(
+    ids.map(async (id) => {
+      if (await usuarioCajaActivo(id)) activos.add(id)
+    })
+  )
+
+  return candidatas.filter((c) => {
+    if (c.id_usuario == null) return false
+    return activos.has(c.id_usuario)
+  })
 }
 
 export async function ultimoArqueoCajaOperativa(
