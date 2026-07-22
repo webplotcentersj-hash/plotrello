@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
+import { clientesPerfil } from '../../../utils/clientesRoutes'
+import { ventasConVentaId } from '../../../utils/ventasRoutes'
+import type { Venta } from '../../../types/api'
 import { conteosPorCajaOperativa, type ConteoCajaResumen } from '../cajaMenuOperativaData'
 import { listCajasOperativasUsuarios } from '../cajaOperativa'
 import {
@@ -9,8 +13,8 @@ import {
   listMovimientos,
   listTransferenciaLotes
 } from '../cajaRepository'
-import { fmtArs } from '../format'
-import type { CajaSectionId } from '../types'
+import { fmtArs, fmtDateAr } from '../format'
+import type { CajaRegistro, CajaSectionId } from '../types'
 
 type Props = {
   selectedSlug: string | null
@@ -101,6 +105,123 @@ export default function CajaSidebarCajas({
   )
 }
 
+function ventaPerteneceACaja(v: Venta, caja: CajaRegistro): boolean {
+  const slugCobro = (v.caja_slug_cobro || '').trim()
+  if (slugCobro) return slugCobro === caja.slug
+  if (caja.id_usuario != null && v.id_vendedor === caja.id_usuario) return true
+  return false
+}
+
+function agrupadasPorVendedor(ventas: Venta[]): Array<{ vendedor: string; ventas: Venta[] }> {
+  const map = new Map<string, Venta[]>()
+  for (const v of ventas) {
+    const key = (v.nombre_vendedor || 'Sin vendedor').trim() || 'Sin vendedor'
+    const list = map.get(key) ?? []
+    list.push(v)
+    map.set(key, list)
+  }
+  return [...map.entries()]
+    .map(([vendedor, list]) => ({
+      vendedor,
+      ventas: list.sort((a, b) => (b.fecha_venta || '').localeCompare(a.fecha_venta || '') || b.id - a.id)
+    }))
+    .sort((a, b) => a.vendedor.localeCompare(b.vendedor, 'es'))
+}
+
+function VentasPorVendedorTabla({
+  titulo,
+  grupos,
+  emptyLabel
+}: {
+  titulo: string
+  grupos: Array<{ vendedor: string; ventas: Venta[] }>
+  emptyLabel: string
+}) {
+  const total = grupos.reduce((s, g) => s + g.ventas.length, 0)
+
+  return (
+    <section className="caja-cc-card caja-cc-detalle-caja-ventas">
+      <h3>
+        {titulo}{' '}
+        <span className="caja-cc-detalle-caja-ventas-count">
+          ({total} venta{total === 1 ? '' : 's'})
+        </span>
+      </h3>
+      {total === 0 ? (
+        <p className="caja-cc-empty">{emptyLabel}</p>
+      ) : (
+        grupos.map((g) => (
+          <div key={g.vendedor} className="caja-cc-detalle-caja-vendedor">
+            <h4>
+              Vendedor: {g.vendedor}{' '}
+              <span>
+                ({g.ventas.length} · $ {fmtArs(g.ventas.reduce((s, v) => s + (v.valor_total || 0), 0))})
+              </span>
+            </h4>
+            <div className="caja-cc-table-wrap">
+              <table className="caja-cc-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Nº venta</th>
+                    <th>Cliente</th>
+                    <th>OP</th>
+                    <th>Pago</th>
+                    <th>Estado</th>
+                    <th className="num">Monto</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.ventas.map((v) => (
+                    <tr key={v.id}>
+                      <td>{fmtDateAr(v.fecha_venta)}</td>
+                      <td>
+                        <Link className="caja-cc-link" to={ventasConVentaId(v.id)}>
+                          {v.numero_venta}
+                        </Link>
+                      </td>
+                      <td>
+                        {v.id_cliente ? (
+                          <Link className="caja-cc-link" to={clientesPerfil(v.id_cliente)}>
+                            {v.cliente_nombre || '—'}
+                          </Link>
+                        ) : (
+                          v.cliente_nombre || '—'
+                        )}
+                      </td>
+                      <td>
+                        {v.numero_op || v.id_op ? (
+                          <Link
+                            className="caja-cc-link"
+                            to={`/op/${encodeURIComponent(String(v.numero_op || v.id_op))}`}
+                          >
+                            {v.numero_op || `OP-${v.id_op}`}
+                          </Link>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td>{v.metodo_pago || '—'}</td>
+                      <td>{v.estado_pago || '—'}</td>
+                      <td className="num">$ {fmtArs(v.valor_total || 0)}</td>
+                      <td>
+                        <Link className="btn-small" to={ventasConVentaId(v.id)}>
+                          Detalle
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))
+      )}
+    </section>
+  )
+}
+
 export function CajaDetallePorCaja({
   slug,
   refreshKey = 0,
@@ -112,12 +233,16 @@ export function CajaDetallePorCaja({
 }) {
   const [hoy, setHoy] = useState<ConteoCajaResumen | null>(null)
   const [todo, setTodo] = useState<ConteoCajaResumen | null>(null)
+  const [caja, setCaja] = useState<CajaRegistro | null>(null)
+  const [ventas, setVentas] = useState<Venta[]>([])
   const [loading, setLoading] = useState(true)
+  const [errVentas, setErrVentas] = useState<string | null>(null)
   const fechaHoy = getArgentinaDateString()
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setErrVentas(null)
     void (async () => {
       try {
         const [cajas, movimientos, arqueos, egresos, lotes, cierres] = await Promise.all([
@@ -129,11 +254,22 @@ export function CajaDetallePorCaja({
           listCierres()
         ])
         if (cancelled) return
+        const cajaHit = cajas.find((c) => c.slug === slug) ?? null
+        setCaja(cajaHit)
         const base = { cajas, movimientos, arqueos, egresos, lotes, cierres }
-        const h = conteosPorCajaOperativa({ ...base, fecha: fechaHoy }).find((x) => x.slug === slug)
-        const t = conteosPorCajaOperativa({ ...base, fecha: null }).find((x) => x.slug === slug)
-        setHoy(h ?? null)
-        setTodo(t ?? null)
+        setHoy(conteosPorCajaOperativa({ ...base, fecha: fechaHoy }).find((x) => x.slug === slug) ?? null)
+        setTodo(conteosPorCajaOperativa({ ...base, fecha: null }).find((x) => x.slug === slug) ?? null)
+
+        const { default: apiService } = await import('../../../services/api')
+        const res = await apiService.obtenerVentas()
+        if (cancelled) return
+        if (!res.success) {
+          setErrVentas(res.error || 'No se pudieron cargar las ventas')
+          setVentas([])
+          return
+        }
+        const cajaRef = cajaHit ?? { slug, nombre: slug, fondo_fijo: 0, activa: true }
+        setVentas((res.data || []).filter((v) => ventaPerteneceACaja(v, cajaRef)))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -143,17 +279,24 @@ export function CajaDetallePorCaja({
     }
   }, [slug, fechaHoy, refreshKey])
 
-  if (loading) return <p className="caja-cc-help">Cargando detalle de caja…</p>
-  if (!hoy && !todo) return <p className="caja-cc-empty">No se encontró la caja.</p>
+  const ventasHoy = useMemo(
+    () => ventas.filter((v) => (v.fecha_venta || '').slice(0, 10) === fechaHoy),
+    [ventas, fechaHoy]
+  )
+  const gruposHoy = useMemo(() => agrupadasPorVendedor(ventasHoy), [ventasHoy])
+  const gruposTodo = useMemo(() => agrupadasPorVendedor(ventas), [ventas])
 
-  const nombre = hoy?.nombre || todo?.nombre || slug
+  if (loading) return <p className="caja-cc-help">Cargando detalle de caja…</p>
+  if (!hoy && !todo && !caja) return <p className="caja-cc-empty">No se encontró la caja.</p>
+
+  const nombre = hoy?.nombre || todo?.nombre || caja?.nombre || slug
 
   return (
     <div className="caja-cc-detalle-caja">
       <div className="caja-cc-page-head">
         <div>
           <h2>{nombre}</h2>
-          <p>Conteo de ventas, egresos, arqueos y cierres de esta caja.</p>
+          <p>Ventas por vendedor, egresos, arqueos y cierres de esta caja.</p>
         </div>
       </div>
 
@@ -164,7 +307,8 @@ export function CajaDetallePorCaja({
             <li>
               <strong>Ventas</strong>
               <span>
-                {hoy?.ventasCount ?? 0} · $ {fmtArs(hoy?.ventasTotal ?? 0)}
+                {hoy?.ventasCount ?? ventasHoy.length} · ${' '}
+                {fmtArs(hoy?.ventasTotal ?? ventasHoy.reduce((s, v) => s + (v.valor_total || 0), 0))}
               </span>
             </li>
             <li>
@@ -194,7 +338,8 @@ export function CajaDetallePorCaja({
             <li>
               <strong>Ventas</strong>
               <span>
-                {todo?.ventasCount ?? 0} · $ {fmtArs(todo?.ventasTotal ?? 0)}
+                {todo?.ventasCount ?? ventas.length} · ${' '}
+                {fmtArs(todo?.ventasTotal ?? ventas.reduce((s, v) => s + (v.valor_total || 0), 0))}
               </span>
             </li>
             <li>
@@ -218,6 +363,20 @@ export function CajaDetallePorCaja({
           </ul>
         </section>
       </div>
+
+      {errVentas ? <p className="caja-cc-help">{errVentas}</p> : null}
+
+      <VentasPorVendedorTabla
+        titulo={`Ventas de hoy`}
+        grupos={gruposHoy}
+        emptyLabel="Sin ventas registradas hoy en esta caja."
+      />
+
+      <VentasPorVendedorTabla
+        titulo="Histórico de ventas"
+        grupos={gruposTodo}
+        emptyLabel="Sin ventas vinculadas a esta caja."
+      />
 
       <div className="caja-cc-detalle-caja-actions">
         <button type="button" className="btn-secondary" onClick={() => onNavigate('arqueos_admin')}>

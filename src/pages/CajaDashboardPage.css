@@ -817,6 +817,50 @@
   gap: 8px;
 }
 
+.caja-dashboard-page .caja-cc-detalle-caja-ventas {
+  margin-bottom: 16px;
+}
+
+.caja-dashboard-page .caja-cc-detalle-caja-ventas h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.caja-dashboard-page .caja-cc-detalle-caja-ventas-count {
+  font-weight: 500;
+  color: #64748b;
+  font-size: 0.9em;
+}
+
+.caja-dashboard-page .caja-cc-detalle-caja-vendedor {
+  margin-bottom: 16px;
+}
+
+.caja-dashboard-page .caja-cc-detalle-caja-vendedor h4 {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.caja-dashboard-page .caja-cc-detalle-caja-vendedor h4 span {
+  font-weight: 500;
+  color: #64748b;
+}
+
+.caja-dashboard-page .caja-cc-detalle-caja-ventas .caja-cc-table-wrap {
+  overflow-x: auto;
+}
+
+.caja-dashboard-page .caja-cc-link {
+  color: #0369a1;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.caja-dashboard-page .caja-cc-link:hover {
+  text-decoration: underline;
+}
+
 .caja-dashboard-page .caja-cc-nav-section {
   font-size: 10px;
   text-transform: uppercase;
