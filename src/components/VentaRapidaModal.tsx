@@ -970,7 +970,12 @@ const VentaRapidaModal = ({
               onChange={(e) => {
                 const valor = e.target.value as MedioPagoCodigo
                 setCondicionVenta(valor)
-                setDetallePago({})
+                if (valor === 'Cheque') {
+                  const total = calcularSubtotal()
+                  setDetallePago(total > 0 ? { monto_cheque: total } : {})
+                } else {
+                  setDetallePago({})
+                }
                 if (valor === 'Cuenta Corriente') {
                   setEsCuentaCorriente(true)
                 } else if (esCuentaCorriente) {
@@ -995,6 +1000,7 @@ const VentaRapidaModal = ({
             detalle={detallePago}
             cuentasBancarias={cuentasBancarias}
             onChange={setDetallePago}
+            montoVenta={calcularSubtotal()}
           />
 
           {showMpCheckout && mpVentaId ? (

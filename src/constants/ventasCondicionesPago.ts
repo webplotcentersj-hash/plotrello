@@ -44,14 +44,27 @@ export interface VentaDetallePago {
   tipo_cheque_label?: string
   banco_cheque?: string
   numero_cheque?: string
+  /** Código eCheq (además del número). */
+  codigo_echeq?: string
   plazo_cheque?: string
+  /** Fecha de cobro / vencimiento. */
   fecha_cheque?: string
+  fecha_emision_cheque?: string
   titular_cheque?: string
   cuit_titular_cheque?: string
+  numero_cuenta_cliente?: string
+  monto_cheque?: number
   mp_checkout_id?: string
   mp_payment_id?: string
   mp_preference_id?: string
 }
+
+/** Tipos de cheque usados en venta rápida. */
+export const TIPOS_CHEQUE_CANONICOS: TipoChequeConfig[] = [
+  { id: 'fisico', label: 'Cheque físico', activo: true },
+  { id: 'echeq', label: 'E-Cheq', activo: true },
+  { id: 'no_a_la_orden', label: 'Cheque no a la orden', activo: true }
+]
 
 export const DEFAULT_CONFIG_CONDICIONES_VENTA: ConfigCondicionesVenta = {
   medios: [
@@ -84,12 +97,7 @@ export const DEFAULT_CONFIG_CONDICIONES_VENTA: ConfigCondicionesVenta = {
     { codigo: 'Otro', label: 'Otro', activo: true, orden: 7, lista_precio: 'lista_1' }
   ],
   cuentas_transferencia_ids: [],
-  tipos_cheque: [
-    { id: 'fisico', label: 'Cheque físico', activo: true },
-    { id: 'echeq', label: 'E-Cheq', activo: true },
-    { id: 'cpd', label: 'Cheque pago diferido (CPD)', activo: true },
-    { id: 'diferido', label: 'Cheque diferido', activo: true }
-  ],
+  tipos_cheque: TIPOS_CHEQUE_CANONICOS.map((t) => ({ ...t })),
   plazos_cheque: ['Al día', '30 días', '60 días', '90 días', '120 días'],
   bancos_cheque: [
     'Banco Nación',
@@ -134,6 +142,15 @@ export function normalizarConfigCondicionesVenta(raw: unknown): ConfigCondicione
     ? (o.tipos_cheque as TipoChequeConfig[]).filter((t) => t?.id && t?.label)
     : base.tipos_cheque
 
+  const tiposChequeCanon = TIPOS_CHEQUE_CANONICOS.map((c) => {
+    const prev = tiposCheque.find((t) => t.id === c.id)
+    return {
+      ...c,
+      label: prev?.label?.trim() || c.label,
+      activo: prev ? prev.activo !== false : true
+    }
+  })
+
   const plazos = Array.isArray(o.plazos_cheque)
     ? (o.plazos_cheque as string[]).map((s) => String(s).trim()).filter(Boolean)
     : base.plazos_cheque
@@ -151,7 +168,7 @@ export function normalizarConfigCondicionesVenta(raw: unknown): ConfigCondicione
   return {
     medios: [...mediosMap.values()].sort((a, b) => a.orden - b.orden),
     cuentas_transferencia_ids: cuentasIds,
-    tipos_cheque: tiposCheque.length ? tiposCheque : base.tipos_cheque,
+    tipos_cheque: tiposChequeCanon,
     plazos_cheque: plazos.length ? plazos : base.plazos_cheque,
     bancos_cheque: bancos.length ? bancos : base.bancos_cheque,
     transferencia_requiere_comprobante: o.transferencia_requiere_comprobante !== false
@@ -185,8 +202,14 @@ export function resumenDetallePago(detalle: VentaDetallePago | null | undefined)
   }
   if (detalle.banco_cheque) partes.push(`Banco cheque: ${detalle.banco_cheque}`)
   if (detalle.numero_cheque) partes.push(`Nº ${detalle.numero_cheque}`)
+  if (detalle.codigo_echeq) partes.push(`Código eCheq: ${detalle.codigo_echeq}`)
   if (detalle.plazo_cheque) partes.push(`Plazo: ${detalle.plazo_cheque}`)
-  if (detalle.fecha_cheque) partes.push(`Fecha: ${detalle.fecha_cheque}`)
+  if (detalle.fecha_emision_cheque) partes.push(`Emisión: ${detalle.fecha_emision_cheque}`)
+  if (detalle.fecha_cheque) partes.push(`Cobro: ${detalle.fecha_cheque}`)
+  if (detalle.numero_cuenta_cliente) partes.push(`Cta. cliente: ${detalle.numero_cuenta_cliente}`)
+  if (detalle.monto_cheque != null && Number(detalle.monto_cheque) > 0) {
+    partes.push(`Monto cheque: $${Number(detalle.monto_cheque).toLocaleString('es-AR')}`)
+  }
   if (detalle.titular_cheque) partes.push(`Titular: ${detalle.titular_cheque}`)
   if (detalle.mp_payment_id) partes.push(`MP Pago: ${detalle.mp_payment_id}`)
   return partes.join(' · ')

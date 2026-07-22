@@ -13,10 +13,6 @@ import { useConfigCondicionesVenta } from '../hooks/useConfigCondicionesVenta'
 import './ErpSectionPage.css'
 import './ErpConfigCondicionesVentaPage.css'
 
-function newChequeTipoId(): string {
-  return `ch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-}
-
 function listaComoTexto(items: string[]): string {
   return items.join('\n')
 }
@@ -84,17 +80,6 @@ export default function ErpConfigCondicionesVentaPage() {
       ...prev,
       tipos_cheque: prev.tipos_cheque.map((t) => (t.id === id ? { ...t, ...patch } : t))
     }))
-  }
-
-  const agregarTipoCheque = () => {
-    setDraft((prev) => ({
-      ...prev,
-      tipos_cheque: [...prev.tipos_cheque, { id: newChequeTipoId(), label: 'Nuevo tipo', activo: true }]
-    }))
-  }
-
-  const quitarTipoCheque = (id: string) => {
-    setDraft((prev) => ({ ...prev, tipos_cheque: prev.tipos_cheque.filter((t) => t.id !== id) }))
   }
 
   const handleGuardar = async () => {
@@ -258,7 +243,7 @@ export default function ErpConfigCondicionesVentaPage() {
 
         <section className="erp-panel">
           <h2>Tipos de cheque</h2>
-          <p className="erp-muted ecv-hint">Incluí físico, eCheq, CPD y otros que acepten.</p>
+          <p className="erp-muted ecv-hint">Fijo: cheque físico, E-Cheq y cheque no a la orden. Podés activar/desactivar o renombrar.</p>
           <div className="ecv-cheque-list">
             {draft.tipos_cheque.map((t) => (
               <div key={t.id} className="ecv-cheque-row">
@@ -272,15 +257,9 @@ export default function ErpConfigCondicionesVentaPage() {
                   value={t.label}
                   onChange={(e) => actualizarTipoCheque(t.id, { label: e.target.value })}
                 />
-                <button type="button" className="btn-link ecv-remove" onClick={() => quitarTipoCheque(t.id)}>
-                  Quitar
-                </button>
               </div>
             ))}
           </div>
-          <button type="button" className="btn-secondary ecv-add-btn" onClick={agregarTipoCheque}>
-            + Agregar tipo
-          </button>
         </section>
 
         <section className="erp-panel">
