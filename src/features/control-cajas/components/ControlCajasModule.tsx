@@ -234,8 +234,8 @@ export default function ControlCajasModule() {
             <h1>Control de Cajas</h1>
             <p className="caja-header-lead">
               {enVistaAdmin
-                ? 'Fondo recomendado $100.000 en tu caja (editable en cierre de turno), resto a administración, egresos e ingresos de hoy.'
-                : 'Arqueo y cierre de turno. Podés ajustar el fondo de caja en cada cierre (recomendado $100.000).'}
+                ? 'Fondo de caja lo define cada operador en el cierre de turno (no se asigna solo). Resto a administración, egresos e ingresos de hoy.'
+                : 'Arqueo y cierre de turno. El fondo de caja lo cargás vos al cerrar (opcional; no hay monto automático).'}
             </p>
             {remote === false && (
               <p className="caja-cc-storage-hint">

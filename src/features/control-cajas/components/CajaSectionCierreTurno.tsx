@@ -18,7 +18,6 @@ import {
   updateCajaFondoFijo
 } from '../cajaRepository'
 import { buscarPlanillaCaja, montosCajaDesdeFuentes } from '../paseCajaMontos'
-import { FONDO_CAJA_RECOMENDADO } from '../fondoCaja'
 import CajaAvisoPdfUnico from './CajaAvisoPdfUnico'
 import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
 import CajaPlanillaResumenActiva from './CajaPlanillaResumenActiva'
@@ -173,7 +172,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
     setFondoMontoInput(String(fondoMontoParaCaja(cajaOrigen)))
   }, [origen, cajaOrigen?.slug, cajaOrigen?.fondo_fijo])
 
-  const fondoMonto = fondoMontoInput.trim() ? parseNum(fondoMontoInput) : cajaOrigen ? fondoMontoParaCaja(cajaOrigen) : FONDO_CAJA_RECOMENDADO
+  const fondoMonto = fondoMontoInput.trim() ? parseNum(fondoMontoInput) : cajaOrigen ? fondoMontoParaCaja(cajaOrigen) : 0
   const egresosLista = egresosResumen?.solicitudes ?? []
   const egresosTot = egresosResumen?.totales ?? { efectivo: 0, otros: 0 }
 
@@ -404,7 +403,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
           <span className="caja-cc-hoy-hero-label">Fondo → otra caja</span>
           <span className="caja-cc-hoy-hero-value">$ {fmtArs(calc.fondo_monto)}</span>
           <span className="caja-cc-hoy-hero-hint">
-            A {cajaNombre(cajaFondoDestino) || '…'} (recomendado $ {fmtArs(FONDO_CAJA_RECOMENDADO)})
+            A {cajaNombre(cajaFondoDestino) || '…'} (fondo configurable; sin monto automático)
           </span>
         </div>
         <div className="caja-cc-hoy-hero-card ingreso">
@@ -486,7 +485,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
               required
             />
             <span className="caja-cc-field-hint">
-              Recomendado $ {fmtArs(FONDO_CAJA_RECOMENDADO)}. Se guarda para tu caja al confirmar el cierre.
+              Opcional. Se guarda para tu caja al confirmar el cierre; no se asigna solo.
             </span>
           </label>
           <label className="caja-cc-field">

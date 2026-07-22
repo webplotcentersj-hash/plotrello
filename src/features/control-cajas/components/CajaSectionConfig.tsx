@@ -4,7 +4,6 @@ import {
   ultimoArqueoCajaOperativa
 } from '../cajaOperativa'
 import { fmtArs } from '../format'
-import { FONDO_CAJA_RECOMENDADO } from '../fondoCaja'
 import { getParams, listCajasAll, saveCajasMaestro, saveParams, updateCajaFondoFijo } from '../cajaRepository'
 import type { CajaRegistro } from '../types'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
@@ -82,7 +81,7 @@ export default function CajaSectionConfig() {
         <h3>Cajas de mostrador</h3>
         <p className="caja-cc-sub">
           Se crean solas al iniciar sesión (<strong>Caja [usuario]</strong>, slug <code>u-{'{id}'}</code>).
-          Podés ajustar el fondo recomendado ($ {fmtArs(FONDO_CAJA_RECOMENDADO)}) por operador.
+          Podés cargar el fondo por operador en el cierre de turno. No se asigna solo (arranca en $ 0).
         </p>
         {cajasOperativas.length === 0 ? (
           <p className="caja-cc-empty">Todavía no hay cajas de mostrador registradas.</p>

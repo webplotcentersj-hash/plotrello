@@ -1,6 +1,6 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
 import { calcularCierre } from './cierreCalculations'
-import { FONDO_CAJA_RECOMENDADO, fondoMinimoCaja, requiereFondoMinimo } from './fondoCaja'
+import { fondoMinimoCaja, requiereFondoMinimo } from './fondoCaja'
 import { fmtArs } from './format'
 import {
   cierresEnFecha,
@@ -220,7 +220,7 @@ export function analizarConcordancia(input: {
         severidad: 'info',
         dominio: 'efectivo',
         titulo: `Fondo de caja sin definir · ${caja.nombre}`,
-        detalle: `Se usará el recomendado $${fmtArs(FONDO_CAJA_RECOMENDADO)} hasta que la cajera lo ajuste en cierre de turno.`,
+        detalle: `El fondo está en $0. La cajera puede cargarlo en el cierre de turno si corresponde (no se asigna solo).`,
         accion: { label: 'Cierre de turno', section: 'cierre_turno' }
       })
     }
@@ -540,7 +540,7 @@ Conciliaciones banco:
 ${ultBanco.map((x) => `${x.fecha} sist $${fmtArs(x.sistema)} ext $${fmtArs(x.extracto)} Δ $${fmtArs(x.diferencia)} ${x.estado}`).join('\n') || 'ninguna'}
 
 REGLAS DE NEGOCIO:
-- Fondo de caja = efectivo REAL que debe permanecer siempre en la caja operativa. Recomendado $${fmtArs(FONDO_CAJA_RECOMENDADO)} por caja de mostrador, editable en cierre de turno. El arqueo y el efectivo contado no pueden ser menores al fondo configurado de cada caja.
+- Fondo de caja = efectivo REAL que permanece en la caja operativa SOLO si fue configurado a mano (arranca en $0; no hay monto automático). Editable en cierre de turno. Si hay fondo > 0, el arqueo y el efectivo contado no pueden ser menores a ese valor.
 - Efectivo teórico = fondo fijo + ingresos efectivo − egresos efectivo; debe coincidir con efectivo contado (tolerancia).
 - MP: en cierres, tarjeta sistema + MP/QR debe alinearse con conciliación MP (sistema vs dashboard de la app MP).
 - Banco: transferencias en cierres vs conciliación con extracto bancario.

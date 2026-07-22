@@ -27,7 +27,6 @@ import CajaCollapsibleCard from './CajaCollapsibleCard'
 import CajaAvisoPdfUnico from './CajaAvisoPdfUnico'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import {
-  FONDO_CAJA_RECOMENDADO,
   fondoFijoEfectivo,
   requiereFondoMinimo,
   validarEfectivoFisicoVsFondo
@@ -327,10 +326,7 @@ export default function CajaSectionCierreForm({
     if (!cajaSlug) return
     const caja = cajas.find((c) => c.slug === cajaSlug)
     if (caja) {
-      if (requiereFondoMinimo(caja.slug) && (form.fondo_fijo || 0) <= 0) {
-        setMsg('Indicá el fondo de caja (efectivo que permanece en la caja).')
-        return
-      }
+      // Fondo opcional: solo se exige si el operador cargó un valor > 0 y el contado queda por debajo.
       if (form.ef_contado > 0) {
         const v = validarEfectivoFisicoVsFondo(form.ef_contado, caja)
         if (!v.ok) {
@@ -513,8 +509,7 @@ export default function CajaSectionCierreForm({
             />
             {cajaActiva && requiereFondoMinimo(cajaActiva.slug) && (
               <span className="caja-cc-field-hint">
-                Efectivo que permanece en caja. Recomendado $ {fmtArs(FONDO_CAJA_RECOMENDADO)}; podés cambiarlo según
-                tu operación.
+                Opcional: efectivo que permanece en caja. Lo cargás vos; no hay monto automático.
               </span>
             )}
           </label>

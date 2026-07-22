@@ -1,4 +1,3 @@
-import { FONDO_CAJA_RECOMENDADO } from './fondoCaja'
 import type { CajaRegistro } from './types'
 
 const SLUG_PREFIX = 'u-'
@@ -18,11 +17,12 @@ export function cajaNombreForUsuario(usuarioNombre: string): string {
   return `Caja ${n}`
 }
 
+/** Caja operativa nueva: fondo en 0 hasta que lo configure el operador/admin. */
 export function buildCajaRegistroUsuario(usuarioId: number, usuarioNombre: string): CajaRegistro {
   return {
     slug: cajaSlugForUsuario(usuarioId),
     nombre: cajaNombreForUsuario(usuarioNombre),
-    fondo_fijo: FONDO_CAJA_RECOMENDADO,
+    fondo_fijo: 0,
     activa: true
   }
 }

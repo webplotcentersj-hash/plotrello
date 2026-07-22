@@ -1,0 +1,13 @@
+---
+description: El fondo de caja de $100.000 NO es automático ni obligatorio
+alwaysApply: true
+---
+
+# Fondo de caja: no automático
+
+- **Nunca** asignar `fondo_fijo = 100000` (ni `FONDO_CAJA_RECOMENDADO`) al crear o resetear una caja.
+- Caja nueva → `fondo_fijo: 0`. El operador/admin lo carga a mano si corresponde.
+- `fondoFijoEfectivo()` debe devolver el valor configurado o **0**; no inventar 100.000.
+- No validar ni bloquear arqueos/cierres por un mínimo de 100.000 si el fondo no fue configurado.
+- En UI: hablar de fondo **opcional / configurable**, nunca de fondo obligatorio de $100.000.
+- `FONDO_CAJA_RECOMENDADO` es solo referencia de documentación, no default de negocio.

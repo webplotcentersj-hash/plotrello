@@ -14,7 +14,7 @@ import CajaPlotlabVentasPanel from './CajaPlotlabVentasPanel'
 import { calcularTeoricoFisicoCaja } from '../arqueoCalculations'
 import { estadoArqueo } from '../movimientoCaja'
 import { fmtArs, fmtArs0, parseNum } from '../format'
-import { FONDO_CAJA_RECOMENDADO, fondoFijoEfectivo } from '../fondoCaja'
+import { fondoFijoEfectivo } from '../fondoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { efectivoQuedaEnCajaDesdePlanilla } from '../cajaTotales'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
@@ -291,11 +291,9 @@ export default function CajaSectionArqueo({
             {' '}
             El <strong>fondo de caja</strong> no es un monto fijo del arqueo: es lo que, al{' '}
             <strong>cierre de turno</strong>, se traspasa de {cajaActiva.nombre} a {otraCajaOperativa.nombre} (o
-            viceversa). Recomendado $ {fmtArs(FONDO_CAJA_RECOMENDADO)}
-            {fondoTraspaso > 0 && fondoTraspaso !== FONDO_CAJA_RECOMENDADO
-              ? ` · configurado $ ${fmtArs(fondoTraspaso)}`
-              : ''}
-            , editable en el cierre de turno.
+            viceversa)
+            {fondoTraspaso > 0 ? ` · configurado $ ${fmtArs(fondoTraspaso)}` : ''}
+            . Se carga a mano; no hay monto automático.
           </>
         )}
       </div>

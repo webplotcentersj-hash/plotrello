@@ -506,8 +506,9 @@ export function resumenAdminHoy(
   }
   const egresosPendientes = delDia.filter((e) => e.estado === 'pendiente').length
 
+  // Solo listar fondos que el operador/admin configuró (> 0). Nunca inventar $100.000.
   const fondosOperativas = cajas
-    .filter((c) => c.activa && requiereFondoMinimo(c.slug))
+    .filter((c) => c.activa && requiereFondoMinimo(c.slug) && fondoFijoEfectivo(c) > 0)
     .map((c) => ({ slug: c.slug, nombre: c.nombre, monto: fondoFijoEfectivo(c) }))
 
   return {
@@ -516,7 +517,7 @@ export function resumenAdminHoy(
     ingresoFuente,
     egresosHoy,
     egresosPendientes,
-    fondoFijo: fondosOperativas[0]?.monto ?? FONDO_CAJA_RECOMENDADO,
+    fondoFijo: fondosOperativas[0]?.monto ?? 0,
     fondoRecomendado: FONDO_CAJA_RECOMENDADO,
     fondosOperativas,
     cierresTurnoHoy

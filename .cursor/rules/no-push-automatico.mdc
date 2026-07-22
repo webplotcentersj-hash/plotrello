@@ -1,0 +1,11 @@
+---
+description: No hacer commit ni push salvo pedido explícito del usuario
+alwaysApply: true
+---
+
+# Sin push/commit automático
+
+- **Nunca** hagas `git commit` ni `git push` al terminar una tarea.
+- Solo commit y/o push cuando el usuario lo pida de forma explícita (p. ej. "commit", "push", "subilo").
+- Tampoco dispares deploy (Vercel CLI, redeploy, etc.) salvo pedido explícito.
+- Al cerrar un cambio, dejá los archivos listos y preguntá si quiere push solo si aporta; no asumas que sí.

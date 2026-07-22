@@ -149,7 +149,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
   const fondosTxt =
     resumen.fondosOperativas.length > 0
       ? resumen.fondosOperativas.map((f) => `${f.nombre} $ ${fmtArs(f.monto)}`).join(' · ')
-      : `recomendado $ ${fmtArs(resumen.fondoRecomendado)}`
+      : 'sin configurar'
 
   const ingresoLabel =
     resumen.ingresoFuente === 'cierre_turno'
@@ -200,8 +200,9 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
         <div>
           <h2>{tituloDia}</h2>
           <p className="caja-cc-sub">
-            Fondo en cajas de mostrador ({fondosTxt}, editable en cierre de turno): cada operador deja el fondo en su caja o lo traspasa a otra operativa;
-            el resto ingresa a administración.
+            {resumen.fondosOperativas.length > 0
+              ? `Fondo configurado en cajas (${fondosTxt}, editable en cierre de turno): cada operador deja el fondo en su caja o lo traspasa a otra operativa; el resto ingresa a administración.`
+              : 'Sin fondo configurado en cajas de mostrador. El fondo lo define cada operador en el cierre de turno (no se asigna solo). El resto ingresa a administración.'}
           </p>
         </div>
         <div className="caja-cc-page-head-actions">
@@ -330,7 +331,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
               <h3>Regla del cierre de turno</h3>
               <ol className="caja-cc-steps-simple">
                 <li>
-                  <strong>Fondo</strong> (recomendado $ {fmtArs(resumen.fondoRecomendado)}, editable en cierre de turno) —
+                  <strong>Fondo</strong> (lo define el operador en el cierre de turno; no se asigna solo) —
                   se traspasa a otra caja operativa si corresponde.
                 </li>
                 <li>
