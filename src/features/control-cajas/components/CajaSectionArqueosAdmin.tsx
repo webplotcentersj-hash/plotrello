@@ -10,12 +10,16 @@ import CajaArqueoDetalleModal from './CajaArqueoDetalleModal'
 import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 
-export default function CajaSectionArqueosAdmin() {
+export default function CajaSectionArqueosAdmin({
+  initialCajaSlug = null
+}: {
+  initialCajaSlug?: string | null
+}) {
   const [arqueos, setArqueos] = useState<CajaArqueo[]>([])
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [detalle, setDetalle] = useState<CajaArqueo | null>(null)
   const [listSearch, setListSearch] = useState('')
-  const [filtCaja, setFiltCaja] = useState('')
+  const [filtCaja, setFiltCaja] = useState(initialCajaSlug ?? '')
   const [filtTurno, setFiltTurno] = useState('')
   const [filtOperador, setFiltOperador] = useState('')
   const [filtDesde, setFiltDesde] = useState('')
@@ -32,6 +36,10 @@ export default function CajaSectionArqueosAdmin() {
   useEffect(() => {
     reload()
   }, [])
+
+  useEffect(() => {
+    setFiltCaja(initialCajaSlug ?? '')
+  }, [initialCajaSlug])
 
   const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
 

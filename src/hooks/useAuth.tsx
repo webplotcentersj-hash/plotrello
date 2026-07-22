@@ -13,6 +13,7 @@ import {
   nombreVisibleUsuario,
   persistUsuarioNombreVisible
 } from '../utils/usuarioDisplayName'
+import { usuarioTieneAlgunRol, usuarioTieneRol } from '../utils/usuarioRolesExtra'
 import {
   getSessionKind,
   PLOTLAB_SESSION_KIND_KEY,
@@ -231,72 +232,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo((): AuthContextValue => {
     const adminRoles: Usuario['rol'][] = ['administracion', 'gerencia']
     const isAdmin = !!usuario && adminRoles.includes(usuario.rol)
-    const isGerencia = usuario?.rol === 'gerencia'
-    const isMostrador = usuario?.rol === 'mostrador'
-    const isCaja = usuario?.rol === 'caja'
-    const isCajaOperativa = !!usuario && esUsuarioCajaOperativa(usuario.rol)
-    const isTallerGrafico = usuario?.rol === 'taller-grafico'
-    const isInstalaciones = usuario?.rol === 'instalaciones'
-    const isCompras = usuario?.rol === 'compras'
-    const isDiseno = usuario?.rol === 'diseno'
-    const isTallerImprenta = usuario?.rol === 'imprenta'
-    const isMetalurgica = usuario?.rol === 'metalurgica'
-    const isRecursosHumanos = usuario?.rol === 'recursos-humanos'
-    const isAsesorTecnico = usuario?.rol === 'asesor-tecnico'
-    const isPresupuestos = usuario?.rol === 'presupuestos'
+    const isGerencia = usuarioTieneRol(usuario, 'gerencia')
+    const isMostrador = usuarioTieneRol(usuario, 'mostrador')
+    const isCaja = usuarioTieneRol(usuario, 'caja')
+    const isCajaOperativa =
+      !!usuario && (esUsuarioCajaOperativa(usuario.rol) || isMostrador || isCaja)
+    const isTallerGrafico = usuarioTieneRol(usuario, 'taller-grafico')
+    const isInstalaciones = usuarioTieneRol(usuario, 'instalaciones')
+    const isCompras = usuarioTieneRol(usuario, 'compras')
+    const isDiseno = usuarioTieneRol(usuario, 'diseno')
+    const isTallerImprenta = usuarioTieneRol(usuario, 'imprenta')
+    const isMetalurgica = usuarioTieneRol(usuario, 'metalurgica')
+    const isRecursosHumanos = usuarioTieneRol(usuario, 'recursos-humanos')
+    const isAsesorTecnico = usuarioTieneRol(usuario, 'asesor-tecnico')
+    const isPresupuestos = usuarioTieneRol(usuario, 'presupuestos')
     const canAccessMostradorViews =
       !!usuario && (isCajaOperativa || isPresupuestos || isAdmin)
     const canManageImpresoras =
-      !!usuario && (usuario.rol === 'taller-grafico' || usuario.rol === 'administracion')
+      !!usuario && (usuarioTieneRol(usuario, 'taller-grafico') || isAdmin)
     const canManageCompras =
-      !!usuario && (usuario.rol === 'compras' || usuario.rol === 'administracion')
+      !!usuario && (usuarioTieneRol(usuario, 'compras') || isAdmin)
     const canViewPedidoCompraDetalle =
-      !!usuario && (usuario.rol === 'compras' || usuario.rol === 'administracion' || isGerencia)
+      !!usuario && (usuarioTieneRol(usuario, 'compras') || isAdmin || isGerencia)
     const canManageCaja = !!usuario && (isCajaOperativa || isAdmin)
     const canManageInstalaciones =
-      !!usuario && (usuario.rol === 'instalaciones' || usuario.rol === 'administracion')
+      !!usuario && (usuarioTieneRol(usuario, 'instalaciones') || isAdmin)
     const canManageTallerImprenta =
-      !!usuario && (usuario.rol === 'imprenta' || usuario.rol === 'administracion')
+      !!usuario && (usuarioTieneRol(usuario, 'imprenta') || isAdmin)
     const canManageMetalurgica =
-      !!usuario && (usuario.rol === 'metalurgica' || usuario.rol === 'administracion')
+      !!usuario && (usuarioTieneRol(usuario, 'metalurgica') || isAdmin)
     const canManageRecursosHumanos =
       !!usuario &&
-      (usuario.rol === 'recursos-humanos' ||
-        usuario.rol === 'administracion' ||
-        usuario.rol === 'gerencia')
+      (usuarioTieneRol(usuario, 'recursos-humanos') || isAdmin || isGerencia)
     const canManageAsesorTecnico =
-      !!usuario && (usuario.rol === 'asesor-tecnico' || usuario.rol === 'administracion')
+      !!usuario && (usuarioTieneRol(usuario, 'asesor-tecnico') || isAdmin)
     const canManagePresupuestos =
       !!usuario &&
-      (usuario.rol === 'presupuestos' ||
-        usuario.rol === 'asesor-tecnico' ||
-        usuario.rol === 'administracion')
+      (usuarioTieneRol(usuario, 'presupuestos') ||
+        usuarioTieneRol(usuario, 'asesor-tecnico') ||
+        isAdmin)
     const canAccessAtencionPublico = !!usuario
     const canAccessTotemImpresionPanel =
       !!usuario &&
       (isAdmin ||
-        usuario.rol === 'imprenta' ||
-        usuario.rol === 'mostrador' ||
-        usuario.rol === 'caja' ||
-        usuario.rol === 'taller-grafico')
+        usuarioTieneAlgunRol(usuario, ['imprenta', 'mostrador', 'caja', 'taller-grafico']))
     const canMarcarPagoTotemImpresion = !!usuario && (isCajaOperativa || isAdmin)
     const canManageWorkPool =
-      !!usuario && (usuario.rol === 'administracion' || usuario.rol === 'presupuestos')
-    const isOperarioExternoDiseno = usuario?.rol === 'operario-diseno'
-    const isOperarioExternoBolsa = usuario?.rol === 'operario-bolsa'
+      !!usuario && (isAdmin || usuarioTieneRol(usuario, 'presupuestos'))
+    const isOperarioExternoDiseno = usuarioTieneRol(usuario, 'operario-diseno')
+    const isOperarioExternoBolsa = usuarioTieneRol(usuario, 'operario-bolsa')
     const isOperarioExterno = isOperarioExternoDiseno || isOperarioExternoBolsa
     const isWorkPoolOperario =
       !!usuario &&
-      (usuario.rol === 'diseno' ||
-        usuario.rol === 'instalaciones' ||
-        usuario.rol === 'metalurgica' ||
+      (usuarioTieneAlgunRol(usuario, ['diseno', 'instalaciones', 'metalurgica']) ||
         isOperarioExterno)
     const canAccessPlotDesign =
-      canManageWorkPool || usuario?.rol === 'diseno' || isOperarioExternoDiseno
+      canManageWorkPool || usuarioTieneRol(usuario, 'diseno') || isOperarioExternoDiseno
     const canAccessBolsaPlot =
       canManageWorkPool ||
-      usuario?.rol === 'instalaciones' ||
-      usuario?.rol === 'metalurgica' ||
+      usuarioTieneRol(usuario, 'instalaciones') ||
+      usuarioTieneRol(usuario, 'metalurgica') ||
       isOperarioExternoBolsa
     const operarioExternoHome = operarioExternoHomeRoute(usuario?.rol)
 

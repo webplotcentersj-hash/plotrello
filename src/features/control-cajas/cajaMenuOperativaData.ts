@@ -160,6 +160,84 @@ export function resumenPorCajeroAdminDia(
     .sort((a, b) => b.ventasPlotlab - a.ventasPlotlab || a.nombre.localeCompare(b.nombre, 'es'))
 }
 
+export type ConteoCajaResumen = {
+  slug: string
+  nombre: string
+  ventasCount: number
+  ventasTotal: number
+  egresosCount: number
+  egresosTotal: number
+  arqueosCount: number
+  cierresTurnoCount: number
+  cierresFormalesCount: number
+}
+
+function matchFecha(fechaRegistro: string, fechaFiltro?: string | null): boolean {
+  if (!fechaFiltro) return true
+  return fechaRegistro === fechaFiltro
+}
+
+/** Conteos por caja operativa (hoy o histórico si no pasás fecha). */
+export function conteosPorCajaOperativa(input: {
+  cajas: CajaRegistro[]
+  movimientos: CajaMovimiento[]
+  arqueos: CajaArqueo[]
+  egresos: Array<{ fecha: string; caja_slug: string; monto_efectivo: number; monto_otros: number; estado?: string }>
+  lotes: CajaTransferenciaLote[]
+  cierres: Array<{ fecha: string; caja_slug: string }>
+  /** Si se omite, cuenta todo el historial. */
+  fecha?: string | null
+}): ConteoCajaResumen[] {
+  const { cajas, movimientos, arqueos, egresos, lotes, cierres, fecha = null } = input
+
+  return cajas
+    .filter((c) => c.activa && requiereFondoMinimo(c.slug))
+    .map((c) => {
+      let ventasCount = 0
+      let ventasTotal = 0
+      for (const m of movimientos) {
+        if (m.anulado || m.origen_importacion !== 'plotlab_venta') continue
+        if (m.tipo_movimiento !== 'ingreso' || m.destino_slug !== c.slug) continue
+        if (!matchFecha(m.fecha, fecha)) continue
+        ventasCount += 1
+        ventasTotal += m.monto_total || 0
+      }
+
+      let egresosCount = 0
+      let egresosTotal = 0
+      for (const e of egresos) {
+        if (e.caja_slug !== c.slug) continue
+        if (!matchFecha(e.fecha, fecha)) continue
+        if (e.estado === 'rechazado') continue
+        egresosCount += 1
+        egresosTotal += (e.monto_efectivo || 0) + (e.monto_otros || 0)
+      }
+
+      const arqueosCount = arqueos.filter(
+        (a) => a.caja_slug === c.slug && matchFecha(a.fecha, fecha)
+      ).length
+      const cierresTurnoCount = lotes.filter(
+        (l) => l.origen_slug === c.slug && matchFecha(l.fecha, fecha)
+      ).length
+      const cierresFormalesCount = cierres.filter(
+        (x) => x.caja_slug === c.slug && matchFecha(x.fecha, fecha)
+      ).length
+
+      return {
+        slug: c.slug,
+        nombre: c.nombre,
+        ventasCount,
+        ventasTotal,
+        egresosCount,
+        egresosTotal,
+        arqueosCount,
+        cierresTurnoCount,
+        cierresFormalesCount
+      }
+    })
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+}
+
 export function montoMovimientoLista(m: CajaMovimiento): number {
   return montoVisibleMovimiento(m)
 }

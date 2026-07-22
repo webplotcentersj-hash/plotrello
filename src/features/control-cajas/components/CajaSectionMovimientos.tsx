@@ -27,6 +27,7 @@ type Props = {
   allowExcelImport?: boolean
   allowDelete?: boolean
   title?: string
+  filtroCajaSlug?: string | null
 }
 
 export default function CajaSectionMovimientos({
@@ -35,7 +36,8 @@ export default function CajaSectionMovimientos({
   soloMisMovimientos = false,
   allowExcelImport = true,
   allowDelete = true,
-  title = 'Movimientos de caja'
+  title = 'Movimientos de caja',
+  filtroCajaSlug = null
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
@@ -138,6 +140,13 @@ export default function CajaSectionMovimientos({
 
   const movimientosFiltrados = useMemo(() => {
     return movimientos.filter((m) => {
+      if (
+        filtroCajaSlug &&
+        m.origen_slug !== filtroCajaSlug &&
+        m.destino_slug !== filtroCajaSlug
+      ) {
+        return false
+      }
       if (filtConcepto && m.concepto !== filtConcepto) return false
       if (filtDesde && m.fecha < filtDesde) return false
       if (filtHasta && m.fecha > filtHasta) return false
@@ -152,7 +161,7 @@ export default function CajaSectionMovimientos({
         m.fecha
       ])
     })
-  }, [movimientos, listSearch, filtConcepto, filtDesde, filtHasta, cajas])
+  }, [movimientos, listSearch, filtConcepto, filtDesde, filtHasta, cajas, filtroCajaSlug])
 
   const movimientosVisibles = movimientosFiltrados.slice(0, listLimit)
   const conceptosEnLista = useMemo(

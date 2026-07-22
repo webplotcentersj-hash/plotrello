@@ -1,6 +1,7 @@
 import type { Usuario } from '../../hooks/useAuth'
 import { PLOT_CENTER_DESIGN_TOOLS } from '../../constants/plotCenterDesignTools'
 import { VENTAS } from '../../utils/ventasRoutes'
+import { usuarioTieneAlgunRol } from '../../utils/usuarioRolesExtra'
 
 export type AdminModuleCategory =
   | 'produccion'
@@ -91,14 +92,20 @@ export const ROLE_LABELS: Record<Usuario['rol'], string> = {
 const ADMIN_ROLES: Usuario['rol'][] = ['administracion', 'gerencia']
 
 export function canUserAccessModule(
-  rol: Usuario['rol'] | undefined,
+  usuario: Pick<Usuario, 'nombre' | 'rol'> | Usuario['rol'] | null | undefined,
   module: AdminModuleDef
 ): boolean {
-  if (!rol) return false
-  if (ADMIN_ROLES.includes(rol)) return true
+  if (!usuario) return false
+  if (typeof usuario === 'string') {
+    if (ADMIN_ROLES.includes(usuario)) return true
+    if (module.roles === 'all') return true
+    if (module.roles === 'admin') return false
+    return module.roles.includes(usuario)
+  }
+  if (ADMIN_ROLES.includes(usuario.rol)) return true
   if (module.roles === 'all') return true
   if (module.roles === 'admin') return false
-  return module.roles.includes(rol)
+  return usuarioTieneAlgunRol(usuario, module.roles)
 }
 
 export function moduleRoleLabels(module: AdminModuleDef): string[] {

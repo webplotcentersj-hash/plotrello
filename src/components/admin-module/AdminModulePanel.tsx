@@ -86,7 +86,7 @@ export default function AdminModulePanel({
   const featuredModules = useMemo(
     () =>
       ADMIN_MODULE_CATALOG.filter(
-        (m) => m.featured && m.id !== 'tablero' && canUserAccessModule(usuario?.rol, m)
+        (m) => m.featured && m.id !== 'tablero' && canUserAccessModule(usuario, m)
       ),
     [usuario?.rol]
   )
@@ -123,12 +123,12 @@ export default function AdminModulePanel({
   }, [filtered])
 
   const accessibleCount = useMemo(
-    () => ADMIN_MODULE_CATALOG.filter((m) => canUserAccessModule(usuario?.rol, m)).length,
+    () => ADMIN_MODULE_CATALOG.filter((m) => canUserAccessModule(usuario, m)).length,
     [usuario?.rol]
   )
 
   const goToModule = (module: AdminModuleDef) => {
-    if (!canUserAccessModule(usuario?.rol, module)) return
+    if (!canUserAccessModule(usuario, module)) return
 
     if (module.action === 'plotai') {
       onPlotAI?.()
@@ -184,7 +184,7 @@ export default function AdminModulePanel({
     : '??'
 
   const renderMachineButton = (module: AdminModuleDef) => {
-    const allowed = canUserAccessModule(usuario?.rol, module)
+    const allowed = canUserAccessModule(usuario, module)
     const loading =
       (module.action === 'backup' && backupLoading) ||
       (module.action === 'pdf' && pdfLoading)
@@ -231,7 +231,7 @@ export default function AdminModulePanel({
     opts: { compact?: boolean; wide?: boolean } = {}
   ) => {
     const { compact = false, wide = false } = opts
-    const allowed = canUserAccessModule(usuario?.rol, module)
+    const allowed = canUserAccessModule(usuario, module)
     const loading =
       (module.action === 'backup' && backupLoading) ||
       (module.action === 'pdf' && pdfLoading)
@@ -306,7 +306,7 @@ export default function AdminModulePanel({
 
   const renderKanbanHero = () => {
     if (!tableroModule) return null
-    const allowed = canUserAccessModule(usuario?.rol, tableroModule)
+    const allowed = canUserAccessModule(usuario, tableroModule)
 
     return (
       <article

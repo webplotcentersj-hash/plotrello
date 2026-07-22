@@ -237,6 +237,7 @@ export type CajaSectionId =
   | 'ventas'
   | 'config'
   | 'asistente'
+  | 'caja_detalle'
 
 export type CajaEgresoEstado = 'pendiente' | 'aprobado' | 'rechazado'
 

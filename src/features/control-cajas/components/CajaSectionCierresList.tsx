@@ -8,9 +8,14 @@ import type { CajaCierre, CajaRegistro } from '../types'
 type Props = {
   onNuevo: () => void
   onEditar: (id: string) => void
+  filtroCajaSlug?: string | null
 }
 
-export default function CajaSectionCierresList({ onNuevo, onEditar }: Props) {
+export default function CajaSectionCierresList({
+  onNuevo,
+  onEditar,
+  filtroCajaSlug = null
+}: Props) {
   const [cierres, setCierres] = useState<CajaCierre[]>([])
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
 
@@ -26,6 +31,9 @@ export default function CajaSectionCierresList({ onNuevo, onEditar }: Props) {
   }, [])
 
   const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
+  const cierresVisibles = filtroCajaSlug
+    ? cierres.filter((c) => c.caja_slug === filtroCajaSlug)
+    : cierres
 
   return (
     <>
@@ -42,8 +50,12 @@ export default function CajaSectionCierresList({ onNuevo, onEditar }: Props) {
         </div>
       </div>
       <div className="caja-cc-card">
-        {cierres.length === 0 ? (
-          <p className="caja-cc-empty">Sin cierres cargados. Empezá con el cierre de hoy.</p>
+        {cierresVisibles.length === 0 ? (
+          <p className="caja-cc-empty">
+            {filtroCajaSlug
+              ? 'Sin cierres para esta caja.'
+              : 'Sin cierres cargados. Empezá con el cierre de hoy.'}
+          </p>
         ) : (
           <table className="caja-cc-table">
             <thead>
@@ -59,7 +71,7 @@ export default function CajaSectionCierresList({ onNuevo, onEditar }: Props) {
               </tr>
             </thead>
             <tbody>
-              {cierres.map((c) => (
+              {cierresVisibles.map((c) => (
                 <tr key={c.id}>
                   <td>{fmtDateAr(c.fecha)}</td>
                   <td>{cajaNombre(c.caja_slug)}</td>

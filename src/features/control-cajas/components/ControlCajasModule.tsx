@@ -32,6 +32,7 @@ import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
 import CajaPlanillasRecibidasPanel from './CajaPlanillasRecibidasPanel'
 import CajaInteligenciaBar from './CajaInteligenciaBar'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
+import CajaSidebarCajas, { CajaDetallePorCaja } from './CajaSidebarCajas'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import '../../../pages/CajaDashboardPage.css'
 
@@ -56,7 +57,8 @@ const SECTION_TITLES: Record<CajaSectionId, string> = {
   diferencias: 'Diferencias',
   ventas: 'Ventas diarias',
   config: 'Configuración',
-  asistente: 'Asistente IA'
+  asistente: 'Asistente IA',
+  caja_detalle: 'Detalle de caja'
 }
 
 export type VistaCajaModulo = 'admin' | 'operativa'
@@ -104,6 +106,7 @@ export default function ControlCajasModule() {
   const [movimientosRefreshKey, setMovimientosRefreshKey] = useState(0)
   const [planillaActiva, setPlanillaActiva] = useState<PlanillaCajaParsed | null>(null)
   const [menuRefreshToken, setMenuRefreshToken] = useState(0)
+  const [cajaSeleccionadaSlug, setCajaSeleccionadaSlug] = useState<string | null>(null)
 
   const nav = useMemo(() => (enVistaAdmin ? NAV_ADMIN : NAV_CAJA), [enVistaAdmin])
 
@@ -111,10 +114,15 @@ export default function ControlCajasModule() {
     if (!enVistaAdmin && section === 'menu') setMenuRefreshToken((t) => t + 1)
   }, [enVistaAdmin, section])
 
+  useEffect(() => {
+    if (!enVistaAdmin) setCajaSeleccionadaSlug(null)
+  }, [enVistaAdmin])
+
   const cambiarVista = (v: VistaCajaModulo) => {
     setVista(v)
     setEditCierreId(null)
     setPlanillaActiva(null)
+    setCajaSeleccionadaSlug(null)
     setSection(seccionInicial(v))
     navigate(v === 'admin' ? '/caja/dashboard/admin' : '/caja/dashboard/caja', { replace: true })
   }
@@ -192,12 +200,18 @@ export default function ControlCajasModule() {
     section !== 'tablero_admin' &&
     section !== 'centro_ia' &&
     section !== 'cierres_new' &&
-    section !== 'cierres'
+    section !== 'cierres' &&
+    section !== 'caja_detalle'
 
   const goSection = (s: CajaSectionId) => {
     setEditCierreId(null)
     const target = !enVistaAdmin && s === 'movimientos' ? 'historial' : s
     setSection(target)
+  }
+
+  const seleccionarCaja = (slug: string) => {
+    setCajaSeleccionadaSlug(slug)
+    setSection('caja_detalle')
   }
 
   const refreshMovimientos = () => setMovimientosRefreshKey((k) => k + 1)
@@ -297,6 +311,13 @@ export default function ControlCajasModule() {
               </button>
             )
           )}
+          {enVistaAdmin ? (
+            <CajaSidebarCajas
+              selectedSlug={section === 'caja_detalle' ? cajaSeleccionadaSlug : null}
+              onSelect={seleccionarCaja}
+              refreshKey={refreshKey}
+            />
+          ) : null}
           <div className="caja-cc-sidebar-foot">
             <button type="button" className="btn-secondary btn-small caja-cc-sidebar-erp" onClick={() => navigate('/erp')}>
               ERP
@@ -343,6 +364,14 @@ export default function ControlCajasModule() {
               refreshKey={refreshKey}
               onCierreTurno={() => setSection('cierre_turno')}
               onEgresos={() => setSection('egresos')}
+            />
+          )}
+
+          {section === 'caja_detalle' && enVistaAdmin && cajaSeleccionadaSlug && (
+            <CajaDetallePorCaja
+              slug={cajaSeleccionadaSlug}
+              refreshKey={refreshKey}
+              onNavigate={goSection}
             />
           )}
 
@@ -405,6 +434,7 @@ export default function ControlCajasModule() {
                 />
               </section>
               <CajaSectionCierresList
+                filtroCajaSlug={cajaSeleccionadaSlug}
                 onNuevo={() => {
                   setEditCierreId(null)
                   setSection('cierres_new')
@@ -482,6 +512,7 @@ export default function ControlCajasModule() {
               isAdmin={isAdmin}
               usuarioNombre={usuarioEtiqueta}
               usuarioId={usuarioId}
+              filtroCajaSlug={enVistaAdmin ? cajaSeleccionadaSlug : null}
             />
           )}
 
@@ -497,7 +528,9 @@ export default function ControlCajasModule() {
             <CajaSectionHistorial usuarioNombre={usuarioEtiqueta} usuarioId={usuarioId} />
           )}
 
-          {section === 'arqueos_admin' && enVistaAdmin && <CajaSectionArqueosAdmin />}
+          {section === 'arqueos_admin' && enVistaAdmin && (
+            <CajaSectionArqueosAdmin initialCajaSlug={cajaSeleccionadaSlug} />
+          )}
 
           {section === 'movimientos_admin' && enVistaAdmin && (
             <>
@@ -508,6 +541,7 @@ export default function ControlCajasModule() {
                 soloMisMovimientos={false}
                 allowExcelImport
                 title="Movimientos entre cajas"
+                filtroCajaSlug={cajaSeleccionadaSlug}
               />
             </>
           )}

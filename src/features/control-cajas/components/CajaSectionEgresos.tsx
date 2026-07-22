@@ -16,9 +16,15 @@ type Props = {
   isAdmin: boolean
   usuarioNombre: string
   usuarioId?: number
+  filtroCajaSlug?: string | null
 }
 
-export default function CajaSectionEgresos({ isAdmin, usuarioNombre, usuarioId }: Props) {
+export default function CajaSectionEgresos({
+  isAdmin,
+  usuarioNombre,
+  usuarioId,
+  filtroCajaSlug = null
+}: Props) {
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [lista, setLista] = useState<CajaEgresoSolicitud[]>([])
   const [fecha, setFecha] = useState(getArgentinaDateString())
@@ -45,14 +51,21 @@ export default function CajaSectionEgresos({ isAdmin, usuarioNombre, usuarioId }
     setCajas(c.filter((x) => x.slug !== 'admin' && x.slug !== 'vuelto'))
     setLista(s)
     if (c.length && !cajaSlug) {
-      const op = c.find((x) => x.slug !== 'admin')?.slug ?? c[0].slug
+      const op =
+        (filtroCajaSlug && c.find((x) => x.slug === filtroCajaSlug)?.slug) ||
+        c.find((x) => x.slug !== 'admin')?.slug ||
+        c[0].slug
       setCajaSlug(op)
     }
-  }, [isAdmin, cajaSlug, usuarioId])
+  }, [isAdmin, cajaSlug, usuarioId, filtroCajaSlug])
 
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    if (filtroCajaSlug) setCajaSlug(filtroCajaSlug)
+  }, [filtroCajaSlug])
 
   const solicitar = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -99,10 +112,13 @@ export default function CajaSectionEgresos({ isAdmin, usuarioNombre, usuarioId }
   }
 
   const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
-  const pendientes = lista.filter((s) => s.estado === 'pendiente')
+  const pendientes = lista.filter(
+    (s) => s.estado === 'pendiente' && (!filtroCajaSlug || s.caja_slug === filtroCajaSlug)
+  )
 
   const historialFiltrado = useMemo(() => {
     return lista.filter((s) => {
+      if (filtroCajaSlug && s.caja_slug !== filtroCajaSlug) return false
       if (histEstado && s.estado !== histEstado) return false
       if (histDesde && s.fecha < histDesde) return false
       if (histHasta && s.fecha > histHasta) return false
@@ -117,7 +133,7 @@ export default function CajaSectionEgresos({ isAdmin, usuarioNombre, usuarioId }
         fmtArs(s.monto_efectivo + s.monto_otros)
       ])
     })
-  }, [lista, histSearch, histEstado, histDesde, histHasta, cajas])
+  }, [lista, histSearch, histEstado, histDesde, histHasta, cajas, filtroCajaSlug])
 
   const historialVisible = historialFiltrado.slice(0, histLimit)
 
