@@ -31,6 +31,7 @@ function movIngresoTarjeta(opts: {
   usuarioId?: number
   archivo: string
   idLote?: string
+  esMercadoPago?: boolean
 }): Omit<CajaMovimiento, 'id' | 'created_at'> {
   return {
     fecha: opts.fecha,
@@ -60,7 +61,11 @@ function movIngresoTarjeta(opts: {
     cierre_id: null,
     id_lote: opts.idLote ?? null,
     anulado: false,
-    medios: { tarjetas: opts.monto, total: opts.monto }
+    medios: {
+      tarjetas: opts.monto,
+      total: opts.monto,
+      ...(opts.esMercadoPago ? { mercado_pago: opts.monto } : {})
+    }
   }
 }
 
@@ -133,7 +138,8 @@ export function comprobantesToMovimientos(
             usuarioNombre,
             usuarioId,
             archivo: c.archivo_nombre,
-            idLote
+            idLote,
+            esMercadoPago: true
           })
         )
       }
@@ -177,7 +183,8 @@ export function comprobantesToMovimientos(
         usuarioNombre,
         usuarioId,
         archivo: c.archivo_nombre,
-        idLote
+        idLote,
+        esMercadoPago: c.medio === 'mercado_pago'
       })
     )
   }

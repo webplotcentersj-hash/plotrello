@@ -175,7 +175,7 @@ export function ventaDebeSincronizarCaja(venta: VentaCajaSyncRecord): boolean {
 
 function normalizarMetodoPago(metodo?: string | null): MetodoPagoPlotLab {
   const m = (metodo || 'Otro').trim()
-  if (/mercado\s*pago/i.test(m) || m.toLowerCase() === 'mp') return 'Tarjeta'
+  if (/mercado\s*pago/i.test(m) || m.toLowerCase() === 'mp') return 'Mercado Pago'
   return m as MetodoPagoPlotLab
 }
 
@@ -214,7 +214,10 @@ export function metodoPagoPlotLabAMedios(
     return { ...base, cuenta_corriente: monto }
   }
   if (m === 'Efectivo') return { ...base, efectivo: monto }
-  if (m === 'Tarjeta' || /mercado\s*pago/i.test(m) || m.toLowerCase() === 'mp') {
+  if (m === 'Mercado Pago' || /mercado\s*pago/i.test(m) || m.toLowerCase() === 'mp') {
+    return { ...base, tarjeta: monto }
+  }
+  if (m === 'Tarjeta') {
     return { ...base, tarjeta: monto }
   }
   if (m === 'Transferencia' || m === 'Depósito') {
@@ -426,10 +429,17 @@ export async function syncVentaPlotLabACaja(
       { origen_slug: 'admin', destino_slug: cajaSlug }
     )
 
+    const esMp =
+      /mercado\s*pago/i.test(String(input.metodoPago)) ||
+      String(input.metodoPago).trim().toLowerCase() === 'mp'
+    const mediosGuardar = esMp
+      ? { ...(linea as unknown as Record<string, number>), mercado_pago: monto }
+      : (linea as unknown as Record<string, number>)
+
     const mov = await saveMovimiento({
       ...movBase,
       id: existente?.id,
-      medios: linea as unknown as Record<string, number>,
+      medios: mediosGuardar,
       cierre_id: existente?.cierre_id ?? null
     })
 

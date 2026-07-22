@@ -76,7 +76,9 @@ export default function CajaDiaConciliacionPanel({
         {lineas.map((l) => (
           <div
             key={l.canal}
-            className={`caja-cc-concil-card ${claseEstado(l.estado)}${l.canal === 'cuenta_corriente' ? ' is-cc' : ''}`}
+            className={`caja-cc-concil-card ${claseEstado(l.estado)}${
+              l.canal === 'cuenta_corriente' ? ' is-cc' : ''
+            }${l.canal === 'mercado_pago' ? ' is-mp' : ''}`}
           >
             <div className="caja-cc-concil-card-top">
               <span className="caja-cc-concil-icon" aria-hidden>

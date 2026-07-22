@@ -52,14 +52,38 @@ export function mediosPagoMovimiento(m: CajaMovimiento): MedioPagoLinea[] {
     if (v > 0) lines.push({ label, monto: v })
   }
   push('Efectivo', m.efectivo)
-  push('Tarjeta', m.tarjeta)
+  {
+    const tarj = Number(m.tarjeta) || 0
+    if (tarj > 0) {
+      const med = m.medios as { mercado_pago?: number } | null | undefined
+      const txt = `${m.observacion || ''} ${m.concepto || ''}`.toLowerCase()
+      const esMp = (med && Number(med.mercado_pago) > 0) || /mercado\s*pago/.test(txt)
+      push(esMp ? 'Mercado Pago' : 'Tarjeta', tarj)
+    }
+  }
   push('Transferencia bancaria', m.transferencia_bancaria)
   push('Cuenta corriente', m.cuenta_corriente)
   push('Cheque propio', m.cheque_propio)
   push('Cheque tercero', m.cheque_tercero)
   push('Documento', m.documento)
   push('Cuenta contable', m.cuenta_contable)
-  push('Otros', m.otros)
+  {
+    const med = m.medios as { otros?: number } | null | undefined
+    const residual =
+      med && typeof med.otros === 'number'
+        ? Number(med.otros) || 0
+        : (m.tarjeta ?? 0) +
+              (m.transferencia_bancaria ?? 0) +
+              (m.cuenta_corriente ?? 0) +
+              (m.cheque_propio ?? 0) +
+              (m.cheque_tercero ?? 0) +
+              (m.documento ?? 0) +
+              (m.cuenta_contable ?? 0) >
+            0.02
+          ? 0
+          : m.otros ?? 0
+    push('Otros', residual)
+  }
   if (m.medios && typeof m.medios === 'object') {
     for (const [k, v] of Object.entries(m.medios)) {
       const n = Number(v) || 0

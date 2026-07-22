@@ -94,8 +94,9 @@
   .venta-condicion-fields--transferencia
   .form-group
   > label {
-  color: #111827 !important;
+  color: #000000 !important;
   font-weight: 800 !important;
+  -webkit-text-fill-color: #000000 !important;
 }
 
 .venta-rapida-modal.venta-rapida-modal--mostrador .venta-condicion-cuenta-card {
@@ -113,14 +114,22 @@
 
 .venta-rapida-modal.venta-rapida-modal--mostrador
   .venta-condicion-fields--cheque
+  label,
+.venta-rapida-modal.venta-rapida-modal--mostrador
+  .venta-condicion-fields--cheque
   .form-group
-  > label {
-  color: #111827 !important;
+  label {
+  color: #000000 !important;
+  font-weight: 800 !important;
+  -webkit-text-fill-color: #000000 !important;
 }
 
 .venta-rapida-modal.venta-rapida-modal--mostrador
   .venta-condicion-fields--cheque
   .form-select,
+.venta-rapida-modal.venta-rapida-modal--mostrador
+  .venta-condicion-fields--cheque
+  .form-input,
 .venta-rapida-modal.venta-rapida-modal--mostrador
   .venta-condicion-fields--cheque
   .form-select

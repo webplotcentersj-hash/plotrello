@@ -425,9 +425,7 @@ export function recolectarDiferencias(
 function validarCuadreMovimiento(m: CajaMovimiento): number | null {
   const total = m.monto_total ?? 0
   if (total <= 0) return null
-  const suma =
-    (m.efectivo ?? 0) +
-    (m.otros ?? 0) +
+  const breakdown =
     (m.tarjeta ?? 0) +
     (m.cuenta_corriente ?? 0) +
     (m.transferencia_bancaria ?? 0) +
@@ -435,6 +433,16 @@ function validarCuadreMovimiento(m: CajaMovimiento): number | null {
     (m.cheque_tercero ?? 0) +
     (m.documento ?? 0) +
     (m.cuenta_contable ?? 0)
+  const med = m.medios as { otros?: number } | null | undefined
+  const otrosResidual =
+    med && typeof med.otros === 'number'
+      ? Number(med.otros) || 0
+      : breakdown > 0.02
+        ? Math.abs((m.otros ?? 0) - breakdown) <= 0.02
+          ? 0
+          : Math.max(0, (m.otros ?? 0) - breakdown)
+        : m.otros ?? 0
+  const suma = (m.efectivo ?? 0) + breakdown + otrosResidual
   const delta = Math.abs(total - suma)
   return delta > 0.02 ? delta : null
 }

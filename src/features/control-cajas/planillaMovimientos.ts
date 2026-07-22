@@ -73,7 +73,6 @@ export function movimientoDesdePlanillaLinea(
 ): Omit<CajaMovimiento, 'id' | 'created_at'> {
   const medios = mediosInputDesdeLinea(linea)
   const montos = mediosToPlanillaLinea(medios)
-  const otros = otrosNoEfectivo(linea)
 
   return {
     fecha: opts.fecha,
@@ -85,7 +84,7 @@ export function movimientoDesdePlanillaLinea(
     origen_slug: opts.origen_slug,
     destino_slug: opts.destino_slug,
     efectivo: montos.efectivo,
-    otros,
+    otros: montos.otros,
     monto_total: montos.total || linea.total,
     cuenta_corriente: montos.cta_cte,
     cheque_propio: montos.ch_prop,

@@ -728,6 +728,22 @@
   color: #f1f5f9 !important;
 }
 
+/* Condición pago (cheque / transferencia): panel claro → labels negros */
+.venta-rapida-modal.venta-rapida-modal--mostrador
+  .venta-condicion-fields
+  .form-group
+  label,
+.venta-rapida-modal.venta-rapida-modal--mostrador
+  .venta-condicion-fields--transferencia
+  label,
+.venta-rapida-modal.venta-rapida-modal--mostrador
+  .venta-condicion-fields--cheque
+  label {
+  color: #000000 !important;
+  font-weight: 800 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
 .venta-rapida-lista-badge {
   margin: 4px 0 0;
   font-size: 0.78rem;

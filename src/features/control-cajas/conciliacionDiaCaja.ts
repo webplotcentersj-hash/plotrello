@@ -9,6 +9,7 @@ import type {
 export type CanalConciliacion =
   | 'efectivo'
   | 'tarjeta'
+  | 'mercado_pago'
   | 'transferencia'
   | 'cuenta_corriente'
   | 'otros'
@@ -18,6 +19,7 @@ export type EstadoConciliacion = 'ok' | 'revisar' | 'pendiente' | 'sin_mov'
 export type MediosDiaTotales = {
   efectivo: number
   tarjeta: number
+  mercado_pago: number
   transferencia: number
   cuenta_corriente: number
   otros: number
@@ -41,6 +43,17 @@ export type LineaConciliacionDia = {
 
 const TOLERANCIA = 0.02
 
+/** Detecta cobros MP (sigue viviendo en columna tarjeta + marca en obs/medios). */
+export function esIngresoMercadoPago(m: CajaMovimiento): boolean {
+  const med = m.medios as Record<string, unknown> | null | undefined
+  if (med && typeof med === 'object') {
+    if (Number(med.mercado_pago) > 0) return true
+    if (med.es_mercado_pago === true || med.canal === 'mercado_pago') return true
+  }
+  const txt = `${m.observacion || ''} ${m.concepto || ''} ${m.categoria || ''}`.toLowerCase()
+  return /mercado\s*pago|\bmp\s*qr\b|\bmp\/qr\b/.test(txt)
+}
+
 function movimientosPlotLabIngreso(
   movimientos: CajaMovimiento[],
   fecha: string,
@@ -58,7 +71,15 @@ function movimientosPlotLabIngreso(
 }
 
 function movimientosPlotLabTarjeta(movimientos: CajaMovimiento[], fecha: string): number {
-  return movimientosPlotLabIngreso(movimientos, fecha, (m) => m.tarjeta ?? 0)
+  return movimientosPlotLabIngreso(movimientos, fecha, (m) =>
+    esIngresoMercadoPago(m) ? 0 : m.tarjeta ?? 0
+  )
+}
+
+function movimientosPlotLabMercadoPago(movimientos: CajaMovimiento[], fecha: string): number {
+  return movimientosPlotLabIngreso(movimientos, fecha, (m) =>
+    esIngresoMercadoPago(m) ? m.tarjeta ?? 0 : 0
+  )
 }
 
 function movimientosPlotLabTransferencia(movimientos: CajaMovimiento[], fecha: string): number {
@@ -71,27 +92,28 @@ function movimientosPlotLabEfectivo(movimientos: CajaMovimiento[], fecha: string
 
 const LABELS: Record<CanalConciliacion, { label: string; icon: string; esContable: boolean }> = {
   efectivo: { label: 'Efectivo', icon: '💵', esContable: false },
-  tarjeta: { label: 'Tarjetas / MP', icon: '💳', esContable: false },
+  tarjeta: { label: 'Tarjeta', icon: '💳', esContable: false },
+  mercado_pago: { label: 'Mercado Pago', icon: '💙', esContable: false },
   transferencia: { label: 'Transferencia', icon: '🏦', esContable: false },
   cuenta_corriente: { label: 'Cuenta corriente', icon: '📒', esContable: true },
-  otros: { label: 'Cheques / otros', icon: '📄', esContable: false }
+  otros: { label: 'Cheque', icon: '📄', esContable: false }
 }
 
 function mediosDesdeMovimiento(m: CajaMovimiento): MediosDiaTotales {
-  const otros =
-    (m.cheque_propio || 0) +
-    (m.cheque_tercero || 0) +
-    (m.documento || 0) +
-    (m.cuenta_contable || 0) +
-    (m.otros || 0)
+  // Solo cheques: no meter transferencia ni el agregado legacy `otros`.
+  const otros = (m.cheque_propio || 0) + (m.cheque_tercero || 0)
   const cc = m.cuenta_corriente || 0
   const efectivo = m.efectivo || 0
-  const tarjeta = m.tarjeta || 0
+  const rawTarjeta = m.tarjeta || 0
+  const esMp = rawTarjeta > 0 && esIngresoMercadoPago(m)
+  const tarjeta = esMp ? 0 : rawTarjeta
+  const mercado_pago = esMp ? rawTarjeta : 0
   const transferencia = m.transferencia_bancaria || 0
-  const total = m.monto_total ?? efectivo + tarjeta + transferencia + cc + otros
+  const total = m.monto_total ?? efectivo + tarjeta + mercado_pago + transferencia + cc + otros
   return {
     efectivo,
     tarjeta,
+    mercado_pago,
     transferencia,
     cuenta_corriente: cc,
     otros,
@@ -105,6 +127,7 @@ function sumarMedios(a: MediosDiaTotales, b: MediosDiaTotales): MediosDiaTotales
   return {
     efectivo: a.efectivo + b.efectivo,
     tarjeta: a.tarjeta + b.tarjeta,
+    mercado_pago: a.mercado_pago + b.mercado_pago,
     transferencia: a.transferencia + b.transferencia,
     cuenta_corriente: a.cuenta_corriente + b.cuenta_corriente,
     otros: a.otros + b.otros,
@@ -117,6 +140,7 @@ function sumarMedios(a: MediosDiaTotales, b: MediosDiaTotales): MediosDiaTotales
 const MEDIOS_VACIO: MediosDiaTotales = {
   efectivo: 0,
   tarjeta: 0,
+  mercado_pago: 0,
   transferencia: 0,
   cuenta_corriente: 0,
   otros: 0,
@@ -151,6 +175,7 @@ function totalesPlanillaDia(planillas: PlanillaCajaGuardada[], fecha: string): M
     acc = sumarMedios(acc, {
       efectivo: ef,
       tarjeta: tj,
+      mercado_pago: 0,
       transferencia: tr,
       cuenta_corriente: cc,
       otros: 0,
@@ -221,30 +246,49 @@ export function conciliacionAutomaticaDia(input: {
   const efPlotlab = movimientosPlotLabEfectivo(movimientos, fecha)
   const refEfectivo =
     planilla != null && planilla.efectivo > 0 ? planilla.efectivo : efPlotlab > 0 ? efPlotlab : null
-  const refEfectivoFuente = planilla != null && planilla.efectivo > 0
-    ? 'Planilla PDF'
-    : efPlotlab > 0
-      ? 'Ventas PlotLab'
-      : null
+  const refEfectivoFuente =
+    planilla != null && planilla.efectivo > 0
+      ? 'Planilla PDF'
+      : efPlotlab > 0
+        ? 'Ventas PlotLab'
+        : null
 
-  const refTarjetaMp =
+  const mpPlotlab = movimientosPlotLabMercadoPago(movimientos, fecha)
+  const refMp =
     concilMp != null
       ? (concilMp.sistema ?? 0) > 0 || (concilMp.dashboard ?? 0) > 0
         ? concilMp.sistema ?? concilMp.dashboard ?? 0
         : null
-      : comprobantes.tarjeta > 0
-        ? comprobantes.tarjeta
-        : planilla?.tarjeta != null && planilla.tarjeta > 0
-          ? planilla.tarjeta
-          : movimientosPlotLabTarjeta(movimientos, fecha) || null
+      : comprobantes.mercado_pago > 0
+        ? comprobantes.mercado_pago
+        : mpPlotlab > 0
+          ? mpPlotlab
+          : null
 
-  const refTarjetaFuente = concilMp
+  const refMpFuente = concilMp
     ? 'Conciliación MP'
-    : comprobantes.tarjeta > 0
-      ? 'Comprobantes MP/POS'
+    : comprobantes.mercado_pago > 0
+      ? 'Comprobantes MP'
+      : mpPlotlab > 0
+        ? 'Ventas PlotLab'
+        : null
+
+  const tjPlotlab = movimientosPlotLabTarjeta(movimientos, fecha)
+  const refTarjeta =
+    comprobantes.tarjeta > 0
+      ? comprobantes.tarjeta
+      : planilla?.tarjeta != null && planilla.tarjeta > 0
+        ? planilla.tarjeta
+        : tjPlotlab > 0
+          ? tjPlotlab
+          : null
+
+  const refTarjetaFuente =
+    comprobantes.tarjeta > 0
+      ? 'Comprobantes POS'
       : planilla?.tarjeta
         ? 'Planilla PDF'
-        : movimientosPlotLabTarjeta(movimientos, fecha) > 0
+        : tjPlotlab > 0
           ? 'Ventas PlotLab'
           : null
 
@@ -266,6 +310,7 @@ export function conciliacionAutomaticaDia(input: {
   const canales: CanalConciliacion[] = [
     'efectivo',
     'tarjeta',
+    'mercado_pago',
     'transferencia',
     'cuenta_corriente',
     'otros'
@@ -274,17 +319,16 @@ export function conciliacionAutomaticaDia(input: {
   const valoresMov: Record<CanalConciliacion, number> = {
     efectivo: mov.efectivo,
     tarjeta: mov.tarjeta,
+    mercado_pago: mov.mercado_pago,
     transferencia: mov.transferencia,
     cuenta_corriente: mov.cuenta_corriente,
     otros: mov.otros
   }
 
-  const refs: Record<
-    CanalConciliacion,
-    { valor: number | null; fuente: string | null }
-  > = {
+  const refs: Record<CanalConciliacion, { valor: number | null; fuente: string | null }> = {
     efectivo: { valor: refEfectivo, fuente: refEfectivoFuente },
-    tarjeta: { valor: refTarjetaMp, fuente: refTarjetaFuente },
+    tarjeta: { valor: refTarjeta, fuente: refTarjetaFuente },
+    mercado_pago: { valor: refMp, fuente: refMpFuente },
     transferencia: { valor: refTrans, fuente: refTransFuente },
     cuenta_corriente: {
       valor: planilla?.cuenta_corriente ?? mov.cuenta_corriente,

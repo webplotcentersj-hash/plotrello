@@ -66,16 +66,6 @@ export function movimientoDesdeMedios(
     )
   }
 
-  const otrosNoEf =
-    linea.cta_cte +
-    linea.ch_prop +
-    linea.ch_terc +
-    linea.tarjetas +
-    linea.docum +
-    linea.c_contab +
-    linea.trans_b +
-    linea.otros
-
   return {
     fecha: input.fecha,
     hora: input.hora ?? null,
@@ -86,7 +76,8 @@ export function movimientoDesdeMedios(
     origen_slug: opts.origen_slug,
     destino_slug: opts.destino_slug,
     efectivo: linea.efectivo,
-    otros: otrosNoEf,
+    // Solo el medio "Otros" (no sumar transferencia/tarjeta/cheque/CC).
+    otros: linea.otros,
     monto_total: linea.total,
     cuenta_corriente: linea.cta_cte,
     cheque_propio: linea.ch_prop,
@@ -127,6 +118,42 @@ function sumarEn(acum: PlanillaMontosLinea, m: PlanillaMontosLinea, sign: 1 | -1
   acum.otros += sign * m.otros
 }
 
+/** Residual del medio "Otros"; ignora el agregado legacy no-efectivo. */
+export function otrosMedioResidual(
+  m: Pick<
+    CajaMovimiento,
+    | 'otros'
+    | 'medios'
+    | 'tarjeta'
+    | 'transferencia_bancaria'
+    | 'cuenta_corriente'
+    | 'cheque_propio'
+    | 'cheque_tercero'
+    | 'documento'
+    | 'cuenta_contable'
+  >
+): number {
+  const med = m.medios
+  if (med && typeof med === 'object' && 'otros' in med) {
+    return Number((med as { otros?: number }).otros) || 0
+  }
+  const breakdown =
+    (m.tarjeta ?? 0) +
+    (m.transferencia_bancaria ?? 0) +
+    (m.cuenta_corriente ?? 0) +
+    (m.cheque_propio ?? 0) +
+    (m.cheque_tercero ?? 0) +
+    (m.documento ?? 0) +
+    (m.cuenta_contable ?? 0)
+  const ot = m.otros ?? 0
+  if (breakdown > 0.02) {
+    if (Math.abs(ot - breakdown) <= 0.02) return 0
+    if (ot > breakdown + 0.02) return ot - breakdown
+    return 0
+  }
+  return ot
+}
+
 function mediosFromMov(m: CajaMovimiento): PlanillaMontosLinea {
   if (m.monto_total != null && m.monto_total > 0) {
     return {
@@ -139,7 +166,7 @@ function mediosFromMov(m: CajaMovimiento): PlanillaMontosLinea {
       docum: m.documento ?? 0,
       c_contab: m.cuenta_contable ?? 0,
       trans_b: m.transferencia_bancaria ?? 0,
-      otros: m.otros ?? 0
+      otros: otrosMedioResidual(m)
     }
   }
   return {

@@ -64,13 +64,7 @@ export function resumenPlotlabVentasCaja(
     out.tarjetas += m.tarjeta || 0
     out.transferencia += m.transferencia_bancaria || 0
     out.ctaCte += m.cuenta_corriente || 0
-    const otrosCols =
-      (m.cheque_propio || 0) +
-      (m.cheque_tercero || 0) +
-      (m.documento || 0) +
-      (m.cuenta_contable || 0) +
-      (m.otros || 0)
-    out.otros += otrosCols
+    out.otros += (m.cheque_propio || 0) + (m.cheque_tercero || 0)
     out.total += m.monto_total || 0
   }
 

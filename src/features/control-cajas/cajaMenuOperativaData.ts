@@ -104,7 +104,12 @@ export function efectivoObjetivoArqueoPlotLab(
 
 export function etiquetaMedioMovimiento(m: CajaMovimiento): string {
   if ((m.efectivo ?? 0) > 0) return 'Efectivo'
-  if ((m.tarjeta ?? 0) > 0) return 'Tarjeta'
+  if ((m.tarjeta ?? 0) > 0) {
+    const txt = `${m.observacion || ''} ${m.concepto || ''}`.toLowerCase()
+    const med = m.medios as { mercado_pago?: number } | null | undefined
+    if ((med && Number(med.mercado_pago) > 0) || /mercado\s*pago/.test(txt)) return 'MP'
+    return 'Tarjeta'
+  }
   if ((m.transferencia_bancaria ?? 0) > 0) return 'Transfer.'
   if ((m.cuenta_corriente ?? 0) > 0) return 'Cta. cte.'
   if ((m.cheque_tercero ?? 0) > 0 || (m.cheque_propio ?? 0) > 0) return 'Cheque'
