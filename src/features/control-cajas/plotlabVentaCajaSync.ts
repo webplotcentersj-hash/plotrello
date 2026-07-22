@@ -1,13 +1,12 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
 import { notifyCajaSync } from './cajaSyncNotify'
 import { obtenerCajaOperativa } from './cajaOperativa'
+import { cajaSlugForUsuario } from './cajaPorUsuario'
 import {
   type ResumenPlotlabVentasCaja
 } from './plotlabVentasCajaData'
 import {
-  listCajas,
   listMovimientos,
-  resolveCajaSlugForUsuario,
   saveMovimiento
 } from './cajaRepository'
 import { mediosToPlanillaLinea, movimientoDesdeMedios, type MediosPagoInput } from './movimientoCaja'
@@ -77,9 +76,10 @@ export function ventaPerteneceCaja(
   cajaSlug: string,
   usuarioId?: number
 ): boolean {
+  // Caja = usuario: priorizar vendedor titular
+  if (usuarioId != null && venta.id_vendedor === usuarioId) return true
   const slug = venta.caja_slug_cobro?.trim()
   if (slug) return slug === cajaSlug
-  if (usuarioId != null && venta.id_vendedor === usuarioId) return true
   return false
 }
 
@@ -224,29 +224,25 @@ export function metodoPagoPlotLabAMedios(
   return { ...base, otros: monto }
 }
 
+/**
+ * Caja = usuario. Destino siempre `u-{id}` del titular.
+ * Ignora overrides (evita cobros de Federico en caja de Barros).
+ */
 async function resolverCajaSlugVenta(
   usuarioNombre: string,
   usuarioId?: number,
-  override?: string,
-  esAdmin?: boolean
+  _override?: string,
+  _esAdmin?: boolean
 ): Promise<string | null> {
-  // Caja = usuario: sin admin, siempre la del titular (se ignora override ajeno).
-  if (usuarioId != null && !esAdmin) {
+  if (usuarioId == null || !(usuarioId > 0)) return null
+  const esperado = cajaSlugForUsuario(usuarioId)
+  try {
     const op = await obtenerCajaOperativa(usuarioId, usuarioNombre)
-    const ov = override?.trim()
-    if (ov && ov !== op.slug) {
-      console.warn(`Caja ajena ignorada (${ov}); usando ${op.slug}`)
-    }
-    return op.slug
+    return op.slug || esperado
+  } catch (e) {
+    console.warn('No se pudo asegurar caja operativa; uso slug determinístico', e)
+    return esperado
   }
-  if (override?.trim()) return override.trim()
-  if (usuarioId != null) {
-    const op = await obtenerCajaOperativa(usuarioId, usuarioNombre)
-    return op.slug
-  }
-  const cajas = await listCajas()
-  const slug = resolveCajaSlugForUsuario(usuarioNombre, cajas)
-  return slug ?? cajas.find((c) => c.slug !== 'admin' && c.slug !== 'vuelto' && c.activa)?.slug ?? null
 }
 
 function refVentaPlotLab(ventaId: number): string {
@@ -288,10 +284,12 @@ export async function syncDesdeVentaRecord(
 ): Promise<PlotLabVentaCajaSyncResult> {
   const ref = refVentaPlotLab(venta.id)
   const existente = await buscarMovimientoPlotLabPorRef(ref)
-  const actorId = opts?.actorId ?? venta.id_vendedor ?? undefined
-  const actorNombre = opts?.actorNombre || venta.nombre_vendedor || (venta.id_pedido_cliente ? 'Portal/Tótem' : 'PlotLab')
-  // Solo admin puede forzar otra caja; operadores siempre van a la suya.
-  const cajaOverride = opts?.esAdmin ? opts?.cajaSlug || venta.caja_slug_cobro || undefined : undefined
+  // Titular de la venta = dueño de la caja (no el admin que marca el pago).
+  const titularId = venta.id_vendedor ?? opts?.actorId ?? undefined
+  const actorNombre =
+    opts?.actorNombre ||
+    venta.nombre_vendedor ||
+    (venta.id_pedido_cliente ? 'Portal/Tótem' : 'PlotLab')
 
   if (!ventaDebeSincronizarCaja(venta)) {
     if (existente) {
@@ -333,10 +331,8 @@ export async function syncDesdeVentaRecord(
     metodoPago: metodo,
     estadoPago: (venta.estado_pago as PlotLabVentaCajaSyncInput['estadoPago']) || 'Pagado',
     fecha: (venta.fecha_venta || getArgentinaDateString()).slice(0, 10),
-    usuarioId: actorId,
-    usuarioNombre: actorNombre,
-    cajaSlug: cajaOverride,
-    esAdmin: opts?.esAdmin
+    usuarioId: titularId,
+    usuarioNombre: venta.nombre_vendedor || actorNombre
   })
 
   if (!opts?.silencioso) {
@@ -392,11 +388,16 @@ export async function syncVentaPlotLabACaja(
     const existente = await buscarMovimientoPlotLabPorRef(ref)
 
     const usuarioNombre = input.usuarioNombre?.trim() || 'PlotLab'
-    const cajaSlug =
-      existente?.destino_slug ||
-      (await resolverCajaSlugVenta(usuarioNombre, input.usuarioId, input.cajaSlug, input.esAdmin))
+    // Destino = titular. Nunca reutilizar destino viejo ni override ajeno.
+    let cajaSlug = await resolverCajaSlugVenta(usuarioNombre, input.usuarioId)
+    if (input.usuarioId != null && input.usuarioId > 0) {
+      cajaSlug = cajaSlugForUsuario(input.usuarioId)
+    }
     if (!cajaSlug) {
-      return { ok: false, error: 'No se pudo determinar la caja operativa del usuario mostrador.' }
+      return {
+        ok: false,
+        error: 'No se pudo determinar la caja del usuario (falta id de vendedor/cobrador).'
+      }
     }
 
     const fecha = (input.fecha || getArgentinaDateString()).slice(0, 10)

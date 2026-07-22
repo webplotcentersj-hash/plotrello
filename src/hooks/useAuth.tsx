@@ -195,7 +195,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       prepararCajaOperativaEnLogin(
         usuario.id,
         nombreVisibleUsuario(usuario),
-        usuario.rol
+        usuario.rol,
+        usuario.nombre
       )
     )
   }, [usuario?.id, usuario?.nombre, usuario?.nombreVisible, usuario?.rol, loading])

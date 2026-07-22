@@ -148,10 +148,15 @@ export default function CajaSectionArqueo({
 
   const resumenPlotlab = useMemo(() => {
     if (!cajaSlug || !fecha) return null
-    const desdeMovs = resumenPlotlabVentasCaja(movimientos, fecha, cajaSlug)
+    const desdeMovs = resumenPlotlabVentasCaja(
+      movimientos,
+      fecha,
+      cajaSlug,
+      cajaActiva?.id_usuario ?? usuarioId
+    )
     if (!resumenPlotlabApi) return desdeMovs
     return combinarResumenPlotlab(resumenPlotlabApi, desdeMovs)
-  }, [movimientos, fecha, cajaSlug, resumenPlotlabApi])
+  }, [movimientos, fecha, cajaSlug, resumenPlotlabApi, cajaActiva?.id_usuario, usuarioId])
 
   const efectivoObjetivoPlotlab =
     cajaActiva && resumenPlotlab

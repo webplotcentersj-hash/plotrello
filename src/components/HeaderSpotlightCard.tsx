@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { FechaPlotHoyItem, Notification } from '../types/api'
 import {
@@ -9,6 +8,7 @@ import {
   getArgentinaDateString,
   legajoCalendarDateKey
 } from '../utils/dateUtils'
+import { fraseMotivacionalDelDia } from '../utils/fraseMotivacionalDia'
 import './HeaderSpotlightCard.css'
 
 type Props = { userId: number | null | undefined; compact?: boolean }
@@ -130,7 +130,10 @@ function ComunicadoDescripcion({ text }: { text: string }) {
         <button
           type="button"
           className="header-spotlight-comunicado-more"
-          onClick={() => setExpanded((v) => !v)}
+          onClick={(e) => {
+            e.stopPropagation()
+            setExpanded((v) => !v)
+          }}
           aria-expanded={expanded}
         >
           {expanded ? 'Leer menos' : 'Leer más'}
@@ -156,7 +159,6 @@ function comunicadoAccentClass(type: Notification['type']): string {
 }
 
 export default function HeaderSpotlightCard({ userId, compact = false }: Props) {
-  const navigate = useNavigate()
   const [cumple, setCumple] = useState(false)
   const [aniversario, setAniversario] = useState(false)
   const [aniosEmpresa, setAniosEmpresa] = useState<number | null>(null)
@@ -264,6 +266,8 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
       cancelled = true
     }
   }, [resolvedId])
+
+  const fraseDia = fraseMotivacionalDelDia()
 
   const cardClass = [
     'header-spotlight-card',
@@ -389,30 +393,41 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
               <ul className="header-spotlight-comunicados-list">
                 {notifs.map((n) => (
                   <li key={n.id}>
-                    <button
-                      type="button"
+                    <div
                       className={`header-spotlight-comunicado-item ${comunicadoAccentClass(n.type)}${
                         n.is_read ? '' : ' header-spotlight-comunicado-item--nuevo'
                       }`}
                       onClick={() => {
-                        if (!n.is_read) {
-                          void apiService.markNotificationAsRead(n.id)
-                          setNotifs((prev) =>
-                            prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x))
-                          )
-                        }
-                        navigate(`/avisar-ausencia?comunicado=${n.id}`)
+                        if (n.is_read) return
+                        void apiService.markNotificationAsRead(n.id)
+                        setNotifs((prev) =>
+                          prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x))
+                        )
                       }}
                     >
                       <div className="header-spotlight-comunicado-copy">
                         <p className="header-spotlight-comunicado-title">{n.title}</p>
                         {n.description ? <ComunicadoDescripcion text={n.description} /> : null}
                       </div>
-                    </button>
+                    </div>
                   </li>
                 ))}
               </ul>
             ) : null}
+          </div>
+        </div>
+        <div className="header-spotlight-split-col header-spotlight-split-col--frase">
+          <div className="header-spotlight-frase" aria-label="Frase del día">
+            <div className="header-spotlight-frase-head">
+              <span className="header-spotlight-frase-head-icon" aria-hidden>
+                ✨
+              </span>
+              <span className="header-spotlight-frase-head-title">Frase del día</span>
+            </div>
+            <blockquote className="header-spotlight-frase-quote">
+              <p className="header-spotlight-frase-texto">“{fraseDia.texto}”</p>
+              <footer className="header-spotlight-frase-autor">— {fraseDia.autor}</footer>
+            </blockquote>
           </div>
         </div>
       </div>

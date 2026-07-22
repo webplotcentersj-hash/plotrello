@@ -2,7 +2,11 @@ import { getArgentinaTime } from '../../utils/dateUtils'
 import { calcularTotalesCoherentesDia } from './cajaCoherencia'
 import { calcularTeoricoFisicoCaja } from './arqueoCalculations'
 import { fondoFijoEfectivo, requiereFondoMinimo } from './fondoCaja'
-import { resumenPlotlabVentasCaja, type ResumenPlotlabVentasCaja } from './plotlabVentasCajaData'
+import {
+  movimientoPlotlabPerteneceCaja,
+  resumenPlotlabVentasCaja,
+  type ResumenPlotlabVentasCaja
+} from './plotlabVentasCajaData'
 import { montoVisibleMovimiento } from './format'
 import type { CajaArqueo, CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from './types'
 
@@ -134,7 +138,7 @@ export function resumenPorCajeroAdminDia(
   return cajas
     .filter((c) => c.activa && requiereFondoMinimo(c.slug))
     .map((c) => {
-      const plot = resumenPlotlabVentasCaja(movimientos, fecha, c.slug)
+      const plot = resumenPlotlabVentasCaja(movimientos, fecha, c.slug, c.id_usuario)
       const totales = calcularTotalesCoherentesDia(movimientos, fecha, c.slug)
       const arq = arqueos.find((a) => a.fecha === fecha && a.caja_slug === c.slug)
       const cierre = lotes.some((l) => l.fecha === fecha && l.origen_slug === c.slug)
@@ -197,7 +201,8 @@ export function conteosPorCajaOperativa(input: {
       let ventasTotal = 0
       for (const m of movimientos) {
         if (m.anulado || m.origen_importacion !== 'plotlab_venta') continue
-        if (m.tipo_movimiento !== 'ingreso' || m.destino_slug !== c.slug) continue
+        if (m.tipo_movimiento !== 'ingreso') continue
+        if (!movimientoPlotlabPerteneceCaja(m, c.slug, c.id_usuario)) continue
         if (!matchFecha(m.fecha, fecha)) continue
         ventasCount += 1
         ventasTotal += m.monto_total || 0

@@ -4,7 +4,7 @@ import apiService from '../../../services/api'
 import { downloadMovimientoCajaPdf } from '../exportMovimientoCajaPdf'
 import { fmtArs, fmtDateAr, montoCobradoCaja, montoCuentaCorriente, montoVisibleMovimiento } from '../format'
 import {
-  cajaNombreFromSlug,
+  etiquetaRutaCajasMovimiento,
   labelOrigenImportacion,
   mediosPagoMovimiento,
   parseRefPlotLab,
@@ -104,8 +104,7 @@ export default function CajaMovimientoDetalleModal({ movimiento: m, cajas, onClo
             <h2 id="caja-mov-modal-title">{m.concepto}</h2>
             <p className="caja-cc-sub">
               {fmtDateAr(m.fecha)}
-              {m.hora ? ` · ${m.hora}` : ''} · {cajaNombreFromSlug(m.origen_slug, cajas)} →{' '}
-              {cajaNombreFromSlug(m.destino_slug, cajas)}
+              {m.hora ? ` · ${m.hora}` : ''} · {etiquetaRutaCajasMovimiento(m, cajas)}
             </p>
           </div>
           <button type="button" className="caja-cc-modal-close" onClick={onClose} aria-label="Cerrar">

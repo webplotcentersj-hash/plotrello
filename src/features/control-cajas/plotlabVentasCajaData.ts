@@ -1,5 +1,6 @@
 import type { CajaMovimiento, PlanillaCajaGuardada } from './types'
 import { planillaEnFecha } from './cajaDashboardData'
+import { esCajaSlugUsuario } from './cajaPorUsuario'
 
 export type ResumenPlotlabVentasCaja = {
   count: number
@@ -11,10 +12,38 @@ export type ResumenPlotlabVentasCaja = {
   total: number
 }
 
+/** Titular de la caja operativa (slug u-{id} o id_usuario del registro). */
+function idTitularDesdeCajaSlug(
+  cajaSlug: string,
+  idUsuarioCaja?: number | null
+): number | null {
+  if (idUsuarioCaja != null && idUsuarioCaja > 0) return idUsuarioCaja
+  if (!esCajaSlugUsuario(cajaSlug)) return null
+  const n = Number(cajaSlug.slice(2))
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+/**
+ * Venta PlotLab pertenece a la caja del titular.
+ * Si destino_slug está mal pero id_usuario es el del cajero, igual cuenta acá (no en la caja ajena).
+ */
+export function movimientoPlotlabPerteneceCaja(
+  m: Pick<CajaMovimiento, 'destino_slug' | 'id_usuario'>,
+  cajaSlug: string,
+  idUsuarioCaja?: number | null
+): boolean {
+  const titular = idTitularDesdeCajaSlug(cajaSlug, idUsuarioCaja)
+  if (m.id_usuario != null && titular != null) {
+    return m.id_usuario === titular
+  }
+  return m.destino_slug === cajaSlug
+}
+
 export function resumenPlotlabVentasCaja(
   movimientos: CajaMovimiento[],
   fecha: string,
-  cajaSlug: string
+  cajaSlug: string,
+  idUsuarioCaja?: number | null
 ): ResumenPlotlabVentasCaja {
   const out: ResumenPlotlabVentasCaja = {
     count: 0,
@@ -28,7 +57,8 @@ export function resumenPlotlabVentasCaja(
 
   for (const m of movimientos) {
     if (m.anulado || m.fecha !== fecha || m.origen_importacion !== 'plotlab_venta') continue
-    if (m.tipo_movimiento !== 'ingreso' || m.destino_slug !== cajaSlug) continue
+    if (m.tipo_movimiento !== 'ingreso') continue
+    if (!movimientoPlotlabPerteneceCaja(m, cajaSlug, idUsuarioCaja)) continue
     out.count++
     out.efectivo += m.efectivo || 0
     out.tarjetas += m.tarjeta || 0

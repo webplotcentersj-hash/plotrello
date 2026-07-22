@@ -1,4 +1,5 @@
 import { esUsuarioCajaOperativa } from '../../utils/ventasCajaScope'
+import { usuarioTieneAlgunRol } from '../../utils/usuarioRolesExtra'
 import { cajaSlugForUsuario, esCajaSlugUsuario } from './cajaPorUsuario'
 import { ensureCajaOperativaUsuario, listCajas, listArqueos } from './cajaRepository'
 import { fetchNombreDisplayUsuario, usuarioCajaActivo } from './cajaUsuarioDb'
@@ -41,13 +42,18 @@ export async function obtenerCajaOperativa(
   }
 }
 
-/** Llamar al iniciar sesión (mostrador/caja). No lanza si falla la red. */
+/** Llamar al iniciar sesión (mostrador/caja o rol extra). No lanza si falla la red. */
 export async function prepararCajaOperativaEnLogin(
   usuarioId: number,
   usuarioNombre: string,
-  rol: string
+  rol: string,
+  loginNombre?: string
 ): Promise<void> {
-  if (!esUsuarioCajaOperativa(rol)) return
+  const login = (loginNombre || usuarioNombre).trim()
+  const tieneCaja =
+    esUsuarioCajaOperativa(rol) ||
+    usuarioTieneAlgunRol({ nombre: login, rol: rol as 'mostrador' }, ['mostrador', 'caja'])
+  if (!tieneCaja) return
   try {
     await obtenerCajaOperativa(usuarioId, usuarioNombre)
   } catch (e) {

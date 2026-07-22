@@ -87,6 +87,15 @@
 
 .venta-condicion-fields--transferencia .form-group > label {
   font-weight: 800;
+  color: #111827;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador
+  .venta-condicion-fields--transferencia
+  .form-group
+  > label {
+  color: #111827 !important;
+  font-weight: 800 !important;
 }
 
 .venta-rapida-modal.venta-rapida-modal--mostrador .venta-condicion-cuenta-card {

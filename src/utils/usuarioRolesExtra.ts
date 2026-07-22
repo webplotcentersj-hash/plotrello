@@ -8,7 +8,8 @@ type UsuarioConRol = {
 /** Roles adicionales por login (email), sin cambiar el rol principal en DB. */
 const ROLES_EXTRA_POR_LOGIN: Record<string, ReadonlyArray<UserRole>> = {
   'jbarros@plotcenter.com.ar': ['mostrador', 'caja'],
-  'mmilla@plotcenter.com.ar': ['caja']
+  'mmilla@plotcenter.com.ar': ['caja'],
+  'fvidela@plotcenter.com.ar': ['mostrador', 'caja']
 }
 
 export function rolesExtraUsuario(

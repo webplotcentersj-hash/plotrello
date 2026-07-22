@@ -5235,21 +5235,16 @@ class ApiService {
       if (tokens.length <= 1) {
         candidatos = await this.buscarClientesPorToken(queryTrimmed, limiteToken)
       } else {
-        let map: Map<number, ClienteRecord> | null = null
-        for (const token of tokens) {
-          const list = await this.buscarClientesPorToken(token, limiteToken)
-          const tokenMap = new Map(list.map((c) => [c.id, c]))
-          if (map === null) {
-            map = tokenMap
-          } else {
-            const next = new Map<number, ClienteRecord>()
-            for (const [id, c] of map) {
-              if (tokenMap.has(id)) next.set(id, c)
-            }
-            map = next
-          }
-        }
-        candidatos = Array.from(map?.values() ?? [])
+        // Unión por token ("gutierrez facundo": nombre + apellido en campos distintos).
+        // La intersección en DB fallaba si cada token traía sets distintos; el filtro final exige todos.
+        const byId = new Map<number, ClienteRecord>()
+        await Promise.all(
+          tokens.map(async (token) => {
+            const list = await this.buscarClientesPorToken(token, limiteToken)
+            for (const c of list) byId.set(c.id, c)
+          })
+        )
+        candidatos = Array.from(byId.values())
         if (candidatos.length === 0) {
           candidatos = await this.buscarClientesPorToken(queryTrimmed, limiteToken)
         }

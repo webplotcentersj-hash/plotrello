@@ -6,7 +6,7 @@
   justify-content: flex-start;
 }
 
-/* Tu día en Plot | Comunicados RRHH (lado a lado en pantallas anchas) */
+/* Tu día en Plot | Comunicados RRHH | Frase del día */
 .header-spotlight-split {
   display: flex;
   flex-direction: row;
@@ -15,11 +15,11 @@
   width: 100%;
 }
 
-/* Plot: columna angosta; Comunicados: se queda con todo el ancho restante */
+/* Plot: columna angosta; Comunicados: ancho medio; Frase: a la derecha */
 .header-spotlight-split-col--plot {
-  flex: 0 0 268px;
+  flex: 0 0 240px;
   min-width: 0;
-  max-width: 312px;
+  max-width: 280px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -37,6 +37,21 @@
   min-width: 0;
 }
 
+.header-spotlight-split-col--frase {
+  flex: 0 1 280px;
+  min-width: 180px;
+  max-width: 320px;
+  padding-left: 1rem;
+  border-left: 1px solid rgba(129, 140, 248, 0.22);
+}
+
+@media (max-width: 980px) {
+  .header-spotlight-split-col--frase {
+    flex: 1 1 220px;
+    max-width: none;
+  }
+}
+
 @media (max-width: 720px) {
   .header-spotlight-split {
     flex-direction: column;
@@ -48,8 +63,10 @@
     flex-basis: auto;
   }
 
-  .header-spotlight-split-col--rrhh {
+  .header-spotlight-split-col--rrhh,
+  .header-spotlight-split-col--frase {
     flex: 1 1 auto;
+    max-width: none;
     padding-left: 0;
     padding-top: 0.75rem;
     border-left: none;
@@ -456,11 +473,11 @@
     'Noto Color Emoji',
     sans-serif;
   color: inherit;
-  cursor: pointer;
+  cursor: default;
 }
 
-button.header-spotlight-comunicado-item:hover {
-  border-color: rgba(253, 186, 116, 0.45);
+.header-spotlight-comunicado-item:hover {
+  border-color: rgba(165, 180, 252, 0.28);
 }
 
 .header-spotlight-comunicado-item--info {
@@ -545,6 +562,73 @@ button.header-spotlight-comunicado-item:hover {
   color: #c7d2fe;
 }
 
+/* ——— Frase del día ——— */
+.header-spotlight-frase {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.header-spotlight-frase-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-spotlight-frase-head-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(253, 224, 71, 0.35));
+}
+
+.header-spotlight-frase-head-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #fde68a 0%, #fbcfe8 55%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.header-stat-card.header-stat-card--spotlight .header-spotlight-frase-head span {
+  display: inline-block;
+  margin-bottom: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.header-spotlight-frase-quote {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(253, 224, 71, 0.18);
+  background: linear-gradient(
+    145deg,
+    rgba(30, 41, 59, 0.55) 0%,
+    rgba(15, 23, 42, 0.45) 100%
+  );
+}
+
+.header-spotlight-frase-texto {
+  margin: 0 0 0.55rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgba(248, 250, 252, 0.95);
+  font-style: italic;
+}
+
+.header-spotlight-frase-autor {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(253, 230, 138, 0.9);
+  font-style: normal;
+}
+
 /* Modo compacto (opcional) */
 .header-spotlight-card--compact {
   min-height: 66px;
@@ -581,6 +665,23 @@ button.header-spotlight-comunicado-item:hover {
   padding-top: 6px;
   border-left: none;
   border-top: 1px solid rgba(129, 140, 248, 0.2);
+}
+
+.header-spotlight-card--compact .header-spotlight-split-col--frase {
+  flex: 1 1 auto;
+  max-width: none;
+  padding-left: 0;
+  padding-top: 6px;
+  border-left: none;
+  border-top: 1px solid rgba(129, 140, 248, 0.2);
+}
+
+.header-spotlight-card--compact .header-spotlight-frase-texto {
+  font-size: 0.78rem;
+}
+
+.header-spotlight-card--compact .header-spotlight-frase-autor {
+  font-size: 0.68rem;
 }
 
 .header-spotlight-card--compact .header-spotlight-comunicados {

@@ -157,6 +157,26 @@ export function cajaNombreFromSlug(slug: string, cajas: CajaRegistro[]): string 
   return cajas.find((c) => c.slug === slug)?.nombre ?? slug
 }
 
+/**
+ * Ruta visible del movimiento.
+ * Ventas PlotLab: solo la caja del titular (no “Admin → …”).
+ */
+export function etiquetaRutaCajasMovimiento(
+  m: Pick<CajaMovimiento, 'origen_slug' | 'destino_slug' | 'origen_importacion' | 'tipo_movimiento'>,
+  cajas: CajaRegistro[]
+): string {
+  const dest = cajaNombreFromSlug(m.destino_slug, cajas)
+  const orig = cajaNombreFromSlug(m.origen_slug, cajas)
+  if (
+    m.origen_importacion === 'plotlab_venta' &&
+    (m.origen_slug === 'admin' || m.tipo_movimiento === 'ingreso')
+  ) {
+    return dest
+  }
+  if (m.origen_slug === m.destino_slug) return dest
+  return `${orig} → ${dest}`
+}
+
 export function trazabilidadFilas(m: CajaMovimiento): { label: string; antes: string; despues: string }[] {
   if (!paseTieneTrazabilidad(m)) return []
   const fila = (label: string, a: number | null | undefined, d: number | null | undefined) => ({

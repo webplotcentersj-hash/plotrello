@@ -1,5 +1,6 @@
 import { fmtArs, fmtDateAr } from '../format'
 import { paseTieneTrazabilidad } from '../paseCaja'
+import { etiquetaRutaCajasMovimiento } from '../movimientoDetalle'
 import type { CajaMovimiento, CajaRegistro } from '../types'
 import CajaMontoMovimiento from './CajaMontoMovimiento'
 
@@ -10,10 +11,6 @@ type Props = {
   onSelect?: (m: CajaMovimiento) => void
   showUsuario?: boolean
   showPaseTrazabilidad?: boolean
-}
-
-function cajaNombre(slug: string, cajas: CajaRegistro[]) {
-  return cajas.find((c) => c.slug === slug)?.nombre ?? slug
 }
 
 function filaMontos(label: string, antes: number | null | undefined, despues: number | null | undefined) {
@@ -70,7 +67,7 @@ export default function CajaMovimientosList({
             <div className="caja-cc-timeline-body">
               <strong>{m.concepto}</strong>
               <div className="caja-cc-meta">
-                {cajaNombre(m.origen_slug, cajas)} → {cajaNombre(m.destino_slug, cajas)}
+                {etiquetaRutaCajasMovimiento(m, cajas)}
                 {m.subtipo_pase === 'fondo'
                   ? ' · Fondo'
                   : m.subtipo_pase === 'resto_admin'

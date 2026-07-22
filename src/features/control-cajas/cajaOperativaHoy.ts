@@ -77,7 +77,9 @@ export async function loadEstadoOperativaHoy(
       : null
 
   let resumenPlotlab =
-    cajaSlug != null ? resumenPlotlabVentasCaja(movimientos, fecha, cajaSlug) : null
+    cajaSlug != null
+      ? resumenPlotlabVentasCaja(movimientos, fecha, cajaSlug, usuarioId)
+      : null
   if (cajaSlug != null) {
     try {
       const desdeApi = await resumenPlotlabVentasDesdeApi(fecha, cajaSlug, usuarioId)
