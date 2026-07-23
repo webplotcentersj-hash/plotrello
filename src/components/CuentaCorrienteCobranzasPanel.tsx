@@ -404,55 +404,170 @@ function OperacionesTable({
   rows: CcCobranzaVentaItem[]
   onCobrar: (idCliente: number) => void
 }) {
+  const grupos = useMemo(() => {
+    const map = new Map<
+      number,
+      {
+        id_cliente: number
+        cliente_nombre: string
+        ventas: CcCobranzaVentaItem[]
+        monto_pendiente: number
+        peor_dias_vencido: number
+      }
+    >()
+    for (const row of rows) {
+      const prev = map.get(row.id_cliente)
+      if (!prev) {
+        map.set(row.id_cliente, {
+          id_cliente: row.id_cliente,
+          cliente_nombre: row.cliente_nombre,
+          ventas: [row],
+          monto_pendiente: row.monto_pendiente,
+          peor_dias_vencido: row.dias_vencido
+        })
+      } else {
+        prev.ventas.push(row)
+        prev.monto_pendiente += row.monto_pendiente
+        prev.peor_dias_vencido = Math.max(prev.peor_dias_vencido, row.dias_vencido)
+      }
+    }
+    return [...map.values()].sort(
+      (a, b) => b.peor_dias_vencido - a.peor_dias_vencido || b.monto_pendiente - a.monto_pendiente
+    )
+  }, [rows])
+
+  const [abiertos, setAbiertos] = useState<Set<number>>(() => new Set())
+
+  const toggle = (id: number) => {
+    setAbiertos((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const expandirTodos = () => setAbiertos(new Set(grupos.map((g) => g.id_cliente)))
+  const colapsarTodos = () => setAbiertos(new Set())
+
   return (
-    <div className="cc-cob-table-wrap">
-      <table className="cc-cob-table">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Cliente</th>
-            <th>Venta</th>
-            <th>Vendedor</th>
-            <th>Total</th>
-            <th>Pendiente</th>
-            <th>Vence</th>
-            <th>Estado</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const st = estadoCobroVenta(row.dias_vencido)
-            return (
-              <tr key={row.id_venta} className={row.dias_vencido > 0 ? 'cc-cob-row--late' : ''}>
-                <td>{row.fecha_venta}</td>
-                <td>
-                  <strong>{row.cliente_nombre}</strong>
-                </td>
-                <td>
-                  <span className="cc-cob-venta-num">#{row.numero_venta}</span>
-                </td>
-                <td>
-                  <span className="cc-cob-vendedor" title={row.nombre_vendedor}>
-                    {row.nombre_vendedor}
+    <div className="cc-cob-ops">
+      <div className="cc-cob-ops__toolbar">
+        <span>
+          {grupos.length} cliente{grupos.length === 1 ? '' : 's'} · {rows.length} venta
+          {rows.length === 1 ? '' : 's'}
+        </span>
+        <div className="cc-cob-ops__toolbar-actions">
+          <button type="button" className="cc-cob-ops__tool-btn" onClick={expandirTodos}>
+            Expandir todos
+          </button>
+          <button type="button" className="cc-cob-ops__tool-btn" onClick={colapsarTodos}>
+            Colapsar
+          </button>
+        </div>
+      </div>
+
+      <ul className="cc-cob-ops__list">
+        {grupos.map((g) => {
+          const open = abiertos.has(g.id_cliente)
+          const st = estadoCobroVenta(g.peor_dias_vencido)
+          return (
+            <li
+              key={g.id_cliente}
+              className={`cc-cob-ops-group${open ? ' cc-cob-ops-group--open' : ''}${
+                g.peor_dias_vencido > 0 ? ' cc-cob-ops-group--late' : ''
+              }`}
+            >
+              <div className="cc-cob-ops-group__head">
+                <button
+                  type="button"
+                  className="cc-cob-ops-group__toggle"
+                  aria-expanded={open}
+                  onClick={() => toggle(g.id_cliente)}
+                >
+                  <span className="cc-cob-ops-group__chevron" aria-hidden />
+                  <span className="cc-cob-ops-group__cliente">
+                    <strong>{g.cliente_nombre}</strong>
+                    <em>
+                      {g.ventas.length} venta{g.ventas.length === 1 ? '' : 's'}
+                    </em>
                   </span>
-                </td>
-                <td>{formatMontoArs(row.valor_total)}</td>
-                <td className="cc-cob-monto">{formatMontoArs(row.monto_pendiente)}</td>
-                <td>{row.fecha_vencimiento}</td>
-                <td>
                   <span className={`cc-cob-badge ${st.cls}`}>{st.label}</span>
-                </td>
-                <td>
-                  <button type="button" className="cc-cob-link" onClick={() => onCobrar(row.id_cliente)}>
+                  <span className="cc-cob-ops-group__monto">{formatMontoArs(g.monto_pendiente)}</span>
+                </button>
+                {g.monto_pendiente > 0.009 ? (
+                  <button
+                    type="button"
+                    className="cc-cob-link cc-cob-ops-group__cobrar"
+                    onClick={() => onCobrar(g.id_cliente)}
+                  >
                     Cobrar →
                   </button>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                ) : null}
+              </div>
+
+              {open && (
+                <div className="cc-cob-ops-group__body">
+                  <div className="cc-cob-table-wrap">
+                    <table className="cc-cob-table cc-cob-table--nested">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Venta</th>
+                          <th>Vendedor</th>
+                          <th>Total</th>
+                          <th>Pendiente</th>
+                          <th>Vence</th>
+                          <th>Estado</th>
+                          <th />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.ventas.map((row) => {
+                          const rowSt = estadoCobroVenta(row.dias_vencido)
+                          return (
+                            <tr
+                              key={row.id_venta}
+                              className={row.dias_vencido > 0 ? 'cc-cob-row--late' : ''}
+                            >
+                              <td>{row.fecha_venta}</td>
+                              <td>
+                                <span className="cc-cob-venta-num">#{row.numero_venta}</span>
+                              </td>
+                              <td>
+                                <span className="cc-cob-vendedor" title={row.nombre_vendedor}>
+                                  {row.nombre_vendedor}
+                                </span>
+                              </td>
+                              <td>{formatMontoArs(row.valor_total)}</td>
+                              <td className="cc-cob-monto">{formatMontoArs(row.monto_pendiente)}</td>
+                              <td>{row.fecha_vencimiento}</td>
+                              <td>
+                                <span className={`cc-cob-badge ${rowSt.cls}`}>{rowSt.label}</span>
+                              </td>
+                              <td>
+                                {row.monto_pendiente > 0.009 ? (
+                                  <button
+                                    type="button"
+                                    className="cc-cob-link"
+                                    onClick={() => onCobrar(row.id_cliente)}
+                                  >
+                                    Cobrar →
+                                  </button>
+                                ) : null}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }

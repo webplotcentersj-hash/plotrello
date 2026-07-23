@@ -199,57 +199,70 @@ export default function CuentaCorrienteRegistry({
                   key={r.id}
                   className={`cc-registry-row cc-registry-row--${estado}${expanded ? ' cc-registry-row--open' : ''}${!r.alta_completa ? ' cc-registry-row--incompleto' : ''}`}
                 >
-                  <button
-                    type="button"
-                    className="cc-registry-row__summary"
-                    aria-expanded={expanded}
-                    onClick={() => toggleExpand(r.id)}
-                  >
-                    <span className="cc-registry__col cc-registry__col--toggle">
+                  <div className="cc-registry-row__summary">
+                    <button
+                      type="button"
+                      className="cc-registry-row__expand"
+                      aria-expanded={expanded}
+                      aria-label={expanded ? 'Ocultar detalle' : 'Ver detalle'}
+                      onClick={() => toggleExpand(r.id)}
+                    >
                       <span className="cc-registry-row__chevron" aria-hidden />
-                    </span>
-                    <span className="cc-registry__col cc-registry__col--cliente">
+                    </button>
+                    <button
+                      type="button"
+                      className="cc-registry__col cc-registry__col--cliente cc-registry-row__cliente-btn"
+                      title="Abrir cuenta corriente"
+                      onClick={() => navigate(clientesCcPerfil(r.id_cliente))}
+                    >
                       <span className="cc-registry-row__avatar" aria-hidden>
                         {iniciales(nombre)}
                       </span>
                       <span className="cc-registry-row__name">{nombre}</span>
-                    </span>
-                    <span className="cc-registry__col cc-registry__col--estado">
-                      <span className={`cc-registry-estado cc-registry-estado--${estado}`}>
-                        {ESTADO_CC_LABELS[estado]}
-                      </span>
-                    </span>
-                    <span className="cc-registry__col cc-registry__col--tipo">
-                      {TIPO_CLIENTE_CC_LABELS[tipo]}
-                    </span>
-                    <span className="cc-registry__col cc-registry__col--saldo num">
-                      {estado === 'aprobada' ? (
-                        <span
-                          className={
-                            saldo > 0 ? 'cc-registry-saldo cc-registry-saldo--deuda' : 'cc-registry-saldo'
-                          }
-                        >
-                          {formatMontoArs(saldo)}
+                    </button>
+                    <button
+                      type="button"
+                      className="cc-registry-row__meta"
+                      aria-expanded={expanded}
+                      onClick={() => toggleExpand(r.id)}
+                    >
+                      <span className="cc-registry__col cc-registry__col--estado">
+                        <span className={`cc-registry-estado cc-registry-estado--${estado}`}>
+                          {ESTADO_CC_LABELS[estado]}
                         </span>
-                      ) : (
-                        <span className="cc-registry-muted">—</span>
-                      )}
-                    </span>
-                    <span className="cc-registry__col cc-registry__col--cuit">
-                      {r.cuit || '—'}
-                    </span>
-                    <span className="cc-registry__col cc-registry__col--score">
-                      {estado === 'aprobada' ? (
-                        <CuentaCorrienteScoreBadge
-                          score={r.score}
-                          nivel={r.score_nivel as CcScoreNivel | undefined}
-                          compact
-                        />
-                      ) : (
-                        <span className="cc-registry-muted">—</span>
-                      )}
-                    </span>
-                  </button>
+                      </span>
+                      <span className="cc-registry__col cc-registry__col--tipo">
+                        {TIPO_CLIENTE_CC_LABELS[tipo]}
+                      </span>
+                      <span className="cc-registry__col cc-registry__col--saldo num">
+                        {estado === 'aprobada' ? (
+                          <span
+                            className={
+                              saldo > 0 ? 'cc-registry-saldo cc-registry-saldo--deuda' : 'cc-registry-saldo'
+                            }
+                          >
+                            {formatMontoArs(saldo)}
+                          </span>
+                        ) : (
+                          <span className="cc-registry-muted">—</span>
+                        )}
+                      </span>
+                      <span className="cc-registry__col cc-registry__col--cuit">
+                        {r.cuit || '—'}
+                      </span>
+                      <span className="cc-registry__col cc-registry__col--score">
+                        {estado === 'aprobada' ? (
+                          <CuentaCorrienteScoreBadge
+                            score={r.score}
+                            nivel={r.score_nivel as CcScoreNivel | undefined}
+                            compact
+                          />
+                        ) : (
+                          <span className="cc-registry-muted">—</span>
+                        )}
+                      </span>
+                    </button>
+                  </div>
 
                   {expanded && (
                     <div className="cc-registry-row__detail">

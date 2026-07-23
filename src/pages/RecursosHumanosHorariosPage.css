@@ -1683,12 +1683,33 @@ thead .rrhh-asis-sticky {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #0f172a;
+}
+
+.rrhh-extra-he50 {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.rrhh-extra-he100 {
+  color: #be123c;
+  font-weight: 700;
+}
+
+.rrhh-extra-vacio {
+  color: #94a3b8;
+  font-weight: 500;
 }
 
 .rrhh-extra-costo {
   font-weight: 700;
   color: #065f46;
   text-align: right;
+}
+
+.rrhh-extra-costo.rrhh-extra-vacio {
+  color: #94a3b8;
+  font-weight: 500;
 }
 
 .rrhh-extra-liquidacion-tabla th:last-child,

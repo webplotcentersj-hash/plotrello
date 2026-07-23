@@ -47,6 +47,7 @@ import {
   type TabletMarcacionParaStats
 } from '../utils/asistenciaStats'
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import { getStaffAuthToken } from '../services/staffSession'
 import {
   procesarArchivoReloj,
@@ -2462,21 +2463,34 @@ const LiquidacionHorasExtraPanel = ({
         <tbody>
           {conExtra.map((s) => (
             <tr key={s.id}>
-              <td className="rrhh-extra-emp">{s.nombre}</td>
-              <td>{s.extra50 > 0 ? `${s.extra50.toFixed(1)} hs` : '—'}</td>
-              <td>{s.extra100 > 0 ? `${s.extra100.toFixed(1)} hs` : '—'}</td>
+              <td className="rrhh-extra-emp">{etiquetaUsuarioNombre(s.nombre, s.id)}</td>
+              <td className={s.extra50 > 0 ? 'rrhh-extra-he50' : 'rrhh-extra-vacio'}>
+                {s.extra50 > 0 ? `${s.extra50.toFixed(1)} hs` : '—'}
+              </td>
+              <td className={s.extra100 > 0 ? 'rrhh-extra-he100' : 'rrhh-extra-vacio'}>
+                {s.extra100 > 0 ? `${s.extra100.toFixed(1)} hs` : '—'}
+              </td>
               <td className="leyenda-extra">{formatHoras(s.totalHorasExtra)}</td>
-              <td className="rrhh-extra-costo">{valorHora > 0 ? formatArs(s.costoExtra) : '—'}</td>
+              <td
+                className={`rrhh-extra-costo${valorHora > 0 ? '' : ' rrhh-extra-vacio'}`}
+                title={valorHora > 0 ? undefined : 'Ingresá el valor hora normal arriba para estimar el costo'}
+              >
+                {valorHora > 0 ? formatArs(s.costoExtra) : '—'}
+              </td>
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr>
             <td><strong>Total</strong></td>
-            <td><strong>{totales.totalExtra50.toFixed(1)} hs</strong></td>
-            <td><strong>{totales.totalExtra100.toFixed(1)} hs</strong></td>
+            <td className={totales.totalExtra50 > 0 ? 'rrhh-extra-he50' : 'rrhh-extra-vacio'}>
+              <strong>{totales.totalExtra50.toFixed(1)} hs</strong>
+            </td>
+            <td className={totales.totalExtra100 > 0 ? 'rrhh-extra-he100' : 'rrhh-extra-vacio'}>
+              <strong>{totales.totalExtra100.toFixed(1)} hs</strong>
+            </td>
             <td className="leyenda-extra"><strong>{formatHoras(totales.totalHorasExtra)}</strong></td>
-            <td className="rrhh-extra-costo">
+            <td className={`rrhh-extra-costo${valorHora > 0 ? '' : ' rrhh-extra-vacio'}`}>
               <strong>{valorHora > 0 ? formatArs(totales.costoExtraTotal) : '—'}</strong>
             </td>
           </tr>
@@ -2510,6 +2524,7 @@ const AsistenciaTab = ({
   const [asistenciaDetalleExtra, setAsistenciaDetalleExtra] = useState<number | null>(null)
   const [asistenciaDetalleAcum, setAsistenciaDetalleAcum] = useState<number | null>(null)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
+  const [legajos, setLegajos] = useState<Record<number, { nombre: string; apellido: string }>>({})
   const syncNovedadesRef = useRef(false)
   const [valorHora, setValorHora] = useState<number>(() => {
     try {
@@ -2532,6 +2547,21 @@ const AsistenciaTab = ({
   const dias = useMemo(() => diasEntre(fechaDesde, fechaHasta), [fechaDesde, fechaHasta])
 
   const mesesEnPeriodo = useMemo(() => [...new Set(dias.map((d) => d.slice(0, 7)))], [dias])
+
+  useEffect(() => {
+    let cancelado = false
+    apiService.obtenerLegajosBasico().then((r) => {
+      if (cancelado || !r.success || !r.data) return
+      const map: Record<number, { nombre: string; apellido: string }> = {}
+      for (const [id, l] of Object.entries(r.data)) {
+        map[Number(id)] = { nombre: l.nombre || '', apellido: l.apellido || '' }
+      }
+      setLegajos(map)
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelado = false
@@ -2594,12 +2624,16 @@ const AsistenciaTab = ({
 
   const nombres = useMemo(() => {
     const m = new Map<number, string>()
-    usuarios.forEach((u) => m.set(u.id, u.nombre))
+    usuarios.forEach((u) => m.set(u.id, etiquetaUsuarioNombre(u.nombre, u.id)))
     asistencia.forEach((a) => {
-      if (a.nombre_usuario) m.set(a.id_usuario, a.nombre_usuario)
+      if (a.nombre_usuario) m.set(a.id_usuario, etiquetaUsuarioNombre(a.nombre_usuario, a.id_usuario))
     })
+    for (const [id, l] of Object.entries(legajos)) {
+      const full = `${(l.nombre || '').trim()} ${(l.apellido || '').trim()}`.trim()
+      if (full) m.set(Number(id), full)
+    }
     return m
-  }, [usuarios, asistencia])
+  }, [usuarios, asistencia, legajos])
 
   const empleados = useMemo(() => {
     const activos = new Set(usuarios.map((u) => u.id))
@@ -3159,12 +3193,12 @@ const EstadisticasAsistenciaTab = ({
 
   const nombres = useMemo(() => {
     const m = new Map<number, string>()
-    usuarios.forEach((u) => m.set(u.id, u.nombre))
+    usuarios.forEach((u) => m.set(u.id, etiquetaUsuarioNombre(u.nombre, u.id)))
     asistencia.forEach((a) => {
-      if (a.nombre_usuario) m.set(a.id_usuario, a.nombre_usuario)
+      if (a.nombre_usuario) m.set(a.id_usuario, etiquetaUsuarioNombre(a.nombre_usuario, a.id_usuario))
     })
     for (const [id, l] of Object.entries(legajos)) {
-      const full = `${l.nombre} ${l.apellido}`.trim()
+      const full = `${(l.nombre || '').trim()} ${(l.apellido || '').trim()}`.trim()
       if (full) m.set(Number(id), full)
     }
     return m
@@ -3516,8 +3550,12 @@ const EstadisticasAsistenciaTab = ({
                     <td>{s.sinMarca || '—'}</td>
                     <td>{s.totalHoras ? s.totalHoras.toFixed(1) : '—'}</td>
                     <td className="leyenda-extra">{s.totalHorasExtra > 0 ? formatHoras(s.totalHorasExtra) : '—'}</td>
-                    <td>{s.extra50 > 0 ? `${s.extra50.toFixed(1)} hs` : '—'}</td>
-                    <td>{s.extra100 > 0 ? `${s.extra100.toFixed(1)} hs` : '—'}</td>
+                    <td className={s.extra50 > 0 ? 'rrhh-extra-he50' : 'rrhh-extra-vacio'}>
+                      {s.extra50 > 0 ? `${s.extra50.toFixed(1)} hs` : '—'}
+                    </td>
+                    <td className={s.extra100 > 0 ? 'rrhh-extra-he100' : 'rrhh-extra-vacio'}>
+                      {s.extra100 > 0 ? `${s.extra100.toFixed(1)} hs` : '—'}
+                    </td>
                     {valorHora > 0 ? (
                       <td className="rrhh-extra-costo">{s.costoExtra > 0 ? formatArs(s.costoExtra) : '—'}</td>
                     ) : null}

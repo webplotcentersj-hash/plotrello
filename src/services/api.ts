@@ -15,6 +15,7 @@ import { applyOrdenRestartLocally } from '../utils/ordenLocalSync'
 import {
   agingDesdeItems,
   enriquecerVentasCcResumenes,
+  reconciliarVentasCcConLedger,
   resumenPorCliente,
   resumenPorVendedor,
   ventasCcAbiertasDesdeVentas
@@ -5879,6 +5880,10 @@ class ApiService {
   async getPerfilCuentaCorriente(idCliente: number): Promise<ApiResponse<CcPerfilCliente | null>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
+      // Imputa pagos FIFO y actualiza estado_pago / monto_pagado antes de armar el perfil
+      await supabase.rpc('cc_sincronizar_estados_ventas_cc', { p_id_cliente: idCliente })
+      await supabase.rpc('cc_actualizar_resumen_saldos', { p_id_cliente: idCliente })
+
       const { data, error } = await supabase.rpc('cc_obtener_perfil_cliente', {
         p_id_cliente: idCliente
       })
@@ -5907,6 +5912,18 @@ class ApiService {
               : []
           }
         : null
+
+      const ventasEnriquecidas = await this.enriquecerVentasCcPerfil(
+        ventas.map((v) => ({ ...v, valor_total: Number(v.valor_total) || 0 }))
+      )
+      const montoPendienteVentas = ventasEnriquecidas.reduce(
+        (s, v) => s + (Number(v.monto_pendiente) || 0),
+        0
+      )
+      const ventasPendientes = ventasEnriquecidas.filter(
+        (v) => (Number(v.monto_pendiente) || 0) > 0.009
+      ).length
+
       return {
         success: true,
         data: {
@@ -5927,7 +5944,8 @@ class ApiService {
             saldo_actual: Number(resumen.saldo_actual) || 0,
             total_cargos: Number(resumen.total_cargos) || 0,
             total_pagos: Number(resumen.total_pagos) || 0,
-            monto_pendiente_ventas: Number(resumen.monto_pendiente_ventas) || 0,
+            monto_pendiente_ventas: montoPendienteVentas,
+            ventas_pendientes: ventasPendientes,
             porcentaje_interes_mensual:
               resumen.porcentaje_interes_mensual != null
                 ? Number(resumen.porcentaje_interes_mensual)
@@ -5947,7 +5965,7 @@ class ApiService {
             haber: Number(m.haber) || 0,
             saldo_acumulado: m.saldo_acumulado != null ? Number(m.saldo_acumulado) : undefined
           })),
-          ventas_cc: await this.enriquecerVentasCcPerfil(ventas.map((v) => ({ ...v, valor_total: Number(v.valor_total) || 0 })))
+          ventas_cc: ventasEnriquecidas
         }
       }
     } catch (e: any) {
@@ -6175,7 +6193,33 @@ class ApiService {
         return { success: false, error: ventasRes.error || 'Error al cargar ventas CC' }
       }
 
-      const ventas_abiertas = ventasCcAbiertasDesdeVentas(ventasRes.data ?? [])
+      const ventasRaw = ventasCcAbiertasDesdeVentas(ventasRes.data ?? [])
+      const clienteIds = [...new Set(ventasRaw.map((v) => v.id_cliente))]
+      let ventas_abiertas = ventasRaw
+
+      if (clienteIds.length) {
+        const { data: movsRaw, error: movsErr } = await supabase
+          .from('cc_cuenta_movimientos')
+          .select('id_cliente, id_venta, tipo, debe, haber')
+          .in('id_cliente', clienteIds)
+          .in('tipo', ['pago', 'nota_credito', 'nc'])
+
+        if (movsErr) {
+          console.warn('listCobranzasCcPanel ledger:', movsErr.message)
+        } else {
+          ventas_abiertas = reconciliarVentasCcConLedger(
+            ventasRaw,
+            (movsRaw ?? []).map((m) => ({
+              id_cliente: Number(m.id_cliente),
+              id_venta: m.id_venta != null ? Number(m.id_venta) : null,
+              tipo: String(m.tipo || ''),
+              debe: Number(m.debe) || 0,
+              haber: Number(m.haber) || 0
+            }))
+          )
+        }
+      }
+
       const por_vendedor = resumenPorVendedor(ventas_abiertas)
       const top_clientes = resumenPorCliente(ventas_abiertas)
       const aging = agingDesdeItems(ventas_abiertas)

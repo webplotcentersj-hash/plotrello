@@ -74,6 +74,78 @@ export function ventasCcAbiertasDesdeVentas(ventas: Venta[]): CcCobranzaVentaIte
     .sort((a, b) => b.dias_vencido - a.dias_vencido || b.monto_pendiente - a.monto_pendiente)
 }
 
+/** Movimiento mínimo del ledger para reconciliar cobranzas. */
+export type CcMovLedgerCobranza = {
+  id_cliente: number
+  id_venta: number | null
+  tipo: string
+  debe: number
+  haber: number
+}
+
+/**
+ * Ajusta ventas “abiertas” con pagos del ledger CC.
+ * 1) Descuenta pagos imputados a cada venta.
+ * 2) Imputa pagos sin venta (FIFO por fecha) al restante.
+ * Así el KPI no cuenta deuda ya cobrada en cuenta corriente.
+ */
+export function reconciliarVentasCcConLedger(
+  items: CcCobranzaVentaItem[],
+  movimientos: CcMovLedgerCobranza[]
+): CcCobranzaVentaItem[] {
+  if (!items.length) return []
+
+  const pendiente = new Map<number, number>()
+  for (const it of items) pendiente.set(it.id_venta, it.monto_pendiente)
+
+  const librePorCliente = new Map<number, number>()
+
+  for (const m of movimientos) {
+    const haber = Number(m.haber) || 0
+    if (haber <= 0.009) continue
+    const tipo = (m.tipo || '').toLowerCase()
+    if (tipo !== 'pago' && tipo !== 'nota_credito' && tipo !== 'nc') continue
+
+    if (m.id_venta != null && pendiente.has(m.id_venta)) {
+      const rest = Math.max(0, (pendiente.get(m.id_venta) || 0) - haber)
+      pendiente.set(m.id_venta, rest)
+    } else if (m.id_venta == null) {
+      librePorCliente.set(m.id_cliente, (librePorCliente.get(m.id_cliente) || 0) + haber)
+    }
+  }
+
+  const porCliente = new Map<number, CcCobranzaVentaItem[]>()
+  for (const it of items) {
+    const list = porCliente.get(it.id_cliente) ?? []
+    list.push(it)
+    porCliente.set(it.id_cliente, list)
+  }
+
+  for (const [idCliente, ventas] of porCliente) {
+    let libre = librePorCliente.get(idCliente) || 0
+    if (libre <= 0.009) continue
+    const orden = [...ventas].sort((a, b) =>
+      a.fecha_venta.localeCompare(b.fecha_venta) || a.id_venta - b.id_venta
+    )
+    for (const v of orden) {
+      if (libre <= 0.009) break
+      const rest = pendiente.get(v.id_venta) || 0
+      if (rest <= 0.009) continue
+      const aplica = Math.min(rest, libre)
+      pendiente.set(v.id_venta, rest - aplica)
+      libre -= aplica
+    }
+  }
+
+  return items
+    .map((it) => ({
+      ...it,
+      monto_pendiente: Math.max(0, pendiente.get(it.id_venta) || 0)
+    }))
+    .filter((it) => it.monto_pendiente > 0.009)
+    .sort((a, b) => b.dias_vencido - a.dias_vencido || b.monto_pendiente - a.monto_pendiente)
+}
+
 export function resumenPorVendedor(items: CcCobranzaVentaItem[]): CcCobranzaVendedorResumen[] {
   const map = new Map<string, CcCobranzaVendedorResumen>()
   for (const it of items) {
@@ -180,11 +252,26 @@ export function enriquecerVentaResumen(
   detalle?: VentaDetalleCobranza | null
 ): CcVentaResumen {
   const total = Number(detalle?.valor_total ?? venta.valor_total) || 0
-  const pagado = Number(detalle?.monto_pagado) || 0
-  const pendiente =
-    venta.estado_pago === 'Pagado' || venta.estado_pago === 'Cancelado'
-      ? 0
-      : Math.max(0, total - pagado)
+  const pagadoRaw = Number(detalle?.monto_pagado ?? venta.monto_pagado) || 0
+  const estadoRaw = detalle?.estado_pago ?? venta.estado_pago
+
+  let montoPendiente = 0
+  if (estadoRaw !== 'Pagado' && estadoRaw !== 'Cancelado') {
+    montoPendiente = Math.max(0, total - pagadoRaw)
+  }
+
+  let estadoPago = estadoRaw || 'Pendiente'
+  let montoPagado = pagadoRaw
+  if (estadoPago === 'Cancelado') {
+    montoPendiente = 0
+  } else if (total > 0 && montoPendiente <= 0.009) {
+    estadoPago = 'Pagado'
+    montoPagado = total
+    montoPendiente = 0
+  } else if (montoPagado > 0.009 && montoPendiente > 0.009) {
+    estadoPago = 'Parcial'
+  }
+
   const fv = fechaVencimientoVentaCc(detalle?.fecha_venta ?? venta.fecha_venta)
   const hoy = new Date()
   hoy.setHours(0, 0, 0, 0)
@@ -196,8 +283,9 @@ export function enriquecerVentaResumen(
     valor_total: total,
     id_vendedor: detalle?.id_vendedor ?? venta.id_vendedor ?? null,
     nombre_vendedor: detalle?.nombre_vendedor?.trim() || venta.nombre_vendedor?.trim() || 'Sin vendedor',
-    monto_pagado: pagado,
-    monto_pendiente: pendiente,
+    estado_pago: estadoPago,
+    monto_pagado: montoPagado,
+    monto_pendiente: montoPendiente,
     fecha_vencimiento: fv,
     dias_vencido: diasVencido,
     bucket: bucketAging(diasVencido)

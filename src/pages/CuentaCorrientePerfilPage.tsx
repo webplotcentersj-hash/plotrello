@@ -65,7 +65,7 @@ export default function CuentaCorrientePerfilPage() {
 
   const [pagoMonto, setPagoMonto] = useState('')
   const [pagoFecha, setPagoFecha] = useState(() => new Date().toISOString().slice(0, 10))
-  const [pagoMetodo, setPagoMetodo] = useState('Transferencia')
+  const [pagoMetodo, setPagoMetodo] = useState('Pago múltiple')
   const [pagoLineas, setPagoLineas] = useState<LineaPagoMultiple[]>([
     { metodo: 'Transferencia', monto: '' },
     { metodo: 'Efectivo', monto: '' }
@@ -170,6 +170,17 @@ export default function CuentaCorrientePerfilPage() {
     }
   }
 
+  const actualizarLineaPago = (idx: number, patch: Partial<LineaPagoMultiple>) => {
+    setPagoLineas((prev) => {
+      const next = prev.map((l, i) => (i === idx ? { ...l, ...patch } : l))
+      if (pagoMetodo === 'Pago múltiple') {
+        const suma = next.reduce((s, l) => s + (parseMontoArsInput(l.monto) ?? 0), 0)
+        setPagoMonto(suma > 0 ? String(Math.round(suma * 100) / 100) : '')
+      }
+      return next
+    })
+  }
+
   const registrarPago = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!usuario?.id || !perfil) return
@@ -230,13 +241,47 @@ export default function CuentaCorrientePerfilPage() {
       })
       if (!res.success) throw new Error(res.error || 'No se pudo registrar')
       setPagoOk('Pago registrado. La cuenta y el scoring se actualizaron automáticamente.')
+
+      try {
+        const { syncPagoCuentaCorrienteACajaAdmin } = await import(
+          '../features/control-cajas/plotlabCcPagoCajaSync'
+        )
+        const cajaRes = await syncPagoCuentaCorrienteACajaAdmin({
+          idMovimientoCc: res.data!.id_movimiento,
+          monto,
+          fecha: pagoFecha,
+          metodoPago: pagoMetodo,
+          detalleMedios,
+          clienteNombre: nombre,
+          usuarioId: usuario.id,
+          usuarioNombre: usuario.nombre,
+          referencia: pagoRef.trim() || null,
+          urlComprobante: pagoComprobanteUrl || null,
+          idVenta: pagoVentaId ? Number(pagoVentaId) : null
+        })
+        if (cajaRes.ok && !cajaRes.yaExistia) {
+          setPagoOk(
+            'Pago registrado. Acreditado en Caja Administración. La cuenta y el scoring se actualizaron.'
+          )
+        } else if (!cajaRes.ok) {
+          setPagoOk(
+            `Pago registrado en cuenta. Aviso: no se pudo reflejar en caja (${cajaRes.error}).`
+          )
+        }
+      } catch (cajaEx) {
+        console.warn('Pago CC → caja admin:', cajaEx)
+        setPagoOk(
+          'Pago registrado en cuenta. Aviso: no se pudo reflejar en Caja Administración.'
+        )
+      }
+
       setPagoMonto('')
       setPagoRef('')
       setPagoNotas('')
       setPagoVentaId('')
       setPagoComprobanteUrl('')
       setPagoComprobanteNombre('')
-      setPagoMetodo('Transferencia')
+      setPagoMetodo('Pago múltiple')
       setPagoLineas([
         { metodo: 'Transferencia', monto: '' },
         { metodo: 'Efectivo', monto: '' }
@@ -609,6 +654,12 @@ export default function CuentaCorrientePerfilPage() {
                 step="0.01"
                 value={pagoMonto}
                 onChange={(e) => setPagoMonto(e.target.value)}
+                readOnly={pagoMetodo === 'Pago múltiple'}
+                title={
+                  pagoMetodo === 'Pago múltiple'
+                    ? 'Se calcula con la suma del desglose'
+                    : undefined
+                }
                 required
               />
             </label>
@@ -623,31 +674,39 @@ export default function CuentaCorrientePerfilPage() {
             </label>
             <label>
               <span>Método</span>
-              <select value={pagoMetodo} onChange={(e) => setPagoMetodo(e.target.value)}>
+              <select
+                value={pagoMetodo}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setPagoMetodo(next)
+                  if (next === 'Pago múltiple') {
+                    const suma = pagoLineas.reduce(
+                      (s, l) => s + (parseMontoArsInput(l.monto) ?? 0),
+                      0
+                    )
+                    if (suma > 0) setPagoMonto(String(Math.round(suma * 100) / 100))
+                  }
+                }}
+              >
+                <option value="Pago múltiple">Pago múltiple</option>
                 {MEDIOS_PAGO_CC.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
                 ))}
-                <option value="Pago múltiple">Pago múltiple</option>
               </select>
             </label>
             {pagoMetodo === 'Pago múltiple' ? (
               <div className="cc-perfil-pago-multiple wide">
                 <span className="cc-perfil-pago-multiple__title">Desglose por medio *</span>
                 <p className="cc-perfil-pago-multiple__hint">
-                  La suma de las líneas debe coincidir con el monto total.
+                  Cargá al menos dos medios. El monto total se completa solo con la suma.
                 </p>
                 {pagoLineas.map((linea, idx) => (
                   <div key={idx} className="cc-perfil-pago-multiple__row">
                     <select
                       value={linea.metodo}
-                      onChange={(e) => {
-                        const metodo = e.target.value
-                        setPagoLineas((prev) =>
-                          prev.map((l, i) => (i === idx ? { ...l, metodo } : l))
-                        )
-                      }}
+                      onChange={(e) => actualizarLineaPago(idx, { metodo: e.target.value })}
                     >
                       {MEDIOS_PAGO_CC.map((m) => (
                         <option key={m} value={m}>
@@ -661,20 +720,23 @@ export default function CuentaCorrientePerfilPage() {
                       step="0.01"
                       placeholder="Monto"
                       value={linea.monto}
-                      onChange={(e) => {
-                        const monto = e.target.value
-                        setPagoLineas((prev) =>
-                          prev.map((l, i) => (i === idx ? { ...l, monto } : l))
-                        )
-                      }}
+                      onChange={(e) => actualizarLineaPago(idx, { monto: e.target.value })}
                     />
                     {pagoLineas.length > 2 ? (
                       <button
                         type="button"
                         className="cc-btn cc-btn--secondary cc-btn--sm"
-                        onClick={() =>
-                          setPagoLineas((prev) => prev.filter((_, i) => i !== idx))
-                        }
+                        onClick={() => {
+                          setPagoLineas((prev) => {
+                            const next = prev.filter((_, i) => i !== idx)
+                            const suma = next.reduce(
+                              (s, l) => s + (parseMontoArsInput(l.monto) ?? 0),
+                              0
+                            )
+                            setPagoMonto(suma > 0 ? String(Math.round(suma * 100) / 100) : '')
+                            return next
+                          })
+                        }}
                       >
                         Quitar
                       </button>
@@ -846,7 +908,9 @@ function VentaRow({
   onImputar: () => void
 }) {
   const pendiente =
-    venta.estado_pago !== 'Pagado' && venta.estado_pago !== 'Cancelado'
+    (venta.monto_pendiente ?? 0) > 0.009 &&
+    venta.estado_pago !== 'Pagado' &&
+    venta.estado_pago !== 'Cancelado'
   const pagado = venta.monto_pagado ?? 0
   const saldoPendiente = venta.monto_pendiente ?? Math.max(0, venta.valor_total - pagado)
   const diasVencido = venta.dias_vencido ?? 0
