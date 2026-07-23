@@ -51,6 +51,23 @@ export function fondoMontoParaCaja(caja: Pick<CajaRegistro, 'slug' | 'fondo_fijo
   return fondoFijoEfectivo(caja)
 }
 
+/** Fondo estipulado en el arqueo para dejar en la otra caja operativa. */
+export function fondoParaOtraCajaDesdeArqueo(
+  arqueo: { saldos?: Record<string, unknown> | null } | null | undefined
+): { monto: number; destinoSlug: string | null } | null {
+  const s = arqueo?.saldos
+  if (!s || typeof s !== 'object') return null
+  const raw = s.fondo_para_otra_caja
+  if (raw == null || raw === '') return null
+  const monto = Number(raw)
+  if (!Number.isFinite(monto) || monto < 0) return null
+  const dest = s.fondo_destino_slug
+  return {
+    monto,
+    destinoSlug: dest != null && String(dest).trim() ? String(dest) : null
+  }
+}
+
 export type ConciliacionCierreTurno = {
   ok: boolean
   alertas: string[]

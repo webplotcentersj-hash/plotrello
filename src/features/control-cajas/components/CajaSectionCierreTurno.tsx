@@ -29,6 +29,7 @@ import {
   conciliarCierreTurno,
   egresosDelDiaParaCierreTurno,
   fondoMontoParaCaja,
+  fondoParaOtraCajaDesdeArqueo,
   hayEgresosPendientes,
   type EgresosDelDiaResumen
 } from '../cierreTurno'
@@ -125,6 +126,14 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
       const m = montosCajaDesdeFuentes(caja, arq, plan, fecha)
       setArqueoEf(String(m.efectivo))
       setArqueoOt(String(m.otros))
+
+      const fondoArq = fondoParaOtraCajaDesdeArqueo(arq)
+      if (fondoArq) {
+        setFondoMontoInput(String(fondoArq.monto))
+        if (fondoArq.destinoSlug && fondoArq.destinoSlug !== origen) {
+          setCajaFondoDestino(fondoArq.destinoSlug)
+        }
+      }
     })()
     return () => {
       cancelled = true
@@ -163,13 +172,24 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
   const cajaOrigen = cajas.find((c) => c.slug === origen)
   const cajaDestinoFondo = cajas.find((c) => c.slug === cajaFondoDestino)
 
-  /** Fondo que queda en la caja receptora: configurado en esa caja (automático). */
+  /** Fallback: fondo de la caja receptora si el arqueo no estipuló monto. */
   useEffect(() => {
-    const cajaFondo = cajaDestinoFondo ?? cajaOrigen
-    if (!cajaFondo) return
-    setFondoMontoInput(String(fondoMontoParaCaja(cajaFondo)))
+    let cancelled = false
+    void (async () => {
+      if (!origen || !fecha) return
+      const arq = await getUltimoArqueoCaja(origen, fecha)
+      if (cancelled) return
+      if (fondoParaOtraCajaDesdeArqueo(arq)) return
+      const cajaFondo = cajaDestinoFondo ?? cajaOrigen
+      if (!cajaFondo) return
+      setFondoMontoInput(String(fondoMontoParaCaja(cajaFondo)))
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [
     origen,
+    fecha,
     cajaFondoDestino,
     cajaOrigen?.slug,
     cajaOrigen?.fondo_fijo,
@@ -401,7 +421,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
           <span className="caja-cc-hoy-hero-label">Fondo → otra caja</span>
           <span className="caja-cc-hoy-hero-value">$ {fmtArs(calc.fondo_monto)}</span>
           <span className="caja-cc-hoy-hero-hint">
-            A {cajaNombre(cajaFondoDestino) || '…'} (fondo configurado de esa caja)
+            A {cajaNombre(cajaFondoDestino) || '…'} (según el arqueo / fondo configurado)
           </span>
         </div>
         {isAdmin ? (
@@ -508,8 +528,8 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
             />
             <span className="caja-cc-field-hint">
               {camposAutomaticos
-                ? 'Automático: fondo configurado de la caja que recibe.'
-                : 'Fondo configurado de la caja receptora.'}
+                ? 'Automático desde el arqueo (fondo que se deja a la otra caja).'
+                : 'Preferido: monto estipulado en el arqueo; si no, fondo de la caja receptora.'}
             </span>
           </label>
           <label className="caja-cc-field">
