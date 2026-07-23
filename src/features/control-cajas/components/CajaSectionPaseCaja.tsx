@@ -50,8 +50,6 @@ export default function CajaSectionPaseCaja({
   const [observacion, setObservacion] = useState('')
   const [hintOrigen, setHintOrigen] = useState<string | null>(null)
   const [hintDestino, setHintDestino] = useState<string | null>(null)
-  const [hintOrigenOt, setHintOrigenOt] = useState<string | null>(null)
-  const [hintDestinoOt, setHintDestinoOt] = useState<string | null>(null)
   const [hintPase, setHintPase] = useState<string | null>(null)
   const [arqueoCargando, setArqueoCargando] = useState(false)
 
@@ -102,8 +100,6 @@ export default function CajaSectionPaseCaja({
     if (!origen && !destino) {
       setHintOrigen(null)
       setHintDestino(null)
-      setHintOrigenOt(null)
-      setHintDestinoOt(null)
       setHintPase(null)
       return
     }
@@ -132,20 +128,16 @@ export default function CajaSectionPaseCaja({
           : null
 
         let origenEf = 0
-        let origenOt = 0
 
         if (origen) {
           const m = montosCajaDesdeFuentes(cajaOrigen, arqOrigen, planOrigen, fecha)
           origenEf = m.efectivo
           // Pase de caja: solo efectivo
-          origenOt = 0
           setOrigenEfAntes(String(m.efectivo))
           setOrigenOtAntes('0')
           setHintOrigen(m.hintEfectivo)
-          setHintOrigenOt(null)
         } else {
           setHintOrigen(null)
-          setHintOrigenOt(null)
         }
 
         if (destino) {
@@ -153,10 +145,8 @@ export default function CajaSectionPaseCaja({
           setDestinoEfAntes(String(m.efectivo))
           setDestinoOtAntes('0')
           setHintDestino(m.hintEfectivo)
-          setHintDestinoOt(null)
         } else {
           setHintDestino(null)
-          setHintDestinoOt(null)
         }
 
         if (origen && destino) {

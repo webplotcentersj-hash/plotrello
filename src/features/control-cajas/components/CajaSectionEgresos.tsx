@@ -33,7 +33,7 @@ export default function CajaSectionEgresos({
   })
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [lista, setLista] = useState<CajaEgresoSolicitud[]>([])
-  const [fecha, setFecha] = useState(getArgentinaDateString())
+  const [fecha] = useState(getArgentinaDateString())
   const [cajaSlug, setCajaSlug] = useState('')
   const [concepto, setConcepto] = useState('')
   const [montoEf, setMontoEf] = useState('')
