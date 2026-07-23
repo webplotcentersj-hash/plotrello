@@ -26,9 +26,7 @@ import CajaSectionConfig from './CajaSectionConfig'
 import CajaPlotAI from './CajaPlotAI'
 import CajaCentroInteligente from './CajaCentroInteligente'
 import CajaAvisoPdfUnico from './CajaAvisoPdfUnico'
-import CajaPlanillaResumenActiva from './CajaPlanillaResumenActiva'
 import CajaSubidaInteligente from './CajaSubidaInteligente'
-import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
 import CajaPlanillasRecibidasPanel from './CajaPlanillasRecibidasPanel'
 import CajaInteligenciaBar from './CajaInteligenciaBar'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
@@ -354,8 +352,6 @@ export default function ControlCajasModule() {
               usuarioId={usuarioId}
               refreshToken={menuRefreshToken}
               onNavigate={goSection}
-              onPlanillaParsed={setPlanillaActiva}
-              onImported={onPlanillaImportada}
             />
           )}
 
@@ -450,45 +446,14 @@ export default function ControlCajasModule() {
           {section === 'tablero' && enVistaAdmin && <CajaSectionTablero canViewIngresos={canViewIngresos} />}
 
           {section === 'arqueo' && (
-            <>
-              {!enVistaAdmin ? (
-                <section className="caja-cc-planilla-hub" aria-label="Planilla del día">
-                  {planillaActiva ? (
-                    <CajaPlanillaResumenActiva planilla={planillaActiva} />
-                  ) : (
-                    <CajaAvisoPdfUnico onIr={() => goSection('menu')} />
-                  )}
-                  {planillaActiva ? (
-                    <CajaCentroInteligente
-                      isAdmin={false}
-                      usuarioNombre={usuarioEtiqueta}
-                      usuarioId={usuarioId}
-                      onNavigate={goSection}
-                      compact
-                      collapsible
-                      defaultExpanded={false}
-                      planillaActiva={planillaActiva}
-                    />
-                  ) : null}
-                  <p className="caja-cc-help caja-cc-arqueo-mp-hint">
-                    Los comprobantes MP / POS son para conciliar tarjetas; el PDF del día va en el Menú.
-                  </p>
-                  <CajaImportComprobantesMedios
-                    usuarioNombre={usuarioEtiqueta}
-                    usuarioId={usuarioId}
-                    onImported={refreshMovimientos}
-                  />
-                </section>
-              ) : null}
-              <CajaSectionArqueo
-                usuarioNombre={usuarioEtiqueta}
-                usuarioId={usuarioId}
-                soloCajasOperativas
-                fijarCajaUsuario
-                planillaActiva={planillaActiva}
-                movimientosRefreshKey={movimientosRefreshKey}
-              />
-            </>
+            <CajaSectionArqueo
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+              soloCajasOperativas
+              fijarCajaUsuario
+              planillaActiva={planillaActiva}
+              movimientosRefreshKey={movimientosRefreshKey}
+            />
           )}
 
           {section === 'cierre_turno' && (

@@ -4311,3 +4311,58 @@
   color: #94a3b8;
   font-size: 18px;
 }
+
+.caja-dashboard-page .caja-cc-egreso-aprobar-row td {
+  background: #fff7ed;
+  border-top: none;
+  padding: 12px 14px 16px;
+}
+
+.caja-dashboard-page .caja-cc-egreso-aprobar-ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 420px;
+}
+
+.caja-dashboard-page .caja-cc-egreso-aprobar-ticket strong {
+  color: #9a3412;
+  font-size: 0.9rem;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ticket-pendiente {
+  border-color: #fdba74;
+}
+
+.caja-dashboard-page .caja-cc-file-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #c2410c;
+  cursor: pointer;
+}
+
+.caja-dashboard-page .caja-cc-file-inline input[type='file'] {
+  max-width: 180px;
+  font-size: 0.75rem;
+}
+
+.caja-dashboard-page .caja-cc-arqueo-justif-faltante {
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.caja-dashboard-page .caja-cc-arqueo-justif-faltante h3 {
+  color: #9a3412;
+}
+
+.caja-dashboard-page .caja-cc-arqueo-justif-sobrante {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.caja-dashboard-page .caja-cc-arqueo-justif-sobrante h3 {
+  color: #1d4ed8;
+}

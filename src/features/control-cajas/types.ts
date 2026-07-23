@@ -256,6 +256,8 @@ export type CajaEgresoSolicitud = {
   observacion?: string | null
   motivo_rechazo?: string | null
   id_movimiento?: string | null
+  /** Foto/PDF del ticket; lo sube el operador después de la aprobación. */
+  url_ticket?: string | null
   created_at?: string
   updated_at?: string
 }

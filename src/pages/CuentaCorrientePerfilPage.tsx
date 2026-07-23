@@ -7,12 +7,29 @@ import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import CuentaCorrienteScoreBadge from '../components/CuentaCorrienteScoreBadge'
 import CuentaCorrienteScoringPanel from '../components/CuentaCorrienteScoringPanel'
 import CuentaCorrienteInteresesPanel from '../components/CuentaCorrienteInteresesPanel'
-import type { CcCobranzaAgingBucket, CcCuentaMovimiento, CcPerfilCliente, CcVentaResumen } from '../types/api'
+import type {
+  CcCobranzaAgingBucket,
+  CcCuentaMovimiento,
+  CcPerfilCliente,
+  CcVentaResumen,
+  CuentaBancariaRecord
+} from '../types/api'
 import { TIPO_CLIENTE_CC_LABELS, labelCondicionIva } from '../constants/cuentaCorriente'
 import {
   formatLimiteCredito,
   type CcScoreNivel
 } from '../constants/cuentaCorrienteScoring'
+import {
+  esMercadoPago,
+  mediosPagoActivos,
+  resumenDetallePago,
+  type MedioPagoCodigo,
+  type VentaDetallePago
+} from '../constants/ventasCondicionesPago'
+import { useConfigCondicionesVenta } from '../hooks/useConfigCondicionesVenta'
+import VentaCondicionPagoFields, {
+  validarDetallePago
+} from '../components/ventas/VentaCondicionPagoFields'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import {
   CC_AGING_LABELS,
@@ -39,22 +56,32 @@ import './CuentaCorrientePerfilPage.css'
 
 type TabId = 'cuenta' | 'ventas' | 'pago'
 
-const MEDIOS_PAGO_CC = [
-  'Transferencia',
-  'Depósito',
-  'Efectivo',
-  'Cheque',
-  'Mercado Pago',
-  'Otro'
-] as const
+const PAGO_MULTIPLE = 'Pago múltiple'
 
 type LineaPagoMultiple = { metodo: string; monto: string }
+
+function isMedioPagoCodigo(v: string): v is MedioPagoCodigo {
+  return (
+    v === 'Efectivo' ||
+    v === 'Transferencia' ||
+    v === 'Tarjeta' ||
+    v === 'Cheque' ||
+    v === 'Mercado Pago' ||
+    v === 'Otro'
+  )
+}
 
 export default function CuentaCorrientePerfilPage() {
   const { idCliente: idParam } = useParams<{ idCliente: string }>()
   const idCliente = Number(idParam)
   const navigate = useNavigate()
   const { isAdmin, usuario } = useAuth()
+  const { config: configCondiciones } = useConfigCondicionesVenta()
+
+  const mediosPagoCc = useMemo(
+    () => mediosPagoActivos(configCondiciones).filter((m) => m.codigo !== 'Cuenta Corriente'),
+    [configCondiciones]
+  )
 
   const [loading, setLoading] = useState(true)
   const [perfil, setPerfil] = useState<CcPerfilCliente | null>(null)
@@ -65,7 +92,9 @@ export default function CuentaCorrientePerfilPage() {
 
   const [pagoMonto, setPagoMonto] = useState('')
   const [pagoFecha, setPagoFecha] = useState(() => new Date().toISOString().slice(0, 10))
-  const [pagoMetodo, setPagoMetodo] = useState('Pago múltiple')
+  const [pagoMetodo, setPagoMetodo] = useState<string>('Transferencia')
+  const [pagoDetalle, setPagoDetalle] = useState<VentaDetallePago>({})
+  const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancariaRecord[]>([])
   const [pagoLineas, setPagoLineas] = useState<LineaPagoMultiple[]>([
     { metodo: 'Transferencia', monto: '' },
     { metodo: 'Efectivo', monto: '' }
@@ -78,6 +107,28 @@ export default function CuentaCorrientePerfilPage() {
   const [subiendoComprobante, setSubiendoComprobante] = useState(false)
   const [guardandoPago, setGuardandoPago] = useState(false)
   const [pagoOk, setPagoOk] = useState<string | null>(null)
+
+  const esPagoMultiple = pagoMetodo === PAGO_MULTIPLE
+  const esMp = esMercadoPago(pagoMetodo)
+  const requiereComprobante =
+    !esPagoMultiple &&
+    pagoMetodo === 'Transferencia' &&
+    configCondiciones.transferencia_requiere_comprobante
+
+  useEffect(() => {
+    if (!mediosPagoCc.length) return
+    if (pagoMetodo === PAGO_MULTIPLE) return
+    if (!mediosPagoCc.some((m) => m.codigo === pagoMetodo)) {
+      setPagoMetodo(mediosPagoCc[0].codigo)
+    }
+  }, [mediosPagoCc, pagoMetodo])
+
+  useEffect(() => {
+    void (async () => {
+      const res = await apiService.getCuentasBancarias({ activa: true })
+      if (res.success && res.data) setCuentasBancarias(res.data)
+    })()
+  }, [])
 
   const cargarPerfil = useCallback(async (syncPrimero = false) => {
     if (!Number.isFinite(idCliente) || idCliente <= 0) {
@@ -173,7 +224,7 @@ export default function CuentaCorrientePerfilPage() {
   const actualizarLineaPago = (idx: number, patch: Partial<LineaPagoMultiple>) => {
     setPagoLineas((prev) => {
       const next = prev.map((l, i) => (i === idx ? { ...l, ...patch } : l))
-      if (pagoMetodo === 'Pago múltiple') {
+      if (esPagoMultiple) {
         const suma = next.reduce((s, l) => s + (parseMontoArsInput(l.monto) ?? 0), 0)
         setPagoMonto(suma > 0 ? String(Math.round(suma * 100) / 100) : '')
       }
@@ -190,7 +241,8 @@ export default function CuentaCorrientePerfilPage() {
       return
     }
     let detalleMedios: Array<{ metodo: string; monto: number }> | null = null
-    if (pagoMetodo === 'Pago múltiple') {
+    let detallePagoPayload: VentaDetallePago | null = null
+    if (esPagoMultiple) {
       detalleMedios = pagoLineas
         .map((l) => ({
           metodo: l.metodo,
@@ -208,6 +260,17 @@ export default function CuentaCorrientePerfilPage() {
         )
         return
       }
+    } else if (isMedioPagoCodigo(pagoMetodo)) {
+      const errDetalle = validarDetallePago(pagoMetodo, configCondiciones, pagoDetalle)
+      if (errDetalle) {
+        setError(errDetalle)
+        return
+      }
+      if (Object.keys(pagoDetalle).length) detallePagoPayload = pagoDetalle
+    }
+    if (requiereComprobante && !pagoComprobanteUrl) {
+      setError('Adjuntá el comprobante de la transferencia.')
+      return
     }
     if (pagoVentaId) {
       const venta = perfil.ventas_cc.find((v) => String(v.id) === pagoVentaId)
@@ -219,25 +282,27 @@ export default function CuentaCorrientePerfilPage() {
         if (!ok) return
       }
     }
-    if (!pagoComprobanteUrl) {
-      setError('Subí el comprobante del pago (transferencia, depósito, etc.)')
-      return
-    }
     setGuardandoPago(true)
     setError(null)
     setPagoOk(null)
     try {
+      const detalleResumen = resumenDetallePago(detallePagoPayload)
+      const notasFinal = [pagoNotas.trim(), detalleResumen ? `Pago: ${detalleResumen}` : '']
+        .filter(Boolean)
+        .join('\n')
+
       const res = await apiService.registrarPagoCuentaCorriente({
         id_cliente: idCliente,
         monto,
         fecha_pago: pagoFecha,
         metodo_pago: pagoMetodo,
-        url_comprobante: pagoComprobanteUrl,
+        url_comprobante: pagoComprobanteUrl || null,
         id_usuario: usuario.id,
         referencia: pagoRef.trim() || undefined,
-        notas: pagoNotas.trim() || undefined,
+        notas: notasFinal || undefined,
         id_venta: pagoVentaId ? Number(pagoVentaId) : null,
-        detalle_medios: detalleMedios
+        detalle_medios: detalleMedios,
+        detalle_pago: detallePagoPayload
       })
       if (!res.success) throw new Error(res.error || 'No se pudo registrar')
       setPagoOk('Pago registrado. La cuenta y el scoring se actualizaron automáticamente.')
@@ -281,7 +346,8 @@ export default function CuentaCorrientePerfilPage() {
       setPagoVentaId('')
       setPagoComprobanteUrl('')
       setPagoComprobanteNombre('')
-      setPagoMetodo('Pago múltiple')
+      setPagoDetalle({})
+      setPagoMetodo(mediosPagoCc[0]?.codigo ?? 'Transferencia')
       setPagoLineas([
         { metodo: 'Transferencia', monto: '' },
         { metodo: 'Efectivo', monto: '' }
@@ -642,8 +708,9 @@ export default function CuentaCorrientePerfilPage() {
         <section className="cc-perfil-section cc-perfil-pago-form">
           <h2>Registrar pago / remesa</h2>
           <p className="cc-perfil-section__hint">
-            Obligatorio adjuntar comprobante. Al guardar se acredita en la cuenta, actualiza saldo y
-            scoring.
+            Misma condición de pago que Venta rápida (sin Cuenta Corriente). Transferencia pide
+            cuenta destino; Cheque carga los datos del instrumento. El comprobante es obligatorio
+            solo si la transferencia lo requiere en la config.
           </p>
           <form onSubmit={(e) => void registrarPago(e)} className="cc-perfil-pago-grid">
             <label>
@@ -653,13 +720,18 @@ export default function CuentaCorrientePerfilPage() {
                 min="0.01"
                 step="0.01"
                 value={pagoMonto}
-                onChange={(e) => setPagoMonto(e.target.value)}
-                readOnly={pagoMetodo === 'Pago múltiple'}
-                title={
-                  pagoMetodo === 'Pago múltiple'
-                    ? 'Se calcula con la suma del desglose'
-                    : undefined
-                }
+                onChange={(e) => {
+                  const v = e.target.value
+                  setPagoMonto(v)
+                  if (pagoMetodo === 'Cheque') {
+                    const n = parseMontoArsInput(v)
+                    if (n != null && n > 0) {
+                      setPagoDetalle((d) => ({ ...d, monto_cheque: n }))
+                    }
+                  }
+                }}
+                readOnly={esPagoMultiple}
+                title={esPagoMultiple ? 'Se calcula con la suma del desglose' : undefined}
                 required
               />
             </label>
@@ -673,30 +745,49 @@ export default function CuentaCorrientePerfilPage() {
               />
             </label>
             <label>
-              <span>Método</span>
+              <span>Método *</span>
               <select
                 value={pagoMetodo}
                 onChange={(e) => {
                   const next = e.target.value
                   setPagoMetodo(next)
-                  if (next === 'Pago múltiple') {
+                  if (next === PAGO_MULTIPLE) {
+                    setPagoDetalle({})
                     const suma = pagoLineas.reduce(
                       (s, l) => s + (parseMontoArsInput(l.monto) ?? 0),
                       0
                     )
                     if (suma > 0) setPagoMonto(String(Math.round(suma * 100) / 100))
+                  } else if (next === 'Cheque') {
+                    const total = parseMontoArsInput(pagoMonto)
+                    setPagoDetalle(total != null && total > 0 ? { monto_cheque: total } : {})
+                  } else {
+                    setPagoDetalle({})
                   }
                 }}
               >
-                <option value="Pago múltiple">Pago múltiple</option>
-                {MEDIOS_PAGO_CC.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
+                {mediosPagoCc.map((m) => (
+                  <option key={m.codigo} value={m.codigo}>
+                    {m.label}
                   </option>
                 ))}
+                <option value={PAGO_MULTIPLE}>{PAGO_MULTIPLE}</option>
               </select>
             </label>
-            {pagoMetodo === 'Pago múltiple' ? (
+            {!esPagoMultiple && isMedioPagoCodigo(pagoMetodo) ? (
+              <div className="cc-perfil-pago-condicion wide">
+                <VentaCondicionPagoFields
+                  condicion={pagoMetodo}
+                  config={configCondiciones}
+                  detalle={pagoDetalle}
+                  cuentasBancarias={cuentasBancarias}
+                  onChange={setPagoDetalle}
+                  montoVenta={parseMontoArsInput(pagoMonto) ?? undefined}
+                  mensajeMercadoPago="Registrá el cobro con Mercado Pago y adjuntá el comprobante o el ID de pago en referencia/notas. El QR automático de Venta rápida no aplica a remesas de cuenta."
+                />
+              </div>
+            ) : null}
+            {esPagoMultiple ? (
               <div className="cc-perfil-pago-multiple wide">
                 <span className="cc-perfil-pago-multiple__title">Desglose por medio *</span>
                 <p className="cc-perfil-pago-multiple__hint">
@@ -708,9 +799,9 @@ export default function CuentaCorrientePerfilPage() {
                       value={linea.metodo}
                       onChange={(e) => actualizarLineaPago(idx, { metodo: e.target.value })}
                     >
-                      {MEDIOS_PAGO_CC.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
+                      {mediosPagoCc.map((m) => (
+                        <option key={m.codigo} value={m.codigo}>
+                          {m.label}
                         </option>
                       ))}
                     </select>
@@ -747,7 +838,10 @@ export default function CuentaCorrientePerfilPage() {
                   type="button"
                   className="cc-btn cc-btn--secondary cc-btn--sm"
                   onClick={() =>
-                    setPagoLineas((prev) => [...prev, { metodo: 'Transferencia', monto: '' }])
+                    setPagoLineas((prev) => [
+                      ...prev,
+                      { metodo: mediosPagoCc[0]?.codigo ?? 'Transferencia', monto: '' }
+                    ])
                   }
                 >
                   + Agregar medio
@@ -759,7 +853,7 @@ export default function CuentaCorrientePerfilPage() {
               <input
                 value={pagoRef}
                 onChange={(e) => setPagoRef(e.target.value)}
-                placeholder="Ej. transferencia 12/05"
+                placeholder={esMp ? 'Ej. ID pago Mercado Pago' : 'Ej. transferencia 12/05'}
               />
             </label>
             <label>
@@ -784,7 +878,12 @@ export default function CuentaCorrientePerfilPage() {
               />
             </label>
             <label className="wide">
-              <span>Comprobante de pago * (PDF o imagen)</span>
+              <span>
+                Comprobante de pago
+                {requiereComprobante ? ' *' : ' (opcional)'}
+                {' '}
+                (PDF o imagen)
+              </span>
               <div className="cc-perfil-comprobante">
                 <input
                   type="file"
@@ -811,7 +910,11 @@ export default function CuentaCorrientePerfilPage() {
               <button
                 type="submit"
                 className="cc-btn cc-btn--primary"
-                disabled={guardandoPago || subiendoComprobante || !pagoComprobanteUrl}
+                disabled={
+                  guardandoPago ||
+                  subiendoComprobante ||
+                  (requiereComprobante && !pagoComprobanteUrl)
+                }
               >
                 {guardandoPago ? 'Guardando…' : 'Registrar pago en cuenta'}
               </button>

@@ -236,7 +236,9 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
       return
     }
     if (hayEgresosPendientes(egresosLista)) {
-      setMsg('Hay egresos pendientes de aprobación. Resolvelos en la sección Egresos antes del cierre de turno.')
+      setMsg(
+        'Hay egresos pendientes de autorización o sin ticket. Completalos en Egresos antes del cierre de turno.'
+      )
       return
     }
     if (fondoMonto <= 0) {
@@ -516,8 +518,8 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
           <p className="caja-cc-help">Cargando egresos…</p>
         ) : hayEgresosPendientes(egresosLista) ? (
           <p className="caja-cc-error">
-            Hay egresos <strong>pendientes</strong> de aprobación por administración. No podés cerrar el turno hasta
-            resolverlos (sección Egresos).
+            Hay egresos <strong>pendientes</strong> de autorización o sin ticket del operador. No podés cerrar el
+            turno hasta resolverlos (sección Egresos).
           </p>
         ) : (
           <>
@@ -536,10 +538,10 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
                   ' — registrá egresos en la sección Egresos o cargá el cierre del día.'}
               </p>
             )}
-            {egresosLista.filter((s) => s.estado === 'aprobado').length > 0 && (
+            {egresosLista.filter((s) => s.estado === 'aprobado' && !!s.url_ticket).length > 0 && (
               <ul className="caja-cc-egresos-mini-list">
                 {egresosLista
-                  .filter((s) => s.estado === 'aprobado')
+                  .filter((s) => s.estado === 'aprobado' && !!s.url_ticket)
                   .slice(0, 6)
                   .map((s) => (
                     <li key={s.id}>

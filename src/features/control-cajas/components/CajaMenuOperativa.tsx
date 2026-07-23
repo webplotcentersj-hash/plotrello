@@ -3,10 +3,8 @@ import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { estadoPasoMenu, loadEstadoOperativaHoy, type CajaEstadoOperativaHoy } from '../cajaOperativaHoy'
 import { fmtArs, fmtDateAr } from '../format'
 import { useCajaMenuRealtime } from '../useCajaMenuRealtime'
-import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaSectionId } from '../types'
 import CajaMenuResumenDia from './CajaMenuResumenDia'
-import CajaSubidaInteligente from './CajaSubidaInteligente'
 
 type Paso = {
   section: CajaSectionId
@@ -80,8 +78,6 @@ type Props = {
   usuarioId?: number
   refreshToken?: number
   onNavigate: (section: CajaSectionId) => void
-  onPlanillaParsed?: (planilla: PlanillaCajaParsed | null) => void
-  onImported?: () => void
 }
 
 function resumenDia(estado: CajaEstadoOperativaHoy): string {
@@ -106,9 +102,7 @@ export default function CajaMenuOperativa({
   usuarioNombre,
   usuarioId,
   refreshToken = 0,
-  onNavigate,
-  onPlanillaParsed,
-  onImported
+  onNavigate
 }: Props) {
   const hoy = getArgentinaDateString()
   const [estado, setEstado] = useState<CajaEstadoOperativaHoy | null>(null)
@@ -228,16 +222,6 @@ export default function CajaMenuOperativa({
           )
         })}
       </div>
-
-      <CajaSubidaInteligente
-        usuarioNombre={usuarioNombre}
-        usuarioId={usuarioId}
-        estado={estado}
-        onNavigate={onNavigate}
-        onPlanillaParsed={onPlanillaParsed}
-        onImported={onImported}
-        collapsible
-      />
     </div>
   )
 }

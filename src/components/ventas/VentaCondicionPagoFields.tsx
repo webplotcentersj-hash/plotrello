@@ -15,6 +15,8 @@ type Props = {
   onChange: (next: VentaDetallePago) => void
   /** Total de la venta: se usa como monto de cheque por defecto. */
   montoVenta?: number
+  /** Texto opcional para Mercado Pago (venta rápida / cobro CC, etc.). */
+  mensajeMercadoPago?: string
 }
 
 function patchDetalle(prev: VentaDetallePago, patch: Partial<VentaDetallePago>): VentaDetallePago {
@@ -31,7 +33,8 @@ export default function VentaCondicionPagoFields({
   detalle,
   cuentasBancarias,
   onChange,
-  montoVenta
+  montoVenta,
+  mensajeMercadoPago
 }: Props) {
   const [bancoNuevo, setBancoNuevo] = useState('')
   const [bancosExtra, setBancosExtra] = useState<string[]>([])
@@ -431,8 +434,8 @@ export default function VentaCondicionPagoFields({
     return (
       <div className="venta-condicion-fields venta-condicion-fields--mp">
         <p className="venta-condicion-fields__hint">
-          Al confirmar la venta se generará un código QR de Mercado Pago. El comprobante del pago queda
-          registrado automáticamente al aprobarse el cobro.
+          {mensajeMercadoPago ??
+            'Al confirmar la venta se generará un código QR de Mercado Pago. El comprobante del pago queda registrado automáticamente al aprobarse el cobro.'}
         </p>
       </div>
     )

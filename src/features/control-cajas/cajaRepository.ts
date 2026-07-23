@@ -748,6 +748,7 @@ function mapEgresoRow(r: Record<string, unknown>): CajaEgresoSolicitud {
     observacion: r.observacion != null ? String(r.observacion) : null,
     motivo_rechazo: r.motivo_rechazo != null ? String(r.motivo_rechazo) : null,
     id_movimiento: r.id_movimiento != null ? String(r.id_movimiento) : null,
+    url_ticket: r.url_ticket != null ? String(r.url_ticket) : null,
     created_at: r.created_at != null ? String(r.created_at) : undefined,
     updated_at: r.updated_at != null ? String(r.updated_at) : undefined
   }
@@ -816,7 +817,8 @@ export async function saveEgresoSolicitudImportado(
       solicitante_nombre: input.solicitante_nombre ?? null,
       observacion: input.observacion ?? null,
       aprobador_nombre: aprobadorNombre,
-      id_movimiento: input.id_movimiento ?? null
+      id_movimiento: input.id_movimiento ?? null,
+      url_ticket: input.url_ticket ?? null
     })
     if (!error) return record
   }
@@ -857,11 +859,12 @@ export async function createEgresoSolicitud(
       caja_slug: input.caja_slug,
       concepto: input.concepto,
       monto_efectivo: input.monto_efectivo,
-      monto_otros: input.monto_otros,
+      monto_otros: input.monto_otros ?? 0,
       estado: 'pendiente',
       solicitante_id: input.solicitante_id ?? null,
       solicitante_nombre: input.solicitante_nombre ?? null,
-      observacion: input.observacion ?? null
+      observacion: input.observacion ?? null,
+      url_ticket: input.url_ticket ?? null
     })
     if (!error) return record
   }
@@ -883,37 +886,16 @@ export async function resolverEgresoSolicitud(
   if (!sol || sol.estado !== 'pendiente') return null
 
   const now = new Date().toISOString()
-  let id_movimiento: string | null = null
 
-  if (accion === 'aprobado') {
-    const adminSlug =
-      opts?.adminSlug ??
-      (await listCajas()).find((c) => c.slug === 'admin')?.slug ??
-      'admin'
-    const mov = await saveMovimiento({
-      fecha: sol.fecha,
-      hora: new Date().toTimeString().slice(0, 5),
-      concepto: sol.concepto || 'Egreso',
-      subtipo_pase: null,
-      origen_slug: sol.caja_slug,
-      destino_slug: adminSlug,
-      efectivo: sol.monto_efectivo,
-      otros: sol.monto_otros,
-      observacion: `Egreso aprobado por ${aprobador.nombre}. ${sol.observacion ?? ''}`.trim(),
-      id_usuario: sol.solicitante_id ?? null,
-      usuario_nombre: sol.solicitante_nombre ?? null,
-      origen_importacion: 'manual'
-    })
-    id_movimiento = mov.id
-  }
-
+  // Aprobado = autorización. El movimiento se genera cuando el operador adjunta el ticket.
   const updated: CajaEgresoSolicitud = {
     ...sol,
     estado: accion,
     aprobador_id: aprobador.id,
     aprobador_nombre: aprobador.nombre,
     motivo_rechazo: accion === 'rechazado' ? opts?.motivo_rechazo ?? null : null,
-    id_movimiento,
+    id_movimiento: null,
+    url_ticket: sol.url_ticket ?? null,
     updated_at: now
   }
 
@@ -925,7 +907,84 @@ export async function resolverEgresoSolicitud(
         aprobador_id: aprobador.id,
         aprobador_nombre: aprobador.nombre,
         motivo_rechazo: updated.motivo_rechazo,
-        id_movimiento,
+        id_movimiento: null,
+        updated_at: now
+      })
+      .eq('id', id)
+    if (!error) return updated
+  }
+
+  const store = readLocal()
+  const idx = store.egreso_solicitudes.findIndex((s) => s.id === id)
+  if (idx >= 0) store.egreso_solicitudes[idx] = updated
+  writeLocal(store)
+  return updated
+}
+
+/** Operador adjunta ticket tras aprobación → genera el movimiento de egreso. */
+export async function adjuntarTicketEgresoSolicitud(
+  id: string,
+  urlTicket: string,
+  opts?: { actor?: CajaActor; adminSlug?: string }
+): Promise<CajaEgresoSolicitud | null> {
+  const url = urlTicket.trim()
+  if (!url) throw new Error('Adjuntá el ticket del egreso.')
+
+  const list = await listEgresoSolicitudes()
+  const sol = list.find((s) => s.id === id)
+  if (!sol || sol.estado !== 'aprobado') {
+    throw new Error('Solo se puede adjuntar ticket a un egreso ya aprobado.')
+  }
+  if (sol.url_ticket && sol.id_movimiento) {
+    throw new Error('Este egreso ya tiene ticket.')
+  }
+  if (opts?.actor) {
+    assertPuedeOperarCaja(opts.actor, sol.caja_slug)
+  } else if (sol.solicitante_id != null) {
+    assertPuedeOperarCaja({ id: sol.solicitante_id }, sol.caja_slug)
+  }
+
+  const now = new Date().toISOString()
+  const adminSlug =
+    opts?.adminSlug ??
+    (await listCajas()).find((c) => c.slug === 'admin')?.slug ??
+    'admin'
+
+  const mov = await saveMovimiento({
+    fecha: sol.fecha,
+    hora: new Date().toTimeString().slice(0, 5),
+    concepto: sol.concepto || 'Egreso',
+    subtipo_pase: null,
+    origen_slug: sol.caja_slug,
+    destino_slug: adminSlug,
+    efectivo: sol.monto_efectivo,
+    otros: 0,
+    observacion: [
+      sol.aprobador_nombre ? `Egreso autorizado por ${sol.aprobador_nombre}.` : 'Egreso autorizado.',
+      sol.observacion?.trim() || '',
+      `Ticket: ${url}`
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .trim(),
+    id_usuario: sol.solicitante_id ?? null,
+    usuario_nombre: sol.solicitante_nombre ?? null,
+    origen_importacion: 'manual'
+  })
+
+  const updated: CajaEgresoSolicitud = {
+    ...sol,
+    url_ticket: url,
+    id_movimiento: mov.id,
+    updated_at: now
+  }
+
+  if (await checkRemote()) {
+    const { error } = await supabase!
+      .from('control_caja_egreso_solicitudes')
+      .update({
+        url_ticket: url,
+        id_movimiento: mov.id,
         updated_at: now
       })
       .eq('id', id)

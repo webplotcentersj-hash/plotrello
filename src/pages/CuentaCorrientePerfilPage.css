@@ -359,6 +359,54 @@
   grid-column: 1 / -1;
 }
 
+.cc-perfil-pago-grid .cc-perfil-pago-multiple.wide {
+  grid-column: 1 / -1;
+}
+
+.cc-perfil-pago-grid .cc-perfil-pago-condicion.wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.cc-perfil-pago-condicion .venta-condicion-fields {
+  margin: 0;
+}
+
+.cc-perfil-pago-condicion .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.cc-perfil-pago-condicion .form-group > label,
+.cc-perfil-pago-condicion .venta-condicion-fields--transferencia .form-group > label,
+.cc-perfil-pago-condicion .venta-condicion-fields--cheque label {
+  color: #94a3b8 !important;
+  font-size: 0.78rem;
+  font-weight: 600;
+  -webkit-text-fill-color: #94a3b8 !important;
+}
+
+.cc-perfil-pago-condicion .form-select,
+.cc-perfil-pago-condicion .form-input,
+.cc-perfil-pago-condicion input,
+.cc-perfil-pago-condicion select {
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #f1f5f9;
+  font-size: 0.88rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cc-perfil-pago-condicion .venta-condicion-fields__warn {
+  color: #fde68a;
+  background: rgba(251, 191, 36, 0.12);
+}
+
 .cc-perfil-pago-grid input,
 .cc-perfil-pago-grid select,
 .cc-perfil-pago-grid textarea {
@@ -373,11 +421,12 @@
 .cc-perfil-pago-multiple {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px 16px;
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.22);
   background: rgba(30, 41, 59, 0.45);
+  min-width: 0;
 }
 
 .cc-perfil-pago-multiple__title {
@@ -390,19 +439,51 @@
   margin: 0;
   font-size: 0.75rem;
   color: #64748b;
+  line-height: 1.35;
 }
 
 .cc-perfil-pago-multiple__row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(110px, 0.8fr) auto;
-  gap: 8px;
-  align-items: center;
+  grid-template-columns: minmax(160px, 1.2fr) minmax(120px, 180px) minmax(72px, auto);
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
 }
 
 .cc-perfil-pago-multiple__row select,
 .cc-perfil-pago-multiple__row input {
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #f1f5f9;
+  font-size: 0.88rem;
+}
+
+.cc-perfil-pago-multiple__row .cc-btn {
+  justify-self: start;
+  white-space: nowrap;
+  height: 100%;
+  min-height: 38px;
+}
+
+.cc-perfil-pago-multiple > .cc-btn {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+@media (max-width: 560px) {
+  .cc-perfil-pago-multiple__row {
+    grid-template-columns: 1fr;
+  }
+
+  .cc-perfil-pago-multiple__row .cc-btn {
+    width: 100%;
+    justify-self: stretch;
+  }
 }
 
 .cc-perfil-comprobante {

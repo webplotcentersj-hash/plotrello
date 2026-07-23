@@ -500,7 +500,7 @@ export function resumenAdminHoy(
           : 'ninguno'
 
   const delDia = egresos.filter((e) => e.fecha === fecha)
-  const aprobados = delDia.filter((e) => e.estado === 'aprobado')
+  const aprobados = delDia.filter((e) => e.estado === 'aprobado' && !!e.url_ticket)
   let egresosHoy = aprobados.reduce(
     (s, e) => s + (e.monto_efectivo || 0) + (e.monto_otros || 0),
     0
@@ -512,7 +512,9 @@ export function resumenAdminHoy(
       }
     }
   }
-  const egresosPendientes = delDia.filter((e) => e.estado === 'pendiente').length
+  const egresosPendientes = delDia.filter(
+    (e) => e.estado === 'pendiente' || (e.estado === 'aprobado' && !e.url_ticket)
+  ).length
 
   // Solo listar fondos que el operador/admin configuró (> 0). Nunca inventar $100.000.
   const fondosOperativas = cajas

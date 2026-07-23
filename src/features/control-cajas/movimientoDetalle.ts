@@ -158,7 +158,7 @@ export function lineasEgresoDia(
   egresos: CajaEgresoSolicitud[],
   planillas: PlanillaCajaGuardada[]
 ): DiaResumenLinea[] {
-  const aprobados = egresos.filter((e) => e.fecha === fecha && e.estado === 'aprobado')
+  const aprobados = egresos.filter((e) => e.fecha === fecha && e.estado === 'aprobado' && !!e.url_ticket)
   const lineas: DiaResumenLinea[] = aprobados.map((e) => ({
     id: e.id,
     titulo: e.concepto,

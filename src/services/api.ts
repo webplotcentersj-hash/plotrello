@@ -6061,12 +6061,13 @@ class ApiService {
     monto: number
     fecha_pago: string
     metodo_pago?: string
-    url_comprobante: string
+    url_comprobante?: string | null
     id_usuario: number
     referencia?: string
     notas?: string
     id_venta?: number | null
     detalle_medios?: Array<{ metodo: string; monto: number }> | null
+    detalle_pago?: import('../constants/ventasCondicionesPago').VentaDetallePago | null
   }): Promise<ApiResponse<{ id_movimiento: number; id_cliente: number }>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
@@ -6075,12 +6076,16 @@ class ApiService {
         p_monto: payload.monto,
         p_fecha_pago: payload.fecha_pago,
         p_metodo_pago: payload.metodo_pago ?? null,
-        p_url_comprobante: payload.url_comprobante,
+        p_url_comprobante: payload.url_comprobante?.trim() || null,
         p_id_usuario: payload.id_usuario,
         p_referencia: payload.referencia ?? null,
         p_notas: payload.notas ?? null,
         p_id_venta: payload.id_venta ?? null,
-        p_detalle_medios: payload.detalle_medios?.length ? payload.detalle_medios : null
+        p_detalle_medios: payload.detalle_medios?.length ? payload.detalle_medios : null,
+        p_detalle_pago:
+          payload.detalle_pago && Object.keys(payload.detalle_pago).length
+            ? payload.detalle_pago
+            : null
       })
       if (error) return { success: false, error: error.message }
       const row = data as { id_movimiento: number; id_cliente: number }

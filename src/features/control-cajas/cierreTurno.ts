@@ -204,7 +204,8 @@ export function totalEgresosAprobados(solicitudes: CajaEgresoSolicitud[]): {
   efectivo: number
   otros: number
 } {
-  const aprob = solicitudes.filter((s) => s.estado === 'aprobado')
+  // Solo egresos con ticket (movimiento ejecutado).
+  const aprob = solicitudes.filter((s) => s.estado === 'aprobado' && !!s.url_ticket)
   return {
     efectivo: aprob.reduce((s, x) => s + (x.monto_efectivo || 0), 0),
     otros: aprob.reduce((s, x) => s + (x.monto_otros || 0), 0)
@@ -212,7 +213,10 @@ export function totalEgresosAprobados(solicitudes: CajaEgresoSolicitud[]): {
 }
 
 export function hayEgresosPendientes(solicitudes: CajaEgresoSolicitud[]): boolean {
-  return solicitudes.some((s) => s.estado === 'pendiente')
+  return solicitudes.some(
+    (s) =>
+      s.estado === 'pendiente' || (s.estado === 'aprobado' && !s.url_ticket)
+  )
 }
 
 export type EgresosDelDiaFuente = 'solicitudes' | 'movimientos' | 'cierre' | 'ninguno'
@@ -232,7 +236,7 @@ export async function egresosDelDiaParaCierreTurno(
 ): Promise<EgresosDelDiaResumen> {
   const solicitudes = await listEgresoSolicitudes({ fecha, cajaSlug })
   const fromSol = totalEgresosAprobados(solicitudes)
-  const hayAprobados = solicitudes.some((s) => s.estado === 'aprobado')
+  const hayAprobados = solicitudes.some((s) => s.estado === 'aprobado' && !!s.url_ticket)
   if (hayAprobados) {
     return {
       solicitudes,

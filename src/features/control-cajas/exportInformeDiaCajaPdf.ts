@@ -174,7 +174,7 @@ export function downloadInformeDiaCajaPdf(input: InformeDiaCajaInput): void {
     y += 3
   }
 
-  const egresosDia = egresos.filter((e) => e.fecha === fecha && e.estado === 'aprobado')
+  const egresosDia = egresos.filter((e) => e.fecha === fecha && e.estado === 'aprobado' && !!e.url_ticket)
   if (egresosDia.length) {
     y = ensurePage(doc, y + 2, margin)
     doc.setFont('helvetica', 'bold')
