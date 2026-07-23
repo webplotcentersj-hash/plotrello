@@ -3,6 +3,7 @@ import SignaturePad from '../../../components/SignaturePad'
 import { useCajaOperativa } from '../../../hooks/useCajaOperativa'
 import { BILLETE_DENOMINACIONES, TURNOS_CAJA } from '../constants'
 import {
+  arqueoBloqueadoHastaCierre,
   listCajas,
   listEgresoSolicitudes,
   listMovimientos,
@@ -19,13 +20,13 @@ import type { ResumenPlotlabVentasCaja } from '../plotlabVentasCajaData'
 import CajaPlotlabVentasPanel from './CajaPlotlabVentasPanel'
 import { calcularTeoricoFisicoCaja } from '../arqueoCalculations'
 import { estadoArqueo } from '../movimientoCaja'
-import { fmtArs, fmtArs0, parseNum } from '../format'
+import { fmtArs, fmtArs0, fmtDateAr, parseNum } from '../format'
 import { fondoFijoEfectivo } from '../fondoCaja'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { efectivoQuedaEnCajaDesdePlanilla } from '../cajaTotales'
 import { uploadAttachmentAndGetUrl } from '../../../utils/storage'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
-import type { CajaEgresoSolicitud, CajaRegistro } from '../types'
+import type { CajaArqueo, CajaEgresoSolicitud, CajaRegistro } from '../types'
 import { notifyArqueoCompletado } from '../cajaSyncNotify'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 
@@ -36,6 +37,8 @@ type Props = {
   /** Vista cajera: caja asociada al usuario; selector solo si no se puede resolver. */
   fijarCajaUsuario?: boolean
   onSaved?: () => void
+  onIrCierreTurno?: () => void
+  onIrEgresos?: () => void
   /** Planilla PDF leída arriba — referencia para arqueo físico. */
   planillaActiva?: PlanillaCajaParsed | null
   /** Incrementar tras importar planilla para refrescar movimientos sin remontar la vista. */
@@ -48,6 +51,8 @@ export default function CajaSectionArqueo({
   soloCajasOperativas = true,
   fijarCajaUsuario = false,
   onSaved,
+  onIrCierreTurno,
+  onIrEgresos,
   planillaActiva = null,
   movimientosRefreshKey = 0
 }: Props) {
@@ -69,12 +74,15 @@ export default function CajaSectionArqueo({
   const [msg, setMsg] = useState<string | null>(null)
   const [msgOk, setMsgOk] = useState(false)
   const [egresosDia, setEgresosDia] = useState<CajaEgresoSolicitud[]>([])
+  const [egresosVinculadosIds, setEgresosVinculadosIds] = useState<string[]>([])
   const [ticketJustifUrl, setTicketJustifUrl] = useState('')
   const [ticketJustifNombre, setTicketJustifNombre] = useState('')
   const [subiendoTicket, setSubiendoTicket] = useState(false)
   const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
   const [planillas, setPlanillas] = useState<Awaited<ReturnType<typeof listPlanillas>>>([])
   const [resumenPlotlabApi, setResumenPlotlabApi] = useState<ResumenPlotlabVentasCaja | null>(null)
+  const [arqueoBloqueado, setArqueoBloqueado] = useState(false)
+  const [ultimoArqueoBloqueo, setUltimoArqueoBloqueo] = useState<CajaArqueo | null>(null)
 
   useEffect(() => {
     if (!cajaSlug || !fecha) return
@@ -86,6 +94,23 @@ export default function CajaSectionArqueo({
       }
     )
   }, [cajaSlug, fecha, movimientosRefreshKey])
+
+  useEffect(() => {
+    if (!cajaSlug || !fecha) {
+      setArqueoBloqueado(false)
+      setUltimoArqueoBloqueo(null)
+      return
+    }
+    let cancelled = false
+    void arqueoBloqueadoHastaCierre(cajaSlug, fecha).then((lock) => {
+      if (cancelled) return
+      setArqueoBloqueado(lock.bloqueado)
+      setUltimoArqueoBloqueo(lock.ultimoArqueo)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [cajaSlug, fecha, movimientosRefreshKey, msgOk])
 
   useEffect(() => {
     if (!cajaSlug || !fecha) return
@@ -202,24 +227,47 @@ export default function CajaSectionArqueo({
   const montoSobrante = esSobrante && deltaVsObjetivo != null ? deltaVsObjetivo : 0
   const requiereJustificacion = esFaltante || esSobrante
 
-  const egresosJustifican = useMemo(() => {
+  /** Egresos ejecutados del día (aprobados + ticket) para vincular al faltante. */
+  const egresosDisponibles = useMemo(() => {
     if (!esFaltante || montoFaltante <= 0) return [] as CajaEgresoSolicitud[]
     return egresosDia.filter(
       (e) =>
         e.estado === 'aprobado' &&
         !!e.url_ticket &&
+        (e.monto_efectivo || 0) > 0 &&
         e.caja_slug === cajaSlug &&
         e.fecha === fecha
     )
   }, [egresosDia, esFaltante, montoFaltante, cajaSlug, fecha])
 
-  const sumaEgresosTicket = useMemo(
-    () => egresosJustifican.reduce((s, e) => s + (e.monto_efectivo || 0), 0),
-    [egresosJustifican]
+  const egresosVinculados = useMemo(
+    () => egresosDisponibles.filter((e) => egresosVinculadosIds.includes(e.id)),
+    [egresosDisponibles, egresosVinculadosIds]
+  )
+
+  const sumaEgresosVinculados = useMemo(
+    () => egresosVinculados.reduce((s, e) => s + (e.monto_efectivo || 0), 0),
+    [egresosVinculados]
   )
   const egresosCubrenFaltante =
-    esFaltante && sumaEgresosTicket > 0 && Math.abs(sumaEgresosTicket - montoFaltante) <= 1.5
-  const diferenciaJustificada = !!ticketJustifUrl || egresosCubrenFaltante
+    esFaltante &&
+    egresosVinculados.length > 0 &&
+    Math.abs(sumaEgresosVinculados - montoFaltante) <= 1.5
+  const diferenciaJustificada = esFaltante
+    ? egresosCubrenFaltante
+    : esSobrante
+      ? !!ticketJustifUrl
+      : true
+
+  useEffect(() => {
+    setEgresosVinculadosIds([])
+  }, [cajaSlug, fecha])
+
+  const toggleEgresoVinculado = (id: string) => {
+    setEgresosVinculadosIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
 
   const setCantidad = (denom: number, raw: string) => {
     const q = Math.max(0, Math.floor(parseNum(raw)))
@@ -251,6 +299,11 @@ export default function CajaSectionArqueo({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (arqueoBloqueado) {
+      setMsgOk(false)
+      setMsg('Ya hay un arqueo de este turno. Completá el cierre de turno antes de hacer otro.')
+      return
+    }
     if (!cajaSlug) {
       setMsgOk(false)
       setMsg(
@@ -268,7 +321,9 @@ export default function CajaSectionArqueo({
       setMsgOk(false)
       setMsg(
         esFaltante
-          ? `Faltan $ ${fmtArs(montoFaltante)} vs lo esperado. Adjuntá el ticket del egreso que justifica el faltante, o registrá el egreso con ticket en Egresos.`
+          ? egresosDisponibles.length === 0
+            ? `Faltan $ ${fmtArs(montoFaltante)}. Registrá y ejecutá el egreso (con ticket) en Egresos, y volvé a vincularlo acá.`
+            : `Faltan $ ${fmtArs(montoFaltante)}. Seleccioná egreso(s) cuya suma coincida con el faltante (ahora $ ${fmtArs(sumaEgresosVinculados)}).`
           : `Sobran $ ${fmtArs(montoSobrante)} vs lo esperado. Adjuntá un comprobante o nota que justifique el sobrante.`
       )
       return
@@ -279,9 +334,9 @@ export default function CajaSectionArqueo({
     setMsgOk(false)
     try {
       const dif = teorico != null ? total - teorico.teorico : deltaVsObjetivo
-      const urlJustif =
-        ticketJustifUrl ||
-        (egresosCubrenFaltante ? egresosJustifican[0]?.url_ticket ?? null : null)
+      const urlJustif = esFaltante
+        ? egresosVinculados[0]?.url_ticket ?? null
+        : ticketJustifUrl || null
       await saveArqueo(
         {
           fecha,
@@ -322,13 +377,18 @@ export default function CajaSectionArqueo({
                   sobrante: esSobrante ? montoSobrante : 0
                 }
               : {}),
-            ...(urlJustif
+            ...(esFaltante && egresosCubrenFaltante
               ? {
                   justificacion_url: urlJustif,
-                  justificacion_tipo: esFaltante ? 'faltante' : 'sobrante',
-                  justificacion_egreso_ids: egresosJustifican.map((x) => x.id)
+                  justificacion_tipo: 'faltante' as const,
+                  justificacion_egreso_ids: egresosVinculados.map((x) => x.id)
                 }
-              : {})
+              : esSobrante && urlJustif
+                ? {
+                    justificacion_url: urlJustif,
+                    justificacion_tipo: 'sobrante' as const
+                  }
+                : {})
           },
           firma_data_url: firmaDataUrl
         },
@@ -337,7 +397,7 @@ export default function CajaSectionArqueo({
       setMsgOk(true)
       setMsg(
         esFaltante
-          ? `Arqueo guardado con faltante justificado — total $ ${fmtArs(total)}`
+          ? `Arqueo guardado con faltante vinculado a egreso — total $ ${fmtArs(total)}`
           : esSobrante
             ? `Arqueo guardado con sobrante justificado — total $ ${fmtArs(total)}`
             : `Arqueo guardado — total $ ${fmtArs(total)}`
@@ -348,6 +408,7 @@ export default function CajaSectionArqueo({
       setFirmaPadKey((k) => k + 1)
       setTicketJustifUrl('')
       setTicketJustifNombre('')
+      setEgresosVinculadosIds([])
       onSaved?.()
     } catch (err) {
       setMsgOk(false)
@@ -363,10 +424,31 @@ export default function CajaSectionArqueo({
 
   return (
     <form className="caja-cc-form" onSubmit={(e) => void handleSubmit(e)}>
-      {resumenPlotlab && cajaActiva && (
+      {arqueoBloqueado && ultimoArqueoBloqueo ? (
+        <div className="caja-cc-card caja-cc-arqueo-bloqueado" role="status">
+          <h3>Arqueo ya registrado</h3>
+          <p className="caja-cc-help">
+            El {fmtDateAr(ultimoArqueoBloqueo.fecha)} se guardó un arqueo de{' '}
+            <strong>$ {fmtArs(ultimoArqueoBloqueo.total)}</strong>
+            {ultimoArqueoBloqueo.turno ? ` (${ultimoArqueoBloqueo.turno})` : ''}. No se puede hacer otro hasta
+            completar el <strong>cierre de turno</strong>.
+          </p>
+          {onIrCierreTurno ? (
+            <button type="button" className="btn-primary" onClick={onIrCierreTurno}>
+              Ir a cierre de turno →
+            </button>
+          ) : (
+            <p className="caja-cc-field-hint">Andá al menú → Cierre de turno.</p>
+          )}
+        </div>
+      ) : null}
+
+      {resumenPlotlab && cajaActiva && !arqueoBloqueado && (
         <CajaPlotlabVentasPanel resumen={resumenPlotlab} cajaNombre={cajaActiva.nombre} />
       )}
 
+      {arqueoBloqueado ? null : (
+        <>
       {alertaDoble.activa && (
         <div className="caja-cc-alerta-doble-fuente" role="alert">
           {alertaDoble.mensaje}
@@ -517,7 +599,7 @@ export default function CajaSectionArqueo({
                 ? 'Cuadra con planilla PDF'
                 : 'Cuadra con Plot Lab'
               : esFaltante
-                ? `Faltante $ ${fmtArs(montoFaltante)} — justificá con ticket`
+                ? `Faltante $ ${fmtArs(montoFaltante)} — vinculá a egreso`
                 : `Sobrante $ ${fmtArs(montoSobrante)} — justificá con comprobante`}
           </span>
         )}
@@ -539,10 +621,8 @@ export default function CajaSectionArqueo({
             Contaste $ {fmtArs(total)} y el esperado es $ {fmtArs(objetivoEfectivo ?? 0)}.{' '}
             {esFaltante ? (
               <>
-                Faltan <strong>$ {fmtArs(montoFaltante)}</strong>. Adjuntá el ticket del egreso que lo explica
-                {egresosCubrenFaltante
-                  ? ` (ya hay egreso(s) con ticket por $ ${fmtArs(sumaEgresosTicket)}).`
-                  : '.'}
+                Faltan <strong>$ {fmtArs(montoFaltante)}</strong>. Vinculá el/los egreso(s) del día que lo
+                explican (la suma debe coincidir con el faltante).
               </>
             ) : (
               <>
@@ -551,21 +631,53 @@ export default function CajaSectionArqueo({
               </>
             )}
           </p>
-          {egresosCubrenFaltante ? (
-            <p className="caja-cc-ok">
-              ✓ Egresos del día con ticket cubren el faltante
-              {egresosJustifican[0]?.url_ticket ? (
-                <>
-                  {' · '}
-                  <a href={egresosJustifican[0].url_ticket} target="_blank" rel="noopener noreferrer">
-                    Ver ticket
-                  </a>
-                </>
-              ) : null}
-            </p>
+          {esFaltante ? (
+            egresosDisponibles.length === 0 ? (
+              <div className="caja-cc-arqueo-egresos-vincular">
+                <p className="caja-cc-help">
+                  No hay egresos con ticket en esta caja hoy. Pedí/ejecutá el egreso en Egresos y volvé.
+                </p>
+                {onIrEgresos ? (
+                  <button type="button" className="btn-secondary" onClick={onIrEgresos}>
+                    Ir a Egresos
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="caja-cc-arqueo-egresos-vincular">
+                {egresosDisponibles.map((e) => (
+                  <label key={e.id} className="caja-cc-egreso-vincular-row">
+                    <input
+                      type="checkbox"
+                      checked={egresosVinculadosIds.includes(e.id)}
+                      disabled={saving}
+                      onChange={() => toggleEgresoVinculado(e.id)}
+                    />
+                    <span>
+                      <strong>$ {fmtArs(e.monto_efectivo || 0)}</strong>
+                      {' — '}
+                      {e.concepto || 'Egreso'}
+                      {e.url_ticket ? (
+                        <>
+                          {' · '}
+                          <a href={e.url_ticket} target="_blank" rel="noopener noreferrer">
+                            Ver ticket
+                          </a>
+                        </>
+                      ) : null}
+                    </span>
+                  </label>
+                ))}
+                <p className={egresosCubrenFaltante ? 'caja-cc-ok' : 'caja-cc-help'}>
+                  {egresosCubrenFaltante
+                    ? `✓ Egresos vinculados cubren el faltante ($ ${fmtArs(sumaEgresosVinculados)})`
+                    : `Seleccionados: $ ${fmtArs(sumaEgresosVinculados)} · faltante $ ${fmtArs(montoFaltante)}`}
+                </p>
+              </div>
+            )
           ) : (
             <label className="caja-cc-field">
-              {esFaltante ? 'Ticket del egreso *' : 'Comprobante / justificación *'}
+              Comprobante / justificación *
               <input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
@@ -630,12 +742,15 @@ export default function CajaSectionArqueo({
             saving ||
             cajaResolviendo ||
             subiendoTicket ||
+            arqueoBloqueado ||
             (requiereJustificacion && !diferenciaJustificada)
           }
         >
           {saving ? 'Guardando…' : 'Guardar y firmar'}
         </button>
       </div>
+        </>
+      )}
     </form>
   )
 }

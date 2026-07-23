@@ -453,6 +453,13 @@ export default function ControlCajasModule() {
               fijarCajaUsuario
               planillaActiva={planillaActiva}
               movimientosRefreshKey={movimientosRefreshKey}
+              onIrCierreTurno={() => goSection('cierre_turno')}
+              onIrEgresos={() => goSection('egresos')}
+              onSaved={() => {
+                bumpRefresh()
+                setMenuRefreshToken((t) => t + 1)
+                goSection('cierre_turno')
+              }}
             />
           )}
 
@@ -460,7 +467,7 @@ export default function ControlCajasModule() {
             <CajaSectionCierreTurno
               usuarioNombre={usuarioEtiqueta}
               usuarioId={usuarioId}
-              onIrSubirPdf={() => goSection('menu')}
+              isAdmin={isAdmin}
             />
           )}
 

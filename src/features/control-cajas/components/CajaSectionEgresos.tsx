@@ -290,7 +290,8 @@ export default function CajaSectionEgresos({
           <div className="caja-cc-grid-2">
             <label className="caja-cc-field">
               Fecha
-              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
+              <input type="date" value={fecha} readOnly disabled required />
+              <span className="caja-cc-field-hint">Automática del sistema.</span>
             </label>
             <label className="caja-cc-field">
               Caja

@@ -18,13 +18,8 @@ import {
   updateCajaFondoFijo
 } from '../cajaRepository'
 import { buscarPlanillaCaja, montosCajaDesdeFuentes } from '../paseCajaMontos'
-import CajaAvisoPdfUnico from './CajaAvisoPdfUnico'
-import CajaImportComprobantesMedios from './CajaImportComprobantesMedios'
-import CajaPlanillaResumenActiva from './CajaPlanillaResumenActiva'
 import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
 import { notifyAdminsCaja } from '../cajaNotificaciones'
-import { comprobantesToMovimientos } from '../comprobantesMediosImport'
-import type { ComprobanteLoteParsed } from '../comprobanteMediosTypes'
 import { fmtArs, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import {
@@ -47,10 +42,11 @@ import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 type Props = {
   usuarioNombre: string
   usuarioId?: number
-  onIrSubirPdf?: () => void
+  /** Solo administración ve el resto que va a admin. */
+  isAdmin?: boolean
 }
 
-export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrSubirPdf }: Props) {
+export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdmin = false }: Props) {
   const { slug: cajaSlugOp, loading: cajaOperativaLoading } = useCajaOperativa()
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [lotes, setLotes] = useState<CajaTransferenciaLote[]>([])
@@ -70,7 +66,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
   const [egresosLoading, setEgresosLoading] = useState(false)
   const [planillaPreview, setPlanillaPreview] = useState<PlanillaCajaParsed | null>(null)
   const [planillaId, setPlanillaId] = useState<string | null>(null)
-  const [comprobantesPreview, setComprobantesPreview] = useState<ComprobanteLoteParsed | null>(null)
   const [fondoMontoInput, setFondoMontoInput] = useState('')
 
   const reload = useCallback(async () => {
@@ -166,13 +161,25 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
   }, [origen, fecha, cajas])
 
   const cajaOrigen = cajas.find((c) => c.slug === origen)
+  const cajaDestinoFondo = cajas.find((c) => c.slug === cajaFondoDestino)
 
+  /** Fondo que queda en la caja receptora: configurado en esa caja (automático). */
   useEffect(() => {
-    if (!cajaOrigen) return
-    setFondoMontoInput(String(fondoMontoParaCaja(cajaOrigen)))
-  }, [origen, cajaOrigen?.slug, cajaOrigen?.fondo_fijo])
+    const cajaFondo = cajaDestinoFondo ?? cajaOrigen
+    if (!cajaFondo) return
+    setFondoMontoInput(String(fondoMontoParaCaja(cajaFondo)))
+  }, [
+    origen,
+    cajaFondoDestino,
+    cajaOrigen?.slug,
+    cajaOrigen?.fondo_fijo,
+    cajaDestinoFondo?.slug,
+    cajaDestinoFondo?.fondo_fijo
+  ])
 
-  const fondoMonto = fondoMontoInput.trim() ? parseNum(fondoMontoInput) : cajaOrigen ? fondoMontoParaCaja(cajaOrigen) : 0
+  const fondoMonto = fondoMontoInput.trim()
+    ? parseNum(fondoMontoInput)
+    : fondoMontoParaCaja(cajaDestinoFondo ?? cajaOrigen ?? { slug: '', fondo_fijo: 0 })
   const egresosLista = egresosResumen?.solicitudes ?? []
   const egresosTot = egresosResumen?.totales ?? { efectivo: 0, otros: 0 }
 
@@ -241,8 +248,8 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
       )
       return
     }
-    if (fondoMonto <= 0) {
-      setMsg('Indicá el fondo de caja que queda en la otra caja operativa (recomendado $100.000).')
+    if (fondoMonto < 0) {
+      setMsg('El fondo de caja no puede ser negativo.')
       return
     }
     if (!planillaPreview) {
@@ -256,8 +263,8 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
 
     setSaving(true)
     try {
-      if (cajaOrigen) {
-        await updateCajaFondoFijo(cajaOrigen.slug, fondoMonto)
+      if (cajaDestinoFondo) {
+        await updateCajaFondoFijo(cajaDestinoFondo.slug, fondoMonto)
       }
       const loteId = newId()
       let idPlanilla = planillaId
@@ -303,7 +310,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
       }
 
       const detalleInicial = {
-        comprobantes: comprobantesPreview?.comprobantes ?? [],
+        comprobantes: [] as never[],
         planilla_resumen: {
           archivo_nombre: planillaPreview.archivo_nombre,
           cantidad_ventas: planillaPreview.ventas.length,
@@ -336,24 +343,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
 
       const movIds: string[] = []
 
-      if (comprobantesPreview?.comprobantes.length) {
-        const compMovs = comprobantesToMovimientos(
-          comprobantesPreview,
-          origen,
-          usuarioNombre,
-          usuarioId,
-          cajas,
-          loteId
-        )
-        if (compMovs.length) {
-          const bulk = await saveMovimientosBulk(compMovs, {
-            cajas,
-            actor: usuarioId != null ? { id: usuarioId } : undefined
-          })
-          movIds.push(...bulk.records.map((r) => r.id))
-        }
-      }
-
       const movs = buildMovimientosCierreTurno({
         lote: { ...lote, id: loteId },
         calc,
@@ -379,14 +368,12 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
         })
       }
 
-      const compCount = comprobantesPreview?.comprobantes.length ?? 0
       void notifyAdminsCaja({
         titulo: 'Cierre de turno registrado',
         descripcion:
           `${usuarioNombre} cerró turno en ${cajaNombre(origen)}: fondo $ ${fmtArs(calc.fondo_monto)}, ` +
           `admin $ ${fmtArs(calc.resto_efectivo + calc.resto_otros)}. ` +
-          `Planilla: ${planillaPreview.archivo_nombre}` +
-          (compCount ? ` · ${compCount} comprobante(s).` : '.'),
+          `Planilla: ${planillaPreview.archivo_nombre}.`,
         tipo: 'info',
         excluirUsuarioId: usuarioId
       })
@@ -396,7 +383,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
       )
       setPlanillaPreview(null)
       setPlanillaId(null)
-      setComprobantesPreview(null)
       await reload()
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Error al registrar cierre de turno')
@@ -406,6 +392,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
   }
 
   const restoAdmin = calc.resto_efectivo + calc.resto_otros
+  const camposAutomaticos = !isAdmin
 
   return (
     <div className="caja-cc-cierre-turno">
@@ -414,14 +401,16 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
           <span className="caja-cc-hoy-hero-label">Fondo → otra caja</span>
           <span className="caja-cc-hoy-hero-value">$ {fmtArs(calc.fondo_monto)}</span>
           <span className="caja-cc-hoy-hero-hint">
-            A {cajaNombre(cajaFondoDestino) || '…'} (fondo configurable; sin monto automático)
+            A {cajaNombre(cajaFondoDestino) || '…'} (fondo configurado de esa caja)
           </span>
         </div>
-        <div className="caja-cc-hoy-hero-card ingreso">
-          <span className="caja-cc-hoy-hero-label">Resto → administración</span>
-          <span className="caja-cc-hoy-hero-value">$ {fmtArs(restoAdmin)}</span>
-          <span className="caja-cc-hoy-hero-hint">Ingreso del día para administración</span>
-        </div>
+        {isAdmin ? (
+          <div className="caja-cc-hoy-hero-card ingreso">
+            <span className="caja-cc-hoy-hero-label">Resto → administración</span>
+            <span className="caja-cc-hoy-hero-value">$ {fmtArs(restoAdmin)}</span>
+            <span className="caja-cc-hoy-hero-hint">Ingreso del día para administración</span>
+          </div>
+        ) : null}
         <div className="caja-cc-hoy-hero-card egreso">
           <span className="caja-cc-hoy-hero-label">Egresos hoy</span>
           <span className="caja-cc-hoy-hero-value">
@@ -436,11 +425,25 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
             Fecha
-            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            {camposAutomaticos ? (
+              <>
+                <input type="date" value={fecha} readOnly disabled />
+                <span className="caja-cc-field-hint">Automática del sistema.</span>
+              </>
+            ) : (
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            )}
           </label>
           <label className="caja-cc-field">
             Hora
-            <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
+            {camposAutomaticos ? (
+              <>
+                <input type="time" value={hora} readOnly disabled />
+                <span className="caja-cc-field-hint">Automática del sistema.</span>
+              </>
+            ) : (
+              <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
+            )}
           </label>
         </div>
         <div className="caja-cc-grid-2">
@@ -448,10 +451,10 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
             Caja que cierra (origen)
             {cajaResolviendo ? (
               <input type="text" readOnly value="Identificando tu caja…" />
-            ) : cajaAutoAsignada ? (
+            ) : cajaAutoAsignada || camposAutomaticos ? (
               <>
-                <input type="text" readOnly value={cajaNombre(origen)} />
-                <span className="caja-cc-field-hint">Asignada a tu usuario ({usuarioNombre}).</span>
+                <input type="text" readOnly value={cajaNombre(origen) || '—'} />
+                <span className="caja-cc-field-hint">Automática por sistema según tu usuario.</span>
               </>
             ) : (
               <>
@@ -463,25 +466,31 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
                     </option>
                   ))}
                 </select>
-                <span className="caja-cc-field-hint">
-                  Tu caja se asigna automáticamente según tu usuario de mostrador.
-                </span>
               </>
             )}
           </label>
           <label className="caja-cc-field">
             Recibe el fondo
-            <select
-              value={cajaFondoDestino}
-              onChange={(e) => setCajaFondoDestino(e.target.value)}
-              disabled={!origen}
-            >
-              {operativas.filter((c) => c.slug !== origen).map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
+            {camposAutomaticos ? (
+              <>
+                <input type="text" readOnly value={cajaNombre(cajaFondoDestino) || '—'} />
+                <span className="caja-cc-field-hint">Automática del sistema.</span>
+              </>
+            ) : (
+              <select
+                value={cajaFondoDestino}
+                onChange={(e) => setCajaFondoDestino(e.target.value)}
+                disabled={!origen}
+              >
+                {operativas
+                  .filter((c) => c.slug !== origen)
+                  .map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.nombre}
+                    </option>
+                  ))}
+              </select>
+            )}
           </label>
         </div>
         <div className="caja-cc-grid-2">
@@ -492,22 +501,47 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
               step="0.01"
               min="0"
               value={fondoMontoInput}
-              onChange={(e) => setFondoMontoInput(e.target.value)}
+              onChange={camposAutomaticos ? undefined : (e) => setFondoMontoInput(e.target.value)}
+              readOnly={camposAutomaticos}
+              disabled={camposAutomaticos}
               required
             />
             <span className="caja-cc-field-hint">
-              Opcional. Se guarda para tu caja al confirmar el cierre; no se asigna solo.
+              {camposAutomaticos
+                ? 'Automático: fondo configurado de la caja que recibe.'
+                : 'Fondo configurado de la caja receptora.'}
             </span>
           </label>
           <label className="caja-cc-field">
             Arqueo efectivo (contado)
-            <input type="number" step="0.01" value={arqueoEf} onChange={(e) => setArqueoEf(e.target.value)} required />
+            <input
+              type="number"
+              step="0.01"
+              value={arqueoEf}
+              onChange={camposAutomaticos ? undefined : (e) => setArqueoEf(e.target.value)}
+              readOnly={camposAutomaticos}
+              disabled={camposAutomaticos}
+              required
+            />
+            {camposAutomaticos ? (
+              <span className="caja-cc-field-hint">Automático desde el último arqueo del día.</span>
+            ) : null}
           </label>
         </div>
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
             Arqueo tarjetas/otros
-            <input type="number" step="0.01" value={arqueoOt} onChange={(e) => setArqueoOt(e.target.value)} />
+            <input
+              type="number"
+              step="0.01"
+              value={arqueoOt}
+              onChange={camposAutomaticos ? undefined : (e) => setArqueoOt(e.target.value)}
+              readOnly={camposAutomaticos}
+              disabled={camposAutomaticos}
+            />
+            {camposAutomaticos ? (
+              <span className="caja-cc-field-hint">Automático desde planilla / arqueo.</span>
+            ) : null}
           </label>
         </div>
       </div>
@@ -552,25 +586,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, onIrS
             )}
           </>
         )}
-      </div>
-
-      <div className="caja-cc-card">
-        <h3>Planilla del día y comprobantes</h3>
-        {planillaPreview ? (
-          <CajaPlanillaResumenActiva planilla={planillaPreview} />
-        ) : onIrSubirPdf ? (
-          <CajaAvisoPdfUnico onIr={onIrSubirPdf} />
-        ) : (
-          <p className="caja-cc-help">Subí el PDF del día desde el Menú antes de cerrar el turno.</p>
-        )}
-        <h4 className="caja-cc-comprobantes-embed-title">Comprobantes MP · POS · tarjetas</h4>
-        <CajaImportComprobantesMedios
-          usuarioNombre={usuarioNombre}
-          usuarioId={usuarioId}
-          embedEnCierre
-          onPreviewChange={setComprobantesPreview}
-          onImported={() => setMsg(null)}
-        />
       </div>
 
       <div className="caja-cc-card caja-cc-card-collapsible">

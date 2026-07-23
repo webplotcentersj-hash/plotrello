@@ -11,6 +11,7 @@ import {
   listConcilBanco,
   listConcilMP,
   listDiferencias,
+  listEgresoSolicitudes,
   listMovimientos,
   listPlanillas
 } from './cajaRepository'
@@ -18,6 +19,8 @@ import { kpisTableroMes, mesArgentina } from './cajaDashboardData'
 import { calcularTotalesDesdePlanilla } from './cajaTotales'
 import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
 import { sistemaBancoParaFecha, sistemaMpParaFecha } from './cajaDashboardData'
+import { BILLETE_DENOMINACIONES } from './constants'
+import { loadEstadoOperativaHoy, type CajaEstadoOperativaHoy } from './cajaOperativaHoy'
 import type {
   CajaAlerta,
   CajaArqueo,
@@ -25,6 +28,7 @@ import type {
   CajaConcilBanco,
   CajaConcilMP,
   CajaDiferencia,
+  CajaEgresoSolicitud,
   CajaMovimiento,
   CajaRegistro,
   CajaSaludResumen,
@@ -42,6 +46,9 @@ export type CajaSnapshot = {
   concilBanco: CajaConcilBanco[]
   diferencias: CajaDiferencia[]
   salud: CajaSaludResumen
+  /** Resumen operativo del día (cajeras). */
+  operativaHoy?: CajaEstadoOperativaHoy | null
+  egresosHoy?: CajaEgresoSolicitud[]
 }
 
 function uniqFechas(cierres: CajaCierre[], extra: string[] = []): string[] {
@@ -467,6 +474,7 @@ export async function loadCajaSnapshot(opts?: {
   usuarioId?: number
   isAdmin?: boolean
 }): Promise<CajaSnapshot> {
+  const hoy = getArgentinaDateString()
   const [params, cajas, cierres, arqueos, movimientos, concilMp, concilBanco, diferencias, planillas] =
     await Promise.all([
       getParams(),
@@ -492,6 +500,30 @@ export async function loadCajaSnapshot(opts?: {
     tolerancia: params.tolerancia
   })
 
+  let operativaHoy: CajaEstadoOperativaHoy | null = null
+  let egresosHoy: CajaEgresoSolicitud[] = []
+  if (!opts?.isAdmin && opts?.usuarioId != null && opts.usuario) {
+    try {
+      operativaHoy = await loadEstadoOperativaHoy(opts.usuarioId, opts.usuario, hoy)
+      egresosHoy = await listEgresoSolicitudes({
+        fecha: hoy,
+        cajaSlug: operativaHoy.cajaSlug ?? undefined,
+        solicitanteId: opts.usuarioId
+      })
+      if (operativaHoy.cajaSlug) {
+        egresosHoy = egresosHoy.filter(
+          (e) =>
+            e.caja_slug === operativaHoy!.cajaSlug || e.solicitante_id === opts.usuarioId
+        )
+      }
+    } catch {
+      operativaHoy = null
+      egresosHoy = []
+    }
+  } else if (opts?.isAdmin) {
+    egresosHoy = await listEgresoSolicitudes({ fecha: hoy })
+  }
+
   return {
     generadoEn: new Date().toISOString(),
     tolerancia: params.tolerancia,
@@ -502,16 +534,31 @@ export async function loadCajaSnapshot(opts?: {
     concilMp,
     concilBanco,
     diferencias,
-    salud
+    salud,
+    operativaHoy,
+    egresosHoy
   }
+}
+
+function formatoBilletesArqueo(a: CajaArqueo | undefined): string {
+  if (!a?.billetes || typeof a.billetes !== 'object') return 'sin detalle de billetes'
+  const parts: string[] = []
+  for (const d of BILLETE_DENOMINACIONES) {
+    const q = Number((a.billetes as Record<string, number>)[`b${d}`] ?? 0)
+    if (q > 0) parts.push(`${q}×$${d.toLocaleString('es-AR')}`)
+  }
+  return parts.length ? parts.join(', ') : 'sin billetes cargados'
 }
 
 /** Contexto estructurado para PlotAI / Gemini. */
 export function formatSnapshotForAI(snap: CajaSnapshot, opts?: { isAdmin?: boolean; usuario?: string }): string {
   const { salud } = snap
+  const hoy = getArgentinaDateString()
   const ultCierres = snap.cierres.slice(0, 8)
   const ultMp = snap.concilMp.slice(0, 5)
   const ultBanco = snap.concilBanco.slice(0, 5)
+  const op = snap.operativaHoy
+  const egresos = snap.egresosHoy ?? []
 
   const alertasTxt =
     salud.alertas.length === 0
@@ -521,50 +568,146 @@ export function formatSnapshotForAI(snap: CajaSnapshot, opts?: { isAdmin?: boole
           .map((a) => `- [${a.severidad}/${a.dominio}] ${a.titulo}: ${a.detalle}`)
           .join('\n')
 
-  return `MÓDULO CONTROL DE CAJAS — ORQUESTACIÓN (Plot Lab).
-Usuario: ${opts?.usuario ?? '—'}. Rol: ${opts?.isAdmin ? 'Administración' : 'Caja'}.
-Tolerancia diferencias: $${fmtArs(snap.tolerancia)}.
-Salud concordancia: ${salud.puntaje}/100 (${salud.etiqueta}).
-Mes actual: ${salud.totalesMes.cierres} cierres (${salud.totalesMes.ok} OK, ${salud.totalesMes.revisar} a revisar), dif. neta $${fmtArs(salud.totalesMes.difNeta)}, ventas $${fmtArs(salud.totalesMes.ventas)}.
+  const ultimoArqueo =
+    op?.cajaSlug != null
+      ? snap.arqueos.find((a) => a.fecha === hoy && a.caja_slug === op.cajaSlug)
+      : snap.arqueos.find((a) => a.fecha === hoy) ?? snap.arqueos[0]
 
-ALERTAS DE CONCORDANCIA (efectivo, MP, banco, arqueos):
+  const egresosTxt =
+    egresos.length === 0
+      ? 'Sin egresos hoy.'
+      : egresos
+          .slice(0, 12)
+          .map(
+            (e) =>
+              `- ${e.estado}${e.url_ticket ? '+ticket' : ''} $${fmtArs(e.monto_efectivo || 0)} · ${e.concepto || 'sin concepto'}`
+          )
+          .join('\n')
+
+  const movsHoy =
+    op?.ultimosMovimientos?.length
+      ? op.ultimosMovimientos
+          .map(
+            (m) =>
+              `- ${m.hora?.slice(0, 5) || '--'} ${m.concepto} ef $${fmtArs(m.efectivo || 0)} ot $${fmtArs(m.otros || 0)}`
+          )
+          .join('\n')
+      : 'Sin movimientos listados.'
+
+  const plot = op?.resumenPlotlab
+  const operativaBlock = op
+    ? `
+MI DÍA OPERATIVO (${op.fecha}):
+- Caja: ${op.cajaNombre || op.cajaSlug || 'sin asignar'} · turno ${op.turnoActivo}
+- Arqueo hecho: ${op.arqueoHecho ? 'SÍ' : 'NO'} · Cierre de turno: ${op.cierreTurnoHecho ? 'SÍ' : 'NO'}
+- Planilla del día: ${op.planillaImportada ? `sí (${op.planillasDelDia})` : 'no'}
+- Egresos pendientes: ${op.egresosPendientes} · Traspasos pendientes: ${op.traspasosPendientes}
+- Efectivo teórico a contar (fondo + cobros ef − egresos): ${op.efectivoTeorico != null ? `$${fmtArs(op.efectivoTeorico)}` : 'n/d'}
+- Ventas Plot Lab hoy: total $${fmtArs(plot?.total ?? 0)} · efectivo $${fmtArs(plot?.efectivo ?? 0)} · tarjetas $${fmtArs(plot?.tarjetas ?? 0)} · transfer $${fmtArs(plot?.transferencia ?? 0)} · cta cte $${fmtArs(plot?.ctaCte ?? 0)} (${plot?.count ?? 0} ventas)
+- Último arqueo: ${
+        ultimoArqueo
+          ? `contado $${fmtArs(ultimoArqueo.total)} · estado ${ultimoArqueo.estado_arqueo || '—'} · billetes: ${formatoBilletesArqueo(ultimoArqueo)}`
+          : 'aún no hay arqueo'
+      }
+- Egresos del día:
+${egresosTxt}
+- Últimos movimientos:
+${movsHoy}
+`
+    : `
+HOY (${hoy}):
+- Egresos del día (todas las cajas / filtro):
+${egresosTxt}
+`
+
+  const rol = opts?.isAdmin ? 'Administración' : 'Cajera/mostrador'
+  const guiaRol = opts?.isAdmin
+    ? `- Priorizá conciliación MP/banco, cierres a revisar y diferencias.
+- Indicá secciones: cierres, concil MP, concil banco, arqueos admin, diferencias.`
+    : `- Ayudá a CONTAR efectivo (denominaciones ARS: ${BILLETE_DENOMINACIONES.join(', ')}), armar el arqueo, egresos con ticket, pase y cierre de turno.
+- Si hay faltante vs teórico, pedí vincular egreso(s) con ticket cuya suma cubra el faltante (sección Egresos → Mi arqueo).
+- No inventes montos: usá los números del contexto. Si falta dato, pedí que actualice con ↻ o complete el paso.
+- Secciones útiles: Menú, Mi arqueo, Egresos, Pase de caja, Cierre de turno, Mis movimientos.
+- Sé concreto: checklist corto, números, y qué tocar en la app.`
+
+  return `MÓDULO CONTROL DE CAJAS — ASISTENTE OPERATIVO (Plot Lab).
+Usuario: ${opts?.usuario ?? '—'}. Rol: ${rol}.
+Tolerancia diferencias: $${fmtArs(snap.tolerancia)}.
+Salud general: ${salud.puntaje}/100 (${salud.etiqueta}).
+Mes: ${salud.totalesMes.cierres} cierres (${salud.totalesMes.ok} OK, ${salud.totalesMes.revisar} revisar), dif. neta $${fmtArs(salud.totalesMes.difNeta)}, ventas $${fmtArs(salud.totalesMes.ventas)}.
+${operativaBlock}
+ALERTAS:
 ${alertasTxt}
 
-Últimos cierres:
-${ultCierres.map((c) => `${c.fecha} ${c.caja_slug} ventas $${fmtArs(c.total_ventas)} dif $${fmtArs(c.dif_total)} ef $${fmtArs(c.dif_ef)} mp+tarj $${fmtArs((c.tarj_sist || 0) + (c.mp_qr || 0))} ${c.estado}`).join('\n') || 'ninguno'}
+Últimos cierres (admin/histórico):
+${ultCierres.map((c) => `${c.fecha} ${c.caja_slug} ventas $${fmtArs(c.total_ventas)} dif $${fmtArs(c.dif_total)} ${c.estado}`).join('\n') || 'ninguno'}
 
-Conciliaciones MP recientes:
+Conciliaciones MP:
 ${ultMp.map((x) => `${x.fecha} sist $${fmtArs(x.sistema)} dash $${fmtArs(x.dashboard)} Δ $${fmtArs(x.diferencia)} ${x.estado}`).join('\n') || 'ninguna'}
 
 Conciliaciones banco:
 ${ultBanco.map((x) => `${x.fecha} sist $${fmtArs(x.sistema)} ext $${fmtArs(x.extracto)} Δ $${fmtArs(x.diferencia)} ${x.estado}`).join('\n') || 'ninguna'}
 
-REGLAS DE NEGOCIO:
-- Fondo de caja = efectivo REAL que permanece en la caja operativa SOLO si fue configurado a mano (arranca en $0; no hay monto automático). Editable en cierre de turno. Si hay fondo > 0, el arqueo y el efectivo contado no pueden ser menores a ese valor.
-- Efectivo teórico = fondo fijo + ingresos efectivo − egresos efectivo; debe coincidir con efectivo contado (tolerancia).
-- MP: en cierres, tarjeta sistema + MP/QR debe alinearse con conciliación MP (sistema vs dashboard de la app MP).
-- Banco: transferencias en cierres vs conciliación con extracto bancario.
-- Arqueo físico de billetes debe cuadrar con efectivo contado del cierre mismo día y caja.
-- Guiá al usuario con pasos concretos y secciones del menú (cierres, concil MP, concil banco, arqueos, diferencias).`
+CÓMO AYUDAR (obligatorio):
+${guiaRol}
+- Fondo de caja: solo si está configurado (>0); no inventar $100.000.
+- Efectivo teórico = fondo + ingresos efectivo − egresos; debe acercarse al contado.
+- Respuestas en español rioplatense, claras, con montos formateados y pasos accionables.`
 }
 
-export const CAJA_AI_PROMPTS: { label: string; prompt: string }[] = [
-  {
-    label: 'Resumen del día',
-    prompt:
-      'Dame un resumen ejecutivo de la salud de caja hoy: efectivo, MP, banco y qué debo revisar primero.'
-  },
-  {
-    label: 'Conciliar MP',
-    prompt:
-      'Explicame paso a paso cómo conciliar Mercado Pago con los cierres del día y qué revisar si hay diferencia.'
-  },
-  {
-    label: 'Cuadre efectivo',
-    prompt: '¿Cómo cuadro efectivo teórico vs contado y qué hacer si el arqueo no coincide con el cierre?'
-  },
-  {
-    label: 'Cierre del día',
-    prompt: 'Checklist para un cierre de caja completo (efectivo, tarjeta, MP, transferencias, cuenta corriente).'
+export function getCajaAiPrompts(isAdmin: boolean): { label: string; prompt: string }[] {
+  if (isAdmin) {
+    return [
+      {
+        label: 'Resumen del día',
+        prompt:
+          'Resumen ejecutivo de hoy: efectivo, MP, banco, egresos y qué revisar primero. Usá los números del contexto.'
+      },
+      {
+        label: 'Conciliar MP',
+        prompt:
+          'Con los datos de hoy, ¿cuadra Mercado Pago? Si no, pasos concretos para conciliar y dónde mirar la diferencia.'
+      },
+      {
+        label: 'Cuadre efectivo',
+        prompt:
+          'Analizá el cuadre de efectivo (teórico vs contado/arqueos) y listá acciones priorizadas.'
+      },
+      {
+        label: 'Cierres a revisar',
+        prompt:
+          'Listá los cierres a revisar del mes/contexto y qué corregir en cada uno.'
+      }
+    ]
   }
-]
+  return [
+    {
+      label: 'Resumen de mi día',
+      prompt:
+        'Resumí MI día de caja con los datos del contexto: ¿ya arqueé? ¿egresos pendientes? ¿cuánto efectivo debería tener? ¿próximo paso (arqueo / egreso / pase / cierre)?'
+    },
+    {
+      label: 'Ayuda a contar',
+      prompt:
+        'Ayudame a contar el efectivo. Decime cuánto debería haber según teórico/Plot Lab, cómo usar las denominaciones de billetes en Mi arqueo, y qué hago si me falta o sobra plata.'
+    },
+    {
+      label: 'Arqueo paso a paso',
+      prompt:
+        'Checklist corto para hacer Mi arqueo ahora: qué contar, qué no incluir (tarjetas/transfer/CC), firma, y qué pasa si hay faltante (vincular egreso).'
+    },
+    {
+      label: 'Egresos y faltante',
+      prompt:
+        'Con mis egresos de hoy del contexto, explicame qué está pendiente, cómo subir el ticket, y cómo vincular un egreso al faltante del arqueo.'
+    },
+    {
+      label: 'Cerrar el turno',
+      prompt:
+        'Según mi estado (arqueo/cierre/egresos), dame el checklist para Cierre de turno y Pase: qué ya está OK y qué falta.'
+    }
+  ]
+}
+
+/** @deprecated Usar getCajaAiPrompts */
+export const CAJA_AI_PROMPTS = getCajaAiPrompts(true)

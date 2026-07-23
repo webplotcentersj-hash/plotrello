@@ -279,6 +279,26 @@ export async function getUltimoArqueoCaja(
   return anteriores[0] ?? null
 }
 
+/** Hay arqueo del día sin cierre de turno posterior → no se puede armar otro hasta cerrar. */
+export async function arqueoBloqueadoHastaCierre(
+  cajaSlug: string,
+  fecha: string
+): Promise<{ bloqueado: boolean; ultimoArqueo: CajaArqueo | null; cierresDelDia: number }> {
+  const [arqueos, lotes] = await Promise.all([listArqueos(), listTransferenciaLotes(80)])
+  const arqueosDia = arqueos
+    .filter((a) => a.fecha === fecha && mismoCajaSlug(a.caja_slug, cajaSlug))
+    .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+  const cierresDelDia = lotes.filter(
+    (l) => l.fecha === fecha && mismoCajaSlug(l.origen_slug, cajaSlug)
+  ).length
+  const bloqueado = arqueosDia.length > cierresDelDia
+  return {
+    bloqueado,
+    ultimoArqueo: arqueosDia[0] ?? null,
+    cierresDelDia
+  }
+}
+
 function mapArqueoRow(r: Record<string, unknown>): CajaArqueo {
   const est = r.estado_arqueo
   return {
@@ -311,6 +331,15 @@ export async function saveArqueo(
 ): Promise<CajaArqueo> {
   if (opts?.actor) {
     assertPuedeOperarCaja(opts.actor, arqueo.caja_slug)
+  }
+  // Solo bloquear altas nuevas; editar un arqueo existente (mismo id) sigue permitido.
+  if (!arqueo.id) {
+    const lock = await arqueoBloqueadoHastaCierre(arqueo.caja_slug, arqueo.fecha)
+    if (lock.bloqueado) {
+      throw new Error(
+        'Ya hay un arqueo de este turno. Completá el cierre de turno antes de hacer otro.'
+      )
+    }
   }
   const id = arqueo.id ?? newId()
   const record: CajaArqueo = { ...arqueo, id }

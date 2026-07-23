@@ -62,7 +62,7 @@ const PASOS: Paso[] = [
     section: 'asistente',
     icon: '✨',
     label: 'Asistente IA',
-    descripcion: 'Preguntale al asistente si tenés dudas sobre el proceso.'
+    descripcion: 'Contá billetes, resumen del día y ayuda con arqueo, egresos y cierre.'
   }
 ]
 

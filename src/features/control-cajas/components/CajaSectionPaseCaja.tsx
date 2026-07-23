@@ -86,6 +86,7 @@ export default function CajaSectionPaseCaja({
 
   const cajaResolviendo = soloMisPases && cajaOperativaLoading
   const cajaAutoAsignada = soloMisPases && Boolean(cajaSlugOp)
+  const camposAutomaticos = soloMisPases
 
   useEffect(() => {
     if (soloMisPases) return
@@ -136,11 +137,12 @@ export default function CajaSectionPaseCaja({
         if (origen) {
           const m = montosCajaDesdeFuentes(cajaOrigen, arqOrigen, planOrigen, fecha)
           origenEf = m.efectivo
-          origenOt = m.otros
+          // Pase de caja: solo efectivo
+          origenOt = 0
           setOrigenEfAntes(String(m.efectivo))
-          setOrigenOtAntes(String(m.otros))
+          setOrigenOtAntes('0')
           setHintOrigen(m.hintEfectivo)
-          setHintOrigenOt(m.hintOtros)
+          setHintOrigenOt(null)
         } else {
           setHintOrigen(null)
           setHintOrigenOt(null)
@@ -149,9 +151,9 @@ export default function CajaSectionPaseCaja({
         if (destino) {
           const m = montosCajaDesdeFuentes(cajaDestino, arqDestino, planDestino, fecha)
           setDestinoEfAntes(String(m.efectivo))
-          setDestinoOtAntes(String(m.otros))
+          setDestinoOtAntes('0')
           setHintDestino(m.hintEfectivo)
-          setHintDestinoOt(m.hintOtros)
+          setHintDestinoOt(null)
         } else {
           setHintDestino(null)
           setHintDestinoOt(null)
@@ -162,14 +164,14 @@ export default function CajaSectionPaseCaja({
             origen: cajaOrigen,
             destino: cajaDestino,
             origenEf,
-            origenOt
+            origenOt: 0
           })
           setPaseEf(sug.efectivo > 0 ? String(sug.efectivo) : '')
-          setPaseOt(sug.otros > 0 ? String(sug.otros) : '')
+          setPaseOt('0')
           setHintPase(sug.hint || null)
         } else {
           setPaseEf('')
-          setPaseOt('')
+          setPaseOt('0')
           setHintPase(null)
         }
       } finally {
@@ -231,27 +233,27 @@ export default function CajaSectionPaseCaja({
           origen_slug: origen,
           destino_slug: destino,
           efectivo: calc.pase_efectivo,
-          otros: calc.pase_otros,
+          otros: 0,
           nro_comprobante: nro || null,
           observacion: observacion || null,
           id_usuario: usuarioId ?? null,
           usuario_nombre: usuarioNombre,
           origen_importacion: 'manual',
           origen_efectivo_antes: calc.origen_efectivo_antes,
-          origen_otros_antes: calc.origen_otros_antes,
+          origen_otros_antes: 0,
           destino_efectivo_antes: calc.destino_efectivo_antes,
-          destino_otros_antes: calc.destino_otros_antes,
+          destino_otros_antes: 0,
           origen_efectivo_despues: calc.origen_efectivo_despues,
-          origen_otros_despues: calc.origen_otros_despues,
+          origen_otros_despues: 0,
           destino_efectivo_despues: calc.destino_efectivo_despues,
-          destino_otros_despues: calc.destino_otros_despues
+          destino_otros_despues: 0
         },
         usuarioId != null
           ? { actor: { id: usuarioId, esAdmin: !soloMisPases }, cajas }
           : undefined
       )
       setPaseEf('')
-      setPaseOt('')
+      setPaseOt('0')
       setNro('')
       setObservacion('')
       setMsg('Pase registrado con trazabilidad completa.')
@@ -272,8 +274,9 @@ export default function CajaSectionPaseCaja({
   return (
     <div className="caja-cc-pase-section">
       <p className="caja-cc-intro caja-cc-sub">
-        Los montos se completan desde el <strong>arqueo</strong> y la <strong>planilla</strong> de cada caja. El monto
-        del pase se sugiere según el fondo y el destino (administración u otra caja). Podés ajustar antes de guardar.
+        {camposAutomaticos
+          ? 'Pase en efectivo automático desde el arqueo de tu caja hacia el destino.'
+          : 'Los montos de efectivo se completan desde el arqueo. El pase es solo en efectivo.'}
       </p>
 
       <form className="caja-cc-card caja-cc-pase-form" onSubmit={(e) => void handleSubmit(e)}>
@@ -281,11 +284,25 @@ export default function CajaSectionPaseCaja({
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
             Fecha
-            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
+            {camposAutomaticos ? (
+              <>
+                <input type="date" value={fecha} readOnly disabled />
+                <span className="caja-cc-field-hint">Automática del sistema.</span>
+              </>
+            ) : (
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
+            )}
           </label>
           <label className="caja-cc-field">
             Hora
-            <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
+            {camposAutomaticos ? (
+              <>
+                <input type="time" value={hora} readOnly disabled />
+                <span className="caja-cc-field-hint">Automática del sistema.</span>
+              </>
+            ) : (
+              <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
+            )}
           </label>
         </div>
         <p className="caja-cc-help">
@@ -297,10 +314,10 @@ export default function CajaSectionPaseCaja({
             Caja origen (sale el dinero)
             {cajaResolviendo ? (
               <input type="text" readOnly value="Identificando tu caja…" />
-            ) : cajaAutoAsignada ? (
+            ) : cajaAutoAsignada || camposAutomaticos ? (
               <>
-                <input type="text" readOnly value={cajaNombre(origen)} />
-                <span className="caja-cc-field-hint">Asignada a tu usuario.</span>
+                <input type="text" readOnly value={cajaNombre(origen) || '—'} />
+                <span className="caja-cc-field-hint">Automática por sistema según tu usuario.</span>
               </>
             ) : (
               <select value={origen} onChange={(e) => onOrigenManual(e.target.value)} required>
@@ -320,17 +337,26 @@ export default function CajaSectionPaseCaja({
           </label>
           <label className="caja-cc-field">
             Caja destino (recibe el dinero)
-            <select value={destino} onChange={(e) => setDestino(e.target.value)} required disabled={!origen}>
-              {cajas.filter((c) => c.slug !== origen).map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
+            {camposAutomaticos ? (
+              <>
+                <input type="text" readOnly value={cajaNombre(destino) || '—'} />
+                <span className="caja-cc-field-hint">Automática del sistema.</span>
+              </>
+            ) : (
+              <select value={destino} onChange={(e) => setDestino(e.target.value)} required disabled={!origen}>
+                {cajas
+                  .filter((c) => c.slug !== origen)
+                  .map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.nombre}
+                    </option>
+                  ))}
+              </select>
+            )}
             {arqueoCargando && destino ? (
               <span className="caja-cc-field-hint">Cargando montos del arqueo…</span>
             ) : (
-              hintDestino && <span className="caja-cc-field-hint">{hintDestino}</span>
+              hintDestino && !camposAutomaticos && <span className="caja-cc-field-hint">{hintDestino}</span>
             )}
           </label>
         </div>
@@ -338,67 +364,48 @@ export default function CajaSectionPaseCaja({
         {origen && (
           <div className="caja-cc-pase-block">
             <h4>En {cajaNombre(origen)} — antes del pase</h4>
-            <div className="caja-cc-grid-2">
-              <label className="caja-cc-field">
-                Efectivo en caja
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={origenEfAntes}
-                  onChange={(e) => setOrigenEfAntes(e.target.value)}
-                  placeholder="Monto real contado"
-                />
-              </label>
-              <label className="caja-cc-field">
-                Tarjetas / otros
-                <input
-                  type="number"
-                  step="0.01"
-                  value={origenOtAntes}
-                  onChange={(e) => setOrigenOtAntes(e.target.value)}
-                />
-                {hintOrigenOt && <span className="caja-cc-field-hint">{hintOrigenOt}</span>}
-              </label>
-            </div>
+            <label className="caja-cc-field">
+              Efectivo en caja
+              <input
+                type="number"
+                step="0.01"
+                required
+                value={origenEfAntes}
+                onChange={camposAutomaticos ? undefined : (e) => setOrigenEfAntes(e.target.value)}
+                readOnly={camposAutomaticos}
+                disabled={camposAutomaticos}
+                placeholder="Monto real contado"
+              />
+              {camposAutomaticos ? (
+                <span className="caja-cc-field-hint">Automático desde el último arqueo.</span>
+              ) : null}
+            </label>
           </div>
         )}
 
-        {destino && (
+        {!camposAutomaticos && destino ? (
           <div className="caja-cc-pase-block">
             <h4>En {cajaNombre(destino)} — antes del pase</h4>
-            <div className="caja-cc-grid-2">
-              <label className="caja-cc-field">
-                Efectivo en caja
-                <input
-                  type="number"
-                  step="0.01"
-                  value={destinoEfAntes}
-                  onChange={(e) => setDestinoEfAntes(e.target.value)}
-                />
-              </label>
-              <label className="caja-cc-field">
-                Tarjetas / otros
-                <input
-                  type="number"
-                  step="0.01"
-                  value={destinoOtAntes}
-                  onChange={(e) => setDestinoOtAntes(e.target.value)}
-                />
-                {hintDestinoOt && <span className="caja-cc-field-hint">{hintDestinoOt}</span>}
-              </label>
-            </div>
+            <label className="caja-cc-field">
+              Efectivo en caja
+              <input
+                type="number"
+                step="0.01"
+                value={destinoEfAntes}
+                onChange={(e) => setDestinoEfAntes(e.target.value)}
+              />
+            </label>
           </div>
-        )}
+        ) : null}
 
-        <div className="caja-cc-pase-block highlight">
-          <h4>Monto del pase</h4>
-          {arqueoCargando ? (
-            <p className="caja-cc-field-hint">Calculando monto sugerido…</p>
-          ) : (
-            hintPase && <p className="caja-cc-field-hint">{hintPase}</p>
-          )}
-          <div className="caja-cc-grid-2">
+        {!camposAutomaticos ? (
+          <div className="caja-cc-pase-block highlight">
+            <h4>Monto del pase (efectivo)</h4>
+            {arqueoCargando ? (
+              <p className="caja-cc-field-hint">Calculando monto sugerido…</p>
+            ) : (
+              hintPase && <p className="caja-cc-field-hint">{hintPase}</p>
+            )}
             <label className="caja-cc-field">
               Efectivo que pasa
               <input
@@ -410,15 +417,20 @@ export default function CajaSectionPaseCaja({
               />
             </label>
             <label className="caja-cc-field">
-              Tarjetas / otros que pasan
-              <input type="number" step="0.01" value={paseOt} onChange={(e) => setPaseOt(e.target.value)} />
+              Nº comprobante
+              <input value={nro} onChange={(e) => setNro(e.target.value)} placeholder="MEC-0000…" />
             </label>
           </div>
-          <label className="caja-cc-field">
-            Nº comprobante
-            <input value={nro} onChange={(e) => setNro(e.target.value)} placeholder="MEC-0000…" />
-          </label>
-        </div>
+        ) : origen && destino ? (
+          <p className="caja-cc-help">
+            {arqueoCargando
+              ? 'Calculando pase automático…'
+              : hintPase ||
+                (parseNum(paseEf) > 0
+                  ? `Pase automático en efectivo: $ ${fmtArs(parseNum(paseEf))} → ${cajaNombre(destino)}.`
+                  : 'Sin excedente de efectivo para pasar (revisá el arqueo o el fondo).')}
+          </p>
+        ) : null}
 
         {origen && destino ? (
         <div className="caja-cc-pase-preview">
@@ -435,15 +447,15 @@ export default function CajaSectionPaseCaja({
             <tbody>
               <tr>
                 <td>{cajaNombre(origen) || origen} (origen)</td>
-                <td className="num">$ {fmtArs(calc.origen_efectivo_antes + calc.origen_otros_antes)}</td>
-                <td className="num">− $ {fmtArs(calc.pase_efectivo + calc.pase_otros)}</td>
-                <td className="num">$ {fmtArs(calc.origen_efectivo_despues + calc.origen_otros_despues)}</td>
+                <td className="num">$ {fmtArs(calc.origen_efectivo_antes)}</td>
+                <td className="num">− $ {fmtArs(calc.pase_efectivo)}</td>
+                <td className="num">$ {fmtArs(calc.origen_efectivo_despues)}</td>
               </tr>
               <tr>
                 <td>{cajaNombre(destino) || destino} (destino)</td>
-                <td className="num">$ {fmtArs(calc.destino_efectivo_antes + calc.destino_otros_antes)}</td>
-                <td className="num">+ $ {fmtArs(calc.pase_efectivo + calc.pase_otros)}</td>
-                <td className="num">$ {fmtArs(calc.destino_efectivo_despues + calc.destino_otros_despues)}</td>
+                <td className="num">$ {fmtArs(calc.destino_efectivo_antes)}</td>
+                <td className="num">+ $ {fmtArs(calc.pase_efectivo)}</td>
+                <td className="num">$ {fmtArs(calc.destino_efectivo_despues)}</td>
               </tr>
             </tbody>
           </table>
