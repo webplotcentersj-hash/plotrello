@@ -809,6 +809,14 @@ export default function CajaSectionArqueo({
             <p className="caja-cc-field-hint">
               Ecuación: contado − fondo − egresos = admin. El fondo queda en caja. Los egresos (ej. Semitas)
               se descuentan de admin; no cubren el faltante del cuadre.
+              {onIrEgresos ? (
+                <>
+                  {' '}
+                  <button type="button" className="btn-link" onClick={onIrEgresos}>
+                    Ver egresos
+                  </button>
+                </>
+              ) : null}
               {objetivoEfectivo != null && deltaVsObjetivo != null && cuadre.objetivoConteo != null
                 ? ` Cuadre: contado vs (objetivo $ ${fmtArs(objetivoEfectivo)} − fondo $ ${fmtArs(fondoParaCuadre)}) = $ ${fmtArs(cuadre.objetivoConteo)}${
                     cuadre.cuadra
