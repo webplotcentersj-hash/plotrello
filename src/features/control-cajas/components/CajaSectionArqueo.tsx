@@ -456,7 +456,6 @@ export default function CajaSectionArqueo({
                   sobrante_absorbido: sobranteAbsorbido ? montoSobrante : 0,
                   cuadre_con_fondo_dejado: cuadraConFondoDejado,
                   egresos_efectivo: egresosEfDia,
-                  efectivo_base_cierre: (objetivoEfectivo ?? 0) + egresosEfDia,
                   resto_admin_preview: restoAdminPreview
                 }
               : {}),

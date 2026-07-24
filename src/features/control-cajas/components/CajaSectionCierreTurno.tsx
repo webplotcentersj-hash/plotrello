@@ -28,7 +28,6 @@ import {
   cajaFondoDestinoPorDefecto,
   conciliarCierreTurno,
   egresosDelDiaParaCierreTurno,
-  efectivoBaseCierreDesdeArqueo,
   fondoMontoParaCaja,
   fondoParaOtraCajaDesdeArqueo,
   hayEgresosPendientes,
@@ -62,7 +61,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
   const [hora, setHora] = useState(() => new Date().toTimeString().slice(0, 5))
   const [origen, setOrigen] = useState('')
   const [cajaFondoDestino, setCajaFondoDestino] = useState('')
-  const [arqueoEfHint, setArqueoEfHint] = useState('')
   const [arqueoEf, setArqueoEf] = useState('')
   const [arqueoOt, setArqueoOt] = useState('')
   const [egresosResumen, setEgresosResumen] = useState<EgresosDelDiaResumen | null>(null)
@@ -126,13 +124,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
       const caja = cajas.find((c) => c.slug === origen)
       const plan = buscarPlanillaCaja(planillas, origen, fecha, caja?.nombre)
       const m = montosCajaDesdeFuentes(caja, arq, plan, fecha)
-      const base = efectivoBaseCierreDesdeArqueo(arq)
-      setArqueoEf(montoInputFromNumber(base.monto > 0 ? base.monto : m.efectivo))
-      setArqueoEfHint(
-        base.monto > 0
-          ? `Efectivo = ${base.fuente}: $ ${fmtArs(base.monto)} (no el contado de billetes).`
-          : m.hintEfectivo
-      )
+      setArqueoEf(montoInputFromNumber(m.efectivo))
       setArqueoOt(montoInputFromNumber(m.otros))
 
       const fondoArq = fondoParaOtraCajaDesdeArqueo(arq)
@@ -445,13 +437,13 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
           <span className="caja-cc-hoy-hero-value">
             $ {fmtArs(egresosTot.efectivo + egresosTot.otros)}
           </span>
-          <span className="caja-cc-hoy-hero-hint">Se restan del efectivo − fondo</span>
+          <span className="caja-cc-hoy-hero-hint">Del contado − fondo</span>
         </div>
       </div>
 
       {(calc.arqueo_efectivo > 0 || calc.fondo_monto > 0) && (
         <p className="caja-cc-help caja-cc-cierre-formula">
-          Efectivo $ {fmtArs(calc.arqueo_efectivo)} − fondo $ {fmtArs(calc.fondo_monto)} − egresos ${' '}
+          Contado $ {fmtArs(calc.arqueo_efectivo)} − fondo $ {fmtArs(calc.fondo_monto)} − egresos ${' '}
           {fmtArs(egresosTot.efectivo)} = administración $ {fmtArs(calc.resto_efectivo)}.
         </p>
       )}
@@ -549,7 +541,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
             </span>
           </label>
           <label className="caja-cc-field">
-            Efectivo (fondo + cobros)
+            Arqueo efectivo (contado)
             <input
               type="number"
               step="0.01"
@@ -559,11 +551,9 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
               disabled={camposAutomaticos}
               required
             />
-            <span className="caja-cc-field-hint">
-              {camposAutomaticos
-                ? arqueoEfHint || 'Automático: fondo + cobros Plot Lab (no el contado de billetes).'
-                : arqueoEfHint || 'Preferido: fondo + cobros del arqueo / Plot Lab.'}
-            </span>
+            {camposAutomaticos ? (
+              <span className="caja-cc-field-hint">Automático desde el último arqueo del día (billetes contados).</span>
+            ) : null}
           </label>
         </div>
         <div className="caja-cc-grid-2">
