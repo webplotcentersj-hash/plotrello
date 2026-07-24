@@ -20,45 +20,31 @@ const PASOS: Paso[] = [
     section: 'arqueo',
     icon: '💵',
     label: 'Mi arqueo',
-    descripcion: 'Cierre / ventas del turno: efectivo a contar en billetes.'
+    descripcion: 'Contá billetes, dejá el fondo y cuadrá el día.'
   },
   {
     orden: 2,
     section: 'cierre_turno',
     icon: '🔁',
     label: 'Cierre de turno',
-    descripcion: 'Dejá el fondo en caja, pasá el resto a administración y cerrá el turno.'
+    descripcion: 'Fondo a la otra caja, egresos descontados y resto a administración.'
   },
   {
     orden: 3,
-    section: 'pase_caja',
-    icon: '↔️',
-    label: 'Pase de caja',
-    descripcion: 'PDF con IN/IV «PASE DE CAJA» o pase manual entre cajas.'
-  },
-  {
-    orden: 4,
-    section: 'traspasos',
-    icon: '🔀',
-    label: 'Mis traspasos',
-    descripcion: 'Confirmá o revisá traspasos de fondo entre cajas.'
-  },
-  {
-    orden: 5,
     section: 'egresos',
     icon: '📤',
     label: 'Egresos',
     descripcion: 'Pedí o seguí egresos de caja del día.'
   },
   {
-    orden: 6,
+    orden: 4,
     section: 'historial',
     icon: '📋',
     label: 'Mis movimientos',
     descripcion: 'Movimientos del día, arqueos y historial completo.'
   },
   {
-    orden: 7,
+    orden: 5,
     section: 'asistente',
     icon: '✨',
     label: 'Asistente IA',

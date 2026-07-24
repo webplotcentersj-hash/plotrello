@@ -627,7 +627,7 @@ ${egresosTxt}
     : `- Ayudá a CONTAR efectivo (denominaciones ARS: ${BILLETE_DENOMINACIONES.join(', ')}), armar el arqueo, egresos con ticket, pase y cierre de turno.
 - Si hay faltante vs teórico, pedí vincular egreso(s) con ticket cuya suma cubra el faltante (sección Egresos → Mi arqueo).
 - No inventes montos: usá los números del contexto. Si falta dato, pedí que actualice con ↻ o complete el paso.
-- Secciones útiles: Menú, Mi arqueo, Egresos, Pase de caja, Cierre de turno, Mis movimientos.
+- Secciones útiles: Menú, Mi arqueo, Egresos, Cierre de turno, Mis movimientos.
 - Sé concreto: checklist corto, números, y qué tocar en la app.`
 
   return `MÓDULO CONTROL DE CAJAS — ASISTENTE OPERATIVO (Plot Lab).

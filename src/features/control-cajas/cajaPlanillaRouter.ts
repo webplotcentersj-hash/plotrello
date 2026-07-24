@@ -22,11 +22,11 @@ export function resolverDestinoPlanilla(
 
   if (tipo === 'pase') {
     return {
-      section: 'pase_caja',
+      section: 'cierre_turno',
       tipo,
       titulo: label,
       explicacion:
-        'Ingreso varios con PASE DE CAJA. Los movimientos quedan registrados; revisá el pase en la sección correspondiente.'
+        'El pase de efectivo se hace en Cierre de turno (fondo a la otra caja + resto a administración).'
     }
   }
 

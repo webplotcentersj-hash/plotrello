@@ -13,7 +13,6 @@ import CajaSectionCierreForm from './CajaSectionCierreForm'
 import CajaSectionCierresList from './CajaSectionCierresList'
 import CajaSectionArqueo from './CajaSectionArqueo'
 import CajaSectionMovimientos from './CajaSectionMovimientos'
-import CajaSectionPaseCaja from './CajaSectionPaseCaja'
 import CajaSectionCierreTurno from './CajaSectionCierreTurno'
 import CajaSectionEgresos from './CajaSectionEgresos'
 import CajaSectionTraspasos from './CajaSectionTraspasos'
@@ -203,9 +202,17 @@ export default function ControlCajasModule() {
 
   const goSection = (s: CajaSectionId) => {
     setEditCierreId(null)
-    const target = !enVistaAdmin && s === 'movimientos' ? 'historial' : s
+    let target: CajaSectionId = !enVistaAdmin && s === 'movimientos' ? 'historial' : s
+    // Pase/traspasos quedan cubiertos por cierre de turno (fondo + resto a admin).
+    if (!enVistaAdmin && (s === 'pase_caja' || s === 'traspasos')) target = 'cierre_turno'
     setSection(target)
   }
+
+  useEffect(() => {
+    if (!enVistaAdmin && (section === 'pase_caja' || section === 'traspasos')) {
+      setSection('cierre_turno')
+    }
+  }, [enVistaAdmin, section])
 
   const seleccionarCaja = (slug: string) => {
     setCajaSeleccionadaSlug(slug)
@@ -468,14 +475,6 @@ export default function ControlCajasModule() {
               usuarioNombre={usuarioEtiqueta}
               usuarioId={usuarioId}
               isAdmin={isAdmin}
-            />
-          )}
-
-          {section === 'pase_caja' && (
-            <CajaSectionPaseCaja
-              usuarioNombre={usuarioEtiqueta}
-              usuarioId={usuarioId}
-              soloMisPases={!isAdmin}
             />
           )}
 

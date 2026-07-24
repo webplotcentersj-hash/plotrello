@@ -11,7 +11,7 @@ import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 const SECCION_LABEL: Partial<Record<CajaSectionId, string>> = {
   arqueo: 'Mi arqueo',
   cierre_turno: 'Cierre de turno',
-  pase_caja: 'Pase de caja',
+  pase_caja: 'Cierre de turno',
   traspasos: 'Mis traspasos',
   egresos: 'Egresos',
   historial: 'Historial'
