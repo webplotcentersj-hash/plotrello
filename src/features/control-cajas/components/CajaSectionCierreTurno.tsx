@@ -6,21 +6,15 @@ import {
   getUltimoArqueoCaja,
   listCajas,
   listCierres,
-  listMovimientos,
-  getPlanillaById,
-  listPlanillas,
   listTransferenciaLotes,
-  resolveCajaSlug,
   saveMovimiento,
-  saveMovimientosBulk,
-  savePlanillaImport,
   saveTransferenciaLote,
   updateCajaFondoFijo
 } from '../cajaRepository'
-import { buscarPlanillaCaja, montosCajaDesdeFuentes } from '../paseCajaMontos'
+import { montosCajaDesdeFuentes } from '../paseCajaMontos'
 import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
 import { notifyAdminsCaja } from '../cajaNotificaciones'
-import { fmtArs, montoInputFromNumber, parseNum } from '../format'
+import { fmtArs, montoInputFromNumber, newId, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import {
   buildMovimientosCierreTurno,
@@ -33,10 +27,6 @@ import {
   hayEgresosPendientes,
   type EgresosDelDiaResumen
 } from '../cierreTurno'
-import { filtrarMovimientosDuplicados } from '../cajaCoherencia'
-import { fechaPlanillaImport, planillaAllToMovimientos } from '../planillaMovimientos'
-import { newId } from '../format'
-import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
 import type { CajaRegistro, CajaTransferenciaLote } from '../types'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 
@@ -65,8 +55,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
   const [arqueoOt, setArqueoOt] = useState('')
   const [egresosResumen, setEgresosResumen] = useState<EgresosDelDiaResumen | null>(null)
   const [egresosLoading, setEgresosLoading] = useState(false)
-  const [planillaPreview, setPlanillaPreview] = useState<PlanillaCajaParsed | null>(null)
-  const [planillaId, setPlanillaId] = useState<string | null>(null)
   const [fondoMontoInput, setFondoMontoInput] = useState('')
 
   const reload = useCallback(async () => {
@@ -116,14 +104,10 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
     if (!origen || !fecha) return
     let cancelled = false
     void (async () => {
-      const [arq, planillas] = await Promise.all([
-        getUltimoArqueoCaja(origen, fecha),
-        listPlanillas(120)
-      ])
+      const arq = await getUltimoArqueoCaja(origen, fecha)
       if (cancelled) return
       const caja = cajas.find((c) => c.slug === origen)
-      const plan = buscarPlanillaCaja(planillas, origen, fecha, caja?.nombre)
-      const m = montosCajaDesdeFuentes(caja, arq, plan, fecha)
+      const m = montosCajaDesdeFuentes(caja, arq, null, fecha)
       setArqueoEf(montoInputFromNumber(m.efectivo))
       setArqueoOt(montoInputFromNumber(m.otros))
 
@@ -133,35 +117,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
         if (fondoArq.destinoSlug && fondoArq.destinoSlug !== origen) {
           setCajaFondoDestino(fondoArq.destinoSlug)
         }
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [origen, fecha, cajas])
-
-  useEffect(() => {
-    if (!origen || !fecha) {
-      setPlanillaPreview(null)
-      setPlanillaId(null)
-      return
-    }
-    let cancelled = false
-    void (async () => {
-      const planillas = await listPlanillas(120)
-      if (cancelled) return
-      const caja = cajas.find((c) => c.slug === origen)
-      const match = buscarPlanillaCaja(planillas, origen, fecha, caja?.nombre)
-      if (!match) {
-        setPlanillaPreview(null)
-        setPlanillaId(null)
-        return
-      }
-      const full = await getPlanillaById(match.id)
-      if (cancelled) return
-      if (full) {
-        setPlanillaPreview(full)
-        setPlanillaId(match.id)
       }
     })()
     return () => {
@@ -283,35 +238,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
         await updateCajaFondoFijo(cajaDestinoFondo.slug, fondoMonto)
       }
       const loteId = newId()
-      let idPlanilla = planillaId
-      if (planillaPreview && !idPlanilla) {
-        const slugOrigen = resolveCajaSlug(planillaPreview.caja_nombre, cajas) ?? origen
-        const guardada = await savePlanillaImport(planillaPreview, slugOrigen, usuarioNombre, usuarioId)
-        idPlanilla = guardada.id
-        setPlanillaId(guardada.id)
-        const todosMovs = planillaAllToMovimientos(
-          planillaPreview,
-          cajas,
-          slugOrigen,
-          usuarioNombre,
-          usuarioId
-        )
-        const fechaImp = fechaPlanillaImport(planillaPreview)
-        const existentes = await listMovimientos()
-        const delDia = existentes.filter(
-          (m) =>
-            m.fecha === fechaImp &&
-            (m.destino_slug === slugOrigen || m.origen_slug === slugOrigen)
-        )
-        const { nuevos: movs } = filtrarMovimientosDuplicados(todosMovs, delDia, {
-          cajaSlug: slugOrigen,
-          fecha: fechaImp
-        })
-        if (movs.length) await saveMovimientosBulk(movs, {
-          cajas,
-          actor: usuarioId != null ? { id: usuarioId } : undefined
-        })
-      }
 
       const arqFondo = await getUltimoArqueoCaja(cajaFondoDestino, fecha)
       const arqAdmin = await getUltimoArqueoCaja(adminSlug, fecha)
@@ -327,14 +253,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
 
       const detalleInicial = {
         comprobantes: [] as never[],
-        planilla_resumen: planillaPreview
-          ? {
-              archivo_nombre: planillaPreview.archivo_nombre,
-              cantidad_ventas: planillaPreview.ventas.length,
-              ingresos_total: planillaPreview.totales?.ingresos_total ?? 0,
-              egresos_total: planillaPreview.totales?.egresos_total ?? 0
-            }
-          : undefined,
         movimientos_ids: [] as string[]
       }
 
@@ -350,7 +268,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
         resto_efectivo: calc.resto_efectivo,
         resto_otros: calc.resto_otros,
         egresos_aprobados_ef: egresosTot.efectivo,
-        id_planilla: idPlanilla,
+        id_planilla: null,
         id_usuario: usuarioId ?? null,
         usuario_nombre: usuarioNombre,
         observacion: `Cierre de turno ${cajaNombre(origen)} → fondo ${cajaNombre(cajaFondoDestino)} + admin`,
@@ -366,7 +284,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
         calc,
         montosAntes,
         adminSlug,
-        planillaNombre: planillaPreview?.archivo_nombre,
         usuarioNombre,
         usuarioId
       })
@@ -390,8 +307,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
         titulo: 'Cierre de turno registrado',
         descripcion:
           `${usuarioNombre} cerró turno en ${cajaNombre(origen)}: fondo $ ${fmtArs(calc.fondo_monto)}, ` +
-          `admin $ ${fmtArs(calc.resto_efectivo + calc.resto_otros)}.` +
-          (planillaPreview ? ` Planilla: ${planillaPreview.archivo_nombre}.` : ''),
+          `admin $ ${fmtArs(calc.resto_efectivo + calc.resto_otros)}.`,
         tipo: 'info',
         excluirUsuarioId: usuarioId
       })
@@ -399,8 +315,6 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
       setMsg(
         `Cierre de turno registrado: fondo $ ${fmtArs(calc.fondo_monto)} a ${cajaNombre(cajaFondoDestino)}, resto $ ${fmtArs(calc.resto_efectivo + calc.resto_otros)} a administración.`
       )
-      setPlanillaPreview(null)
-      setPlanillaId(null)
       await reload()
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Error al registrar cierre de turno')
@@ -583,7 +497,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
               disabled={camposAutomaticos}
             />
             {camposAutomaticos ? (
-              <span className="caja-cc-field-hint">Automático desde planilla / arqueo.</span>
+              <span className="caja-cc-field-hint">Automático desde el arqueo.</span>
             ) : null}
           </label>
         </div>
