@@ -65,50 +65,51 @@ export function calcularCierreTurnoMontos(input: CierreTurnoInput): CierreTurnoC
   }
 }
 
-/** Sobrante por error de conteo: se suma a administración, sin justificar. */
-export const SOBRANTE_CONTEO_MAX = 10_000
+/** Diferencia de conteo absorbida (sobrante o faltante chico): no pide justificación. */
+export const DIFERENCIA_CONTEO_MAX = 10_000
 
 /**
- * Cuadre del arqueo vs objetivo Plot Lab (fondo_config + cobros − egresos):
+ * Cuadre del arqueo vs objetivo Plot Lab:
  *
- *   Δ = CONTADO − OBJETIVO
+ *   OBJETIVO_TRAS_FONDO = OBJETIVO − FONDO_DEJADO
+ *   Δ                   = CONTADO − OBJETIVO_TRAS_FONDO
  *
- * El FONDO_DEJADO no entra en el cuadre: es reparto del contado (queda en caja).
- * Los EGRESOS ya bajan el objetivo (son plata que salió; p. ej. Semitas −3000).
+ * Fondo dejado = queda en caja (NO es faltante).
+ * Egresos del día (ej. Semitas) NO “cubren” el faltante: se descuentan de
+ * lo que va a administración en el cierre:
+ *   restoAdmin = contado − fondo − egresos
  *
  * Pseudocódigo:
- *   contado        = sum(billetes)
- *   objetivoPlot   = fondoConfig + cobros − egresosFisicos
- *   delta          = contado − objetivoPlot
- *   if |delta| ≤ tol                         → cuadra
- *   if −tol > delta                          → faltante (vincular egreso si aplica)
- *   if tol < delta ≤ SOBRANTE_CONTEO_MAX     → sobrante absorbido → va a admin
- *   if delta > SOBRANTE_CONTEO_MAX           → sobrante a justificar
- *
- *   # Cierre:
- *   disponible = contado − fondoDejado
- *   restoAdmin = disponible − egresos   // incluye sobrante de conteo < 10k
+ *   esperado = max(0, objetivo − fondoDejado)
+ *   delta    = contado − esperado
+ *   if |delta| ≤ tol                              → cuadra
+ *   if 0 < delta ≤ DIFERENCIA_CONTEO_MAX          → sobrante absorbido → admin
+ *   if −DIFERENCIA_CONTEO_MAX ≤ delta < 0         → faltante absorbido (conteo)
+ *   if delta < −DIFERENCIA_CONTEO_MAX             → faltante a justificar
+ *   if delta > DIFERENCIA_CONTEO_MAX              → sobrante a justificar
  */
 export function cuadreArqueoConFondo(input: {
   contado: number
   objetivo: number | null
-  /** Solo informativo / reparto; no altera Δ. */
   fondoDejado?: number
   tolerancia?: number
-  sobranteConteoMax?: number
+  diferenciaConteoMax?: number
 }): {
   objetivoConteo: number | null
   delta: number | null
   esFaltante: boolean
   esSobrante: boolean
   sobranteAbsorbido: boolean
+  faltanteAbsorbido: boolean
   montoFaltante: number
   montoSobrante: number
   cuadra: boolean
+  cubiertoPorFondo: number
 } {
   const tol = input.tolerancia ?? 1.5
-  const sobranteMax = input.sobranteConteoMax ?? SOBRANTE_CONTEO_MAX
+  const diffMax = input.diferenciaConteoMax ?? DIFERENCIA_CONTEO_MAX
   const contado = Math.max(0, input.contado || 0)
+  const fondo = Math.max(0, input.fondoDejado || 0)
   if (input.objetivo == null || contado <= 0) {
     return {
       objetivoConteo: null,
@@ -116,27 +117,37 @@ export function cuadreArqueoConFondo(input: {
       esFaltante: false,
       esSobrante: false,
       sobranteAbsorbido: false,
+      faltanteAbsorbido: false,
       montoFaltante: 0,
       montoSobrante: 0,
-      cuadra: false
+      cuadra: false,
+      cubiertoPorFondo: 0
     }
   }
-  const objetivoConteo = Math.max(0, input.objetivo)
+  const objetivo = Math.max(0, input.objetivo)
+  const fondoAplicado = Math.min(fondo, objetivo)
+  const objetivoConteo = Math.max(0, objetivo - fondoAplicado)
   const delta = contado - objetivoConteo
-  const esFaltante = delta < -tol
-  const sobranteAbsorbido = delta > tol && delta <= sobranteMax
-  const esSobrante = delta > sobranteMax
+  const sobranteAbsorbido = delta > tol && delta <= diffMax
+  const faltanteAbsorbido = delta < -tol && delta >= -diffMax
+  const esFaltante = delta < -diffMax
+  const esSobrante = delta > diffMax
   return {
     objetivoConteo,
     delta,
     esFaltante,
     esSobrante,
     sobranteAbsorbido,
-    montoFaltante: esFaltante ? Math.abs(delta) : 0,
+    faltanteAbsorbido,
+    montoFaltante: esFaltante || faltanteAbsorbido ? Math.abs(delta) : 0,
     montoSobrante: esSobrante || sobranteAbsorbido ? delta : 0,
-    cuadra: Math.abs(delta) <= tol || sobranteAbsorbido
+    cuadra: Math.abs(delta) <= tol || sobranteAbsorbido || faltanteAbsorbido,
+    cubiertoPorFondo: fondoAplicado
   }
 }
+
+/** @deprecated usar DIFERENCIA_CONTEO_MAX */
+export const SOBRANTE_CONTEO_MAX = DIFERENCIA_CONTEO_MAX
 
 export function fondoMontoParaCaja(caja: Pick<CajaRegistro, 'slug' | 'fondo_fijo'>): number {
   return fondoFijoEfectivo(caja)

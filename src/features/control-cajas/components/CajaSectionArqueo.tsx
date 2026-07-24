@@ -257,7 +257,7 @@ export default function CajaSectionArqueo({
   const fuenteObjetivo =
     efectivoQuedaPlanilla != null ? 'planilla' : efectivoObjetivoPlotlab != null ? 'plotlab' : null
 
-  /** CONTADO vs OBJETIVO. Fondo es solo reparto; egresos ya bajan el objetivo. */
+  /** Contado vs (objetivo − fondo dejado). El fondo queda en caja: no es faltante. */
   const fondoParaCuadre = fondoOtraCaja != null && fondoOtraCaja >= 0 ? fondoOtraCaja : 0
   const cuadre = cuadreArqueoConFondo({
     contado: total,
@@ -268,8 +268,10 @@ export default function CajaSectionArqueo({
   const esFaltante = cuadre.esFaltante
   const esSobrante = cuadre.esSobrante
   const sobranteAbsorbido = cuadre.sobranteAbsorbido
+  const faltanteAbsorbido = cuadre.faltanteAbsorbido
   const montoFaltante = cuadre.montoFaltante
   const montoSobrante = cuadre.montoSobrante
+  /** Solo faltante/sobrante grandes piden justificación. Egresos del día van a admin, no “cubren” faltante. */
   const requiereJustificacion = esFaltante || esSobrante
   const cuadraConFondoDejado = cuadre.cuadra && fondoParaCuadre > 0
   const egresosEfDia = useMemo(
@@ -285,7 +287,7 @@ export default function CajaSectionArqueo({
         .reduce((s, e) => s + (e.monto_efectivo || 0), 0),
     [egresosDia, cajaSlug, fecha]
   )
-  /** RESTO_ADMIN preview = CONTADO − FONDO − EGRESOS (incluye sobrante de conteo < 10k) */
+  /** RESTO_ADMIN = CONTADO − FONDO − EGRESOS (Semitas etc. se descuentan acá, no del faltante). */
   const restoAdminPreview =
     total > 0 ? Math.max(0, total - fondoParaCuadre - egresosEfDia) : null
 
@@ -316,7 +318,7 @@ export default function CajaSectionArqueo({
     egresosVinculados.length > 0 &&
     Math.abs(sumaEgresosVinculados - montoFaltante) <= 1.5
   const diferenciaJustificada = esFaltante
-    ? egresosCubrenFaltante
+    ? egresosCubrenFaltante || !!ticketJustifUrl
     : esSobrante
       ? !!ticketJustifUrl
       : true
@@ -405,9 +407,12 @@ export default function CajaSectionArqueo({
     setMsgOk(false)
     try {
       const dif = teorico != null ? total - teorico.teorico : deltaVsObjetivo
-      const urlJustif = esFaltante
-        ? egresosVinculados[0]?.url_ticket ?? null
-        : ticketJustifUrl || null
+      const urlJustif =
+        (esFaltante || esSobrante) && ticketJustifUrl
+          ? ticketJustifUrl
+          : esFaltante
+            ? egresosVinculados[0]?.url_ticket ?? null
+            : null
       await saveArqueo(
         {
           fecha,
@@ -446,6 +451,7 @@ export default function CajaSectionArqueo({
                   objetivo_conteo: cuadre.objetivoConteo,
                   fuente_objetivo: fuenteObjetivo,
                   faltante: esFaltante ? montoFaltante : 0,
+                  faltante_absorbido: faltanteAbsorbido ? montoFaltante : 0,
                   sobrante: esSobrante ? montoSobrante : 0,
                   sobrante_absorbido: sobranteAbsorbido ? montoSobrante : 0,
                   cuadre_con_fondo_dejado: cuadraConFondoDejado,
@@ -761,8 +767,9 @@ export default function CajaSectionArqueo({
         </h3>
         <p className="caja-cc-help">
           Del <strong>contado</strong> se reserva este monto para{' '}
-          <strong>{cajaDestinoFondo?.nombre || 'la otra caja / otro turno'}</strong>. No se suma: se resta.
-          Luego: <code>contado − fondo − egresos = administración</code>.
+          <strong>{cajaDestinoFondo?.nombre || 'la otra caja / otro turno'}</strong>. Queda en caja: no se
+          envía a administración y <strong>no es faltante</strong>. Luego:{' '}
+          <code>contado − fondo − egresos = administración</code>.
         </p>
         <label className="caja-cc-field">
           Monto a dejar (se guarda)
@@ -792,7 +799,7 @@ export default function CajaSectionArqueo({
               <strong>$ {fmtArs(fondoOtraCaja)}</strong>
             </div>
             <div>
-              <span>− Egresos</span>
+              <span>− Egresos (van menos a admin)</span>
               <strong>$ {fmtArs(egresosEfDia)}</strong>
             </div>
             <div>
@@ -800,15 +807,20 @@ export default function CajaSectionArqueo({
               <strong>$ {fmtArs(restoAdminPreview ?? 0)}</strong>
             </div>
             <p className="caja-cc-field-hint">
-              Ecuación: contado − fondo − egresos = admin.
-              {objetivoEfectivo != null && deltaVsObjetivo != null
-                ? ` Cuadre: contado vs objetivo $ ${fmtArs(objetivoEfectivo)}${
+              Ecuación: contado − fondo − egresos = admin. El fondo queda en caja. Los egresos (ej. Semitas)
+              se descuentan de admin; no cubren el faltante del cuadre.
+              {objetivoEfectivo != null && deltaVsObjetivo != null && cuadre.objetivoConteo != null
+                ? ` Cuadre: contado vs (objetivo $ ${fmtArs(objetivoEfectivo)} − fondo $ ${fmtArs(fondoParaCuadre)}) = $ ${fmtArs(cuadre.objetivoConteo)}${
                     cuadre.cuadra
                       ? sobranteAbsorbido
                         ? ` — sobrante $ ${fmtArs(montoSobrante)} (menor a $ 10.000) va a admin.`
-                        : ' — cuadra.'
+                        : faltanteAbsorbido
+                          ? ` — diferencia $ ${fmtArs(montoFaltante)} (menor a $ 10.000, error de conteo).`
+                          : cuadraConFondoDejado
+                            ? ' — cuadra (fondo dejado no es faltante).'
+                            : ' — cuadra.'
                       : esFaltante
-                        ? ` — faltan $ ${fmtArs(montoFaltante)}.`
+                        ? ` — faltan $ ${fmtArs(montoFaltante)} (después del fondo).`
                         : esSobrante
                           ? ` — sobran $ ${fmtArs(montoSobrante)}.`
                           : '.'
@@ -845,6 +857,8 @@ export default function CajaSectionArqueo({
               : 'bad'
             : sobranteAbsorbido
               ? 'ok'
+              : faltanteAbsorbido
+                ? 'ok'
               : diferenciaFisica != null && Math.abs(diferenciaFisica) > 0.02
               ? 'bad'
               : total > 0
@@ -857,13 +871,17 @@ export default function CajaSectionArqueo({
         {deltaVsObjetivo != null && total > 0 && (
           <span className="caja-cc-field-hint">
             {Math.abs(deltaVsObjetivo) <= 1.5
-              ? fuenteObjetivo === 'planilla'
-                ? 'Cuadra con planilla PDF'
-                : 'Cuadra con Plot Lab'
+              ? cuadraConFondoDejado
+                ? `Cuadra: fondo dejado $ ${fmtArs(fondoParaCuadre)} queda en caja (no es faltante)`
+                : fuenteObjetivo === 'planilla'
+                  ? 'Cuadra con planilla PDF'
+                  : 'Cuadra con Plot Lab'
               : sobranteAbsorbido
                 ? `Sobrante $ ${fmtArs(montoSobrante)} (menor a $ 10.000) → se suma a administración`
-                : esFaltante
-                  ? `Faltante $ ${fmtArs(montoFaltante)} — vinculá a egreso`
+                : faltanteAbsorbido
+                  ? `Diferencia $ ${fmtArs(montoFaltante)} (menor a $ 10.000, conteo) — egresos se descuentan de admin`
+                  : esFaltante
+                  ? `Faltante $ ${fmtArs(montoFaltante)} (después del fondo) — justificá`
                   : `Sobrante $ ${fmtArs(montoSobrante)} — justificá con comprobante`}
           </span>
         )}
@@ -882,11 +900,22 @@ export default function CajaSectionArqueo({
         >
           <h3>{esFaltante ? 'Justificar faltante' : 'Justificar sobrante'}</h3>
           <p className="caja-cc-help">
-            Contaste $ {fmtArs(total)} y el esperado es $ {fmtArs(objetivoEfectivo ?? 0)}.{' '}
+            Contaste $ {fmtArs(total)}
+            {fondoParaCuadre > 0 ? (
+              <>
+                {' '}
+                (fondo $ {fmtArs(fondoParaCuadre)} queda en caja) y el esperado tras el fondo es ${' '}
+                {fmtArs(cuadre.objetivoConteo ?? 0)}
+              </>
+            ) : (
+              <> y el esperado es $ {fmtArs(objetivoEfectivo ?? 0)}</>
+            )}
+            .{' '}
             {esFaltante ? (
               <>
-                Faltan <strong>$ {fmtArs(montoFaltante)}</strong>. Vinculá el/los egreso(s) del día que lo
-                explican (la suma debe coincidir con el faltante).
+                Faltan <strong>$ {fmtArs(montoFaltante)}</strong> después del fondo. Los egresos del día (ej.
+                Semitas $ {fmtArs(egresosEfDia)}) ya se descuentan de administración; no alcanzan para
+                “cubrir” este faltante. Adjuntá comprobante o vinculá otro egreso si corresponde.
               </>
             ) : (
               <>
@@ -896,49 +925,70 @@ export default function CajaSectionArqueo({
             )}
           </p>
           {esFaltante ? (
-            egresosDisponibles.length === 0 ? (
-              <div className="caja-cc-arqueo-egresos-vincular">
+            <div className="caja-cc-arqueo-egresos-vincular">
+              {egresosEfDia > 0 ? (
                 <p className="caja-cc-help">
-                  No hay egresos con ticket en esta caja hoy. Pedí/ejecutá el egreso en Egresos y volvé.
+                  Egresos del día $ {fmtArs(egresosEfDia)} → se restan de administración (
+                  {fmtArs(restoAdminPreview ?? 0)} a enviar). No se usan para cerrar este faltante.
                 </p>
-                {onIrEgresos ? (
-                  <button type="button" className="btn-secondary" onClick={onIrEgresos}>
-                    Ir a Egresos
-                  </button>
+              ) : null}
+              <label className="caja-cc-field">
+                Comprobante / justificación del faltante *
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+                  disabled={subiendoTicket || saving}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    void handleTicketJustificacion(f)
+                    e.target.value = ''
+                  }}
+                />
+                <span className="caja-cc-field-hint">PDF o imagen. Máximo 8 MB.</span>
+                {subiendoTicket && <span className="caja-cc-field-hint">Subiendo…</span>}
+                {ticketJustifUrl ? (
+                  <span className="caja-cc-field-hint">
+                    ✓ {ticketJustifNombre || 'Archivo cargado'}{' '}
+                    <a href={ticketJustifUrl} target="_blank" rel="noopener noreferrer">
+                      Ver
+                    </a>
+                  </span>
                 ) : null}
-              </div>
-            ) : (
-              <div className="caja-cc-arqueo-egresos-vincular">
-                {egresosDisponibles.map((e) => (
-                  <label key={e.id} className="caja-cc-egreso-vincular-row">
-                    <input
-                      type="checkbox"
-                      checked={egresosVinculadosIds.includes(e.id)}
-                      disabled={saving}
-                      onChange={() => toggleEgresoVinculado(e.id)}
-                    />
-                    <span>
-                      <strong>$ {fmtArs(e.monto_efectivo || 0)}</strong>
-                      {' — '}
-                      {e.concepto || 'Egreso'}
-                      {e.url_ticket ? (
-                        <>
-                          {' · '}
-                          <a href={e.url_ticket} target="_blank" rel="noopener noreferrer">
-                            Ver ticket
-                          </a>
-                        </>
-                      ) : null}
-                    </span>
-                  </label>
-                ))}
-                <p className={egresosCubrenFaltante ? 'caja-cc-ok' : 'caja-cc-help'}>
-                  {egresosCubrenFaltante
-                    ? `✓ Egresos vinculados cubren el faltante ($ ${fmtArs(sumaEgresosVinculados)})`
-                    : `Seleccionados: $ ${fmtArs(sumaEgresosVinculados)} · faltante $ ${fmtArs(montoFaltante)}`}
-                </p>
-              </div>
-            )
+              </label>
+              {egresosDisponibles.length > 0 ? (
+                <>
+                  <p className="caja-cc-help">Opcional: si otro egreso explica exactamente el faltante, vinculalo.</p>
+                  {egresosDisponibles.map((e) => (
+                    <label key={e.id} className="caja-cc-egreso-vincular-row">
+                      <input
+                        type="checkbox"
+                        checked={egresosVinculadosIds.includes(e.id)}
+                        disabled={saving}
+                        onChange={() => toggleEgresoVinculado(e.id)}
+                      />
+                      <span>
+                        <strong>$ {fmtArs(e.monto_efectivo || 0)}</strong>
+                        {' — '}
+                        {e.concepto || 'Egreso'}
+                        {e.url_ticket ? (
+                          <>
+                            {' · '}
+                            <a href={e.url_ticket} target="_blank" rel="noopener noreferrer">
+                              Ver ticket
+                            </a>
+                          </>
+                        ) : null}
+                      </span>
+                    </label>
+                  ))}
+                  <p className={egresosCubrenFaltante ? 'caja-cc-ok' : 'caja-cc-help'}>
+                    {egresosCubrenFaltante
+                      ? `✓ Egresos vinculados = faltante ($ ${fmtArs(sumaEgresosVinculados)})`
+                      : `Seleccionados: $ ${fmtArs(sumaEgresosVinculados)} · faltante $ ${fmtArs(montoFaltante)}`}
+                  </p>
+                </>
+              ) : null}
+            </div>
           ) : (
             <label className="caja-cc-field">
               Comprobante / justificación *
