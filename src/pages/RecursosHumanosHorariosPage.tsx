@@ -1163,7 +1163,7 @@ const RelojImportTab = ({
       {/* Configuración de jornada */}
       <div className="reloj-config">
         <div className="reloj-config-field">
-          <label>Jornada Lun-Sáb (hs)</label>
+          <label>Jornada Lun–Vie (hs)</label>
           <input
             type="number"
             min={1}
