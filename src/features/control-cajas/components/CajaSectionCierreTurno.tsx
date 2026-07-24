@@ -272,12 +272,8 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
       setMsg('El fondo de caja no puede ser negativo.')
       return
     }
-    if (!planillaPreview) {
-      setMsg('Adjuntá el PDF de la planilla con el detalle de transacciones para el pase a administración.')
-      return
-    }
     if (calc.resto_efectivo + calc.resto_otros <= 0 && calc.fondo_monto <= 0) {
-      setMsg('No hay montos para transferir.')
+      setMsg('No hay montos para transferir (contado − fondo − egresos).')
       return
     }
 
@@ -288,7 +284,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
       }
       const loteId = newId()
       let idPlanilla = planillaId
-      if (!idPlanilla) {
+      if (planillaPreview && !idPlanilla) {
         const slugOrigen = resolveCajaSlug(planillaPreview.caja_nombre, cajas) ?? origen
         const guardada = await savePlanillaImport(planillaPreview, slugOrigen, usuarioNombre, usuarioId)
         idPlanilla = guardada.id
@@ -331,12 +327,14 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
 
       const detalleInicial = {
         comprobantes: [] as never[],
-        planilla_resumen: {
-          archivo_nombre: planillaPreview.archivo_nombre,
-          cantidad_ventas: planillaPreview.ventas.length,
-          ingresos_total: planillaPreview.totales?.ingresos_total ?? 0,
-          egresos_total: planillaPreview.totales?.egresos_total ?? 0
-        },
+        planilla_resumen: planillaPreview
+          ? {
+              archivo_nombre: planillaPreview.archivo_nombre,
+              cantidad_ventas: planillaPreview.ventas.length,
+              ingresos_total: planillaPreview.totales?.ingresos_total ?? 0,
+              egresos_total: planillaPreview.totales?.egresos_total ?? 0
+            }
+          : undefined,
         movimientos_ids: [] as string[]
       }
 
@@ -368,7 +366,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
         calc,
         montosAntes,
         adminSlug,
-        planillaNombre: planillaPreview.archivo_nombre,
+        planillaNombre: planillaPreview?.archivo_nombre,
         usuarioNombre,
         usuarioId
       })
@@ -392,14 +390,14 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
         titulo: 'Cierre de turno registrado',
         descripcion:
           `${usuarioNombre} cerró turno en ${cajaNombre(origen)}: fondo $ ${fmtArs(calc.fondo_monto)}, ` +
-          `admin $ ${fmtArs(calc.resto_efectivo + calc.resto_otros)}. ` +
-          `Planilla: ${planillaPreview.archivo_nombre}.`,
+          `admin $ ${fmtArs(calc.resto_efectivo + calc.resto_otros)}.` +
+          (planillaPreview ? ` Planilla: ${planillaPreview.archivo_nombre}.` : ''),
         tipo: 'info',
         excluirUsuarioId: usuarioId
       })
 
       setMsg(
-        `Cierre de turno registrado: fondo $ ${fmtArs(calc.fondo_monto)} a ${cajaNombre(cajaFondoDestino)}, resto $ ${fmtArs(calc.resto_efectivo + calc.resto_otros)} a administración (planilla adjunta).`
+        `Cierre de turno registrado: fondo $ ${fmtArs(calc.fondo_monto)} a ${cajaNombre(cajaFondoDestino)}, resto $ ${fmtArs(calc.resto_efectivo + calc.resto_otros)} a administración.`
       )
       setPlanillaPreview(null)
       setPlanillaId(null)
@@ -413,6 +411,23 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
 
   const restoAdmin = calc.resto_efectivo + calc.resto_otros
   const camposAutomaticos = !isAdmin
+  const puedeRegistrar =
+    !!origen &&
+    !!cajaFondoDestino &&
+    origen !== cajaFondoDestino &&
+    !hayEgresosPendientes(egresosLista) &&
+    (calc.resto_efectivo + calc.resto_otros > 0 || calc.fondo_monto > 0)
+  const motivoBloqueo = !origen
+    ? 'Falta identificar la caja de origen.'
+    : !cajaFondoDestino
+      ? 'Falta la caja que recibe el fondo.'
+      : origen === cajaFondoDestino
+        ? 'La caja del fondo debe ser distinta a la de origen.'
+        : hayEgresosPendientes(egresosLista)
+          ? 'Hay egresos pendientes o sin ticket.'
+          : calc.resto_efectivo + calc.resto_otros <= 0 && calc.fondo_monto <= 0
+            ? 'No hay montos para transferir (revisá arqueo / fondo / egresos).'
+            : null
 
   return (
     <div className="caja-cc-cierre-turno">
@@ -668,11 +683,14 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
         <button
           type="button"
           className="btn-primary"
-          disabled={saving || hayEgresosPendientes(egresosLista) || !planillaPreview || !origen}
+          disabled={saving || !puedeRegistrar}
           onClick={() => void ejecutar()}
         >
           {saving ? 'Registrando…' : 'Registrar cierre de turno'}
         </button>
+        {!saving && motivoBloqueo ? (
+          <p className="caja-cc-field-hint">{motivoBloqueo}</p>
+        ) : null}
       </div>
 
       {lotes.length > 0 && (
