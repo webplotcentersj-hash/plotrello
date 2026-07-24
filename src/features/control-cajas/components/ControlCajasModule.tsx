@@ -42,7 +42,7 @@ const SECTION_TITLES: Record<CajaSectionId, string> = {
   cierres: 'Cierres',
   arqueo: 'Mi arqueo',
   cierre_turno: 'Cierre de turno',
-  pase_caja: 'Pase de caja',
+  pase_caja: 'Cierre de turno',
   traspasos: 'Traspasos',
   egresos: 'Egresos',
   movimientos: 'Mis movimientos',
