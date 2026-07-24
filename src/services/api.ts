@@ -16737,6 +16737,80 @@ class ApiService {
    * (clave: id_usuario + primer día del mes). Se usa como entrada esperada /
    * jornada esperada. `mes` en formato 'YYYY-MM' o 'YYYY-MM-DD' (null = mes actual).
    */
+  /**
+   * Regla de sábados por medio por empleado (`todos` | `par` | `impar`).
+   * Requiere patch `2026-07-24_rrhh_sabado_medio.sql`.
+   */
+  async obtenerSabadosMedio(): Promise<ApiResponse<Record<number, 'todos' | 'par' | 'impar'>>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('obtener_sabados_medio')
+      if (error) {
+        // Fallback directo a tabla si el RPC aún no está (migración parcial)
+        const { data: rows, error: err2 } = await supabase
+          .from('rrhh_sabado_medio')
+          .select('id_usuario, modo')
+        if (err2) return { success: false, error: error.message }
+        const mapa: Record<number, 'todos' | 'par' | 'impar'> = {}
+        for (const r of (rows as Array<{ id_usuario: number; modo: string }> | null) || []) {
+          const m = String(r.modo || 'todos').toLowerCase()
+          if (m === 'par' || m === 'impar' || m === 'todos') mapa[r.id_usuario] = m
+        }
+        return { success: true, data: mapa }
+      }
+
+      const mapa: Record<number, 'todos' | 'par' | 'impar'> = {}
+      for (const r of (data as Array<{ id_usuario: number; modo: string }> | null) || []) {
+        const m = String(r.modo || 'todos').toLowerCase()
+        if (m === 'par' || m === 'impar' || m === 'todos') mapa[r.id_usuario] = m
+      }
+      return { success: true, data: mapa }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async upsertSabadoMedio(
+    idUsuario: number,
+    modo: 'todos' | 'par' | 'impar',
+    updatedBy: number | null = null
+  ): Promise<ApiResponse<{ id_usuario: number; modo: string }>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('upsert_sabado_medio', {
+        p_id_usuario: idUsuario,
+        p_modo: modo,
+        p_updated_by: updatedBy
+      })
+      if (error) {
+        const { data: row, error: err2 } = await supabase
+          .from('rrhh_sabado_medio')
+          .upsert(
+            {
+              id_usuario: idUsuario,
+              modo,
+              updated_at: new Date().toISOString(),
+              updated_by: updatedBy
+            },
+            { onConflict: 'id_usuario' }
+          )
+          .select('id_usuario, modo')
+          .single()
+        if (err2) return { success: false, error: error.message }
+        return { success: true, data: row as { id_usuario: number; modo: string } }
+      }
+      return { success: true, data: data as { id_usuario: number; modo: string } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   async upsertHorarioFijo(
     idUsuario: number,
     horaEntrada: string,

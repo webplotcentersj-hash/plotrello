@@ -2774,3 +2774,265 @@ thead .rrhh-asis-sticky {
     display: none;
   }
 }
+
+/* Turnos del dia */
+.rrhh-section-sub {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  font-weight: 400;
+  max-width: 52rem;
+}
+
+.rrhh-turnos-dia {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rrhh-turnos-dia-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.rrhh-turnos-dia-fecha {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.rrhh-turnos-dia-fecha input[type="date"] {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-primary);
+}
+
+.rrhh-turnos-dia-fecha strong {
+ text-transform: capitalize;
+ font-size: 1.05rem;
+}
+
+.rrhh-turnos-dia .btn-link {
+ background: none;
+ border: none;
+ color: #3b82f6;
+ cursor: pointer;
+ font-size: 0.95rem;
+ text-decoration: underline;
+ padding: 8px;
+}
+
+.rrhh-turnos-swap {
+ padding: 16px 18px;
+ border-radius: 12px;
+ background: rgba(59, 130, 246, 0.08);
+ border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.rrhh-turnos-swap h3 {
+ margin: 0 0 12px;
+ font-size: 1rem;
+ font-weight: 600;
+}
+
+.rrhh-turnos-swap-row {
+ display: flex;
+ flex-wrap: wrap;
+ align-items: center;
+ gap: 10px;
+}
+
+.rrhh-turnos-swap-row select {
+ min-width: 200px;
+ flex: 1;
+ padding: 10px 12px;
+ border-radius: 8px;
+ border: 1px solid rgba(255, 255, 255, 0.15);
+ background: rgba(0, 0, 0, 0.3);
+ color: var(--text-primary);
+}
+
+.rrhh-turnos-swap-arrow {
+ font-size: 1.25rem;
+ color: var(--text-muted);
+}
+
+.rrhh-turnos-help {
+ margin: 8px 0 0;
+ font-size: 0.85rem;
+ color: var(--text-muted);
+}
+
+.rrhh-turnos-msg {
+ margin: 0;
+ padding: 10px 14px;
+ border-radius: 8px;
+ background: rgba(59, 130, 246, 0.15);
+ border: 1px solid rgba(59, 130, 246, 0.35);
+ color: var(--text-primary);
+}
+
+.rrhh-turnos-kpi {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 16px;
+ font-size: 0.95rem;
+ color: var(--text-muted);
+}
+
+.rrhh-turnos-kpi-sab {
+ color: #f59e0b;
+}
+
+.rrhh-turnos-dia-list {
+ list-style: none;
+ margin: 0;
+ padding: 0;
+ display: flex;
+ flex-direction: column;
+ gap: 6px;
+}
+
+.rrhh-turnos-dia-row {
+ display: grid;
+ grid-template-columns: minmax(140px, 1.2fr) minmax(160px, 1fr) auto;
+ gap: 12px 16px;
+ align-items: center;
+ padding: 12px 16px;
+ border-radius: 10px;
+ background: rgba(255, 255, 255, 0.04);
+ border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-turnos-dia-row.is-permiso {
+ border-color: rgba(245, 158, 11, 0.45);
+ background: rgba(245, 158, 11, 0.08);
+}
+
+.rrhh-turnos-dia-row.is-off {
+ opacity: 0.55;
+}
+
+.rrhh-turnos-dia-persona {
+ display: flex;
+ flex-direction: column;
+ gap: 2px;
+ min-width: 0;
+}
+
+.rrhh-turnos-dia-persona strong {
+ font-size: 1rem;
+ white-space: nowrap;
+ overflow: hidden;
+ text-overflow: ellipsis;
+}
+
+.rrhh-turnos-dia-persona small {
+ color: var(--text-muted);
+ font-size: 0.8rem;
+}
+
+.rrhh-turnos-hora {
+ font-variant-numeric: tabular-nums;
+ font-weight: 600;
+ font-size: 1.05rem;
+ letter-spacing: 0.02em;
+}
+
+.rrhh-turnos-dia-horario {
+ display: flex;
+ flex-wrap: wrap;
+ align-items: center;
+ gap: 8px;
+}
+
+.rrhh-turnos-chip {
+ display: inline-block;
+ padding: 2px 8px;
+ border-radius: 6px;
+ font-size: 0.72rem;
+ font-weight: 600;
+ text-transform: uppercase;
+ letter-spacing: 0.04em;
+ background: rgba(59, 130, 246, 0.2);
+ color: #93c5fd;
+}
+
+.rrhh-turnos-chip--permiso {
+ background: rgba(245, 158, 11, 0.25);
+ color: #fcd34d;
+}
+
+.rrhh-turnos-off {
+ color: var(--text-muted);
+ font-size: 0.9rem;
+}
+
+.rrhh-turnos-sab-medio {
+ display: flex;
+ align-items: center;
+ gap: 6px;
+ font-size: 0.8rem;
+ color: var(--text-muted);
+ white-space: nowrap;
+}
+
+.rrhh-turnos-sab-medio select {
+ padding: 4px 8px;
+ border-radius: 6px;
+ border: 1px solid rgba(255, 255, 255, 0.15);
+ background: rgba(0, 0, 0, 0.3);
+ color: var(--text-primary);
+ font-size: 0.8rem;
+}
+
+.rrhh-turnos-dia-empty {
+ padding: 24px;
+ text-align: center;
+ color: var(--text-muted);
+}
+
+.rrhh-turnos-permisos-block {
+ margin-top: 8px;
+ padding-top: 16px;
+ border-top: 1px solid rgba(255, 255, 255, 0.1);
+ display: flex;
+ flex-direction: column;
+ gap: 12px;
+}
+
+.rrhh-turnos-permisos-hoy {
+ list-style: none;
+ margin: 0;
+ padding: 0;
+ display: flex;
+ flex-direction: column;
+ gap: 6px;
+}
+
+.rrhh-turnos-permisos-hoy li {
+ padding: 8px 12px;
+ border-radius: 8px;
+ background: rgba(245, 158, 11, 0.1);
+ font-size: 0.92rem;
+}
+
+.rrhh-turnos-cal-wrap {
+ margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+ .rrhh-turnos-dia-row {
+ grid-template-columns: 1fr;
+ gap: 8px;
+ }
+ .rrhh-turnos-swap-row select {
+ min-width: 100%;
+ }
+}
