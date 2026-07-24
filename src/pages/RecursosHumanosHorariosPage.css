@@ -1532,7 +1532,7 @@ thead .rrhh-asis-sticky {
 }
 
 .rrhh-asis-celda.finde {
-  background: #f6f8fb;
+  background: #fff;
 }
 
 .rrhh-asis-celda .celda-h {
@@ -1554,7 +1554,7 @@ thead .rrhh-asis-sticky {
 }
 
 .rrhh-asis-celda.celda-aus {
-  background: rgba(220, 38, 38, 0.22);
+  background: #fff;
   color: #991b1b;
   font-weight: 700;
 }
@@ -1568,29 +1568,29 @@ thead .rrhh-asis-sticky {
 }
 
 .rrhh-asis-celda.celda-ok {
-  background: rgba(34, 197, 94, 0.14);
+  background: #fff;
 }
 
 .rrhh-asis-celda.celda-tarde {
-  background: rgba(245, 158, 11, 0.28);
+  background: #fff;
   box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.35);
 }
 
 .rrhh-asis-celda.celda-nov {
-  background: rgba(139, 92, 246, 0.18);
-  color: #c4b5fd;
+  background: #fff;
+  color: #6d28d9;
   font-weight: 700;
   cursor: pointer;
 }
 
 .rrhh-asis-celda.celda-nov--falta {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
+  background: #fff;
+  color: #dc2626;
 }
 
 .rrhh-asis-celda.celda-nov--licencia {
-  background: rgba(59, 130, 246, 0.2);
-  color: #93c5fd;
+  background: #fff;
+  color: #2563eb;
 }
 
 .rrhh-asis-celda.celda-nov-vinc {
@@ -1598,7 +1598,7 @@ thead .rrhh-asis-sticky {
 }
 
 .rrhh-asis-celda.celda-sin-marca {
-  background: rgba(100, 116, 139, 0.12);
+  background: #fff;
   color: #64748b;
 }
 
@@ -1764,7 +1764,7 @@ thead .rrhh-asis-sticky {
 }
 
 .rrhh-asis-celda.celda-nov--horas_extra {
-  background: rgba(16, 185, 129, 0.2);
+  background: #fff;
   color: #047857;
 }
 
