@@ -10,18 +10,16 @@ import { fondoFijoEfectivo } from './fondoCaja'
 import type { CajaCierre, CajaEgresoSolicitud, CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from './types'
 
 /**
- * Reparto del efectivo contado (orden obligatorio):
+ * Reparto hacia administración (orden obligatorio):
  *
- *   CONTADO          = billetes físicos (ej. 818.000)
- *   FONDO_DEJADO     = queda para otro día/turno / otra caja (ej. 40.497)  ⊆ CONTADO
- *   EGRESOS          = egresos ejecutados del día (efectivo)
+ *   EFECTIVO         = fondo_config + cobros Plot Lab (ej. 861.497,99)
+ *                      — NO el contado de billetes del arqueo
+ *   FONDO_DEJADO     = queda en caja / otro turno (ej. 50.000)
+ *   EGRESOS          = egresos del día (ej. Semitas 3.000)
  *
- *   DISPONIBLE       = CONTADO − FONDO_DEJADO
- *   RESTO_ADMIN      = DISPONIBLE − EGRESOS
- *                  = CONTADO − FONDO_DEJADO − EGRESOS
+ *   RESTO_ADMIN      = EFECTIVO − FONDO_DEJADO − EGRESOS
  *
- * El fondo NO se suma al contado: es un recorte del contado.
- * Los egresos se restan de lo que queda DESPUÉS de reservar el fondo.
+ * El fondo queda en caja; los egresos salen del remanente; lo demás → admin.
  */
 export type CierreTurnoInput = {
   arqueo_efectivo: number
@@ -38,6 +36,41 @@ export type CierreTurnoCalculado = CierreTurnoInput & {
   disponible_tras_fondo: number
 }
 
+/** Efectivo base del cierre = fondo + cobros (desde saldos del arqueo). */
+export function efectivoBaseCierreDesdeArqueo(
+  arqueo: {
+    total?: number
+    teorico_fisico?: number | null
+    saldos?: Record<string, unknown> | null
+  } | null
+): { monto: number; fuente: string } {
+  const s = arqueo?.saldos
+  if (s && typeof s === 'object') {
+    const baseGuardada = Number(s.efectivo_base_cierre)
+    if (Number.isFinite(baseGuardada) && baseGuardada > 0) {
+      return { monto: baseGuardada, fuente: 'fondo + cobros Plot Lab' }
+    }
+    const obj = Number(s.objetivo_efectivo)
+    const egr = Number(s.egresos_efectivo ?? s.egresos_fisicos)
+    // objetivo = fondo + cobros − egresos → sumamos egresos para recuperar fondo + cobros
+    if (Number.isFinite(obj) && obj > 0) {
+      const e = Number.isFinite(egr) && egr > 0 ? egr : 0
+      return { monto: Math.max(0, obj + e), fuente: 'fondo + cobros Plot Lab' }
+    }
+    const fondo = Number(s.fondo_fijo)
+    const ing = Number(s.ingresos_fisicos)
+    if (Number.isFinite(fondo) && Number.isFinite(ing) && (fondo > 0 || ing > 0)) {
+      return { monto: Math.max(0, fondo + ing), fuente: 'fondo + cobros (movimientos)' }
+    }
+  }
+  const teorico = Number(arqueo?.teorico_fisico)
+  if (Number.isFinite(teorico) && teorico > 0) {
+    return { monto: teorico, fuente: 'teórico arqueo' }
+  }
+  const total = Number(arqueo?.total) || 0
+  return { monto: Math.max(0, total), fuente: 'contado arqueo' }
+}
+
 /** Rosa deja fondo en otra caja; egresos salen del resto; lo que sobra va a Administración. */
 export function calcularCierreTurnoMontos(input: CierreTurnoInput): CierreTurnoCalculado {
   const arqueo_efectivo = input.arqueo_efectivo || 0
@@ -46,7 +79,7 @@ export function calcularCierreTurnoMontos(input: CierreTurnoInput): CierreTurnoC
   const egrEf = input.egresos_aprobados_ef || 0
   const egrOt = input.egresos_aprobados_ot || 0
 
-  // 1) Reservar fondo  2) Descontar egresos del disponible  3) Resto → admin
+  // 1) Reservar fondo  2) Descontar egresos  3) Resto → admin
   const disponible_tras_fondo = Math.max(0, arqueo_efectivo - fondo)
   const resto_efectivo = Math.max(0, disponible_tras_fondo - egrEf)
   const resto_otros = Math.max(0, arqueo_otros - egrOt)
