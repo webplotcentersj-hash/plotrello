@@ -103,7 +103,7 @@ export function analizarConcordancia(input: {
         fecha: c.fecha,
         titulo: `Cierre a revisar · ${cajaLabel(cajas, c.caja_slug)}`,
         detalle: `Dif. total $${fmtArs(c.dif_total)} (ef. $${fmtArs(c.dif_ef)}, tarj. $${fmtArs(c.dif_tarj)}). ${c.observacion?.trim() || 'Sin observación.'}`,
-        accion: { label: 'Ver cierres', section: 'cierres' }
+        accion: { label: 'Ver calendario', section: 'tablero_admin' }
       })
     }
     const recalc = calcularCierre(
@@ -127,7 +127,7 @@ export function analizarConcordancia(input: {
         fecha: c.fecha,
         titulo: 'Inconsistencia en cálculo de efectivo',
         detalle: `Cierre ${c.fecha} ${c.caja_slug}: dif. efectivo guardada $${fmtArs(c.dif_ef)} vs recalculada $${fmtArs(recalc.dif_ef)}.`,
-        accion: { label: 'Editar cierre', section: 'cierres' }
+        accion: { label: 'Nuevo cierre', section: 'cierres_new' }
       })
     }
   }
@@ -244,7 +244,7 @@ export function analizarConcordancia(input: {
         fecha: c.fecha,
         titulo: 'Cierre con fondo distinto al configurado',
         detalle: `${cajaLabel(cajas, c.caja_slug)} ${c.fecha}: fondo registrado $${fmtArs(c.fondo_fijo)} (configurado $${fmtArs(min)}).`,
-        accion: { label: 'Ver cierres', section: 'cierres' }
+        accion: { label: 'Ver calendario', section: 'tablero_admin' }
       })
     }
     if (c.ef_contado > 0 && c.ef_contado < min) {
@@ -254,7 +254,7 @@ export function analizarConcordancia(input: {
         fecha: c.fecha,
         titulo: 'Efectivo contado bajo el fondo de caja',
         detalle: `${c.fecha}: contado $${fmtArs(c.ef_contado)} menor al fondo $${fmtArs(min)}.`,
-        accion: { label: 'Ver cierres', section: 'cierres' }
+        accion: { label: 'Ver calendario', section: 'tablero_admin' }
       })
     }
   }

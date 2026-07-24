@@ -49,7 +49,6 @@ export const NAV_ADMIN: NavItem[] = [
   { section: 'egresos', label: 'Egresos', icon: '📤', adminOnly: true },
   { section: 'arqueos_admin', label: 'Arqueos', icon: '💵', adminOnly: true },
   { section: 'movimientos_admin', label: 'Movimientos', icon: '📋', adminOnly: true },
-  { section: 'cierres', label: 'Cierres', icon: '✅', adminOnly: true },
   { header: 'Avanzado' },
   { section: 'cierres_new', label: 'Nuevo cierre', icon: '➕', adminOnly: true },
   { section: 'concil_mp', label: 'Mercado Pago', icon: '💳', adminOnly: true },

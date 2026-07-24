@@ -221,14 +221,17 @@ export function trazabilidadFilas(m: CajaMovimiento): { label: string; antes: st
   return out
 }
 
-export function tituloIngresoDia(_resumen: ResumenAdminHoy, esHoy: boolean): string {
+export function tituloIngresoDia(resumen: ResumenAdminHoy, esHoy: boolean): string {
+  if (resumen.ingresoFuente === 'cierre_turno') {
+    return esHoy ? 'Administración hoy' : 'Administración del día'
+  }
   return esHoy ? 'Ingreso hoy' : 'Ingreso del día'
 }
 
 export function subtituloIngresoDia(resumen: ResumenAdminHoy): string {
   switch (resumen.ingresoFuente) {
     case 'cierre_turno':
-      return 'Resto enviado a administración (cierres de turno)'
+      return 'Administración: resto de cierres (contado − fondo − egresos)'
     case 'planilla':
       return 'Ingresos en planillas PDF (aún sin cierre de turno)'
     case 'plotlab':
@@ -236,4 +239,14 @@ export function subtituloIngresoDia(resumen: ResumenAdminHoy): string {
     default:
       return 'Sin ingresos registrados este día'
   }
+}
+
+/** Monto a mostrar en el hero de ingreso/admin del tablero. */
+export function montoIngresoHeroDia(
+  resumen: ResumenAdminHoy,
+  totalCobradoMedios: number
+): number {
+  if (resumen.ingresoFuente === 'cierre_turno') return resumen.ingresoHoy
+  if (totalCobradoMedios > 0) return totalCobradoMedios
+  return resumen.ingresoHoy
 }

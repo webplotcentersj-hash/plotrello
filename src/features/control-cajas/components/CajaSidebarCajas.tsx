@@ -535,9 +535,6 @@ export function CajaDetallePorCaja({
         <button type="button" className="btn-secondary" onClick={() => onNavigate('egresos')}>
           Ver egresos
         </button>
-        <button type="button" className="btn-secondary" onClick={() => onNavigate('cierres')}>
-          Ver cierres
-        </button>
         <button type="button" className="btn-secondary" onClick={() => onNavigate('movimientos_admin')}>
           Ver movimientos
         </button>

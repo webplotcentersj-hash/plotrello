@@ -218,6 +218,7 @@ export async function listCajas(): Promise<CajaRegistro[]> {
     const { data, error } = await supabase!
       .from('control_caja_cajas')
       .select('slug, nombre, fondo_fijo, activa, id_usuario')
+      .eq('activa', true)
       .order('nombre')
     if (!error && data?.length) {
       return data.map((r) => mapCajaRegistro(r))

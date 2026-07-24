@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCajaOperativa } from '../../../hooks/useCajaOperativa'
+import { listCajasOperativasUsuarios } from '../cajaOperativa'
 import {
   getCierreFechaCaja,
   getParams,
@@ -58,9 +59,17 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
   const [fondoMontoInput, setFondoMontoInput] = useState('')
 
   const reload = useCallback(async () => {
-    const [c, lot, p] = await Promise.all([listCajas(), listTransferenciaLotes(20), getParams()])
-    const operativas = c.filter((x) => x.slug !== 'vuelto')
-    setCajas(operativas)
+    const [todas, operativasUsuarios, lot, p] = await Promise.all([
+      listCajas(),
+      listCajasOperativasUsuarios(),
+      listTransferenciaLotes(20),
+      getParams()
+    ])
+    // Admin para nombres/destino; origen = solo cajas de usuarios activos (sin legacy inactivas).
+    const admin = todas.filter((x) => x.slug === 'admin')
+    const bySlug = new Map<string, CajaRegistro>()
+    for (const c of [...admin, ...operativasUsuarios]) bySlug.set(c.slug, c)
+    setCajas([...bySlug.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
     setLotes(lot)
     setTolerancia(p.tolerancia)
   }, [])

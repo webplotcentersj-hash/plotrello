@@ -6,12 +6,13 @@ import {
   type LineaConciliacionDia
 } from '../conciliacionDiaCaja'
 import { fmtArs } from '../format'
-import type { CajaConcilBanco, CajaConcilMP, CajaMovimiento, PlanillaCajaGuardada } from '../types'
+import type { CajaArqueo, CajaConcilBanco, CajaConcilMP, CajaMovimiento, PlanillaCajaGuardada } from '../types'
 
 type Props = {
   fecha: string
   movimientos: CajaMovimiento[]
   planillas: PlanillaCajaGuardada[]
+  arqueos?: CajaArqueo[]
   concilMp?: CajaConcilMP | null
   concilBanco?: CajaConcilBanco | null
 }
@@ -27,6 +28,7 @@ export default function CajaDiaConciliacionPanel({
   fecha,
   movimientos,
   planillas,
+  arqueos = [],
   concilMp,
   concilBanco
 }: Props) {
@@ -37,10 +39,11 @@ export default function CajaDiaConciliacionPanel({
         fecha,
         movimientos,
         planillas,
+        arqueos,
         concilMp,
         concilBanco
       }),
-    [fecha, movimientos, planillas, concilMp, concilBanco]
+    [fecha, movimientos, planillas, arqueos, concilMp, concilBanco]
   )
 
   const conActividad = lineas.some((l) => l.estado !== 'sin_mov')

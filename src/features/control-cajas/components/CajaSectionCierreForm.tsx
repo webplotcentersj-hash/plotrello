@@ -270,7 +270,7 @@ export default function CajaSectionCierreForm({
     const match = buscarPlanillaCaja(planillas, cajaSlug, fecha, caja?.nombre)
     if (!match) {
       setMsg(
-        'No hay planilla PDF para esta fecha/caja. Subila en la lista Cierres (arriba) y volvé a precargar.'
+        'No hay planilla PDF para esta fecha/caja. Subila en Centro IA y volvé a precargar.'
       )
       return
     }
@@ -405,7 +405,7 @@ export default function CajaSectionCierreForm({
           </p>
         </div>
         <button type="button" className="btn-secondary btn-small" onClick={onCancel}>
-          Volver a cierres
+          Volver al calendario
         </button>
       </header>
 
@@ -436,7 +436,7 @@ export default function CajaSectionCierreForm({
                 Egresos aprobados
               </button>
             </div>
-            {onIrSubirPdf ? <CajaAvisoPdfUnico onIr={onIrSubirPdf} destinoLabel="Cierres" /> : null}
+            {onIrSubirPdf ? <CajaAvisoPdfUnico onIr={onIrSubirPdf} destinoLabel="Centro IA" /> : null}
             {planillaActiva && (
               <p className="caja-cc-help">
                 Planilla leída: <strong>{planillaActiva.archivo_nombre}</strong> —{' '}

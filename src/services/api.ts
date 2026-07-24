@@ -5181,7 +5181,7 @@ class ApiService {
       console.error('Error buscando clientes por token:', error)
       return []
     }
-    return (data as ClienteRecord[]) ?? []
+    return ((data as ClienteRecord[]) ?? []).filter((c) => c.activo !== false)
   }
 
   /** Totales reales en BD (sin límite de 1000 filas de PostgREST). */
@@ -5281,6 +5281,7 @@ class ApiService {
       const addMatches = (list: ClienteRecord[] | null | undefined) => {
         for (const c of list ?? []) {
           if (seen.has(c.id)) continue
+          if (c.activo === false) continue
           const { duplicado } = analizarParDuplicado(cliente, c)
           if (!duplicado) continue
           seen.add(c.id)
@@ -5343,11 +5344,21 @@ class ApiService {
   }
 
   /**
-   * Unifica dos fichas de cliente: reasigna pedidos/ventas/CC y desactiva la secundaria.
+   * Unifica fichas de cliente: reasigna vínculos, aplica datos finales al principal y desactiva secundarias.
+   * `datosFinales` opcional: nombre/tel/email/etc. que deben quedar en la ficha conservada.
    */
   async fusionarClientes(
     idPrincipal: number,
-    idSecundario: number
+    idSecundario: number,
+    datosFinales?: {
+      nombre?: string
+      apellido?: string
+      empresa?: string
+      telefono?: string
+      email?: string
+      dni_cuit?: string
+      direccion?: string
+    }
   ): Promise<ApiResponse<ClienteRecord>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     if (idPrincipal === idSecundario) {
@@ -5372,19 +5383,23 @@ class ApiService {
         supabase.from('clientes_cuenta_corriente').select('id').eq('id_cliente', idSecundario).maybeSingle()
       ])
 
-      if (ccP && ccS) {
-        return {
-          success: false,
-          error:
-            'Ambos clientes tienen cuenta corriente. Unificá manualmente con administración antes de fusionar.'
-        }
-      }
-
       const tablasIdCliente = [
         'pedidos_clientes',
         'presupuestos_clientes',
+        'presupuestos_ventas',
         'ventas',
-        'agenda_asesor_tecnico'
+        'oportunidades_venta',
+        'facturas_venta',
+        'citas_asesor_tecnico',
+        'agenda_asesor_tecnico',
+        'briefs_publicos',
+        'briefs_tokens_pendientes',
+        'carritos_clientes',
+        'mensajes_pedidos_clientes',
+        'notificaciones_clientes',
+        'cuentas_por_cobrar',
+        'cc_cuenta_movimientos',
+        'cc_scoring_historial'
       ] as const
 
       for (const tabla of tablasIdCliente) {
@@ -5392,12 +5407,33 @@ class ApiService {
           .from(tabla)
           .update({ id_cliente: idPrincipal })
           .eq('id_cliente', idSecundario)
-        if (upErr && !/does not exist|relation/i.test(upErr.message)) {
+        if (upErr && !/does not exist|relation|duplicate|unique/i.test(upErr.message)) {
           console.warn(`fusionarClientes: ${tabla}`, upErr.message)
         }
       }
 
-      if (!ccP && ccS) {
+      const { error: atenErr } = await supabase
+        .from('atenciones_mostrador')
+        .update({ cliente_id: idPrincipal })
+        .eq('cliente_id', idSecundario)
+      if (atenErr && !/does not exist|relation/i.test(atenErr.message)) {
+        console.warn('fusionarClientes: atenciones_mostrador', atenErr.message)
+      }
+
+      if (ccP && ccS) {
+        // Movimientos ya reasignados arriba; la ficha CC secundaria se elimina para no chocar el UNIQUE.
+        const { error: delCcErr } = await supabase
+          .from('clientes_cuenta_corriente')
+          .delete()
+          .eq('id_cliente', idSecundario)
+        if (delCcErr) {
+          return {
+            success: false,
+            error:
+              'Ambos tienen cuenta corriente y no se pudo consolidar la secundaria. Revisá CC con administración.'
+          }
+        }
+      } else if (!ccP && ccS) {
         const { error: ccMoveErr } = await supabase
           .from('clientes_cuenta_corriente')
           .update({ id_cliente: idPrincipal })
@@ -5407,18 +5443,99 @@ class ApiService {
         }
       }
 
-      const mergePayload: Record<string, string> = {}
-      if (!p.apellido?.trim() && s.apellido?.trim()) mergePayload.apellido = s.apellido.trim()
-      if (!p.empresa?.trim() && s.empresa?.trim()) mergePayload.empresa = s.empresa.trim()
-      if (!p.telefono?.trim() && s.telefono?.trim()) mergePayload.telefono = s.telefono.trim()
-      if (!p.email?.trim() && s.email?.trim()) mergePayload.email = s.email.trim()
-      if (!p.dni_cuit?.trim() && s.dni_cuit?.trim()) mergePayload.dni_cuit = s.dni_cuit.trim()
-      if (!p.direccion?.trim() && s.direccion?.trim()) mergePayload.direccion = s.direccion.trim()
+      const mergePayload: Record<string, string | boolean> = { activo: true }
 
-      if (Object.keys(mergePayload).length > 0) {
-        await supabase.from('clientes').update(mergePayload).eq('id', idPrincipal)
+      if (datosFinales) {
+        if (datosFinales.nombre?.trim()) mergePayload.nombre = datosFinales.nombre.trim()
+        if (datosFinales.apellido !== undefined) mergePayload.apellido = datosFinales.apellido.trim()
+        if (datosFinales.empresa !== undefined) mergePayload.empresa = datosFinales.empresa.trim()
+        if (datosFinales.telefono !== undefined) mergePayload.telefono = datosFinales.telefono.trim()
+        if (datosFinales.email !== undefined) mergePayload.email = datosFinales.email.trim()
+        if (datosFinales.dni_cuit !== undefined) mergePayload.dni_cuit = datosFinales.dni_cuit.trim()
+        if (datosFinales.direccion !== undefined) mergePayload.direccion = datosFinales.direccion.trim()
+      } else {
+        const pickMejor = (pv?: string | null, sv?: string | null) => {
+          const a = pv?.trim() || ''
+          const b = sv?.trim() || ''
+          if (!a && b) return b
+          return null
+        }
+        const apellido = pickMejor(p.apellido, s.apellido)
+        if (apellido) mergePayload.apellido = apellido
+        const empresa = pickMejor(p.empresa, s.empresa)
+        if (empresa) mergePayload.empresa = empresa
+        const telefono = pickMejor(p.telefono, s.telefono)
+        if (telefono) mergePayload.telefono = telefono
+        const email = pickMejor(p.email, s.email)
+        if (email) mergePayload.email = email
+        const direccion = pickMejor(p.direccion, s.direccion)
+        if (direccion) mergePayload.direccion = direccion
+
+        const dniP = (p.dni_cuit || '').replace(/\D/g, '')
+        const dniS = (s.dni_cuit || '').replace(/\D/g, '')
+        if ((!dniP && dniS) || (dniS.length > dniP.length && (!dniP || dniS.endsWith(dniP.slice(-8))))) {
+          if (s.dni_cuit?.trim()) mergePayload.dni_cuit = s.dni_cuit.trim()
+        }
+        if (!p.nombre?.trim() && s.nombre?.trim()) mergePayload.nombre = s.nombre.trim()
       }
 
+      // unique_cliente_nombre: liberar el nombre de la secundaria antes de aplicarlo al principal.
+      const nombreDestino =
+        typeof mergePayload.nombre === 'string' ? mergePayload.nombre.trim() : ''
+      if (nombreDestino) {
+        await supabase
+          .from('clientes')
+          .update({
+            nombre: `__fusionado_${idSecundario}_${Date.now()}`.slice(0, 120),
+            activo: false
+          })
+          .eq('id', idSecundario)
+      }
+
+      const { error: mergeErr } = await supabase
+        .from('clientes')
+        .update(mergePayload)
+        .eq('id', idPrincipal)
+      if (mergeErr) return { success: false, error: mergeErr.message }
+
+      // Alinear OPs históricas del secundario (texto libre) al nombre/contacto del principal.
+      const nombreOp =
+        (typeof mergePayload.nombre === 'string' && mergePayload.nombre) ||
+        p.nombre ||
+        s.nombre ||
+        ''
+      if (nombreOp) {
+        const patchOp: Record<string, string> = { cliente: nombreOp }
+        const tel =
+          (typeof mergePayload.telefono === 'string' && mergePayload.telefono) ||
+          p.telefono ||
+          s.telefono
+        const mail =
+          (typeof mergePayload.email === 'string' && mergePayload.email) || p.email || s.email
+        const dni =
+          (typeof mergePayload.dni_cuit === 'string' && mergePayload.dni_cuit) ||
+          p.dni_cuit ||
+          s.dni_cuit
+        if (tel) patchOp.telefono_cliente = tel
+        if (mail) patchOp.email_cliente = mail
+        if (dni) patchOp.dni_cuit = dni
+
+        const nombreSec = [s.nombre, s.apellido].filter(Boolean).join(' ').trim()
+        if (nombreSec.length >= 3) {
+          await supabase
+            .from('ordenes_trabajo')
+            .update(patchOp)
+            .ilike('cliente', `%${nombreSec.replace(/%/g, '')}%`)
+        }
+        if (s.dni_cuit && String(s.dni_cuit).replace(/\D/g, '').length >= 6) {
+          await supabase
+            .from('ordenes_trabajo')
+            .update(patchOp)
+            .ilike('dni_cuit', `%${String(s.dni_cuit).replace(/\D/g, '')}%`)
+        }
+      }
+
+      // Ya renombramos/desactivamos la secundaria arriba si hacía falta; asegurar activo=false.
       const { error: offErr } = await supabase
         .from('clientes')
         .update({ activo: false })
@@ -5435,6 +5552,50 @@ class ApiService {
       return { success: true, data: actualizado as ClienteRecord }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al fusionar clientes' }
+    }
+  }
+
+  /**
+   * Unifica N fichas en una sola: historial → principal, secundarias desactivadas, datos finales aplicados.
+   */
+  async fusionarGrupoClientes(
+    idPrincipal: number,
+    idsSecundarios: number[],
+    datosFinales?: {
+      nombre?: string
+      apellido?: string
+      empresa?: string
+      telefono?: string
+      email?: string
+      dni_cuit?: string
+      direccion?: string
+    }
+  ): Promise<ApiResponse<{ principal: ClienteRecord; idsFusionados: number[] }>> {
+    const secs = [...new Set(idsSecundarios.filter((id) => id !== idPrincipal))]
+    if (secs.length === 0) {
+      return { success: false, error: 'Marcá al menos otra ficha para unificar' }
+    }
+
+    let ultimo: ClienteRecord | null = null
+    const fusionados: number[] = [idPrincipal]
+
+    for (const idSec of secs) {
+      const res = await this.fusionarClientes(idPrincipal, idSec, datosFinales)
+      if (!res.success || !res.data) {
+        return {
+          success: false,
+          error:
+            res.error ||
+            `Se unificaron parcialmente. Revisá el cliente #${idPrincipal} y las fichas pendientes.`
+        }
+      }
+      ultimo = res.data
+      fusionados.push(idSec)
+    }
+
+    return {
+      success: true,
+      data: { principal: ultimo!, idsFusionados: fusionados }
     }
   }
 
@@ -16204,6 +16365,190 @@ class ApiService {
     ])
     const rows = filterHistorialRows(merged).map(mapRow)
     return { success: true, data: rows }
+  }
+
+  /**
+   * Ranking de clientes por volumen real de OPs (pagina todo el historial, no el tope del tablero).
+   */
+  async listarClientesFrecuentes(options?: {
+    minOps?: number
+  }): Promise<
+    ApiResponse<
+      Array<{
+        dni_key: string
+        dni_cuit: string
+        nombre: string
+        total_ordenes: number
+        ordenes_activas: number
+        ultima_orden: string | null
+        id_cliente: number | null
+        telefono: string | null
+        email: string | null
+        empresa: string | null
+        apellido: string | null
+        es_vip: boolean
+        preferencias: string | null
+        notas_internas: string | null
+      }>
+    >
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+
+    const minOps = Math.max(1, options?.minOps ?? 1)
+    const { normalizarDniCuit } = await import('../utils/buscarClienteMatch')
+
+    type OpRow = {
+      dni_cuit: string | null
+      cliente: string | null
+      estado: string | null
+      entregado: boolean | null
+      fecha_creacion: string | null
+    }
+
+    try {
+      const pageSize = 1000
+      let from = 0
+      const ops: OpRow[] = []
+      for (;;) {
+        const { data, error } = await supabase
+          .from('ordenes_trabajo')
+          .select('dni_cuit, cliente, estado, entregado, fecha_creacion')
+          .not('dni_cuit', 'is', null)
+          .not('cliente', 'is', null)
+          .order('id', { ascending: false })
+          .range(from, from + pageSize - 1)
+        if (error) return { success: false, error: error.message }
+        const batch = (data as OpRow[]) || []
+        ops.push(...batch)
+        if (batch.length < pageSize) break
+        from += pageSize
+        if (from > 50000) break
+      }
+
+      type Agg = {
+        dni_key: string
+        dni_cuit: string
+        nombre: string
+        total: number
+        activas: number
+        ultima: string | null
+      }
+      const byDni = new Map<string, Agg>()
+
+      for (const o of ops) {
+        const dni_key = normalizarDniCuit(o.dni_cuit)
+        if (dni_key.length < 6) continue
+        const nombre = (o.cliente || '').trim()
+        if (!nombre) continue
+        let row = byDni.get(dni_key)
+        if (!row) {
+          row = {
+            dni_key,
+            dni_cuit: (o.dni_cuit || '').trim(),
+            nombre,
+            total: 0,
+            activas: 0,
+            ultima: null
+          }
+          byDni.set(dni_key, row)
+        }
+        row.total++
+        if (o.estado !== 'Entregado o Instalado' && !o.entregado) row.activas++
+        const fc = o.fecha_creacion
+        if (fc && (!row.ultima || fc > row.ultima)) row.ultima = fc
+        if ((o.dni_cuit || '').replace(/\D/g, '').length > row.dni_cuit.replace(/\D/g, '').length) {
+          row.dni_cuit = (o.dni_cuit || '').trim()
+        }
+      }
+
+      const prefsRes = await this.obtenerTodasPreferenciasClientes()
+      const prefsByDni = new Map<
+        string,
+        { es_vip: boolean; preferencias: string | null; notas_internas: string | null }
+      >()
+      if (prefsRes.success && prefsRes.data) {
+        for (const p of prefsRes.data) {
+          const k = normalizarDniCuit(p.dni_cuit)
+          if (!k) continue
+          prefsByDni.set(k, {
+            es_vip: !!p.es_vip,
+            preferencias: p.preferencias,
+            notas_internas: p.notas_internas
+          })
+        }
+      }
+
+      const dniKeys = [...byDni.keys()].filter((k) => (byDni.get(k)?.total || 0) >= minOps)
+      const clientesByDni = new Map<
+        string,
+        {
+          id: number
+          telefono: string | null
+          email: string | null
+          empresa: string | null
+          apellido: string | null
+          nombre: string
+        }
+      >()
+
+      if (dniKeys.length > 0) {
+        const { data: clientesRows } = await supabase
+          .from('clientes')
+          .select('id, nombre, apellido, empresa, telefono, email, dni_cuit, activo')
+          .not('dni_cuit', 'is', null)
+          .or('activo.is.null,activo.eq.true')
+          .limit(5000)
+        for (const c of clientesRows || []) {
+          const k = normalizarDniCuit((c as { dni_cuit?: string }).dni_cuit)
+          if (!k || !dniKeys.includes(k)) continue
+          if (clientesByDni.has(k)) continue
+          const row = c as {
+            id: number
+            nombre: string
+            apellido: string | null
+            empresa: string | null
+            telefono: string | null
+            email: string | null
+          }
+          clientesByDni.set(k, {
+            id: row.id,
+            nombre: row.nombre,
+            apellido: row.apellido,
+            empresa: row.empresa,
+            telefono: row.telefono,
+            email: row.email
+          })
+        }
+      }
+
+      const out = dniKeys
+        .map((k) => {
+          const a = byDni.get(k)!
+          const pref = prefsByDni.get(k)
+          const cli = clientesByDni.get(k)
+          return {
+            dni_key: k,
+            dni_cuit: a.dni_cuit,
+            nombre: cli?.nombre?.trim() || a.nombre,
+            total_ordenes: a.total,
+            ordenes_activas: a.activas,
+            ultima_orden: a.ultima,
+            id_cliente: cli?.id ?? null,
+            telefono: cli?.telefono ?? null,
+            email: cli?.email ?? null,
+            empresa: cli?.empresa ?? null,
+            apellido: cli?.apellido ?? null,
+            es_vip: pref?.es_vip !== undefined ? pref.es_vip : a.total >= 10,
+            preferencias: pref?.preferencias ?? null,
+            notas_internas: pref?.notas_internas ?? null
+          }
+        })
+        .sort((x, y) => y.total_ordenes - x.total_ordenes || x.nombre.localeCompare(y.nombre, 'es'))
+
+      return { success: true, data: out }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al listar clientes frecuentes' }
+    }
   }
 
   /**

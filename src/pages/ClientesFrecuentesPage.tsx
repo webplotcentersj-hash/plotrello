@@ -87,66 +87,29 @@ const ClientesFrecuentesPage = () => {
   const loadClientesFrecuentes = async () => {
     setLoading(true)
     try {
-      const ordenesResponse = await apiService.getOrdenes()
-      if (!ordenesResponse.success || !ordenesResponse.data) return
-
-      const clientesMap = new Map<string, ClienteFrecuente>()
-
-      ordenesResponse.data.forEach((orden) => {
-        if (!orden.dni_cuit || !orden.cliente) return
-
-        const dni = orden.dni_cuit.toUpperCase()
-        if (!clientesMap.has(dni)) {
-          clientesMap.set(dni, {
-            id: orden.id || 0,
-            nombre: orden.cliente,
-            dni_cuit: orden.dni_cuit,
-            telefono: undefined,
-            email: undefined,
-            direccion: undefined,
-            ubicacion_link: undefined,
-            drive_link: undefined,
-            totalOrdenes: 0,
-            ordenesActivas: 0,
-            esVIP: false
-          })
-        }
-
-        const cliente = clientesMap.get(dni)!
-        cliente.totalOrdenes++
-        if (orden.estado !== 'Entregado o Instalado' && !orden.entregado) {
-          cliente.ordenesActivas++
-        }
-        if (
-          !cliente.ultimaOrden ||
-          new Date(orden.fecha_creacion || 0) > new Date(cliente.ultimaOrden)
-        ) {
-          cliente.ultimaOrden = orden.fecha_creacion
-        }
-      })
-
-      const preferenciasResponse = await apiService.obtenerTodasPreferenciasClientes()
-      const preferenciasMap: Record<string, { preferencias?: string; notas?: string; esVIP?: boolean }> =
-        {}
-
-      if (preferenciasResponse.success && preferenciasResponse.data) {
-        preferenciasResponse.data.forEach((pref) => {
-          preferenciasMap[pref.dni_cuit.toUpperCase()] = {
-            preferencias: pref.preferencias || undefined,
-            notas: pref.notas_internas || undefined,
-            esVIP: pref.es_vip
-          }
-        })
+      const res = await apiService.listarClientesFrecuentes({ minOps: 1 })
+      if (!res.success || !res.data) {
+        console.error('Error cargando clientes frecuentes:', res.error)
+        return
       }
 
-      clientesMap.forEach((cliente, dni) => {
-        const prefs = preferenciasMap[dni] || {}
-        cliente.preferencias = prefs.preferencias
-        cliente.notas = prefs.notas
-        cliente.esVIP = prefs.esVIP !== undefined ? prefs.esVIP : cliente.totalOrdenes >= 10
-      })
-
-      setClientes(Array.from(clientesMap.values()).sort((a, b) => b.totalOrdenes - a.totalOrdenes))
+      setClientes(
+        res.data.map((r) => ({
+          id: r.id_cliente || 0,
+          nombre: r.nombre,
+          apellido: r.apellido,
+          empresa: r.empresa,
+          dni_cuit: r.dni_cuit,
+          telefono: r.telefono || undefined,
+          email: r.email || undefined,
+          totalOrdenes: r.total_ordenes,
+          ordenesActivas: r.ordenes_activas,
+          ultimaOrden: r.ultima_orden,
+          esVIP: r.es_vip,
+          preferencias: r.preferencias || undefined,
+          notas: r.notas_internas || undefined
+        }))
+      )
     } catch (error) {
       console.error('Error cargando clientes frecuentes:', error)
     } finally {
@@ -341,7 +304,8 @@ const ClientesFrecuentesPage = () => {
             <div>
               <h1>Clientes frecuentes</h1>
               <p className="cf-header__subtitle">
-                {stats.total} clientes · {stats.vip} VIP · {stats.conActivas} con OP activas
+                {stats.total} clientes con OP · {stats.vip} VIP · {stats.conActivas} con OP activas
+                {' '}· ranking por historial completo
               </p>
             </div>
           </div>
@@ -473,13 +437,15 @@ const ClientesFrecuentesPage = () => {
                   )}
                 </div>
                 <div className="cf-detalle__actions">
-                  <button
-                    type="button"
-                    className="cf-btn cf-btn--primary"
-                    onClick={() => navigate(clientesPerfil(clienteSeleccionado.id))}
-                  >
-                    Ver ficha completa
-                  </button>
+                  {clienteSeleccionado.id > 0 && (
+                    <button
+                      type="button"
+                      className="cf-btn cf-btn--primary"
+                      onClick={() => navigate(clientesPerfil(clienteSeleccionado.id))}
+                    >
+                      Ver ficha completa
+                    </button>
+                  )}
                   <button
                     type="button"
                     className={`cf-btn cf-btn--vip${clienteSeleccionado.esVIP ? ' cf-btn--vip-on' : ''}`}

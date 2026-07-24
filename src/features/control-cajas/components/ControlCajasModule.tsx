@@ -10,7 +10,6 @@ import CajaMenuOperativa from './CajaMenuOperativa'
 import CajaSectionTablero from './CajaSectionTablero'
 import CajaTableroAdmin from './CajaTableroAdmin'
 import CajaSectionCierreForm from './CajaSectionCierreForm'
-import CajaSectionCierresList from './CajaSectionCierresList'
 import CajaSectionArqueo from './CajaSectionArqueo'
 import CajaSectionMovimientos from './CajaSectionMovimientos'
 import CajaSectionCierreTurno from './CajaSectionCierreTurno'
@@ -205,6 +204,8 @@ export default function ControlCajasModule() {
     let target: CajaSectionId = !enVistaAdmin && s === 'movimientos' ? 'historial' : s
     // Pase/traspasos quedan cubiertos por cierre de turno (fondo + resto a admin).
     if (!enVistaAdmin && (s === 'pase_caja' || s === 'traspasos')) target = 'cierre_turno'
+    // Lista histórica "Cierres" sacada del menú: redirigir al calendario.
+    if (s === 'cierres') target = 'tablero_admin'
     setSection(target)
   }
 
@@ -213,6 +214,10 @@ export default function ControlCajasModule() {
       setSection('cierre_turno')
     }
   }, [enVistaAdmin, section])
+
+  useEffect(() => {
+    if (section === 'cierres') setSection('tablero_admin')
+  }, [section])
 
   const seleccionarCaja = (slug: string) => {
     setCajaSeleccionadaSlug(slug)
@@ -379,36 +384,6 @@ export default function ControlCajasModule() {
           )}
 
           {section === 'centro_ia' && enVistaAdmin && (
-            <CajaCentroInteligente
-              isAdmin
-              usuarioNombre={usuarioEtiqueta}
-              usuarioId={usuarioId}
-              onNavigate={goSection}
-            />
-          )}
-
-          {section === 'cierres_new' && enVistaAdmin && (
-            <CajaSectionCierreForm
-              editId={editCierreId}
-              usuarioNombre={usuarioEtiqueta}
-              usuarioId={usuarioId}
-              planillaActiva={planillaActiva}
-              onPlanillaParsed={setPlanillaActiva}
-              onIrSubirPdf={() => setSection('cierres')}
-              onSaved={() => {
-                setEditCierreId(null)
-                setPlanillaActiva(null)
-                bumpRefresh()
-                setSection('cierres')
-              }}
-              onCancel={() => {
-                setEditCierreId(null)
-                setSection('cierres')
-              }}
-            />
-          )}
-
-          {section === 'cierres' && enVistaAdmin && (
             <>
               <section className="caja-cc-planilla-hub" aria-label="Subir PDF del día">
                 <CajaSubidaInteligente
@@ -419,35 +394,40 @@ export default function ControlCajasModule() {
                   onImported={onPlanillaImportada}
                   autoNavigate={false}
                 />
-                {planillaActiva ? (
-                  <CajaCentroInteligente
-                    isAdmin={isAdmin}
-                    usuarioNombre={usuarioEtiqueta}
-                    usuarioId={usuarioId}
-                    onNavigate={goSection}
-                    compact
-                    collapsible
-                    defaultExpanded={false}
-                    planillaActiva={planillaActiva}
-                  />
-                ) : null}
                 <CajaPlanillasRecibidasPanel
                   titulo="Planillas recibidas de caja"
                   onPlanillaLoaded={setPlanillaActiva}
                 />
               </section>
-              <CajaSectionCierresList
-                filtroCajaSlug={cajaSeleccionadaSlug}
-                onNuevo={() => {
-                  setEditCierreId(null)
-                  setSection('cierres_new')
-                }}
-                onEditar={(id) => {
-                  setEditCierreId(id)
-                  setSection('cierres_new')
-                }}
+              <CajaCentroInteligente
+                isAdmin
+                usuarioNombre={usuarioEtiqueta}
+                usuarioId={usuarioId}
+                onNavigate={goSection}
+                planillaActiva={planillaActiva}
               />
             </>
+          )}
+
+          {section === 'cierres_new' && enVistaAdmin && (
+            <CajaSectionCierreForm
+              editId={editCierreId}
+              usuarioNombre={usuarioEtiqueta}
+              usuarioId={usuarioId}
+              planillaActiva={planillaActiva}
+              onPlanillaParsed={setPlanillaActiva}
+              onIrSubirPdf={() => setSection('centro_ia')}
+              onSaved={() => {
+                setEditCierreId(null)
+                setPlanillaActiva(null)
+                bumpRefresh()
+                setSection('tablero_admin')
+              }}
+              onCancel={() => {
+                setEditCierreId(null)
+                setSection('tablero_admin')
+              }}
+            />
           )}
 
           {section === 'tablero' && enVistaAdmin && <CajaSectionTablero canViewIngresos={canViewIngresos} />}
@@ -505,7 +485,7 @@ export default function ControlCajasModule() {
 
           {section === 'movimientos_admin' && enVistaAdmin && (
             <>
-              <CajaAvisoPdfUnico onIr={() => goSection('cierres')} destinoLabel="Cierres" />
+              <CajaAvisoPdfUnico onIr={() => goSection('centro_ia')} destinoLabel="Centro IA" />
               <CajaSectionMovimientos
                 usuarioNombre={usuarioEtiqueta}
                 usuarioId={usuarioId}

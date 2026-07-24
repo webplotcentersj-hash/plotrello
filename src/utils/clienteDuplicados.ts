@@ -34,20 +34,40 @@ function dnisCoinciden(a: string, b: string): boolean {
   return a.endsWith(b) || b.endsWith(a)
 }
 
+function tokensSignificativos(texto: string): string[] {
+  return tokensNombre(texto).filter((t) => t.length >= 3)
+}
+
+/** Coincidencia parcial de tokens: evita que "ale" meta a "Alerio" en el grupo de Alejandro. */
+function tokensCompartenSignificado(a: string, b: string): boolean {
+  if (a === b) return true
+  const corta = a.length <= b.length ? a : b
+  const larga = a.length <= b.length ? b : a
+  if (corta.length < 4) return false
+  return larga.startsWith(corta) || larga.includes(corta)
+}
+
 function nombresMuySimilares(a: ClienteRecord, b: ClienteRecord): boolean {
   const na = normalizarTexto(nombreCompletoCliente(a))
   const nb = normalizarTexto(nombreCompletoCliente(b))
   if (!na || !nb) return false
   if (na === nb) return true
-  if (na.includes(nb) || nb.includes(na)) return true
+  // Contención solo si el nombre contenido es razonablemente completo (≥ 2 tokens o ≥ 10 chars).
+  if (na.includes(nb) || nb.includes(na)) {
+    const corto = na.length <= nb.length ? na : nb
+    const tokensCorto = tokensSignificativos(corto)
+    if (corto.length >= 10 || tokensCorto.length >= 2) return true
+  }
 
-  const ta = tokensNombre(na)
-  const tb = tokensNombre(nb)
+  const ta = tokensSignificativos(na)
+  const tb = tokensSignificativos(nb)
   if (ta.length === 0 || tb.length === 0) return false
 
-  const hits = ta.filter((t) => tb.some((o) => o === t || o.includes(t) || t.includes(o)))
-  const minLen = Math.min(ta.length, tb.length)
-  return hits.length >= minLen && hits.length >= 1
+  const hits = ta.filter((t) => tb.some((o) => tokensCompartenSignificado(t, o)))
+  // Nombre solo: al menos 2 tokens compartidos (ej. nombre + apellido), o 1 si ambos tienen un solo token largo.
+  if (hits.length >= 2) return true
+  if (hits.length === 1 && ta.length === 1 && tb.length === 1 && hits[0].length >= 6) return true
+  return false
 }
 
 /** Par de fichas que el sistema considera posible duplicado. */
@@ -81,7 +101,8 @@ export function analizarParDuplicado(
     puntos += 40
   }
 
-  if (nombresMuySimilares(a, b)) {
+  const nombreSimilar = nombresMuySimilares(a, b)
+  if (nombreSimilar) {
     razones.push('nombre')
     puntos += 25
   }
@@ -93,13 +114,23 @@ export function analizarParDuplicado(
     puntos += 15
   }
 
-  const duplicado =
-    razones.length > 0 &&
-    (razones.includes('dni_cuit') ||
-      razones.includes('telefono') ||
-      razones.includes('email') ||
-      (razones.includes('nombre') && puntos >= 25))
+  const hard =
+    razones.includes('dni_cuit') || razones.includes('telefono') || razones.includes('email')
 
+  const apellidoA = normalizarTexto(a.apellido)
+  const apellidoB = normalizarTexto(b.apellido)
+  const mismoApellido =
+    apellidoA.length >= 4 &&
+    apellidoB.length >= 4 &&
+    (apellidoA === apellidoB || tokensCompartenSignificado(apellidoA, apellidoB))
+
+  // Nombre/empresa solos: solo si hay apellido en común o misma empresa (evita Alerio ↔ Alejandro).
+  const softOk =
+    !hard &&
+    nombreSimilar &&
+    (mismoApellido || (empresaA.length >= 4 && empresaA === empresaB))
+
+  const duplicado = hard || softOk
   const confianza = Math.min(100, puntos)
   return { duplicado, razones, confianza }
 }

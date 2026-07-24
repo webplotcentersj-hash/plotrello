@@ -19,6 +19,11 @@ import {
 } from '../cajaRepository'
 import type { CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from '../types'
 import { resumenPorCajeroAdminDia } from '../cajaMenuOperativaData'
+import {
+  montoIngresoHeroDia,
+  subtituloIngresoDia,
+  tituloIngresoDia
+} from '../movimientoDetalle'
 import CajaAdminCajerosResumen from './CajaAdminCajerosResumen'
 import CajaCalendarioAdmin from './CajaCalendarioAdmin'
 import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
@@ -151,17 +156,11 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
       ? resumen.fondosOperativas.map((f) => `${f.nombre} $ ${fmtArs(f.monto)}`).join(' · ')
       : 'sin configurar'
 
-  const ingresoLabel =
-    resumen.ingresoFuente === 'cierre_turno'
-      ? 'Resto enviado a administración (cierres de turno)'
-      : resumen.ingresoFuente === 'planilla'
-        ? 'Ingresos en planillas PDF (aún sin cierre de turno)'
-        : resumen.ingresoFuente === 'plotlab'
-          ? 'Ingresos desde ventas PlotLab (mostrador / CRM)'
-          : 'Sin cierres de turno ni planillas este día'
-
   const esHoy = selectedFecha === hoy
   const tituloDia = esHoy ? `Hoy — ${fmtDateAr(selectedFecha)}` : fmtDateAr(selectedFecha)
+  const ingresoHeroLabel = tituloIngresoDia(resumen, esHoy)
+  const ingresoHeroHint = subtituloIngresoDia(resumen)
+  const ingresoHeroMonto = montoIngresoHeroDia(resumen, mediosDia.totalCobrado)
 
   const handlePdfDia = () => {
     setPdfBusy(true)
@@ -243,16 +242,16 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
               }}
               title="Ver detalle del ingreso del día"
             >
-              <span className="caja-cc-hoy-hero-label">{esHoy ? 'Ingreso hoy' : 'Ingreso del día'}</span>
+              <span className="caja-cc-hoy-hero-label">{ingresoHeroLabel}</span>
               <span className="caja-cc-hoy-hero-value">
-                $ {fmtArs(mediosDia.totalCobrado > 0 ? mediosDia.totalCobrado : resumen.ingresoHoy)}
+                $ {fmtArs(ingresoHeroMonto)}
               </span>
-              {mediosDia.cuenta_corriente > 0 && (
+              {mediosDia.cuenta_corriente > 0 && resumen.ingresoFuente !== 'cierre_turno' && (
                 <span className="caja-cc-hoy-hero-cc">
                   CC $ {fmtArs(mediosDia.cuenta_corriente)}
                 </span>
               )}
-              <span className="caja-cc-hoy-hero-hint">{ingresoLabel}</span>
+              <span className="caja-cc-hoy-hero-hint">{ingresoHeroHint}</span>
             </div>
             <div
               className="caja-cc-hoy-hero-card egreso caja-cc-hoy-hero-card-clickable"
@@ -293,6 +292,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
             fecha={selectedFecha}
             movimientos={movimientos}
             planillas={planillas}
+            arqueos={arqueos}
             concilMp={concilMpDia}
             concilBanco={concilBancoDia}
           />

@@ -11,8 +11,10 @@ import {
   cajaNombreFromSlug,
   labelOrigenImportacion,
   mediosPagoMovimiento,
+  montoIngresoHeroDia,
   parseRefPlotLab,
-  subtituloIngresoDia
+  subtituloIngresoDia,
+  tituloIngresoDia
 } from './movimientoDetalle'
 import type {
   CajaArqueo,
@@ -89,6 +91,7 @@ export function downloadInformeDiaCajaPdf(input: InformeDiaCajaInput): void {
     fecha,
     movimientos,
     planillas,
+    arqueos,
     concilMp,
     concilBanco
   })
@@ -108,7 +111,12 @@ export function downloadInformeDiaCajaPdf(input: InformeDiaCajaInput): void {
   y += 6
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
-  y = writeLine(doc, `Ingreso cobrado: $ ${fmtArs(medios.totalCobrado || resumen.ingresoHoy)}`, margin, y)
+  y = writeLine(
+    doc,
+    `${tituloIngresoDia(resumen, false)}: $ ${fmtArs(montoIngresoHeroDia(resumen, medios.totalCobrado))}`,
+    margin,
+    y
+  )
   y = writeLine(doc, `Cuenta corriente: $ ${fmtArs(medios.cuenta_corriente)}`, margin, y)
   y = writeLine(doc, `Egresos: $ ${fmtArs(resumen.egresosHoy)}`, margin, y)
   y = writeLine(doc, subtituloIngresoDia(resumen), margin, y)

@@ -1,5 +1,6 @@
 import { planillaEnFecha } from './cajaDashboardData'
 import type {
+  CajaArqueo,
   CajaConcilBanco,
   CajaConcilMP,
   CajaMovimiento,
@@ -231,27 +232,43 @@ function estadoLinea(
   }
 }
 
+function totalesArqueoEfectivoDia(arqueos: CajaArqueo[], fecha: string): number {
+  return arqueos
+    .filter((a) => a.fecha === fecha)
+    .reduce((s, a) => s + (Number(a.total) || 0), 0)
+}
+
 export function conciliacionAutomaticaDia(input: {
   fecha: string
   movimientos: CajaMovimiento[]
   planillas: PlanillaCajaGuardada[]
+  arqueos?: CajaArqueo[]
   concilMp?: CajaConcilMP | null
   concilBanco?: CajaConcilBanco | null
 }): LineaConciliacionDia[] {
-  const { fecha, movimientos, planillas, concilMp, concilBanco } = input
+  const { fecha, movimientos, planillas, arqueos = [], concilMp, concilBanco } = input
   const mov = mediosIngresosDia(movimientos, fecha)
   const planilla = totalesPlanillaDia(planillas, fecha)
   const comprobantes = totalesComprobantesDia(movimientos, fecha)
 
+  const efArqueo = totalesArqueoEfectivoDia(arqueos, fecha)
   const efPlotlab = movimientosPlotLabEfectivo(movimientos, fecha)
   const refEfectivo =
-    planilla != null && planilla.efectivo > 0 ? planilla.efectivo : efPlotlab > 0 ? efPlotlab : null
+    efArqueo > 0
+      ? efArqueo
+      : planilla != null && planilla.efectivo > 0
+        ? planilla.efectivo
+        : efPlotlab > 0
+          ? efPlotlab
+          : null
   const refEfectivoFuente =
-    planilla != null && planilla.efectivo > 0
-      ? 'Planilla PDF'
-      : efPlotlab > 0
-        ? 'Ventas PlotLab'
-        : null
+    efArqueo > 0
+      ? 'Arqueo (contado real)'
+      : planilla != null && planilla.efectivo > 0
+        ? 'Planilla PDF'
+        : efPlotlab > 0
+          ? 'Ventas PlotLab'
+          : null
 
   const mpPlotlab = movimientosPlotLabMercadoPago(movimientos, fecha)
   const refMp =

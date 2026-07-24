@@ -201,11 +201,21 @@ const BuscarClientePage = () => {
     setDuplicadosRelacionados([])
   }
 
-  const trasFusionar = async (principal: ClienteRecord) => {
+  const trasFusionar = async (principal: ClienteRecord, idsFusionados: number[]) => {
+    const idsOut = new Set(idsFusionados.filter((id) => id !== principal.id))
+    setClientesEncontrados((prev) => {
+      const sinRepetidos = prev.filter((c) => !idsOut.has(c.id))
+      const sinPrincipal = sinRepetidos.filter((c) => c.id !== principal.id)
+      return [principal, ...sinPrincipal]
+    })
+    setDuplicadosRelacionados([])
     await cargarDatosCliente(principal)
     if (debouncedTerm.length >= MIN_BUSQUEDA) {
       const res = await apiService.buscarClientes(debouncedTerm)
-      if (res.success && res.data) setClientesEncontrados(res.data)
+      if (res.success && res.data) {
+        // Tras unificar, la búsqueda no debe volver a listar las fichas desactivadas.
+        setClientesEncontrados(res.data.filter((c) => c.activo !== false))
+      }
     }
   }
 
@@ -261,8 +271,11 @@ const BuscarClientePage = () => {
           <div className="bc-duplicados-busqueda">
             <ClienteDuplicadosPanel
               candidatos={clientesEncontrados}
-              onFusionCompleta={(p) => void trasFusionar(p)}
+              onFusionCompleta={(p, ids) => void trasFusionar(p, ids)}
               onVerCliente={(c) => void cargarDatosCliente(c)}
+              onClienteActualizado={(c) => {
+                setClientesEncontrados((prev) => prev.map((x) => (x.id === c.id ? c : x)))
+              }}
             />
           </div>
         )}
@@ -313,7 +326,15 @@ const BuscarClientePage = () => {
                   <ClienteDuplicadosPanel
                     clienteReferencia={clienteSeleccionado}
                     candidatos={duplicadosRelacionados}
-                    onFusionCompleta={trasFusionar}
+                    onFusionCompleta={(p, ids) => void trasFusionar(p, ids)}
+                    onClienteActualizado={(c) => {
+                      setClienteSeleccionado((prev) =>
+                        prev && prev.id === c.id ? { ...prev, ...c } : prev
+                      )
+                      setDuplicadosRelacionados((prev) =>
+                        prev.map((x) => (x.id === c.id ? c : x))
+                      )
+                    }}
                   />
                 )}
               </div>
