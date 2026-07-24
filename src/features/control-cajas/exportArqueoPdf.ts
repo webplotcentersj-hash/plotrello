@@ -35,6 +35,19 @@ export function downloadArqueoPdf(
   y = writeLine(doc, `Turno: ${arqueo.turno}`, margin, y)
   y = writeLine(doc, `Cajera: ${cajeraNombre ?? arqueo.usuario_nombre ?? '—'}`, margin, y)
   y = writeLine(doc, `Total contado: $ ${fmtArs(arqueo.total)}`, margin, y)
+  const fondoMonto = arqueo.saldos?.fondo_para_otra_caja
+  if (fondoMonto != null && Number.isFinite(Number(fondoMonto))) {
+    const dest =
+      (typeof arqueo.saldos?.fondo_destino_nombre === 'string' && arqueo.saldos.fondo_destino_nombre) ||
+      (typeof arqueo.saldos?.fondo_destino_slug === 'string' && arqueo.saldos.fondo_destino_slug) ||
+      'otra caja'
+    y = writeLine(
+      doc,
+      `FONDO DEJADO (distinto del contado): $ ${fmtArs(Number(fondoMonto))} → ${dest}`,
+      margin,
+      y
+    )
+  }
   if (arqueo.created_at) {
     y = writeLine(
       doc,

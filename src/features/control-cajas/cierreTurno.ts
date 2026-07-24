@@ -68,6 +68,26 @@ export function fondoParaOtraCajaDesdeArqueo(
   }
 }
 
+/** Payload de saldos para marcar el fondo dejado (distinto del contado / resto a admin). */
+export function saldosFondoOtraCaja(input: {
+  monto: number
+  destinoSlug: string | null
+  destinoNombre?: string | null
+}): Record<string, unknown> {
+  const monto = Math.max(0, Number(input.monto) || 0)
+  const destinoSlug = input.destinoSlug?.trim() || null
+  return {
+    fondo_para_otra_caja: monto,
+    fondo_destino_slug: destinoSlug,
+    fondo_destino_nombre: input.destinoNombre?.trim() || null,
+    /** Marca explícita: no confundir con efectivo contado ni con pase a admin. */
+    fondo_tipo: 'dejar_otra_caja',
+    fondo_etiqueta: destinoSlug
+      ? `Fondo dejado → ${input.destinoNombre?.trim() || destinoSlug}`
+      : 'Fondo dejado en otra caja'
+  }
+}
+
 export type ConciliacionCierreTurno = {
   ok: boolean
   alertas: string[]

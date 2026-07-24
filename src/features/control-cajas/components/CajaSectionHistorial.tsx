@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listArqueos, listCajas, listMovimientos } from '../cajaRepository'
+import { fondoParaOtraCajaDesdeArqueo } from '../cierreTurno'
 import { fmtArs, fmtDateAr, montoVisibleMovimiento } from '../format'
 import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
 import type { CajaArqueo, CajaMovimiento, CajaRegistro } from '../types'
@@ -36,9 +37,16 @@ export default function CajaSectionHistorial({ usuarioNombre, usuarioId, soloArq
   const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
 
   const arqueosFiltrados = useMemo(() => {
-    return arqueos.filter((a) =>
-      matchSearchQuery(qArqueos, [a.fecha, cajaNombre(a.caja_slug), fmtArs(a.total)])
-    )
+    return arqueos.filter((a) => {
+      const fondo = fondoParaOtraCajaDesdeArqueo(a)
+      return matchSearchQuery(qArqueos, [
+        a.fecha,
+        cajaNombre(a.caja_slug),
+        fmtArs(a.total),
+        fondo ? fmtArs(fondo.monto) : '',
+        fondo?.destinoSlug ? cajaNombre(fondo.destinoSlug) : ''
+      ])
+    })
   }, [arqueos, qArqueos, cajas])
 
   const movsFiltrados = useMemo(() => {
@@ -87,17 +95,37 @@ export default function CajaSectionHistorial({ usuarioNombre, usuarioId, soloArq
                   <tr>
                     <th>Fecha</th>
                     <th>Caja</th>
-                    <th className="num">Total</th>
+                    <th className="num">Contado</th>
+                    <th>Fondo dejado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {arqueosVisibles.map((a) => (
-                    <tr key={a.id}>
-                      <td>{fmtDateAr(a.fecha)}</td>
-                      <td>{cajaNombre(a.caja_slug)}</td>
-                      <td className="num">$ {fmtArs(a.total)}</td>
-                    </tr>
-                  ))}
+                  {arqueosVisibles.map((a) => {
+                    const fondo = fondoParaOtraCajaDesdeArqueo(a)
+                    return (
+                      <tr key={a.id}>
+                        <td>{fmtDateAr(a.fecha)}</td>
+                        <td>{cajaNombre(a.caja_slug)}</td>
+                        <td className="num">$ {fmtArs(a.total)}</td>
+                        <td>
+                          {fondo ? (
+                            <span className="caja-cc-fondo-otra-caja-mini">
+                              <span className="caja-cc-fondo-otra-caja-tag">Fondo</span>{' '}
+                              <strong>$ {fmtArs(fondo.monto)}</strong>
+                              {fondo.destinoSlug ? (
+                                <span className="caja-cc-fondo-otra-caja-dest-mini">
+                                  {' '}
+                                  → {cajaNombre(fondo.destinoSlug)}
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span className="caja-cc-muted">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

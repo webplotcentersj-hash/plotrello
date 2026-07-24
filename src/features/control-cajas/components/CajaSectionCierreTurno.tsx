@@ -417,11 +417,12 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
   return (
     <div className="caja-cc-cierre-turno">
       <div className="caja-cc-hoy-hero caja-cc-cierre-hero">
-        <div className="caja-cc-hoy-hero-card">
-          <span className="caja-cc-hoy-hero-label">Fondo → otra caja</span>
+        <div className="caja-cc-hoy-hero-card caja-cc-fondo-otra-caja-hero">
+          <span className="caja-cc-fondo-otra-caja-tag">Fondo dejado</span>
+          <span className="caja-cc-hoy-hero-label">→ otra caja</span>
           <span className="caja-cc-hoy-hero-value">$ {fmtArs(calc.fondo_monto)}</span>
           <span className="caja-cc-hoy-hero-hint">
-            A {cajaNombre(cajaFondoDestino) || '…'} (según el arqueo / fondo configurado)
+            A {cajaNombre(cajaFondoDestino) || '…'} (según el arqueo)
           </span>
         </div>
         {isAdmin ? (

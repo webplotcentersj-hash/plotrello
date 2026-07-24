@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { fondoParaOtraCajaDesdeArqueo } from '../cierreTurno'
 import { BILLETE_DENOMINACIONES } from '../constants'
 import { downloadArqueoPdf } from '../exportArqueoPdf'
 import { fmtArs, fmtArs0, fmtDateAr } from '../format'
@@ -22,6 +23,13 @@ export default function CajaArqueoDetalleModal({
 }: Props) {
   const cajera = cajeraNombre ?? arqueo.usuario_nombre ?? '—'
   const [pdfBusy, setPdfBusy] = useState(false)
+  const fondo = fondoParaOtraCajaDesdeArqueo(arqueo)
+  const fondoEtiqueta =
+    typeof arqueo.saldos?.fondo_etiqueta === 'string' ? arqueo.saldos.fondo_etiqueta : null
+  const fondoDestinoNombre =
+    typeof arqueo.saldos?.fondo_destino_nombre === 'string'
+      ? arqueo.saldos.fondo_destino_nombre
+      : fondo?.destinoSlug || null
 
   const handlePdf = () => {
     setPdfBusy(true)
@@ -83,6 +91,18 @@ export default function CajaArqueoDetalleModal({
               </div>
             )}
           </div>
+
+          {fondo ? (
+            <div className="caja-cc-fondo-otra-caja-badge" role="status">
+              <span className="caja-cc-fondo-otra-caja-tag">Fondo dejado</span>
+              <strong className="caja-cc-fondo-otra-caja-monto">$ {fmtArs(fondo.monto)}</strong>
+              <span className="caja-cc-fondo-otra-caja-dest">→ {fondoDestinoNombre || 'otra caja'}</span>
+              <span className="caja-cc-fondo-otra-caja-hint">
+                {fondoEtiqueta ||
+                  'Monto distinto del contado: efectivo que queda en la otra caja operativa.'}
+              </span>
+            </div>
+          ) : null}
 
           <h3>Conteo de billetes</h3>
           {lineasBilletes.length === 0 ? (
