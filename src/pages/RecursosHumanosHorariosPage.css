@@ -1361,6 +1361,21 @@
   text-align: center;
 }
 
+.rrhh-fijos-sab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rrhh-fijos-sab-label input:disabled + span {
+  opacity: 0.45;
+}
+
 .rrhh-fijos-sab input,
 .reloj-fijos-sab input {
   width: 16px;

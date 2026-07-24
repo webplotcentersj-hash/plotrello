@@ -1327,12 +1327,14 @@ const RelojImportTab = ({
                           />
                         </td>
                         <td className="reloj-fijos-sab">
-                          <input
-                            type="checkbox"
-                            checked={r.trabajaSabado}
-                            title="Trabaja sábado (Lun-Sáb)"
-                            onChange={(e) => actualizarPrevFijo(i, { trabajaSabado: e.target.checked })}
-                          />
+                          <label title="Trabaja sábado 9:00 a 14:00">
+                            <input
+                              type="checkbox"
+                              checked={r.trabajaSabado}
+                              onChange={(e) => actualizarPrevFijo(i, { trabajaSabado: e.target.checked })}
+                            />
+                            {r.trabajaSabado ? ' 9–14' : ''}
+                          </label>
                         </td>
                       </tr>
                     )
@@ -2313,7 +2315,8 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
         <p className="rrhh-fijos-help">
           Los horarios fijos <strong>permanecen vigentes hasta que los cambies</strong>: no se borran solos al
           cambiar de mes. El selector de mes muestra qué horario aplica en ese período (hereda el último guardado si
-          no hubo cambios). Editá y guardá para definir un horario nuevo a partir del mes seleccionado.
+          no hubo cambios). Editá y guardá para definir un horario nuevo a partir del mes seleccionado. Columna{' '}
+          <strong>Sáb 9–14</strong>: si está marcada, el sábado cuenta 5 hs (9 a 14); si no, el sábado es todo extra.
         </p>
         <div className="rrhh-fijos-tabla-wrap">
           <table className="rrhh-fijos-tabla">
@@ -2323,7 +2326,7 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
                 <th>Área</th>
                 <th>Horario fijo</th>
                 <th>Jornada (hs)</th>
-                <th title="Trabaja sábado (Lun-Sáb). Si no, el sábado es todo extra.">Sáb</th>
+                <th title="Si marca: trabaja sábado 9 a 14 hs. Si no, el sábado es todo extra.">Sáb 9–14</th>
                 <th>Legajo</th>
                 <th></th>
               </tr>
@@ -2362,13 +2365,22 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado, onIrAReloj }: {
                       />
                     </td>
                     <td className="rrhh-fijos-sab">
-                      <input
-                        type="checkbox"
-                        checked={f?.trabajaSabado !== false}
-                        disabled={!tieneHorario || guardandoFijo === u.id}
-                        title={f?.trabajaSabado === false ? 'Lun-Vie (sábado todo extra)' : 'Lun-Sáb'}
-                        onChange={(e) => guardarSabado(u.id, e.target.checked)}
-                      />
+                      <label
+                        className="rrhh-fijos-sab-label"
+                        title={
+                          f?.trabajaSabado === false
+                            ? 'Lun–Vie (sábado todo extra)'
+                            : 'Trabaja sábado 9:00 a 14:00 (5 hs)'
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={f?.trabajaSabado !== false}
+                          disabled={!tieneHorario || guardandoFijo === u.id}
+                          onChange={(e) => guardarSabado(u.id, e.target.checked)}
+                        />
+                        <span>{tieneHorario && f?.trabajaSabado !== false ? '9–14' : '—'}</span>
+                      </label>
                     </td>
                     <td>
                       <button className="rrhh-fijos-legajo-btn" onClick={() => setLegajoUsuario(u)}>

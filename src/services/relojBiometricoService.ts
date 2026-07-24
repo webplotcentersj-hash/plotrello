@@ -85,18 +85,21 @@ export const CONFIG_CALCULO_DEFAULT: ConfigCalculo = {
 }
 
 /**
- * Horario fijo de un empleado (estándar de días hábiles), usado como
- * referencia para puntualidad (entrada esperada) y horas extra
- * (jornada esperada). Indexado por idUsuario del reloj.
+ * Horario fijo de un empleado (estándar Lun–Vie), usado como
+ * referencia para puntualidad (entrada esperada) y horas extra.
+ * El sábado, si trabaja, es siempre 9–14 (config.jornadaSab = 5 hs).
  */
 export interface HorarioFijoCalc {
-  /** Minutos desde 00:00 de la entrada esperada. null = sin definir. */
+  /** Minutos desde 00:00 de la entrada esperada (Lun–Vie). null = sin definir. */
   entradaMin: number | null
-  /** Horas de jornada esperada (Lun-Sáb). null = usar configuración global. */
+  /** Horas de jornada esperada Lun–Vie. null = usar configuración global. */
   horasJornada: number | null
-  /** Si trabaja sábado (Lun-Sáb). false = Lun-Vie (sábado todo extra). */
+  /** Si trabaja sábado (9 a 14). false = Lun–Vie (sábado todo extra). */
   trabajaSabado: boolean
 }
+
+/** Horario de sábado de la empresa (cuando trabajaSabado). */
+export const HORARIO_SABADO = { entrada: '09:00', salida: '14:00', horas: 5 } as const
 
 export type MapaHorariosFijos = Record<string, HorarioFijoCalc>
 
@@ -278,14 +281,10 @@ function horasNormales(fecha: Date, config: ConfigCalculo, horarioFijo?: Horario
   // Domingo: todo extra (jornada normal 0) salvo config en contra.
   if (dow === 0) return config.domingoTodoExtra ? 0 : config.jornadaLunVie
   if (dow === 6) {
-    // Sábado según el horario fijo del empleado.
-    if (horarioFijo) {
-      // No trabaja sábado (Lun-Vie) → todo lo trabajado es extra.
-      if (!horarioFijo.trabajaSabado) return 0
-      // Trabaja sábado (Lun-Sáb) → cuenta su jornada normal.
-      if (horarioFijo.horasJornada != null) return horarioFijo.horasJornada
-    }
-    return config.jornadaSab
+    // Sábado: 9 a 14 (5 hs) si trabaja; si no, todo extra.
+    // No usar horasJornada Lun–Vie (ej. 9 hs) para el sábado.
+    if (horarioFijo && !horarioFijo.trabajaSabado) return 0
+    return config.jornadaSab > 0 ? config.jornadaSab : HORARIO_SABADO.horas
   }
   // Lun-Vie: jornada esperada del horario fijo del empleado si está definida.
   if (horarioFijo && horarioFijo.horasJornada != null) return horarioFijo.horasJornada

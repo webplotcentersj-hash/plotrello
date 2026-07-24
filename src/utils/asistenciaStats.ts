@@ -84,11 +84,9 @@ function jornadaNormal(fecha: string, horario: HorarioFijoAsistencia | null, con
   const dow = new Date(y, m - 1, d).getDay()
   if (dow === 0) return config.domingoTodoExtra ? 0 : config.jornadaLunVie
   if (dow === 6) {
-    if (horario) {
-      if (!horario.trabajaSabado) return 0
-      if (horario.horas != null) return horario.horas
-    }
-    return config.jornadaSab
+    // Sábado empresa: 9 a 14 (5 hs). No usar la jornada Lun–Vie.
+    if (horario && !horario.trabajaSabado) return 0
+    return config.jornadaSab > 0 ? config.jornadaSab : 5
   }
   if (horario?.horas != null) return horario.horas
   if (horario?.entrada && horario?.salida) {
