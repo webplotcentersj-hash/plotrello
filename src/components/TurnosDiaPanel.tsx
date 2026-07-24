@@ -141,6 +141,13 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
     return m
   }, [permisosDia])
 
+  const idsActivos = useMemo(() => {
+    const s = new Set<number>()
+    for (const u of usuarios) s.add(u.id)
+    for (const id of Object.keys(legajos)) s.add(Number(id))
+    return s
+  }, [usuarios, legajos])
+
   const filas = useMemo((): TurnoDiaRow[] => {
     const ids = new Set<number>([
       ...Object.keys(fijos).map(Number),
@@ -149,9 +156,14 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
     const rows: TurnoDiaRow[] = []
 
     for (const id of ids) {
+      // Horarios fijos viejos de bajas no deben aparecer (ni como "Usuario N").
+      if (!idsActivos.has(id)) continue
+
       const fijo = fijos[id]
       const ov = overrides[id]
       const { nombre, sector } = nombreDisplay(id, usuarios, legajos)
+      if (/^Usuario\s+\d+$/i.test(nombre)) continue
+
       const modo = sabadoMedio[id] || 'todos'
       const permiso = permisosPorUsuario.get(id)
 
@@ -219,7 +231,7 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
       if (a.entrada !== b.entrada) return a.entrada.localeCompare(b.entrada)
       return a.nombre.localeCompare(b.nombre, 'es')
     })
-  }, [fijos, overrides, usuarios, legajos, sabadoMedio, permisosPorUsuario, dow, fecha])
+  }, [fijos, overrides, usuarios, legajos, sabadoMedio, permisosPorUsuario, dow, fecha, idsActivos])
 
   const trabajando = filas.filter((f) => f.trabajaHoy && !f.permiso)
   const conPermiso = filas.filter((f) => f.permiso)
@@ -309,19 +321,21 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
           ← Ayer
         </button>
         <div className="rrhh-turnos-dia-fecha">
-          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} aria-label="Fecha" />
           <strong>{fechaLabel}</strong>
         </div>
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={() => setFecha(format(addDays(parseISO(fecha), 1), 'yyyy-MM-dd'))}
-        >
-          Mañana →
-        </button>
-        <button type="button" className="btn-link" onClick={() => setFecha(getArgentinaDateString())}>
-          Hoy
-        </button>
+        <div className="rrhh-turnos-dia-nav-right">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setFecha(format(addDays(parseISO(fecha), 1), 'yyyy-MM-dd'))}
+          >
+            Mañana →
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => setFecha(getArgentinaDateString())}>
+            Hoy
+          </button>
+        </div>
       </div>
 
       <div className="rrhh-turnos-swap">
