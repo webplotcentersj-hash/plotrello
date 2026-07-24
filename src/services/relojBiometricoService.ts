@@ -94,13 +94,50 @@ export interface HorarioFijoCalc {
   entradaMin: number | null
   /** Horas de jornada esperada Lun–Vie. null = usar configuración global. */
   horasJornada: number | null
-  /** Si trabaja sábado (9 a 14). false = Lun–Vie (sábado todo extra). */
+  /** Si trabaja sábado. false = Lun–Vie (sábado todo extra). */
   trabajaSabado: boolean
+  /** Entrada sábado personalizada (HH:mm). Vacío/null = 09:00 estándar. */
+  sabadoEntrada?: string | null
+  /** Salida sábado personalizada (HH:mm). Vacío/null = 14:00 estándar. */
+  sabadoSalida?: string | null
 }
 
-/** Horario de sábado de la empresa (cuando trabajaSabado). */
+/** Horario de sábado de la empresa (cuando trabajaSabado y sin override). */
 export const HORARIO_SABADO = { entrada: '09:00', salida: '14:00', horas: 5 } as const
 
+export type HorarioSabadoEfectivo = { entrada: string; salida: string; horas: number }
+
+/** Horario de sábado efectivo: personalizado o estándar 9–14. */
+export function horarioSabadoEfectivo(h?: {
+  trabajaSabado?: boolean
+  sabadoEntrada?: string | null
+  sabadoSalida?: string | null
+} | null): HorarioSabadoEfectivo | null {
+  if (h && h.trabajaSabado === false) return null
+  const entrada = String(h?.sabadoEntrada || '').slice(0, 5) || HORARIO_SABADO.entrada
+  const salida = String(h?.sabadoSalida || '').slice(0, 5) || HORARIO_SABADO.salida
+  const pe = entrada.match(/^(\d{1,2}):(\d{2})$/)
+  const ps = salida.match(/^(\d{1,2}):(\d{2})$/)
+  let horas = HORARIO_SABADO.horas
+  if (pe && ps) {
+    let diff = Number(ps[1]) * 60 + Number(ps[2]) - (Number(pe[1]) * 60 + Number(pe[2]))
+    if (diff <= 0) diff += 24 * 60
+    horas = Math.round((diff / 60) * 100) / 100
+  }
+  return { entrada, salida, horas }
+}
+
+export function etiquetaHorarioSabado(h?: {
+  trabajaSabado?: boolean
+  sabadoEntrada?: string | null
+  sabadoSalida?: string | null
+} | null): string {
+  const sab = horarioSabadoEfectivo(h)
+  if (!sab) return '—'
+  const e = sab.entrada.replace(/^0/, '')
+  const s = sab.salida.replace(/^0/, '')
+  return `${e}–${s}`.replace(/:00/g, '')
+}
 export type MapaHorariosFijos = Record<string, HorarioFijoCalc>
 
 const DIAS_SEMANA_UP = ['DOMINGO', 'LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO']
@@ -281,9 +318,10 @@ function horasNormales(fecha: Date, config: ConfigCalculo, horarioFijo?: Horario
   // Domingo: todo extra (jornada normal 0) salvo config en contra.
   if (dow === 0) return config.domingoTodoExtra ? 0 : config.jornadaLunVie
   if (dow === 6) {
-    // Sábado: 9 a 14 (5 hs) si trabaja; si no, todo extra.
-    // No usar horasJornada Lun–Vie (ej. 9 hs) para el sábado.
+    // Sábado: jornada del empleado (default 9–14) si trabaja; si no, todo extra.
     if (horarioFijo && !horarioFijo.trabajaSabado) return 0
+    const sab = horarioSabadoEfectivo(horarioFijo)
+    if (sab) return sab.horas
     return config.jornadaSab > 0 ? config.jornadaSab : HORARIO_SABADO.horas
   }
   // Lun-Vie: jornada esperada del horario fijo del empleado si está definida.
@@ -1153,7 +1191,17 @@ export function matchearUsuariosReloj(
  */
 export function construirMapaHorariosFijos(
   vinculacion: Record<string, { id: number } | undefined>,
-  horariosPorUsuario: Record<number, { entrada: string; salida: string; horas?: number | null; trabajaSabado?: boolean }>
+  horariosPorUsuario: Record<
+    number,
+    {
+      entrada: string
+      salida: string
+      horas?: number | null
+      trabajaSabado?: boolean
+      sabadoEntrada?: string | null
+      sabadoSalida?: string | null
+    }
+  >
 ): MapaHorariosFijos {
   const mapa: MapaHorariosFijos = {}
   for (const [relojId, v] of Object.entries(vinculacion)) {
@@ -1174,7 +1222,13 @@ export function construirMapaHorariosFijos(
         horasJornada = Math.round((diff / 60) * 100) / 100
       }
     }
-    mapa[relojId] = { entradaMin, horasJornada, trabajaSabado: h.trabajaSabado !== false }
+    mapa[relojId] = {
+      entradaMin,
+      horasJornada,
+      trabajaSabado: h.trabajaSabado !== false,
+      sabadoEntrada: h.sabadoEntrada ?? null,
+      sabadoSalida: h.sabadoSalida ?? null
+    }
   }
   return mapa
 }

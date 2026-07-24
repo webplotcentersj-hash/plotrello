@@ -16818,7 +16818,9 @@ class ApiService {
     horasSemanales: number | null = null,
     mes: string | null = null,
     trabajaSabado: boolean = true,
-    observaciones: string | null = null
+    observaciones: string | null = null,
+    sabadoEntrada: string | null = null,
+    sabadoSalida: string | null = null
   ): Promise<ApiResponse<HorarioEmpleado>> {
     if (!supabase) {
       return { success: false, error: 'No hay conexión a Supabase' }
@@ -16832,7 +16834,9 @@ class ApiService {
         p_horas_semanales: horasSemanales,
         p_observaciones: observaciones,
         p_mes: mes ? (mes.length === 7 ? `${mes}-01` : mes) : null,
-        p_trabaja_sabado: trabajaSabado
+        p_trabaja_sabado: trabajaSabado,
+        p_sabado_entrada: sabadoEntrada,
+        p_sabado_salida: sabadoSalida
       })
 
       if (error) {
@@ -16898,6 +16902,8 @@ class ApiService {
           salida: string
           horas: number | null
           trabajaSabado: boolean
+          sabadoEntrada?: string | null
+          sabadoSalida?: string | null
           /** Mes desde el que rige este horario (YYYY-MM). */
           vigenteDesde?: string
           /** true si fue guardado explícitamente para el mes consultado. */
@@ -16915,7 +16921,9 @@ class ApiService {
 
       let query = supabase
         .from('horarios_empleados')
-        .select('id_usuario, hora_entrada, hora_salida, horas_semanales, activo, fecha_inicio, trabaja_sabado')
+        .select(
+          'id_usuario, hora_entrada, hora_salida, horas_semanales, activo, fecha_inicio, trabaja_sabado, sabado_entrada, sabado_salida'
+        )
         .eq('tipo_horario', 'fijo')
         .is('dia_semana', null)
         .order('fecha_inicio', { ascending: false })
@@ -16937,6 +16945,8 @@ class ApiService {
           salida: string
           horas: number | null
           trabajaSabado: boolean
+          sabadoEntrada?: string | null
+          sabadoSalida?: string | null
           vigenteDesde?: string
           esDelMes?: boolean
         }
@@ -16950,6 +16960,8 @@ class ApiService {
         activo: boolean | null
         fecha_inicio: string | null
         trabaja_sabado: boolean | null
+        sabado_entrada: string | null
+        sabado_salida: string | null
       }>) || []) {
         if (row.activo === false) continue
         if (mapa[row.id_usuario]) continue
@@ -16957,11 +16969,15 @@ class ApiService {
         const salida = (row.hora_salida || '').slice(0, 5)
         if (!entrada) continue
         const vigenteDesde = row.fecha_inicio ? String(row.fecha_inicio).slice(0, 7) : undefined
+        const sabadoEntrada = row.sabado_entrada ? String(row.sabado_entrada).slice(0, 5) : null
+        const sabadoSalida = row.sabado_salida ? String(row.sabado_salida).slice(0, 5) : null
         mapa[row.id_usuario] = {
           entrada,
           salida,
           horas: row.horas_semanales != null ? Number(row.horas_semanales) : null,
           trabajaSabado: row.trabaja_sabado !== false,
+          sabadoEntrada,
+          sabadoSalida,
           vigenteDesde,
           esDelMes: mesInicio ? String(row.fecha_inicio || '').slice(0, 10) === mesInicio : undefined
         }

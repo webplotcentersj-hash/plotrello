@@ -1,5 +1,5 @@
 import type { Asistencia, RrhhNovedad } from '../types/api'
-import { CONFIG_CALCULO_DEFAULT, type ConfigCalculo } from '../services/relojBiometricoService'
+import { CONFIG_CALCULO_DEFAULT, horarioSabadoEfectivo, type ConfigCalculo } from '../services/relojBiometricoService'
 import { asistenciaHoraCorta, isoToArgentinaDateKey } from './dateUtils'
 import { esDiaHabil, novedadEnDia } from './rrhhNovedadDates'
 
@@ -8,6 +8,8 @@ export type HorarioFijoAsistencia = {
   salida: string
   horas: number | null
   trabajaSabado: boolean
+  sabadoEntrada?: string | null
+  sabadoSalida?: string | null
 }
 
 export type StatsEmpleadoAsistencia = {
@@ -84,8 +86,9 @@ function jornadaNormal(fecha: string, horario: HorarioFijoAsistencia | null, con
   const dow = new Date(y, m - 1, d).getDay()
   if (dow === 0) return config.domingoTodoExtra ? 0 : config.jornadaLunVie
   if (dow === 6) {
-    // Sábado empresa: 9 a 14 (5 hs). No usar la jornada Lun–Vie.
     if (horario && !horario.trabajaSabado) return 0
+    const sab = horarioSabadoEfectivo(horario)
+    if (sab) return sab.horas
     return config.jornadaSab > 0 ? config.jornadaSab : 5
   }
   if (horario?.horas != null) return horario.horas

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addDays, format, getISOWeek, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { apiService } from '../services/api'
-import { HORARIO_SABADO } from '../services/relojBiometricoService'
+import { horarioSabadoEfectivo, HORARIO_SABADO } from '../services/relojBiometricoService'
 import type { SolicitudPermiso, UsuarioRecord } from '../types/api'
 import { getArgentinaDateString } from '../utils/dateUtils'
 import { permisoEnDia } from '../utils/rrhhNovedadDates'
@@ -13,6 +13,8 @@ type HorarioFijo = {
   salida: string
   horas: number | null
   trabajaSabado: boolean
+  sabadoEntrada?: string | null
+  sabadoSalida?: string | null
 }
 
 type SabadoModo = 'todos' | 'par' | 'impar'
@@ -191,8 +193,9 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
             salida = ov.salida
             origen = /intercambio/i.test(ov.obs || '') ? 'intercambio' : 'override'
           } else {
-            entrada = HORARIO_SABADO.entrada
-            salida = HORARIO_SABADO.salida
+            const sab = horarioSabadoEfectivo(fijo) || HORARIO_SABADO
+            entrada = sab.entrada
+            salida = sab.salida
             origen = 'fijo'
           }
         }

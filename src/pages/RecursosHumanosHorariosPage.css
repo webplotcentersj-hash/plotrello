@@ -1361,6 +1361,7 @@
 
 .rrhh-fijos-sab {
   text-align: center;
+  min-width: 140px;
 }
 
 .rrhh-fijos-sab-label {
@@ -1378,11 +1379,29 @@
   opacity: 0.45;
 }
 
-.rrhh-fijos-sab input,
-.reloj-fijos-sab input {
+.rrhh-fijos-sab input[type='checkbox'],
+.reloj-fijos-sab input[type='checkbox'] {
   width: 16px;
   height: 16px;
   cursor: pointer;
+}
+
+.rrhh-fijos-sab-times {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.rrhh-fijos-sab-time {
+  width: 5.6rem;
+  padding: 2px 4px;
+  font-size: 0.72rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  color: #0f172a;
 }
 
 .reloj-fijos-sab {
