@@ -20,7 +20,7 @@ import {
 import { buscarPlanillaCaja, montosCajaDesdeFuentes } from '../paseCajaMontos'
 import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
 import { notifyAdminsCaja } from '../cajaNotificaciones'
-import { fmtArs, parseNum } from '../format'
+import { fmtArs, montoInputFromNumber, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import {
   buildMovimientosCierreTurno,
@@ -129,7 +129,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
 
       const fondoArq = fondoParaOtraCajaDesdeArqueo(arq)
       if (fondoArq) {
-        setFondoMontoInput(String(fondoArq.monto))
+        setFondoMontoInput(montoInputFromNumber(fondoArq.monto))
         if (fondoArq.destinoSlug && fondoArq.destinoSlug !== origen) {
           setCajaFondoDestino(fondoArq.destinoSlug)
         }
@@ -182,7 +182,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
       if (fondoParaOtraCajaDesdeArqueo(arq)) return
       const cajaFondo = cajaDestinoFondo ?? cajaOrigen
       if (!cajaFondo) return
-      setFondoMontoInput(String(fondoMontoParaCaja(cajaFondo)))
+      setFondoMontoInput(montoInputFromNumber(fondoMontoParaCaja(cajaFondo)))
     })()
     return () => {
       cancelled = true

@@ -1,6 +1,7 @@
 import { fmtArs } from '../format'
 import {
   etiquetaMedioMovimiento,
+  esSalidaDeCaja,
   horaMovimiento,
   montoMovimientoLista,
   progresoDiaCaja
@@ -207,7 +208,7 @@ export default function CajaMenuResumenDia({ estado, cargando, enVivo, onNavigat
                   <small>{etiquetaMedioMovimiento(m)}</small>
                 </span>
                 <strong className="caja-cc-menu-movs-monto">
-                  {m.tipo_movimiento === 'egreso' ? '−' : '+'} $ {fmtArs(montoMovimientoLista(m))}
+                  {esSalidaDeCaja(m, estado.cajaSlug || '') ? '−' : '+'} $ {fmtArs(montoMovimientoLista(m))}
                 </strong>
               </li>
             ))}

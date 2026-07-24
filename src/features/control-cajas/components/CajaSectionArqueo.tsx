@@ -21,7 +21,7 @@ import type { ResumenPlotlabVentasCaja } from '../plotlabVentasCajaData'
 import CajaPlotlabVentasPanel from './CajaPlotlabVentasPanel'
 import { calcularTeoricoFisicoCaja } from '../arqueoCalculations'
 import { estadoArqueo } from '../movimientoCaja'
-import { fmtArs, fmtArs0, fmtDateAr, parseNum } from '../format'
+import { fmtArs, fmtArs0, fmtDateAr, montoInputFromNumber, parseNum } from '../format'
 import { fondoFijoEfectivo } from '../fondoCaja'
 import {
   cajaFondoDestinoPorDefecto,
@@ -185,7 +185,7 @@ export default function CajaSectionArqueo({
   useEffect(() => {
     const desdeArqueo = fondoParaOtraCajaDesdeArqueo(ultimoArqueoBloqueo)
     if (desdeArqueo) {
-      setFondoOtraCajaInput(String(desdeArqueo.monto))
+      setFondoOtraCajaInput(montoInputFromNumber(desdeArqueo.monto))
       return
     }
     const pref =
@@ -194,7 +194,7 @@ export default function CajaSectionArqueo({
         : cajaActiva
           ? fondoFijoEfectivo(cajaActiva)
           : 0
-    setFondoOtraCajaInput(pref > 0 ? String(pref) : '')
+    setFondoOtraCajaInput(montoInputFromNumber(pref))
   }, [
     cajaSlug,
     cajaActiva?.slug,
@@ -257,7 +257,7 @@ export default function CajaSectionArqueo({
   const fuenteObjetivo =
     efectivoQuedaPlanilla != null ? 'planilla' : efectivoObjetivoPlotlab != null ? 'plotlab' : null
 
-  /** CONTADO − (OBJETIVO − FONDO_DEJADO). El fondo es recorte del contado, no se suma. */
+  /** CONTADO vs OBJETIVO. Fondo es solo reparto; egresos ya bajan el objetivo. */
   const fondoParaCuadre = fondoOtraCaja != null && fondoOtraCaja >= 0 ? fondoOtraCaja : 0
   const cuadre = cuadreArqueoConFondo({
     contado: total,
@@ -267,6 +267,7 @@ export default function CajaSectionArqueo({
   const deltaVsObjetivo = cuadre.delta
   const esFaltante = cuadre.esFaltante
   const esSobrante = cuadre.esSobrante
+  const sobranteAbsorbido = cuadre.sobranteAbsorbido
   const montoFaltante = cuadre.montoFaltante
   const montoSobrante = cuadre.montoSobrante
   const requiereJustificacion = esFaltante || esSobrante
@@ -284,7 +285,7 @@ export default function CajaSectionArqueo({
         .reduce((s, e) => s + (e.monto_efectivo || 0), 0),
     [egresosDia, cajaSlug, fecha]
   )
-  /** RESTO_ADMIN preview = CONTADO − FONDO − EGRESOS */
+  /** RESTO_ADMIN preview = CONTADO − FONDO − EGRESOS (incluye sobrante de conteo < 10k) */
   const restoAdminPreview =
     total > 0 ? Math.max(0, total - fondoParaCuadre - egresosEfDia) : null
 
@@ -446,6 +447,7 @@ export default function CajaSectionArqueo({
                   fuente_objetivo: fuenteObjetivo,
                   faltante: esFaltante ? montoFaltante : 0,
                   sobrante: esSobrante ? montoSobrante : 0,
+                  sobrante_absorbido: sobranteAbsorbido ? montoSobrante : 0,
                   cuadre_con_fondo_dejado: cuadraConFondoDejado,
                   egresos_efectivo: egresosEfDia,
                   resto_admin_preview: restoAdminPreview
@@ -661,7 +663,7 @@ export default function CajaSectionArqueo({
 
       {efectivoQuedaPlanilla == null && efectivoObjetivoPlotlab != null && (
         <div className="caja-cc-planilla-arqueo-hint caja-cc-planilla-arqueo-hint--plotlab">
-          <strong>Según ventas Plot Lab en efectivo (fondo + cobros del día):</strong>{' '}
+          <strong>Según Plot Lab (fondo + cobros − egresos en efectivo):</strong>{' '}
           <strong>$ {fmtArs(efectivoObjetivoPlotlab)}</strong>. Contá billetes hasta ese monto; tarjetas, transferencias
           y cuenta corriente no van en el arqueo.
         </div>
@@ -799,10 +801,12 @@ export default function CajaSectionArqueo({
             </div>
             <p className="caja-cc-field-hint">
               Ecuación: contado − fondo − egresos = admin.
-              {objetivoEfectivo != null && cuadre.objetivoConteo != null
-                ? ` Cuadre: contado vs (objetivo $ ${fmtArs(objetivoEfectivo)} − fondo) = $ ${fmtArs(cuadre.objetivoConteo)}${
+              {objetivoEfectivo != null && deltaVsObjetivo != null
+                ? ` Cuadre: contado vs objetivo $ ${fmtArs(objetivoEfectivo)}${
                     cuadre.cuadra
-                      ? ' — cuadra.'
+                      ? sobranteAbsorbido
+                        ? ` — sobrante $ ${fmtArs(montoSobrante)} (menor a $ 10.000) va a admin.`
+                        : ' — cuadra.'
                       : esFaltante
                         ? ` — faltan $ ${fmtArs(montoFaltante)}.`
                         : esSobrante
@@ -829,7 +833,7 @@ export default function CajaSectionArqueo({
       )}
       {efectivoObjetivoPlotlab != null && efectivoQuedaPlanilla == null && (
         <div className="caja-cc-result neutral">
-          <span>Objetivo según Plot Lab (fondo + efectivo cobrado)</span>
+          <span>Objetivo según Plot Lab (fondo + cobros − egresos)</span>
           <strong>$ {fmtArs(efectivoObjetivoPlotlab)}</strong>
         </div>
       )}
@@ -839,7 +843,9 @@ export default function CajaSectionArqueo({
             ? diferenciaJustificada
               ? 'ok'
               : 'bad'
-            : diferenciaFisica != null && Math.abs(diferenciaFisica) > 0.02
+            : sobranteAbsorbido
+              ? 'ok'
+              : diferenciaFisica != null && Math.abs(diferenciaFisica) > 0.02
               ? 'bad'
               : total > 0
                 ? 'ok'
@@ -851,14 +857,14 @@ export default function CajaSectionArqueo({
         {deltaVsObjetivo != null && total > 0 && (
           <span className="caja-cc-field-hint">
             {Math.abs(deltaVsObjetivo) <= 1.5
-              ? cuadraConFondoDejado
-                ? `Cuadra: contado $ ${fmtArs(total)} = objetivo $ ${fmtArs(objetivoEfectivo ?? 0)} − fondo $ ${fmtArs(fondoParaCuadre)}`
-                : fuenteObjetivo === 'planilla'
-                  ? 'Cuadra con planilla PDF'
-                  : 'Cuadra con Plot Lab'
-              : esFaltante
-                ? `Faltante $ ${fmtArs(montoFaltante)} (después de restar fondo dejado) — vinculá a egreso`
-                : `Sobrante $ ${fmtArs(montoSobrante)} — justificá con comprobante`}
+              ? fuenteObjetivo === 'planilla'
+                ? 'Cuadra con planilla PDF'
+                : 'Cuadra con Plot Lab'
+              : sobranteAbsorbido
+                ? `Sobrante $ ${fmtArs(montoSobrante)} (menor a $ 10.000) → se suma a administración`
+                : esFaltante
+                  ? `Faltante $ ${fmtArs(montoFaltante)} — vinculá a egreso`
+                  : `Sobrante $ ${fmtArs(montoSobrante)} — justificá con comprobante`}
           </span>
         )}
         {deltaVsObjetivo == null && diferenciaFisica != null && total > 0 && (

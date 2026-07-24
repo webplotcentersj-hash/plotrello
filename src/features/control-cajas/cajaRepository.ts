@@ -984,10 +984,12 @@ export async function adjuntarTicketEgresoSolicitud(
     hora: new Date().toTimeString().slice(0, 5),
     concepto: sol.concepto || 'Egreso',
     subtipo_pase: null,
+    tipo_movimiento: 'egreso',
+    categoria: 'gasto_vario',
     origen_slug: sol.caja_slug,
     destino_slug: adminSlug,
     efectivo: sol.monto_efectivo,
-    otros: 0,
+    otros: sol.monto_otros || 0,
     observacion: [
       sol.aprobador_nombre ? `Egreso autorizado por ${sol.aprobador_nombre}.` : 'Egreso autorizado.',
       sol.observacion?.trim() || '',

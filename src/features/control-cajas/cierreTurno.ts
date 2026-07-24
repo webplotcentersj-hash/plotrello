@@ -65,70 +65,76 @@ export function calcularCierreTurnoMontos(input: CierreTurnoInput): CierreTurnoC
   }
 }
 
+/** Sobrante por error de conteo: se suma a administración, sin justificar. */
+export const SOBRANTE_CONTEO_MAX = 10_000
+
 /**
  * Cuadre del arqueo vs objetivo Plot Lab (fondo_config + cobros − egresos):
  *
- *   OBJETIVO_CONTEO = OBJETIVO_PLOTLAB − FONDO_DEJADO
- *   Δ               = CONTADO − OBJETIVO_CONTEO
+ *   Δ = CONTADO − OBJETIVO
  *
- * Equivale a: Δ = CONTADO − OBJETIVO + FONDO_DEJADO
- * pero el fondo se RESTA del objetivo (no se suma al contado).
+ * El FONDO_DEJADO no entra en el cuadre: es reparto del contado (queda en caja).
+ * Los EGRESOS ya bajan el objetivo (son plata que salió; p. ej. Semitas −3000).
  *
  * Pseudocódigo:
  *   contado        = sum(billetes)
- *   fondoDejado    = input usuario (≥ 0, ≤ contado)
- *   egresos        = sum(egresos aprobados con ticket)
- *   objetivoPlot   = fondoConfig + cobrosPlotLab − egresosFisicos
- *   objetivoConteo = max(0, objetivoPlot − fondoDejado)
- *   delta          = contado − objetivoConteo
- *   if |delta| ≤ tol → cuadra
- *   if delta < −tol  → faltante a justificar con egreso (si no cubierto)
- *   if delta > +tol  → sobrante a justificar
+ *   objetivoPlot   = fondoConfig + cobros − egresosFisicos
+ *   delta          = contado − objetivoPlot
+ *   if |delta| ≤ tol                         → cuadra
+ *   if −tol > delta                          → faltante (vincular egreso si aplica)
+ *   if tol < delta ≤ SOBRANTE_CONTEO_MAX     → sobrante absorbido → va a admin
+ *   if delta > SOBRANTE_CONTEO_MAX           → sobrante a justificar
  *
- *   # Cierre (mismo día):
+ *   # Cierre:
  *   disponible = contado − fondoDejado
- *   restoAdmin = disponible − egresos
+ *   restoAdmin = disponible − egresos   // incluye sobrante de conteo < 10k
  */
 export function cuadreArqueoConFondo(input: {
   contado: number
   objetivo: number | null
-  fondoDejado: number
+  /** Solo informativo / reparto; no altera Δ. */
+  fondoDejado?: number
   tolerancia?: number
+  sobranteConteoMax?: number
 }): {
   objetivoConteo: number | null
   delta: number | null
   esFaltante: boolean
   esSobrante: boolean
+  sobranteAbsorbido: boolean
   montoFaltante: number
   montoSobrante: number
   cuadra: boolean
 } {
   const tol = input.tolerancia ?? 1.5
+  const sobranteMax = input.sobranteConteoMax ?? SOBRANTE_CONTEO_MAX
   const contado = Math.max(0, input.contado || 0)
-  const fondo = Math.max(0, input.fondoDejado || 0)
   if (input.objetivo == null || contado <= 0) {
     return {
       objetivoConteo: null,
       delta: null,
       esFaltante: false,
       esSobrante: false,
+      sobranteAbsorbido: false,
       montoFaltante: 0,
       montoSobrante: 0,
       cuadra: false
     }
   }
-  const objetivoConteo = Math.max(0, input.objetivo - fondo)
+  const objetivoConteo = Math.max(0, input.objetivo)
   const delta = contado - objetivoConteo
   const esFaltante = delta < -tol
-  const esSobrante = delta > tol
+  const sobranteAbsorbido = delta > tol && delta <= sobranteMax
+  const esSobrante = delta > sobranteMax
   return {
     objetivoConteo,
     delta,
     esFaltante,
     esSobrante,
+    sobranteAbsorbido,
     montoFaltante: esFaltante ? Math.abs(delta) : 0,
-    montoSobrante: esSobrante ? delta : 0,
-    cuadra: Math.abs(delta) <= tol
+    montoSobrante: esSobrante || sobranteAbsorbido ? delta : 0,
+    cuadra: Math.abs(delta) <= tol || sobranteAbsorbido
   }
 }
 

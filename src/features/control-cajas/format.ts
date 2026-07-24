@@ -8,12 +8,31 @@ export const fmtArs0 = (n: number | null | undefined) => {
   return new Intl.NumberFormat('es-AR').format(n)
 }
 
+/**
+ * Parsea montos tipados en es-AR ("1.234.567,89") o toString de number ("40497.99").
+ * Cuidado: String(40497.99) no es formato argentino — un replace ciego de "." lo infla.
+ */
 export const parseNum = (v: unknown): number => {
   if (v == null || v === '') return 0
   if (typeof v === 'number') return Number.isFinite(v) ? v : 0
-  const s = String(v).trim().replace(/\./g, '').replace(',', '.')
-  const n = parseFloat(s)
+  const s = String(v).trim()
+  if (!s) return 0
+  // Punto decimal anglosajón / Number#toString (un solo punto, 1–2 decimales)
+  if (/^-?\d+\.\d{1,2}$/.test(s)) {
+    const n = parseFloat(s)
+    return Number.isNaN(n) ? 0 : n
+  }
+  // es-AR: miles con punto, decimales con coma
+  const n = parseFloat(s.replace(/\./g, '').replace(',', '.'))
   return Number.isNaN(n) ? 0 : n
+}
+
+/** Valor seguro para inputs de monto (evita "40497.99" → parseNum inflado). */
+export function montoInputFromNumber(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return ''
+  const rounded = Math.round(n * 100) / 100
+  if (Number.isInteger(rounded)) return String(rounded)
+  return String(rounded).replace('.', ',')
 }
 
 export const fmtDateAr = (iso: string) => {

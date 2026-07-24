@@ -251,3 +251,15 @@ export function conteosPorCajaOperativa(input: {
 export function montoMovimientoLista(m: CajaMovimiento): number {
   return montoVisibleMovimiento(m)
 }
+
+/** Plata que sale de la caja (egreso / traspaso salida). Se muestra con −. */
+export function esSalidaDeCaja(
+  m: Pick<CajaMovimiento, 'tipo_movimiento' | 'origen_slug' | 'destino_slug'>,
+  cajaSlug: string
+): boolean {
+  if (!cajaSlug) return m.tipo_movimiento === 'egreso'
+  if (m.tipo_movimiento === 'egreso') return true
+  if (m.tipo_movimiento === 'ingreso') return false
+  if (m.tipo_movimiento === 'traspaso') return m.origen_slug === cajaSlug
+  return m.origen_slug === cajaSlug && m.destino_slug !== cajaSlug
+}
