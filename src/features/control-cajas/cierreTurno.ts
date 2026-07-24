@@ -9,6 +9,20 @@ import { calcularPaseTrazabilidad } from './paseCaja'
 import { fondoFijoEfectivo } from './fondoCaja'
 import type { CajaCierre, CajaEgresoSolicitud, CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from './types'
 
+/**
+ * Reparto del efectivo contado (orden obligatorio):
+ *
+ *   CONTADO          = billetes físicos (ej. 818.000)
+ *   FONDO_DEJADO     = queda para otro día/turno / otra caja (ej. 40.497)  ⊆ CONTADO
+ *   EGRESOS          = egresos ejecutados del día (efectivo)
+ *
+ *   DISPONIBLE       = CONTADO − FONDO_DEJADO
+ *   RESTO_ADMIN      = DISPONIBLE − EGRESOS
+ *                  = CONTADO − FONDO_DEJADO − EGRESOS
+ *
+ * El fondo NO se suma al contado: es un recorte del contado.
+ * Los egresos se restan de lo que queda DESPUÉS de reservar el fondo.
+ */
 export type CierreTurnoInput = {
   arqueo_efectivo: number
   arqueo_otros: number
@@ -21,29 +35,100 @@ export type CierreTurnoCalculado = CierreTurnoInput & {
   resto_efectivo: number
   resto_otros: number
   total_sale_origen: number
+  disponible_tras_fondo: number
 }
 
-/** Rosa transfiere fondo a Noelia y el resto a Administración. */
+/** Rosa deja fondo en otra caja; egresos salen del resto; lo que sobra va a Administración. */
 export function calcularCierreTurnoMontos(input: CierreTurnoInput): CierreTurnoCalculado {
   const arqueo_efectivo = input.arqueo_efectivo || 0
   const arqueo_otros = input.arqueo_otros || 0
-  const fondo = input.fondo_monto || 0
+  const fondo = Math.min(Math.max(0, input.fondo_monto || 0), arqueo_efectivo)
   const egrEf = input.egresos_aprobados_ef || 0
   const egrOt = input.egresos_aprobados_ot || 0
 
-  const efectivoDisponible = Math.max(0, arqueo_efectivo - egrEf)
-  const otrosDisponible = Math.max(0, arqueo_otros - egrOt)
-  const resto_efectivo = Math.max(0, efectivoDisponible - fondo)
-  const resto_otros = otrosDisponible
+  // 1) Reservar fondo  2) Descontar egresos del disponible  3) Resto → admin
+  const disponible_tras_fondo = Math.max(0, arqueo_efectivo - fondo)
+  const resto_efectivo = Math.max(0, disponible_tras_fondo - egrEf)
+  const resto_otros = Math.max(0, arqueo_otros - egrOt)
 
   return {
     ...input,
     arqueo_efectivo,
     arqueo_otros,
     fondo_monto: fondo,
+    egresos_aprobados_ef: egrEf,
+    egresos_aprobados_ot: egrOt,
+    disponible_tras_fondo,
     resto_efectivo,
     resto_otros,
     total_sale_origen: fondo + resto_efectivo + egrEf
+  }
+}
+
+/**
+ * Cuadre del arqueo vs objetivo Plot Lab (fondo_config + cobros − egresos):
+ *
+ *   OBJETIVO_CONTEO = OBJETIVO_PLOTLAB − FONDO_DEJADO
+ *   Δ               = CONTADO − OBJETIVO_CONTEO
+ *
+ * Equivale a: Δ = CONTADO − OBJETIVO + FONDO_DEJADO
+ * pero el fondo se RESTA del objetivo (no se suma al contado).
+ *
+ * Pseudocódigo:
+ *   contado        = sum(billetes)
+ *   fondoDejado    = input usuario (≥ 0, ≤ contado)
+ *   egresos        = sum(egresos aprobados con ticket)
+ *   objetivoPlot   = fondoConfig + cobrosPlotLab − egresosFisicos
+ *   objetivoConteo = max(0, objetivoPlot − fondoDejado)
+ *   delta          = contado − objetivoConteo
+ *   if |delta| ≤ tol → cuadra
+ *   if delta < −tol  → faltante a justificar con egreso (si no cubierto)
+ *   if delta > +tol  → sobrante a justificar
+ *
+ *   # Cierre (mismo día):
+ *   disponible = contado − fondoDejado
+ *   restoAdmin = disponible − egresos
+ */
+export function cuadreArqueoConFondo(input: {
+  contado: number
+  objetivo: number | null
+  fondoDejado: number
+  tolerancia?: number
+}): {
+  objetivoConteo: number | null
+  delta: number | null
+  esFaltante: boolean
+  esSobrante: boolean
+  montoFaltante: number
+  montoSobrante: number
+  cuadra: boolean
+} {
+  const tol = input.tolerancia ?? 1.5
+  const contado = Math.max(0, input.contado || 0)
+  const fondo = Math.max(0, input.fondoDejado || 0)
+  if (input.objetivo == null || contado <= 0) {
+    return {
+      objetivoConteo: null,
+      delta: null,
+      esFaltante: false,
+      esSobrante: false,
+      montoFaltante: 0,
+      montoSobrante: 0,
+      cuadra: false
+    }
+  }
+  const objetivoConteo = Math.max(0, input.objetivo - fondo)
+  const delta = contado - objetivoConteo
+  const esFaltante = delta < -tol
+  const esSobrante = delta > tol
+  return {
+    objetivoConteo,
+    delta,
+    esFaltante,
+    esSobrante,
+    montoFaltante: esFaltante ? Math.abs(delta) : 0,
+    montoSobrante: esSobrante ? delta : 0,
+    cuadra: Math.abs(delta) <= tol
   }
 }
 

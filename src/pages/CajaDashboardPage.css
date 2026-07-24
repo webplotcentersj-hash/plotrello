@@ -4506,9 +4506,15 @@
 
 .caja-dashboard-page .caja-cc-fondo-otra-caja-preview {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 12px;
+}
+
+@media (min-width: 720px) {
+  .caja-dashboard-page .caja-cc-fondo-otra-caja-preview {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .caja-dashboard-page .caja-cc-fondo-otra-caja-preview > div {

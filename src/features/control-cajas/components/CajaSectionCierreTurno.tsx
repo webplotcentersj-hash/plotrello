@@ -437,9 +437,19 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
           <span className="caja-cc-hoy-hero-value">
             $ {fmtArs(egresosTot.efectivo + egresosTot.otros)}
           </span>
-          <span className="caja-cc-hoy-hero-hint">Descontados del arqueo antes del pase</span>
+          <span className="caja-cc-hoy-hero-hint">
+            Del contado − fondo (no del total bruto)
+          </span>
         </div>
       </div>
+
+      {(calc.arqueo_efectivo > 0 || calc.fondo_monto > 0) && (
+        <p className="caja-cc-help caja-cc-cierre-formula">
+          Efectivo: $ {fmtArs(calc.arqueo_efectivo)} − fondo $ {fmtArs(calc.fondo_monto)} = disponible $
+          {fmtArs(calc.disponible_tras_fondo)} − egresos $ {fmtArs(egresosTot.efectivo)} = admin $
+          {fmtArs(calc.resto_efectivo)}.
+        </p>
+      )}
 
       <div className="caja-cc-card">
         <h3>Cajas y arqueo</h3>

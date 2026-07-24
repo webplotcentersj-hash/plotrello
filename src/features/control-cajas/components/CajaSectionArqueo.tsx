@@ -25,6 +25,7 @@ import { fmtArs, fmtArs0, fmtDateAr, parseNum } from '../format'
 import { fondoFijoEfectivo } from '../fondoCaja'
 import {
   cajaFondoDestinoPorDefecto,
+  cuadreArqueoConFondo,
   fondoParaOtraCajaDesdeArqueo,
   saldosFondoOtraCaja
 } from '../cierreTurno'
@@ -255,15 +256,37 @@ export default function CajaSectionArqueo({
         : null
   const fuenteObjetivo =
     efectivoQuedaPlanilla != null ? 'planilla' : efectivoObjetivoPlotlab != null ? 'plotlab' : null
-  const deltaVsObjetivo =
-    objetivoEfectivo != null && total > 0 ? total - objetivoEfectivo : null
-  const esFaltante =
-    deltaVsObjetivo != null && deltaVsObjetivo < -0.02
-  const esSobrante =
-    deltaVsObjetivo != null && deltaVsObjetivo > 0.02
-  const montoFaltante = esFaltante && deltaVsObjetivo != null ? Math.abs(deltaVsObjetivo) : 0
-  const montoSobrante = esSobrante && deltaVsObjetivo != null ? deltaVsObjetivo : 0
+
+  /** CONTADO − (OBJETIVO − FONDO_DEJADO). El fondo es recorte del contado, no se suma. */
+  const fondoParaCuadre = fondoOtraCaja != null && fondoOtraCaja >= 0 ? fondoOtraCaja : 0
+  const cuadre = cuadreArqueoConFondo({
+    contado: total,
+    objetivo: objetivoEfectivo,
+    fondoDejado: fondoParaCuadre
+  })
+  const deltaVsObjetivo = cuadre.delta
+  const esFaltante = cuadre.esFaltante
+  const esSobrante = cuadre.esSobrante
+  const montoFaltante = cuadre.montoFaltante
+  const montoSobrante = cuadre.montoSobrante
   const requiereJustificacion = esFaltante || esSobrante
+  const cuadraConFondoDejado = cuadre.cuadra && fondoParaCuadre > 0
+  const egresosEfDia = useMemo(
+    () =>
+      egresosDia
+        .filter(
+          (e) =>
+            e.estado === 'aprobado' &&
+            !!e.url_ticket &&
+            e.caja_slug === cajaSlug &&
+            e.fecha === fecha
+        )
+        .reduce((s, e) => s + (e.monto_efectivo || 0), 0),
+    [egresosDia, cajaSlug, fecha]
+  )
+  /** RESTO_ADMIN preview = CONTADO − FONDO − EGRESOS */
+  const restoAdminPreview =
+    total > 0 ? Math.max(0, total - fondoParaCuadre - egresosEfDia) : null
 
   /** Egresos ejecutados del día (aprobados + ticket) para vincular al faltante. */
   const egresosDisponibles = useMemo(() => {
@@ -419,9 +442,13 @@ export default function CajaSectionArqueo({
             ...(objetivoEfectivo != null
               ? {
                   objetivo_efectivo: objetivoEfectivo,
+                  objetivo_conteo: cuadre.objetivoConteo,
                   fuente_objetivo: fuenteObjetivo,
                   faltante: esFaltante ? montoFaltante : 0,
-                  sobrante: esSobrante ? montoSobrante : 0
+                  sobrante: esSobrante ? montoSobrante : 0,
+                  cuadre_con_fondo_dejado: cuadraConFondoDejado,
+                  egresos_efectivo: egresosEfDia,
+                  resto_admin_preview: restoAdminPreview
                 }
               : {}),
             ...saldosFondoOtraCaja({
@@ -731,9 +758,9 @@ export default function CajaSectionArqueo({
           <span className="caja-cc-fondo-otra-caja-tag">Fondo dejado</span> en la otra caja
         </h3>
         <p className="caja-cc-help">
-          Monto <strong>distinto</strong> del total contado: es lo que queda en mostrador para{' '}
-          <strong>{cajaDestinoFondo?.nombre || 'la otra caja operativa'}</strong>. Se guarda en el arqueo y en esa
-          caja. El resto va a administración en el cierre.
+          Del <strong>contado</strong> se reserva este monto para{' '}
+          <strong>{cajaDestinoFondo?.nombre || 'la otra caja / otro turno'}</strong>. No se suma: se resta.
+          Luego: <code>contado − fondo − egresos = administración</code>.
         </p>
         <label className="caja-cc-field">
           Monto a dejar (se guarda)
@@ -759,14 +786,31 @@ export default function CajaSectionArqueo({
               <strong>$ {fmtArs(total)}</strong>
             </div>
             <div className="is-fondo">
-              <span>Fondo dejado</span>
+              <span>− Fondo dejado</span>
               <strong>$ {fmtArs(fondoOtraCaja)}</strong>
             </div>
             <div>
-              <span>Estimado a admin*</span>
-              <strong>$ {fmtArs(Math.max(0, total - fondoOtraCaja))}</strong>
+              <span>− Egresos</span>
+              <strong>$ {fmtArs(egresosEfDia)}</strong>
             </div>
-            <p className="caja-cc-field-hint">* Antes de descontar egresos en el cierre.</p>
+            <div>
+              <span>= A administración</span>
+              <strong>$ {fmtArs(restoAdminPreview ?? 0)}</strong>
+            </div>
+            <p className="caja-cc-field-hint">
+              Ecuación: contado − fondo − egresos = admin.
+              {objetivoEfectivo != null && cuadre.objetivoConteo != null
+                ? ` Cuadre: contado vs (objetivo $ ${fmtArs(objetivoEfectivo)} − fondo) = $ ${fmtArs(cuadre.objetivoConteo)}${
+                    cuadre.cuadra
+                      ? ' — cuadra.'
+                      : esFaltante
+                        ? ` — faltan $ ${fmtArs(montoFaltante)}.`
+                        : esSobrante
+                          ? ` — sobran $ ${fmtArs(montoSobrante)}.`
+                          : '.'
+                  }`
+                : ''}
+            </p>
           </div>
         )}
       </div>
@@ -806,12 +850,14 @@ export default function CajaSectionArqueo({
         <strong>$ {fmtArs(total)}</strong>
         {deltaVsObjetivo != null && total > 0 && (
           <span className="caja-cc-field-hint">
-            {Math.abs(deltaVsObjetivo) <= 0.02
-              ? fuenteObjetivo === 'planilla'
-                ? 'Cuadra con planilla PDF'
-                : 'Cuadra con Plot Lab'
+            {Math.abs(deltaVsObjetivo) <= 1.5
+              ? cuadraConFondoDejado
+                ? `Cuadra: contado $ ${fmtArs(total)} = objetivo $ ${fmtArs(objetivoEfectivo ?? 0)} − fondo $ ${fmtArs(fondoParaCuadre)}`
+                : fuenteObjetivo === 'planilla'
+                  ? 'Cuadra con planilla PDF'
+                  : 'Cuadra con Plot Lab'
               : esFaltante
-                ? `Faltante $ ${fmtArs(montoFaltante)} — vinculá a egreso`
+                ? `Faltante $ ${fmtArs(montoFaltante)} (después de restar fondo dejado) — vinculá a egreso`
                 : `Sobrante $ ${fmtArs(montoSobrante)} — justificá con comprobante`}
           </span>
         )}
