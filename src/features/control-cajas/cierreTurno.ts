@@ -271,7 +271,7 @@ export function buildMovimientosCierreTurno(opts: {
 
   const movs: Array<Omit<import('./types').CajaMovimiento, 'id' | 'created_at'>> = []
 
-  if (calc.fondo_monto > 0) {
+  if (calc.fondo_monto > 0 && lote.origen_slug !== lote.caja_fondo_destino_slug) {
     const paseFondo = calcularPaseTrazabilidad({
       origen_efectivo_antes: montosAntes.origen_efectivo,
       origen_otros_antes: montosAntes.origen_otros,
@@ -432,11 +432,16 @@ export async function egresosDelDiaParaCierreTurno(
   }
 }
 
-/** Otra caja operativa que recibe el fondo (distinta al origen). */
+/** Caja que recibe el fondo dejado.
+ * Por defecto queda en la **misma** caja del arqueo (próximo turno del titular).
+ * Antes se tomaba la primera alfabética (Alejandro) y desviaba el fondo. */
 export function cajaFondoDestinoPorDefecto(
   origenSlug: string,
   cajas: CajaRegistro[]
 ): string {
-  const op = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto' && c.slug !== origenSlug)
+  if (origenSlug && cajas.some((c) => c.slug === origenSlug)) return origenSlug
+  const op = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+  const federico = op.find((c) => c.slug === 'u-31')
+  if (federico) return federico.slug
   return op[0]?.slug ?? ''
 }

@@ -87,6 +87,7 @@ export default function CajaSectionArqueo({
   const [ticketJustifNombre, setTicketJustifNombre] = useState('')
   const [subiendoTicket, setSubiendoTicket] = useState(false)
   const [fondoOtraCajaInput, setFondoOtraCajaInput] = useState('')
+  const [fondoDestinoSlug, setFondoDestinoSlug] = useState('')
   const [guardandoFondo, setGuardandoFondo] = useState(false)
   const [movimientos, setMovimientos] = useState<Awaited<ReturnType<typeof listMovimientos>>>([])
   const [planillas, setPlanillas] = useState<Awaited<ReturnType<typeof listPlanillas>>>([])
@@ -177,11 +178,17 @@ export default function CajaSectionArqueo({
 
   const cajaActiva = cajas.find((c) => c.slug === cajaSlug)
   const fondoTraspaso = cajaActiva ? fondoFijoEfectivo(cajaActiva) : 0
-  const otraCajaOperativa = cajas.find((c) => c.slug !== cajaSlug && c.slug !== 'admin' && c.slug !== 'vuelto')
-  const fondoDestinoSlug =
-    otraCajaOperativa?.slug ||
-    (cajaSlug ? cajaFondoDestinoPorDefecto(cajaSlug, cajas) : '')
-  const cajaDestinoFondo = cajas.find((c) => c.slug === fondoDestinoSlug)
+  const cajaDestinoFondo = cajas.find((c) => c.slug === fondoDestinoSlug) || cajaActiva
+
+  useEffect(() => {
+    if (!cajaSlug || !cajas.length) return
+    const desdeArqueo = fondoParaOtraCajaDesdeArqueo(ultimoArqueoBloqueo)
+    if (desdeArqueo?.destinoSlug && cajas.some((c) => c.slug === desdeArqueo.destinoSlug)) {
+      setFondoDestinoSlug(desdeArqueo.destinoSlug)
+      return
+    }
+    setFondoDestinoSlug(cajaFondoDestinoPorDefecto(cajaSlug, cajas))
+  }, [cajaSlug, cajas, ultimoArqueoBloqueo?.id, ultimoArqueoBloqueo?.saldos])
 
   useEffect(() => {
     const desdeArqueo = fondoParaOtraCajaDesdeArqueo(ultimoArqueoBloqueo)
@@ -387,7 +394,7 @@ export default function CajaSectionArqueo({
       setMsg(
         cajaDestinoFondo
           ? `Indicá cuánto efectivo se deja como fondo en ${cajaDestinoFondo.nombre} (puede ser 0).`
-          : 'Indicá el fondo que se deja en la otra caja (puede ser 0).'
+          : 'Indicá el fondo que se deja para el próximo turno (puede ser 0).'
       )
       return
     }
@@ -523,16 +530,13 @@ export default function CajaSectionArqueo({
     if (!ultimoArqueoBloqueo) return
     if (fondoOtraCaja == null || fondoOtraCaja < 0) {
       setMsgOk(false)
-      setMsg('Indicá el fondo que se deja en la otra caja (puede ser 0).')
+      setMsg('Indicá el fondo que se deja para el próximo turno (puede ser 0).')
       return
     }
     setGuardandoFondo(true)
     setMsg(null)
     try {
-      const dest =
-        fondoParaOtraCajaDesdeArqueo(ultimoArqueoBloqueo)?.destinoSlug ||
-        fondoDestinoSlug ||
-        null
+      const dest = fondoDestinoSlug || cajaSlug || null
       const destNombre =
         cajas.find((c) => c.slug === dest)?.nombre || cajaDestinoFondo?.nombre || null
       const updated = await saveArqueo(
@@ -593,7 +597,7 @@ export default function CajaSectionArqueo({
                 →{' '}
                 {cajas.find((c) => c.slug === fondoYaEnArqueo.destinoSlug)?.nombre ||
                   cajaDestinoFondo?.nombre ||
-                  'otra caja'}
+                  'caja receptora'}
               </span>
               <span className="caja-cc-fondo-otra-caja-hint">
                 Guardado en el arqueo y en la caja receptora (distinto del contado y del resto a admin).
@@ -603,12 +607,29 @@ export default function CajaSectionArqueo({
 
           <div className="caja-cc-card caja-cc-fondo-otra-caja">
             <h3>
-              <span className="caja-cc-fondo-otra-caja-tag">Fondo dejado</span> a la otra caja
+              <span className="caja-cc-fondo-otra-caja-tag">Fondo dejado</span> para el próximo turno
             </h3>
             <p className="caja-cc-help">
               Este monto es el efectivo que <strong>queda en mostrador</strong> para{' '}
-              {cajaDestinoFondo?.nombre || 'la otra caja'}. No es el total contado ni lo que va a administración.
+              {cajaDestinoFondo?.nombre || 'la caja del próximo turno'}. No es el total contado ni lo que va a
+              administración.
             </p>
+            <label className="caja-cc-field">
+              Caja que recibe el fondo
+              <select
+                value={fondoDestinoSlug || cajaSlug}
+                onChange={(e) => setFondoDestinoSlug(e.target.value)}
+              >
+                {cajas
+                  .filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+                  .map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.nombre}
+                      {c.slug === cajaSlug ? ' (esta caja)' : ''}
+                    </option>
+                  ))}
+              </select>
+            </label>
             <label className="caja-cc-field">
               Monto a dejar (se guarda)
               <input
@@ -698,7 +719,7 @@ export default function CajaSectionArqueo({
           <>
             {' '}
             Del contado, el <strong>fondo que se deja</strong> queda para el próximo turno en{' '}
-            {cajaDestinoFondo.nombre} (el resto irá a administración en el cierre de turno).
+            {cajaDestinoFondo?.nombre || 'la caja receptora'} (el resto irá a administración en el cierre de turno).
           </>
         )}
       </div>
@@ -773,14 +794,31 @@ export default function CajaSectionArqueo({
 
       <div className="caja-cc-card caja-cc-fondo-otra-caja">
         <h3>
-          <span className="caja-cc-fondo-otra-caja-tag">Fondo dejado</span> en la otra caja
+          <span className="caja-cc-fondo-otra-caja-tag">Fondo dejado</span> para el próximo turno
         </h3>
         <p className="caja-cc-help">
           Del <strong>contado</strong> se reserva este monto para{' '}
-          <strong>{cajaDestinoFondo?.nombre || 'la otra caja / otro turno'}</strong>. Sale de lo vendido:
-          no se suma al objetivo ni genera faltante/sobrante. Luego:{' '}
+          <strong>{cajaDestinoFondo?.nombre || 'la caja del próximo turno'}</strong>. Sale de lo vendido: no
+          se suma al objetivo ni genera faltante/sobrante. Luego:{' '}
           <code>contado − fondo − egresos = administración</code>.
         </p>
+        <label className="caja-cc-field">
+          Caja que recibe el fondo
+          <select
+            value={fondoDestinoSlug || cajaSlug}
+            onChange={(e) => setFondoDestinoSlug(e.target.value)}
+            required
+          >
+            {cajas
+              .filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
+              .map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.nombre}
+                  {c.slug === cajaSlug ? ' (esta caja)' : ''}
+                </option>
+              ))}
+          </select>
+        </label>
         <label className="caja-cc-field">
           Monto a dejar (se guarda)
           <input

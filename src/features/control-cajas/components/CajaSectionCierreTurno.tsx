@@ -92,9 +92,9 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
   const cajaAutoAsignada = Boolean(cajaSlugOp)
 
   useEffect(() => {
-    if (origen && cajaFondoDestino === origen) {
-      const op = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto' && c.slug !== origen)
-      setCajaFondoDestino(op[0]?.slug ?? '')
+    if (origen && !cajaFondoDestino) {
+      const op = cajas.filter((x) => x.slug !== 'vuelto' && x.slug !== 'admin')
+      setCajaFondoDestino(cajaFondoDestinoPorDefecto(origen, op))
     }
   }, [origen, cajaFondoDestino, cajas])
 
@@ -223,7 +223,9 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
       return
     }
     if (origen === cajaFondoDestino) {
-      setMsg('La caja que recibe el fondo debe ser distinta a la de origen.')
+      // Permitido: el fondo queda en la misma caja para el próximo turno del titular.
+    } else if (!cajaFondoDestino) {
+      setMsg('Indicá qué caja recibe el fondo.')
       return
     }
     if (hayEgresosPendientes(egresosLista)) {
@@ -337,20 +339,17 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
   const puedeRegistrar =
     !!origen &&
     !!cajaFondoDestino &&
-    origen !== cajaFondoDestino &&
     !hayEgresosPendientes(egresosLista) &&
     (calc.resto_efectivo + calc.resto_otros > 0 || calc.fondo_monto > 0)
   const motivoBloqueo = !origen
     ? 'Falta identificar la caja de origen.'
     : !cajaFondoDestino
       ? 'Falta la caja que recibe el fondo.'
-      : origen === cajaFondoDestino
-        ? 'La caja del fondo debe ser distinta a la de origen.'
-        : hayEgresosPendientes(egresosLista)
-          ? 'Hay egresos pendientes o sin ticket.'
-          : calc.resto_efectivo + calc.resto_otros <= 0 && calc.fondo_monto <= 0
-            ? 'No hay montos para transferir (revisá arqueo / fondo / egresos).'
-            : null
+      : hayEgresosPendientes(egresosLista)
+        ? 'Hay egresos pendientes o sin ticket.'
+        : calc.resto_efectivo + calc.resto_otros <= 0 && calc.fondo_monto <= 0
+          ? 'No hay montos para transferir (revisá arqueo / fondo / egresos).'
+          : null
 
   return (
     <div className="caja-cc-cierre-turno">
@@ -448,20 +447,19 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
                 onChange={(e) => setCajaFondoDestino(e.target.value)}
                 disabled={!origen}
               >
-                {operativas
-                  .filter((c) => c.slug !== origen)
-                  .map((c) => (
-                    <option key={c.slug} value={c.slug}>
-                      {c.nombre}
-                    </option>
-                  ))}
+                {operativas.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.nombre}
+                    {c.slug === origen ? ' (esta caja)' : ''}
+                  </option>
+                ))}
               </select>
             )}
           </label>
         </div>
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
-            Fondo que queda en la otra caja
+            Fondo que queda en caja (próximo turno)
             <input
               type="number"
               step="0.01"
