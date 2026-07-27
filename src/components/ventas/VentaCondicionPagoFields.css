@@ -31,8 +31,20 @@
   gap: 12px;
 }
 
+.venta-condicion-fields__grid--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.venta-condicion-fields--efectivo .form-input--vuelto {
+  font-weight: 700;
+  color: #065f46;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
 @media (max-width: 640px) {
-  .venta-condicion-fields__grid {
+  .venta-condicion-fields__grid,
+  .venta-condicion-fields__grid--3 {
     grid-template-columns: 1fr;
   }
 }

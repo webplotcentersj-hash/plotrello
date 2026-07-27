@@ -441,13 +441,84 @@ export default function VentaCondicionPagoFields({
     )
   }
 
+  if (condicion === 'Efectivo') {
+    const total = Number(montoVenta) || 0
+    const recibido = Number(detalle.monto_recibido) || 0
+    const vueltoCalc = Math.max(0, Math.round((recibido - total) * 100) / 100)
+
+    return (
+      <div className="venta-condicion-fields venta-condicion-fields--efectivo">
+        <p className="venta-condicion-fields__hint">
+          Registrá con cuánto pagó. En caja queda solo el total de la venta (pagó − vuelto). El arqueo cuenta{' '}
+          <strong>lo que hay</strong>, no el billete completo (
+          <strong>Caja → Mi arqueo</strong>).
+        </p>
+        <div className="venta-condicion-fields__grid venta-condicion-fields__grid--3">
+          <div className="form-group">
+            <label>Total a cobrar</label>
+            <input
+              className="form-input"
+              type="text"
+              readOnly
+              value={
+                total > 0
+                  ? `$ ${total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  : '—'
+              }
+            />
+          </div>
+          <div className="form-group">
+            <label>¿Con cuánto pagó? *</label>
+            <input
+              className="form-input"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              placeholder="Ej: 10000"
+              value={detalle.monto_recibido ?? ''}
+              onChange={(e) => {
+                const raw = e.target.value
+                const montoRecibido = raw === '' ? undefined : Number(raw)
+                const v =
+                  montoRecibido != null && total > 0
+                    ? Math.max(0, Math.round((montoRecibido - total) * 100) / 100)
+                    : 0
+                onChange(
+                  patchDetalle(detalle, {
+                    monto_recibido: montoRecibido,
+                    vuelto: montoRecibido != null ? v : undefined
+                  })
+                )
+              }}
+            />
+          </div>
+          <div className="form-group">
+            <label>Vuelto a entregar</label>
+            <input
+              className="form-input form-input--vuelto"
+              type="text"
+              readOnly
+              value={
+                recibido > 0
+                  ? `$ ${vueltoCalc.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  : '—'
+              }
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return null
 }
 
 export function validarDetallePago(
   condicion: MedioPagoCodigo,
   config: ConfigCondicionesVenta,
-  detalle: VentaDetallePago
+  detalle: VentaDetallePago,
+  montoVenta?: number
 ): string | null {
   if (condicion === 'Transferencia') {
     if (!detalle.id_cuenta_bancaria) {
@@ -462,6 +533,14 @@ export function validarDetallePago(
     }
     const monto = Number(detalle.monto_cheque)
     if (!(monto > 0)) return 'Ingresá el monto del cheque.'
+  }
+  if (condicion === 'Efectivo') {
+    const total = Number(montoVenta) || 0
+    const recibido = Number(detalle.monto_recibido)
+    if (!(recibido > 0)) return 'Indicá con cuánto pagó el cliente.'
+    if (total > 0 && recibido + 0.009 < total) {
+      return `El monto recibido ($${recibido.toLocaleString('es-AR')}) es menor al total ($${total.toLocaleString('es-AR')}).`
+    }
   }
   if (condicion === 'Transferencia' && config.transferencia_requiere_comprobante) {
     // comprobante se valida aparte en el modal (archivo)

@@ -38,6 +38,9 @@ export type PlotLabVentaCajaSyncInput = {
   usuarioNombre?: string
   cajaSlug?: string
   esAdmin?: boolean
+  /** Efectivo: con cuánto pagó / vuelto (trazabilidad en arqueo). */
+  montoRecibido?: number | null
+  vuelto?: number | null
 }
 
 export type PlotLabVentaCajaSyncResult =
@@ -58,6 +61,10 @@ export type VentaCajaSyncRecord = {
   id_pedido_cliente?: number | null
   monto_pagado?: number | null
   caja_slug_cobro?: string | null
+  detalle_pago?: {
+    monto_recibido?: number
+    vuelto?: number
+  } | null
 }
 
 /** Ventas portal/tótem quedan Pendiente hasta cobro en mostrador; CC pendiente sí impacta caja. */
@@ -335,7 +342,9 @@ export async function syncDesdeVentaRecord(
     estadoPago: (venta.estado_pago as PlotLabVentaCajaSyncInput['estadoPago']) || 'Pagado',
     fecha: (venta.fecha_venta || getArgentinaDateString()).slice(0, 10),
     usuarioId: titularId,
-    usuarioNombre: venta.nombre_vendedor || actorNombre
+    usuarioNombre: venta.nombre_vendedor || actorNombre,
+    montoRecibido: venta.detalle_pago?.monto_recibido ?? null,
+    vuelto: venta.detalle_pago?.vuelto ?? null
   })
 
   if (!opts?.silencioso) {
@@ -410,6 +419,19 @@ export async function syncVentaPlotLabACaja(
         ? `Cobro ${input.clienteNombre}`.slice(0, 120)
         : `Venta ${input.clienteNombre}`.slice(0, 120)
 
+    const esEfectivo = /efectivo/i.test(String(input.metodoPago))
+    const recibido = Number(input.montoRecibido) || 0
+    const vuelto =
+      input.vuelto != null && Number.isFinite(Number(input.vuelto))
+        ? Number(input.vuelto)
+        : recibido > 0
+          ? Math.max(0, Math.round((recibido - monto) * 100) / 100)
+          : 0
+    const trazaEfectivo =
+      esEfectivo && recibido > 0
+        ? ` · Pagó $${recibido.toFixed(2)} · Vuelto $${vuelto.toFixed(2)}`
+        : ''
+
     const movBase = movimientoDesdeMedios(
       {
         fecha: existente?.fecha || fecha,
@@ -421,7 +443,7 @@ export async function syncVentaPlotLabACaja(
         concepto,
         tercero_nombre: input.clienteNombre,
         medios,
-        observacion: `PlotLab ${input.tipo} (${ref}) — ${input.metodoPago}`,
+        observacion: `PlotLab ${input.tipo} (${ref}) — ${input.metodoPago}${trazaEfectivo}`,
         id_usuario: input.usuarioId ?? null,
         usuario_nombre: usuarioNombre,
         origen_importacion: 'plotlab_venta'
@@ -498,7 +520,13 @@ export async function sincronizarVentasPlotLabRango(
         nombre_vendedor: v.nombre_vendedor,
         id_pedido_cliente: v.id_pedido_cliente,
         monto_pagado: v.monto_pagado,
-        caja_slug_cobro: v.caja_slug_cobro
+        caja_slug_cobro: v.caja_slug_cobro,
+        detalle_pago: v.detalle_pago
+          ? {
+              monto_recibido: v.detalle_pago.monto_recibido,
+              vuelto: v.detalle_pago.vuelto
+            }
+          : null
       },
       { silencioso: true }
     )

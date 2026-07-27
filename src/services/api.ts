@@ -19908,7 +19908,13 @@ class ApiService {
         estado_pago: venta.estado_pago ?? null,
         fecha_venta: venta.fecha_venta ?? null,
         id_vendedor: venta.id_vendedor,
-        nombre_vendedor: venta.nombre_vendedor
+        nombre_vendedor: venta.nombre_vendedor,
+        detalle_pago: venta.detalle_pago
+          ? {
+              monto_recibido: venta.detalle_pago.monto_recibido,
+              vuelto: venta.detalle_pago.vuelto
+            }
+          : null
       })
 
       return { success: true, data: ventaCreada }

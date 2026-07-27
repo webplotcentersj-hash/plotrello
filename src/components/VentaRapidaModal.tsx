@@ -431,7 +431,12 @@ const VentaRapidaModal = ({
       return
     }
 
-    const errDetalle = validarDetallePago(condicionVenta, configCondiciones, detallePago)
+    const errDetalle = validarDetallePago(
+      condicionVenta,
+      configCondiciones,
+      detallePago,
+      calcularSubtotal()
+    )
     if (errDetalle) {
       alert(errDetalle)
       return
@@ -488,9 +493,17 @@ const VentaRapidaModal = ({
         }
       }
 
-      // Calcular total
       const valorTotal = calcularSubtotal()
-      const detalleResumen = resumenDetallePago(detallePago)
+      let detallePagoFinal = { ...detallePago }
+      if (condicionVenta === 'Efectivo') {
+        const recibido = Number(detallePagoFinal.monto_recibido) || 0
+        detallePagoFinal = {
+          ...detallePagoFinal,
+          monto_recibido: recibido,
+          vuelto: Math.max(0, Math.round((recibido - valorTotal) * 100) / 100)
+        }
+      }
+      const detalleResumen = resumenDetallePago(detallePagoFinal)
       const obsBase = observaciones ? `Prioridad: ${prioridad}. ${observaciones}` : `Prioridad: ${prioridad}`
       const observacionesFinal = detalleResumen ? `${obsBase}\nPago: ${detalleResumen}` : obsBase
       const estadoPagoInicial =
@@ -511,7 +524,7 @@ const VentaRapidaModal = ({
         nombre_vendedor: usuarioNombre,
         id_cliente: clienteFinal.id || undefined,
         observaciones: observacionesFinal,
-        detalle_pago: Object.keys(detallePago).length ? detallePago : null
+        detalle_pago: Object.keys(detallePagoFinal).length ? detallePagoFinal : null
       })
 
       if (!ventaResponse.success || !ventaResponse.data) {
@@ -535,7 +548,7 @@ const VentaRapidaModal = ({
         fecha_venta: fechaVenta,
         estado_pago: estadoPagoInicial,
         metodo_pago: condicionVenta,
-        detalle_pago: Object.keys(detallePago).length ? detallePago : null,
+        detalle_pago: Object.keys(detallePagoFinal).length ? detallePagoFinal : null,
         id_vendedor: usuarioId,
         nombre_vendedor: usuarioNombre,
         created_at: ahora,
@@ -973,6 +986,8 @@ const VentaRapidaModal = ({
                 if (valor === 'Cheque') {
                   const total = calcularSubtotal()
                   setDetallePago(total > 0 ? { monto_cheque: total } : {})
+                } else if (valor === 'Efectivo') {
+                  setDetallePago({})
                 } else {
                   setDetallePago({})
                 }

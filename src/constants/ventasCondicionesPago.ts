@@ -57,6 +57,10 @@ export interface VentaDetallePago {
   mp_checkout_id?: string
   mp_payment_id?: string
   mp_preference_id?: string
+  /** Efectivo: billete/monto con el que pagó el cliente. */
+  monto_recibido?: number
+  /** Efectivo: vuelto entregado (recibido − total venta). */
+  vuelto?: number
 }
 
 /** Tipos de cheque usados en venta rápida. */
@@ -212,5 +216,11 @@ export function resumenDetallePago(detalle: VentaDetallePago | null | undefined)
   }
   if (detalle.titular_cheque) partes.push(`Titular: ${detalle.titular_cheque}`)
   if (detalle.mp_payment_id) partes.push(`MP Pago: ${detalle.mp_payment_id}`)
+  if (detalle.monto_recibido != null && Number(detalle.monto_recibido) > 0) {
+    partes.push(`Pagó con $${Number(detalle.monto_recibido).toLocaleString('es-AR')}`)
+  }
+  if (detalle.vuelto != null && Number(detalle.vuelto) >= 0) {
+    partes.push(`Vuelto $${Number(detalle.vuelto).toLocaleString('es-AR')}`)
+  }
   return partes.join(' · ')
 }

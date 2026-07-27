@@ -19,6 +19,7 @@ import {
 import { efectivoObjetivoArqueoPlotLab } from '../cajaMenuOperativaData'
 import type { ResumenPlotlabVentasCaja } from '../plotlabVentasCajaData'
 import CajaPlotlabVentasPanel from './CajaPlotlabVentasPanel'
+import CajaEfectivoVueltosPanel, { cobrosEfectivoConVuelto } from './CajaEfectivoVueltosPanel'
 import { calcularTeoricoFisicoCaja } from '../arqueoCalculations'
 import { estadoArqueo } from '../movimientoCaja'
 import { fmtArs, fmtArs0, fmtDateAr, montoInputFromNumber, parseNum } from '../format'
@@ -651,6 +652,14 @@ export default function CajaSectionArqueo({
         <CajaPlotlabVentasPanel resumen={resumenPlotlab} cajaNombre={cajaActiva.nombre} />
       )}
 
+      {cajaActiva && !arqueoBloqueado && (
+        <CajaEfectivoVueltosPanel
+          items={cobrosEfectivoConVuelto(movimientos, fecha, cajaSlug)}
+          fondoCaja={fondoFijoEfectivo(cajaActiva)}
+          egresosEfectivo={egresosEfDia}
+        />
+      )}
+
       {arqueoBloqueado ? null : (
         <>
       {alertaDoble.activa && (
@@ -669,9 +678,10 @@ export default function CajaSectionArqueo({
 
       {efectivoQuedaPlanilla == null && efectivoObjetivoPlotlab != null && (
         <div className="caja-cc-planilla-arqueo-hint caja-cc-planilla-arqueo-hint--plotlab">
-          <strong>Según Plot Lab (fondo + cobros − egresos en efectivo):</strong>{' '}
-          <strong>$ {fmtArs(efectivoObjetivoPlotlab)}</strong>. Contá billetes hasta ese monto; tarjetas, transferencias
-          y cuenta corriente no van en el arqueo.
+          <strong>Debés tener ahora (fondo + ventas neto − egresos):</strong>{' '}
+          <strong>$ {fmtArs(efectivoObjetivoPlotlab)}</strong>. Contá{' '}
+          <strong>lo que hay</strong> en el cajón (el vuelto ya no está). Tarjetas, transferencias y cuenta
+          corriente no van en el arqueo.
         </div>
       )}
 
@@ -682,12 +692,13 @@ export default function CajaSectionArqueo({
       )}
 
       <div className="caja-cc-help">
-        Contá solo billetes y monedas según las ventas en efectivo de Plot Lab del día (más el fondo de caja). No
-        incluyas tarjetas, transferencias ni cuenta corriente.
+        Contá <strong>lo que hay</strong> ahora (billetes/monedas): fondo + ventas en efectivo neto (pagó − vuelto) −
+        egresos. El billete con el que pagó el cliente no suma de más: el vuelto ya salió. No incluyas tarjetas,
+        transferencias ni cuenta corriente.
         {cajaActiva && cajaDestinoFondo && (
           <>
             {' '}
-            Al guardar el arqueo también indicás el <strong>fondo que se deja</strong> en{' '}
+            Del contado, el <strong>fondo que se deja</strong> queda para el próximo turno en{' '}
             {cajaDestinoFondo.nombre} (el resto irá a administración en el cierre de turno).
           </>
         )}
