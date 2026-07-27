@@ -64,19 +64,17 @@ export function calcularCierreTurnoMontos(input: CierreTurnoInput): CierreTurnoC
 export const DIFERENCIA_CONTEO_MAX = 10_000
 
 /**
- * Cuadre del arqueo vs objetivo Plot Lab:
+ * Cuadre del arqueo vs objetivo Plot Lab (ventas neto − egresos):
  *
- *   OBJETIVO_TRAS_FONDO = OBJETIVO − FONDO_DEJADO
- *   Δ                   = CONTADO − OBJETIVO_TRAS_FONDO
+ *   Δ = CONTADO − OBJETIVO
  *
- * Fondo dejado = queda en caja (NO es faltante).
- * Egresos del día (ej. Semitas) NO “cubren” el faltante: se descuentan de
- * lo que va a administración en el cierre:
+ * El fondo dejado SALE del contado (de lo vendido): es un recorte para el
+ * próximo turno. NO se suma al objetivo ni se resta del esperado del cuadre.
+ * Solo afecta el reparto a administración:
  *   restoAdmin = contado − fondo − egresos
  *
  * Pseudocódigo:
- *   esperado = max(0, objetivo − fondoDejado)
- *   delta    = contado − esperado
+ *   delta = contado − objetivo
  *   if |delta| ≤ tol                              → cuadra
  *   if 0 < delta ≤ DIFERENCIA_CONTEO_MAX          → sobrante absorbido → admin
  *   if −DIFERENCIA_CONTEO_MAX ≤ delta < 0         → faltante absorbido (conteo)
@@ -86,6 +84,7 @@ export const DIFERENCIA_CONTEO_MAX = 10_000
 export function cuadreArqueoConFondo(input: {
   contado: number
   objetivo: number | null
+  /** Solo metadato / reparto admin; no altera el delta del cuadre. */
   fondoDejado?: number
   tolerancia?: number
   diferenciaConteoMax?: number
@@ -120,8 +119,8 @@ export function cuadreArqueoConFondo(input: {
     }
   }
   const objetivo = Math.max(0, input.objetivo)
-  const fondoAplicado = Math.min(fondo, objetivo)
-  const objetivoConteo = Math.max(0, objetivo - fondoAplicado)
+  // Cuadre = contado vs ventas/objetivo. El fondo no mueve el delta.
+  const objetivoConteo = objetivo
   const delta = contado - objetivoConteo
   const sobranteAbsorbido = delta > tol && delta <= diffMax
   const faltanteAbsorbido = delta < -tol && delta >= -diffMax
@@ -137,7 +136,7 @@ export function cuadreArqueoConFondo(input: {
     montoFaltante: esFaltante || faltanteAbsorbido ? Math.abs(delta) : 0,
     montoSobrante: esSobrante || sobranteAbsorbido ? delta : 0,
     cuadra: Math.abs(delta) <= tol || sobranteAbsorbido || faltanteAbsorbido,
-    cubiertoPorFondo: fondoAplicado
+    cubiertoPorFondo: Math.min(fondo, contado)
   }
 }
 

@@ -258,7 +258,7 @@ export default function CajaSectionArqueo({
   const fuenteObjetivo =
     efectivoQuedaPlanilla != null ? 'planilla' : efectivoObjetivoPlotlab != null ? 'plotlab' : null
 
-  /** Contado vs (objetivo − fondo dejado). El fondo queda en caja: no es faltante. */
+  /** Contado vs objetivo (ventas). El fondo dejado es un recorte del contado, no mueve el cuadre. */
   const fondoParaCuadre = fondoOtraCaja != null && fondoOtraCaja >= 0 ? fondoOtraCaja : 0
   const cuadre = cuadreArqueoConFondo({
     contado: total,
@@ -655,7 +655,6 @@ export default function CajaSectionArqueo({
       {cajaActiva && !arqueoBloqueado && (
         <CajaEfectivoVueltosPanel
           items={cobrosEfectivoConVuelto(movimientos, fecha, cajaSlug)}
-          fondoCaja={fondoFijoEfectivo(cajaActiva)}
           egresosEfectivo={egresosEfDia}
         />
       )}
@@ -678,10 +677,10 @@ export default function CajaSectionArqueo({
 
       {efectivoQuedaPlanilla == null && efectivoObjetivoPlotlab != null && (
         <div className="caja-cc-planilla-arqueo-hint caja-cc-planilla-arqueo-hint--plotlab">
-          <strong>Debés tener ahora (fondo + ventas neto − egresos):</strong>{' '}
+          <strong>Debés tener ahora (ventas neto − egresos):</strong>{' '}
           <strong>$ {fmtArs(efectivoObjetivoPlotlab)}</strong>. Contá{' '}
-          <strong>lo que hay</strong> en el cajón (el vuelto ya no está). Tarjetas, transferencias y cuenta
-          corriente no van en el arqueo.
+          <strong>lo que hay</strong> en el cajón. El fondo dejado sale de ese contado (no se suma ni
+          resta al objetivo). Tarjetas, transferencias y cuenta corriente no van en el arqueo.
         </div>
       )}
 
@@ -692,9 +691,9 @@ export default function CajaSectionArqueo({
       )}
 
       <div className="caja-cc-help">
-        Contá <strong>lo que hay</strong> ahora (billetes/monedas): fondo + ventas en efectivo neto (pagó − vuelto) −
-        egresos. El billete con el que pagó el cliente no suma de más: el vuelto ya salió. No incluyas tarjetas,
-        transferencias ni cuenta corriente.
+        Contá <strong>lo que hay</strong> ahora (billetes/monedas): ventas en efectivo neto (pagó − vuelto) −
+        egresos. El fondo dejado sale de ese contado (recorte para el próximo turno): no se suma al
+        objetivo ni se resta del cuadre. No incluyas tarjetas, transferencias ni cuenta corriente.
         {cajaActiva && cajaDestinoFondo && (
           <>
             {' '}
@@ -778,8 +777,8 @@ export default function CajaSectionArqueo({
         </h3>
         <p className="caja-cc-help">
           Del <strong>contado</strong> se reserva este monto para{' '}
-          <strong>{cajaDestinoFondo?.nombre || 'la otra caja / otro turno'}</strong>. Queda en caja: no se
-          envía a administración y <strong>no es faltante</strong>. Luego:{' '}
+          <strong>{cajaDestinoFondo?.nombre || 'la otra caja / otro turno'}</strong>. Sale de lo vendido:
+          no se suma al objetivo ni genera faltante/sobrante. Luego:{' '}
           <code>contado − fondo − egresos = administración</code>.
         </p>
         <label className="caja-cc-field">
@@ -818,8 +817,8 @@ export default function CajaSectionArqueo({
               <strong>$ {fmtArs(restoAdminPreview ?? 0)}</strong>
             </div>
             <p className="caja-cc-field-hint">
-              Ecuación: contado − fondo − egresos = admin. El fondo queda en caja. Los egresos (ej. Semitas)
-              se descuentan de admin; no cubren el faltante del cuadre.
+              Ecuación: contado − fondo − egresos = admin. El fondo sale del contado (de lo vendido); el
+              cuadre es contado vs objetivo de ventas, sin sumar ni restar el fondo.
               {onIrEgresos ? (
                 <>
                   {' '}
@@ -829,17 +828,17 @@ export default function CajaSectionArqueo({
                 </>
               ) : null}
               {objetivoEfectivo != null && deltaVsObjetivo != null && cuadre.objetivoConteo != null
-                ? ` Cuadre: contado vs (objetivo $ ${fmtArs(objetivoEfectivo)} − fondo $ ${fmtArs(fondoParaCuadre)}) = $ ${fmtArs(cuadre.objetivoConteo)}${
+                ? ` Cuadre: contado $ ${fmtArs(total)} vs objetivo $ ${fmtArs(objetivoEfectivo)}${
                     cuadre.cuadra
                       ? sobranteAbsorbido
                         ? ` — sobrante $ ${fmtArs(montoSobrante)} (menor a $ 10.000) va a admin.`
                         : faltanteAbsorbido
                           ? ` — diferencia $ ${fmtArs(montoFaltante)} (menor a $ 10.000, error de conteo).`
                           : cuadraConFondoDejado
-                            ? ' — cuadra (fondo dejado no es faltante).'
+                            ? ' — cuadra (fondo dejado es recorte del contado).'
                             : ' — cuadra.'
                       : esFaltante
-                        ? ` — faltan $ ${fmtArs(montoFaltante)} (después del fondo).`
+                        ? ` — faltan $ ${fmtArs(montoFaltante)}.`
                         : esSobrante
                           ? ` — sobran $ ${fmtArs(montoSobrante)}.`
                           : '.'
@@ -864,7 +863,7 @@ export default function CajaSectionArqueo({
       )}
       {efectivoObjetivoPlotlab != null && efectivoQuedaPlanilla == null && (
         <div className="caja-cc-result neutral">
-          <span>Objetivo según Plot Lab (fondo + cobros − egresos)</span>
+          <span>Objetivo según Plot Lab (ventas neto − egresos)</span>
           <strong>$ {fmtArs(efectivoObjetivoPlotlab)}</strong>
         </div>
       )}
@@ -891,7 +890,7 @@ export default function CajaSectionArqueo({
           <span className="caja-cc-field-hint">
             {Math.abs(deltaVsObjetivo) <= 1.5
               ? cuadraConFondoDejado
-                ? `Cuadra: fondo dejado $ ${fmtArs(fondoParaCuadre)} queda en caja (no es faltante)`
+                ? `Cuadra: fondo dejado $ ${fmtArs(fondoParaCuadre)} sale del contado (recorte, no diferencia)`
                 : fuenteObjetivo === 'planilla'
                   ? 'Cuadra con planilla PDF'
                   : 'Cuadra con Plot Lab'
@@ -900,7 +899,7 @@ export default function CajaSectionArqueo({
                 : faltanteAbsorbido
                   ? `Diferencia $ ${fmtArs(montoFaltante)} (menor a $ 10.000, conteo) — egresos se descuentan de admin`
                   : esFaltante
-                  ? `Faltante $ ${fmtArs(montoFaltante)} (después del fondo) — justificá`
+                  ? `Faltante $ ${fmtArs(montoFaltante)} — justificá`
                   : `Sobrante $ ${fmtArs(montoSobrante)} — justificá con comprobante`}
           </span>
         )}
@@ -919,22 +918,19 @@ export default function CajaSectionArqueo({
         >
           <h3>{esFaltante ? 'Justificar faltante' : 'Justificar sobrante'}</h3>
           <p className="caja-cc-help">
-            Contaste $ {fmtArs(total)}
+            Contaste $ {fmtArs(total)} y el esperado (ventas) es $ {fmtArs(objetivoEfectivo ?? 0)}
             {fondoParaCuadre > 0 ? (
               <>
-                {' '}
-                (fondo $ {fmtArs(fondoParaCuadre)} queda en caja) y el esperado tras el fondo es ${' '}
-                {fmtArs(cuadre.objetivoConteo ?? 0)}
+                . El fondo $ {fmtArs(fondoParaCuadre)} queda en caja como recorte del contado (no mueve el
+                cuadre)
               </>
-            ) : (
-              <> y el esperado es $ {fmtArs(objetivoEfectivo ?? 0)}</>
-            )}
+            ) : null}
             .{' '}
             {esFaltante ? (
               <>
-                Faltan <strong>$ {fmtArs(montoFaltante)}</strong> después del fondo. Los egresos del día (ej.
-                Semitas $ {fmtArs(egresosEfDia)}) ya se descuentan de administración; no alcanzan para
-                “cubrir” este faltante. Adjuntá comprobante o vinculá otro egreso si corresponde.
+                Faltan <strong>$ {fmtArs(montoFaltante)}</strong>. Los egresos del día (ej. Semitas ${' '}
+                {fmtArs(egresosEfDia)}) se descuentan de administración; no alcanzan para “cubrir” este
+                faltante. Adjuntá comprobante o vinculá otro egreso si corresponde.
               </>
             ) : (
               <>

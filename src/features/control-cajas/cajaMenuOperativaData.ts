@@ -88,10 +88,11 @@ export function efectivoTeoricoDia(
   const fondo = fondoFijoEfectivo(caja)
   const t = calcularTeoricoFisicoCaja(movimientos, caja.slug, fecha, fecha, fondo)
   const ingresosFisicos = Math.max(t.ingresos_fisicos, resumenPlotlab?.efectivo ?? 0)
-  return fondo + ingresosFisicos - t.egresos_fisicos
+  // Sin sumar fondo: el fondo sale del contado (de lo vendido).
+  return ingresosFisicos - t.egresos_fisicos
 }
 
-/** Efectivo en billetes a contar según ventas Plot Lab (fondo + cobros en efectivo − egresos físicos). */
+/** Efectivo a contar según Plot Lab: cobros en efectivo − egresos (el fondo no se suma). */
 export function efectivoObjetivoArqueoPlotLab(
   movimientos: CajaMovimiento[],
   fecha: string,

@@ -602,7 +602,7 @@ MI DÍA OPERATIVO (${op.fecha}):
 - Arqueo hecho: ${op.arqueoHecho ? 'SÍ' : 'NO'} · Cierre de turno: ${op.cierreTurnoHecho ? 'SÍ' : 'NO'}
 - Planilla del día: ${op.planillaImportada ? `sí (${op.planillasDelDia})` : 'no'}
 - Egresos pendientes: ${op.egresosPendientes} · Traspasos pendientes: ${op.traspasosPendientes}
-- Efectivo teórico a contar (fondo + cobros ef − egresos): ${op.efectivoTeorico != null ? `$${fmtArs(op.efectivoTeorico)}` : 'n/d'}
+- Efectivo teórico a contar (ventas ef − egresos; el fondo sale del contado): ${op.efectivoTeorico != null ? `$${fmtArs(op.efectivoTeorico)}` : 'n/d'}
 - Ventas Plot Lab hoy: total $${fmtArs(plot?.total ?? 0)} · efectivo $${fmtArs(plot?.efectivo ?? 0)} · tarjetas $${fmtArs(plot?.tarjetas ?? 0)} · transfer $${fmtArs(plot?.transferencia ?? 0)} · cta cte $${fmtArs(plot?.ctaCte ?? 0)} (${plot?.count ?? 0} ventas)
 - Último arqueo: ${
         ultimoArqueo
@@ -651,7 +651,7 @@ ${ultBanco.map((x) => `${x.fecha} sist $${fmtArs(x.sistema)} ext $${fmtArs(x.ext
 CÓMO AYUDAR (obligatorio):
 ${guiaRol}
 - Fondo de caja: solo si está configurado (>0); no inventar $100.000.
-- Efectivo teórico = fondo + ingresos efectivo − egresos; debe acercarse al contado.
+- Efectivo teórico = ventas efectivo − egresos (el fondo dejado sale del contado; no se suma ni resta al objetivo).
 - Respuestas en español rioplatense, claras, con montos formateados y pasos accionables.`
 }
 

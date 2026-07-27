@@ -90,28 +90,23 @@ export function netoEfectivoCobrosDia(items: CobroEfectivoTraza[]): {
 
 type Props = {
   items: CobroEfectivoTraza[]
-  /** Fondo fijo configurado de la caja (lo que “debe haber” de base). */
-  fondoCaja?: number
   /** Egresos en efectivo del día. */
   egresosEfectivo?: number
 }
 
-export default function CajaEfectivoVueltosPanel({
-  items,
-  fondoCaja = 0,
-  egresosEfectivo = 0
-}: Props) {
+export default function CajaEfectivoVueltosPanel({ items, egresosEfectivo = 0 }: Props) {
   if (items.length === 0) return null
 
   const { netoEnCaja, totalPagado, totalVuelto, conTraza } = netoEfectivoCobrosDia(items)
-  const debeHaber = Math.max(0, fondoCaja + netoEnCaja - egresosEfectivo)
+  // Objetivo = ventas neto − egresos. El fondo no se suma: sale del contado.
+  const debeHaber = Math.max(0, netoEnCaja - egresosEfectivo)
 
   return (
     <div className="caja-cc-efectivo-vueltos" aria-label="Cobros en efectivo con vuelto">
       <strong>Efectivo — lo que queda en caja</strong>
       <p className="caja-cc-sub">
-        Contá <strong>lo que hay</strong> ahora en el cajón. El vuelto ya salió: en caja solo queda el
-        neto de cada venta (pagó − vuelto).
+        Contá <strong>lo que hay</strong>. El vuelto ya salió (queda el neto de cada venta). El fondo
+        dejado sale de ese contado: no se suma ni resta al objetivo.
       </p>
 
       <div className="caja-cc-efectivo-vueltos__resumen">
@@ -130,12 +125,6 @@ export default function CajaEfectivoVueltosPanel({
               <strong>$ {fmtArs(totalVuelto)}</strong>
             </div>
           </>
-        ) : null}
-        {fondoCaja > 0 ? (
-          <div>
-            <span>+ Fondo de caja</span>
-            <strong>$ {fmtArs(fondoCaja)}</strong>
-          </div>
         ) : null}
         {egresosEfectivo > 0 ? (
           <div>

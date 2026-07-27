@@ -10,7 +10,10 @@ export type TeoricoFisicoCaja = {
   teorico: number
 }
 
-/** Efectivo físico teórico = fondo + ingresos físicos − egresos físicos (sin cta. cte. ni trans. bancaria). */
+/**
+ * Efectivo físico teórico = ingresos físicos − egresos (sin cta. cte. ni trans. bancaria).
+ * El fondo NO se suma: sale del efectivo contado (recorte de lo vendido).
+ */
 export function calcularTeoricoFisicoCaja(
   movimientos: CajaMovimiento[],
   cajaSlug: string,
@@ -27,6 +30,6 @@ export function calcularTeoricoFisicoCaja(
     ingresos_fisicos,
     egresos_fisicos,
     neto_fisico,
-    teorico: fondoFijo + neto_fisico
+    teorico: neto_fisico
   }
 }
