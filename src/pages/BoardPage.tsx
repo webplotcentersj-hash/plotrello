@@ -350,6 +350,49 @@ const BoardPage = ({
     isTaskAssignedToMe
   ])
 
+  /** Si buscan un nº de OP que no está en memoria (tope del tablero), traerlo de la BD. */
+  useEffect(() => {
+    const q = searchQuery.trim()
+    const digits = q.replace(/\D/g, '')
+    if (!/^\d{4,}$/.test(digits)) return
+    const already = tasks.some(
+      (t) => String(t.opNumber ?? '').replace(/\D/g, '') === digits && !t.entregado
+    )
+    if (already) return
+
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const api = await getApiService()
+          const resp = await api.searchOrdenesBiblioteca(digits, { limit: 40 })
+          if (cancelled || !resp.success || !resp.data?.length) return
+          setTasks((prev) => {
+            const byId = new Map(prev.map((t) => [t.id, t]))
+            let changed = false
+            for (const orden of resp.data!) {
+              if (orden.id == null) continue
+              if (orden.entregado === true) continue
+              if (orden.visible_en_tablero === false) continue
+              if (orden.eliminada === true) continue
+              const id = String(orden.id)
+              if (byId.has(id)) continue
+              byId.set(id, ordenToTask(orden))
+              changed = true
+            }
+            return changed ? [...byId.values()] : prev
+          })
+        } catch (e) {
+          console.warn('Board: no se pudo cargar OP buscada desde BD', e)
+        }
+      })()
+    }, 350)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [searchQuery, tasks, setTasks])
+
   const phoneFilterChips = useMemo(() => {
     const chips: { key: string; text: string }[] = []
     if (sectorFilter !== 'todos') chips.push({ key: 'sector', text: `Sector: ${sectorFilter}` })

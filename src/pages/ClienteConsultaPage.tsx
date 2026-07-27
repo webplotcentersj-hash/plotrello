@@ -25,7 +25,13 @@ const ClienteConsultaPage = () => {
     setHistorial({})
 
     try {
-      const response = await apiService.getOrdenes()
+      const term = searchOp.trim()
+      const searchDigits = digitsOnly(term)
+      // Buscar en BD por número de OP (no en el listado acotado del tablero).
+      const response =
+        searchDigits.length > 0
+          ? await apiService.searchOrdenesBiblioteca(searchDigits, { limit: 40 })
+          : await apiService.getOrdenes()
 
       if (response.success && response.data) {
         const ordenesFiltradas = response.data.filter(filtro)

@@ -1074,8 +1074,35 @@ class ApiService {
       const q = query.trim()
       const hashMatch = q.match(/^#?(\d+)$/)
       if (hashMatch) {
-        const id = Number(hashMatch[1])
-        if (Number.isFinite(id) && id > 0) return fetchById(id)
+        const digits = hashMatch[1]
+        const asId = Number(digits)
+        // Priorizar numero_op (ej. OP 98125). El id BD suele ser distinto y más chico.
+        const { data: byNumero, error: errNum } = await withQueryTimeout(
+          Promise.resolve(
+            sb
+              .from('ordenes_trabajo')
+              .select(ORDENES_TABLERO_SELECT)
+              .eq('numero_op', digits)
+              .order('id', { ascending: false })
+              .limit(limit)
+          ),
+          'searchOrdenesBiblioteca(numero_op)'
+        )
+        if (errNum) {
+          return {
+            success: false,
+            error: formatSupabaseStatementTimeoutError(errNum.message)
+          }
+        }
+        const rowsNum = (byNumero ?? []).map((row) =>
+          normalizeOrdenListRow(row as Record<string, unknown>)
+        )
+        if (rowsNum.length > 0) {
+          return { success: true, data: rowsNum }
+        }
+        // Fallback: #id interno de BD (biblioteca avanzada)
+        if (Number.isFinite(asId) && asId > 0) return fetchById(asId)
+        return { success: true, data: [] }
       }
 
       if (q.length < 2) {

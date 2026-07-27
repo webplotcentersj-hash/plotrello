@@ -205,7 +205,12 @@ const TotemConsultaClientePage = () => {
     setHistorial({})
 
     try {
-      const response = await apiService.getOrdenes()
+      const term = (opBuscada ?? searchOp).trim()
+      const searchDigits = digitsOnly(term)
+      const response =
+        searchDigits.length > 0
+          ? await apiService.searchOrdenesBiblioteca(searchDigits, { limit: 40 })
+          : await apiService.getOrdenes()
 
       if (response.success && response.data) {
         const ordenesFiltradas = response.data.filter(filtro)
