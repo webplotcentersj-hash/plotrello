@@ -31,7 +31,6 @@ import CajaDiaConciliacionPanel from './CajaDiaConciliacionPanel'
 import CajaDiaResumenDetalleModal from './CajaDiaResumenDetalleModal'
 import CajaMovimientoDetalleModal from './CajaMovimientoDetalleModal'
 import CajaMovimientosList from './CajaMovimientosList'
-import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 type Props = {
   onCierreTurno: () => void
@@ -206,9 +205,8 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
         </div>
         <div className="caja-cc-page-head-actions">
           <button type="button" className="btn-primary btn-small" disabled={pdfBusy} onClick={handlePdfDia}>
-            {pdfBusy ? 'Generando PDF…' : 'PDF del día'}
+            {pdfBusy ? 'Generando planilla…' : 'Planilla PDF del día'}
           </button>
-          <CajaVolverPlotLab small />
         </div>
       </div>
 
@@ -309,7 +307,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
                   disabled={pdfBusy}
                   onClick={handlePdfDia}
                 >
-                  {pdfBusy ? 'Generando…' : 'Descargar PDF del día'}
+                  {pdfBusy ? 'Generando…' : 'Descargar planilla PDF'}
                 </button>
               </div>
               <div className="caja-cc-card-collapsible-body caja-cc-card-body-scroll">
