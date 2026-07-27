@@ -1550,6 +1550,62 @@
   font-weight: 600;
 }
 
+.caja-dashboard-page .caja-cc-concil-dif-hint {
+  font-weight: 500;
+  color: #92400e;
+  font-size: 11px;
+}
+
+.caja-dashboard-page .caja-cc-concil-card--fondos {
+  border-color: #fbbf24;
+  background: #fffbeb;
+  grid-column: span 1;
+}
+
+.caja-dashboard-page .caja-cc-concil-fondos-help {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.35;
+}
+
+.caja-dashboard-page .caja-cc-concil-fondos-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.caja-dashboard-page .caja-cc-concil-fondos-lista li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+}
+
+.caja-dashboard-page .caja-cc-concil-fondos-nombre {
+  font-weight: 600;
+  color: #78350f;
+}
+
+.caja-dashboard-page .caja-cc-concil-fondos-lista strong {
+  color: #92400e;
+  white-space: nowrap;
+}
+
+.caja-dashboard-page .caja-cc-concil-fondos-nota {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #a16207;
+}
+
 .caja-dashboard-page .caja-cc-page-head-actions {
   display: flex;
   align-items: center;

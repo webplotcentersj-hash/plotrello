@@ -1,18 +1,27 @@
 import { useMemo } from 'react'
 import {
   conciliacionAutomaticaDia,
+  fondosReservaDesdeArqueosDia,
   labelEstadoConciliacion,
   mediosIngresosDia,
   type LineaConciliacionDia
 } from '../conciliacionDiaCaja'
 import { fmtArs } from '../format'
-import type { CajaArqueo, CajaConcilBanco, CajaConcilMP, CajaMovimiento, PlanillaCajaGuardada } from '../types'
+import type {
+  CajaArqueo,
+  CajaConcilBanco,
+  CajaConcilMP,
+  CajaMovimiento,
+  CajaRegistro,
+  PlanillaCajaGuardada
+} from '../types'
 
 type Props = {
   fecha: string
   movimientos: CajaMovimiento[]
   planillas: PlanillaCajaGuardada[]
   arqueos?: CajaArqueo[]
+  cajas?: CajaRegistro[]
   concilMp?: CajaConcilMP | null
   concilBanco?: CajaConcilBanco | null
 }
@@ -29,6 +38,7 @@ export default function CajaDiaConciliacionPanel({
   movimientos,
   planillas,
   arqueos = [],
+  cajas = [],
   concilMp,
   concilBanco
 }: Props) {
@@ -45,11 +55,20 @@ export default function CajaDiaConciliacionPanel({
       }),
     [fecha, movimientos, planillas, arqueos, concilMp, concilBanco]
   )
+  const fondosReserva = useMemo(
+    () => fondosReservaDesdeArqueosDia(arqueos, fecha, cajas),
+    [arqueos, fecha, cajas]
+  )
+  const totalFondos = useMemo(
+    () => fondosReserva.reduce((s, f) => s + f.monto, 0),
+    [fondosReserva]
+  )
 
   const conActividad = lineas.some((l) => l.estado !== 'sin_mov')
-  if (!conActividad && medios.countIngresos === 0) return null
+  if (!conActividad && medios.countIngresos === 0 && fondosReserva.length === 0) return null
 
   const pendientes = lineas.filter((l) => l.estado === 'pendiente' || l.estado === 'revisar').length
+  const lineaEfectivo = lineas.find((l) => l.canal === 'efectivo')
 
   return (
     <div className="caja-cc-card caja-cc-concil-dia">
@@ -114,11 +133,45 @@ export default function CajaDiaConciliacionPanel({
               {l.estado === 'revisar' && (
                 <div className="caja-cc-concil-dif">
                   Dif. $ {fmtArs(Math.abs(l.diferencia))}
+                  {l.canal === 'efectivo' && totalFondos > 0 ? (
+                    <span className="caja-cc-concil-dif-hint">
+                      {' '}
+                      (puede ser fondo dejado en cajas)
+                    </span>
+                  ) : null}
                 </div>
               )}
             </div>
           </div>
         ))}
+
+        {fondosReserva.length > 0 && (
+          <div className="caja-cc-concil-card caja-cc-concil-card--fondos" aria-label="Fondos de reserva">
+            <div className="caja-cc-concil-card-top">
+              <span className="caja-cc-concil-icon" aria-hidden>
+                🏦
+              </span>
+              <span className="caja-cc-concil-label">Fondos de reserva</span>
+              <span className="caja-cc-concil-badge ok">En cajas</span>
+            </div>
+            <p className="caja-cc-concil-fondos-help">
+              Efectivo que quedó en cada caja (no va a administración). Suma $ {fmtArs(totalFondos)}.
+            </p>
+            <ul className="caja-cc-concil-fondos-lista">
+              {fondosReserva.map((f) => (
+                <li key={f.cajaSlug}>
+                  <span className="caja-cc-concil-fondos-nombre">{f.cajaNombre}</span>
+                  <strong>$ {fmtArs(f.monto)}</strong>
+                </li>
+              ))}
+            </ul>
+            {lineaEfectivo?.estado === 'revisar' && totalFondos > 0 ? (
+              <p className="caja-cc-concil-fondos-nota">
+                La diferencia de efectivo vs arqueo suele explicarse con esta reserva.
+              </p>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   )

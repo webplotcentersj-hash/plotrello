@@ -293,6 +293,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
             movimientos={movimientos}
             planillas={planillas}
             arqueos={arqueos}
+            cajas={cajas}
             concilMp={concilMpDia}
             concilBanco={concilBancoDia}
           />

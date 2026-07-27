@@ -1,9 +1,11 @@
 import { planillaEnFecha } from './cajaDashboardData'
+import { fondoParaOtraCajaDesdeArqueo } from './cierreTurno'
 import type {
   CajaArqueo,
   CajaConcilBanco,
   CajaConcilMP,
   CajaMovimiento,
+  CajaRegistro,
   PlanillaCajaGuardada
 } from './types'
 
@@ -236,6 +238,52 @@ function totalesArqueoEfectivoDia(arqueos: CajaArqueo[], fecha: string): number 
   return arqueos
     .filter((a) => a.fecha === fecha)
     .reduce((s, a) => s + (Number(a.total) || 0), 0)
+}
+
+export type FondoReservaCajaDia = {
+  cajaSlug: string
+  cajaNombre: string
+  /** Quién dejó el fondo (cajero del arqueo). */
+  dejadoPor: string
+  monto: number
+}
+
+/** Fondos dejados en arqueos del día (reserva que queda en caja, no va a admin). */
+export function fondosReservaDesdeArqueosDia(
+  arqueos: CajaArqueo[],
+  fecha: string,
+  cajas: Pick<CajaRegistro, 'slug' | 'nombre'>[] = []
+): FondoReservaCajaDia[] {
+  const nombreCaja = (slug: string | null) => {
+    if (!slug) return 'Caja'
+    return cajas.find((c) => c.slug === slug)?.nombre || slug
+  }
+  const byDestino = new Map<string, FondoReservaCajaDia>()
+  for (const a of arqueos) {
+    if (a.fecha !== fecha) continue
+    const fondo = fondoParaOtraCajaDesdeArqueo(a)
+    if (!fondo || fondo.monto <= 0) continue
+    const dest = fondo.destinoSlug || a.caja_slug
+    const s = a.saldos || {}
+    const destNombre =
+      (typeof s.fondo_destino_nombre === 'string' && s.fondo_destino_nombre.trim()) ||
+      nombreCaja(dest)
+    const prev = byDestino.get(dest)
+    if (prev) {
+      prev.monto += fondo.monto
+      if (a.usuario_nombre && !prev.dejadoPor.includes(a.usuario_nombre)) {
+        prev.dejadoPor = `${prev.dejadoPor}, ${a.usuario_nombre}`
+      }
+    } else {
+      byDestino.set(dest, {
+        cajaSlug: dest,
+        cajaNombre: destNombre.replace(/^Caja\s+/i, '').trim() || destNombre,
+        dejadoPor: a.usuario_nombre?.trim() || nombreCaja(a.caja_slug),
+        monto: fondo.monto
+      })
+    }
+  }
+  return [...byDestino.values()].sort((a, b) => b.monto - a.monto || a.cajaNombre.localeCompare(b.cajaNombre, 'es'))
 }
 
 export function conciliacionAutomaticaDia(input: {
