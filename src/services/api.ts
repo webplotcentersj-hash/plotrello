@@ -189,10 +189,12 @@ const ORDENES_TABLERO_LIMIT = 1200
 /** OP en reclamo activas se fusionan al tablero aunque queden fuera del tope por id. */
 const ORDENES_TABLERO_RECLAMO_LIMIT = 150
 /**
- * Almacén / Finalizado en taller: suelen ser OP viejas (id bajo) que el tope por id
+ * Almacén / Finalizado / Entregado reciente: OP que el tope por id
  * dejaba fuera del kanban y del buscador del tablero.
  */
 const ORDENES_TABLERO_ALMACEN_LIMIT = 800
+/** Entregadas recientes para que sigan visibles en Almacén / búsqueda. */
+const ORDENES_TABLERO_ENTREGADAS_LIMIT = 400
 /** Páginas para biblioteca (catálogo completo bajo demanda; no usa orden_lineas_m2). */
 const ORDENES_BIBLIOTECA_PAGE_SIZE = 400
 const ORDENES_BIBLIOTECA_SEARCH_LIMIT = 50
@@ -949,8 +951,7 @@ class ApiService {
             let aq = sb
               .from('ordenes_trabajo')
               .select(ORDENES_TABLERO_SELECT)
-              .in('estado', ['Almacén de Entrega', 'Finalizado en Taller'])
-              .or('entregado.is.null,entregado.eq.false')
+              .in('estado', ['Almacén de Entrega', 'Finalizado en Taller', 'Entregado o Instalado'])
               .or('eliminada.is.null,eliminada.eq.false')
               .order('id', { ascending: false })
               .limit(ORDENES_TABLERO_ALMACEN_LIMIT)
@@ -972,6 +973,35 @@ class ApiService {
             }
           } catch (e) {
             console.warn('getOrdenes: no se pudieron fusionar almacén al tablero', e)
+          }
+
+          // Entregadas recientes (por id) aunque no entren en el tope de “solo activas”.
+          try {
+            let eq = sb
+              .from('ordenes_trabajo')
+              .select(ORDENES_TABLERO_SELECT)
+              .eq('entregado', true)
+              .or('eliminada.is.null,eliminada.eq.false')
+              .order('id', { ascending: false })
+              .limit(ORDENES_TABLERO_ENTREGADAS_LIMIT)
+            const entregadasRes = await withQueryTimeout(Promise.resolve(eq), 'getOrdenes-entregadas')
+            if (!entregadasRes.error && Array.isArray(entregadasRes.data) && entregadasRes.data.length) {
+              const byId = new Map<number, (typeof normalizedData)[0]>()
+              for (const row of normalizedData) {
+                const id = Number((row as { id?: number }).id)
+                if (id > 0) byId.set(id, row)
+              }
+              for (const raw of entregadasRes.data as Record<string, unknown>[]) {
+                const id = Number(raw.id)
+                if (!(id > 0) || byId.has(id)) continue
+                byId.set(id, normalizeOrdenListRow(raw))
+              }
+              normalizedData = [...byId.values()].sort(
+                (a, b) => Number((b as { id?: number }).id || 0) - Number((a as { id?: number }).id || 0)
+              )
+            }
+          } catch (e) {
+            console.warn('getOrdenes: no se pudieron fusionar entregadas al tablero', e)
           }
         }
 

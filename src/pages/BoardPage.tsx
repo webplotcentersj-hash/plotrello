@@ -326,8 +326,7 @@ const BoardPage = ({
     return tasks.filter((task) => {
       if (task.ordenEliminada) return false
       if (task.visibleEnTablero === false) return false
-      // Excluir fichas entregadas/archivadas del board principal
-      if (task.entregado) return false
+      // Entregadas sí se muestran (quedan en Almacén / buscador); solo se ocultan eliminadas u ocultas.
 
       const matchesStatus = statusFocus.length === 0 || statusFocus.includes(task.status)
       const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter
@@ -356,7 +355,7 @@ const BoardPage = ({
     const digits = q.replace(/\D/g, '')
     if (!/^\d{4,}$/.test(digits)) return
     const already = tasks.some(
-      (t) => String(t.opNumber ?? '').replace(/\D/g, '') === digits && !t.entregado
+      (t) => String(t.opNumber ?? '').replace(/\D/g, '') === digits
     )
     if (already) return
 
@@ -372,7 +371,6 @@ const BoardPage = ({
             let changed = false
             for (const orden of resp.data!) {
               if (orden.id == null) continue
-              if (orden.entregado === true) continue
               if (orden.visible_en_tablero === false) continue
               if (orden.eliminada === true) continue
               const id = String(orden.id)
@@ -1094,7 +1092,7 @@ const BoardPage = ({
         
         // Actualizar el estado local: entregado y estado
         // Cuando se marca como entregado, el estado en BD cambia a "Entregado o Instalado"
-        // El filtro filteredTasks excluye automáticamente las fichas con entregado=true
+        // La ficha sigue visible en el tablero (columna Almacén) con marca de entregada.
         setTasks((prev) =>
           prev.map((task) =>
             task.id === taskId 
