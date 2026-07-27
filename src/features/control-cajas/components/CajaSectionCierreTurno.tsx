@@ -5,6 +5,7 @@ import {
   getCierreFechaCaja,
   getParams,
   getUltimoArqueoCaja,
+  listArqueos,
   listCajas,
   listCierres,
   listTransferenciaLotes,
@@ -14,6 +15,7 @@ import {
 } from '../cajaRepository'
 import { montosCajaDesdeFuentes } from '../paseCajaMontos'
 import CajaCierreTurnoDetalleModal from './CajaCierreTurnoDetalleModal'
+import CajaAdminCierresTurnoPanel from './CajaAdminCierresTurnoPanel'
 import { notifyAdminsCaja } from '../cajaNotificaciones'
 import { fmtArs, montoInputFromNumber, newId, parseNum } from '../format'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
@@ -28,7 +30,7 @@ import {
   hayEgresosPendientes,
   type EgresosDelDiaResumen
 } from '../cierreTurno'
-import type { CajaRegistro, CajaTransferenciaLote } from '../types'
+import type { CajaArqueo, CajaRegistro, CajaTransferenciaLote } from '../types'
 import { CajaMensajeOkPlotLab } from './CajaVolverPlotLab'
 
 type Props = {
@@ -40,14 +42,16 @@ type Props = {
 
 export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdmin = false }: Props) {
   const { slug: cajaSlugOp, loading: cajaOperativaLoading } = useCajaOperativa({
-    enabled: true
+    enabled: !isAdmin
   })
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [lotes, setLotes] = useState<CajaTransferenciaLote[]>([])
+  const [arqueos, setArqueos] = useState<CajaArqueo[]>([])
   const [tolerancia, setTolerancia] = useState(0)
   const [msg, setMsg] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [historialOpen, setHistorialOpen] = useState(false)
+  const [historialOpen, setHistorialOpen] = useState(isAdmin)
+  const [formRegistroOpen, setFormRegistroOpen] = useState(!isAdmin)
   const [detalleLote, setDetalleLote] = useState<CajaTransferenciaLote | null>(null)
 
   const [fecha, setFecha] = useState(getArgentinaDateString())
@@ -61,11 +65,12 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
   const [fondoMontoInput, setFondoMontoInput] = useState('')
 
   const reload = useCallback(async () => {
-    const [todas, operativasUsuarios, lot, p] = await Promise.all([
+    const [todas, operativasUsuarios, lot, p, arqs] = await Promise.all([
       listCajas(),
       listCajasOperativasUsuarios(),
-      listTransferenciaLotes(20),
-      getParams()
+      listTransferenciaLotes(isAdmin ? 120 : 20),
+      getParams(),
+      isAdmin ? listArqueos() : Promise.resolve([] as CajaArqueo[])
     ])
     // Admin para nombres/destino; origen = solo cajas de usuarios activos (sin legacy inactivas).
     const admin = todas.filter((x) => x.slug === 'admin')
@@ -73,22 +78,24 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
     for (const c of [...admin, ...operativasUsuarios]) bySlug.set(c.slug, c)
     setCajas([...bySlug.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
     setLotes(lot)
+    setArqueos(arqs)
     setTolerancia(p.tolerancia)
-  }, [])
+  }, [isAdmin])
 
   useEffect(() => {
     void reload()
   }, [reload])
 
   useEffect(() => {
-    if (!cajaSlugOp) return
-    const operativas = cajas.filter((x) => x.slug !== 'vuelto' && x.slug !== 'admin')
+    // Operador: fijar su caja. Admin traza todas — no forzar una sola origen.
+    if (isAdmin || !cajaSlugOp) return
+    const ops = cajas.filter((x) => x.slug !== 'vuelto' && x.slug !== 'admin')
     setOrigen(cajaSlugOp)
     setCajaFondoDestino((prev) => {
       if (prev && prev !== cajaSlugOp) return prev
-      return cajaFondoDestinoPorDefecto(cajaSlugOp, operativas)
+      return cajaFondoDestinoPorDefecto(cajaSlugOp, ops)
     })
-  }, [cajaSlugOp, cajas])
+  }, [cajaSlugOp, cajas, isAdmin])
 
   const cajaResolviendo = cajaOperativaLoading
   const cajaAutoAsignada = Boolean(cajaSlugOp)
@@ -344,7 +351,9 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
     !hayEgresosPendientes(egresosLista) &&
     (calc.resto_efectivo + calc.resto_otros > 0 || calc.fondo_monto > 0)
   const motivoBloqueo = !origen
-    ? 'Falta identificar la caja de origen.'
+    ? isAdmin
+      ? 'Elegí la caja que cierra.'
+      : 'Falta identificar la caja de origen.'
     : !cajaFondoDestino
       ? 'Falta la caja que recibe el fondo.'
       : hayEgresosPendientes(egresosLista)
@@ -353,32 +362,57 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
           ? 'No hay montos para transferir (revisá arqueo / fondo / egresos).'
           : null
 
-  return (
-    <div className="caja-cc-cierre-turno">
-      <div className="caja-cc-hoy-hero caja-cc-cierre-hero">
-        <div className="caja-cc-hoy-hero-card caja-cc-fondo-otra-caja-hero">
-          <span className="caja-cc-fondo-otra-caja-tag">Fondo dejado</span>
-          <span className="caja-cc-hoy-hero-label">→ otra caja</span>
-          <span className="caja-cc-hoy-hero-value">$ {fmtArs(calc.fondo_monto)}</span>
-          <span className="caja-cc-hoy-hero-hint">
-            A {cajaNombre(cajaFondoDestino) || '…'} (según el arqueo)
-          </span>
+  const prepararRegistroCaja = (slug: string) => {
+    setOrigen(slug)
+    setCajaFondoDestino(cajaFondoDestinoPorDefecto(slug, operativas))
+    setFormRegistroOpen(true)
+    setMsg(null)
+  }
+
+  const formularioCierre = (
+    <>
+      {!isAdmin && (
+        <div className="caja-cc-hoy-hero caja-cc-cierre-hero">
+          <div className="caja-cc-hoy-hero-card caja-cc-fondo-otra-caja-hero">
+            <span className="caja-cc-fondo-otra-caja-tag">Fondo dejado</span>
+            <span className="caja-cc-hoy-hero-label">→ otra caja</span>
+            <span className="caja-cc-hoy-hero-value">$ {fmtArs(calc.fondo_monto)}</span>
+            <span className="caja-cc-hoy-hero-hint">
+              A {cajaNombre(cajaFondoDestino) || '…'} (según el arqueo)
+            </span>
+          </div>
+          <div className="caja-cc-hoy-hero-card egreso">
+            <span className="caja-cc-hoy-hero-label">Egresos hoy</span>
+            <span className="caja-cc-hoy-hero-value">
+              $ {fmtArs(egresosTot.efectivo + egresosTot.otros)}
+            </span>
+            <span className="caja-cc-hoy-hero-hint">Del contado − fondo</span>
+          </div>
         </div>
-        {isAdmin ? (
+      )}
+
+      {isAdmin && origen ? (
+        <div className="caja-cc-hoy-hero caja-cc-cierre-hero">
+          <div className="caja-cc-hoy-hero-card caja-cc-fondo-otra-caja-hero">
+            <span className="caja-cc-fondo-otra-caja-tag">Fondo dejado</span>
+            <span className="caja-cc-hoy-hero-label">→ {cajaNombre(cajaFondoDestino) || '…'}</span>
+            <span className="caja-cc-hoy-hero-value">$ {fmtArs(calc.fondo_monto)}</span>
+            <span className="caja-cc-hoy-hero-hint">Caja origen: {cajaNombre(origen)}</span>
+          </div>
           <div className="caja-cc-hoy-hero-card ingreso">
             <span className="caja-cc-hoy-hero-label">Resto → administración</span>
             <span className="caja-cc-hoy-hero-value">$ {fmtArs(restoAdmin)}</span>
-            <span className="caja-cc-hoy-hero-hint">Ingreso del día para administración</span>
+            <span className="caja-cc-hoy-hero-hint">De este cierre (no el total del día)</span>
           </div>
-        ) : null}
-        <div className="caja-cc-hoy-hero-card egreso">
-          <span className="caja-cc-hoy-hero-label">Egresos hoy</span>
-          <span className="caja-cc-hoy-hero-value">
-            $ {fmtArs(egresosTot.efectivo + egresosTot.otros)}
-          </span>
-          <span className="caja-cc-hoy-hero-hint">Del contado − fondo</span>
+          <div className="caja-cc-hoy-hero-card egreso">
+            <span className="caja-cc-hoy-hero-label">Egresos de la caja</span>
+            <span className="caja-cc-hoy-hero-value">
+              $ {fmtArs(egresosTot.efectivo + egresosTot.otros)}
+            </span>
+            <span className="caja-cc-hoy-hero-hint">Del contado − fondo</span>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {(calc.arqueo_efectivo > 0 || calc.fondo_monto > 0) && (
         <p className="caja-cc-help caja-cc-cierre-formula">
@@ -388,7 +422,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
       )}
 
       <div className="caja-cc-card">
-        <h3>Cajas y arqueo</h3>
+        <h3>{isAdmin ? 'Datos del cierre' : 'Cajas y arqueo'}</h3>
         <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
             Fecha
@@ -490,7 +524,9 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
               required
             />
             {camposAutomaticos ? (
-              <span className="caja-cc-field-hint">Automático desde el último arqueo del día (billetes contados).</span>
+              <span className="caja-cc-field-hint">
+                Automático desde el último arqueo del día (billetes contados).
+              </span>
             ) : null}
           </label>
         </div>
@@ -518,8 +554,8 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
           <p className="caja-cc-help">Cargando egresos…</p>
         ) : hayEgresosPendientes(egresosLista) ? (
           <p className="caja-cc-error">
-            Hay egresos <strong>pendientes</strong> de autorización o sin ticket del operador. No podés cerrar el
-            turno hasta resolverlos (sección Egresos).
+            Hay egresos <strong>pendientes</strong> de autorización o sin ticket del operador. No podés
+            cerrar el turno hasta resolverlos (sección Egresos).
           </p>
         ) : (
           <>
@@ -615,6 +651,43 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
           <p className="caja-cc-field-hint">{motivoBloqueo}</p>
         ) : null}
       </div>
+    </>
+  )
+
+  return (
+    <div className="caja-cc-cierre-turno">
+      {isAdmin ? (
+        <CajaAdminCierresTurnoPanel
+          fecha={fecha}
+          onFechaChange={setFecha}
+          cajas={cajas}
+          lotes={lotes}
+          arqueos={arqueos}
+          onVerDetalle={setDetalleLote}
+          onRegistrarCaja={prepararRegistroCaja}
+        />
+      ) : null}
+
+      {isAdmin ? (
+        <div className={`caja-cc-card caja-cc-card-collapsible${formRegistroOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="caja-cc-card-collapsible-head"
+            onClick={() => setFormRegistroOpen((v) => !v)}
+            aria-expanded={formRegistroOpen}
+          >
+            <span className="caja-cc-card-collapsible-chevron" aria-hidden>
+              {formRegistroOpen ? '▼' : '▶'}
+            </span>
+            <h3>Registrar cierre de una caja</h3>
+          </button>
+          {formRegistroOpen ? (
+            <div className="caja-cc-card-collapsible-body">{formularioCierre}</div>
+          ) : null}
+        </div>
+      ) : (
+        formularioCierre
+      )}
 
       {lotes.length > 0 && (
         <div className={`caja-cc-card caja-cc-card-collapsible${historialOpen ? ' is-open' : ''}`}>
@@ -627,7 +700,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
             <span className="caja-cc-card-collapsible-chevron" aria-hidden>
               {historialOpen ? '▼' : '▶'}
             </span>
-            <h3>Historial cierres de turno</h3>
+            <h3>{isAdmin ? 'Historial completo' : 'Historial cierres de turno'}</h3>
             <span className="caja-cc-card-collapsible-badge">{lotes.length}</span>
           </button>
           {historialOpen && (

@@ -412,7 +412,7 @@ export function downloadInformeDiaCajaPdf(input: InformeDiaCajaInput): void {
         { header: 'Usuario', width: 22 }
       ],
       movs.map((m) => {
-        const ref = parseRefPlotLab(m) || m.comprobante || ''
+        const ref = parseRefPlotLab(m) || m.nro_comprobante || ''
         const caja =
           m.destino_slug && m.destino_slug !== 'admin'
             ? cajaNombreFromSlug(m.destino_slug, cajas)
