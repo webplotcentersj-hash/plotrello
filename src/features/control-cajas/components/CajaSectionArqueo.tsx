@@ -162,8 +162,15 @@ export default function CajaSectionArqueo({
   }, [soloCajasOperativas, fijarCajaUsuario])
 
   useEffect(() => {
-    if (fijarCajaUsuario && cajaSlugOperativa) setCajaSlug(cajaSlugOperativa)
-  }, [fijarCajaUsuario, cajaSlugOperativa])
+    if (!fijarCajaUsuario) return
+    if (cajaSlugOperativa) {
+      setCajaSlug(cajaSlugOperativa)
+      return
+    }
+    if (usuarioId != null && usuarioId > 0) {
+      setCajaSlug(`u-${usuarioId}`)
+    }
+  }, [fijarCajaUsuario, cajaSlugOperativa, usuarioId])
 
   const onCajaManual = (slug: string) => {
     setCajaSlug(slug)

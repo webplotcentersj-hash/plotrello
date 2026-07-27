@@ -14,10 +14,15 @@ type State = {
 
 /**
  * Caja del usuario mostrador/caja. Una sola fuente para arqueo, cierre, ventas, etc.
+ * Si `enabled: true` (p. ej. arqueo con caja fijada), resuelve por id aunque el rol
+ * principal sea administración (cajeros con rol admin + caja propia).
  */
 export function useCajaOperativa(opts?: { enabled?: boolean }) {
   const { usuario, nombreVisible, isCajaOperativa, loading: authLoading } = useAuth()
-  const enabled = opts?.enabled !== false && isCajaOperativa && usuario?.id != null
+  const enabledExplicit = opts?.enabled === true
+  const enabled =
+    usuario?.id != null &&
+    (enabledExplicit || (opts?.enabled !== false && isCajaOperativa))
 
   const [state, setState] = useState<State>({
     loading: enabled,

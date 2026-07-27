@@ -39,7 +39,9 @@ type Props = {
 }
 
 export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdmin = false }: Props) {
-  const { slug: cajaSlugOp, loading: cajaOperativaLoading } = useCajaOperativa()
+  const { slug: cajaSlugOp, loading: cajaOperativaLoading } = useCajaOperativa({
+    enabled: true
+  })
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
   const [lotes, setLotes] = useState<CajaTransferenciaLote[]>([])
   const [tolerancia, setTolerancia] = useState(0)
