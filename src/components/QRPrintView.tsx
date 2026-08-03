@@ -16,6 +16,7 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
+  const ticketRef = useRef<HTMLDivElement>(null)
   const etiqueta = labelOverride || (opNumber?.toUpperCase().startsWith('FICHA') ? 'Ficha' : 'OP')
   const displayNumero = (() => {
     if (etiqueta !== 'Ficha') return opNumber
@@ -39,7 +40,11 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
   useEffect(() => {
     const generateQRCode = async () => {
       try {
-        const dataUrl = await toDataURL(publicUrl || `${opNumber}`, { width: 300, margin: 2 })
+        const dataUrl = await toDataURL(publicUrl || `${opNumber}`, {
+          width: 280,
+          margin: 1,
+          errorCorrectionLevel: 'M'
+        })
         setQrDataUrl(dataUrl)
       } catch (error) {
         console.error('Error generando QR:', error)
@@ -56,7 +61,6 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
 
     setSaving(true)
     try {
-      // Capturar el contenido como imagen
       const canvas = await html2canvas(printRef.current, {
         scale: 2,
         useCORS: true,
@@ -64,15 +68,14 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
         backgroundColor: '#ffffff',
         width: printRef.current.scrollWidth,
         height: printRef.current.scrollHeight,
-        ignoreElements: (el) => el.classList?.contains('qr-no-pdf'),
+        ignoreElements: (el) => el.classList?.contains('qr-no-pdf')
       })
 
-      // Crear PDF
       const imgData = canvas.toDataURL('image/png')
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: 'a4',
+        format: 'a4'
       })
 
       const pdfWidth = pdf.internal.pageSize.getWidth()
@@ -86,8 +89,6 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
       const yOffset = (pdfHeight - imgScaledHeight) / 2
 
       pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgScaledWidth, imgScaledHeight)
-      
-      // Descargar el PDF
       pdf.save(`QR_${etiqueta.toUpperCase()}_${displayNumero}_${cliente.replace(/\s+/g, '_')}.pdf`)
     } catch (error) {
       console.error('Error generando PDF:', error)
@@ -95,6 +96,26 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
     } finally {
       setSaving(false)
     }
+  }
+
+  const handlePrintTicket = () => {
+    if (!qrDataUrl) return
+    const root = document.documentElement
+    const styleId = 'qr-ticket-page-style'
+    document.getElementById(styleId)?.remove()
+    const style = document.createElement('style')
+    style.id = styleId
+    style.textContent = '@media print { @page { size: 80mm auto; margin: 2mm; } }'
+    document.head.appendChild(style)
+    root.classList.add('qr-printing-ticket')
+    const cleanup = () => {
+      root.classList.remove('qr-printing-ticket')
+      document.getElementById(styleId)?.remove()
+      window.removeEventListener('afterprint', cleanup)
+    }
+    window.addEventListener('afterprint', cleanup)
+    window.setTimeout(cleanup, 2500)
+    window.print()
   }
 
   return (
@@ -118,19 +139,13 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
             </button>
           </header>
           <div className="qr-print-modal-body">
-            <p style={{ marginBottom: '20px', color: '#6b7280', textAlign: 'center' }}>
-              Vista previa de la tarjeta para el cliente
-            </p>
-            
-            {/* Vista previa del contenido a imprimir */}
+            <p className="qr-print-preview-lead">Vista previa de la tarjeta para el cliente</p>
+
+            {/* Vista previa del contenido a imprimir (PDF / hoja) */}
             <div className="qr-print-preview-card" ref={printRef}>
               <div className="qr-print-header">
                 <div className="qr-print-logo">
-                  <img 
-                    src="/plot-lab-logo.png" 
-                    alt="Plot Center Logo" 
-                    className="qr-print-logo-img"
-                  />
+                  <img src="/plot-lab-logo.png" alt="Plot Center Logo" className="qr-print-logo-img" />
                 </div>
                 <div className="qr-print-title">
                   <h1 className="qr-print-op">
@@ -144,7 +159,8 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
                 <div className="qr-print-instructions">
                   <p className="instructions-title">Consulta el estado de tu orden</p>
                   <p className="instructions-text">
-                    Escaneá el código QR con tu celular para ver en tiempo real el estado de tu orden de trabajo.
+                    Escaneá el código QR con tu celular para ver en tiempo real el estado de tu orden de
+                    trabajo.
                   </p>
                 </div>
 
@@ -184,12 +200,51 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
               </div>
             </div>
 
+            <p className="qr-print-preview-lead qr-print-ticket-label">
+              Formato ticket (~80 mm) · impresora térmica
+            </p>
+            <div className="qr-print-preview-ticket" ref={ticketRef}>
+              <img src="/plot-lab-logo.png" alt="" className="qr-ticket-logo" />
+              <p className="qr-ticket-brand">PLOT CENTER</p>
+              <p className="qr-ticket-op">
+                {etiqueta} {displayNumero}
+              </p>
+              <p className="qr-ticket-cliente">{cliente}</p>
+              <div className="qr-ticket-sep" aria-hidden />
+              <p className="qr-ticket-hint">Escaneá el QR para ver el estado de tu orden</p>
+              <div className="qr-ticket-qr-wrap">
+                {loading ? (
+                  <div className="qr-ticket-loading">Generando…</div>
+                ) : qrDataUrl ? (
+                  <img src={qrDataUrl} alt="Código QR" className="qr-ticket-qr" />
+                ) : (
+                  <div className="qr-ticket-loading">Error QR</div>
+                )}
+              </div>
+              <p className="qr-ticket-url">{publicUrl}</p>
+              <div className="qr-ticket-sep" aria-hidden />
+              <p className="qr-ticket-footer">Impresión · Diseño · Comunicación visual</p>
+            </div>
+
             <div className="qr-print-actions">
               <button type="button" className="btn-secondary" onClick={onClose}>
                 Cerrar
               </button>
-              <button type="button" className="btn-primary" onClick={handleSavePDF} disabled={loading || !qrDataUrl || saving}>
-                {saving ? '⏳ Guardando...' : '💾 Guardar como PDF'}
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handlePrintTicket}
+                disabled={loading || !qrDataUrl}
+              >
+                Imprimir ticket
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleSavePDF}
+                disabled={loading || !qrDataUrl || saving}
+              >
+                {saving ? 'Guardando…' : 'Guardar PDF'}
               </button>
             </div>
           </div>
@@ -200,4 +255,3 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
 }
 
 export default QRPrintView
-
