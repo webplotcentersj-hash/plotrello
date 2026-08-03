@@ -75,30 +75,73 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: clamp(20px, 4vh, 48px);
+  padding: clamp(16px, 3vh, 36px) clamp(16px, 3vw, 28px);
   cursor: pointer;
 }
 
-.totem-idle-inner {
+.totem-idle-stack {
   width: 100%;
   max-width: min(560px, 92vw);
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.totem-idle-inner {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: clamp(16px, 2.5vh, 24px);
-  padding: clamp(36px, 5vh, 52px) clamp(28px, 4vw, 40px);
+  gap: clamp(14px, 2.2vh, 22px);
+  padding: clamp(32px, 4.5vh, 48px) clamp(24px, 3.5vw, 36px);
   border-radius: var(--totem-radius-xl);
-  border: 1px solid var(--totem-line);
-  background: linear-gradient(155deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-  backdrop-filter: blur(16px);
-  box-shadow: var(--totem-shadow-drop);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 45%, rgba(0, 0, 0, 0.22) 100%);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   text-align: center;
+}
+
+.totem-idle-inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(
+    135deg,
+    #00aeef 0%,
+    #ec008c 42%,
+    #fff200 78%,
+    rgba(255, 255, 255, 0.25) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.85;
+  z-index: 0;
+}
+
+.totem-idle-inner > * {
+  position: relative;
+  z-index: 1;
 }
 
 .totem-idle-logo-ring {
   width: clamp(100px, 18vw, 128px);
   height: clamp(100px, 18vw, 128px);
   border-radius: 24px;
+  box-shadow: 0 0 0 1px rgba(0, 174, 239, 0.35), 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
 .totem-idle-logo {
@@ -110,18 +153,18 @@
 .totem-idle-kicker {
   margin: 0;
   font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font-weight: 800;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--totem-orange);
+  color: #00aeef;
 }
 
 .totem-idle-tagline {
   margin: 0;
-  font-size: clamp(0.9rem, 1.8vw, 1.05rem);
+  font-size: clamp(0.95rem, 1.9vw, 1.12rem);
   font-weight: 600;
-  color: var(--totem-text-soft);
-  letter-spacing: 0.06em;
+  color: rgba(241, 245, 255, 0.88);
+  letter-spacing: 0.04em;
 }
 
 .totem-idle-cta-text {
@@ -130,17 +173,18 @@
   overflow: hidden;
   display: block;
   width: 100%;
+  box-sizing: border-box;
   font-size: clamp(1.1rem, 2.2vw, 1.35rem);
   font-weight: 800;
-  color: var(--totem-cta-text);
+  color: #0f172a;
   text-align: center;
   padding: 16px 24px;
-  border-radius: var(--totem-radius-pill);
-  background: linear-gradient(135deg, var(--totem-orange) 0%, var(--totem-orange-deep) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fff200 0%, #facc15 55%, #f59e0b 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   box-shadow:
-    0 12px 36px rgba(249, 115, 22, 0.35),
-    0 0 0 0 rgba(251, 191, 36, 0.4);
+    0 12px 36px rgba(255, 242, 0, 0.28),
+    0 0 0 0 rgba(0, 174, 239, 0.35);
   animation: totem-idle-cta-pulse 2.4s ease-in-out infinite;
 }
 
@@ -151,7 +195,7 @@
   background: linear-gradient(
     105deg,
     transparent 38%,
-    rgba(255, 255, 255, 0.42) 50%,
+    rgba(255, 255, 255, 0.5) 50%,
     transparent 62%
   );
   pointer-events: none;
@@ -163,14 +207,14 @@
   100% {
     transform: scale(1);
     box-shadow:
-      0 12px 36px rgba(249, 115, 22, 0.35),
-      0 0 0 0 rgba(251, 191, 36, 0.35);
+      0 12px 36px rgba(255, 242, 0, 0.28),
+      0 0 0 0 rgba(0, 174, 239, 0.3);
   }
   50% {
     transform: scale(1.02);
     box-shadow:
-      0 18px 48px rgba(249, 115, 22, 0.5),
-      0 0 28px 4px rgba(251, 191, 36, 0.28);
+      0 18px 48px rgba(255, 242, 0, 0.4),
+      0 0 28px 4px rgba(0, 174, 239, 0.22);
   }
 }
 
@@ -201,10 +245,11 @@
 
 .totem-idle-horarios {
   width: 100%;
-  padding: 18px 20px;
+  box-sizing: border-box;
+  padding: 16px 18px;
   border-radius: var(--totem-radius-md);
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid var(--totem-line);
+  background: rgba(2, 6, 23, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .totem-idle-horarios-title {
@@ -228,6 +273,18 @@
 
 .totem-idle-horario:last-child {
   margin-bottom: 0;
+}
+
+.totem-idle-tip {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  margin: 0;
+  border-radius: var(--totem-radius-xl);
+  justify-content: flex-start;
+  text-align: left;
+  font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+  padding: 14px 18px;
 }
 
 .totem-idle-horario-day {
@@ -1472,13 +1529,13 @@
 
 .totem-footer-tip {
   margin: 0 auto;
-  max-width: 920px;
+  max-width: min(560px, 92vw);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 14px;
   padding: 14px 22px;
-  border-radius: 16px;
+  border-radius: var(--totem-radius-xl);
   background: linear-gradient(135deg, rgba(0, 174, 239, 0.22), rgba(236, 0, 140, 0.16));
   border: 2px solid rgba(255, 242, 0, 0.55);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
@@ -1488,6 +1545,7 @@
   letter-spacing: 0.01em;
   line-height: 1.35;
   text-align: left;
+  box-sizing: border-box;
 }
 
 .totem-footer-tip-icon {

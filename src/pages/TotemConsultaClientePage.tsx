@@ -487,28 +487,37 @@ const TotemConsultaClientePage = () => {
       <div className={`consulta-container totem-container totem-step-${step}`}>
         {step === 'idle' && (
           <div className="totem-idle">
-            <div className="totem-idle-inner">
-              <div className="totem-kiosk-logo-ring totem-idle-logo-ring">
-                <img
-                  src="/plot-lab-logo.png"
-                  alt="Plot Center"
-                  className="totem-idle-logo"
-                />
+            <div className="totem-idle-stack">
+              <div className="totem-idle-inner">
+                <div className="totem-kiosk-logo-ring totem-idle-logo-ring">
+                  <img
+                    src="/plot-lab-logo.png"
+                    alt="Plot Center"
+                    className="totem-idle-logo"
+                  />
+                </div>
+                <p className="totem-idle-kicker">Plot Center · Tótem</p>
+                <p className="totem-idle-tagline">Impresión · Diseño · Comunicación visual</p>
+                <p className="totem-idle-cta-text">Tocá la pantalla para comenzar</p>
+                <div className="totem-idle-horarios">
+                  <p className="totem-idle-horarios-title">Horarios de atención</p>
+                  <p className="totem-idle-horario">
+                    <span className="totem-idle-horario-day">Lun – Vie</span>
+                    <span className="totem-idle-horario-time">6:00 – 22:00 hs</span>
+                  </p>
+                  <p className="totem-idle-horario">
+                    <span className="totem-idle-horario-day">Sábado</span>
+                    <span className="totem-idle-horario-time">9:00 – 18:00 hs</span>
+                  </p>
+                </div>
               </div>
-              <p className="totem-idle-kicker">Plot Center · Tótem</p>
-              <p className="totem-idle-tagline">Impresión · Diseño · Comunicación visual</p>
-              <p className="totem-idle-cta-text">Tocá la pantalla para comenzar</p>
-              <div className="totem-idle-horarios">
-                <p className="totem-idle-horarios-title">Horarios de atención</p>
-                <p className="totem-idle-horario">
-                  <span className="totem-idle-horario-day">Lun – Vie</span>
-                  <span className="totem-idle-horario-time">6:00 – 22:00 hs</span>
-                </p>
-                <p className="totem-idle-horario">
-                  <span className="totem-idle-horario-day">Sábado</span>
-                  <span className="totem-idle-horario-time">9:00 – 18:00 hs</span>
-                </p>
-              </div>
+              <p className="totem-footer-tip totem-idle-tip">
+                <span className="totem-footer-tip-icon" aria-hidden />
+                <span className="totem-footer-tip-text">
+                  Si tenés dudas, acercate a <strong>mostrador</strong> con tu número de{' '}
+                  <strong>OP</strong>.
+                </span>
+              </p>
             </div>
           </div>
         )}
@@ -1058,14 +1067,17 @@ const TotemConsultaClientePage = () => {
           </div>
         )}
 
-        <footer className="consulta-footer totem-footer">
-          <p className="totem-footer-tip">
-            <span className="totem-footer-tip-icon" aria-hidden />
-            <span className="totem-footer-tip-text">
-              Si tenés dudas, acercate a <strong>mostrador</strong> con tu número de <strong>OP</strong>.
-            </span>
-          </p>
-        </footer>
+        {step !== 'idle' && (
+          <footer className="consulta-footer totem-footer">
+            <p className="totem-footer-tip">
+              <span className="totem-footer-tip-icon" aria-hidden />
+              <span className="totem-footer-tip-text">
+                Si tenés dudas, acercate a <strong>mostrador</strong> con tu número de{' '}
+                <strong>OP</strong>.
+              </span>
+            </p>
+          </footer>
+        )}
       </div>
     </div>
   )
