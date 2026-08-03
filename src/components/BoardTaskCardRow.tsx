@@ -4,6 +4,8 @@ import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dn
 import type { ActivityEvent, ColumnConfig, Task, TaskStatus, TeamMember } from '../types/board'
 import type { SectorRecord } from '../types/api'
 import { activityEventsEqual, draggableInlineStylesEqual } from './boardRbdMemo'
+/* Estilos de ficha: el shell liviano los necesita aunque TaskCard aún no se haya cargado (lazy). */
+import './TaskCard.css'
 
 const TaskCard = lazy(() => import('./TaskCard'))
 

@@ -44,6 +44,46 @@
   transition: none !important;
 }
 
+/* Miniaturas de ficha en columnas: siempre acotadas (evita img a tamaño natural). */
+.column-body .task-min-thumb {
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  max-width: 56px;
+  max-height: 56px;
+  overflow: hidden;
+  contain: strict;
+}
+
+.column-body .task-min-thumb img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.column-body .task-card.is-minimized {
+  min-height: 0;
+  padding: 10px 12px;
+  align-items: center;
+}
+
+.column-body .task-minimized-label {
+  flex-wrap: nowrap;
+  align-items: center;
+  overflow: hidden;
+}
+
+.column-body .task-min-client {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
 /* Hide expensive thumbnails while dragging; reappear on drop */
 .board-wrapper.is-dragging .task-min-thumb {
   display: none !important;
