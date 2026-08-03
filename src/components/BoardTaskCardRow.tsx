@@ -86,6 +86,7 @@ function BoardTaskCardLiteShell({
           'presupuesto-en-espera': task.presupuestoEnEspera,
           'en-reclamo': task.enReclamo && !hideReclamoUI,
           'is-minimized': true,
+          'is-collapsed': true,
           'is-drag-surface': isDragSurface,
           'is-new-move': isNewMove,
           'is-selected': isSelected
@@ -96,6 +97,11 @@ function BoardTaskCardLiteShell({
       title="Clic para expandir · doble clic para ver detalle"
     >
       <div className="task-minimized-label" title={`#${task.opNumber} — ${task.title}`}>
+        {task.photoUrl ? (
+          <span className="task-min-thumb" aria-hidden="true">
+            <img src={task.photoUrl} alt="" loading="lazy" decoding="async" />
+          </span>
+        ) : null}
         <span className="task-min-op">#{task.opNumber}</span>
         <span className="task-min-sep">·</span>
         <span className="task-min-client">{task.title}</span>
@@ -234,6 +240,7 @@ function boardTaskCardRowPropsAreEqual(
       'assignedSector',
       'uiMovedAt',
       'summary',
+      'photoUrl',
       'opBloqueada',
       'enReclamo',
       'reclamoMotivo',

@@ -11,10 +11,25 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  background: transparent;
+  background:
+    radial-gradient(ellipse 80% 55% at 12% -10%, rgba(0, 174, 239, 0.22), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 92% 8%, rgba(236, 0, 140, 0.18), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 70% 100%, rgba(255, 242, 0, 0.08), transparent 55%),
+    linear-gradient(165deg, #05070f 0%, #0a0d18 45%, #070910 100%);
   color: var(--totem-text);
   font-family: var(--totem-font);
   -webkit-font-smoothing: antialiased;
+}
+
+.totem-consulta-page::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 100% 4px;
+  opacity: 0.35;
+  z-index: 0;
 }
 
 .totem-consulta-page .consulta-container.totem-container {
@@ -283,6 +298,24 @@
   overflow: hidden;
   gap: clamp(10px, 1.5vh, 14px);
   background: transparent;
+  animation: totem-welcome-in 0.55s ease both;
+}
+
+@keyframes totem-welcome-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .totem-welcome-screen {
+    animation: none;
+  }
 }
 
 .totem-welcome-top {
@@ -683,10 +716,90 @@
   flex-direction: column;
 }
 
+.totem-welcome-screen .totem-kiosk-eyebrow {
+  color: #00aeef;
+  letter-spacing: 0.18em;
+}
+
+.totem-welcome-screen .totem-kiosk-lead {
+  font-size: clamp(0.95rem, 1.7vw, 1.15rem);
+  color: rgba(248, 250, 252, 0.92);
+  font-weight: 500;
+}
+
+.totem-welcome-screen .totem-kiosk-tile {
+  min-height: clamp(132px, 17vh, 178px);
+  transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+}
+
+.totem-welcome-screen .totem-kiosk-tile:hover {
+  transform: translateY(-3px);
+}
+
+.totem-welcome-screen .totem-kiosk-tile--search {
+  background:
+    linear-gradient(155deg, rgba(255, 242, 0, 0.16) 0%, rgba(255, 255, 255, 0.03) 60%) padding-box,
+    linear-gradient(145deg, rgba(255, 242, 0, 0.7), rgba(255, 255, 255, 0.08)) border-box;
+}
+
+.totem-welcome-screen .totem-kiosk-tile--print {
+  background:
+    linear-gradient(155deg, rgba(0, 174, 239, 0.18) 0%, rgba(255, 255, 255, 0.03) 60%) padding-box,
+    linear-gradient(145deg, rgba(0, 174, 239, 0.65), rgba(255, 255, 255, 0.08)) border-box;
+}
+
+.totem-welcome-screen .totem-kiosk-tile--catalog {
+  background:
+    linear-gradient(155deg, rgba(236, 0, 140, 0.16) 0%, rgba(255, 255, 255, 0.03) 60%) padding-box,
+    linear-gradient(145deg, rgba(236, 0, 140, 0.6), rgba(255, 255, 255, 0.08)) border-box;
+}
+
+.totem-welcome-screen .totem-kiosk-ico-ring--orange {
+  box-shadow: 0 0 0 1px rgba(255, 242, 0, 0.28), 0 12px 32px rgba(255, 242, 0, 0.18);
+}
+
+.totem-welcome-screen .totem-kiosk-ico-ring--orange .totem-kiosk-svg {
+  color: #fff200;
+  filter: drop-shadow(0 2px 8px rgba(255, 242, 0, 0.4));
+}
+
+.totem-welcome-screen .totem-kiosk-ico-ring--blue .totem-kiosk-svg {
+  color: #00aeef;
+}
+
+.totem-welcome-screen .totem-kiosk-ico-ring--emerald {
+  box-shadow: 0 0 0 1px rgba(236, 0, 140, 0.25), 0 12px 32px rgba(236, 0, 140, 0.18);
+}
+
+.totem-welcome-screen .totem-kiosk-ico-ring--emerald .totem-kiosk-svg {
+  color: #f472b6;
+  filter: drop-shadow(0 2px 8px rgba(236, 0, 140, 0.35));
+}
+
+.totem-welcome-screen .totem-kiosk-panel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(0, 0, 0, 0.18) 100%);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.totem-welcome-screen .totem-senaletica-block--compact {
+  padding: clamp(12px, 1.6vh, 16px);
+}
+
 .totem-welcome-screen .totem-senaletica-title {
-  margin: 0 0 4px;
-  font-size: clamp(0.9rem, 1.7vw, 1.15rem);
-  text-align: left;
+  font-size: clamp(0.95rem, 1.8vw, 1.2rem);
+  letter-spacing: 0.1em;
+}
+
+.totem-welcome-screen .totem-senaletica-strip {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.totem-welcome-screen .totem-senaletica-strip:hover {
+  transform: translateX(4px);
+  filter: brightness(1.06);
 }
 
 .totem-welcome-screen .totem-senaletica-subtitle {
@@ -849,6 +962,81 @@
   overflow: hidden;
 }
 
+.totem-consulta-chat-block--hero {
+  position: relative;
+  padding: clamp(14px, 1.8vh, 18px);
+  isolation: isolate;
+}
+
+.totem-consulta-chat-block--hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(
+    135deg,
+    #00aeef 0%,
+    #ec008c 45%,
+    #fff200 78%,
+    rgba(255, 255, 255, 0.2) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.9;
+  z-index: 0;
+}
+
+.totem-chat-hero-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.totem-chat-hero-badge {
+  flex: 0 0 auto;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #0f172a;
+  background: linear-gradient(145deg, #fff200, #facc15);
+  box-shadow: 0 8px 22px rgba(255, 242, 0, 0.28);
+}
+
+.totem-chat-hero-copy {
+  min-width: 0;
+}
+
+.totem-chat-hero-title {
+  margin: 0 !important;
+  text-align: left !important;
+  font-size: clamp(0.95rem, 1.7vw, 1.15rem) !important;
+  line-height: 1.2;
+}
+
+.totem-chat-hero-sub {
+  margin: 4px 0 0;
+  font-size: clamp(0.78rem, 1.3vw, 0.9rem);
+  color: rgba(226, 232, 240, 0.78);
+  font-weight: 500;
+}
+
 .totem-consulta-chat-block--compact .totem-senaletica-title {
   flex-shrink: 0;
 }
@@ -858,11 +1046,17 @@
 }
 
 .totem-consulta-chat-block--compact .totem-consulta-plotai {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  margin-top: 8px;
+  margin-top: 4px;
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
 }
 
 .totem-consulta-chat-block--compact .totem-consulta-plotai > section,
@@ -1271,7 +1465,43 @@
 }
 
 .totem-footer {
-  font-size: 1rem;
+  padding: 18px 28px;
+  background: transparent;
+  border-top: none;
+}
+
+.totem-footer-tip {
+  margin: 0 auto;
+  max-width: 920px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(0, 174, 239, 0.22), rgba(236, 0, 140, 0.16));
+  border: 2px solid rgba(255, 242, 0, 0.55);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+  font-size: clamp(1.05rem, 1.6vw, 1.28rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.totem-footer-tip-icon {
+  flex: 0 0 auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  background: #fff200;
+  box-shadow: 0 0 0 6px rgba(255, 242, 0, 0.22), 0 2px 10px rgba(255, 242, 0, 0.35);
+}
+
+.totem-footer-tip-text strong {
+  color: #fff200;
+  font-weight: 800;
 }
 
 @media (max-width: 960px), (max-height: 720px) {

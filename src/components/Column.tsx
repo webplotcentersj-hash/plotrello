@@ -1,11 +1,14 @@
 import {
   memo,
   startTransition,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
-  type Ref
+  type Ref,
+  type UIEvent
 } from 'react'
 import { Draggable, type DroppableProvided } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
@@ -15,6 +18,9 @@ import BoardTaskCardRow from './BoardTaskCardRow'
 
 /** Referencia estable para memo(TaskCard); `?? []` en cada render rompe la igualdad superficial */
 const EMPTY_ACTIVITY: ActivityEvent[] = []
+
+const INITIAL_VISIBLE_TASKS = 8
+const LOAD_MORE_STEP = 12
 
 type ColumnProps = {
   column: ColumnConfig
@@ -64,9 +70,8 @@ const Column = ({
   disableDrag = false
 }: ColumnProps) => {
   const { isAdmin } = useAuth()
-  const INITIAL_VISIBLE_TASKS = 8
-  const LOAD_MORE_STEP = 12
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_TASKS)
+  const loadMoreLockRef = useRef(false)
 
   useEffect(() => {
     setVisibleLimit((prev) => {
@@ -75,6 +80,32 @@ const Column = ({
       return prev
     })
   }, [tasks.length])
+
+  const loadMore = useCallback(() => {
+    setVisibleLimit((v) => {
+      if (v >= tasks.length) return v
+      return Math.min(v + LOAD_MORE_STEP, tasks.length)
+    })
+  }, [tasks.length])
+
+  const handleColumnScroll = useCallback(
+    (e: UIEvent<HTMLDivElement>) => {
+      if (isBoardDragging) return
+      const el = e.currentTarget
+      const remaining = el.scrollHeight - el.scrollTop - el.clientHeight
+      if (remaining > 80) return
+      if (loadMoreLockRef.current) return
+      if (visibleLimit >= tasks.length) return
+      loadMoreLockRef.current = true
+      startTransition(() => {
+        loadMore()
+      })
+      window.setTimeout(() => {
+        loadMoreLockRef.current = false
+      }, 180)
+    },
+    [isBoardDragging, loadMore, tasks.length, visibleLimit]
+  )
 
   // Calcular el porcentaje de carga de la columna
   const loadPercentage = maxTasksInColumn > 0 ? (tasks.length / maxTasksInColumn) * 100 : 0
@@ -147,7 +178,12 @@ const Column = ({
         </span>
       </header>
 
-      <div className="column-body" ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
+      <div
+        className="column-body"
+        ref={droppableProvided.innerRef}
+        {...droppableProvided.droppableProps}
+        onScroll={handleColumnScroll}
+      >
         {visibleTasks.map((task, index) => (
           <Draggable
             key={task.id}
@@ -191,11 +227,7 @@ const Column = ({
           <button
             type="button"
             className="column-show-more-btn"
-            onClick={() =>
-              startTransition(() => {
-                setVisibleLimit((v) => Math.min(v + LOAD_MORE_STEP, tasks.length))
-              })
-            }
+            onClick={() => startTransition(() => loadMore())}
           >
             Cargar más ({hiddenTasksCount})
           </button>
@@ -219,4 +251,3 @@ const Column = ({
 }
 
 export default memo(Column)
-

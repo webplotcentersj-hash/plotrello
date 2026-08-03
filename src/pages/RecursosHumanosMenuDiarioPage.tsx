@@ -258,28 +258,31 @@ const RecursosHumanosMenuDiarioPage = () => {
       return
     }
 
+    const yaHabiaMenuHoy = Boolean(menuHoy?.id)
+
     const response = await apiService.crearActualizarMenuDiario(
       platosFiltrados,
       usuario.id
     )
 
     if (response.success) {
-      // Notificar a todos que el menú ya está disponible (publicación/actualización del día)
-      try {
-        const fecha = response.data?.fecha ?? menuHoy?.fecha ?? ''
-        const lista = platosFiltrados.slice(0, 6).join(' · ')
-        const descExtra =
-          platosFiltrados.length > 6 ? ` · +${platosFiltrados.length - 6} más` : ''
-        await apiService.enviarNotificacionMasiva({
-          titulo: `🍽️ Menú diario disponible${fecha ? ` (${fecha})` : ''}`,
-          descripcion: `Ya podés elegir tu plato en /menu-diario.${lista ? `\n\nPlatos: ${lista}${descExtra}` : ''}`,
-          tipo: 'info',
-          enviar_a_todos: true,
-          id_usuario_emisor: usuario.id
-        })
-      } catch (e) {
-        // Best-effort: no bloquear guardado del menú si fallan las notificaciones
-        console.warn('Menú diario: no se pudo enviar notificación masiva:', e)
+      // Solo avisar a todos la primera vez del día (re-guardar no debe spamear comunicados).
+      if (!yaHabiaMenuHoy) {
+        try {
+          const fecha = response.data?.fecha ?? menuHoy?.fecha ?? ''
+          const lista = platosFiltrados.slice(0, 6).join(' · ')
+          const descExtra =
+            platosFiltrados.length > 6 ? ` · +${platosFiltrados.length - 6} más` : ''
+          await apiService.enviarNotificacionMasiva({
+            titulo: `🍽️ Menú diario disponible${fecha ? ` (${fecha})` : ''}`,
+            descripcion: `Ya podés elegir tu plato en /menu-diario.${lista ? `\n\nPlatos: ${lista}${descExtra}` : ''}`,
+            tipo: 'info',
+            enviar_a_todos: true,
+            id_usuario_emisor: usuario.id
+          })
+        } catch (e) {
+          console.warn('Menú diario: no se pudo enviar notificación masiva:', e)
+        }
       }
       alert('Menú guardado correctamente')
       setShowModal(false)

@@ -1,3 +1,11 @@
+/** Paleta CMYK de proceso (impresión) — misma que TotemConsultaClientePage. */
+const CMYK = {
+  C: { bg: '#00AEEF', text: '#0f172a' },
+  M: { bg: '#EC008C', text: '#ffffff' },
+  Y: { bg: '#FFF200', text: '#0f172a' },
+  K: { bg: '#231F20', text: '#ffffff' }
+} as const
+
 /** Colores de señalética del tótem (mismo criterio que TotemConsultaClientePage). */
 export const TOTEM_SECTOR_STYLES: Array<{
   sectorDestino: string
@@ -8,45 +16,52 @@ export const TOTEM_SECTOR_STYLES: Array<{
   {
     sectorDestino: 'Presupuestos y asesoramiento',
     label: 'Presupuestos',
-    bg: '#7dd3fc',
-    textColor: '#0f172a'
+    bg: CMYK.C.bg,
+    textColor: CMYK.C.text
   },
   {
     sectorDestino: 'Recepción de pedidos',
     label: 'Recepción',
-    bg: '#facc15',
-    textColor: '#0f172a'
+    bg: CMYK.Y.bg,
+    textColor: CMYK.Y.text
   },
+  {
+    sectorDestino: 'Diseño gráfico y marketing',
+    label: 'Diseño gráfico y marketing',
+    bg: CMYK.M.bg,
+    textColor: CMYK.M.text
+  },
+  // Alias de visitas anteriores (antes eran franjas separadas)
   {
     sectorDestino: 'Diseño gráfico',
-    label: 'Diseño gráfico',
-    bg: '#ec4899',
-    textColor: '#ffffff'
-  },
-  {
-    sectorDestino: 'Caja / Entrega de pedidos',
-    label: 'Caja',
-    bg: '#1f2937',
-    textColor: '#ffffff'
-  },
-  {
-    sectorDestino: 'Base de operaciones',
-    label: 'Base de operaciones',
-    bg: '#f97316',
-    textColor: '#0f172a'
+    label: 'Diseño gráfico y marketing',
+    bg: CMYK.M.bg,
+    textColor: CMYK.M.text
   },
   {
     sectorDestino: 'Marketing y comunicación',
-    label: 'Marketing',
-    bg: '#ffffff',
+    label: 'Diseño gráfico y marketing',
+    bg: CMYK.M.bg,
+    textColor: CMYK.M.text
+  },
+  {
+    sectorDestino: 'Entregas Taller Gráfico',
+    label: 'Entregas Taller Gráfico',
+    bg: CMYK.K.bg,
+    textColor: CMYK.K.text
+  },
+  {
+    sectorDestino: 'Entregas taller de imprenta',
+    label: 'Entregas taller de imprenta',
+    bg: '#F472B6',
     textColor: '#0f172a'
   }
 ]
 
 const DEFAULT_SECTOR = {
   label: 'Mostrador',
-  bg: '#6366f1',
-  textColor: '#ffffff'
+  bg: CMYK.K.bg,
+  textColor: CMYK.K.text
 }
 
 export function estiloSectorPorDestino(sectorDestino: string | null | undefined): {

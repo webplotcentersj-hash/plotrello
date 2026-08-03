@@ -24,7 +24,15 @@ const IDLE_MS = 60000 // Tras este tiempo sin tocar, se muestra pantalla en espe
 
 type SectorDirection = 'planta-baja' | 'primer-piso'
 
-// Señalética: franjas horizontales; Diseño y Marketing → 1° piso (flecha arriba)
+/** Paleta CMYK de proceso (impresión) para la señalética del tótem. */
+const CMYK = {
+  C: { bg: '#00AEEF', text: '#0f172a' },
+  M: { bg: '#EC008C', text: '#ffffff' },
+  Y: { bg: '#FFF200', text: '#0f172a' },
+  K: { bg: '#231F20', text: '#ffffff' }
+} as const
+
+// Señalética: franjas horizontales; Diseño + Marketing → 1° piso (flecha arriba)
 const TOTEM_SECTORS_QUEHACER: Array<{
   id: string
   label: string
@@ -39,8 +47,8 @@ const TOTEM_SECTORS_QUEHACER: Array<{
     label: 'PRESUPUESTOS Y ASESORAMIENTO',
     icon: 'presupuestos',
     sectorDestino: 'Presupuestos y asesoramiento',
-    bg: '#7dd3fc',
-    textColor: '#0f172a',
+    bg: CMYK.C.bg,
+    textColor: CMYK.C.text,
     direction: 'planta-baja'
   },
   {
@@ -48,45 +56,36 @@ const TOTEM_SECTORS_QUEHACER: Array<{
     label: 'RECEPCIÓN DE PEDIDOS',
     icon: 'recepcion',
     sectorDestino: 'Recepción de pedidos',
-    bg: '#facc15',
-    textColor: '#0f172a',
+    bg: CMYK.Y.bg,
+    textColor: CMYK.Y.text,
     direction: 'planta-baja'
   },
   {
     id: 'diseno',
-    label: 'DISEÑO GRÁFICO',
+    label: 'DISEÑO GRÁFICO Y MARKETING',
     icon: 'diseno',
-    sectorDestino: 'Diseño gráfico',
-    bg: '#ec4899',
-    textColor: '#fff',
+    sectorDestino: 'Diseño gráfico y marketing',
+    bg: CMYK.M.bg,
+    textColor: CMYK.M.text,
     direction: 'primer-piso'
   },
   {
     id: 'caja',
-    label: 'CAJA / ENTREGA DE PEDIDOS',
+    label: 'ENTREGAS TALLER GRÁFICO',
     icon: 'caja',
-    sectorDestino: 'Caja / Entrega de pedidos',
-    bg: '#1f2937',
-    textColor: '#fff',
+    sectorDestino: 'Entregas Taller Gráfico',
+    bg: CMYK.K.bg,
+    textColor: CMYK.K.text,
     direction: 'planta-baja'
   },
   {
     id: 'base_operaciones',
-    label: 'BASE DE OPERACIONES',
+    label: 'ENTREGAS TALLER DE IMPRENTA',
     icon: 'base_operaciones',
-    sectorDestino: 'Base de operaciones',
-    bg: '#f97316',
+    sectorDestino: 'Entregas taller de imprenta',
+    bg: '#F472B6',
     textColor: '#0f172a',
     direction: 'planta-baja'
-  },
-  {
-    id: 'marketing',
-    label: 'MARKETING Y COMUNICACIÓN',
-    icon: 'marketing',
-    sectorDestino: 'Marketing y comunicación',
-    bg: '#ffffff',
-    textColor: '#0f172a',
-    direction: 'primer-piso'
   }
 ]
 
@@ -600,10 +599,6 @@ const TotemConsultaClientePage = () => {
                 <div className="totem-senaletica-block totem-senaletica-block--compact totem-kiosk-panel">
                   <div className="totem-senaletica-head">
                     <h2 className="totem-senaletica-title">¿Hacia dónde te dirigís?</h2>
-                    <p className="totem-senaletica-subtitle">
-                      <span className="totem-senaletica-badge">1° piso ↑</span>
-                      Diseño y Marketing
-                    </p>
                   </div>
                   <div className="totem-senaletica-strips totem-senaletica-strips--modern">
                     {TOTEM_SECTORS_QUEHACER.map((sector) => (
@@ -640,10 +635,15 @@ const TotemConsultaClientePage = () => {
               </div>
 
               <aside className="totem-welcome-aside">
-                <div className="totem-consulta-chat-block totem-consulta-chat-block--compact totem-kiosk-panel">
-                  <div className="totem-senaletica-head">
-                    <h2 className="totem-senaletica-title">¿Qué servicios ofrecemos?</h2>
-                    <p className="totem-senaletica-subtitle">Preguntale a PlotAI en pantalla</p>
+                <div className="totem-consulta-chat-block totem-consulta-chat-block--compact totem-kiosk-panel totem-consulta-chat-block--hero">
+                  <div className="totem-chat-hero-head">
+                    <span className="totem-chat-hero-badge" aria-hidden>
+                      AI
+                    </span>
+                    <div className="totem-chat-hero-copy">
+                      <h2 className="totem-senaletica-title totem-chat-hero-title">¿Qué servicios ofrecemos?</h2>
+                      <p className="totem-chat-hero-sub">Preguntale a PlotAI · tocá y escribí</p>
+                    </div>
                   </div>
                   <TotemAutogestionPlotAiChat
                     className="totem-consulta-plotai"
@@ -1059,7 +1059,12 @@ const TotemConsultaClientePage = () => {
         )}
 
         <footer className="consulta-footer totem-footer">
-          <p>Si tenés dudas, acercate a mostrador con tu número de OP.</p>
+          <p className="totem-footer-tip">
+            <span className="totem-footer-tip-icon" aria-hidden />
+            <span className="totem-footer-tip-text">
+              Si tenés dudas, acercate a <strong>mostrador</strong> con tu número de <strong>OP</strong>.
+            </span>
+          </p>
         </footer>
       </div>
     </div>
