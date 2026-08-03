@@ -22,7 +22,7 @@ const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 const INACTIVITY_MS = 90000
 const IDLE_MS = 60000 // Tras este tiempo sin tocar, se muestra pantalla en espera (modo kiosk)
 
-type SectorDirection = 'planta-baja' | 'primer-piso'
+type SectorDirection = 'planta-baja' | 'adelante' | 'primer-piso'
 
 /** Paleta CMYK de proceso (impresión) para la señalética del tótem. */
 const CMYK = {
@@ -76,7 +76,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
     sectorDestino: 'Entregas Taller Gráfico',
     bg: CMYK.K.bg,
     textColor: CMYK.K.text,
-    direction: 'planta-baja'
+    direction: 'adelante'
   },
   {
     id: 'base_operaciones',
@@ -85,7 +85,7 @@ const TOTEM_SECTORS_QUEHACER: Array<{
     sectorDestino: 'Entregas taller de imprenta',
     bg: '#F472B6',
     textColor: '#0f172a',
-    direction: 'planta-baja'
+    direction: 'adelante'
   }
 ]
 
@@ -96,6 +96,15 @@ function SectorDirectionArrows({ direction }: { direction: SectorDirection }) {
         <span className="totem-strip-floor-badge">1° piso</span>
         <span className="totem-strip-arrows-up" aria-hidden>
           ↑ ↑ ↑
+        </span>
+      </span>
+    )
+  }
+  if (direction === 'adelante') {
+    return (
+      <span className="totem-strip-direction totem-strip-direction--ahead" aria-label="Seguí adelante">
+        <span className="totem-strip-arrows" aria-hidden>
+          &gt;&gt;&gt;
         </span>
       </span>
     )
@@ -717,7 +726,9 @@ const TotemConsultaClientePage = () => {
                         <p className="totem-direccion-modal-seguir">
                           {sector.direction === 'primer-piso'
                             ? 'Subí al 1° piso por las escaleras y seguí las flechas en el piso hasta llegar a tu destino.'
-                            : 'Seguí las flechas hacia abajo hasta llegar a tu destino.'}
+                            : sector.direction === 'adelante'
+                              ? 'Seguí las flechas hacia adelante hasta llegar a tu destino.'
+                              : 'Seguí las flechas hacia abajo hasta llegar a tu destino.'}
                         </p>
                         {sector.id === 'diseno' && (
                           <div className="totem-direccion-diseno-cta">
