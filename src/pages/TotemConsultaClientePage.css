@@ -962,6 +962,23 @@
   opacity: 0.95;
 }
 
+.totem-strip-direction--down {
+  flex-direction: row;
+  align-items: center;
+}
+
+.totem-strip-arrows-down {
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+}
+
+.totem-direccion-strip-grande .totem-strip-arrows-down {
+  font-size: 1.75rem;
+}
+
 .totem-strip-direction--up {
   flex-direction: row;
   align-items: center;

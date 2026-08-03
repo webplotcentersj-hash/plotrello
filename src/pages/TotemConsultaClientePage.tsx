@@ -101,8 +101,10 @@ function SectorDirectionArrows({ direction }: { direction: SectorDirection }) {
     )
   }
   return (
-    <span className="totem-strip-direction totem-strip-direction--ahead" aria-hidden>
-      <span className="totem-strip-arrows">&gt;&gt;&gt;</span>
+    <span className="totem-strip-direction totem-strip-direction--down" aria-label="Bajar / planta baja">
+      <span className="totem-strip-arrows-down" aria-hidden>
+        ↓ ↓ ↓
+      </span>
     </span>
   )
 }
@@ -715,7 +717,7 @@ const TotemConsultaClientePage = () => {
                         <p className="totem-direccion-modal-seguir">
                           {sector.direction === 'primer-piso'
                             ? 'Subí al 1° piso por las escaleras y seguí las flechas en el piso hasta llegar a tu destino.'
-                            : 'Seguí las flechas en el piso hasta llegar a tu destino.'}
+                            : 'Seguí las flechas hacia abajo hasta llegar a tu destino.'}
                         </p>
                         {sector.id === 'diseno' && (
                           <div className="totem-direccion-diseno-cta">
