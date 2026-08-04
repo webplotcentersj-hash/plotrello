@@ -222,10 +222,11 @@ export default function TotemDisenoBriefPage() {
   const toggleTipo = (tipo: string) => {
     touch()
     setHintTipo(TOTEM_DISENO_TIPO_HINTS[tipo] || null)
-    const set = new Set(form.tipo_producto_servicio)
-    if (set.has(tipo)) set.delete(tipo)
-    else set.add(tipo)
-    patch({ tipo_producto_servicio: [...set], necesita_asesoramiento: false })
+    const already = form.tipo_producto_servicio.length === 1 && form.tipo_producto_servicio[0] === tipo
+    patch({
+      tipo_producto_servicio: already ? [] : [tipo],
+      necesita_asesoramiento: false
+    })
   }
 
   const llamarDisenador = useCallback(async () => {

@@ -21,8 +21,8 @@ type Props = {
 const SCENE_LABELS: Record<MockupSceneKind, string> = {
   storefront: 'Exterior del local',
   interior: 'Interior / mesa',
-  vehicle: 'Vehículo',
-  digital: 'Pantalla digital',
+  vehicle: 'Automóvil',
+  digital: 'PC / pantalla',
   window: 'Vidriera',
   event: 'Evento / feria'
 }
@@ -30,16 +30,20 @@ const SCENE_LABELS: Record<MockupSceneKind, string> = {
 const PRODUCT_LABELS: Record<MockupProductKind, string> = {
   banner: 'Banner',
   'banner-vertical': 'Banner vertical',
-  flyer: 'Flyer / folleto',
+  flyer: 'Flyer',
+  brochure: 'Folleto / brochure',
   card: 'Tarjetas',
   sticker: 'Stickers',
   logo: 'Logo',
-  sign: 'Cartelería',
+  sign: 'Cartel',
+  wayfinding: 'Señalética',
   vehicle: 'Plotado vehicular',
+  'window-wrap': 'Vidriera',
   folder: 'Carpetas',
   notebook: 'Agenda / cuaderno',
+  calendar: 'Calendario',
   packaging: 'Packaging',
-  presentation: 'Presentación',
+  presentation: 'Presentación / web',
   generic: 'Producto gráfico'
 }
 
@@ -87,10 +91,12 @@ function MockupDetalles({
 
 function MockupProductContent({
   userImageUrl,
-  especificacion
+  especificacion,
+  productKind
 }: {
   userImageUrl?: string | null
   especificacion?: string
+  productKind: MockupProductKind
 }) {
   if (userImageUrl) {
     return <img src={userImageUrl} alt="Referencia subida" className="mockup-product__user-img" />
@@ -104,6 +110,84 @@ function MockupProductContent({
     )
   }
 
+  if (productKind === 'calendar') {
+    return (
+      <div className="mockup-product__art mockup-product__art--calendar">
+        <span className="mockup-calendar__month">PLOT</span>
+        <span className="mockup-calendar__grid" aria-hidden>
+          {Array.from({ length: 28 }, (_, i) => (
+            <span key={i} className="mockup-calendar__cell" />
+          ))}
+        </span>
+      </div>
+    )
+  }
+
+  if (productKind === 'logo') {
+    return (
+      <div className="mockup-product__art mockup-product__art--logo">
+        <span className="mockup-logo-mark" aria-hidden />
+        <span className="mockup-product__art-brand">PLOT</span>
+      </div>
+    )
+  }
+
+  if (productKind === 'brochure') {
+    return (
+      <div className="mockup-product__art mockup-product__art--brochure">
+        <span className="mockup-brochure__panel">
+          <span className="mockup-product__art-brand">PLOT</span>
+        </span>
+        <span className="mockup-brochure__panel mockup-brochure__panel--mid" />
+        <span className="mockup-brochure__panel" />
+      </div>
+    )
+  }
+
+  if (productKind === 'flyer') {
+    return (
+      <div className="mockup-product__art mockup-product__art--flyer">
+        <span className="mockup-flyer__hero" />
+        <span className="mockup-product__art-brand">PLOT</span>
+        <span className="mockup-product__art-line" />
+        <span className="mockup-product__art-line mockup-product--accent" />
+        <span className="mockup-product__art-line mockup-product--accent" />
+      </div>
+    )
+  }
+
+  if (productKind === 'wayfinding') {
+    return (
+      <div className="mockup-product__art mockup-product__art--wayfinding">
+        <span className="mockup-wayfinding__arrow" aria-hidden>
+          →
+        </span>
+        <span className="mockup-product__art-brand">PLOT</span>
+        <span className="mockup-product__art-line" />
+      </div>
+    )
+  }
+
+  if (productKind === 'sign') {
+    return (
+      <div className="mockup-product__art mockup-product__art--sign">
+        <span className="mockup-product__art-brand">PLOT</span>
+        <span className="mockup-product__art-line" />
+        <span className="mockup-product__art-line mockup-product--accent" />
+      </div>
+    )
+  }
+
+  if (productKind === 'notebook') {
+    return (
+      <div className="mockup-product__art mockup-product__art--notebook">
+        <span className="mockup-notebook__spine" aria-hidden />
+        <span className="mockup-product__art-brand">PLOT</span>
+        <span className="mockup-product__art-line" />
+      </div>
+    )
+  }
+
   return (
     <div className="mockup-product__art">
       <span className="mockup-product__art-line" />
@@ -111,6 +195,21 @@ function MockupProductContent({
       <span className="mockup-product__art-brand">PLOT</span>
     </div>
   )
+}
+
+function ProductChrome({ productKind }: { productKind: MockupProductKind }) {
+  if (productKind === 'banner-vertical') {
+    return (
+      <>
+        <span className="mockup-rollup__base" aria-hidden />
+        <span className="mockup-rollup__pole" aria-hidden />
+      </>
+    )
+  }
+  if (productKind === 'brochure') {
+    return <span className="mockup-brochure__fold" aria-hidden />
+  }
+  return null
 }
 
 export default function ClientePedidoMockupPreview({
@@ -188,14 +287,21 @@ export default function ClientePedidoMockupPreview({
           </div>
         )}
         {sceneKind === 'vehicle' && (
-          <div className="mockup-van">
-            <div className="mockup-van-cabin" />
-            <div className="mockup-van-body" />
+          <div className="mockup-car">
+            <div className="mockup-car__body" />
+            <div className="mockup-car__cabin" />
+            <div className="mockup-car__window" />
+            <div className="mockup-car__wheel mockup-car__wheel--front" />
+            <div className="mockup-car__wheel mockup-car__wheel--rear" />
           </div>
         )}
         {sceneKind === 'digital' && (
-          <div className="mockup-monitor">
-            <div className="mockup-monitor-stand" />
+          <div className="mockup-pc">
+            <div className="mockup-pc__screen">
+              <div className="mockup-pc__bezel" />
+            </div>
+            <div className="mockup-pc__base" />
+            <div className="mockup-pc__stand" />
           </div>
         )}
         {sceneKind === 'window' && (
@@ -205,7 +311,12 @@ export default function ClientePedidoMockupPreview({
         )}
 
         <div className={`mockup-product mockup-product--${productKind}`}>
-          <MockupProductContent userImageUrl={userImageUrl} especificacion={especificacion} />
+          <ProductChrome productKind={productKind} />
+          <MockupProductContent
+            userImageUrl={userImageUrl}
+            especificacion={especificacion}
+            productKind={productKind}
+          />
         </div>
       </div>
 

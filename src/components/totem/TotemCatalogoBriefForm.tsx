@@ -103,10 +103,8 @@ export default function TotemCatalogoBriefForm({ value, onChange, productoNombre
   )
 
   const toggleTipo = (tipo: string) => {
-    const set = new Set(value.tipo_producto_servicio)
-    if (set.has(tipo)) set.delete(tipo)
-    else set.add(tipo)
-    patch({ tipo_producto_servicio: [...set] })
+    const already = value.tipo_producto_servicio.length === 1 && value.tipo_producto_servicio[0] === tipo
+    patch({ tipo_producto_servicio: already ? [] : [tipo] })
   }
 
   const activarAsesoramiento = () => {
@@ -153,7 +151,7 @@ export default function TotemCatalogoBriefForm({ value, onChange, productoNombre
         <h3 className="totem-brief__title">
           <span className="totem-brief__step">1</span> ¿Qué necesitás?
         </h3>
-        <p className="totem-brief__help">Podés elegir más de una opción</p>
+        <p className="totem-brief__help">Elegí una sola opción</p>
         <div className="totem-brief__chips totem-brief__chips--grid">
           {TIPOS_SIN_ASESOR.map((tipo) => (
             <Chip

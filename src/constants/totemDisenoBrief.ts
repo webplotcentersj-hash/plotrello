@@ -32,7 +32,7 @@ export const TOTEM_DISENO_STEP_META = [
   {
     id: 'producto',
     title: '¿Qué necesitás?',
-    hint: 'Elegí opciones y, si querés, completá los textos con IA acá al principio.'
+    hint: 'Elegí una opción y, si querés, completá los textos con IA acá al principio.'
   },
   {
     id: 'uso',

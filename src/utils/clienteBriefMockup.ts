@@ -37,9 +37,8 @@ export function resolveBriefMockup(
     tipos[0] ||
     tipoOtro.trim() ||
     (necesitaAsesoramiento ? 'Asesoramiento personalizado' : 'Proyecto gráfico')
-  const allText = [...tipos, tipoOtro].join(' ')
   // Preferir el primer tipo concreto (Flyer, Carpetas…) sobre genéricos tipo “Diseño de una pieza…”
-  let productKind = resolveMockupProduct(allText)
+  let productKind = resolveMockupProduct(labelSource)
   for (const t of tipos) {
     const k = resolveMockupProduct(t)
     if (k !== 'generic') {
