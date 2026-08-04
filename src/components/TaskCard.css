@@ -680,6 +680,28 @@ body.compact-mode .task-toolbar {
   font-weight: 600;
 }
 
+.task-pagada-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #052e16;
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  border: 1px solid rgba(21, 128, 61, 0.55);
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.25);
+  vertical-align: middle;
+}
+
+.task-card.is-minimized .task-pagada-pill {
+  font-size: 0.58rem;
+  padding: 1px 6px;
+}
+
 .task-delivered-checkbox {
   margin-top: 12px;
   padding-top: 12px;

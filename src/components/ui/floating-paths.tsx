@@ -6,15 +6,20 @@ import styles from './floating-paths.module.css'
 export function FloatingPathsBackground({
   position,
   children,
-  className
+  className,
+  /** Kiosk / tótem: sin animación infinita (evita tilde en tablets). */
+  staticPaths = false
 }: {
   position: number
   className?: string
   children: ReactNode
+  staticPaths?: boolean
 }) {
   const reduceMotion = useReducedMotion()
+  const freeze = Boolean(staticPaths || reduceMotion)
+  const pathCount = freeze ? 10 : 18
 
-  const paths = Array.from({ length: 36 }, (_, i) => ({
+  const paths = Array.from({ length: pathCount }, (_, i) => ({
     id: i,
     d: `M-${380 - i * 5 * position} -${189 + i * 6}C-${380 - i * 5 * position} -${189 + i * 6} -${312 - i * 5 * position} ${
       216 - i * 6
@@ -29,13 +34,13 @@ export function FloatingPathsBackground({
       <div className={styles.svgLayer} aria-hidden>
         <svg className={styles.svg} viewBox="0 0 696 316" preserveAspectRatio="none" fill="none">
           {paths.map((path) =>
-            reduceMotion ? (
+            freeze ? (
               <path
                 key={path.id}
                 d={path.d}
                 stroke="currentColor"
                 strokeWidth={path.width}
-                strokeOpacity={0.08 + path.id * 0.025}
+                strokeOpacity={0.07 + path.id * 0.02}
               />
             ) : (
               <motion.path
@@ -44,14 +49,13 @@ export function FloatingPathsBackground({
                 stroke="currentColor"
                 strokeWidth={path.width}
                 strokeOpacity={0.1 + path.id * 0.03}
-                initial={{ pathLength: 0.3, opacity: 0.6 }}
+                initial={{ pathLength: 0.3, opacity: 0.55 }}
                 animate={{
                   pathLength: 1,
-                  opacity: [0.3, 0.6, 0.3],
-                  pathOffset: [0, 1, 0]
+                  opacity: [0.28, 0.5, 0.28]
                 }}
                 transition={{
-                  duration: 22 + path.id * 0.35,
+                  duration: 28 + path.id * 0.4,
                   repeat: Number.POSITIVE_INFINITY,
                   ease: 'linear'
                 }}

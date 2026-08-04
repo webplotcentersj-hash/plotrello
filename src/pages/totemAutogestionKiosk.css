@@ -49,3 +49,11 @@
     max-width: min(1840px, 94vw);
   }
 }
+
+/* Menos carga GPU en kiosk: sin shimmer/gleam infinito ni blur */
+.totem-kiosk-shell .totem-welcome-button,
+.totem-kiosk-shell .totem-welcome-button::after,
+.totem-kiosk-shell .totem-idle-pulse,
+.totem-kiosk-shell .totem-senaletica-strip::after {
+  animation: none !important;
+}

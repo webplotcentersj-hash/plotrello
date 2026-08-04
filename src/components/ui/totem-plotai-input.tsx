@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Globe, Paperclip, Plus, Send } from 'lucide-react'
+import { Globe, Paperclip, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
 import styles from './totem-plotai-input.module.css'
@@ -160,6 +160,33 @@ export function TotemPlotAiInput({ onSend, disabled, className, compact = false 
                 <AnimatedPlaceholder showSearch={showSearch} className={compact ? styles.placeholderCompact : undefined} />
               )}
             </div>
+
+            {(imagePreview || attachedFile) && (
+              <div className={cn(styles.attachStrip, compact && styles.attachStripCompact)}>
+                {imagePreview ? (
+                  <div className={styles.attachThumb}>
+                    <img className={styles.attachThumbImg} src={imagePreview} alt="" />
+                  </div>
+                ) : (
+                  <div className={styles.attachFileBadge} aria-hidden>
+                    PDF
+                  </div>
+                )}
+                <div className={styles.attachMeta}>
+                  <span className={styles.attachName}>{attachedFile?.name || 'Adjunto'}</span>
+                  <span className={styles.attachHint}>Listo para enviar</span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.attachRemove}
+                  onClick={handleClosePreview}
+                  aria-label="Quitar adjunto"
+                  disabled={disabled}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
 
           <div className={cn(styles.toolbar, compact && styles.toolbarCompact)}>
@@ -181,14 +208,6 @@ export function TotemPlotAiInput({ onSend, disabled, className, compact = false 
                   disabled={disabled}
                 />
                 <Paperclip className={styles.iconSm} aria-hidden />
-                {imagePreview && (
-                  <div className={styles.previewWrap}>
-                    <img className={styles.previewImg} src={imagePreview} alt="" />
-                    <button type="button" className={styles.previewClose} onClick={handleClosePreview} aria-label="Quitar adjunto">
-                      <Plus className={styles.iconSm} aria-hidden />
-                    </button>
-                  </div>
-                )}
               </label>
 
               <button

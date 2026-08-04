@@ -104,10 +104,14 @@ export function TotemAutogestionPlotAiChat({
       setMessages((prev) => [...prev, { role: 'user', parts: [{ text }] }])
       setLoading(true)
 
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => controller.abort(), 28_000)
+
       try {
         const res = await fetch(plotLabApiUrl(CHAT_API_PATH), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             message: text,
             modo,
@@ -124,10 +128,12 @@ export function TotemAutogestionPlotAiChat({
         const reply = (data.reply && String(data.reply).trim()) || 'No pude generar una respuesta.'
         setMessages((prev) => [...prev, { role: 'model', parts: [{ text: reply }] }])
         if (data.conversation_id != null) setConversationId(Number(data.conversation_id))
-      } catch {
-        setError('Error de conexión. Intentá de nuevo.')
+      } catch (err) {
+        const aborted = err instanceof DOMException && err.name === 'AbortError'
+        setError(aborted ? 'La respuesta tardó demasiado. Intentá de nuevo.' : 'Error de conexión. Intentá de nuevo.')
         setMessages((prev) => prev.slice(0, -1))
       } finally {
+        window.clearTimeout(timeoutId)
         setLoading(false)
       }
     },

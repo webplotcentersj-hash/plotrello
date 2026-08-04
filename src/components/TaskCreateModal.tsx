@@ -11,6 +11,7 @@ import BriefMockupCard from './BriefMockupCard'
 import { attachmentListHasReadySitePhoto, opSectoresRequierenFotosLugar } from '../utils/sectoresFotosLugar'
 import { getRecentTiposImpresionOp } from '../utils/opImpresionRecientes'
 import { pillColorFromString } from '../utils/pillColorFromString'
+import { normalizeHoraEstimada } from '../utils/horaEstimada'
 import './TaskEditModal.css'
 
 type TaskCreateModalProps = {
@@ -79,6 +80,7 @@ const TaskCreateModal = ({
   const [driveUrl, setDriveUrl] = useState('')
   const [fechaEntrega, setFechaEntrega] = useState('')
   const [horaEstimada, setHoraEstimada] = useState('')
+  const [marcadaPagada, setMarcadaPagada] = useState(false)
   const [selectedSectores, setSelectedSectores] = useState<string[]>([])
   const [sectorSearch, setSectorSearch] = useState('')
   const [operario, setOperario] = useState<string>('')
@@ -492,10 +494,10 @@ const TaskCreateModal = ({
       // Continuar de todas formas, pero mostrar advertencia
     }
 
-    // Si no se especifica fecha de entrega, NO setear una entrega por defecto
-    // (evita mostrar “ayer” por conversiones de huso y mantiene el campo como opcional)
+    // fecha_entrega en BD es DATE; la hora va en hora_estimada (HH:MM)
+    const horaNorm = normalizeHoraEstimada(horaEstimada)
     const dueDate = fechaEntrega
-      ? new Date(`${fechaEntrega}T${horaEstimada || '00:00'}:00-03:00`).toISOString()
+      ? `${fechaEntrega}T${horaNorm || '12:00'}:00-03:00`
       : ''
 
     const creatorName = nombreVisible || 'Usuario'
@@ -567,6 +569,8 @@ const TaskCreateModal = ({
       progress: 0,
       createdAt: new Date().toISOString(),
       dueDate,
+      estimatedTime: horaNorm,
+      marcadaPagada,
       updatedAt: new Date().toISOString(),
       impact: 'media',
       clientPhone: telefonoCliente.trim() || undefined,
@@ -1444,25 +1448,31 @@ const TaskCreateModal = ({
           </div>
         </div>
 
-          <div className="form-row">
+          <div className="form-row form-row--entrega">
             <div className="form-group">
               <label>Fecha Entrega</label>
               <input
                 type="date"
                 value={fechaEntrega}
                 onChange={(e) => setFechaEntrega(e.target.value)}
-                placeholder="dd/mm/aaaa"
               />
             </div>
 
-            <div className="form-group">
+            <div className="form-group form-group--hora">
               <label>Hora Estimada</label>
               <input
                 type="time"
+                step={60}
                 value={horaEstimada}
-                onChange={(e) => setHoraEstimada(e.target.value)}
-                placeholder="--:--"
+                onChange={(e) => setHoraEstimada(normalizeHoraEstimada(e.target.value) || e.target.value)}
+                onFocus={(e) => {
+                  // Evita que el picker nativo quede tapado por el footer
+                  e.currentTarget.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                }}
               />
+              {!fechaEntrega && horaEstimada && (
+                <small className="form-hint-warn">Elegí también la fecha de entrega para guardar la hora.</small>
+              )}
             </div>
           </div>
 
@@ -2231,7 +2241,15 @@ const TaskCreateModal = ({
           </div>
         </div>
 
-        <footer className="modal-footer">
+        <footer className="modal-footer modal-footer--create">
+          <label className="create-pagado-check">
+            <input
+              type="checkbox"
+              checked={marcadaPagada}
+              onChange={(e) => setMarcadaPagada(e.target.checked)}
+            />
+            <span>Pagado</span>
+          </label>
           <button type="button" className="btn-cancel" onClick={onClose}>
             Cancelar
           </button>

@@ -20,6 +20,7 @@ import {
 import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import { getRecentTiposImpresionOp } from '../utils/opImpresionRecientes'
 import { pillColorFromString } from '../utils/pillColorFromString'
+import { normalizeHoraEstimada } from '../utils/horaEstimada'
 import OpFichaGuiaModal from './OpFichaGuiaModal'
 import RevisionesSection from './RevisionesSection'
 import TiempoTrabajoSection from './TiempoTrabajoSection'
@@ -95,6 +96,7 @@ const TaskEditModal = ({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [complexity, setComplexity] = useState<string>('Baja')
   const [estimatedTime, setEstimatedTime] = useState<string>('00:00')
+  const [marcadaPagada, setMarcadaPagada] = useState(false)
   const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false)
   const [isMaterialDropdownOpen, setIsMaterialDropdownOpen] = useState(false)
   // Campo "Tipo de impresión (OP)" removido de la UI (se conserva el dato en BD si existe)
@@ -207,6 +209,7 @@ const TaskEditModal = ({
       setPresupuestoEnviado(task.presupuestoEnviadoCliente ?? false)
       setPresupuestoArmado(task.presupuestoArmado ?? false)
       setPresupuestoEnEspera(task.presupuestoEnEspera ?? false)
+      setMarcadaPagada(task.marcadaPagada === true)
       setPlanillaPreliminar(task.planillaPreliminar ?? false)
       setLineasMetrosM2(
         showImpresionOpFields
@@ -242,11 +245,15 @@ const TaskEditModal = ({
             ]
           : []
       )
-      if (task.dueDate) {
+      if (task.estimatedTime) {
+        setEstimatedTime(task.estimatedTime)
+      } else if (task.dueDate) {
         const date = new Date(task.dueDate)
-        const hours = date.getHours().toString().padStart(2, '0')
-        const minutes = date.getMinutes().toString().padStart(2, '0')
-        setEstimatedTime(`${hours}:${minutes}`)
+        if (!Number.isNaN(date.getTime())) {
+          const hours = date.getHours().toString().padStart(2, '0')
+          const minutes = date.getMinutes().toString().padStart(2, '0')
+          setEstimatedTime(`${hours}:${minutes}`)
+        }
       }
 
       // Cargar historial completo, comentarios y archivos adjuntos
@@ -580,6 +587,8 @@ const TaskEditModal = ({
       tags,
       materials: materials.map((m) => m.name),
       assignedSector: nuevoSector,
+      estimatedTime: normalizeHoraEstimada(estimatedTime),
+      marcadaPagada,
       sectores: sectoresGuardados,
       updatedAt: new Date().toISOString(),
       briefPublico: briefPublico.trim() || undefined,
@@ -2774,7 +2783,16 @@ const TaskEditModal = ({
           </fieldset>
         </div>
 
-        <footer className="modal-footer">
+        <footer className="modal-footer modal-footer--create">
+          <label className="create-pagado-check">
+            <input
+              type="checkbox"
+              checked={marcadaPagada}
+              onChange={(e) => setMarcadaPagada(e.target.checked)}
+              disabled={opLocked}
+            />
+            <span>Pagado</span>
+          </label>
           {onDelete && (
             <button
               type="button"

@@ -10,44 +10,46 @@
 .header-spotlight-split {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 1rem 1.25rem;
   width: 100%;
 }
 
-/* Plot: columna angosta; Comunicados: ancho medio; Frase: a la derecha */
+/* Plot: columna angosta; Comunicados + Frase: mismo ancho/altura */
 .header-spotlight-split-col--plot {
-  flex: 0 0 240px;
+  flex: 0 0 220px;
   min-width: 0;
-  max-width: 280px;
+  max-width: 260px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.header-spotlight-split-col--rrhh {
+.header-spotlight-split-col--rrhh,
+.header-spotlight-split-col--frase {
   flex: 1 1 0;
   min-width: 0;
+  max-width: none;
   padding-left: 1rem;
   border-left: 1px solid rgba(129, 140, 248, 0.22);
+  display: flex;
+  flex-direction: column;
 }
 
-.header-spotlight-split-col--rrhh .header-spotlight-comunicados {
+.header-spotlight-split-col--rrhh .header-spotlight-comunicados,
+.header-spotlight-split-col--frase .header-spotlight-frase {
+  flex: 1 1 auto;
   width: 100%;
   min-width: 0;
-}
-
-.header-spotlight-split-col--frase {
-  flex: 0 1 280px;
-  min-width: 180px;
-  max-width: 320px;
-  padding-left: 1rem;
-  border-left: 1px solid rgba(129, 140, 248, 0.22);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 @media (max-width: 980px) {
   .header-spotlight-split-col--frase {
-    flex: 1 1 220px;
+    flex: 1 1 0;
     max-width: none;
   }
 }
@@ -402,6 +404,8 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
+  flex-shrink: 0;
+  min-height: 1.5rem;
 }
 
 /* Evitar reglas globales .header-stat-card span que rompen el encabezado */
@@ -436,7 +440,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 280px;
+  flex: 1 1 auto;
+  min-height: 148px;
+  max-height: 220px;
   overflow-y: auto;
   padding-right: 2px;
 }
@@ -450,10 +456,21 @@
   border-radius: 6px;
 }
 
+.header-spotlight-comunicados-list > li {
+  flex: 0 0 auto;
+}
+
+.header-spotlight-comunicados-list > li:first-child .header-spotlight-comunicado-item {
+  min-height: 148px;
+}
+
 .header-spotlight-comunicado-item {
   --comunicado-accent: #a5b4fc;
-  display: block;
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  height: 100%;
+  box-sizing: border-box;
   text-align: left;
   padding: 0.65rem 0.75rem 0.65rem 0.85rem;
   border-radius: 12px;
@@ -533,7 +550,7 @@
   color: rgba(203, 213, 225, 0.95);
   word-break: break-word;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -566,18 +583,22 @@
 .header-spotlight-frase {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
   min-width: 0;
+  height: 100%;
 }
 
 .header-spotlight-frase-head {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+  min-height: 1.5rem;
 }
 
 .header-spotlight-frase-head-icon {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   line-height: 1;
   filter: drop-shadow(0 0 8px rgba(253, 224, 71, 0.35));
 }
@@ -602,18 +623,26 @@
 
 .header-spotlight-frase-quote {
   margin: 0;
-  padding: 0.65rem 0.75rem;
+  flex: 1 1 auto;
+  min-height: 148px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem 0.65rem 0.85rem;
   border-radius: 12px;
-  border: 1px solid rgba(253, 224, 71, 0.18);
+  border: 1px solid rgba(253, 224, 71, 0.2);
   background: linear-gradient(
-    145deg,
-    rgba(30, 41, 59, 0.55) 0%,
-    rgba(15, 23, 42, 0.45) 100%
+    135deg,
+    rgba(30, 41, 59, 0.65) 0%,
+    rgba(15, 23, 42, 0.55) 100%
   );
+  box-shadow: inset 3px 0 0 0 rgba(253, 224, 71, 0.75);
+  box-sizing: border-box;
 }
 
 .header-spotlight-frase-texto {
-  margin: 0 0 0.55rem;
+  margin: 0;
   font-size: 0.88rem;
   line-height: 1.45;
   color: rgba(248, 250, 252, 0.95);

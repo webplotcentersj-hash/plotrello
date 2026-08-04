@@ -19,8 +19,7 @@ import './TotemConsultaClientePage.css'
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
-const INACTIVITY_MS = 90000
-const IDLE_MS = 60000 // Tras este tiempo sin tocar, se muestra pantalla en espera (modo kiosk)
+const INACTIVITY_MS = 90000 // Sin tocar → pantalla en espera (modo kiosk)
 
 type SectorDirection = 'planta-baja' | 'adelante' | 'primer-piso'
 
@@ -184,7 +183,7 @@ const TotemConsultaClientePage = () => {
     const id = setInterval(() => {
       const elapsed = Date.now() - lastInteraction
       if (step === 'idle') return
-      if (elapsed > INACTIVITY_MS || elapsed > IDLE_MS) {
+      if (elapsed > INACTIVITY_MS) {
         unsubAsesorEnCaminoRef.current?.()
         unsubAsesorEnCaminoRef.current = null
         setSearchOp('')
@@ -199,7 +198,7 @@ const TotemConsultaClientePage = () => {
       }
     }, 5000)
     return () => clearInterval(id)
-  }, [lastInteraction, ordenes.length, searchOp, step, selectedQueHacer])
+  }, [lastInteraction, step])
 
   const buscarOrdenes = async (
     filtro: (orden: OrdenTrabajo) => boolean,
@@ -534,7 +533,11 @@ const TotemConsultaClientePage = () => {
         )}
 
         {step === 'welcome' && (
-          <div className="totem-welcome-screen" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="totem-welcome-screen"
+            onPointerDownCapture={registrarInteraccion}
+            onClick={(e) => e.stopPropagation()}
+          >
             <header className="totem-kiosk-header totem-welcome-top">
               <div className="totem-kiosk-header-brand">
                 <div className="totem-kiosk-logo-ring">

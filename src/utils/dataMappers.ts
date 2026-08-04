@@ -284,6 +284,14 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     progress: calculateProgressFromStatus(statusFinal, orden.entregado ?? false),
     createdAt: createdArgentinaIso,
     dueDate: dueDateArgentinaIso,
+    estimatedTime: (() => {
+      const h = orden.hora_estimada?.trim()
+      if (!h) return null
+      const m = /^(\d{1,2}):(\d{2})/.exec(h)
+      if (!m) return h.slice(0, 5)
+      return `${m[1].padStart(2, '0')}:${m[2]}`
+    })(),
+    marcadaPagada: orden.marcada_pagada === true,
     updatedAt: updatedArgentinaIso,
     impact: mapComplejidadToImpact(orden.complejidad),
     uiMovedAt: (() => {
@@ -427,6 +435,14 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     estado: mapStatusToEstado(task.status), // Preservar el estado (columna) actual
     prioridad: mapPriorityToDb(task.priority),
     fecha_entrega: task.dueDate ? toDateOnly(task.dueDate) : null,
+    hora_estimada: (() => {
+      const h = task.estimatedTime?.trim()
+      if (!h) return null
+      const m = /^(\d{1,2}):(\d{2})/.exec(h)
+      if (!m) return h.slice(0, 5)
+      return `${m[1].padStart(2, '0')}:${m[2]}`
+    })(),
+    marcada_pagada: task.marcadaPagada === true,
     fecha_creacion: task.createdAt,
     fecha_ingreso: task.updatedAt,
     fecha_ultimo_movimiento:

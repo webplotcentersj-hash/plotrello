@@ -26,49 +26,74 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
-  flex: 1;
+  gap: 12px;
+  flex: 1 1 420px;
   min-width: 0;
+  max-width: min(100%, 1040px);
   margin-left: auto;
   overflow: visible;
 }
 
-/* Accesos visibles por rol: dashboard, menú diario, flota */
+/* Accesos visibles por rol: una sola línea con scroll horizontal */
 .header-quick-nav {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 6px;
   width: 100%;
   padding: 8px 10px;
-  border-radius: 14px;
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(
-    135deg,
-    rgba(235, 103, 27, 0.12) 0%,
-    rgba(255, 255, 255, 0.04) 45%,
-    rgba(0, 0, 0, 0.12) 100%
-  );
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 40%),
+    linear-gradient(
+      135deg,
+      rgba(235, 103, 27, 0.14) 0%,
+      rgba(255, 255, 255, 0.03) 42%,
+      rgba(0, 0, 0, 0.16) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 10px 28px rgba(0, 0, 0, 0.18);
   box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(235, 103, 27, 0.45) transparent;
+}
+
+.header-quick-nav::-webkit-scrollbar {
+  height: 5px;
+}
+
+.header-quick-nav::-webkit-scrollbar-thumb {
+  background: rgba(235, 103, 27, 0.45);
+  border-radius: 999px;
+}
+
+.header-quick-nav::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .header-quick-nav-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 6px 11px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background: linear-gradient(
     145deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.03) 100%
+    rgba(255, 255, 255, 0.09) 0%,
+    rgba(255, 255, 255, 0.025) 100%
   );
   color: var(--text-primary, #f1f5f9);
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 700;
+  line-height: 1.15;
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -93,36 +118,38 @@
 }
 
 .header-quick-nav-icon {
-  font-size: 1.05rem;
+  font-size: 0.92rem;
   line-height: 1;
+  opacity: 0.95;
 }
 
 .header-quick-nav-label {
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 
 /* Dashboard / módulo principal del rol */
 .header-quick-nav-btn--primary {
-  border-color: rgba(235, 103, 27, 0.45);
-  background: linear-gradient(135deg, rgba(235, 103, 27, 0.38), rgba(234, 88, 12, 0.22));
+  border-color: rgba(235, 103, 27, 0.5);
+  background: linear-gradient(135deg, rgba(235, 103, 27, 0.42), rgba(234, 88, 12, 0.2));
   color: #fff;
+  box-shadow: 0 4px 14px rgba(235, 103, 27, 0.18);
 }
 
 .header-quick-nav-btn--has-badge {
-  padding-right: 10px;
+  padding-right: 8px;
 }
 
 .header-quick-nav-badge {
   margin-left: 2px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
   border-radius: 999px;
   background: #ef4444;
   color: #fff;
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 800;
-  line-height: 18px;
+  line-height: 16px;
   text-align: center;
   box-shadow: 0 0 0 2px rgba(15, 20, 36, 0.9);
   font-variant-numeric: tabular-nums;
@@ -171,13 +198,16 @@
 
 .header-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: stretch;
   gap: 10px;
   position: relative;
   z-index: 1200;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   justify-content: flex-end;
+  align-self: flex-end;
+  box-sizing: border-box;
 }
 
 /* ——— Hora + clima en una sola tarjeta ——— */
@@ -772,8 +802,8 @@
 
 .header-stats {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  flex-wrap: nowrap;
+  align-items: stretch;
   gap: 12px;
   width: 100%;
 }
@@ -791,8 +821,8 @@
 
 .header-stat-card.header-stat-card--spotlight {
   flex: 1 1 auto;
-  width: 100%;
-  max-width: min(96vw, 920px);
+  width: auto;
+  max-width: none;
   min-width: 0;
   padding: 14px 16px;
   border-radius: 16px;
@@ -801,6 +831,100 @@
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.header-stats-rail {
+  flex: 0 0 240px;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.header-status-card--rail {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.header-status-card--rail .header-status-divider {
+  width: auto;
+  height: 1px;
+  margin: 2px 0;
+  align-self: stretch;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.22) 30%,
+    rgba(255, 255, 255, 0.22) 70%,
+    transparent
+  );
+}
+
+.header-status-card--rail .clock-widget,
+.header-status-card--rail .weather-widget {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.header-status-card--rail .clock-widget--compact {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.header-status-card--rail .clock-widget--compact .clock-time {
+  font-size: 1.55rem;
+  letter-spacing: 0.04em;
+}
+
+.header-status-card--rail .clock-widget--compact .clock-date {
+  max-width: none;
+  font-size: 0.78rem;
+}
+
+.header-status-card--rail .weather-description {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+
+.header-status-card--rail .weather-temp {
+  font-size: 1.2rem;
+}
+
+.header-status-card--rail .weather-location {
+  font-size: 0.7rem;
+}
+
+.header-stats-rail-update {
+  flex: 0 0 auto;
+  border-radius: 16px;
+  border: 1px solid rgba(235, 103, 27, 0.28);
+  background: linear-gradient(
+    145deg,
+    rgba(30, 32, 48, 0.92) 0%,
+    rgba(12, 14, 24, 0.88) 100%
+  );
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.header-stats-rail-update .header-util-btn--pwa-rail,
+.header-stats-rail-update .header-util-btn {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+  border-radius: 0;
 }
 
 .header-stat-card span {
@@ -813,6 +937,50 @@
 .header-stat-card strong {
   font-size: 1.8rem;
   color: var(--text-primary);
+}
+
+@media (max-width: 1100px) {
+  .header-stats {
+    flex-wrap: wrap;
+  }
+
+  .header-stats-rail {
+    flex: 1 1 100%;
+    width: 100%;
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .header-status-card--rail {
+    flex: 1 1 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+    padding: 8px 12px;
+  }
+
+  .header-status-card--rail .header-status-divider {
+    width: 1px;
+    height: auto;
+    align-self: stretch;
+    margin: 8px 6px;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      rgba(255, 255, 255, 0.22) 30%,
+      rgba(255, 255, 255, 0.22) 70%,
+      transparent
+    );
+  }
+
+  .header-status-card--rail .clock-widget--compact {
+    flex-direction: column;
+  }
+
+  .header-stats-rail-update {
+    flex: 0 0 auto;
+    min-width: 140px;
+  }
 }
 
 @media (max-width: 900px) {
@@ -840,6 +1008,7 @@
   .header-line-aside {
     align-items: stretch;
     width: 100%;
+    max-width: none;
   }
 
   .header-quick-nav {
@@ -847,16 +1016,14 @@
     overflow-x: auto;
     justify-content: flex-start;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .header-quick-nav::-webkit-scrollbar {
-    display: none;
   }
 
   .header-actions {
     width: 100%;
+    max-width: none;
+    align-self: stretch;
     justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   .header-status-card {

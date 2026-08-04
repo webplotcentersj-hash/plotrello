@@ -942,7 +942,13 @@ const TaskCardInner = ({
               <span className="task-op">#{task.opNumber}</span>
               <span className="task-date">
                 {task.dueDate ? formatShortDate(task.dueDate) : formatShortDate(task.createdAt)}
+                {task.estimatedTime ? ` · ${task.estimatedTime}` : ''}
               </span>
+              {task.marcadaPagada && (
+                <span className="task-pagada-pill" title="OP pagada">
+                  PAGADA
+                </span>
+              )}
               {hasModifications && (
                 <span className="task-notification-bell" title="Hay modificaciones recientes">🔔</span>
               )}

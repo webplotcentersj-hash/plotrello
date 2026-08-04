@@ -54,6 +54,10 @@ export interface Task {
   progress: number
   createdAt: string
   dueDate: string
+  /** Hora estimada HH:MM (persistida aparte de la fecha) */
+  estimatedTime?: string | null
+  /** OP marcada como pagada (alta / edición) */
+  marcadaPagada?: boolean
   updatedAt: string
   impact: 'alta' | 'media' | 'low'
   clientPhone?: string

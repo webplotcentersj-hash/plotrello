@@ -154,6 +154,10 @@ export interface OrdenTrabajo {
   fecha_ultimo_movimiento?: string | null
   /** Casillero pañol Taller de Imprenta (A1–Z3) */
   panol_slot?: string | null
+  /** Hora estimada de entrega HH:MM (fecha_entrega es date) */
+  hora_estimada?: string | null
+  /** Marca manual: OP pagada */
+  marcada_pagada?: boolean | null
 }
 
 /** Fila listada en historial de fichas (asesor-presupuestos) */

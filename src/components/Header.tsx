@@ -223,8 +223,8 @@ const Header = ({
             </nav>
           )}
         <div className="header-actions">
-          {!compactPhone && (
-            <div className="header-status-card" aria-label="Hora y clima">
+          {compactPhone && (
+            <div className="header-status-card header-status-card--compact-phone" aria-label="Hora y clima">
               <ClockWidget compact />
               <div className="header-status-divider" aria-hidden />
               <WeatherWidget />
@@ -232,8 +232,12 @@ const Header = ({
           )}
 
           <div className="header-util-bar" role="toolbar" aria-label="Acciones rápidas">
-            <PwaUpdateButton className="header-util-btn header-util-btn--pwa" />
-            <span className="header-util-divider" aria-hidden />
+            {compactPhone && (
+              <>
+                <PwaUpdateButton className="header-util-btn header-util-btn--pwa" />
+                <span className="header-util-divider" aria-hidden />
+              </>
+            )}
             <NotificationsDropdown
               onNotificationClick={(notification) => {
                 if (
@@ -503,6 +507,16 @@ const Header = ({
           <div className="header-stat-card header-stat-card--spotlight">
             <HeaderSpotlightCard userId={usuario?.id} />
           </div>
+          <aside className="header-stats-rail" aria-label="Estado y actualización">
+            <div className="header-status-card header-status-card--rail" aria-label="Hora y clima">
+              <ClockWidget compact />
+              <div className="header-status-divider" aria-hidden />
+              <WeatherWidget />
+            </div>
+            <div className="header-stats-rail-update">
+              <PwaUpdateButton className="header-util-btn header-util-btn--pwa header-util-btn--pwa-rail" />
+            </div>
+          </aside>
         </div>
       )}
       <PwaUpdateModalHost />

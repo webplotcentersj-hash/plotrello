@@ -33,7 +33,10 @@
 }
 
 .create-modal .modal-body {
-  padding: 18px 22px 10px;
+  padding: 18px 22px 28px;
+  overflow-y: auto;
+  /* El picker nativo de hora no debe quedar atrapado bajo el footer */
+  overflow-x: hidden;
 }
 
 .modal-header {
@@ -1021,6 +1024,68 @@
   padding: 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
   background: rgba(0, 0, 0, 0.2) !important;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.modal-footer--create {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.modal-footer--create .footer-actions {
+  margin-left: auto;
+}
+
+.create-pagado-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-right: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  background: rgba(22, 101, 52, 0.35);
+  color: #bbf7d0;
+  font-weight: 800;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.create-pagado-check input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: #22c55e;
+  cursor: pointer;
+}
+
+.create-modal .form-row--entrega {
+  position: relative;
+  z-index: 5;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.create-modal .form-group--hora {
+  z-index: 6;
+}
+
+.create-modal .form-group--hora input[type='time'] {
+  min-height: 40px;
+  color-scheme: dark;
+}
+
+.create-modal .form-hint-warn {
+  color: #fbbf24;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .footer-actions {
