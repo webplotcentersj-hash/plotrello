@@ -17,7 +17,11 @@ declare global {
   }
 }
 
-const SCAN_MS = 280
+/** Intervalo entre lecturas (evitar saturar CPU en móviles). */
+const SCAN_MS = 450
+const GUM_TIMEOUT_MS = 8_000
+/** Ancho máx. del frame para detectar QR (baja carga). */
+const SCAN_MAX_WIDTH = 480
 
 const ESTADO_AMIGABLE: Record<string, string> = {
   Pendiente: 'Recibimos tu pedido',
@@ -42,6 +46,45 @@ const ESTADO_AMIGABLE: Record<string, string> = {
   'Entregado o Instalado': 'Entregado'
 }
 
+const CAMERA_ATTEMPTS: MediaStreamConstraints[] = [
+  { audio: false, video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } },
+  { audio: false, video: { facingMode: { ideal: 'user' } } },
+  { audio: false, video: true }
+]
+
+async function getUserMediaSafe(
+  constraints: MediaStreamConstraints,
+  isCancelled: () => boolean,
+  timeoutMs = GUM_TIMEOUT_MS
+): Promise<MediaStream> {
+  let timer = 0
+  let timedOut = false
+  const gum = navigator.mediaDevices.getUserMedia(constraints)
+  const timeout = new Promise<never>((_, reject) => {
+    timer = window.setTimeout(() => {
+      timedOut = true
+      reject(Object.assign(new Error('TIMEOUT_CAMERA'), { name: 'TimeoutError' }))
+    }, timeoutMs)
+  })
+  try {
+    const stream = await Promise.race([gum, timeout])
+    if (isCancelled()) {
+      stream.getTracks().forEach((t) => t.stop())
+      throw Object.assign(new Error('CANCELLED'), { name: 'AbortError' })
+    }
+    return stream
+  } catch (e) {
+    if (timedOut) {
+      void gum
+        .then((s) => s.getTracks().forEach((t) => t.stop()))
+        .catch(() => {})
+    }
+    throw e
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
 async function detectQr(canvas: HTMLCanvasElement): Promise<string | null> {
   if (canvas.width < 64 || canvas.height < 64) return null
   if (typeof window !== 'undefined' && window.BarcodeDetector) {
@@ -58,7 +101,7 @@ async function detectQr(canvas: HTMLCanvasElement): Promise<string | null> {
   if (!ctx) return null
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const code = jsQR(imageData.data, imageData.width, imageData.height, {
-    inversionAttempts: 'attemptBoth'
+    inversionAttempts: 'dontInvert'
   })
   return code?.data?.trim() || null
 }
@@ -80,6 +123,9 @@ function colorForEstado(estado: string): string {
 export default function OpQrScannerPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const mountedRef = useRef(true)
+  const scanBusyRef = useRef(false)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [scanning, setScanning] = useState(true)
@@ -92,97 +138,157 @@ export default function OpQrScannerPage() {
   const lookupLockRef = useRef(false)
 
   const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current?.getTracks().forEach((t) => {
+      try {
+        t.stop()
+      } catch {
+        /* ignore */
+      }
+    })
     streamRef.current = null
-    if (videoRef.current) videoRef.current.srcObject = null
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause()
+      } catch {
+        /* ignore */
+      }
+      videoRef.current.srcObject = null
+    }
     setCameraReady(false)
   }, [])
 
   const startCamera = useCallback(async () => {
+    if (!mountedRef.current) return
     setCameraError(null)
     stopCamera()
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError('Este dispositivo no permite usar la cámara desde el navegador.')
       return
     }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      })
-      streamRef.current = stream
-      const video = videoRef.current
-      if (video) {
-        video.srcObject = stream
-        await video.play().catch(() => undefined)
+
+    const isCancelled = () => !mountedRef.current
+    let stream: MediaStream | null = null
+    let lastErr: unknown = null
+
+    for (let i = 0; i < CAMERA_ATTEMPTS.length; i++) {
+      if (isCancelled()) return
+      try {
+        stream = await getUserMediaSafe(CAMERA_ATTEMPTS[i], isCancelled, i === 0 ? GUM_TIMEOUT_MS : 6_000)
+        break
+      } catch (err) {
+        lastErr = err
+        const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : ''
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') break
       }
+    }
+
+    if (!stream) {
+      console.error(lastErr)
+      if (mountedRef.current) {
+        setCameraError('No se pudo abrir la cámara frontal. Revisá los permisos del navegador.')
+      }
+      return
+    }
+
+    if (isCancelled()) {
+      stream.getTracks().forEach((t) => t.stop())
+      return
+    }
+
+    streamRef.current = stream
+    const video = videoRef.current
+    if (video) {
+      video.setAttribute('playsinline', 'true')
+      video.muted = true
+      video.srcObject = stream
+      try {
+        await video.play()
+      } catch {
+        /* autoplay policies */
+      }
+    }
+    if (mountedRef.current) {
       setCameraReady(true)
       setScanning(true)
-    } catch (err) {
-      console.error(err)
-      setCameraError('No se pudo abrir la cámara. Revisá los permisos del navegador.')
     }
   }, [stopCamera])
 
   useEffect(() => {
+    mountedRef.current = true
     void startCamera()
-    return () => stopCamera()
+    return () => {
+      mountedRef.current = false
+      stopCamera()
+    }
   }, [startCamera, stopCamera])
 
-  const lookupOp = useCallback(
-    async (ref: string) => {
-      const cleaned = ref.trim()
-      if (!cleaned || lookupLockRef.current) return
-      lookupLockRef.current = true
-      setLoading(true)
-      setError(null)
-      setScanning(false)
-      try {
-        if (navigator.vibrate) navigator.vibrate(40)
-        const response = await apiService.getOrdenSeguimientoPublico(cleaned)
-        if (response.success && response.data) {
-          setOrden(response.data)
-        } else {
-          setOrden(null)
-          setError(response.error || 'No se encontró esa OP')
-          setScanning(true)
-        }
-      } catch (err) {
-        console.error(err)
+  const lookupOp = useCallback(async (ref: string) => {
+    const cleaned = ref.trim()
+    if (!cleaned || lookupLockRef.current) return
+    lookupLockRef.current = true
+    setLoading(true)
+    setError(null)
+    setScanning(false)
+    try {
+      if (navigator.vibrate) navigator.vibrate(40)
+      const response = await apiService.getOrdenSeguimientoPublico(cleaned)
+      if (!mountedRef.current) return
+      if (response.success && response.data) {
+        // Liberar cámara mientras se muestra el resultado (evita tilde en móvil)
+        stopCamera()
+        setOrden(response.data)
+      } else {
+        setOrden(null)
+        setError(response.error || 'No se encontró esa OP')
+        setScanning(true)
+      }
+    } catch (err) {
+      console.error(err)
+      if (mountedRef.current) {
         setOrden(null)
         setError('Error al consultar la orden')
         setScanning(true)
-      } finally {
-        setLoading(false)
-        lookupLockRef.current = false
       }
-    },
-    []
-  )
+    } finally {
+      if (mountedRef.current) setLoading(false)
+      lookupLockRef.current = false
+    }
+  }, [stopCamera])
 
   useEffect(() => {
     if (!scanning || !cameraReady || orden) return
-    const canvas = document.createElement('canvas')
+
+    if (!canvasRef.current) canvasRef.current = document.createElement('canvas')
+    const canvas = canvasRef.current
+
     const timer = window.setInterval(() => {
+      if (scanBusyRef.current || lookupLockRef.current) return
+      scanBusyRef.current = true
       void (async () => {
-        const video = videoRef.current
-        if (!video || video.readyState < 2 || video.videoWidth < 64) return
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         try {
+          const video = videoRef.current
+          if (!video || video.readyState < 2 || video.videoWidth < 64) return
+
+          const vw = video.videoWidth
+          const vh = video.videoHeight
+          const scale = Math.min(1, SCAN_MAX_WIDTH / vw)
+          const w = Math.max(64, Math.round(vw * scale))
+          const h = Math.max(64, Math.round(vh * scale))
+          if (canvas.width !== w) canvas.width = w
+          if (canvas.height !== h) canvas.height = h
+
+          const ctx = canvas.getContext('2d', { willReadFrequently: true })
+          if (!ctx) return
+          ctx.drawImage(video, 0, 0, w, h)
+
           const payload = await detectQr(canvas)
-          if (!payload) return
+          if (!payload || !mountedRef.current) return
+
           const now = Date.now()
           if (payload === lastPayloadRef.current && now - lastAtRef.current < 3500) return
           lastPayloadRef.current = payload
           lastAtRef.current = now
+
           const opRef = parseOpRefFromQrPayload(payload)
           if (!opRef) {
             setError('QR leído, pero no parece una OP de PlotLab')
@@ -191,10 +297,16 @@ export default function OpQrScannerPage() {
           await lookupOp(opRef)
         } catch {
           /* frame */
+        } finally {
+          scanBusyRef.current = false
         }
       })()
     }, SCAN_MS)
-    return () => window.clearInterval(timer)
+
+    return () => {
+      window.clearInterval(timer)
+      scanBusyRef.current = false
+    }
   }, [scanning, cameraReady, orden, lookupOp])
 
   const resetScan = () => {
@@ -203,7 +315,7 @@ export default function OpQrScannerPage() {
     setManualOp('')
     lastPayloadRef.current = ''
     setScanning(true)
-    if (!cameraReady) void startCamera()
+    void startCamera()
   }
 
   const handleManual = (e: FormEvent) => {
@@ -216,10 +328,7 @@ export default function OpQrScannerPage() {
     void lookupOp(ref)
   }
 
-  const estadoColor = useMemo(
-    () => (orden ? colorForEstado(orden.estado) : '#e11d48'),
-    [orden]
-  )
+  const estadoColor = useMemo(() => (orden ? colorForEstado(orden.estado) : '#e11d48'), [orden])
   const estadoDonde = useMemo(() => {
     if (!orden) return ''
     return ESTADO_AMIGABLE[orden.estado] || orden.estado
@@ -230,13 +339,13 @@ export default function OpQrScannerPage() {
       <header className="op-scan-top">
         <p className="op-scan-brand">PlotLab</p>
         <h1>Escanear OP</h1>
-        <p className="op-scan-lead">Apuntá al QR del ticket o la tarjeta para ver dónde está la orden.</p>
+        <p className="op-scan-lead">Usá la cámara delantera: mostrá el QR del ticket frente al celular.</p>
       </header>
 
       {!orden ? (
         <>
           <div className="op-scan-camera-wrap">
-            <video ref={videoRef} className="op-scan-video" playsInline muted autoPlay />
+            <video ref={videoRef} className="op-scan-video op-scan-video--front" playsInline muted autoPlay />
             <div className="op-scan-frame" aria-hidden />
             {loading ? <div className="op-scan-overlay">Buscando OP…</div> : null}
             {cameraError ? <div className="op-scan-overlay op-scan-overlay--err">{cameraError}</div> : null}

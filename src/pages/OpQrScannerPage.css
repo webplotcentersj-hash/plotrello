@@ -64,6 +64,11 @@
   display: block;
 }
 
+/* Cámara delantera: espejo para que se sienta natural */
+.op-scan-video--front {
+  transform: scaleX(-1);
+}
+
 .op-scan-frame {
   position: absolute;
   inset: 18% 14%;
