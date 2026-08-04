@@ -24,7 +24,10 @@ export function esDestinoProduccionReclamo(sector: string | null | undefined): s
 
 const TERMINALES = new Set([
   'Almacén de Entrega',
+  'Entregas taller gráfico',
+  'Entregas taller grafico',
   'Finalizado en Taller',
+  'Entregas taller de Imprenta',
   'Entregado o Instalado'
 ])
 

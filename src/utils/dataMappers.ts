@@ -27,8 +27,8 @@ const STATUS_TO_ESTADO: Record<TaskStatus, string> = {
   'taller-grafico': 'Taller Gráfico',
   instalaciones: 'Instalaciones',
   metalurgica: 'Metalúrgica',
-  'finalizado-taller': 'Finalizado en Taller',
-  'almacen-entrega': 'Almacén de Entrega',
+  'finalizado-taller': 'Entregas taller de Imprenta',
+  'almacen-entrega': 'Entregas taller gráfico',
   'asesor-tecnico': 'Asesor Técnico',
   presupuestos: 'Presupuestos',
   'armados-enviados-asesor-presupuestos': 'Armados/Enviados',
@@ -46,6 +46,12 @@ const ESTADO_TO_STATUS: Record<string, TaskStatus> = Object.entries(STATUS_TO_ES
 
 // Agregar mapeo adicional para "Entregado o Instalado" (las fichas entregadas se filtran por entregado=true)
 ESTADO_TO_STATUS['entregado o instalado'] = 'almacen-entrega'
+// Alias nombres históricos / variantes de columnas de entrega
+ESTADO_TO_STATUS['finalizado en taller'] = 'finalizado-taller'
+ESTADO_TO_STATUS['almacén de entrega'] = 'almacen-entrega'
+ESTADO_TO_STATUS['almacen de entrega'] = 'almacen-entrega'
+ESTADO_TO_STATUS['entregas taller grafico'] = 'almacen-entrega'
+ESTADO_TO_STATUS['entregas taller de imprenta'] = 'finalizado-taller'
 
 const PRIORITY_TO_DB: Record<Priority, string> = {
   alta: 'Alta',
@@ -495,6 +501,9 @@ export const tareaToTask = (tarea: TareaRecord, orden: OrdenTrabajo): Task => {
       'Imprenta (Área de Impresión)': 'imprenta',
       'Finalizado en Taller': 'finalizado-taller',
       'Almacén de Entrega': 'almacen-entrega',
+      'Entregas taller de Imprenta': 'finalizado-taller',
+      'Entregas taller gráfico': 'almacen-entrega',
+      'Entregas taller grafico': 'almacen-entrega',
       'Asesor Técnico': 'asesor-tecnico',
       'Presupuestos': 'presupuestos',
       'Armados/Enviados': 'armados-enviados-asesor-presupuestos',
@@ -624,7 +633,10 @@ const SECTOR_TO_ROLES: Record<string, string[]> = {
   'Instalaciones': ['instalaciones', 'taller'],
   'Metalúrgica': ['metalurgica', 'taller'],
   'Finalizado en Taller': ['administracion', 'gerencia'],
-  'Almacén de Entrega': ['administracion', 'gerencia', 'mostrador', 'caja']
+  'Entregas taller de Imprenta': ['administracion', 'gerencia'],
+  'Almacén de Entrega': ['administracion', 'gerencia', 'mostrador', 'caja'],
+  'Entregas taller gráfico': ['administracion', 'gerencia', 'mostrador', 'caja'],
+  'Entregas taller grafico': ['administracion', 'gerencia', 'mostrador', 'caja']
 }
 
 // Filtrar operarios según el sector de la ficha

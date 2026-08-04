@@ -1,7 +1,10 @@
 /** Estados de OP que el cliente interpreta como "listo para retirar / firmar". */
 const ESTADOS_LISTOS_RETIRO = [
   'Almacén de Entrega',
+  'Entregas taller gráfico',
+  'Entregas taller grafico',
   'Finalizado en Taller',
+  'Entregas taller de Imprenta',
   'Mostrador',
   'Caja'
 ]
@@ -18,7 +21,12 @@ export type OpListoRetiro = {
 export function esEstadoListoParaRetiro(estado: string | null | undefined): boolean {
   if (!estado) return false
   const t = estado.trim()
-  return ESTADOS_LISTOS_RETIRO.some((e) => t === e || t.includes('Almacén'))
+  return ESTADOS_LISTOS_RETIRO.some(
+    (e) =>
+      t === e ||
+      t.includes('Almacén') ||
+      t.toLowerCase().includes('entregas taller')
+  )
 }
 
 export function buildOpsListosRetiro(input: {

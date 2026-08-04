@@ -62,8 +62,8 @@ const TaskCreateModal = ({
     'Taller Gráfico',
     'Instalaciones',
     'Metalúrgica',
-    'Finalizado en Taller',
-    'Almacén de Entrega'
+    'Entregas taller de Imprenta',
+    'Entregas taller gráfico'
   ]
   
   // Filtrar sectores para que solo muestre los que coinciden con las columnas del Kanban
@@ -512,7 +512,10 @@ const TaskCreateModal = ({
         'Instalaciones': 'instalaciones',
         'Metalúrgica': 'metalurgica',
         'Finalizado en Taller': 'finalizado-taller',
-        'Almacén de Entrega': 'almacen-entrega'
+        'Entregas taller de Imprenta': 'finalizado-taller',
+        'Almacén de Entrega': 'almacen-entrega',
+        'Entregas taller gráfico': 'almacen-entrega',
+        'Entregas taller grafico': 'almacen-entrega'
       }
       return sectorMap[sector] || 'diseno-grafico'
     }

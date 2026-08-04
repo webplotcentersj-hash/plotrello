@@ -95,7 +95,10 @@ function normLabel(s: string): string {
 
 const LABEL_EXCLUIDOS_NORMALIZADOS = new Set([
   normLabel('Finalizado en Taller'),
-  normLabel('Almacén de Entrega')
+  normLabel('Entregas taller de Imprenta'),
+  normLabel('Almacén de Entrega'),
+  normLabel('Entregas taller gráfico'),
+  normLabel('Entregas taller grafico')
 ])
 
 const ALLOW_ETAPA = new Set(INCIDENCIAS_ETAPAS_PRODUCTIVAS.map((x) => normLabel(x)))

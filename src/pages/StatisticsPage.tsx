@@ -30,14 +30,17 @@ type StatisticsPageProps = {
 }
 
 const COLORS = {
-  'Almacén de Entrega': '#f59e0b',
+  'Almacén de Entrega': '#231F20',
+  'Entregas taller gráfico': '#231F20',
+  'Entregas taller grafico': '#231F20',
   'Entregado o Instalado': '#14b8a6',
   'Imprenta (Área de Impresión)': '#ef4444',
   'Mostrador': '#3b82f6',
   'Pendiente': '#9ca3af',
   'Taller Gráfico': '#a855f7',
   'En Espera': '#22d3ee',
-  'Finalizado en Taller': '#22c55e',
+  'Finalizado en Taller': '#F472B6',
+  'Entregas taller de Imprenta': '#F472B6',
   'Instalaciones': '#f97316',
   'Taller de Imprenta': '#fb7185'
 }
@@ -839,7 +842,10 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
       'Taller Gráfico': 15,
       'Instalaciones': 8,
       'Finalizado en Taller': 20,
-      'Almacén de Entrega': 25
+      'Entregas taller de Imprenta': 20,
+      'Almacén de Entrega': 25,
+      'Entregas taller gráfico': 25,
+      'Entregas taller grafico': 25
     }
     
     const statusCounts: Record<string, number> = {}

@@ -110,6 +110,9 @@ function mapEstadoToStatus(estado: string): any {
     'Metalúrgica': 'metalurgica',
     'Finalizado en Taller': 'finalizado-taller',
     'Almacén de Entrega': 'almacen-entrega',
+    'Entregas taller de Imprenta': 'finalizado-taller',
+    'Entregas taller gráfico': 'almacen-entrega',
+    'Entregas taller grafico': 'almacen-entrega',
     'Entregado o Instalado': 'almacen-entrega'
   }
   return mapping[estado] || 'diseno-grafico'

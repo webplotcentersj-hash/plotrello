@@ -32,8 +32,8 @@ export default function ConvertirPedidoAOpPage() {
     'Taller Gráfico',
     'Instalaciones',
     'Metalúrgica',
-    'Finalizado en Taller',
-    'Almacén de Entrega'
+    'Entregas taller de Imprenta',
+    'Entregas taller gráfico'
   ]
 
   useEffect(() => {

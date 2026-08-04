@@ -11,13 +11,13 @@ export const BOARD_COLUMNS: ColumnConfig[] = [
     id: 'diseno-proceso',
     label: 'Diseño en Proceso',
     description: 'Diseñadores actuando ahora mismo',
-    accent: '#ef4444' // rojo fuerte
+    accent: '#ec4899' // rosa fuerte
   },
   {
     id: 'en-espera',
     label: 'En Espera',
     description: 'Pedidos pausados por aprobación o insumo',
-    accent: '#eab308' // amarillo
+    accent: '#ef4444' // rojo
   },
   {
     id: 'imprenta',
@@ -47,19 +47,23 @@ export const BOARD_COLUMNS: ColumnConfig[] = [
     id: 'metalurgica',
     label: 'Metalúrgica',
     description: 'Estructuras y soportes especiales',
-    accent: '#ec4899' // rosa
+    accent: '#06b6d4' // cyan
   },
   {
     id: 'finalizado-taller',
-    label: 'Finalizado en Taller',
-    description: 'Listo para entregar desde taller',
-    accent: '#14b8a6' // verde agua
+    label: 'Entregas taller de Imprenta',
+    description: 'Listo para entregar desde imprenta',
+    accent: '#F472B6',
+    headerFilled: true,
+    headerFg: '#0f172a'
   },
   {
     id: 'almacen-entrega',
-    label: 'Almacén de Entrega',
-    description: 'Pedidos embalados esperando retiro/entrega',
-    accent: '#a3e635' // lima
+    label: 'Entregas taller gráfico',
+    description: 'Pedidos listos para retiro / entrega',
+    accent: '#231F20',
+    headerFilled: true,
+    headerFg: '#ffffff'
   }
 ]
 
@@ -193,7 +197,7 @@ export const initialTasks: Task[] = [
     createdBy: 'pao',
     tags: ['backend', 'integraciones'],
     materials: ['Backlight 510gr', 'Fijaciones metálicas'],
-    assignedSector: 'Finalizado en Taller',
+    assignedSector: 'Entregas taller de Imprenta',
     photoUrl: pickPhoto(3),
     storyPoints: 13,
     progress: 100,
@@ -273,7 +277,7 @@ export const initialTasks: Task[] = [
     createdBy: 'nico',
     tags: ['analytics'],
     materials: ['Lona front 440', 'Refuerzos industriales'],
-    assignedSector: 'Almacén de Entrega',
+    assignedSector: 'Entregas taller gráfico',
     photoUrl: pickPhoto(0),
     storyPoints: 3,
     progress: 10,

@@ -2,18 +2,16 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import apiService from '../services/api'
 import type { OrdenTrabajo } from '../types/api'
+import { isOpEnAlmacenEntrega, isOpFinalizadoEnTaller } from '../utils/totemConsultaOpEstado'
 import './OrdenesListasPage.css'
 
-const ESTADO_ALMACEN = 'Almacén de Entrega'
-const ESTADO_ENTRADA_TALLER = 'Finalizado en Taller'
-
 function esOpEnAlmacen(orden: OrdenTrabajo): boolean {
-  return orden.estado === ESTADO_ALMACEN
+  return isOpEnAlmacenEntrega(orden.estado || '')
 }
 
-/** OP finalizada en taller pero aún no pasada a almacén (no se listan sin búsqueda). */
+/** OP en entregas imprenta (ex Finalizado en Taller) pero aún no pasada a taller gráfico. */
 function esOpEntradaTaller(orden: OrdenTrabajo): boolean {
-  return orden.estado === ESTADO_ENTRADA_TALLER
+  return isOpFinalizadoEnTaller(orden.estado || '')
 }
 
 function ordenElegibleLista(orden: OrdenTrabajo): boolean {
@@ -34,8 +32,8 @@ function matchesOrdenSearch(orden: OrdenTrabajo, term: string): boolean {
 }
 
 function estadoCorto(estado: string): string {
-  if (estado === ESTADO_ALMACEN) return 'En almacén'
-  if (estado === ESTADO_ENTRADA_TALLER) return 'En taller'
+  if (isOpEnAlmacenEntrega(estado)) return 'Taller gráfico'
+  if (isOpFinalizadoEnTaller(estado)) return 'Imprenta'
   return estado
 }
 

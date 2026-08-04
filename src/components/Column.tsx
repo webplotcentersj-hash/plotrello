@@ -163,9 +163,14 @@ const Column = ({
 
   return (
     <div
-      className={`board-column ${isActive ? 'column-active' : ''}`}
+      className={`board-column ${isActive ? 'column-active' : ''}${column.headerFilled ? ' board-column--header-filled' : ''}`}
       ref={containerRef}
-      style={{ '--column-accent': column.accent } as CSSProperties}
+      style={
+        {
+          '--column-accent': column.accent,
+          ...(column.headerFg ? { '--column-header-fg': column.headerFg } : {})
+        } as CSSProperties
+      }
     >
       <div className="column-load-indicator" style={{ height: `${loadPercentage}%` }} />
       <header>

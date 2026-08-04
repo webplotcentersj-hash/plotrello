@@ -166,5 +166,9 @@ export interface ColumnConfig {
   label: string
   description: string
   accent: string
+  /** Si true, el header de la columna se pinta con el accent (estilo franja tótem). */
+  headerFilled?: boolean
+  /** Color de texto/íconos cuando headerFilled. */
+  headerFg?: string
 }
 

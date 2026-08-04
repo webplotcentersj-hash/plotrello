@@ -102,7 +102,10 @@ export default function CajaSectionTablero({ canViewIngresos }: Props) {
         const pendientes = ordenesR.data.filter(
           (o) =>
             o.estado === 'Finalizado en Taller' ||
+            o.estado === 'Entregas taller de Imprenta' ||
             o.estado === 'Almacén de Entrega' ||
+            o.estado === 'Entregas taller gráfico' ||
+            o.estado === 'Entregas taller grafico' ||
             o.estado === 'Entregado o Instalado'
         )
         setOrdenesPendientesFacturacion(pendientes)

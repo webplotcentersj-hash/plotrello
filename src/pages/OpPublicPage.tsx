@@ -57,7 +57,10 @@ const OpPublicPage = () => {
       Instalaciones: 'Instalando tu trabajo',
       Metalúrgica: 'Fabricando estructuras',
       'Finalizado en Taller': 'Listo en taller',
+      'Entregas taller de Imprenta': 'Listo en taller',
       'Almacén de Entrega': 'Listo para retirar',
+      'Entregas taller gráfico': 'Listo para retirar',
+      'Entregas taller grafico': 'Listo para retirar',
       'Entregado o Instalado': 'Entregado'
     }
 
@@ -80,8 +83,11 @@ const OpPublicPage = () => {
       'Taller Gráfico': '#6366f1',
       Instalaciones: '#a855f7',
       Metalúrgica: '#ec4899',
-      'Finalizado en Taller': '#10b981',
-      'Almacén de Entrega': '#10b981',
+      'Finalizado en Taller': '#F472B6',
+      'Entregas taller de Imprenta': '#F472B6',
+      'Almacén de Entrega': '#231F20',
+      'Entregas taller gráfico': '#231F20',
+      'Entregas taller grafico': '#231F20',
       Mostrador: '#10b981',
       Caja: '#eab308',
       'Entregado o Instalado': '#16a34a'
@@ -107,7 +113,10 @@ const OpPublicPage = () => {
       Instalaciones: 'Estamos instalando o colocando tu trabajo en el lugar acordado.',
       Metalúrgica: 'Estamos fabricando las estructuras o soportes de tu trabajo.',
       'Finalizado en Taller': 'El trabajo en taller ya está terminado. Próximo paso: entrega o instalación.',
+      'Entregas taller de Imprenta': 'Tu pedido está en entregas de imprenta. Próximo paso: entrega o pasar a taller gráfico.',
       'Almacén de Entrega': '¡Tu pedido está listo! Podés pasar a retirarlo o coordinamos la entrega.',
+      'Entregas taller gráfico': '¡Tu pedido está listo en entregas de taller gráfico! Podés pasar a retirarlo o coordinamos la entrega.',
+      'Entregas taller grafico': '¡Tu pedido está listo en entregas de taller gráfico! Podés pasar a retirarlo o coordinamos la entrega.',
       Mostrador: 'Tu pedido está en mostrador. Podés acercarte a retirarlo.',
       Caja: 'Tu pedido está en caja. Podés pasar a retirarlo y abonar.',
       'Entregado o Instalado': 'Tu pedido fue entregado o instalado. ¡Gracias por confiar en nosotros!'

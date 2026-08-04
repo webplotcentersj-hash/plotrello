@@ -193,6 +193,30 @@
   gap: 12px;
 }
 
+.board-column--header-filled header {
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--column-accent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--column-accent) 35%, transparent);
+}
+
+.board-column--header-filled .column-eyebrow {
+  color: var(--column-header-fg, #0f172a);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.board-column--header-filled h3 {
+  color: color-mix(in srgb, var(--column-header-fg, #0f172a) 72%, transparent);
+}
+
+.board-column--header-filled .column-pill {
+  background: color-mix(in srgb, var(--column-header-fg, #0f172a) 16%, transparent) !important;
+  color: var(--column-header-fg, #0f172a);
+  border: 1px solid color-mix(in srgb, var(--column-header-fg, #0f172a) 28%, transparent);
+}
+
 .column-eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.1em;

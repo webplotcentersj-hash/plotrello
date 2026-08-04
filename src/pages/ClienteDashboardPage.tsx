@@ -162,8 +162,11 @@ export default function ClienteDashboardPage() {
       'Taller Gráfico': '#6366f1',
       'Instalaciones': '#a855f7',
       'Metalúrgica': '#ec4899',
-      'Finalizado en Taller': '#10b981',
-      'Almacén de Entrega': '#10b981',
+      'Finalizado en Taller': '#F472B6',
+      'Entregas taller de Imprenta': '#F472B6',
+      'Almacén de Entrega': '#231F20',
+      'Entregas taller gráfico': '#231F20',
+      'Entregas taller grafico': '#231F20',
       'Mostrador': '#10b981',
       'Caja': '#facc15',
       'Entregado o Instalado': '#16a34a'
@@ -187,8 +190,11 @@ export default function ClienteDashboardPage() {
         'Taller Gráfico': '#6366f1',
         'Instalaciones': '#a855f7',
         'Metalúrgica': '#ec4899',
-        'Finalizado en Taller': '#10b981',
-        'Almacén de Entrega': '#10b981',
+        'Finalizado en Taller': '#F472B6',
+        'Entregas taller de Imprenta': '#F472B6',
+        'Almacén de Entrega': '#231F20',
+        'Entregas taller gráfico': '#231F20',
+        'Entregas taller grafico': '#231F20',
         'Mostrador': '#10b981',
         'Caja': '#facc15',
         'Entregado o Instalado': '#16a34a'
@@ -216,7 +222,10 @@ export default function ClienteDashboardPage() {
         'Instalaciones': 'Instalando tu trabajo',
         'Metalúrgica': 'Fabricando estructuras',
         'Finalizado en Taller': 'Listo en taller',
+        'Entregas taller de Imprenta': 'Listo en taller',
         'Almacén de Entrega': 'Listo para retirar',
+        'Entregas taller gráfico': 'Listo para retirar',
+        'Entregas taller grafico': 'Listo para retirar',
         'Entregado o Instalado': 'Entregado'
       }
       return estadosMap[brief.estado] || brief.estado
