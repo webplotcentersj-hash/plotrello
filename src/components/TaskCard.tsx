@@ -26,6 +26,7 @@ import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
+import OpCobroPill from './OpCobroPill'
 import {
   DESTINOS_RECLAMO_UI,
   esEstadoTerminalReclamo,
@@ -588,13 +589,12 @@ const TaskCardInner = ({
               )}
               <span className="task-min-sep">·</span>
               <span className="task-min-client">{task.title}</span>
-              {task.marcadaPagada ? (
-                <span className="task-min-pagada-row">
-                  <span className="task-pagada-pill" title="OP pagada">
-                    PAGADA
-                  </span>
-                </span>
-              ) : null}
+              <OpCobroPill
+                marcadaPagada={task.marcadaPagada}
+                sinPago={task.sinPago}
+                montoPagoParcial={task.montoPagoParcial}
+                wrapClassName="task-min-pagada-row"
+              />
               {task.enReclamo && !hideReclamoUI && (
                 <span
                   className="task-min-reclamo-wrap"
@@ -951,11 +951,11 @@ const TaskCardInner = ({
                 {task.dueDate ? formatShortDate(task.dueDate) : formatShortDate(task.createdAt)}
                 {task.estimatedTime ? ` · ${task.estimatedTime}` : ''}
               </span>
-              {task.marcadaPagada && (
-                <span className="task-pagada-pill" title="OP pagada">
-                  PAGADA
-                </span>
-              )}
+              <OpCobroPill
+                marcadaPagada={task.marcadaPagada}
+                sinPago={task.sinPago}
+                montoPagoParcial={task.montoPagoParcial}
+              />
               {hasModifications && (
                 <span className="task-notification-bell" title="Hay modificaciones recientes">🔔</span>
               )}

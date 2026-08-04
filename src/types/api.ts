@@ -158,6 +158,10 @@ export interface OrdenTrabajo {
   hora_estimada?: string | null
   /** Marca manual: OP pagada */
   marcada_pagada?: boolean | null
+  /** Marca manual: OP sin pago */
+  sin_pago?: boolean | null
+  /** Monto de seña / pago parcial */
+  monto_pago_parcial?: number | null
 }
 
 /** Fila listada en historial de fichas (asesor-presupuestos) */

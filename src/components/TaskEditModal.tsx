@@ -21,6 +21,12 @@ import { matchesOperarioAsignado } from '../utils/operarioAsignadoUtils'
 import { getRecentTiposImpresionOp } from '../utils/opImpresionRecientes'
 import { pillColorFromString } from '../utils/pillColorFromString'
 import { normalizeHoraEstimada } from '../utils/horaEstimada'
+import OpCobroFooterChecks from './OpCobroFooterChecks'
+import {
+  cobroOpToTaskFields,
+  resolveCobroOpEstado,
+  type CobroOpEstado
+} from '../utils/opCobroEstado'
 import OpFichaGuiaModal from './OpFichaGuiaModal'
 import RevisionesSection from './RevisionesSection'
 import TiempoTrabajoSection from './TiempoTrabajoSection'
@@ -96,7 +102,8 @@ const TaskEditModal = ({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [complexity, setComplexity] = useState<string>('Baja')
   const [estimatedTime, setEstimatedTime] = useState<string>('00:00')
-  const [marcadaPagada, setMarcadaPagada] = useState(false)
+  const [cobroOp, setCobroOp] = useState<CobroOpEstado>('ninguno')
+  const [montoPagoParcialInput, setMontoPagoParcialInput] = useState('')
   const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false)
   const [isMaterialDropdownOpen, setIsMaterialDropdownOpen] = useState(false)
   // Campo "Tipo de impresión (OP)" removido de la UI (se conserva el dato en BD si existe)
@@ -209,7 +216,12 @@ const TaskEditModal = ({
       setPresupuestoEnviado(task.presupuestoEnviadoCliente ?? false)
       setPresupuestoArmado(task.presupuestoArmado ?? false)
       setPresupuestoEnEspera(task.presupuestoEnEspera ?? false)
-      setMarcadaPagada(task.marcadaPagada === true)
+      setCobroOp(resolveCobroOpEstado(task))
+      setMontoPagoParcialInput(
+        task.montoPagoParcial != null && Number(task.montoPagoParcial) > 0
+          ? String(Math.round(Number(task.montoPagoParcial)))
+          : ''
+      )
       setPlanillaPreliminar(task.planillaPreliminar ?? false)
       setLineasMetrosM2(
         showImpresionOpFields
@@ -588,7 +600,7 @@ const TaskEditModal = ({
       materials: materials.map((m) => m.name),
       assignedSector: nuevoSector,
       estimatedTime: normalizeHoraEstimada(estimatedTime),
-      marcadaPagada,
+      ...cobroOpToTaskFields(cobroOp, montoPagoParcialInput),
       sectores: sectoresGuardados,
       updatedAt: new Date().toISOString(),
       briefPublico: briefPublico.trim() || undefined,
@@ -2784,15 +2796,13 @@ const TaskEditModal = ({
         </div>
 
         <footer className="modal-footer modal-footer--create">
-          <label className="create-pagado-check">
-            <input
-              type="checkbox"
-              checked={marcadaPagada}
-              onChange={(e) => setMarcadaPagada(e.target.checked)}
-              disabled={opLocked}
-            />
-            <span>Pagado</span>
-          </label>
+          <OpCobroFooterChecks
+            estado={cobroOp}
+            montoParcial={montoPagoParcialInput}
+            disabled={opLocked}
+            onEstadoChange={setCobroOp}
+            onMontoChange={setMontoPagoParcialInput}
+          />
           {onDelete && (
             <button
               type="button"

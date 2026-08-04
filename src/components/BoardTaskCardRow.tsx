@@ -6,6 +6,7 @@ import type { SectorRecord } from '../types/api'
 import { activityEventsEqual, draggableInlineStylesEqual } from './boardRbdMemo'
 /* Estilos de ficha: el shell liviano los necesita aunque TaskCard aún no se haya cargado (lazy). */
 import './TaskCard.css'
+import OpCobroPill from './OpCobroPill'
 
 const TaskCard = lazy(() => import('./TaskCard'))
 
@@ -115,13 +116,12 @@ function BoardTaskCardLiteShell({
         <span className="task-min-op">#{task.opNumber}</span>
         <span className="task-min-sep">·</span>
         <span className="task-min-client">{task.title}</span>
-        {task.marcadaPagada ? (
-          <span className="task-min-pagada-row">
-            <span className="task-pagada-pill" title="OP pagada">
-              PAGADA
-            </span>
-          </span>
-        ) : null}
+        <OpCobroPill
+          marcadaPagada={task.marcadaPagada}
+          sinPago={task.sinPago}
+          montoPagoParcial={task.montoPagoParcial}
+          wrapClassName="task-min-pagada-row"
+        />
       </div>
     </article>
   )
@@ -269,6 +269,8 @@ function boardTaskCardRowPropsAreEqual(
       'presupuestoArmado',
       'presupuestoEnEspera',
       'marcadaPagada',
+      'sinPago',
+      'montoPagoParcial',
       'estimatedTime'
     ] as const
     for (const k of keys) {

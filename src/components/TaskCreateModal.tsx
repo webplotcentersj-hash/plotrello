@@ -12,6 +12,11 @@ import { attachmentListHasReadySitePhoto, opSectoresRequierenFotosLugar } from '
 import { getRecentTiposImpresionOp } from '../utils/opImpresionRecientes'
 import { pillColorFromString } from '../utils/pillColorFromString'
 import { normalizeHoraEstimada } from '../utils/horaEstimada'
+import OpCobroFooterChecks from './OpCobroFooterChecks'
+import {
+  cobroOpToTaskFields,
+  type CobroOpEstado
+} from '../utils/opCobroEstado'
 import './TaskEditModal.css'
 
 type TaskCreateModalProps = {
@@ -80,7 +85,8 @@ const TaskCreateModal = ({
   const [driveUrl, setDriveUrl] = useState('')
   const [fechaEntrega, setFechaEntrega] = useState('')
   const [horaEstimada, setHoraEstimada] = useState('')
-  const [marcadaPagada, setMarcadaPagada] = useState(false)
+  const [cobroOp, setCobroOp] = useState<CobroOpEstado>('ninguno')
+  const [montoPagoParcialInput, setMontoPagoParcialInput] = useState('')
   const [selectedSectores, setSelectedSectores] = useState<string[]>([])
   const [sectorSearch, setSectorSearch] = useState('')
   const [operario, setOperario] = useState<string>('')
@@ -570,7 +576,7 @@ const TaskCreateModal = ({
       createdAt: new Date().toISOString(),
       dueDate,
       estimatedTime: horaNorm,
-      marcadaPagada,
+      ...cobroOpToTaskFields(cobroOp, montoPagoParcialInput),
       updatedAt: new Date().toISOString(),
       impact: 'media',
       clientPhone: telefonoCliente.trim() || undefined,
@@ -2242,14 +2248,12 @@ const TaskCreateModal = ({
         </div>
 
         <footer className="modal-footer modal-footer--create">
-          <label className="create-pagado-check">
-            <input
-              type="checkbox"
-              checked={marcadaPagada}
-              onChange={(e) => setMarcadaPagada(e.target.checked)}
-            />
-            <span>Pagado</span>
-          </label>
+          <OpCobroFooterChecks
+            estado={cobroOp}
+            montoParcial={montoPagoParcialInput}
+            onEstadoChange={setCobroOp}
+            onMontoChange={setMontoPagoParcialInput}
+          />
           <button type="button" className="btn-cancel" onClick={onClose}>
             Cancelar
           </button>

@@ -58,6 +58,10 @@ export interface Task {
   estimatedTime?: string | null
   /** OP marcada como pagada (alta / edición) */
   marcadaPagada?: boolean
+  /** OP marcada sin pago */
+  sinPago?: boolean
+  /** Monto de seña / pago parcial (si aplica) */
+  montoPagoParcial?: number | null
   updatedAt: string
   impact: 'alta' | 'media' | 'low'
   clientPhone?: string

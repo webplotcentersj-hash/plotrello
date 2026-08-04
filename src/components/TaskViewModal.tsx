@@ -18,6 +18,7 @@ import { BOARD_COLUMNS } from '../data/mockData'
 import { useTagColors } from '../hooks/useTagColors'
 import { fetchPlotAIRecommendationsForTask } from '../utils/taskPlotAIRecommendations'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
+import OpCobroPill from './OpCobroPill'
 import OpGaleriaCarousel from './OpGaleriaCarousel'
 import Subtasks from './Subtasks'
 import HistorialEtapasTallerGrafico from './HistorialEtapasTallerGrafico'
@@ -561,11 +562,12 @@ export default function TaskViewModal({
                     {viewTask.assignedSector}
                   </span>
                 )}
-                {viewTask.marcadaPagada && (
-                  <span className="task-view-chip task-view-chip--pagado" title="Marcada como pagada al crear/editar la OP">
-                    Pagado
-                  </span>
-                )}
+                <OpCobroPill
+                  marcadaPagada={viewTask.marcadaPagada}
+                  sinPago={viewTask.sinPago}
+                  montoPagoParcial={viewTask.montoPagoParcial}
+                  className="task-view-chip task-view-chip--pagado"
+                />
                 {viewTask.entregado && <span className="task-view-chip task-view-chip--ok">Entregado</span>}
                 {viewTask.esDuplicado && <span className="task-view-chip">Duplicado</span>}
                 {viewTask.esSubTarea && <span className="task-view-chip">Subtarea</span>}

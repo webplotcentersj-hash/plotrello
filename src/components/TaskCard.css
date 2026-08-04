@@ -697,6 +697,20 @@ body.compact-mode .task-toolbar {
   vertical-align: middle;
 }
 
+.task-pagada-pill--parcial {
+  color: #451a03;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  border-color: rgba(180, 83, 9, 0.55);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.25);
+}
+
+.task-pagada-pill--sin {
+  color: #e2e8f0;
+  background: linear-gradient(135deg, #64748b, #475569);
+  border-color: rgba(148, 163, 184, 0.55);
+  box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.25);
+}
+
 .task-min-pagada-row {
   flex: 0 0 100%;
   display: flex;
