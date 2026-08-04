@@ -274,6 +274,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     sectores: orden.sectores && orden.sectores.length > 0 ? orden.sectores : (orden.sector ? [orden.sector] : []),
     sectorInicial: orden.sector_inicial ?? orden.sector ?? undefined,
     finalLocation: orden.ubicacion_final ?? undefined,
+    panolSlot: orden.panol_slot?.trim() || null,
     esSubTarea: false, // Las órdenes principales no son sub-tareas
     esDuplicado: orden.es_duplicado ?? false,
     idOrdenOriginal: orden.id_orden_original ?? undefined,
@@ -487,6 +488,9 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     ...(task.enReclamo !== undefined ? { en_reclamo: task.enReclamo } : {}),
     ...(task.reclamoMotivo !== undefined
       ? { reclamo_motivo: task.reclamoMotivo?.trim() || null }
+      : {}),
+    ...(task.panolSlot !== undefined
+      ? { panol_slot: task.panolSlot?.trim() || null }
       : {})
   }
 

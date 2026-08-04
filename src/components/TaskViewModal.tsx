@@ -729,6 +729,7 @@ export default function TaskViewModal({
                 <Kv label="Sectores requeridos">{viewTask.sectores?.length ? viewTask.sectores.join(' · ') : null}</Kv>
                 <Kv label="Sector inicial">{viewTask.sectorInicial}</Kv>
                 <Kv label="Ubicación en taller (final)">{viewTask.finalLocation}</Kv>
+                <Kv label="Pañol (casillero)">{viewTask.panolSlot}</Kv>
               </dl>
             </section>
 

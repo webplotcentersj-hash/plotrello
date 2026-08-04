@@ -249,6 +249,7 @@ function boardTaskCardRowPropsAreEqual(
       'entregado',
       'assignedSector',
       'uiMovedAt',
+      'panolSlot',
       'summary',
       'photoUrl',
       'opBloqueada',

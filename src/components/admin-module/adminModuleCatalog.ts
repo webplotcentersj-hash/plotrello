@@ -452,6 +452,16 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     accent: '#22d3ee'
   },
   {
+    id: 'taller-imprenta-panol',
+    title: 'Pañol Taller Imprenta',
+    description: 'Casilleros A–Z de entregas del taller de imprenta',
+    icon: '🧰',
+    path: '/taller-imprenta/panol',
+    category: 'logistica',
+    roles: ['imprenta', 'administracion', 'gerencia'],
+    accent: '#F472B6'
+  },
+  {
     id: 'metalurgica',
     title: 'Metalúrgica',
     description: 'Inventario y producción metalúrgica',

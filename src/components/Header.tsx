@@ -81,6 +81,7 @@ const Header = ({
     canAccessAtencionPublico,
     canAccessMostradorViews,
     isTallerGrafico,
+    isTallerImprenta,
     isMetalurgica,
     canAccessTotemImpresionPanel,
     canManageWorkPool
@@ -410,6 +411,11 @@ const Header = ({
                 className="brand-button"
               >
                 🧩 Kanban Taller Gráfico
+              </a>
+            )}
+            {(isTallerImprenta || isAdmin) && (
+              <a href="/taller-imprenta/panol" className="brand-button">
+                🧰 Pañol Taller Imprenta
               </a>
             )}
             {onNavigateToFlota && (

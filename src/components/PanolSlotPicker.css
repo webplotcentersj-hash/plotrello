@@ -1,0 +1,119 @@
+.panol-slot-picker {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.panol-slot-picker--compact {
+  padding: 0.4rem 0.5rem;
+  gap: 0.35rem;
+}
+
+.panol-slot-picker__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.panol-slot-picker__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.panol-slot-picker__current {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+
+.panol-slot-picker__current.is-empty {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.panol-slot-picker__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: end;
+}
+
+.panol-slot-picker__field {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 5.5rem;
+}
+
+.panol-slot-picker__field span {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.panol-slot-picker__field select {
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #0f172a;
+  color: #f1f5f9;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.85rem;
+}
+
+.panol-slot-picker__clear {
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecaca;
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.panol-slot-picker__clear:disabled,
+.panol-slot-picker__field select:disabled,
+.panol-slot-picker__chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panol-slot-picker__quick {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.panol-slot-picker__chip {
+  flex: 1;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.9);
+  color: #e2e8f0;
+  font-weight: 800;
+  padding: 0.35rem;
+  cursor: pointer;
+}
+
+.panol-slot-picker__chip.is-active {
+  border-color: #f472b6;
+  background: rgba(244, 114, 182, 0.25);
+  color: #fce7f3;
+}
+
+.panol-slot-picker__chip.is-taken:not(.is-active) {
+  border-style: dashed;
+  color: #fbbf24;
+}
+
+.panol-slot-picker__hint {
+  margin: 0;
+  font-size: 0.65rem;
+  color: #64748b;
+}

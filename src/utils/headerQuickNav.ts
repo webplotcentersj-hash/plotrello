@@ -206,6 +206,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         href: '/impresoras',
         title: 'Ocupación de impresoras'
       })
+      push({
+        id: 'panol-taller-imprenta',
+        label: 'Pañol',
+        icon: '🧰',
+        href: '/taller-imprenta/panol',
+        title: 'Pañol entregas Taller de Imprenta'
+      })
       break
     case 'instalaciones':
       push({
@@ -258,6 +265,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         href: '/admin',
         title: 'Panel de módulos (administración)'
       })
+      push({
+        id: 'panol-taller-imprenta-admin',
+        label: 'Pañol',
+        icon: '🧰',
+        href: '/taller-imprenta/panol',
+        title: 'Pañol entregas Taller de Imprenta'
+      })
       if (ctx.canManageWorkPool) {
         push({
           id: 'plot-design-admin',
@@ -300,6 +314,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         icon: '🧭',
         href: '/admin',
         title: 'Panel de módulos (gerencia)'
+      })
+      push({
+        id: 'panol-taller-imprenta-gerencia',
+        label: 'Pañol',
+        icon: '🧰',
+        href: '/taller-imprenta/panol',
+        title: 'Pañol entregas Taller de Imprenta'
       })
       if (ctx.isAdmin && ctx.onNavigateToStats) {
         push({

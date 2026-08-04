@@ -152,6 +152,8 @@ export interface OrdenTrabajo {
   galeria_carrusel?: OpGaleriaSlide[] | null
   /** Último cambio de columna/estado en tablero (marca NEW compartida) */
   fecha_ultimo_movimiento?: string | null
+  /** Casillero pañol Taller de Imprenta (A1–Z3) */
+  panol_slot?: string | null
 }
 
 /** Fila listada en historial de fichas (asesor-presupuestos) */

@@ -121,6 +121,7 @@ const ErpGastosPage = lazy(() => import('../pages/ErpGastosPage'))
 const TallerGraficoInventarioPage = lazy(() => import('../pages/TallerGraficoInventarioPage'))
 const MetalurgicaInventarioPage = lazy(() => import('../pages/MetalurgicaInventarioPage'))
 const TallerGraficoDashboardPage = lazy(() => import('../pages/TallerGraficoDashboardPage'))
+const TallerImprentaPanolDashboardPage = lazy(() => import('../pages/TallerImprentaPanolDashboardPage'))
 const SectorEtapaKanbanPage = lazy(() => import('../pages/SectorEtapaKanbanPage'))
 const InstalacionesMetalurgicaCampoPage = lazy(() => import('../pages/InstalacionesMetalurgicaCampoPage'))
 const PlotDesignPage = lazy(() => import('../pages/PlotDesignPage'))
@@ -990,6 +991,16 @@ function AppRoutes({
             sectores={sectores}
           />
         }
+      />
+      <Route
+        path="/taller-imprenta/panol"
+        element={
+          <TallerImprentaPanolDashboardPage tasks={tasks} setTasks={setTasks} />
+        }
+      />
+      <Route
+        path="/taller-imprenta/dashboard"
+        element={<Navigate to="/taller-imprenta/panol" replace />}
       />
       <Route
         path="/herramienta"

@@ -18,6 +18,7 @@ import HistorialEtapasTallerGrafico from './HistorialEtapasTallerGrafico'
 import EtapaInstalacionesSelector from './EtapaInstalacionesSelector'
 import HistorialEtapasInstalaciones from './HistorialEtapasInstalaciones'
 import EtapaTallerImprentaSelector from './EtapaTallerImprentaSelector'
+import PanolSlotPicker from './PanolSlotPicker'
 import HistorialEtapasTallerImprenta from './HistorialEtapasTallerImprenta'
 import EtapaImpresionDigitalSelector from './EtapaImpresionDigitalSelector'
 import EtapaMetalurgicaSelector from './EtapaMetalurgicaSelector'
@@ -931,6 +932,12 @@ const TaskCardInner = ({
                 <span className="location-text">Ubicación: {task.finalLocation}</span>
               </div>
             )}
+            {(task.status === 'taller-imprenta' || task.status === 'finalizado-taller') && task.panolSlot && (
+              <div className="task-location-pill task-panol-pill">
+                <span className="location-dot">🧰</span>
+                <span className="location-text">Pañol: {task.panolSlot}</span>
+              </div>
+            )}
             <div className="task-op-line">
               <span className="task-op">#{task.opNumber}</span>
               <span className="task-date">
@@ -1373,6 +1380,33 @@ const TaskCardInner = ({
                   </button>
                 )}
 
+                {!isReadOnly && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <PanolSlotPicker
+                      compact
+                      value={task.panolSlot}
+                      label="Depósito pañol"
+                      onChange={async (slot) => {
+                        const res = await (await getApiService()).updateOrden(ordenId, {
+                          panol_slot: slot
+                        })
+                        if (!res.success) {
+                          alert(res.error || 'No se pudo guardar el casillero')
+                          return
+                        }
+                        window.dispatchEvent(
+                          new CustomEvent('update-task-panol', {
+                            detail: { ordenId, panolSlot: slot }
+                          })
+                        )
+                      }}
+                    />
+                  </div>
+                )}
+
                 {/* Botón para ver historial */}
                 <button
                   type="button"
@@ -1387,6 +1421,37 @@ const TaskCardInner = ({
                 </button>
               </div>
             )}
+
+            {task.status === 'finalizado-taller' &&
+              hasOrdenId &&
+              (isAdmin || canManageTallerImprenta) &&
+              !isReadOnly && (
+                <div
+                  className="task-taller-imprenta-section"
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <PanolSlotPicker
+                    compact
+                    value={task.panolSlot}
+                    label="Depósito pañol"
+                    onChange={async (slot) => {
+                      const res = await (await getApiService()).updateOrden(ordenId, {
+                        panol_slot: slot
+                      })
+                      if (!res.success) {
+                        alert(res.error || 'No se pudo guardar el casillero')
+                        return
+                      }
+                      window.dispatchEvent(
+                        new CustomEvent('update-task-panol', {
+                          detail: { ordenId, panolSlot: slot }
+                        })
+                      )
+                    }}
+                  />
+                </div>
+              )}
 
             {/* Sección específica de Metalúrgica - Visible para metalurgica y admin */}
             {isMetalurgica && hasOrdenId && (isAdmin || canManageMetalurgica) && (

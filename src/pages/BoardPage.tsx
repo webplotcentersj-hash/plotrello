@@ -797,6 +797,27 @@ const BoardPage = ({
     return () => window.removeEventListener('update-task-etapa', handleUpdateTaskEtapa)
   }, [])
 
+  useEffect(() => {
+    const handleUpdateTaskPanol = (event: Event) => {
+      const customEvent = event as CustomEvent<{ ordenId: number; panolSlot: string | null }>
+      const { ordenId, panolSlot } = customEvent.detail
+      setTasks((prev) =>
+        prev.map((task) => {
+          const taskOrdenId = parseTaskIdToOrdenId(task.id)
+          if (taskOrdenId !== ordenId) return task
+          window.dispatchEvent(
+            new CustomEvent('user-edited-task', {
+              detail: { taskId: ordenId.toString(), status: task.status, timestamp: Date.now() }
+            })
+          )
+          return { ...task, panolSlot }
+        })
+      )
+    }
+    window.addEventListener('update-task-panol', handleUpdateTaskPanol)
+    return () => window.removeEventListener('update-task-panol', handleUpdateTaskPanol)
+  }, [])
+
   const handleEditTask = useCallback((task: Task) => {
     const editingUserName = resolveCurrentUserName()
     void persistWorkingUser(task.id, editingUserName)

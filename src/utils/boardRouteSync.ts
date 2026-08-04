@@ -11,5 +11,7 @@ export function routeNeedsBoardSync(pathname: string): boolean {
   if (pathname === '/admin') return true
   if (pathname.startsWith('/chat')) return true
   if (pathname.startsWith('/taller-grafico/dashboard')) return true
+  if (pathname.startsWith('/taller-imprenta/panol')) return true
+  if (pathname.startsWith('/taller-imprenta/dashboard')) return true
   return false
 }
