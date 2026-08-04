@@ -7,6 +7,8 @@ type Props = {
   montoPagoParcial?: number | null
   className?: string
   wrapClassName?: string
+  /** Si true, muestra SIN PAGO cuando no hay pagado ni parcial */
+  showWhenUnpaid?: boolean
 }
 
 /** Pastilla de cobro para fichas (pagada / parcial / sin pago). */
@@ -15,7 +17,8 @@ export default function OpCobroPill({
   sinPago,
   montoPagoParcial,
   className = 'task-pagada-pill',
-  wrapClassName
+  wrapClassName,
+  showWhenUnpaid = false
 }: Props) {
   let pill: ReactNode = null
   if (marcadaPagada) {
@@ -30,7 +33,7 @@ export default function OpCobroPill({
         PARCIAL - {formatMontoPagoParcial(Number(montoPagoParcial))}
       </span>
     )
-  } else if (sinPago) {
+  } else if (sinPago || showWhenUnpaid) {
     pill = (
       <span className={`${className} task-pagada-pill--sin`} title="Sin pago">
         SIN PAGO

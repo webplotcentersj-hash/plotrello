@@ -729,6 +729,7 @@ body.compact-mode .task-toolbar {
   padding: 2px 7px;
   line-height: 1.15;
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 .task-delivered-checkbox {

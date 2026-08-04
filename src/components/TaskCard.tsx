@@ -587,14 +587,13 @@ const TaskCardInner = ({
                   Entregada
                 </span>
               )}
-              <span className="task-min-sep">·</span>
-              <span className="task-min-client">{task.title}</span>
               <OpCobroPill
                 marcadaPagada={task.marcadaPagada}
                 sinPago={task.sinPago}
                 montoPagoParcial={task.montoPagoParcial}
-                wrapClassName="task-min-pagada-row"
               />
+              <span className="task-min-sep">·</span>
+              <span className="task-min-client">{task.title}</span>
               {task.enReclamo && !hideReclamoUI && (
                 <span
                   className="task-min-reclamo-wrap"

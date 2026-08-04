@@ -1460,10 +1460,33 @@ class ApiService {
               }
               
               if (fullOrden) {
+                let ordenCreada = fullOrden as OrdenTrabajo
+                const postCreatePatch: Partial<OrdenTrabajo> = {}
+                if (orden.marcada_pagada != null) postCreatePatch.marcada_pagada = orden.marcada_pagada === true
+                if (orden.sin_pago != null) postCreatePatch.sin_pago = orden.sin_pago === true
+                if ('monto_pago_parcial' in orden) {
+                  postCreatePatch.monto_pago_parcial =
+                    orden.monto_pago_parcial != null && Number(orden.monto_pago_parcial) > 0
+                      ? Number(orden.monto_pago_parcial)
+                      : null
+                }
+                if ('hora_estimada' in orden) {
+                  postCreatePatch.hora_estimada = orden.hora_estimada?.trim() || null
+                }
+                if (Object.keys(postCreatePatch).length > 0) {
+                  const { data: patched, error: patchErr } = await supabaseClient
+                    .from('ordenes_trabajo')
+                    .update(postCreatePatch)
+                    .eq('id', ordenId)
+                    .select('*')
+                    .single()
+                  if (!patchErr && patched) ordenCreada = patched as OrdenTrabajo
+                  else if (patchErr) console.warn('Patch cobro/hora post-create RPC:', patchErr.message)
+                }
                 // Descontar stock si hay materiales asociados
-                await this.descontarStockDeOrden(fullOrden.id, fullOrden.numero_op || '')
-                console.log('✅ Orden completa obtenida:', fullOrden)
-                return createdNotifyBoard(fullOrden as OrdenTrabajo)
+                await this.descontarStockDeOrden(ordenCreada.id, ordenCreada.numero_op || '')
+                console.log('✅ Orden completa obtenida:', ordenCreada)
+                return createdNotifyBoard(ordenCreada)
               }
               
               return { success: false, error: 'No se pudo obtener la orden creada' }
@@ -1773,7 +1796,7 @@ class ApiService {
               return { success: false, error: fetchError.message }
             }
             
-            if (fullOrden) {
+              if (fullOrden) {
               // `update_orden_with_contact` hace foto_url = COALESCE(p_foto_url, foto_url): un NULL en p_foto_url
               // no borra la portada. Si el valor pedido no coincide con la fila, corregimos con UPDATE directo.
               let ordenDatos = fullOrden as OrdenTrabajo
@@ -1790,6 +1813,36 @@ class ApiService {
                     .single()
                   if (!errFoto && patchedFoto) ordenDatos = patchedFoto as OrdenTrabajo
                   else if (errFoto) console.warn('Corrección foto_url después de RPC:', errFoto.message)
+                }
+              }
+
+              // El RPC solo toca contacto/foto: aplicar el resto del payload (cobro, hora, cliente, etc.).
+              const restAfterContact: Partial<OrdenTrabajo> = { ...orden }
+              delete restAfterContact.telefono_cliente
+              delete restAfterContact.email_cliente
+              delete restAfterContact.direccion_cliente
+              delete restAfterContact.whatsapp_link
+              delete restAfterContact.ubicacion_link
+              delete restAfterContact.drive_link
+              delete restAfterContact.foto_url
+              const restKeys = Object.keys(restAfterContact).filter(
+                (k) => (restAfterContact as Record<string, unknown>)[k] !== undefined
+              )
+              if (restKeys.length > 0) {
+                const restPayload: Partial<OrdenTrabajo> = {}
+                for (const k of restKeys) {
+                  ;(restPayload as Record<string, unknown>)[k] = (restAfterContact as Record<string, unknown>)[k]
+                }
+                const { data: restRow, error: restErr } = await supabaseClient
+                  .from('ordenes_trabajo')
+                  .update(restPayload)
+                  .eq('id', id)
+                  .select('*')
+                  .single()
+                if (!restErr && restRow) {
+                  ordenDatos = restRow as OrdenTrabajo
+                } else if (restErr) {
+                  console.warn('Update post-contacto (cobro/resto):', restErr.message)
                 }
               }
 
