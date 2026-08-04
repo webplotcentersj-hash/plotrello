@@ -72,7 +72,7 @@
       ]
     },
     {
-      "source": "/((?!embed/|tablet-reloj|totem).*)",
+      "source": "/((?!embed/|tablet-reloj|totem|escanear-op).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -145,6 +145,15 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=*, microphone=(self), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/escanear-op",
+      "headers": [
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=*, microphone=(), geolocation=()"
         }
       ]
     }

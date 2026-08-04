@@ -37,6 +37,7 @@ const TotemPantallaPage = lazy(() => import('./pages/TotemPantallaPage'))
 const ClienteConsultaPage = lazy(() => import('./pages/ClienteConsultaPage'))
 const DashboardPantallasPage = lazy(() => import('./pages/DashboardPantallasPage'))
 const OpPublicPage = lazy(() => import('./pages/OpPublicPage'))
+const OpQrScannerPage = lazy(() => import('./pages/OpQrScannerPage'))
 const FirmaClientePage = lazy(() => import('./pages/FirmaClientePage'))
 const BriefPublicoPage = lazy(() => import('./pages/BriefPublicoPage'))
 const ReclamosPublicoPage = lazy(() => import('./pages/ReclamosPublicoPage'))
@@ -377,6 +378,14 @@ function AppInner() {
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center' }}>Cargando...</div>}>
                 <OpPublicPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/escanear-op"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff', background: '#0f172a', minHeight: '100vh' }}>Cargando escáner…</div>}>
+                <OpQrScannerPage />
               </Suspense>
             }
           />
