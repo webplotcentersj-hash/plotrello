@@ -59,6 +59,14 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
     generateQRCode()
   }, [opNumber, publicUrl])
 
+  useEffect(() => {
+    return () => {
+      document.documentElement.classList.remove('qr-printing-ticket')
+      document.getElementById('qr-ticket-print-root')?.remove()
+      document.getElementById('qr-ticket-page-style')?.remove()
+    }
+  }, [])
+
   const handleSavePDF = async () => {
     if (!printRef.current || !qrDataUrl) return
 
@@ -124,23 +132,40 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
   }
 
   const handlePrintTicket = () => {
-    if (!qrDataUrl) return
-    const root = document.documentElement
-    const styleId = 'qr-ticket-page-style'
-    document.getElementById(styleId)?.remove()
+    if (!ticketRef.current || !qrDataUrl) return
+
+    document.getElementById('qr-ticket-print-root')?.remove()
+    document.getElementById('qr-ticket-page-style')?.remove()
+
+    const root = document.createElement('div')
+    root.id = 'qr-ticket-print-root'
+    root.setAttribute('aria-hidden', 'true')
+    const clone = ticketRef.current.cloneNode(true) as HTMLElement
+    clone.classList.add('qr-print-preview-ticket--print')
+    root.appendChild(clone)
+    document.body.appendChild(root)
+
     const style = document.createElement('style')
-    style.id = styleId
+    style.id = 'qr-ticket-page-style'
     style.textContent = '@media print { @page { size: 80mm auto; margin: 2mm; } }'
     document.head.appendChild(style)
-    root.classList.add('qr-printing-ticket')
+
+    document.documentElement.classList.add('qr-printing-ticket')
+
     const cleanup = () => {
-      root.classList.remove('qr-printing-ticket')
-      document.getElementById(styleId)?.remove()
+      document.documentElement.classList.remove('qr-printing-ticket')
+      document.getElementById('qr-ticket-print-root')?.remove()
+      document.getElementById('qr-ticket-page-style')?.remove()
       window.removeEventListener('afterprint', cleanup)
     }
     window.addEventListener('afterprint', cleanup)
-    window.setTimeout(cleanup, 2500)
-    window.print()
+    // Fallback largo: no sacar el nodo mientras el diálogo de impresión sigue abierto
+    window.setTimeout(cleanup, 120_000)
+
+    // Dejar que el DOM pinte el nodo de print antes del diálogo
+    window.requestAnimationFrame(() => {
+      window.print()
+    })
   }
 
   return (

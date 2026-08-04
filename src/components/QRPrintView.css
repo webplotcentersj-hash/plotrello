@@ -354,8 +354,8 @@
   cursor: not-allowed;
 }
 
-/* Vista de impresión */
-.qr-print-view {
+/* Nodo de impresión ticket: solo visible al imprimir (se monta en body) */
+#qr-ticket-print-root {
   display: none;
 }
 
@@ -365,18 +365,100 @@
     size: A4;
   }
 
-  /* Modo ticket térmico (~80 mm de ancho) — @page se inyecta al imprimir */
-  html.qr-printing-ticket {
+  /* —— Modo ticket: solo el nodo en body —— */
+  html.qr-printing-ticket,
+  html.qr-printing-ticket body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
     width: 80mm !important;
+    height: auto !important;
   }
 
-  /* Ocultar todo excepto el contenido de impresión */
-  body > *:not(.qr-print-modal-overlay) {
+  html.qr-printing-ticket body > *:not(#qr-ticket-print-root) {
     display: none !important;
   }
 
-  /* Hacer el overlay visible y blanco */
-  .qr-print-modal-overlay {
+  html.qr-printing-ticket #qr-ticket-print-root {
+    display: block !important;
+    position: static !important;
+    width: 76mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: white !important;
+    color: #000 !important;
+  }
+
+  html.qr-printing-ticket #qr-ticket-print-root .qr-print-preview-ticket {
+    display: block !important;
+    width: 76mm !important;
+    max-width: 76mm !important;
+    margin: 0 !important;
+    padding: 2mm 1mm 4mm !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: #000 !important;
+    page-break-inside: avoid !important;
+  }
+
+  html.qr-printing-ticket #qr-ticket-print-root .qr-ticket-logo {
+    width: 28mm !important;
+    max-height: 14mm !important;
+    filter: none !important;
+  }
+
+  html.qr-printing-ticket #qr-ticket-print-root .qr-ticket-brand {
+    font-size: 9pt !important;
+    color: #000 !important;
+  }
+
+  html.qr-printing-ticket #qr-ticket-print-root .qr-ticket-op {
+    font-size: 16pt !important;
+    color: #000 !important;
+  }
+
+  html.qr-printing-ticket #qr-ticket-print-root .qr-ticket-cliente {
+    font-size: 11pt !important;
+    color: #000 !important;
+  }
+
+  html.qr-printing-ticket #qr-ticket-print-root .qr-ticket-hint {
+    font-size: 8pt !important;
+    color: #000 !important;
+  }
+
+  html.qr-printing-ticket #qr-ticket-print-root .qr-ticket-qr {
+    width: 42mm !important;
+    height: 42mm !important;
+  }
+
+  html.qr-printing-ticket #qr-ticket-print-root .qr-ticket-url {
+    font-size: 6.5pt !important;
+    color: #000 !important;
+  }
+
+  html.qr-printing-ticket #qr-ticket-print-root .qr-ticket-footer {
+    font-size: 7pt !important;
+    color: #000 !important;
+  }
+
+  html.qr-printing-ticket #qr-ticket-print-root .qr-ticket-sep {
+    border-top-color: #000 !important;
+  }
+
+  html.qr-printing-ticket img {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* —— Impresión A4 del modal (si se usa window.print sin modo ticket) —— */
+  html:not(.qr-printing-ticket) body > *:not(.qr-print-modal-overlay) {
+    display: none !important;
+  }
+
+  html:not(.qr-printing-ticket) .qr-print-modal-overlay {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -391,23 +473,17 @@
     margin: 0 !important;
   }
 
-  /* Ocultar elementos del modal que no queremos imprimir */
-  .qr-print-modal-header,
-  .qr-print-actions,
-  .modal-close,
-  .qr-print-preview-lead,
-  .qr-print-ticket-label,
-  .qr-print-modal-body > p:first-child {
+  html:not(.qr-printing-ticket) .qr-print-modal-header,
+  html:not(.qr-printing-ticket) .qr-print-actions,
+  html:not(.qr-printing-ticket) .modal-close,
+  html:not(.qr-printing-ticket) .qr-print-preview-lead,
+  html:not(.qr-printing-ticket) .qr-print-ticket-label {
     display: none !important;
   }
 
-  /* Hacer el modal content fullscreen y visible */
-  .qr-print-modal-content {
+  html:not(.qr-printing-ticket) .qr-print-modal-content {
     position: relative !important;
-    top: auto !important;
-    left: auto !important;
     width: 100% !important;
-    height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
     border-radius: 0 !important;
@@ -417,185 +493,52 @@
     display: block !important;
   }
 
-  .qr-print-modal-body {
+  html:not(.qr-printing-ticket) .qr-print-modal-body {
     padding: 20mm !important;
-    height: auto !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: flex-start !important;
     align-items: center !important;
     overflow: visible !important;
     max-height: none !important;
   }
 
-  html.qr-printing-ticket .qr-print-modal-body {
-    padding: 0 !important;
-    width: 76mm !important;
-  }
-
-  /* Preview card - A4 / PDF */
-  .qr-print-preview-card {
+  html:not(.qr-printing-ticket) .qr-print-preview-card {
     width: 100% !important;
-    max-width: 100% !important;
     margin: 0 !important;
     padding: 20px !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     border: none !important;
     background: white !important;
-    page-break-inside: avoid !important;
     display: block !important;
   }
 
-  html.qr-printing-ticket .qr-print-preview-card {
+  html:not(.qr-printing-ticket) .qr-print-preview-ticket {
     display: none !important;
   }
 
-  .qr-print-preview-ticket {
-    display: none !important;
-  }
-
-  html.qr-printing-ticket .qr-print-preview-ticket {
-    display: block !important;
-    width: 76mm !important;
-    max-width: 76mm !important;
-    margin: 0 auto !important;
-    padding: 2mm 1mm 4mm !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background: white !important;
-    color: #000 !important;
-    page-break-inside: avoid !important;
-  }
-
-  html.qr-printing-ticket .qr-ticket-logo {
-    width: 28mm !important;
-    max-height: 14mm !important;
-    filter: none !important;
-  }
-
-  html.qr-printing-ticket .qr-ticket-brand {
-    font-size: 9pt !important;
-    color: #000 !important;
-  }
-
-  html.qr-printing-ticket .qr-ticket-op {
-    font-size: 16pt !important;
-    color: #000 !important;
-  }
-
-  html.qr-printing-ticket .qr-ticket-cliente {
-    font-size: 11pt !important;
-    color: #000 !important;
-  }
-
-  html.qr-printing-ticket .qr-ticket-hint {
-    font-size: 8pt !important;
-    color: #000 !important;
-  }
-
-  html.qr-printing-ticket .qr-ticket-qr {
-    width: 42mm !important;
-    height: 42mm !important;
-  }
-
-  html.qr-printing-ticket .qr-ticket-url {
-    font-size: 6.5pt !important;
-    color: #000 !important;
-  }
-
-  html.qr-printing-ticket .qr-ticket-footer {
-    font-size: 7pt !important;
-    color: #000 !important;
-  }
-
-  html.qr-printing-ticket .qr-ticket-sep {
-    border-top-color: #000 !important;
-  }
-
-  .qr-print-preview-card .qr-print-header {
-    display: flex !important;
-    margin-bottom: 20px !important;
-    padding-bottom: 15px !important;
-    border-bottom: 2px solid #000 !important;
-  }
-
-  .qr-print-preview-card .qr-print-logo-img {
-    width: 120px !important;
-    height: auto !important;
-    max-height: 120px !important;
-    display: block !important;
-  }
-
-  .qr-print-preview-card .qr-print-op {
+  html:not(.qr-printing-ticket) .qr-print-preview-card .qr-print-op {
     font-size: 48px !important;
     color: #000 !important;
   }
 
-  .qr-print-preview-card .qr-print-cliente {
+  html:not(.qr-printing-ticket) .qr-print-preview-card .qr-print-cliente {
     font-size: 28px !important;
     color: #000 !important;
   }
 
-  .qr-print-preview-card .qr-print-content {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  .qr-print-preview-card .instructions-title {
-    font-size: 24px !important;
-    color: #000 !important;
-  }
-
-  .qr-print-preview-card .instructions-text {
-    font-size: 16px !important;
-    color: #000 !important;
-  }
-
-  .qr-print-preview-card .qr-print-qr-container {
-    background: #f9fafb !important;
-    padding: 15px !important;
-    display: block !important;
-  }
-
-  .qr-print-preview-card .qr-print-qr {
+  html:not(.qr-printing-ticket) .qr-print-preview-card .qr-print-qr {
     width: 300px !important;
     height: 300px !important;
-    display: block !important;
   }
 
-  .qr-print-preview-card .qr-print-footer {
-    margin-top: 20px !important;
-    padding-top: 15px !important;
-    border-top: 1px solid #000 !important;
-    display: block !important;
-  }
-
-  .qr-print-preview-card .footer-text,
-  .qr-print-preview-card .footer-url {
-    color: #000 !important;
-  }
-
-  .qr-print-preview-card .btn-whatsapp-compact,
-  .qr-print-preview-card .qr-no-pdf {
+  html:not(.qr-printing-ticket) .qr-print-preview-card .btn-whatsapp-compact,
+  html:not(.qr-printing-ticket) .qr-print-preview-card .qr-no-pdf {
     display: none !important;
   }
 
-  /* Asegurar que las imágenes se impriman */
-  img {
+  html:not(.qr-printing-ticket) img {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-  }
-
-  html,
-  body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
-    width: 100% !important;
-    height: auto !important;
   }
 }

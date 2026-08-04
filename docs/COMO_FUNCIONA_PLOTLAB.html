@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Cómo funciona PlotLab — Catálogo completo</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a;
+    line-height: 1.5;
+    font-size: 9.8pt;
+    margin: 0;
+    padding: 8mm 6mm;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  h1 {
+    font-size: 20pt;
+    letter-spacing: -0.03em;
+    margin: 0 0 3mm;
+    color: #0b1220;
+    border-bottom: 3px solid #0ea5e9;
+    padding-bottom: 2.5mm;
+  }
+  h2 {
+    font-size: 13pt;
+    margin: 6mm 0 2.5mm;
+    color: #0369a1;
+    page-break-after: avoid;
+    border-left: 4px solid #0ea5e9;
+    padding-left: 2.5mm;
+  }
+  h3 {
+    font-size: 11pt;
+    margin: 4mm 0 1.5mm;
+    color: #0f172a;
+    page-break-after: avoid;
+  }
+  h4 {
+    font-size: 10pt;
+    margin: 3mm 0 1mm;
+    color: #334155;
+  }
+  p { margin: 0 0 2mm; }
+  ul, ol { margin: 0 0 2.5mm; padding-left: 5mm; }
+  li { margin-bottom: 0.7mm; }
+  code {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 8.4pt;
+    background: #f1f5f9;
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 3mm;
+    border-radius: 6px;
+    font-size: 7.8pt;
+    line-height: 1.35;
+    page-break-inside: avoid;
+    margin: 0 0 3mm;
+    white-space: pre-wrap;
+  }
+  pre code { background: none; color: inherit; padding: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 3.5mm;
+    font-size: 8.6pt;
+    page-break-inside: auto;
+  }
+  tr { page-break-inside: avoid; }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 1.6mm 2mm;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #e0f2fe; color: #0c4a6e; font-weight: 700; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 4mm 0; }
+  a { color: #0369a1; text-decoration: none; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>Cómo funciona PlotLab — Catálogo completo de funciones y herramientas</h1>
+<p><strong>Documento funcional exhaustivo — Plot Center</strong>  </p>
+<p>Versión: agosto 2026 · Producción: <code>plotcenterlab.com.ar</code>  </p>
+<p>Complemento técnico: <code>docs/INFORME_INFRAESTRUCTURA.md</code></p>
+<p>Este documento lista <strong>todas</strong> las áreas, pantallas, herramientas y superficies públicas de PlotLab (Plotrello), no solo el resumen ejecutivo.</p>
+<hr/>
+<h2>1. Qué es PlotLab</h2>
+<p>PlotLab es el <strong>sistema operativo</strong> de Plot Center: producción gráfica, ventas, caja, ERP, compras, RRHH, portal de clientes, tótem de autogestión, flota, chat, IA y herramientas creativas en una sola plataforma.</p>
+<ul>
+<li><strong>Frontend:</strong> React 19 + TypeScript + Vite (SPA + varias apps hermanas)</li>
+<li><strong>Datos:</strong> Supabase (PostgreSQL, Storage, Realtime, ~263 RPC)</li>
+<li><strong>APIs:</strong> Vercel serverless (<code>/api/*</code>)</li>
+<li><strong>Dominio:</strong> <code>plotcenterlab.com.ar</code></li>
+</ul>
+<h3>1.1 Aplicaciones de entrada (multi-SPA)</h3>
+<table>
+<tr><th>App</th><th>Archivo / URL</th><th>Uso</th></tr>
+<tr><td>App principal staff + público</td><td><code>index.html</code> → <code>/</code></td><td>Tablero, módulos, tótem, portal, QR, etc.</td></tr>
+<tr><td>Panel ejecutivo</td><td><code>admin.html</code></td><td>Resumen gerencial / tablero embebido</td></tr>
+<tr><td>Tablet reloj</td><td><code>tablet-reloj.html</code></td><td>Fichaje facial / asistencia</td></tr>
+<tr><td>Tablet firma</td><td><code>tablet-firma.html</code></td><td>Firma de entrega en tablet</td></tr>
+</table>
+<hr/>
+<h2>2. Quiénes lo usan</h2>
+<table>
+<tr><th>Identidad</th><th>Entrada</th><th>Alcance</th></tr>
+<tr><td>Staff interno</td><td><code>/login</code></td><td>Módulos según rol</td></tr>
+<tr><td>Operario externo diseño</td><td><code>/operario-externo/login</code> → Plot Design</td><td>Bolsa creativa acotada</td></tr>
+<tr><td>Operario externo bolsa</td><td><code>/operario-externo/login</code> → Bolsa Plot</td><td>Instalaciones / metalúrgica</td></tr>
+<tr><td>Cliente web</td><td><code>/cliente/login</code></td><td>Portal pedidos, presupuestos, OP, chat</td></tr>
+<tr><td>Público sin cuenta</td><td>Rutas abiertas</td><td>Tótem, QR OP, briefs, CV, firma, encuestas</td></tr>
+</table>
+<h3>2.1 Roles staff</h3>
+<p><code>administracion</code> · <code>gerencia</code> · <code>mostrador</code> · <code>caja</code> · <code>presupuestos</code> · <code>asesor-tecnico</code> · <code>diseno</code> · <code>imprenta</code> · <code>taller-grafico</code> · <code>instalaciones</code> · <code>metalurgica</code> · <code>compras</code> · <code>recursos-humanos</code> · <code>operario-diseno</code> · <code>operario-bolsa</code></p>
+<p><strong>Regla de caja:</strong> cada caja operativa = un usuario (<code>u-{id}</code>). El titular opera su caja; admin/gerencia pueden administrar. Fondo fijo opcional (no se autoasigna).</p>
+<hr/>
+<h2>3. Menú de módulos (<code>/menu</code>)</h2>
+<p>Tarjetas según permisos:</p>
+<table>
+<tr><th>Módulo</th><th>Ruta</th><th>Para qué</th></tr>
+<tr><td>Pedidos tótem (impresión)</td><td><code>/impresoras/totem</code></td><td>Cola del kiosco</td></tr>
+<tr><td>Mostrador</td><td><code>/mostrador/dashboard</code></td><td>Entregas, ventas, clientes</td></tr>
+<tr><td>Caja</td><td><code>/caja/dashboard</code></td><td>Arqueo y cierre</td></tr>
+<tr><td>Compras</td><td><code>/compras/dashboard</code></td><td>Pedidos y stock</td></tr>
+<tr><td>ERP</td><td><code>/erp</code></td><td>Contabilidad / AFIP</td></tr>
+<tr><td>Presupuestos</td><td><code>/asesor-presupuestos</code></td><td>Fichas y oportunidades</td></tr>
+<tr><td>RRHH</td><td><code>/rrhh/dashboard</code></td><td>Personal</td></tr>
+<tr><td>Tablero</td><td><code>/</code></td><td>Kanban OP</td></tr>
+<tr><td>Atención al público</td><td><code>/atencion-publico</code></td><td>Reclamos / cola</td></tr>
+</table>
+<p>Además, el <strong>header</strong> ofrece accesos rápidos por rol (dashboard del rol, Plot Design, Bolsa Plot, Plot AI, menú diario, flota, permisos, productos, Vía Pública, atención, etc.).</p>
+<hr/>
+<h2>4. Producción y órdenes de trabajo</h2>
+<h3>4.1 Tablero Kanban</h3>
+<table>
+<tr><th>Función</th><th>Ruta / dónde</th></tr>
+<tr><td>Tablero principal</td><td><code>/</code>, <code>/tablero</code></td></tr>
+<tr><td>Vista detalle OP</td><td><code>/op/:opNumber</code></td></tr>
+<tr><td>Kanban por etapa/sector</td><td><code>/kanban-etapas/:slug</code></td></tr>
+<tr><td>Estadísticas del tablero</td><td><code>/statistics</code></td></tr>
+<tr><td>Calendario de entregas/vencimientos</td><td><code>/calendario</code></td></tr>
+<tr><td>Gantt de producción</td><td><code>/gantt</code></td></tr>
+<tr><td>OPs eliminadas (auditoría/restauración)</td><td><code>/op-eliminadas</code></td></tr>
+<tr><td>Consulta OP (staff)</td><td><code>/consulta-cliente</code></td></tr>
+</table>
+<p><strong>Columnas típicas:</strong> Diseño Gráfico · Diseño en Proceso · En Espera · Imprenta · Taller de Imprenta · Taller Gráfico · Instalaciones · Metalúrgica · Finalizado en Taller · Almacén de Entrega.</p>
+<p><strong>Sobre cada OP / tarjeta (capacidades):</strong></p>
+<ul>
+<li>Drag &amp; drop entre columnas / sectores</li>
+<li>Fotos y miniaturas; adjuntos</li>
+<li>Comentarios e historial de movimientos</li>
+<li>Subítems / tareas</li>
+<li>Líneas m², materiales, costos</li>
+<li>Relevamiento (notas + checklist)</li>
+<li>Recomendación PlotAI por ficha</li>
+<li>Impresión <strong>QR cliente</strong> (PDF A4 + <strong>ticket térmico ~80 mm</strong> + guardar imagen)</li>
+<li>Multi-sector / fichas de grupo</li>
+<li>Firma de entrega (flujo + tablet firma)</li>
+<li>Búsqueda de OP (incluye traer de BD si no está en el listado cargado)</li>
+<li>Scroll de columnas con carga incremental</li>
+</ul>
+<h3>4.2 Asesor técnico y presupuestos</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Kanban Asesor → Presupuestos → Finalizado (fichas No OP)</td><td><code>/asesor-presupuestos</code></td></tr>
+<tr><td>Alias corto</td><td><code>/as</code></td></tr>
+</table>
+<p>Crear/editar/eliminar fichas, filtros, sincronización de tasks, conversión a producción.</p>
+<h3>4.3 Plot Design y Bolsa Plot (work pool)</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Admin Plot Design (bolsa creativa)</td><td><code>/plot-design</code></td></tr>
+<tr><td>Admin Bolsa Plot (instalaciones/metalúrgica)</td><td><code>/bolsa-plot</code></td></tr>
+<tr><td>Redirect legacy</td><td><code>/bolsa</code></td></tr>
+<tr><td>App campo instalaciones</td><td><code>/app-campo</code></td></tr>
+<tr><td>Solicitud operario bolsa (pública)</td><td><code>/operario-bolsa/solicitud</code></td></tr>
+<tr><td>Panel operario externo</td><td><code>/operario-externo</code>, <code>/operario-externo/diseno</code>, <code>/operario-externo/bolsa</code></td></tr>
+<tr><td>Landing pública phi (Plot Design)</td><td><code>https://phi-omega-one.vercel.app/</code> (también <code>/phi</code> en app)</td></tr>
+</table>
+<p>Incluye: fuentes de entrada, clasificación de tareas, recomendaciones a operarios, mensajes, postulación a trabajos.</p>
+<h3>4.4 Diseño gráfico (sector)</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Dashboard diseño</td><td><code>/diseno/dashboard</code>, <code>/diseno</code></td></tr>
+<tr><td>Plot AI Studio</td><td><code>/diseno/plot-ai</code></td></tr>
+<tr><td>Galería</td><td><code>/galeria</code>, <code>/galeria-trabajos</code></td></tr>
+<tr><td>Briefs pendientes</td><td><code>/briefs-pendientes</code></td></tr>
+</table>
+<h3>4.5 Plot AI Studio (herramientas creativas Gemini)</h3>
+<p>Ruta: <code>/diseno/plot-ai</code></p>
+<table>
+<tr><th>Herramienta</th><th>Descripción</th></tr>
+<tr><td>Panel principal</td><td>Accesos a todas las tools</td></tr>
+<tr><td>Asistente de chat</td><td>Brainstorming, textos, consultas creativas</td></tr>
+<tr><td>Generador de imágenes</td><td>Piezas desde descripción</td></tr>
+<tr><td>Editor de imágenes</td><td>Edición por instrucciones de texto</td></tr>
+<tr><td>Generador de videos</td><td>Videos cortos (Veo si habilitado)</td></tr>
+<tr><td>Análisis profundo</td><td>Estrategias, guiones, briefs (Gemini Pro)</td></tr>
+<tr><td>Búsqueda en tiempo real</td><td>Info web con grounding</td></tr>
+<tr><td>Texto a voz</td><td>Locuciones</td></tr>
+</table>
+<h3>4.6 Herramientas web Plot Center (externas, enlazadas)</h3>
+<p>Desde <code>/herramienta</code>, dashboard diseño, Plot AI Studio y panel admin:</p>
+<table>
+<tr><th>Herramienta</th><th>URL</th></tr>
+<tr><td>Herramientas Plot Center</td><td>https://tools.plotcenter.com.ar/</td></tr>
+<tr><td>AI Tools</td><td>https://aitools.plotcenter.com.ar/</td></tr>
+<tr><td>Generador QR / Link WhatsApp</td><td>https://qr.plotcenter.com.ar/</td></tr>
+<tr><td>Generador de Códigos QR</td><td>https://generadorqr.plotcenter.com.ar/</td></tr>
+<tr><td>Verificador contraste WCAG</td><td>https://wcag.plotcenter.com.ar/</td></tr>
+<tr><td>Studio Resizer Pro</td><td>https://resizer.plotcenter.com.ar/</td></tr>
+<tr><td>Color Intelligence Studio</td><td>https://extractor.plotcenter.com.ar/</td></tr>
+<tr><td>Vía Pública</td><td>https://vp-zeta-eight.vercel.app/</td></tr>
+</table>
+<p>Página hub interna: <code>/herramienta</code>.</p>
+<hr/>
+<h2>5. Mostrador, clientes, ventas y atención</h2>
+<h3>5.1 Mostrador</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Dashboard mostrador</td><td><code>/mostrador</code>, <code>/mostrador/dashboard</code></td></tr>
+<tr><td>Órdenes listas para entrega</td><td><code>/mostrador/ordenes-listas</code></td></tr>
+<tr><td>Flujo de entrega</td><td><code>/mostrador/entrega/:id</code></td></tr>
+<tr><td>Buscar cliente</td><td><code>/mostrador/buscar-cliente</code></td></tr>
+<tr><td>Calendario de entregas</td><td><code>/mostrador/calendario</code></td></tr>
+<tr><td>Reportes mostrador</td><td><code>/mostrador/reportes</code></td></tr>
+<tr><td>Ventas (alias mostrador)</td><td><code>/mostrador/ventas</code></td></tr>
+<tr><td>Reportes ventas</td><td><code>/mostrador/ventas/reportes</code></td></tr>
+<tr><td>Clientes frecuentes</td><td><code>/mostrador/clientes-frecuentes</code></td></tr>
+<tr><td>Cuenta corriente</td><td><code>/mostrador/cuenta-corriente</code>, <code>.../cliente/:idCliente</code></td></tr>
+</table>
+<p>Desde el dashboard también se llega a: nueva venta, clientes web, artículos, pedidos portal, pedidos tótem, atención al público, tablero.</p>
+<h3>5.2 CRM clientes</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Dashboard clientes</td><td><code>/clientes/dashboard</code></td></tr>
+<tr><td>Buscar</td><td><code>/clientes/buscar</code></td></tr>
+<tr><td>Perfil</td><td><code>/clientes/cliente/:idCliente</code></td></tr>
+<tr><td>Frecuentes</td><td><code>/clientes/frecuentes</code></td></tr>
+<tr><td>Agregar</td><td><code>/clientes/agregar</code></td></tr>
+<tr><td>Cuenta corriente</td><td><code>/clientes/cuenta-corriente</code>, <code>.../cliente/:idCliente</code></td></tr>
+</table>
+<h3>5.3 Ventas (CRM)</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Ventas / cobros</td><td><code>/ventas</code></td></tr>
+<tr><td>Reportes de ventas</td><td><code>/ventas/reportes</code></td></tr>
+<tr><td>Aliases legacy</td><td><code>/crm-ventas</code>, <code>/crm-ventas/reportes</code></td></tr>
+</table>
+<p>Al cobrar, puede <strong>sincronizar movimiento a caja</strong> (<code>plotlab_venta</code>).</p>
+<h3>5.4 Atención al público</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Dashboard atención / reclamos</td><td><code>/atencion-publico</code></td></tr>
+<tr><td>Reclamos públicos</td><td><code>/reclamos</code></td></tr>
+<tr><td>Satisfacción entrega (público)</td><td><code>/satisfaccion-cliente</code></td></tr>
+<tr><td>Presence / PlotAI atención</td><td>API <code>plotai/atencion-presence</code>, informe satisfacción</td></tr>
+</table>
+<hr/>
+<h2>6. Portal de clientes web (admin + cliente)</h2>
+<h3>6.1 Admin / staff — Clientes web</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Dashboard</td><td><code>/clientes-web/dashboard</code></td></tr>
+<tr><td>Gestión clientes web</td><td><code>/clientes-web/gestion</code></td></tr>
+<tr><td>Pedidos portal</td><td><code>/clientes-web/pedidos</code></td></tr>
+<tr><td>Detalle pedido</td><td><code>/clientes-web/pedidos/:id/detalle</code></td></tr>
+<tr><td>Convertir pedido → OP</td><td><code>/clientes-web/pedidos/:id/convertir</code></td></tr>
+<tr><td>Artículos empresa (catálogo)</td><td><code>/clientes-web/articulos</code></td></tr>
+<tr><td>Categorías artículos</td><td><code>/clientes-web/categorias</code></td></tr>
+<tr><td>Presupuestos clientes</td><td><code>/clientes-web/presupuestos</code></td></tr>
+<tr><td>Detalle presupuesto</td><td><code>/clientes-web/presupuestos/:id</code></td></tr>
+</table>
+<h3>6.2 App del cliente (<code>/cliente/*</code>)</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Login</td><td><code>/cliente/login</code></td></tr>
+<tr><td>Dashboard</td><td><code>/cliente/dashboard</code></td></tr>
+<tr><td>Catálogo</td><td><code>/cliente/catalogo</code></td></tr>
+<tr><td>Carrito</td><td><code>/cliente/carrito</code></td></tr>
+<tr><td>Checkout</td><td><code>/cliente/checkout</code></td></tr>
+<tr><td>Detalle pedido</td><td><code>/cliente/pedido/:id</code></td></tr>
+<tr><td>Presupuestos</td><td><code>/cliente/presupuestos</code></td></tr>
+<tr><td>Nuevo / editar / detalle presupuesto</td><td><code>/cliente/presupuesto/...</code></td></tr>
+<tr><td>Buscar OP</td><td><code>/cliente/buscar-op/:numeroOp?</code></td></tr>
+<tr><td>Mensajes</td><td><code>/cliente/mensajes/:idPedido?</code></td></tr>
+<tr><td>Diseños / briefs</td><td><code>/cliente/disenos</code>, <code>/cliente/brief/:token</code></td></tr>
+<tr><td>Reclamos</td><td><code>/cliente/reclamos</code></td></tr>
+<tr><td>Chat</td><td><code>/cliente/chat</code></td></tr>
+<tr><td>Notificaciones</td><td><code>/cliente/notificaciones</code></td></tr>
+<tr><td>Ayuda</td><td><code>/cliente/ayuda</code></td></tr>
+</table>
+<p>Pagos: Mercado Pago (<code>/api/mp/checkout</code>, status, webhook) + fulfillment portal.</p>
+<hr/>
+<h2>7. Tótem de autogestión y pantallas de salón</h2>
+<h3>7.1 Autogestión (kiosco)</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Shell / home tótem</td><td><code>/totem</code></td></tr>
+<tr><td>Home autogestión</td><td><code>/totem/autogestion</code></td></tr>
+<tr><td><strong>Imprimir</strong> (subir por QR, cotizar, pagar)</td><td><code>/totem/autogestion/imprimir</code></td></tr>
+<tr><td>Subir archivo desde celular (sesión QR)</td><td><code>/totem/subir-archivo/:sessionId</code></td></tr>
+<tr><td><strong>Averiguar OP</strong></td><td><code>/totem/consulta-cliente</code></td></tr>
+<tr><td>Entrada taller (señalética)</td><td><code>/totem/consulta-cliente/entrada-taller</code></td></tr>
+<tr><td><strong>Catálogo / elegir productos</strong></td><td><code>/totem/autogestion/catalogo</code></td></tr>
+<tr><td>Checkout autogestión</td><td><code>/totem/autogestion/checkout</code></td></tr>
+<tr><td>Diseño desde tótem</td><td><code>/totem/diseno</code></td></tr>
+<tr><td>Brief diseño tótem</td><td><code>/totem/diseno/brief</code></td></tr>
+<tr><td>Finalizado taller</td><td><code>/totem/finalizado-taller</code></td></tr>
+<tr><td>Chat tótem</td><td>(TotemChatPage / flujos relacionados)</td></tr>
+<tr><td>PlotAI en kiosco (chat/voz)</td><td>componente + API <code>totem-live-context</code>, <code>live-voice</code>, TTS</td></tr>
+</table>
+<p><strong>Imprimir — detalle:</strong> cotización (<code>/api/totem/cotizar-impresion</code>), Mercado Pago tótem (<code>mp-preference</code>, <code>mp-checkout</code>, status, webhook), cola staff, preview de impresión, pago caja/MP.</p>
+<h3>7.2 Tablets y pantallas</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Pantalla informativa de salón</td><td><code>/totem/pantalla</code></td></tr>
+<tr><td>Tablet asesor</td><td><code>/asesor</code></td></tr>
+<tr><td>Tablet diseñador</td><td><code>/disenador</code></td></tr>
+<tr><td>Dashboard pantallas internas</td><td><code>/dashboard-pantallas</code></td></tr>
+<tr><td>Consulta cliente (no kiosco)</td><td><code>/consulta-cliente</code></td></tr>
+</table>
+<h3>7.3 Backoffice impresión tótem</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Cola pedidos impresión tótem</td><td><code>/impresoras/totem</code></td></tr>
+<tr><td>Estado / ocupación impresoras</td><td><code>/impresoras</code></td></tr>
+</table>
+<hr/>
+<h2>8. Seguimiento público OP y entrega</h2>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Seguimiento OP por QR</td><td><code>/op-public/:opNumber</code></td></tr>
+<tr><td>Firma entrega cliente</td><td><code>/firma-cliente/:opNumber</code></td></tr>
+<tr><td>Brief público por token</td><td><code>/brief/:token</code></td></tr>
+<tr><td>Tablet firma (app)</td><td><code>tablet-firma.html</code></td></tr>
+</table>
+<hr/>
+<h2>9. Caja</h2>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Router caja</td><td><code>/caja/dashboard</code></td></tr>
+<tr><td>Vista operativa (cajero)</td><td><code>/caja/dashboard/caja</code></td></tr>
+<tr><td>Vista administración</td><td><code>/caja/dashboard/admin</code></td></tr>
+</table>
+<h3>9.1 Secciones caja operativa</h3>
+<p>Menú · Mi arqueo · Cierre de turno · Egresos · Mis movimientos · Asistente IA  </p>
+<p>También: sync ventas PlotLab, billetes/denominaciones, turnos, PDF arqueo/planilla/cierre, notificaciones, ownership por usuario, subida inteligente / parseo planillas, diferencias.</p>
+<h3>9.2 Secciones admin caja</h3>
+<p>Calendario · Cierre de turno (todas las cajas) · Egresos · Arqueos · Movimientos · Nuevo cierre · Conciliación Mercado Pago · Conciliación banco · Centro IA</p>
+<hr/>
+<h2>10. ERP (contable / AFIP)</h2>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Dashboard ERP</td><td><code>/erp</code></td></tr>
+<tr><td>Facturas</td><td><code>/erp/facturas</code></td></tr>
+<tr><td>Nueva factura</td><td><code>/erp/facturas/nueva</code></td></tr>
+<tr><td>Detalle factura</td><td><code>/erp/facturas/:id</code></td></tr>
+<tr><td>Nota de crédito/débito</td><td><code>/erp/facturas/:id/nota</code></td></tr>
+<tr><td>Asientos contables</td><td><code>/erp/asientos</code></td></tr>
+<tr><td>Tesorería</td><td><code>/erp/tesoreria</code></td></tr>
+<tr><td>Cuentas bancarias</td><td><code>/erp/tesoreria/cuentas</code></td></tr>
+<tr><td>Contabilidad</td><td><code>/erp/contabilidad</code></td></tr>
+<tr><td>Reportes contables</td><td><code>/erp/contabilidad/reportes</code></td></tr>
+<tr><td>Impuestos</td><td><code>/erp/impuestos</code></td></tr>
+<tr><td>Cuentas por cobrar</td><td><code>/erp/cuentas-por-cobrar</code></td></tr>
+<tr><td>Cuentas por pagar</td><td><code>/erp/cuentas-por-pagar</code></td></tr>
+<tr><td>Compras (puente ERP)</td><td><code>/erp/compras</code></td></tr>
+<tr><td>Stock (puente ERP)</td><td><code>/erp/stock</code></td></tr>
+<tr><td>CRM (puente ERP)</td><td><code>/erp/crm</code></td></tr>
+<tr><td>Gastos (+ OCR tickets)</td><td><code>/erp/gastos</code></td></tr>
+<tr><td>Plan de cuentas</td><td><code>/erp/plan-cuentas</code></td></tr>
+<tr><td>Costos</td><td><code>/erp/costos</code></td></tr>
+<tr><td>Reportes ERP</td><td><code>/erp/reportes</code></td></tr>
+<tr><td>Admin ERP</td><td><code>/erp/admin</code></td></tr>
+<tr><td>Condiciones de venta</td><td><code>/erp/admin/condiciones-venta</code></td></tr>
+<tr><td>Configuración AFIP</td><td><code>/erp/configuracion-afip</code></td></tr>
+</table>
+<p><strong>APIs:</strong> <code>/api/erp/afip-autorizar</code>, <code>/api/erp/afip-test</code>, <code>/api/erp/extract-ticket</code>.</p>
+<hr/>
+<h2>11. Compras, proveedores, stock y conciliaciones</h2>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Dashboard compras</td><td><code>/compras</code>, <code>/compras/dashboard</code></td></tr>
+<tr><td>Listado pedidos</td><td><code>/compras/pedidos</code></td></tr>
+<tr><td>Detalle pedido</td><td><code>/compras/pedidos/:id</code></td></tr>
+<tr><td>Crear pedido</td><td><code>/compras/crear-pedido</code></td></tr>
+<tr><td>Mis pedidos</td><td><code>/mis-pedidos</code></td></tr>
+<tr><td>Presupuesto compra</td><td><code>/compras/presupuestos/:id</code></td></tr>
+<tr><td>Gestión de stock</td><td><code>/compras/gestion-stock</code></td></tr>
+<tr><td>Reportes stock / reportes</td><td><code>/compras/reportes</code></td></tr>
+<tr><td>Estadísticas compras</td><td><code>/compras/estadisticas</code></td></tr>
+<tr><td>Proveedores</td><td><code>/compras/proveedores</code></td></tr>
+<tr><td>Deudas proveedores</td><td><code>/compras/deudas-proveedores</code></td></tr>
+<tr><td>Pagos proveedores</td><td><code>/compras/pagos-proveedores</code></td></tr>
+<tr><td>Movimientos proveedores</td><td><code>/compras/movimientos-proveedores</code></td></tr>
+<tr><td>Deuda CC proveedores</td><td><code>/compras/deuda-cc-proveedores</code></td></tr>
+<tr><td>Conciliación bancaria</td><td><code>/compras/conciliacion-bancaria</code></td></tr>
+<tr><td>Conciliación Mercado Pago</td><td><code>/compras/conciliacion-mercadopago</code></td></tr>
+</table>
+<p>Incluye parsers de extractos MP, export CSV, match de movimientos, hub finanzas proveedor.</p>
+<hr/>
+<h2>12. Recursos Humanos (completo)</h2>
+<h3>12.1 Panel RRHH</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Dashboard</td><td><code>/rrhh</code>, <code>/rrhh/dashboard</code></td></tr>
+<tr><td>Usuarios + legajos</td><td><code>/rrhh/usuarios</code></td></tr>
+<tr><td>Desvinculaciones</td><td><code>/rrhh/desvinculaciones</code></td></tr>
+<tr><td>Incidencias</td><td><code>/rrhh/incidencias</code></td></tr>
+<tr><td>Novedades</td><td><code>/rrhh/novedades</code></td></tr>
+<tr><td>Postulaciones</td><td><code>/rrhh/postulaciones</code></td></tr>
+<tr><td>Reportes</td><td><code>/rrhh/reportes</code></td></tr>
+<tr><td>Horarios / turnos</td><td><code>/rrhh/horarios</code></td></tr>
+<tr><td>Liquidación</td><td><code>/rrhh/liquidacion</code></td></tr>
+<tr><td>Vacaciones</td><td><code>/rrhh/vacaciones</code></td></tr>
+<tr><td>Onboarding</td><td><code>/rrhh/onboarding</code></td></tr>
+<tr><td>Organigrama</td><td><code>/rrhh/organigrama</code></td></tr>
+<tr><td>Medicina laboral</td><td><code>/rrhh/medicina</code></td></tr>
+<tr><td>Recibos (admin)</td><td><code>/rrhh/recibos</code></td></tr>
+<tr><td>Clima laboral</td><td><code>/rrhh/clima</code></td></tr>
+<tr><td>Evaluaciones</td><td><code>/rrhh/evaluaciones</code></td></tr>
+<tr><td>Pruebas / competencias</td><td><code>/rrhh/pruebas</code></td></tr>
+<tr><td>Capacitaciones (admin)</td><td><code>/rrhh/capacitaciones</code></td></tr>
+<tr><td>Menú diario (admin)</td><td><code>/rrhh/menu-diario</code></td></tr>
+<tr><td>Estadísticas</td><td><code>/rrhh/estadisticas</code></td></tr>
+<tr><td>Permisos laborales</td><td><code>/rrhh/permisos</code></td></tr>
+<tr><td>Notificaciones por audiencia</td><td><code>/rrhh/notificaciones</code></td></tr>
+</table>
+<h3>12.2 Self-service empleado (todos / según rol)</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Menú del día</td><td><code>/menu-diario</code></td></tr>
+<tr><td>Mis recibos</td><td><code>/mis-recibos</code></td></tr>
+<tr><td>Avisar ausencia / permisos</td><td><code>/avisar-ausencia</code>, <code>/permisos</code></td></tr>
+<tr><td>Mis pruebas</td><td><code>/mis-pruebas</code></td></tr>
+<tr><td>Capacitaciones (empleado)</td><td><code>/capacitaciones</code></td></tr>
+<tr><td>Encuesta clima</td><td><code>/encuesta-clima/:id</code></td></tr>
+</table>
+<h3>12.3 Reclutamiento público</h3>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Trabajá con nosotros / CV</td><td><code>/trabaja-con-nosotros</code></td></tr>
+<tr><td>Convocatoria por slug</td><td><code>/convocatoria/:slug</code></td></tr>
+<tr><td>Postulación operarios</td><td><code>/postulacion-operarios</code></td></tr>
+</table>
+<p><strong>APIs RRHH:</strong> submit CV, extract CV, extract certificado, filter postulaciones, upload foto legajo, submit formulario externo, facial índice, marcaciones reloj.</p>
+<h3>12.4 Reloj / asistencia (tablet)</h3>
+<p>App: <code>tablet-reloj.html</code></p>
+<ul>
+<li>Identificación facial / detectar / precalentar</li>
+<li>Marcación manual y automática</li>
+<li>Verificación, empleados, índice facial</li>
+<li>Asistencia reloj (PlotAI/API)</li>
+</ul>
+<hr/>
+<h2>13. Logística, talleres e impresión</h2>
+<table>
+<tr><th>Función</th><th>Ruta</th></tr>
+<tr><td>Flota (reservas / salidas)</td><td><code>/flota</code></td></tr>
+<tr><td>Flota admin</td><td><code>/flota/admin</code></td></tr>
+<tr><td>Taller gráfico dashboard</td><td><code>/taller-grafico/dashboard</code></td></tr>
+<tr><td>Inventario taller gráfico</td><td><code>/taller-grafico/inventario</code></td></tr>
+<tr><td>Inventario metalúrgica</td><td><code>/metalurgica/inventario</code></td></tr>
+<tr><td>Impresoras</td><td><code>/impresoras</code></td></tr>
+<tr><td>Cola tótem</td><td><code>/impresoras/totem</code></td></tr>
+<tr><td>App campo</td><td><code>/app-campo</code></td></tr>
+<tr><td>Libro de actas</td><td><code>/libro-actas</code></td></tr>
+<tr><td>Actas por sector</td><td><code>/libro-actas/sector/:sectorId</code></td></tr>
+<tr><td>Protocolos y bases</td><td><code>/protocolos-bases</code></td></tr>
+</table>
+<hr/>
+<h2>14. Comunicación, admin y sistemas</h2>
+<table>
+<tr><th>Función</th><th>Ruta / acción</th></tr>
+<tr><td>Chat interno (canales)</td><td><code>/chat</code></td></tr>
+<tr><td>Embed chat</td><td><code>/embed/chat</code></td></tr>
+<tr><td>Embed chat widget</td><td><code>/embed/chat-widget</code></td></tr>
+<tr><td>Mensajería + prueba lectura</td><td><code>/mensajeria</code></td></tr>
+<tr><td>Verificar mensajería</td><td><code>/mensajeria/verificar/:token</code></td></tr>
+<tr><td>Usuarios del sistema</td><td><code>/usuarios</code></td></tr>
+<tr><td>Panel admin / módulos</td><td><code>/admin</code></td></tr>
+<tr><td>Actividad de usuarios (dispositivo, pantallas)</td><td><code>/admin/actividad-usuarios</code></td></tr>
+<tr><td>Manual de usuario (índice + búsqueda)</td><td><code>/manual</code></td></tr>
+<tr><td>PlotAI asistente global</td><td>acción panel / servicio <code>plotAIService</code></td></tr>
+<tr><td>Backup JSON (órdenes, historial, usuarios)</td><td>acción admin + <code>/api/admin/backup-json</code></td></tr>
+<tr><td>Fichas activas PDF</td><td>acción admin + <code>/api/admin/fichas-activas-pdf</code></td></tr>
+<tr><td>Panel ejecutivo</td><td><code>admin.html</code></td></tr>
+<tr><td>Notificar orden lista</td><td><code>/api/notify-orden-lista</code></td></tr>
+<tr><td>Telegram webhook / recordatorios agenda</td><td><code>/api/telegram/webhook</code>, cron agenda</td></tr>
+</table>
+<h3>14.1 Capacidades PlotAI transversales</h3>
+<p>Además del Studio y el tótem:</p>
+<ul>
+<li>Asistente con contexto de tablero / toda la plataforma</li>
+<li>Recomendaciones por ficha OP</li>
+<li>Sprint: predict, report, snapshot</li>
+<li>Brief completo / especificación de pedido</li>
+<li>Chat público FAQ</li>
+<li>Conversation respuestas</li>
+<li>Design studio API</li>
+<li>Generate content / image / video</li>
+<li>ElevenLabs TTS / live voice</li>
+<li>Informe satisfacción entrega</li>
+<li>Asistente IA de caja / centro IA / OCR planillas</li>
+<li>Extracción CV / certificados / tickets de gasto</li>
+</ul>
+<hr/>
+<h2>15. Autenticación y actividad</h2>
+<table>
+<tr><th>Función</th><th>Endpoint / ruta</th></tr>
+<tr><td>Login staff</td><td><code>/login</code> + RPC <code>login_usuario</code> + <code>/api/auth/staff-login</code></td></tr>
+<tr><td>Sesión JWT staff</td><td><code>/api/auth/staff-session</code></td></tr>
+<tr><td>Actividad plataforma</td><td><code>/api/auth/platform-activity</code></td></tr>
+<tr><td>Login cliente</td><td><code>/cliente/login</code></td></tr>
+<tr><td>Login operario externo</td><td><code>/operario-externo/login</code></td></tr>
+</table>
+<hr/>
+<h2>16. Catálogo del panel admin (módulos destacados)</h2>
+<p>El panel <code>/admin</code> agrupa por categoría:</p>
+<ol>
+<li><strong>Producción &amp; OPs</strong> — Tablero, estadísticas, asesor, Plot Design, phi, Bolsa Plot, dashboard diseño, Plot AI Studio, tools QR/WCAG/resizer/color, calendario, Gantt, galería, briefs  </li>
+<li><strong>Ventas</strong> — Clientes, ventas, mostrador, CC, atención, clientes web  </li>
+<li><strong>Finanzas &amp; Caja</strong> — Caja, ERP, conciliación banco, conciliación MP  </li>
+<li><strong>Compras &amp; Stock</strong> — Compras, stock, proveedores  </li>
+<li><strong>RRHH</strong> — Dashboard, postulaciones, incidencias, menú diario  </li>
+<li><strong>Logística &amp; Talleres</strong> — Flota, taller, metalúrgica, impresoras  </li>
+<li><strong>Administración &amp; Sistemas</strong> — Usuarios, actividad, estadísticas, OPs eliminadas, manual, PlotAI, chat, mensajería, protocolos, panel ejecutivo, backup, PDF fichas  </li>
+</ol>
+<hr/>
+<h2>17. Flujos de punta a punta</h2>
+<h3>17.1 Pedido en mostrador</h3>
+<p>Cliente → venta/OP → tablero por sectores → QR al cliente → cobro caja/CC → entrega/firma → (opcional) factura AFIP.</p>
+<h3>17.2 Tótem — imprimir</h3>
+<p>Imprimir → QR subir archivo → cotizar → pagar MP/caja → cola <code>/impresoras/totem</code> → pantalla salón → imprimir → entregar.</p>
+<h3>17.3 Tótem / portal — productos</h3>
+<p>Catálogo → checkout → <code>pedidos_clientes</code> → admin clientes-web → convertir a OP → tablero.</p>
+<h3>17.4 Averiguar OP</h3>
+<p>Tótem o <code>/op-public</code> o portal buscar OP → estado real + orientación a sector.</p>
+<h3>17.5 Presupuesto / asesor</h3>
+<p>Ficha en <code>/asesor-presupuestos</code> → seguimiento → producción / Plot Design / bolsa.</p>
+<h3>17.6 Compras</h3>
+<p>Pedido compra → proveedores → stock → deudas/pagos → conciliaciones.</p>
+<h3>17.7 RRHH día a día</h3>
+<p>Reloj tablet → asistencia · menú diario · permisos/ausencias · recibos · capacitaciones/pruebas · postulaciones CV.</p>
+<hr/>
+<h2>18. Integraciones</h2>
+<table>
+<tr><th>Servicio</th><th>Uso</th></tr>
+<tr><td>Supabase</td><td>DB, RPC, Storage, Realtime</td></tr>
+<tr><td>Vercel</td><td>Hosting + APIs</td></tr>
+<tr><td>Google Gemini</td><td>PlotAI, OCR, studio, sprint, tótem</td></tr>
+<tr><td>ElevenLabs</td><td>Voz</td></tr>
+<tr><td>Mercado Pago</td><td>Tótem, portal, conciliaciones</td></tr>
+<tr><td>AFIP</td><td>Factura electrónica</td></tr>
+<tr><td>Resend</td><td>Email</td></tr>
+<tr><td>Telegram</td><td>Bots / recordatorios</td></tr>
+<tr><td>n8n</td><td>Automatizaciones</td></tr>
+<tr><td>phi / Vía Pública / tools.*</td><td>Sitios hermanos Plot Center</td></tr>
+</table>
+<hr/>
+<h2>19. Índice rápido — ¿dónde hago X?</h2>
+<table>
+<tr><th>Quiero…</th><th>Ir a…</th></tr>
+<tr><td>Ver producción</td><td><code>/tablero</code></td></tr>
+<tr><td>Estadísticas / Gantt / calendario</td><td><code>/statistics</code> <code>/gantt</code> <code>/calendario</code></td></tr>
+<tr><td>Ficha presupuesto / DT</td><td><code>/asesor-presupuestos</code></td></tr>
+<tr><td>Bolsa diseño</td><td><code>/plot-design</code></td></tr>
+<tr><td>Bolsa instalaciones/metal</td><td><code>/bolsa-plot</code></td></tr>
+<tr><td>App campo</td><td><code>/app-campo</code></td></tr>
+<tr><td>IA creativa</td><td><code>/diseno/plot-ai</code></td></tr>
+<tr><td>Tools QR, color, WCAG…</td><td><code>/herramienta</code> o links tools.*</td></tr>
+<tr><td>Atender mostrador</td><td><code>/mostrador/dashboard</code></td></tr>
+<tr><td>Entregar OP</td><td><code>/mostrador/ordenes-listas</code></td></tr>
+<tr><td>Vender / cobrar</td><td><code>/ventas</code></td></tr>
+<tr><td>Cuenta corriente</td><td><code>/clientes/cuenta-corriente</code></td></tr>
+<tr><td>Pedidos del portal</td><td><code>/clientes-web/pedidos</code></td></tr>
+<tr><td>Convertir a OP</td><td><code>/clientes-web/pedidos/:id/convertir</code></td></tr>
+<tr><td>Tótem autogestión</td><td><code>/totem/autogestion</code></td></tr>
+<tr><td>Cola impresión tótem</td><td><code>/impresoras/totem</code></td></tr>
+<tr><td>Pantalla salón</td><td><code>/totem/pantalla</code></td></tr>
+<tr><td>QR seguimiento cliente</td><td><code>/op-public/{OP}</code></td></tr>
+<tr><td>Imprimir ticket QR</td><td>Modal QR en tarjeta OP</td></tr>
+<tr><td>Mi caja</td><td><code>/caja/dashboard/caja</code></td></tr>
+<tr><td>Admin cajas</td><td><code>/caja/dashboard/admin</code></td></tr>
+<tr><td>Facturar AFIP</td><td><code>/erp/facturas</code></td></tr>
+<tr><td>Gastos / OCR ticket</td><td><code>/erp/gastos</code></td></tr>
+<tr><td>Compras / stock</td><td><code>/compras/dashboard</code></td></tr>
+<tr><td>Conciliar banco / MP</td><td><code>/compras/conciliacion-*</code></td></tr>
+<tr><td>RRHH completo</td><td><code>/rrhh/dashboard</code></td></tr>
+<tr><td>Postulantes</td><td><code>/rrhh/postulaciones</code></td></tr>
+<tr><td>Menú del día</td><td><code>/menu-diario</code></td></tr>
+<tr><td>Fichar</td><td><code>tablet-reloj.html</code></td></tr>
+<tr><td>Firmar entrega</td><td><code>tablet-firma.html</code> / <code>/firma-cliente/...</code></td></tr>
+<tr><td>Flota</td><td><code>/flota</code></td></tr>
+<tr><td>Chat</td><td><code>/chat</code></td></tr>
+<tr><td>Manual</td><td><code>/manual</code></td></tr>
+<tr><td>Backup / PDF fichas</td><td>Panel <code>/admin</code></td></tr>
+<tr><td>Actividad usuarios</td><td><code>/admin/actividad-usuarios</code></td></tr>
+<tr><td>Portal cliente</td><td><code>/cliente/login</code></td></tr>
+<tr><td>CV / trabaja con nosotros</td><td><code>/trabaja-con-nosotros</code></td></tr>
+<tr><td>phi</td><td><code>/phi</code> o sitio Vercel phi</td></tr>
+</table>
+<hr/>
+<h2>20. Glosario</h2>
+<table>
+<tr><th>Término</th><th>Significado</th></tr>
+<tr><td>OP</td><td>Orden de trabajo</td></tr>
+<tr><td>Ficha</td><td>Tarjeta flujo asesor/presupuestos (No OP)</td></tr>
+<tr><td>Tótem</td><td>Kiosco autogestión salón</td></tr>
+<tr><td>Plot Design / Bolsa Plot</td><td>Work pools de diseño / campo</td></tr>
+<tr><td>PlotAI / Plot AI Studio</td><td>Asistentes y tools creativas con Gemini</td></tr>
+<tr><td>Caja operativa</td><td>Caja = usuario titular</td></tr>
+<tr><td>Portal</td><td>App <code>/cliente</code></td></tr>
+<tr><td>Clientes web</td><td>Backoffice del portal</td></tr>
+<tr><td>phi</td><td>Landing pública Plot Design</td></tr>
+<tr><td>RPC</td><td>Función de negocio en PostgreSQL</td></tr>
+</table>
+<hr/>
+<h2>21. Conclusión</h2>
+<p>PlotLab no es un único tablero: es un <strong>ecosistema completo</strong> (producción, comercial, autogestión en salón, portal, caja, ERP, compras, RRHH, flota, chat e IA) con <strong>apps dedicadas</strong> (reloj, firma, admin) y <strong>herramientas externas</strong> Plot Center enlazadas.</p>
+<p>Si necesitás el detalle técnico de tablas, RPC, RLS y variables de entorno, usá <code>docs/INFORME_INFRAESTRUCTURA.md</code> junto a este catálogo funcional.</p>
+<hr/>
+<p><em>Plot Center · Documento funcional completo PlotLab · agosto 2026</em></p>
+</body>
+</html>

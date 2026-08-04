@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PlotLab — Presentación</title>
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink: #0f172a;
+      --muted: #475569;
+      --paper: #f8fafc;
+      --accent: #0ea5e9;
+      --accent-deep: #0369a1;
+      --cmyk-c: #00a3e0;
+      --cmyk-m: #ec008c;
+      --cmyk-y: #fff200;
+      --cmyk-k: #111111;
+      --card: #ffffff;
+    }
+
+    html, body {
+      background: #0b1220;
+      color: var(--ink);
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .slide {
+      width: 297mm;
+      height: 210mm;
+      page-break-after: always;
+      break-after: page;
+      position: relative;
+      overflow: hidden;
+      padding: 18mm 20mm;
+      background: var(--paper);
+    }
+
+    .slide:last-child { page-break-after: auto; break-after: auto; }
+
+    .slide--dark {
+      background:
+        radial-gradient(ellipse 80% 60% at 90% 10%, rgba(14, 165, 233, 0.35), transparent 55%),
+        radial-gradient(ellipse 50% 40% at 10% 90%, rgba(236, 0, 140, 0.22), transparent 50%),
+        linear-gradient(145deg, #0b1220 0%, #111827 55%, #0f172a 100%);
+      color: #f8fafc;
+    }
+
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10mm;
+    }
+
+    .brand {
+      font-size: 13pt;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .brand span { color: var(--accent); }
+
+    .slide--dark .brand span { color: #7dd3fc; }
+
+    .pill {
+      font-size: 9pt;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      color: var(--muted);
+    }
+
+    .slide--dark .pill {
+      color: #cbd5e1;
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+
+    h1 {
+      font-size: 42pt;
+      line-height: 1.05;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      max-width: 22ch;
+      margin-bottom: 6mm;
+    }
+
+    h2 {
+      font-size: 28pt;
+      line-height: 1.1;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 5mm;
+    }
+
+    .lead {
+      font-size: 15pt;
+      line-height: 1.45;
+      color: var(--muted);
+      max-width: 48ch;
+    }
+
+    .slide--dark .lead { color: #cbd5e1; }
+
+    .quote {
+      margin-top: 10mm;
+      padding: 6mm 7mm;
+      border-left: 5px solid var(--accent);
+      background: rgba(14, 165, 233, 0.08);
+      font-size: 16pt;
+      font-weight: 600;
+      line-height: 1.4;
+      max-width: 52ch;
+    }
+
+    .slide--dark .quote {
+      background: rgba(14, 165, 233, 0.12);
+      border-left-color: #7dd3fc;
+    }
+
+    .cmyk {
+      position: absolute;
+      bottom: 14mm;
+      left: 20mm;
+      display: flex;
+      gap: 8px;
+    }
+
+    .cmyk i {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      display: block;
+    }
+
+    .cmyk .c { background: var(--cmyk-c); }
+    .cmyk .m { background: var(--cmyk-m); }
+    .cmyk .y { background: var(--cmyk-y); }
+    .cmyk .k { background: var(--cmyk-k); border: 1px solid #333; }
+
+    .footer-meta {
+      position: absolute;
+      bottom: 12mm;
+      right: 20mm;
+      font-size: 9pt;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8mm;
+      margin-top: 4mm;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6mm;
+      margin-top: 4mm;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 5.5mm 5.5mm 5mm;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      min-height: 42mm;
+    }
+
+    .card h3 {
+      font-size: 13pt;
+      font-weight: 800;
+      margin-bottom: 2.5mm;
+      letter-spacing: -0.01em;
+    }
+
+    .card p, .card li {
+      font-size: 10.5pt;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+
+    .card ul {
+      padding-left: 4.5mm;
+      list-style: disc;
+    }
+
+    .card li + li { margin-top: 1.5mm; }
+
+    .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+      color: white;
+      font-size: 11pt;
+      font-weight: 800;
+      margin-bottom: 3mm;
+    }
+
+    .flow {
+      display: flex;
+      align-items: stretch;
+      gap: 3mm;
+      margin-top: 6mm;
+    }
+
+    .flow-step {
+      flex: 1;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 4.5mm 4mm;
+      text-align: center;
+      position: relative;
+    }
+
+    .flow-step strong {
+      display: block;
+      font-size: 11pt;
+      margin-bottom: 1.5mm;
+    }
+
+    .flow-step span {
+      font-size: 9.5pt;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+
+    .flow-arrow {
+      align-self: center;
+      color: var(--accent-deep);
+      font-size: 18pt;
+      font-weight: 700;
+      flex: 0 0 auto;
+    }
+
+    table.who {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 5mm;
+      font-size: 12pt;
+    }
+
+    table.who th, table.who td {
+      text-align: left;
+      padding: 4.5mm 5mm;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    table.who th {
+      font-size: 10pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      background: #f1f5f9;
+    }
+
+    table.who td:first-child {
+      font-weight: 800;
+      width: 32%;
+    }
+
+    .bullets {
+      margin-top: 4mm;
+      list-style: none;
+    }
+
+    .bullets li {
+      font-size: 13pt;
+      line-height: 1.35;
+      padding: 3.5mm 0 3.5mm 9mm;
+      position: relative;
+      border-bottom: 1px solid #e2e8f0;
+      color: var(--ink);
+    }
+
+    .bullets li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      background: linear-gradient(135deg, var(--accent), var(--cmyk-m));
+    }
+
+    .close-line {
+      font-size: 26pt;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      max-width: 20ch;
+      margin: 8mm 0 6mm;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3mm;
+      margin-top: 8mm;
+    }
+
+    .tags span {
+      padding: 3mm 5mm;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      font-size: 11pt;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .hero-sub {
+      font-size: 18pt;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 8mm;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1 Portada -->
+  <section class="slide slide--dark">
+    <div class="brand-bar">
+      <div class="brand">Plot<span>Lab</span></div>
+      <div class="pill">Plot Center · Presentación</div>
+    </div>
+    <p class="hero-sub">El sistema operativo de Plot Center</p>
+    <h1>Una sola plataforma.<br />Toda la empresa.</h1>
+    <p class="lead">
+      Desde el mostrador hasta el taller, de la caja al cliente —
+      y el <strong style="color:#e0f2fe;font-weight:700">tótem de autogestión</strong> en el salón:
+      PlotLab conecta producción, ventas, gente y plata en tiempo real.
+    </p>
+    <div class="quote">
+      Convierte cada pedido en una orden viva, visible y trazable —
+      para el equipo, para el cliente y para quien se acerca al tótem.
+    </div>
+    <div class="cmyk" aria-hidden="true">
+      <i class="c"></i><i class="m"></i><i class="y"></i><i class="k"></i>
+    </div>
+    <div class="footer-meta">plotcenterlab.com.ar</div>
+  </section>
+
+  <!-- 2 Problema -->
+  <section class="slide">
+    <div class="brand-bar">
+      <div class="brand">Plot<span>Lab</span></div>
+      <div class="pill">El desafío</div>
+    </div>
+    <h2>El problema no es la falta de trabajo</h2>
+    <p class="lead">Es la falta de visibilidad entre áreas.</p>
+    <div class="grid-2" style="margin-top: 8mm;">
+      <div class="card">
+        <h3>Antes</h3>
+        <ul>
+          <li>¿Dónde está la OP?</li>
+          <li>WhatsApps y planillas sueltas</li>
+          <li>Cliente sin estado claro</li>
+          <li>Caja y taller desconectados</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color: #bae6fd; background: linear-gradient(180deg, #f0f9ff, #fff);">
+        <h3>Con PlotLab</h3>
+        <ul>
+          <li>Tablero en vivo por sector</li>
+          <li>Un solo sistema, un solo dato</li>
+          <li>Tótem de autogestión en el salón</li>
+          <li>QR, portal, cobro y entrega alineados</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-meta">02</div>
+  </section>
+
+  <!-- 3 Pilares -->
+  <section class="slide">
+    <div class="brand-bar">
+      <div class="brand">Plot<span>Lab</span></div>
+      <div class="pill">6 pilares</div>
+    </div>
+    <h2>Todo lo que mueve Plot Center</h2>
+    <div class="grid-3">
+      <div class="card">
+        <div class="num">1</div>
+        <h3>Producción en vivo</h3>
+        <p>Kanban de órdenes: sectores, fotos, historial y avance en tiempo real.</p>
+      </div>
+      <div class="card" style="border-color:#f9a8d4;background:linear-gradient(180deg,#fdf2f8,#fff);">
+        <div class="num">2</div>
+        <h3>Tótem de autogestión</h3>
+        <p>Kiosco en salón: imprimir, averiguar OP, catálogo y PlotAI — sin hacer fila.</p>
+      </div>
+      <div class="card">
+        <div class="num">3</div>
+        <h3>Plata bajo control</h3>
+        <p>Caja por usuario, arqueos, cierres, Mercado Pago, ERP y AFIP.</p>
+      </div>
+      <div class="card">
+        <div class="num">4</div>
+        <h3>Ventas y mostrador</h3>
+        <p>Clientes, cuenta corriente, CRM, presupuestos y asesor técnico.</p>
+      </div>
+      <div class="card">
+        <div class="num">5</div>
+        <h3>Personas (RRHH)</h3>
+        <p>Legajos, asistencia, reloj facial, menú diario y postulaciones.</p>
+      </div>
+      <div class="card">
+        <div class="num">6</div>
+        <h3>Inteligencia PlotAI</h3>
+        <p>Asistente con IA para operar más rápido: OCR, voz, conciliación.</p>
+      </div>
+    </div>
+    <div class="footer-meta">03</div>
+  </section>
+
+  <!-- 4 Tótem autogestión -->
+  <section class="slide">
+    <div class="brand-bar">
+      <div class="brand">Plot<span>Lab</span></div>
+      <div class="pill">Tótem · Autogestión</div>
+    </div>
+    <h2>El cliente se gestiona solo en el salón</h2>
+    <p class="lead">
+      Kiosco táctil de Plot Center: menos filas en mostrador, más autonomía y la misma operación conectada al taller y a caja.
+    </p>
+    <div class="grid-3" style="margin-top: 6mm;">
+      <div class="card" style="border-color:#f9a8d4;background:linear-gradient(180deg,#fdf2f8,#fff);">
+        <div class="num">1</div>
+        <h3>Imprimir</h3>
+        <p>Subí el archivo escaneando un QR con el celular, cotizá, pagá (caja o Mercado Pago) y la cola llega al taller.</p>
+      </div>
+      <div class="card" style="border-color:#93c5fd;background:linear-gradient(180deg,#eff6ff,#fff);">
+        <div class="num">2</div>
+        <h3>Averiguar OP</h3>
+        <p>Consultá el estado del pedido con número de OP o DNI/CUIT — y orientación a cada sector del local.</p>
+      </div>
+      <div class="card" style="border-color:#6ee7b7;background:linear-gradient(180deg,#ecfdf5,#fff);">
+        <div class="num">3</div>
+        <h3>Elegir productos</h3>
+        <p>Catálogo del portal: elegí, adjuntá archivos o brief, y dejá el pedido listo sin pasar por mostrador.</p>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top: 5mm;">
+      <div class="card" style="min-height:auto;">
+        <h3>PlotAI en el tótem</h3>
+        <p>Asistente con voz e IA para orientar al cliente mientras se autogestiona.</p>
+      </div>
+      <div class="card" style="min-height:auto;">
+        <h3>Conectado al negocio</h3>
+        <p>Cola de impresión, pantalla de salón, asesor / diseñador y caja — todo en PlotLab.</p>
+      </div>
+    </div>
+    <div class="footer-meta">04</div>
+  </section>
+
+  <!-- 5 Viaje -->
+  <section class="slide">
+    <div class="brand-bar">
+      <div class="brand">Plot<span>Lab</span></div>
+      <div class="pill">El viaje del pedido</div>
+    </div>
+    <h2>De la consulta a la entrega</h2>
+    <p class="lead">Un flujo. Cero fricción entre áreas.</p>
+    <div class="flow">
+      <div class="flow-step">
+        <strong>1. Entra</strong>
+        <span>Tótem, portal o mostrador</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <strong>2. OP</strong>
+        <span>Se crea en el tablero</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <strong>3. Avanza</strong>
+        <span>Sectores, foto y chat</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <strong>4. Cliente</strong>
+        <span>Escanea QR y sigue</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <strong>5. Cobra</strong>
+        <span>Caja · MP · CC</span>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <strong>6. Factura</strong>
+        <span>Trazado y cerrado</span>
+      </div>
+    </div>
+    <div class="quote" style="margin-top: 12mm;">
+      Producción visible. Cliente informado. Caja ordenada. Equipo conectado.
+    </div>
+    <div class="footer-meta">05</div>
+  </section>
+
+  <!-- 6 Quiénes -->
+  <section class="slide">
+    <div class="brand-bar">
+      <div class="brand">Plot<span>Lab</span></div>
+      <div class="pill">Audiencias</div>
+    </div>
+    <h2>Hecho para cada rol de la empresa</h2>
+    <table class="who">
+      <thead>
+        <tr>
+          <th>Quién</th>
+          <th>Qué vive en PlotLab</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Staff interno</td>
+          <td>Tablero, caja, ERP, RRHH, chat, ventas y compras</td>
+        </tr>
+        <tr>
+          <td>Operarios externos</td>
+          <td>Acceso acotado a diseño / bolsa de trabajo</td>
+        </tr>
+        <tr>
+          <td>Clientes</td>
+          <td>Portal web + seguimiento público por QR</td>
+        </tr>
+        <tr>
+          <td>Público en salón</td>
+          <td><strong>Tótem de autogestión:</strong> imprimir, averiguar OP, catálogo y PlotAI</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="lead" style="margin-top: 8mm; font-size: 12pt;">
+      Roles: administración · gerencia · mostrador · caja · diseño · imprenta · taller · RRHH · compras · presupuestos…
+    </p>
+    <div class="footer-meta">06</div>
+  </section>
+
+  <!-- 7 Por qué -->
+  <section class="slide">
+    <div class="brand-bar">
+      <div class="brand">Plot<span>Lab</span></div>
+      <div class="pill">Diferenciales</div>
+    </div>
+    <h2>Por qué enamora en una demo</h2>
+    <ul class="bullets">
+      <li><strong>Tótem de autogestión</strong> — el cliente imprime, consulta y pide solo, en el salón</li>
+      <li><strong>Tiempo real</strong> — no “actualizá mañana”</li>
+      <li><strong>De punta a punta</strong> — producción + plata + gente + cliente</li>
+      <li><strong>Marca Plot Center</strong> — no un Trello genérico: hecho para gráfica</li>
+      <li><strong>Móvil y tablet</strong> — reloj facial, tótem, trabajo en campo</li>
+      <li><strong>Nube moderna</strong> — sin servidor propio que cuidar</li>
+    </ul>
+    <div class="footer-meta">07</div>
+  </section>
+
+  <!-- 8 Cierre -->
+  <section class="slide slide--dark">
+    <div class="brand-bar">
+      <div class="brand">Plot<span>Lab</span></div>
+      <div class="pill">Cierre</div>
+    </div>
+    <p class="hero-sub">No es “otra app”.</p>
+    <p class="close-line">Es cómo Plot Center trabaja hoy — y cómo escala mañana.</p>
+    <p class="lead">
+      Una plataforma propia, integrada y lista para crecer con la operación —
+      con el tótem de autogestión como cara visible al público.
+    </p>
+    <div class="tags">
+      <span>Tótem autogestión</span>
+      <span>Producción</span>
+      <span>Cliente</span>
+      <span>Caja</span>
+      <span>RRHH</span>
+      <span>ERP</span>
+      <span>PlotAI</span>
+    </div>
+    <div class="cmyk" aria-hidden="true">
+      <i class="c"></i><i class="m"></i><i class="y"></i><i class="k"></i>
+    </div>
+    <div class="footer-meta">plotcenterlab.com.ar · PlotLab</div>
+  </section>
+
+</body>
+</html>
