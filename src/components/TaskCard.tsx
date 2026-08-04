@@ -588,6 +588,13 @@ const TaskCardInner = ({
               )}
               <span className="task-min-sep">·</span>
               <span className="task-min-client">{task.title}</span>
+              {task.marcadaPagada ? (
+                <span className="task-min-pagada-row">
+                  <span className="task-pagada-pill" title="OP pagada">
+                    PAGADA
+                  </span>
+                </span>
+              ) : null}
               {task.enReclamo && !hideReclamoUI && (
                 <span
                   className="task-min-reclamo-wrap"

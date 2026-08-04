@@ -113,9 +113,15 @@ function BoardTaskCardLiteShell({
           </span>
         ) : null}
         <span className="task-min-op">#{task.opNumber}</span>
-        {task.marcadaPagada ? <span className="task-pagada-pill">PAGADA</span> : null}
         <span className="task-min-sep">·</span>
         <span className="task-min-client">{task.title}</span>
+        {task.marcadaPagada ? (
+          <span className="task-min-pagada-row">
+            <span className="task-pagada-pill" title="OP pagada">
+              PAGADA
+            </span>
+          </span>
+        ) : null}
       </div>
     </article>
   )

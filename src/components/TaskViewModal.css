@@ -483,6 +483,15 @@
   background: rgba(16, 185, 129, 0.15);
 }
 
+.task-view-chip--pagado {
+  border-color: rgba(52, 211, 153, 0.65);
+  background: rgba(16, 185, 129, 0.28);
+  color: #d1fae5;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .task-view-chip--web {
   border-color: rgba(167, 139, 250, 0.45);
   background: rgba(139, 92, 246, 0.15);

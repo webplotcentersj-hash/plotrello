@@ -68,13 +68,14 @@
 .column-body .task-card.is-minimized {
   min-height: 0;
   padding: 10px 12px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .column-body .task-minimized-label {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  overflow: hidden;
+  overflow: visible;
+  row-gap: 4px;
 }
 
 .column-body .task-min-client {
