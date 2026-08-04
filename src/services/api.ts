@@ -2833,7 +2833,8 @@ class ApiService {
     return message
   }
 
-  async moveOrden(id: number, nuevoEstado: string, usuarioId: number): Promise<ApiResponse<any>> {
+  async moveOrden(id: number, estadoDestino: string, usuarioId: number): Promise<ApiResponse<any>> {
+    let nuevoEstado = estadoDestino
     if (supabase) {
       const { data: current, error: fetchError } = await supabase
         .from('ordenes_trabajo')
@@ -2863,7 +2864,8 @@ class ApiService {
       }
       const currentEstado = currentData.estado
       
-      // Mapear el nuevo estado al sector correspondiente
+      // Mapear el nuevo estado al sector correspondiente (CHECK en DB).
+      // Alias de UI → valor canónico de sector/estado.
       const estadoToSector: Record<string, string> = {
         'Diseño Gráfico': 'Diseño Gráfico',
         'Diseño en Proceso': 'Diseño en Proceso',
@@ -2874,7 +2876,10 @@ class ApiService {
         Instalaciones: 'Instalaciones',
         Metalúrgica: 'Metalúrgica',
         'Finalizado en Taller': 'Finalizado en Taller',
+        'Entregas taller de Imprenta': 'Finalizado en Taller',
         'Almacén de Entrega': 'Almacén de Entrega',
+        'Entregas taller gráfico': 'Almacén de Entrega',
+        'Entregas taller grafico': 'Almacén de Entrega',
         'Asesor Técnico': 'Asesor Técnico',
         Presupuestos: 'Presupuestos',
         'Armados/Enviados': 'Armados/Enviados',
@@ -2882,7 +2887,9 @@ class ApiService {
         Finalizado: 'Finalizado'
       }
 
-      const nuevoSector = estadoToSector[nuevoEstado] || nuevoEstado
+      // Alias de UI → valor canónico que acepta el CHECK de sector/estado.
+      nuevoEstado = estadoToSector[estadoDestino] || estadoDestino
+      const nuevoSector = nuevoEstado
 
       // Fusión por llegada (cadena de duplicadas/triplicadas):
       // 1) Primero buscar hermana por grupo (id_orden_original / raiz del grupo) en sector destino.

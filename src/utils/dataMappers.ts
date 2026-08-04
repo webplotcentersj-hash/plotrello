@@ -27,8 +27,9 @@ const STATUS_TO_ESTADO: Record<TaskStatus, string> = {
   'taller-grafico': 'Taller Gráfico',
   instalaciones: 'Instalaciones',
   metalurgica: 'Metalúrgica',
-  'finalizado-taller': 'Entregas taller de Imprenta',
-  'almacen-entrega': 'Entregas taller gráfico',
+  // Etiquetas de UI en BOARD_COLUMNS; en DB el CHECK sector exige estos valores canónicos.
+  'finalizado-taller': 'Finalizado en Taller',
+  'almacen-entrega': 'Almacén de Entrega',
   'asesor-tecnico': 'Asesor Técnico',
   presupuestos: 'Presupuestos',
   'armados-enviados-asesor-presupuestos': 'Armados/Enviados',
