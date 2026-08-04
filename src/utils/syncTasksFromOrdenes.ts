@@ -42,6 +42,7 @@ export function ordenesTableroFingerprint(ordenes: OrdenTrabajo[]): string {
       [
         o.id,
         o.fecha_ingreso ?? '',
+        o.fecha_ultimo_movimiento ?? '',
         o.estado ?? '',
         o.entregado ? 1 : 0,
         o.sector ?? '',

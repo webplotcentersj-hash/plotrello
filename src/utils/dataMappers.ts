@@ -285,6 +285,11 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     dueDate: dueDateArgentinaIso,
     updatedAt: updatedArgentinaIso,
     impact: mapComplejidadToImpact(orden.complejidad),
+    uiMovedAt: (() => {
+      if (!orden.fecha_ultimo_movimiento) return undefined
+      const t = new Date(orden.fecha_ultimo_movimiento).getTime()
+      return Number.isFinite(t) ? t : undefined
+    })(),
     clientPhone,
     clientEmail,
     clientAddress,
@@ -423,6 +428,8 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     fecha_entrega: task.dueDate ? toDateOnly(task.dueDate) : null,
     fecha_creacion: task.createdAt,
     fecha_ingreso: task.updatedAt,
+    fecha_ultimo_movimiento:
+      typeof task.uiMovedAt === 'number' ? new Date(task.uiMovedAt).toISOString() : null,
     operario_asignado: operarioAsignado, // Normalizar: null si es 'sin-asignar'
     complejidad: mapImpactToComplejidad(task.impact),
     // Actualizar tanto sector como sector_inicial si cambian

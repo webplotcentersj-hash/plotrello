@@ -445,53 +445,20 @@ const TaskCardInner = ({
   const creatorDisplay =
     task.createdBy === 'Sistema' ? 'Sistema' : etiquetaUsuarioNombre(task.createdBy)
 
-  // Fuerza rerender al expirar el "NEW"
+  // Fuerza rerender al expirar el "NEW" (timestamp en BD / uiMovedAt, sin localStorage)
   const [, setNowTick] = useState(0)
-  const [effectiveMovedAt, setEffectiveMovedAt] = useState<number | null>(null)
   const NEW_MOVE_MS = 60 * 60 * 1000 // 1 hora
-  const isNewMove = typeof effectiveMovedAt === 'number' && Date.now() - effectiveMovedAt < NEW_MOVE_MS
+  const effectiveMovedAt = typeof task.uiMovedAt === 'number' ? task.uiMovedAt : null
+  const isNewMove = effectiveMovedAt != null && Date.now() - effectiveMovedAt < NEW_MOVE_MS
 
   useEffect(() => {
-    try {
-      const key = `taskcard:new-move:${task.id}`
-      if (typeof task.uiMovedAt === 'number') {
-        setEffectiveMovedAt(task.uiMovedAt)
-        localStorage.setItem(key, String(task.uiMovedAt))
-        return
-      }
-      const raw = localStorage.getItem(key)
-      const parsed = raw ? Number(raw) : NaN
-      if (!Number.isNaN(parsed)) {
-        const stillNew = Date.now() - parsed < NEW_MOVE_MS
-        if (stillNew) {
-          setEffectiveMovedAt(parsed)
-        } else {
-          setEffectiveMovedAt(null)
-          localStorage.removeItem(key)
-        }
-      } else {
-        setEffectiveMovedAt(null)
-      }
-    } catch {
-      setEffectiveMovedAt(typeof task.uiMovedAt === 'number' ? task.uiMovedAt : null)
-    }
-  }, [task.id, task.uiMovedAt])
-
-  useEffect(() => {
-    if (!isNewMove) return
-    const movedAt = effectiveMovedAt as number
-    const remainingMs = Math.max(0, NEW_MOVE_MS - (Date.now() - movedAt))
+    if (!isNewMove || effectiveMovedAt == null) return
+    const remainingMs = Math.max(0, NEW_MOVE_MS - (Date.now() - effectiveMovedAt))
     const t = window.setTimeout(() => {
-      try {
-        localStorage.removeItem(`taskcard:new-move:${task.id}`)
-      } catch {
-        // ignore storage failures
-      }
       setNowTick((x) => x + 1)
-      setEffectiveMovedAt(null)
     }, remainingMs + 50)
     return () => window.clearTimeout(t)
-  }, [isNewMove, effectiveMovedAt, task.id])
+  }, [isNewMove, effectiveMovedAt])
   
   // Detectar si hay modificaciones (updatedAt es más reciente que createdAt)
   const hasModifications = new Date(task.updatedAt).getTime() > new Date(task.createdAt).getTime() + 1000 // +1 segundo para evitar falsos positivos

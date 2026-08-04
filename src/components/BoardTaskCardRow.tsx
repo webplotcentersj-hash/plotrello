@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useMemo, type MouseEvent } from 'react'
+import { lazy, memo, Suspense, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import clsx from 'clsx'
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import type { ActivityEvent, ColumnConfig, Task, TaskStatus, TeamMember } from '../types/board'
@@ -55,7 +55,15 @@ function BoardTaskCardLiteShell({
   onViewTask,
   isDragSurface = false
 }: LiteShellProps) {
+  const [, setTick] = useState(0)
   const isNewMove = typeof task.uiMovedAt === 'number' && Date.now() - task.uiMovedAt < NEW_MOVE_MS
+
+  useEffect(() => {
+    if (!isNewMove || typeof task.uiMovedAt !== 'number') return
+    const remaining = Math.max(0, NEW_MOVE_MS - (Date.now() - task.uiMovedAt))
+    const t = window.setTimeout(() => setTick((x) => x + 1), remaining + 50)
+    return () => window.clearTimeout(t)
+  }, [isNewMove, task.uiMovedAt])
 
   const handleClick = (e: MouseEvent) => {
     if (snapshot.isDragging) return

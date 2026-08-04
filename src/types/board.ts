@@ -120,7 +120,7 @@ export interface Task {
   presupuestoEnviadoCliente?: boolean | null // Indica si el presupuesto fue enviado al cliente (checklist)
   presupuestoArmado?: boolean | null // Presupuestos: checklist "Armado"
   presupuestoEnEspera?: boolean | null // Presupuestos: checklist "En espera"
-  /** UI only: marca cuando se movió entre columnas para mostrar "NEW" */
+  /** Epoch ms del último movimiento de columna (desde BD fecha_ultimo_movimiento; marca NEW) */
   uiMovedAt?: number
   /** Reclamo registrado: trabajo a rehacer (bordes destacados en ficha) */
   enReclamo?: boolean

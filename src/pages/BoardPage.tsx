@@ -540,11 +540,6 @@ const BoardPage = ({
     }
 
     const movedAt = Date.now()
-    try {
-      localStorage.setItem(`taskcard:new-move:${taskId}`, String(movedAt))
-    } catch {
-      // ignore storage failures
-    }
 
     setTasks((prev) =>
       prev.map((task) => {

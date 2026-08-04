@@ -150,6 +150,8 @@ export interface OrdenTrabajo {
   reclamo_etiquetas?: string[] | null
   /** Carrusel de imágenes con título (JSON en BD) */
   galeria_carrusel?: OpGaleriaSlide[] | null
+  /** Último cambio de columna/estado en tablero (marca NEW compartida) */
+  fecha_ultimo_movimiento?: string | null
 }
 
 /** Fila listada en historial de fichas (asesor-presupuestos) */
