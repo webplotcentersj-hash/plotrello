@@ -42,6 +42,7 @@ const OpQrScannerPage = lazy(() => import('./pages/OpQrScannerPage'))
 const FirmaClientePage = lazy(() => import('./pages/FirmaClientePage'))
 const BriefPublicoPage = lazy(() => import('./pages/BriefPublicoPage'))
 const ReclamosPublicoPage = lazy(() => import('./pages/ReclamosPublicoPage'))
+const PresupuestoPublicoPage = lazy(() => import('./pages/PresupuestoPublicoPage'))
 const CvPublicoPage = lazy(() => import('./pages/CvPublicoPage'))
 const PostulacionExternaPage = lazy(() => import('./pages/PostulacionExternaPage'))
 const EncuestaClimaPage = lazy(() => import('./pages/EncuestaClimaPage'))
@@ -412,6 +413,14 @@ function AppInner() {
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
                 <ReclamosPublicoPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/presupuesto"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
+                <PresupuestoPublicoPage />
               </Suspense>
             }
           />

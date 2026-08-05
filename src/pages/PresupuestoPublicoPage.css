@@ -1,0 +1,474 @@
+/*
+ * Presupuesto público (/presupuesto). Página abierta, sin sesión.
+ * Paleta propia: no depende del tema día/noche del staff.
+ */
+.presu-pub {
+  --presu-brand: #eb671b;
+  --presu-fondo: #0c0e18;
+  --presu-card: #171a29;
+  --presu-borde: rgba(255, 255, 255, 0.1);
+  --presu-texto: #f4f6fb;
+  --presu-suave: #9aa3bb;
+
+  min-height: 100vh;
+  padding: 28px 20px 60px;
+  background-color: var(--presu-fondo);
+  background-image: linear-gradient(rgba(12, 14, 24, 0.9), rgba(12, 14, 24, 0.94)),
+    url('/fondos/tablero-geometrico.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  color: var(--presu-texto);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.presu-pub__inner {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.presu-pub__inner--centrado {
+  display: grid;
+  place-items: center;
+  min-height: 80vh;
+}
+
+/* ——— Hero ——— */
+.presu-pub__hero {
+  text-align: center;
+  padding: 20px 0 34px;
+}
+
+.presu-pub__logo {
+  height: 54px;
+  width: auto;
+  margin-bottom: 18px;
+}
+
+.presu-pub__badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(235, 103, 27, 0.45);
+  background: rgba(235, 103, 27, 0.14);
+  color: #ffb98a;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.presu-pub__hero h1 {
+  margin: 16px 0 10px;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.presu-pub__hero p {
+  margin: 0 auto;
+  max-width: 620px;
+  color: var(--presu-suave);
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+/* ——— Layout ——— */
+.presu-pub__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 370px;
+  gap: 22px;
+  align-items: start;
+}
+
+.presu-pub__catalogo,
+.presu-pub__resumen,
+.presu-pub__form,
+.presu-pub__exito {
+  padding: 22px;
+  border-radius: 20px;
+  border: 1px solid var(--presu-borde);
+  background: color-mix(in srgb, var(--presu-card) 92%, transparent);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
+}
+
+.presu-pub__panel {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ——— Buscador y rubros ——— */
+.presu-pub__buscador input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--presu-borde);
+  background: rgba(8, 10, 18, 0.75);
+  color: var(--presu-texto);
+  font-size: 1rem;
+}
+
+.presu-pub__buscador input:focus-visible {
+  outline: 2px solid var(--presu-brand);
+  outline-offset: 1px;
+}
+
+.presu-pub__rubros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 20px;
+}
+
+.presu-pub__rubro {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--presu-borde);
+  background: transparent;
+  color: var(--presu-suave);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.presu-pub__rubro span {
+  opacity: 0.55;
+  font-size: 0.74rem;
+}
+
+.presu-pub__rubro:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  color: var(--presu-texto);
+}
+
+.presu-pub__rubro.is-activo {
+  border-color: var(--presu-brand);
+  background: rgba(235, 103, 27, 0.16);
+  color: #fff;
+}
+
+/* ——— Productos ——— */
+.presu-pub__productos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.presu-pub__producto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--presu-borde);
+  background: rgba(8, 10, 18, 0.5);
+}
+
+.presu-pub__producto-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.presu-pub__producto-info strong {
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.presu-pub__producto-info span {
+  color: var(--presu-suave);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.presu-pub__producto-info em {
+  font-style: normal;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 185, 138, 0.75);
+}
+
+.presu-pub__producto-precio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.presu-pub__producto-precio b {
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+/* ——— Botones ——— */
+.presu-pub__btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #eb671b, #ff914d);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.presu-pub__btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.presu-pub__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.presu-pub__btn--chico {
+  padding: 7px 14px;
+  font-size: 0.8rem;
+}
+
+.presu-pub__btn--enviar {
+  width: 100%;
+  padding: 15px 20px;
+  font-size: 1rem;
+}
+
+.presu-pub__btn--fantasma {
+  background: transparent;
+  border: 1px solid var(--presu-borde);
+  color: var(--presu-texto);
+}
+
+/* ——— Resumen ——— */
+.presu-pub__resumen h2,
+.presu-pub__form h2,
+.presu-pub__sin-catalogo h2 {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+}
+
+.presu-pub__resumen ul {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.presu-pub__resumen li {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--presu-borde);
+}
+
+.presu-pub__resumen-nombre {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.88rem;
+  margin-bottom: 8px;
+}
+
+.presu-pub__cantidad {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.presu-pub__cantidad button {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--presu-borde);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--presu-texto);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.presu-pub__cantidad b {
+  min-width: 26px;
+  text-align: center;
+}
+
+.presu-pub__quitar {
+  margin-left: auto;
+  width: auto !important;
+  height: auto !important;
+  padding: 4px 8px;
+  border: none !important;
+  background: transparent !important;
+  color: var(--presu-suave) !important;
+  font-size: 0.76rem !important;
+  text-decoration: underline;
+}
+
+.presu-pub__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+
+.presu-pub__total strong {
+  font-size: 1.5rem;
+  color: #ffb98a;
+}
+
+.presu-pub__aclaracion,
+.presu-pub__legal {
+  margin: 0;
+  color: var(--presu-suave);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.presu-pub__legal {
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* ——— Formulario ——— */
+.presu-pub__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--presu-suave);
+}
+
+.presu-pub__form input,
+.presu-pub__form textarea {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--presu-borde);
+  background: rgba(8, 10, 18, 0.75);
+  color: var(--presu-texto);
+  font-size: 0.95rem;
+  font-family: inherit;
+  font-weight: 400;
+  resize: vertical;
+}
+
+.presu-pub__form input:focus-visible,
+.presu-pub__form textarea:focus-visible {
+  outline: 2px solid var(--presu-brand);
+  outline-offset: 1px;
+}
+
+.presu-pub__error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+  font-size: 0.82rem;
+}
+
+/* ——— Estados ——— */
+.presu-pub__estado {
+  margin: 0;
+  padding: 30px 0;
+  text-align: center;
+  color: var(--presu-suave);
+}
+
+.presu-pub__estado--error {
+  color: #fca5a5;
+}
+
+.presu-pub__sin-catalogo p {
+  margin: 0;
+  color: var(--presu-suave);
+  line-height: 1.5;
+}
+
+/* ——— Éxito ——— */
+.presu-pub__exito {
+  max-width: 520px;
+  text-align: center;
+}
+
+.presu-pub__exito-icono {
+  font-size: 2.6rem;
+}
+
+.presu-pub__exito h1 {
+  margin: 12px 0 12px;
+  font-size: 1.7rem;
+}
+
+.presu-pub__exito p {
+  margin: 0 0 12px;
+  color: var(--presu-suave);
+  line-height: 1.55;
+}
+
+.presu-pub__exito-total strong {
+  color: #ffb98a;
+  font-size: 1.2rem;
+}
+
+.presu-pub__exito-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* ——— Responsive ——— */
+@media (max-width: 940px) {
+  .presu-pub {
+    background-attachment: scroll;
+  }
+
+  .presu-pub__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .presu-pub__panel {
+    position: static;
+  }
+}
+
+@media (max-width: 560px) {
+  .presu-pub {
+    padding: 20px 14px 44px;
+  }
+
+  .presu-pub__catalogo,
+  .presu-pub__resumen,
+  .presu-pub__form {
+    padding: 16px;
+  }
+
+  .presu-pub__producto {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .presu-pub__producto-precio {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
