@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Header from '../components/Header'
 import { useAuth } from '../hooks/useAuth'
 import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnread'
@@ -16,6 +16,7 @@ import {
   isImageUrl,
   userInitials
 } from '../utils/mensajeriaHelpers'
+import { useMensajeriaVoiceCall } from '../contexts/MensajeriaVoiceCallContext'
 import './MensajeriaPage.css'
 
 type DmRoom = { id: number; nombre: string; created_at?: string }
@@ -68,6 +69,7 @@ const toThreadMsg = (m: {
 
 export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { usuario, loading: authLoading } = useAuth()
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [rooms, setRooms] = useState<DmRoom[]>([])
@@ -95,8 +97,15 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const stickToBottomRef = useRef(true)
   const messagesRef = useRef<ThreadMsg[]>([])
+  const { voice, startCall, hangup } = useMensajeriaVoiceCall()
 
   const currentUserId = usuario?.id ?? null
+
+  useEffect(() => {
+    if (voice.phase === 'ringing' && voice.roomId != null) {
+      setSelectedRoomId(voice.roomId)
+    }
+  }, [voice.phase, voice.roomId])
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -116,6 +125,12 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
   }, [rooms, usuarios, currentUserId])
 
   const selected = useMemo(() => peers.find((p) => p.room.id === selectedRoomId) || null, [peers, selectedRoomId])
+
+  useEffect(() => {
+    const requested = Number(searchParams.get('room'))
+    if (!Number.isFinite(requested) || requested <= 0) return
+    if (rooms.some((r) => r.id === requested)) setSelectedRoomId(requested)
+  }, [rooms, searchParams])
 
   const peerIdsFromRooms = (roomList: DmRoom[], userId: number) =>
     roomList
@@ -618,6 +633,37 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
                       <span className="mensajeria-thread-meta">{selected?.peer?.rol || ''}</span>
                     </div>
                   </div>
+                  <div className="mensajeria-thread-actions">
+                    {voice.phase === 'idle' || voice.phase === 'ended' ? (
+                      <button
+                        type="button"
+                        className="mensajeria-btn mensajeria-call-btn"
+                        title="Llamada de voz (prueba)"
+                        disabled={selectedRoomId == null || selected?.peerId == null}
+                        onClick={() => {
+                          if (selectedRoomId == null || selected?.peerId == null) return
+                          void startCall({
+                              roomId: selectedRoomId,
+                              peerUserId: selected.peerId,
+                              peerName: selected.peer?.nombre || `Usuario #${selected.peerId}`
+                            })
+                            .catch((e) =>
+                              showToast(e instanceof Error ? e.message : 'No se pudo llamar')
+                            )
+                        }}
+                      >
+                        📞 Llamar
+                      </button>
+                    ) : voice.roomId === selectedRoomId ? (
+                      <button
+                        type="button"
+                        className="mensajeria-btn mensajeria-call-btn mensajeria-call-btn--hangup"
+                        onClick={() => void hangup()}
+                      >
+                        ⏹ Cortar
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="mensajeria-thread">
@@ -788,6 +834,7 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
           </main>
         </div>
       </div>
+
     </div>
   )
 }

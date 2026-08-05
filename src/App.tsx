@@ -6,6 +6,7 @@ import CajaSyncToastHost from './features/control-cajas/components/CajaSyncToast
 import Login from './components/Login'
 import EnvDebug from './components/EnvDebug'
 import { PwaUpdateProvider } from './contexts/PwaUpdateContext'
+import { MensajeriaVoiceCallProvider } from './contexts/MensajeriaVoiceCallContext'
 import { useAuth, type Usuario } from './hooks/useAuth'
 import { adminStaffHomeRoute } from './utils/adminStaffHome'
 import {
@@ -182,8 +183,9 @@ function AppInner() {
         <LoadingScreen />
       ) : (
       <BrowserRouter>
-        <EnvDebugGate />
-        <Routes>
+        <MensajeriaVoiceCallProvider>
+          <EnvDebugGate />
+          <Routes>
           <Route
             path="/embed/chat"
             element={
@@ -571,7 +573,8 @@ function AppInner() {
               </Suspense>
             }
           />
-        </Routes>
+          </Routes>
+        </MensajeriaVoiceCallProvider>
       </BrowserRouter>
       )}
     </>

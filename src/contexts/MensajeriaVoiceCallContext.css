@@ -1,0 +1,94 @@
+.global-voice-call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.76);
+  backdrop-filter: blur(7px);
+}
+
+.global-voice-call-card {
+  width: min(100%, 370px);
+  padding: 30px 24px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  background: linear-gradient(160deg, #1e293b, #0f172a);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
+  color: #fff;
+  text-align: center;
+}
+
+.global-voice-call-avatar {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  box-shadow: 0 0 0 7px rgba(59, 130, 246, 0.18);
+  font-size: 1.45rem;
+  font-weight: 900;
+}
+
+.global-voice-call-name {
+  display: block;
+  font-size: 1.25rem;
+}
+
+.global-voice-call-status {
+  margin: 8px 0 0;
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.global-voice-call-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.global-voice-call-btn {
+  min-width: 120px;
+  padding: 11px 16px;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.global-voice-call-btn.is-accept {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.global-voice-call-btn.is-hangup {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.global-voice-call-btn.is-muted {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.global-voice-call-open-chat {
+  margin-top: 18px;
+  border: 0;
+  background: transparent;
+  color: #93c5fd;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.global-voice-call-hint {
+  margin: 14px 0 0;
+  color: #64748b;
+  font-size: 0.72rem;
+}
