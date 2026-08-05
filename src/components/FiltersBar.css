@@ -353,7 +353,7 @@
 
 .chip {
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
   padding: 8px 14px;
   background: transparent;
   color: var(--text-secondary);
@@ -372,8 +372,8 @@
 }
 
 .chip.active {
-  border-color: var(--brand);
   color: var(--text-primary);
+  background: color-mix(in srgb, currentColor 6%, transparent);
 }
 
 .chip.reset {

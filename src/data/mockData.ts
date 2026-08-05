@@ -35,7 +35,7 @@ export const BOARD_COLUMNS: ColumnConfig[] = [
     id: 'taller-grafico',
     label: 'Taller Gráfico',
     description: 'Acabados, montaje y control visual',
-    accent: '#3b82f6' // azul
+    accent: '#eab308' // amarillo
   },
   {
     id: 'instalaciones',
@@ -47,7 +47,7 @@ export const BOARD_COLUMNS: ColumnConfig[] = [
     id: 'metalurgica',
     label: 'Metalúrgica',
     description: 'Estructuras y soportes especiales',
-    accent: '#06b6d4' // cyan
+    accent: '#eab308' // amarillo
   },
   {
     id: 'finalizado-taller',

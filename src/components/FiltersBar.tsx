@@ -330,6 +330,7 @@ const FiltersBar = ({
             key={column.id}
             type="button"
             className={statusFocus.includes(column.id) ? 'chip active' : 'chip'}
+            style={{ borderColor: column.accent }}
             onClick={() => onStatusToggle(column.id)}
           >
             <span className="chip-dot" style={{ background: column.accent }} />

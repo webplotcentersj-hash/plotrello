@@ -20,11 +20,10 @@ import { horaMarcacionTabletDisplay } from '../../utils/dateUtils'
 import { playMarcacionSound, speakMarcacionExito, cancelMarcacionSpeech } from '../utils/tabletRelojKiosk'
 import './FacialClockTerminal.css'
 
-const SELFIE_MAX_W = 640
-const SELFIE_JPEG_Q = 0.85
-const AUTO_SCAN_MS = 2800
+const AUTO_SCAN_MS = 2200
 const COOLDOWN_OK_S = 8
-const COOLDOWN_FAIL_S = 5
+/** Tras fallo duro: pausa corta (antes 5s forzaba “salir y volver”). */
+const COOLDOWN_FAIL_S = 2
 /** Si getUserMedia no responde, cortar (en tablets a veces queda colgado). */
 const GUM_TIMEOUT_MS = 8_000
 
@@ -97,7 +96,6 @@ type FacialClockTerminalProps = {
 
 export default function FacialClockTerminal({ empleados, onMarked }: FacialClockTerminalProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const capturingRef = useRef(false)
   const cancelledRef = useRef(false)
@@ -346,22 +344,6 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     }
   }, [camaraLista])
 
-  const captureSelfie = useCallback((): string | null => {
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    if (!video || !canvas) return null
-    const srcW = video.videoWidth
-    const srcH = video.videoHeight
-    if (srcW < 32 || srcH < 32) return null
-    const scale = Math.min(1, SELFIE_MAX_W / srcW)
-    canvas.width = Math.round(srcW * scale)
-    canvas.height = Math.round(srcH * scale)
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return null
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    return canvas.toDataURL('image/jpeg', SELFIE_JPEG_Q)
-  }, [])
-
   const handleRecognize = useCallback(async () => {
     if (capturingRef.current || cooldown > 0) return
     if (!camaraLista || !galleryReady) return
@@ -369,17 +351,22 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     capturingRef.current = true
     setIsCapturing(true)
     setResult(null)
-    setStatusMessage('Capturando…')
+    setStatusMessage('Buscando rostro…')
 
     try {
-      const selfie = captureSelfie()
-      if (!selfie) {
-        throw new Error('No se pudo capturar la imagen. Acercate de frente a la cámara.')
+      const video = videoRef.current
+      if (!video || video.readyState < 2) {
+        throw new Error('La cámara todavía no está lista. Esperá un segundo.')
       }
 
-      setStatusMessage('Comparando rostros…')
       const face = await import('../services/faceLocalMatch')
-      const { hit, motivo } = await face.matchSelfieDataUrl(selfie)
+      const { hit, motivo } = await face.matchFromVideoFrames(video, {
+        attempts: 3,
+        gapMs: 260,
+        onAttempt: (n, total) => {
+          setStatusMessage(n === 1 ? 'Comparando rostros…' : `Reintentando (${n}/${total})…`)
+        }
+      })
       if (!hit) {
         setResult({ recognized: false, message: motivo || 'No se reconoció el rostro.' })
         if (soundEnabled) playMarcacionSound('error')
@@ -422,7 +409,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
       setIsCapturing(false)
       capturingRef.current = false
     }
-  }, [camaraLista, captureSelfie, cooldown, empleados, galleryReady, onMarked, soundEnabled])
+  }, [camaraLista, cooldown, empleados, galleryReady, onMarked, soundEnabled])
 
   useEffect(() => {
     if (isCapturing || cooldown > 0 || !camaraLista || !galleryReady || galleryCount === 0) return
@@ -474,8 +461,6 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
       </div>
 
       <div className="facial-clock-stage">
-        <canvas ref={canvasRef} className="facial-clock-canvas" aria-hidden />
-
         <div className={`facial-clock-viewport${camaraLista && !cameraError ? ' facial-clock-viewport--live' : ''}`}>
           <video ref={videoRef} autoPlay playsInline muted className="facial-clock-video" />
           <div className="facial-clock-frame" aria-hidden>

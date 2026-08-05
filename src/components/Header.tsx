@@ -13,6 +13,7 @@ import WeatherWidget from './WeatherWidget'
 import AdminAlertButton from './AdminAlertButton'
 import PwaUpdateButton from './PwaUpdateButton'
 import PwaUpdateModalHost from './PwaUpdateModalHost'
+import TemaToggle from './TemaToggle'
 import { VENTAS } from '../utils/ventasRoutes'
 import './Header.css'
 
@@ -161,12 +162,20 @@ const Header = ({
     <header className="tp-header">
       <div className="header-line">
         <div className="header-brand">
-          <img 
-            src="/plot-lab-logo.png" 
-            alt="Plot Center Logo" 
-            className="header-logo"
-          />
-          <h1>Plot Lab</h1>
+          {/* El logo trae el texto "Plot Lab": versión clara para noche, oscura para día. */}
+          <h1 className="header-brand-title">
+            <img
+              src="/plot-lab-lockup.png"
+              alt="Plot Lab"
+              className="header-logo header-logo--noche"
+            />
+            <img
+              src="/plot-lab-lockup-dia.png"
+              alt=""
+              aria-hidden
+              className="header-logo header-logo--dia"
+            />
+          </h1>
         </div>
         <div className="header-line-aside">
           {quickNavItems.length > 0 && (
@@ -254,6 +263,8 @@ const Header = ({
                 <AdminAlertButton />
               </>
             )}
+            <span className="header-util-divider" aria-hidden />
+            <TemaToggle className="header-util-btn header-util-btn--tema" />
             <span className="header-util-divider" aria-hidden />
             <button
               className={`header-util-btn actions-toggle${showMensajeriaUnreadBadge ? ' has-mensajeria-unread' : ''}${actionsOpen ? ' actions-toggle--open' : ''}`}

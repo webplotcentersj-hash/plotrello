@@ -1,9 +1,9 @@
 .trello-plot-app {
   min-height: 100vh;
   padding: 32px;
-  background: radial-gradient(circle at top left, rgba(235, 103, 27, 0.08), transparent 45%),
-    radial-gradient(circle at 20% 20%, rgba(146, 61, 255, 0.08), transparent 40%),
-    var(--surface);
+  background: radial-gradient(circle at top left, rgba(235, 103, 27, 0.07), transparent 45%),
+    radial-gradient(circle at 20% 20%, rgba(146, 61, 255, 0.05), transparent 40%),
+    #fff;
 }
 
 .app-layout {
@@ -21,22 +21,22 @@
 }
 
 .board-panel {
-  /* Velo blanco sobre el fondo geométrico: más bajo = patrón más visible. */
-  --board-fondo-velo: 0.82;
-  background-color: #fff;
+  /* Velo oscuro sobre el fondo geométrico: más bajo = patrón más visible. */
+  --board-fondo-velo: 0.88;
+  background-color: var(--surface-card);
   background-image: linear-gradient(
-      rgba(255, 255, 255, var(--board-fondo-velo)),
-      rgba(255, 255, 255, var(--board-fondo-velo))
+      rgba(31, 34, 51, var(--board-fondo-velo)),
+      rgba(31, 34, 51, var(--board-fondo-velo))
     ),
     url('/fondos/tablero-geometrico.png');
   background-repeat: no-repeat;
   background-position: center;
   background-size: cover;
   background-attachment: fixed;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--surface-border);
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 20px 45px rgba(5, 6, 15, 0.5);
 }
 
 /* En móvil background-attachment: fixed rinde mal: se repite en baldosas. */

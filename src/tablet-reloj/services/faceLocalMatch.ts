@@ -1,8 +1,16 @@
 import type { EmpleadoRelojTablet } from './relojTabletApi'
 
 const MODEL_URI = '/models/face-api'
-/** Distancia euclidiana máxima para aceptar match (face-api típico ~0.6). */
+/**
+ * Distancia euclidiana máxima para aceptar match (estricto, 1 frame).
+ * face-api típico ~0.6; mantenemos 0.55 para no marcar a la persona equivocada.
+ */
 export const MATCH_MAX_DISTANCE = 0.55
+/**
+ * Solo si el MISMO empleado gana en ≥2 frames, aceptamos hasta este tope.
+ * Evita aflojar el umbral con un solo frame dudoso.
+ */
+export const MATCH_CONSENSUS_MAX_DISTANCE = 0.58
 
 export type FaceGalleryStats = {
   indexed: number
@@ -48,9 +56,15 @@ function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
 }
 
-/** Confianza 0–100 a partir de distancia (mejor = más bajo). */
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => window.setTimeout(r, ms))
+}
+
+/** Confianza 0–100 a partir de distancia (mejor = más bajo). Escala al umbral actual. */
 export function distanciaAConfianza(distancia: number): number {
-  return Math.round(clamp(((0.6 - distancia) / 0.6) * 100, 0, 100))
+  const span = MATCH_MAX_DISTANCE
+  // En el umbral ~45%; match perfecto ~100%
+  return Math.round(clamp(((span - distancia) / span) * 55 + 45, 0, 100))
 }
 
 export function fotoKeyFromUrl(fotoUrl: string): string {
@@ -104,19 +118,47 @@ export async function ensureFaceModels(): Promise<void> {
   await modelsPromise
 }
 
-function detectorOptions(api: FaceApiModule) {
-  return new api.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.35 })
+function detectorOptions(api: FaceApiModule, inputSize: 320 | 416 | 512 = 416) {
+  return new api.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.3 })
 }
 
 async function descriptorFromImageSource(
   api: FaceApiModule,
-  source: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement
+  source: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement,
+  inputSize: 320 | 416 | 512 = 416
 ): Promise<Float32Array | null> {
   const det = await api
-    .detectSingleFace(source, detectorOptions(api))
+    .detectSingleFace(source, detectorOptions(api, inputSize))
     .withFaceLandmarks()
     .withFaceDescriptor()
   return det?.descriptor ?? null
+}
+
+function bestGalleryMatch(
+  api: FaceApiModule,
+  query: Float32Array
+): { entry: GalleryEntry; dist: number } | null {
+  let best: GalleryEntry | null = null
+  let bestDist = Number.POSITIVE_INFINITY
+  for (const entry of gallery) {
+    const dist = api.euclideanDistance(query, entry.descriptor)
+    if (dist < bestDist) {
+      bestDist = dist
+      best = entry
+    }
+  }
+  if (!best) return null
+  return { entry: best, dist: bestDist }
+}
+
+function hitFromEntry(entry: GalleryEntry, dist: number): FaceMatchHit {
+  return {
+    id_usuario: entry.id_usuario,
+    nombre: entry.nombre,
+    distancia: dist,
+    confianza: distanciaAConfianza(dist),
+    foto_url: entry.foto_url
+  }
 }
 
 async function loadImageElement(url: string): Promise<HTMLImageElement> {
@@ -322,38 +364,121 @@ export async function matchSelfieDataUrl(
     return { hit: null, motivo: 'No se pudo leer la selfie capturada.' }
   }
 
-  const query = await descriptorFromImageSource(api, img)
+  const query = await descriptorFromImageSource(api, img, 416)
   if (!query) {
     return { hit: null, motivo: 'No se detectó un rostro. Mirá de frente a la cámara.' }
   }
 
-  let best: GalleryEntry | null = null
-  let bestDist = Number.POSITIVE_INFINITY
-  for (const entry of gallery) {
-    const dist = api.euclideanDistance(query, entry.descriptor)
-    if (dist < bestDist) {
-      bestDist = dist
-      best = entry
-    }
-  }
-
-  if (!best || bestDist > maxDistance) {
+  const best = bestGalleryMatch(api, query)
+  if (!best || best.dist > maxDistance) {
     return {
       hit: null,
       motivo: best
-        ? `Rostro no coincide lo suficiente (${best.nombre}, dist ${bestDist.toFixed(2)}). Mejorá luz o usá QR.`
+        ? `Rostro no coincide lo suficiente (${best.entry.nombre}, dist ${best.dist.toFixed(2)}). Mejorá luz o usá QR.`
         : 'No se reconoció a ningún empleado.'
     }
   }
 
-  return {
-    hit: {
-      id_usuario: best.id_usuario,
-      nombre: best.nombre,
-      distancia: bestDist,
-      confianza: distanciaAConfianza(bestDist),
-      foto_url: best.foto_url
+  return { hit: hitFromEntry(best.entry, best.dist) }
+}
+
+/**
+ * Varios frames del video en vivo (sin JPEG).
+ * - Acepta ya si un frame entra en umbral estricto (0.55).
+ * - Si queda en zona gris (≤0.58), solo acepta si el mismo id gana en ≥2 frames.
+ * Así no aflojamos el umbral con un único frame dudoso.
+ */
+export async function matchFromVideoFrames(
+  video: HTMLVideoElement,
+  opts?: {
+    maxDistance?: number
+    consensusMaxDistance?: number
+    attempts?: number
+    gapMs?: number
+    onAttempt?: (n: number, total: number) => void
+  }
+): Promise<{ hit: FaceMatchHit | null; motivo?: string; attemptsUsed: number }> {
+  await ensureFaceModels()
+  if (!gallery.length) {
+    return {
+      hit: null,
+      motivo: 'No hay índice facial. En RRHH → Reloj facial usá “Indexar rostros”.',
+      attemptsUsed: 0
     }
+  }
+  if (video.readyState < 2 || video.videoWidth < 32) {
+    return {
+      hit: null,
+      motivo: 'La cámara todavía no está lista. Esperá un segundo.',
+      attemptsUsed: 0
+    }
+  }
+
+  const maxDistance = opts?.maxDistance ?? MATCH_MAX_DISTANCE
+  const consensusMax = opts?.consensusMaxDistance ?? MATCH_CONSENSUS_MAX_DISTANCE
+  const attempts = Math.max(1, opts?.attempts ?? 3)
+  const gapMs = opts?.gapMs ?? 280
+  const api = await loadFaceApi()
+
+  const votes = new Map<number, { entry: GalleryEntry; bestDist: number; count: number }>()
+  let bestOverall: { entry: GalleryEntry; dist: number } | null = null
+  let sawFace = false
+  let attemptsUsed = 0
+
+  for (let i = 0; i < attempts; i++) {
+    attemptsUsed = i + 1
+    opts?.onAttempt?.(attemptsUsed, attempts)
+    if (i > 0) await sleep(gapMs)
+
+    const inputSize: 320 | 416 | 512 = i === 0 ? 416 : i === 1 ? 512 : 320
+    const query = await descriptorFromImageSource(api, video, inputSize)
+    if (!query) continue
+    sawFace = true
+
+    const best = bestGalleryMatch(api, query)
+    if (!best) continue
+    if (!bestOverall || best.dist < bestOverall.dist) bestOverall = best
+
+    // Umbral estricto: un solo frame bueno alcanza
+    if (best.dist <= maxDistance) {
+      return { hit: hitFromEntry(best.entry, best.dist), attemptsUsed }
+    }
+
+    if (best.dist <= consensusMax) {
+      const prev = votes.get(best.entry.id_usuario)
+      if (prev) {
+        prev.count += 1
+        if (best.dist < prev.bestDist) prev.bestDist = best.dist
+      } else {
+        votes.set(best.entry.id_usuario, {
+          entry: best.entry,
+          bestDist: best.dist,
+          count: 1
+        })
+      }
+      const voted = votes.get(best.entry.id_usuario)!
+      if (voted.count >= 2) {
+        return { hit: hitFromEntry(voted.entry, voted.bestDist), attemptsUsed }
+      }
+    }
+  }
+
+  if (!sawFace) {
+    return {
+      hit: null,
+      motivo: 'No se detectó un rostro. Mirá de frente a la cámara.',
+      attemptsUsed
+    }
+  }
+
+  if (!bestOverall) {
+    return { hit: null, motivo: 'No se reconoció a ningún empleado.', attemptsUsed }
+  }
+
+  return {
+    hit: null,
+    motivo: `Rostro no coincide lo suficiente (${bestOverall.entry.nombre}, dist ${bestOverall.dist.toFixed(2)}). Mejorá luz o usá QR.`,
+    attemptsUsed
   }
 }
 
@@ -362,7 +487,7 @@ export async function hasFaceInVideo(video: HTMLVideoElement): Promise<boolean> 
   if (!modelsReady || video.readyState < 2 || video.videoWidth < 32) return false
   try {
     const api = await loadFaceApi()
-    const det = await api.detectSingleFace(video, detectorOptions(api))
+    const det = await api.detectSingleFace(video, detectorOptions(api, 320))
     return Boolean(det)
   } catch {
     return false

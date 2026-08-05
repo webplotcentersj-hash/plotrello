@@ -5,7 +5,12 @@ import ErrorBoundary from './components/ErrorBoundary'
 import { AuthProvider } from './hooks/useAuth'
 import { UsuariosDisplayProvider } from './hooks/useUsuariosDisplay'
 import { initPlotlabVentaCajaBridge } from './features/control-cajas/plotlabVentaCajaSync'
+import { aplicarTema, leerTemaGuardado } from './utils/tema'
 import './style.css'
+import './tema-dia.css'
+
+// Antes de montar React para que no haya parpadeo de tema.
+aplicarTema(leerTemaGuardado())
 
 initPlotlabVentaCajaBridge()
 

@@ -182,9 +182,18 @@
   gap: 16px;
 }
 
+/* El logo ya incluye el texto "Plot Lab": el h1 solo le da semántica. */
+.header-brand-title {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  line-height: 0;
+}
+
 .header-logo {
-  height: 50px;
+  height: 58px;
   width: auto;
+  max-width: 100%;
   object-fit: contain;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
   transition: transform 0.2s ease;
@@ -192,6 +201,32 @@
 
 .header-logo:hover {
   transform: scale(1.05);
+}
+
+.header-logo--dia {
+  display: none;
+}
+
+[data-tema='dia'] .header-logo--noche {
+  display: none;
+}
+
+[data-tema='dia'] .header-logo--dia {
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(15, 23, 42, 0.18));
+}
+
+/* El lockup es ancho (4:1): en pantallas chicas hay que bajarlo. */
+@media (max-width: 900px) {
+  .header-logo {
+    height: 40px;
+  }
+}
+
+@media (max-width: 520px) {
+  .header-logo {
+    height: 34px;
+  }
 }
 
 .header-eyebrow {
@@ -353,6 +388,12 @@
     color 0.18s ease;
   white-space: nowrap;
   box-sizing: border-box;
+}
+
+.header-util-btn--tema {
+  padding: 0 12px;
+  font-size: 1.05rem;
+  line-height: 1;
 }
 
 .header-util-btn:hover {

@@ -147,9 +147,14 @@
 .board-column {
   /* Color de etapa por columna (Kanban asesor / general); fallback naranja Plot */
   --column-accent: #eb671b;
-  background: var(--surface-card);
+  /* Fondo teñido con el color de la etapa, más fuerte arriba. */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--column-accent) 16%, var(--surface-card)) 0%,
+    color-mix(in srgb, var(--column-accent) 6%, var(--surface-card)) 100%
+  );
   border-radius: 18px;
-  border: 1px solid var(--surface-border);
+  border: 1px solid color-mix(in srgb, var(--column-accent) 30%, var(--surface-border));
   padding: 18px;
   display: flex;
   flex-direction: column;
