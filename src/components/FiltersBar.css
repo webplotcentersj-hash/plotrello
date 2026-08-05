@@ -1,12 +1,32 @@
 .filters-bar {
+  /* Velo sobre el fondo geométrico: más bajo = patrón más visible. */
+  --filtros-fondo-velo: 0.76;
   margin-top: 24px;
-  background: rgba(14, 16, 27, 0.9);
+  background-color: rgba(14, 16, 27, 0.9);
+  background-image: linear-gradient(
+      rgba(14, 16, 27, var(--filtros-fondo-velo)),
+      rgba(14, 16, 27, var(--filtros-fondo-velo))
+    ),
+    url('/fondos/tablero-geometrico.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: auto, cover;
+  background-attachment: scroll, fixed;
   border: 1px solid var(--surface-border);
   border-radius: 20px;
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* En móvil background-attachment: fixed rinde mal: se repite en baldosas. */
+@media (max-width: 900px) {
+  .filters-bar {
+    background-repeat: no-repeat, repeat;
+    background-size: auto, 420px auto;
+    background-attachment: scroll;
+  }
 }
 
 .search-filter input {
