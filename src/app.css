@@ -21,11 +21,31 @@
 }
 
 .board-panel {
-  background: color-mix(in srgb, var(--surface-card) 90%, transparent);
+  /* Velo sobre el fondo geométrico: 0.75 lo deja bien visible, 0.95 casi liso. */
+  --board-fondo-velo: 0.88;
+  background-color: var(--surface-card);
+  background-image: linear-gradient(
+      rgba(31, 34, 51, var(--board-fondo-velo)),
+      rgba(31, 34, 51, var(--board-fondo-velo))
+    ),
+    url('/fondos/tablero-geometrico.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  background-attachment: fixed;
   border: 1px solid var(--surface-border);
   border-radius: 20px;
   padding: 24px;
   box-shadow: 0 20px 45px rgba(5, 6, 15, 0.5);
+}
+
+/* En móvil background-attachment: fixed rinde mal: se repite en baldosas. */
+@media (max-width: 900px) {
+  .board-panel {
+    background-attachment: scroll;
+    background-repeat: repeat;
+    background-size: auto, 420px auto;
+  }
 }
 
 .insights-panel {
