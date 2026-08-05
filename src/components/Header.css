@@ -396,6 +396,15 @@
   line-height: 1;
 }
 
+/* Botones del tablero (estadísticas, movimientos, herramientas) dentro de la barra. */
+.header-util-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  overflow: visible;
+}
+
 .header-util-btn:hover {
   background: rgba(235, 103, 27, 0.14);
   color: #fff;

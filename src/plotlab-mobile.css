@@ -79,10 +79,6 @@
     margin-top: 16px;
   }
 
-  .insights-toggle-row {
-    justify-content: center;
-  }
-
   /* Tablero principal con clase `trello-plot-app--phone`: sin estadísticas/actividad lateral */
   .trello-plot-app--phone .insights-panel {
     display: none;

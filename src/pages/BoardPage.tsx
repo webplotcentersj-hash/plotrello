@@ -21,6 +21,7 @@ const TaskCreateModal = lazy(() => import('../components/TaskCreateModal'))
 const SprintOptimizerModal = lazy(() => import('../components/SprintOptimizerModal'))
 const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
 import InsightsToolsMenu from '../components/InsightsToolsMenu'
+import EntregasCobroPanel from '../components/EntregasCobroPanel'
 const TaskLibraryModal = lazy(() => import('../components/TaskLibraryModal'))
 import QRPrintView from '../components/QRPrintView'
 import SolicitarProductosModal from '../components/SolicitarProductosModal'
@@ -1329,6 +1330,53 @@ const BoardPage = ({
     setIsOptimizerModalOpen(false)
   }
 
+  const boardTools = (
+    <>
+      {isAdmin && (
+        <button
+          type="button"
+          className="insights-toggle-btn"
+          onClick={() => setStatsPanelOpen((v) => !v)}
+          aria-expanded={statsPanelOpen}
+          aria-controls="board-stats-panel"
+          id="board-stats-toggle"
+          title={statsPanelOpen ? 'Ocultar estadísticas' : 'Mostrar estadísticas'}
+          aria-label={
+            statsPanelOpen ? 'Ocultar estadísticas del tablero' : 'Mostrar estadísticas del tablero'
+          }
+        >
+          <span className="insights-toggle-icon" aria-hidden="true">
+            {statsPanelOpen ? '📉' : '📊'}
+          </span>
+        </button>
+      )}
+      <button
+        type="button"
+        className="insights-toggle-btn"
+        onClick={() => setActivityFeedOpen((v) => !v)}
+        aria-expanded={activityFeedOpen}
+        aria-controls="board-activity-panel"
+        id="board-activity-toggle"
+        title={activityFeedOpen ? 'Ocultar movimientos' : 'Mostrar movimientos recientes'}
+        aria-label={
+          activityFeedOpen ? 'Ocultar movimientos recientes' : 'Mostrar movimientos recientes'
+        }
+      >
+        <span className="insights-toggle-icon" aria-hidden="true">
+          {activityFeedOpen ? '📋' : '🕐'}
+        </span>
+      </button>
+      {!isPhoneBoard && (
+        <InsightsToolsMenu
+          onNavigateToChat={onNavigateToChat || (() => {})}
+          onTogglePlotAI={() => setIsChatAIOpen((v) => !v)}
+          isPlotAIOpen={isChatAIOpen}
+          showImpresoras
+        />
+      )}
+    </>
+  )
+
   return (
     <div className={`trello-plot-app${isPhoneBoard ? ' trello-plot-app--phone' : ''}`}>
       {(isSyncing || syncError || actionError || actionSuccess) && (
@@ -1396,6 +1444,7 @@ const BoardPage = ({
         onLogout={onLogout}
         isAdmin={isAdmin}
         isDiseno={isDiseno}
+        boardTools={boardTools}
       />
       <FiltersBar
         compactPhone={isPhoneBoard}
@@ -1468,65 +1517,25 @@ const BoardPage = ({
             onSelectTask={setSelectedTaskId}
             onViewTask={handleViewTask}
             disableDrag={isPhoneBoard}
+            sidePanel={!isPhoneBoard ? <EntregasCobroPanel tasks={filteredTasks} /> : undefined}
           />
         </section>
 
-        <aside
-          className={`insights-panel${sidebarCompact ? ' insights-panel--compact' : ''}`}
-        >
-          <div className="insights-toggle-row">
-            {isAdmin && (
-              <button
-                type="button"
-                className="insights-toggle-btn"
-                onClick={() => setStatsPanelOpen((v) => !v)}
-                aria-expanded={statsPanelOpen}
-                aria-controls="board-stats-panel"
-                id="board-stats-toggle"
-                title={statsPanelOpen ? 'Ocultar estadísticas' : 'Mostrar estadísticas'}
-                aria-label={statsPanelOpen ? 'Ocultar estadísticas del tablero' : 'Mostrar estadísticas del tablero'}
-              >
-                <span className="insights-toggle-icon" aria-hidden="true">
-                  {statsPanelOpen ? '📉' : '📊'}
-                </span>
-              </button>
+        {/* El aside solo existe si hay algún panel abierto; los botones viven en el header. */}
+        {!sidebarCompact && (
+          <aside className="insights-panel">
+            {isAdmin && statsPanelOpen && (
+              <div id="board-stats-panel" role="region" aria-labelledby="board-stats-toggle">
+                <StatsPanel tasks={tasks} activity={activity} teamMembers={teamMembers} />
+              </div>
             )}
-            <button
-              type="button"
-              className="insights-toggle-btn"
-              onClick={() => setActivityFeedOpen((v) => !v)}
-              aria-expanded={activityFeedOpen}
-              aria-controls="board-activity-panel"
-              id="board-activity-toggle"
-              title={activityFeedOpen ? 'Ocultar movimientos' : 'Mostrar movimientos recientes'}
-              aria-label={
-                activityFeedOpen ? 'Ocultar movimientos recientes' : 'Mostrar movimientos recientes'
-              }
-            >
-              <span className="insights-toggle-icon" aria-hidden="true">
-                {activityFeedOpen ? '📋' : '🕐'}
-              </span>
-            </button>
-            {!isPhoneBoard && (
-              <InsightsToolsMenu
-                onNavigateToChat={onNavigateToChat || (() => {})}
-                onTogglePlotAI={() => setIsChatAIOpen((v) => !v)}
-                isPlotAIOpen={isChatAIOpen}
-                showImpresoras
-              />
+            {activityFeedOpen && (
+              <div id="board-activity-panel" role="region" aria-labelledby="board-activity-toggle">
+                <ActivityFeed activity={activity} teamMembers={teamMembers} />
+              </div>
             )}
-          </div>
-          {isAdmin && statsPanelOpen && (
-            <div id="board-stats-panel" role="region" aria-labelledby="board-stats-toggle">
-              <StatsPanel tasks={tasks} activity={activity} teamMembers={teamMembers} />
-            </div>
-          )}
-          {activityFeedOpen && (
-            <div id="board-activity-panel" role="region" aria-labelledby="board-activity-toggle">
-              <ActivityFeed activity={activity} teamMembers={teamMembers} />
-            </div>
-          )}
-        </aside>
+          </aside>
+        )}
       </main>
 
       {taskToView && (

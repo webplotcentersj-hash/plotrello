@@ -1,0 +1,127 @@
+/* Panel al costado de las columnas de entrega: estado de cobro de lo terminado. */
+.entregas-cobro {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: fit-content;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px dashed color-mix(in srgb, var(--brand) 40%, var(--surface-border));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand) 10%, var(--surface-card)) 0%,
+    var(--surface-card) 100%
+  );
+}
+
+.entregas-cobro__head h3 {
+  margin: 2px 0 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.entregas-cobro__eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--brand);
+}
+
+.entregas-cobro__vacio {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.entregas-cobro__destacado {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.entregas-cobro__destacado strong {
+  font-size: 2rem;
+  line-height: 1;
+  color: #fca5a5;
+}
+
+.entregas-cobro__destacado span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.entregas-cobro__destacado em,
+.entregas-cobro__texto em {
+  font-style: normal;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.entregas-cobro__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entregas-cobro__fila {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  background: color-mix(in srgb, var(--surface-muted) 70%, transparent);
+}
+
+.entregas-cobro__num {
+  min-width: 34px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.entregas-cobro__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.entregas-cobro__fila--senia {
+  border-color: rgba(234, 179, 8, 0.35);
+}
+
+.entregas-cobro__fila--pagada {
+  border-color: rgba(61, 213, 152, 0.32);
+}
+
+.entregas-cobro__demora {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(234, 179, 8, 0.32);
+  background: rgba(234, 179, 8, 0.1);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.entregas-cobro__demora strong {
+  color: var(--text-primary);
+}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { buildHeaderQuickNavItems } from '../utils/headerQuickNav'
 import type { ActivityEvent, TeamMember } from '../types/board'
@@ -43,6 +43,8 @@ type HeaderProps = {
   isDiseno?: boolean
   /** Teléfono en tablero: sin reloj, clima ni tarjeta spotlight. */
   compactPhone?: boolean
+  /** Botones de estadísticas / movimientos / herramientas del tablero. */
+  boardTools?: ReactNode
 }
 
 const Header = ({
@@ -69,7 +71,8 @@ const Header = ({
   onLogout,
   isAdmin: isAdminProp = false,
   isDiseno = false,
-  compactPhone = false
+  compactPhone = false,
+  boardTools
 }: HeaderProps) => {
   const {
     usuario,
@@ -261,6 +264,12 @@ const Header = ({
               <>
                 <span className="header-util-divider" aria-hidden />
                 <AdminAlertButton />
+              </>
+            )}
+            {boardTools && (
+              <>
+                <span className="header-util-divider" aria-hidden />
+                <div className="header-util-tools">{boardTools}</div>
               </>
             )}
             <span className="header-util-divider" aria-hidden />

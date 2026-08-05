@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useMemo, useRef, useState, memo } from 'react'
+import { startTransition, useCallback, useMemo, useRef, useState, memo, type ReactNode } from 'react'
 import { DragDropContext, Droppable, type DropResult } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -26,6 +26,8 @@ type BoardProps = {
   disableDrag?: boolean
   /** Excluir fichas eliminadas u ocultas del tablero (asesor/presupuestos). */
   excludeHiddenFromKanban?: boolean
+  /** Panel extra al final de la grilla, en el hueco que dejan las columnas de la última fila. */
+  sidePanel?: ReactNode
 }
 
 const Board = ({
@@ -43,7 +45,8 @@ const Board = ({
   onViewTask,
   hideReclamoUI,
   disableDrag = false,
-  excludeHiddenFromKanban = false
+  excludeHiddenFromKanban = false,
+  sidePanel
 }: BoardProps) => {
   const [isDragging, setIsDragging] = useState(false)
   /** Evita que un endDragUi diferido pise un drag nuevo (setTimeout tras soltar). */
@@ -192,6 +195,7 @@ const Board = ({
               )}
             </Droppable>
           ))}
+          {sidePanel}
         </div>
       </DragDropContext>
     </div>
