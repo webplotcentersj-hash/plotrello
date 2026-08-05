@@ -34,6 +34,39 @@ type StartCallArgs = {
   peerName: string
 }
 
+type TimbreEntrante = {
+  roomId: number
+  fromUserId: number
+  fromName: string
+}
+
+/** Beep corto generado con WebAudio: no precisa micrófono ni archivos. */
+function tocarBeep() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const now = ctx.currentTime
+    const gain = ctx.createGain()
+    gain.connect(ctx.destination)
+    gain.gain.setValueAtTime(0.0001, now)
+    ;[0, 0.28].forEach((offset) => {
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(880, now + offset)
+      osc.connect(gain)
+      osc.start(now + offset)
+      osc.stop(now + offset + 0.18)
+      gain.gain.setValueAtTime(0.0001, now + offset)
+      gain.gain.exponentialRampToValueAtTime(0.28, now + offset + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18)
+    })
+    window.setTimeout(() => void ctx.close(), 900)
+  } catch {
+    // Sin audio disponible: alcanza con el aviso visual.
+  }
+}
+
 type VoiceCallContextValue = {
   voice: VoiceCallUiState
   startCall: (args: StartCallArgs) => Promise<void>
@@ -42,6 +75,7 @@ type VoiceCallContextValue = {
   hangup: () => Promise<void>
   toggleMute: () => void
   dismissError: () => void
+  timbrar: (args: StartCallArgs) => Promise<void>
 }
 
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null)
@@ -56,16 +90,38 @@ export function MensajeriaVoiceCallProvider({ children }: { children: ReactNode 
   const navigate = useNavigate()
   const { usuario, nombreVisible } = useAuth()
   const [voice, setVoice] = useState<VoiceCallUiState>(INITIAL_STATE)
+  const [timbre, setTimbre] = useState<TimbreEntrante | null>(null)
   const controllerRef = useRef<VoiceCallController | null>(null)
+  const timbreTimerRef = useRef<number | null>(null)
+
+  const cerrarTimbre = useCallback(() => {
+    if (timbreTimerRef.current) {
+      window.clearTimeout(timbreTimerRef.current)
+      timbreTimerRef.current = null
+    }
+    setTimbre(null)
+  }, [])
 
   useEffect(() => {
     controllerRef.current?.dispose()
     controllerRef.current = null
     setVoice(INITIAL_STATE)
+    cerrarTimbre()
 
     if (!usuario || !isStaffSession()) return
 
-    const controller = createMensajeriaVoiceCall({ onState: setVoice })
+    const controller = createMensajeriaVoiceCall({
+      onState: setVoice,
+      onTimbre: (t) => {
+        tocarBeep()
+        setTimbre(t)
+        if (timbreTimerRef.current) window.clearTimeout(timbreTimerRef.current)
+        timbreTimerRef.current = window.setTimeout(() => {
+          timbreTimerRef.current = null
+          setTimbre(null)
+        }, 25000)
+      }
+    })
     controllerRef.current = controller
     controller.attachInbox(usuario.id)
 
@@ -91,6 +147,21 @@ export function MensajeriaVoiceCallProvider({ children }: { children: ReactNode 
     [nombreVisible, usuario]
   )
 
+  const timbrar = useCallback(
+    async ({ roomId, peerUserId }: StartCallArgs) => {
+      if (!usuario || !controllerRef.current) {
+        throw new Error('El timbre no está disponible en esta sesión.')
+      }
+      await controllerRef.current.sendTimbre({
+        roomId,
+        peerUserId,
+        myUserId: usuario.id,
+        myName: nombreVisible || usuario.nombre || 'Usuario'
+      })
+    },
+    [nombreVisible, usuario]
+  )
+
   const value = useMemo<VoiceCallContextValue>(
     () => ({
       voice,
@@ -99,9 +170,10 @@ export function MensajeriaVoiceCallProvider({ children }: { children: ReactNode 
       rejectCall: async () => controllerRef.current?.rejectCall(),
       hangup: async () => controllerRef.current?.hangup(),
       toggleMute: () => controllerRef.current?.toggleMute(),
-      dismissError: () => controllerRef.current?.dismissError()
+      dismissError: () => controllerRef.current?.dismissError(),
+      timbrar
     }),
-    [startCall, voice]
+    [startCall, timbrar, voice]
   )
 
   const showOverlay =
@@ -174,6 +246,37 @@ export function MensajeriaVoiceCallProvider({ children }: { children: ReactNode 
             )}
             <p className="global-voice-call-hint">Llamada interna de Plot Lab</p>
           </div>
+        </div>
+      )}
+
+      {timbre && (
+        <div className="global-timbre-toast" role="alert">
+          <span className="global-timbre-toast__icon" aria-hidden>
+            🔔
+          </span>
+          <div className="global-timbre-toast__body">
+            <strong>{timbre.fromName || 'Un compañero'}</strong>
+            <span>te busca en el chat</span>
+          </div>
+          <button
+            type="button"
+            className="global-timbre-toast__open"
+            onClick={() => {
+              const roomId = timbre.roomId
+              cerrarTimbre()
+              navigate(`/mensajeria?room=${roomId}`)
+            }}
+          >
+            Abrir
+          </button>
+          <button
+            type="button"
+            className="global-timbre-toast__close"
+            onClick={cerrarTimbre}
+            aria-label="Cerrar aviso"
+          >
+            ✕
+          </button>
         </div>
       )}
     </VoiceCallContext.Provider>

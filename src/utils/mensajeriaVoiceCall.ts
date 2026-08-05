@@ -17,6 +17,14 @@ type RingPayload = {
   fromName: string
 }
 
+/** Timbre: solo avisa "te busco en el chat". No usa micrófono ni WebRTC. */
+type TimbrePayload = {
+  type: 'timbre'
+  roomId: number
+  fromUserId: number
+  fromName: string
+}
+
 type AcceptPayload = {
   type: 'accept'
   callId: string
@@ -56,6 +64,7 @@ type IcePayload = {
 
 export type VoiceSignal =
   | RingPayload
+  | TimbrePayload
   | AcceptPayload
   | RejectPayload
   | HangupPayload
@@ -79,6 +88,7 @@ function unwrapBroadcast(msg: unknown): VoiceSignal | null {
   const t = (raw as { type?: unknown }).type
   if (
     t !== 'ring' &&
+    t !== 'timbre' &&
     t !== 'accept' &&
     t !== 'reject' &&
     t !== 'hangup' &&
@@ -91,14 +101,29 @@ function unwrapBroadcast(msg: unknown): VoiceSignal | null {
   return raw as VoiceSignal
 }
 
+/** true/false si el sistema reporta algún micrófono; null si no se puede saber. */
+async function hayMicrofonoConectado(): Promise<boolean | null> {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    return devices.some((d) => d.kind === 'audioinput')
+  } catch {
+    return null
+  }
+}
+
 /** Errores de getUserMedia en castellano y con la acción concreta a hacer. */
-function describeMicError(e: unknown): string {
+async function describeMicError(e: unknown): Promise<string> {
   const name = e && typeof e === 'object' && 'name' in e ? String((e as { name: unknown }).name) : ''
   switch (name) {
     case 'NotFoundError':
     case 'DevicesNotFoundError':
-    case 'OverconstrainedError':
-      return 'No se detectó micrófono en este equipo. Conectá auriculares con micrófono (o uno USB) y volvé a intentar.'
+    case 'OverconstrainedError': {
+      const hayMic = await hayMicrofonoConectado()
+      if (hayMic === true) {
+        return 'Hay un micrófono instalado pero el navegador no puede abrirlo. Revisá Windows → Sonido → Entrada y elegilo como dispositivo predeterminado.'
+      }
+      return 'Este equipo no tiene micrófono. Conectá auriculares con micrófono (o uno USB) y volvé a intentar.'
+    }
     case 'NotAllowedError':
     case 'PermissionDeniedError':
       return 'El navegador bloqueó el micrófono. Tocá el candado de la barra de direcciones y permití el micrófono para este sitio.'
@@ -144,11 +169,18 @@ export type VoiceCallController = {
   hangup: () => Promise<void>
   toggleMute: () => void
   dismissError: () => void
+  sendTimbre: (args: {
+    roomId: number
+    peerUserId: number
+    myUserId: number
+    myName: string
+  }) => Promise<void>
   dispose: () => void
 }
 
 type Listeners = {
   onState: (state: VoiceCallUiState) => void
+  onTimbre?: (timbre: { roomId: number; fromUserId: number; fromName: string }) => void
 }
 
 /**
@@ -280,20 +312,22 @@ export function createMensajeriaVoiceCall(listeners: Listeners): VoiceCallContro
           : 'Este navegador no permite usar el micrófono.'
       )
     }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: false
-      })
-      localStream = stream
-      return stream
-    } catch (e) {
-      throw new Error(describeMicError(e))
+    // Algunos equipos rechazan los filtros de audio: si falla, probamos el pedido más simple.
+    const intentos: MediaStreamConstraints[] = [
+      { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false },
+      { audio: true }
+    ]
+    let ultimoError: unknown = null
+    for (const constraints of intentos) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints)
+        localStream = stream
+        return stream
+      } catch (e) {
+        ultimoError = e
+      }
     }
+    throw new Error(await describeMicError(ultimoError))
   }
 
   const createPc = async () => {
@@ -355,6 +389,15 @@ export function createMensajeriaVoiceCall(listeners: Listeners): VoiceCallContro
   const handleSignal = async (signal: VoiceSignal | null) => {
     if (!signal || disposed || myUserId == null) return
     if (signal.fromUserId === myUserId) return
+
+    if (signal.type === 'timbre') {
+      listeners.onTimbre?.({
+        roomId: signal.roomId,
+        fromUserId: signal.fromUserId,
+        fromName: signal.fromName
+      })
+      return
+    }
 
     if (signal.type === 'ring') {
       if (state.phase !== 'idle') {
@@ -662,6 +705,43 @@ export function createMensajeriaVoiceCall(listeners: Listeners): VoiceCallContro
     dismissError: () => {
       if (state.phase === 'ended') {
         setState({ phase: 'idle', error: null, peerName: '' })
+      }
+    },
+
+    sendTimbre: async ({ roomId, peerUserId, myUserId: uid, myName }) => {
+      if (!supabase) throw new Error('Supabase no disponible')
+      const sb = supabase
+      attachPersonalListener(uid)
+      myUserId = uid
+      const peerCh = sb.channel(userChannelName(peerUserId), {
+        config: { broadcast: { ack: false, self: false } }
+      })
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const t = window.setTimeout(() => reject(new Error('El compañero no está conectado')), 6000)
+          peerCh.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              window.clearTimeout(t)
+              resolve()
+            }
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              window.clearTimeout(t)
+              reject(new Error('No se pudo enviar el timbre'))
+            }
+          })
+        })
+        await peerCh.send({
+          type: 'broadcast',
+          event: 'signal',
+          payload: {
+            type: 'timbre',
+            roomId,
+            fromUserId: uid,
+            fromName: myName
+          } satisfies TimbrePayload
+        })
+      } finally {
+        void sb.removeChannel(peerCh)
       }
     },
 

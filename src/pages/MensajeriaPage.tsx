@@ -97,7 +97,8 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const stickToBottomRef = useRef(true)
   const messagesRef = useRef<ThreadMsg[]>([])
-  const { voice, startCall, hangup } = useMensajeriaVoiceCall()
+  const { voice, timbrar } = useMensajeriaVoiceCall()
+  const [timbreEnviado, setTimbreEnviado] = useState(false)
 
   const currentUserId = usuario?.id ?? null
 
@@ -106,6 +107,17 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
       setSelectedRoomId(voice.roomId)
     }
   }, [voice.phase, voice.roomId])
+
+  // El timbre se puede repetir al cambiar de conversación o pasados unos segundos.
+  useEffect(() => {
+    if (!timbreEnviado) return
+    const t = window.setTimeout(() => setTimbreEnviado(false), 8000)
+    return () => window.clearTimeout(t)
+  }, [timbreEnviado])
+
+  useEffect(() => {
+    setTimbreEnviado(false)
+  }, [selectedRoomId])
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -634,35 +646,28 @@ export default function MensajeriaPage({ onLogout }: MensajeriaPageProps) {
                     </div>
                   </div>
                   <div className="mensajeria-thread-actions">
-                    {voice.phase === 'idle' || voice.phase === 'ended' ? (
-                      <button
-                        type="button"
-                        className="mensajeria-btn mensajeria-call-btn"
-                        title="Llamada de voz (prueba)"
-                        disabled={selectedRoomId == null || selected?.peerId == null}
-                        onClick={() => {
-                          if (selectedRoomId == null || selected?.peerId == null) return
-                          void startCall({
-                              roomId: selectedRoomId,
-                              peerUserId: selected.peerId,
-                              peerName: selected.peer?.nombre || `Usuario #${selected.peerId}`
-                            })
-                            .catch((e) =>
-                              showToast(e instanceof Error ? e.message : 'No se pudo llamar')
-                            )
-                        }}
-                      >
-                        📞 Llamar
-                      </button>
-                    ) : voice.roomId === selectedRoomId ? (
-                      <button
-                        type="button"
-                        className="mensajeria-btn mensajeria-call-btn mensajeria-call-btn--hangup"
-                        onClick={() => void hangup()}
-                      >
-                        ⏹ Cortar
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      className="mensajeria-btn mensajeria-timbre-btn"
+                      title="Avisarle que lo buscás en el chat"
+                      disabled={timbreEnviado || selectedRoomId == null || selected?.peerId == null}
+                      onClick={() => {
+                        if (selectedRoomId == null || selected?.peerId == null) return
+                        setTimbreEnviado(true)
+                        void timbrar({
+                          roomId: selectedRoomId,
+                          peerUserId: selected.peerId,
+                          peerName: selected.peer?.nombre || `Usuario #${selected.peerId}`
+                        })
+                          .then(() => showToast('Timbre enviado'))
+                          .catch((e) => {
+                            setTimbreEnviado(false)
+                            showToast(e instanceof Error ? e.message : 'No se pudo enviar el timbre')
+                          })
+                      }}
+                    >
+                      {timbreEnviado ? '🔔 Enviado' : '🔔 Timbre'}
+                    </button>
                   </div>
                 </div>
 

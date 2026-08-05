@@ -340,6 +340,16 @@
   white-space: nowrap;
 }
 
+.mensajeria-timbre-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  white-space: nowrap;
+}
+
+.mensajeria-timbre-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
 .mensajeria-call-btn--hangup {
   background: linear-gradient(135deg, #ef4444, #dc2626);
 }
