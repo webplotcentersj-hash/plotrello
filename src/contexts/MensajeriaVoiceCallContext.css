@@ -44,6 +44,19 @@
   font-weight: 700;
 }
 
+.global-voice-call-status.is-error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
 .global-voice-call-actions {
   display: flex;
   flex-wrap: wrap;
@@ -68,6 +81,11 @@
 
 .global-voice-call-btn.is-hangup {
   background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.global-voice-call-btn.is-dismiss {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .global-voice-call-btn.is-muted {

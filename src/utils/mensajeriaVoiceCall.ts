@@ -91,6 +91,29 @@ function unwrapBroadcast(msg: unknown): VoiceSignal | null {
   return raw as VoiceSignal
 }
 
+/** Errores de getUserMedia en castellano y con la acción concreta a hacer. */
+function describeMicError(e: unknown): string {
+  const name = e && typeof e === 'object' && 'name' in e ? String((e as { name: unknown }).name) : ''
+  switch (name) {
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+    case 'OverconstrainedError':
+      return 'No se detectó micrófono en este equipo. Conectá auriculares con micrófono (o uno USB) y volvé a intentar.'
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return 'El navegador bloqueó el micrófono. Tocá el candado de la barra de direcciones y permití el micrófono para este sitio.'
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return 'El micrófono está ocupado por otro programa (Zoom, Meet, WhatsApp). Cerralo y volvé a intentar.'
+    case 'SecurityError':
+      return 'El micrófono necesita HTTPS. Abrí Plot Lab por https:// para poder llamar.'
+    default:
+      return e instanceof Error && e.message
+        ? `No se pudo usar el micrófono: ${e.message}`
+        : 'No se pudo usar el micrófono.'
+  }
+}
+
 function newCallId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
   return `call-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -120,6 +143,7 @@ export type VoiceCallController = {
   rejectCall: () => Promise<void>
   hangup: () => Promise<void>
   toggleMute: () => void
+  dismissError: () => void
   dispose: () => void
 }
 
@@ -199,19 +223,21 @@ export function createMensajeriaVoiceCall(listeners: Listeners): VoiceCallContro
     if (remoteAudioEl) {
       remoteAudioEl.srcObject = null
     }
+    const peerName = error ? state.peerName : ''
     setState({
       phase: error ? 'ended' : 'idle',
       callId: null,
       roomId: null,
       peerUserId: null,
-      peerName: '',
+      peerName,
       muted: false,
       error: error ?? null
     })
     if (error) {
+      // Los avisos de micrófono explican qué hacer: dar tiempo a leerlos.
       window.setTimeout(() => {
-        if (state.phase === 'ended') setState({ phase: 'idle', error: null })
-      }, 2500)
+        if (state.phase === 'ended') setState({ phase: 'idle', error: null, peerName: '' })
+      }, 12000)
     }
   }
 
@@ -247,16 +273,27 @@ export function createMensajeriaVoiceCall(listeners: Listeners): VoiceCallContro
 
   const getMic = async () => {
     if (localStream) return localStream
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      },
-      video: false
-    })
-    localStream = stream
-    return stream
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error(
+        window.isSecureContext === false
+          ? 'El micrófono necesita HTTPS. Abrí Plot Lab por https:// para poder llamar.'
+          : 'Este navegador no permite usar el micrófono.'
+      )
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: false
+      })
+      localStream = stream
+      return stream
+    } catch (e) {
+      throw new Error(describeMicError(e))
+    }
   }
 
   const createPc = async () => {
@@ -620,6 +657,12 @@ export function createMensajeriaVoiceCall(listeners: Listeners): VoiceCallContro
 
     attachInbox: (userId: number) => {
       attachPersonalListener(userId)
+    },
+
+    dismissError: () => {
+      if (state.phase === 'ended') {
+        setState({ phase: 'idle', error: null, peerName: '' })
+      }
     },
 
     dispose: () => {

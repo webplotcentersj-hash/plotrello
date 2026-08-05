@@ -41,6 +41,7 @@ type VoiceCallContextValue = {
   rejectCall: () => Promise<void>
   hangup: () => Promise<void>
   toggleMute: () => void
+  dismissError: () => void
 }
 
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null)
@@ -97,7 +98,8 @@ export function MensajeriaVoiceCallProvider({ children }: { children: ReactNode 
       acceptCall: async () => controllerRef.current?.acceptCall(),
       rejectCall: async () => controllerRef.current?.rejectCall(),
       hangup: async () => controllerRef.current?.hangup(),
-      toggleMute: () => controllerRef.current?.toggleMute()
+      toggleMute: () => controllerRef.current?.toggleMute(),
+      dismissError: () => controllerRef.current?.dismissError()
     }),
     [startCall, voice]
   )
@@ -119,7 +121,9 @@ export function MensajeriaVoiceCallProvider({ children }: { children: ReactNode 
               {initials(voice.peerName || 'Usuario')}
             </div>
             <strong className="global-voice-call-name">{voice.peerName || 'Compañero'}</strong>
-            <p className="global-voice-call-status">
+            <p
+              className={`global-voice-call-status${voice.phase === 'ended' && voice.error ? ' is-error' : ''}`}
+            >
               {voice.phase === 'calling' && 'Llamando…'}
               {voice.phase === 'ringing' && 'Llamada entrante'}
               {voice.phase === 'connecting' && 'Conectando…'}
@@ -150,6 +154,12 @@ export function MensajeriaVoiceCallProvider({ children }: { children: ReactNode 
                     Cortar
                   </button>
                 </>
+              )}
+
+              {voice.phase === 'ended' && (
+                <button type="button" className="global-voice-call-btn is-dismiss" onClick={value.dismissError}>
+                  Entendido
+                </button>
               )}
             </div>
 
