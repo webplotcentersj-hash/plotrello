@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -44,6 +44,28 @@ const ESTADOS = [
 
 const PRIORIDADES = ['todos', 'Baja', 'Normal', 'Alta', 'Urgente'] as const
 
+const SECTORES_META: Record<string, { icono: string; color: string }> = {
+  'Taller Gráfico': { icono: '🧰', color: '#f97316' },
+  'Taller de Imprenta': { icono: '🖨️', color: '#8b5cf6' },
+  Metalúrgica: { icono: '⚙️', color: '#eab308' },
+  Instalaciones: { icono: '🪜', color: '#06b6d4' },
+  Administración: { icono: '📊', color: '#3b82f6' },
+  'Diseño Gráfico': { icono: '🎨', color: '#ec4899' },
+  Mostrador: { icono: '🏪', color: '#10b981' },
+  Caja: { icono: '💵', color: '#22c55e' },
+  Compras: { icono: '🛒', color: '#f59e0b' },
+  Gerencia: { icono: '🧭', color: '#6366f1' },
+  'Sin área': { icono: '📁', color: '#64748b' }
+}
+
+function sectorDe(pedido: PedidoCompra): string {
+  return pedido.sector_solicitante?.trim() || 'Sin área'
+}
+
+function metaSector(sector: string) {
+  return SECTORES_META[sector] ?? { icono: '📁', color: '#64748b' }
+}
+
 function getEstadoColor(estado: string): string {
   const colores: Record<string, string> = {
     Pendiente: '#f59e0b',
@@ -68,6 +90,72 @@ function getPrioridadColor(prioridad: string): string {
   return colores[prioridad] || '#6b7280'
 }
 
+function PedidoCard({
+  pedido,
+  onOpen
+}: {
+  pedido: PedidoCompra
+  onOpen: () => void
+}) {
+  const esNuevo = !pedido.visto_por_compras_at
+  const sector = sectorDe(pedido)
+  const meta = metaSector(sector)
+
+  return (
+    <article
+      className={`pedido-card${esNuevo ? ' pedido-card--nuevo' : ''}`}
+      style={{ '--pedido-sector-color': meta.color } as CSSProperties}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      {esNuevo && <span className="pedido-nuevo-badge">● Nuevo</span>}
+      <div className="pedido-header">
+        <div className="pedido-numero">
+          <strong>{pedido.numero_pedido}</strong>
+          <span className="pedido-sector">
+            {meta.icono} {sector}
+          </span>
+        </div>
+        <div className="pedido-header__badges">
+          <span className="pedido-prioridad" style={{ color: getPrioridadColor(pedido.prioridad) }}>
+            {pedido.prioridad}
+          </span>
+          <span className="pedido-estado" style={{ backgroundColor: getEstadoColor(pedido.estado) }}>
+            {pedido.estado}
+          </span>
+        </div>
+      </div>
+      <div className="pedido-info">
+        <div className="info-row">
+          <span className="label">Solicitante</span>
+          <span>{pedido.nombre_solicitante}</span>
+        </div>
+        <div className="info-row">
+          <span className="label">Items</span>
+          <span>{pedido.items?.length || 0} productos</span>
+        </div>
+        <div className="info-row">
+          <span className="label">Fecha</span>
+          <span>{new Date(pedido.fecha_solicitud).toLocaleDateString('es-AR')}</span>
+        </div>
+      </div>
+      {pedido.motivo && (
+        <div className="pedido-motivo">
+          <strong>Motivo:</strong> {pedido.motivo}
+        </div>
+      )}
+      <span className="pedido-card__abrir">Abrir pedido →</span>
+    </article>
+  )
+}
+
 export default function ComprasDashboardPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -78,6 +166,8 @@ export default function ComprasDashboardPage() {
     location.pathname === '/compras/pedidos' ? 'Pendiente' : 'todos'
   )
   const [filtroPrioridad, setFiltroPrioridad] = useState<string>('todos')
+  const [filtroSector, setFiltroSector] = useState<string>('todos')
+  const [soloNuevos, setSoloNuevos] = useState(false)
   const [filtroPeriodo, setFiltroPeriodo] = useState<PeriodoFiltro>('7')
   const [buscar, setBuscar] = useState('')
   const [extraVisibles, setExtraVisibles] = useState(0)
@@ -93,7 +183,7 @@ export default function ComprasDashboardPage() {
 
   useEffect(() => {
     setExtraVisibles(0)
-  }, [filtroEstado, filtroPrioridad, filtroPeriodo, buscar])
+  }, [filtroEstado, filtroPrioridad, filtroSector, soloNuevos, filtroPeriodo, buscar])
 
   const loadPedidos = async () => {
     setLoading(true)
@@ -111,6 +201,16 @@ export default function ComprasDashboardPage() {
 
   const cutoffPeriodo = useMemo(() => getCutoffPeriodo(filtroPeriodo), [filtroPeriodo])
 
+  const sectoresDisponibles = useMemo(
+    () =>
+      [...new Set(pedidos.map(sectorDe))].sort((a, b) => {
+        const countA = pedidos.filter((p) => sectorDe(p) === a).length
+        const countB = pedidos.filter((p) => sectorDe(p) === b).length
+        return countB - countA || a.localeCompare(b)
+      }),
+    [pedidos]
+  )
+
   const pedidosFiltrados = useMemo(() => {
     let list = [...pedidos]
     if (filtroEstado !== 'todos') {
@@ -118,6 +218,12 @@ export default function ComprasDashboardPage() {
     }
     if (filtroPrioridad !== 'todos') {
       list = list.filter((p) => p.prioridad === filtroPrioridad)
+    }
+    if (filtroSector !== 'todos') {
+      list = list.filter((p) => sectorDe(p) === filtroSector)
+    }
+    if (soloNuevos) {
+      list = list.filter((p) => !p.visto_por_compras_at)
     }
     const q = buscar.trim().toLowerCase()
     if (q) {
@@ -129,10 +235,15 @@ export default function ComprasDashboardPage() {
           (p.sector_solicitante || '').toLowerCase().includes(q)
       )
     }
-    return list.sort(
-      (a, b) => new Date(b.fecha_solicitud).getTime() - new Date(a.fecha_solicitud).getTime()
-    )
-  }, [pedidos, filtroEstado, filtroPrioridad, buscar])
+    return list.sort((a, b) => {
+      const nuevoA = a.visto_por_compras_at ? 0 : 1
+      const nuevoB = b.visto_por_compras_at ? 0 : 1
+      return (
+        nuevoB - nuevoA ||
+        new Date(b.fecha_solicitud).getTime() - new Date(a.fecha_solicitud).getTime()
+      )
+    })
+  }, [pedidos, filtroEstado, filtroPrioridad, filtroSector, soloNuevos, buscar])
 
   const { enPeriodo, anterioresAlPeriodo } = useMemo(() => {
     if (filtroPeriodo === 'todos') {
@@ -156,6 +267,21 @@ export default function ComprasDashboardPage() {
     return [...enPeriodo, ...anterioresAlPeriodo.slice(0, extraVisibles)]
   }, [filtroPeriodo, pedidosFiltrados, enPeriodo, anterioresAlPeriodo, extraVisibles])
 
+  const pedidosPorSector = useMemo(() => {
+    const grupos = new Map<string, PedidoCompra[]>()
+    for (const pedido of pedidosVisibles) {
+      const sector = sectorDe(pedido)
+      const grupo = grupos.get(sector) ?? []
+      grupo.push(pedido)
+      grupos.set(sector, grupo)
+    }
+    return [...grupos.entries()].sort(([, a], [, b]) => {
+      const nuevosA = a.filter((p) => !p.visto_por_compras_at).length
+      const nuevosB = b.filter((p) => !p.visto_por_compras_at).length
+      return nuevosB - nuevosA || b.length - a.length
+    })
+  }, [pedidosVisibles])
+
   const hayMasPorCargar =
     filtroPeriodo === 'todos'
       ? pedidosVisibles.length < pedidosFiltrados.length
@@ -170,6 +296,7 @@ export default function ComprasDashboardPage() {
     const cutoff7d = getCutoffPeriodo('7')!
     return {
       pendientes: pedidos.filter((p) => p.estado === 'Pendiente').length,
+      nuevos: pedidos.filter((p) => !p.visto_por_compras_at).length,
       ultimos7: pedidos.filter((p) => {
         const f = new Date(p.fecha_solicitud)
         f.setHours(0, 0, 0, 0)
@@ -213,8 +340,22 @@ export default function ComprasDashboardPage() {
             <p className="compras-dash-header__eyebrow">Plot Center · Compras</p>
             <h1>Pedidos de compra</h1>
             <p className="compras-dash-header__sub">
-              {miniStats.ultimos7} pedidos en los últimos 7 días · {miniStats.pendientes} pendientes
+              {miniStats.ultimos7} en los últimos 7 días · {miniStats.pendientes} pendientes
             </p>
+          </div>
+        </div>
+        <div className="compras-dash-header__stats" aria-label="Resumen de pedidos">
+          <button
+            type="button"
+            className={`compras-dash-stat${soloNuevos ? ' is-active' : ''}`}
+            onClick={() => setSoloNuevos((v) => !v)}
+          >
+            <strong>{miniStats.nuevos}</strong>
+            <span>nuevos sin leer</span>
+          </button>
+          <div className="compras-dash-stat">
+            <strong>{sectoresDisponibles.length}</strong>
+            <span>áreas activas</span>
           </div>
         </div>
         <div className="compras-dash-header__actions">
@@ -323,6 +464,17 @@ export default function ComprasDashboardPage() {
               </select>
             </label>
             <label className="pedidos-filter-field">
+              <span>Área</span>
+              <select value={filtroSector} onChange={(e) => setFiltroSector(e.target.value)}>
+                <option value="todos">Todas las áreas</option>
+                {sectoresDisponibles.map((sector) => (
+                  <option key={sector} value={sector}>
+                    {metaSector(sector).icono} {sector}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="pedidos-filter-field">
               <span>Período</span>
               <select
                 value={filtroPeriodo}
@@ -338,6 +490,15 @@ export default function ComprasDashboardPage() {
           </div>
 
           <div className="pedidos-chips">
+            {miniStats.nuevos > 0 && (
+              <button
+                type="button"
+                className={`pedidos-chip pedidos-chip--nuevo${soloNuevos ? ' pedidos-chip--active' : ''}`}
+                onClick={() => setSoloNuevos((v) => !v)}
+              >
+                ● Nuevos <em>{miniStats.nuevos}</em>
+              </button>
+            )}
             {ESTADOS.filter((e) => e !== 'todos').map((estado) => {
               const count = pedidos.filter((p) => p.estado === estado).length
               if (count === 0) return null
@@ -371,7 +532,12 @@ export default function ComprasDashboardPage() {
                 Ver pedidos anteriores ({anterioresAlPeriodo.length})
               </button>
             ) : (
-              (buscar || filtroEstado !== 'todos' || filtroPrioridad !== 'todos' || filtroPeriodo !== '7') && (
+              (buscar ||
+                filtroEstado !== 'todos' ||
+                filtroPrioridad !== 'todos' ||
+                filtroSector !== 'todos' ||
+                soloNuevos ||
+                filtroPeriodo !== '7') && (
                 <button
                   type="button"
                   className="cp-btn cp-btn--ghost"
@@ -379,6 +545,8 @@ export default function ComprasDashboardPage() {
                     setBuscar('')
                     setFiltroEstado('todos')
                     setFiltroPrioridad('todos')
+                    setFiltroSector('todos')
+                    setSoloNuevos(false)
                     setFiltroPeriodo('7')
                   }}
                 >
@@ -389,76 +557,42 @@ export default function ComprasDashboardPage() {
           </div>
         ) : (
           <>
-            <div className="pedidos-list">
-              {enPeriodo.length > 0 && extraVisibles > 0 && filtroPeriodo !== 'todos' && (
-                <p className="pedidos-list__divider-label">{getPeriodoLabel(filtroPeriodo)}</p>
-              )}
-              {pedidosVisibles.map((pedido, idx) => {
-                const showDivider =
-                  filtroPeriodo !== 'todos' &&
-                  extraVisibles > 0 &&
-                  idx === enPeriodo.length &&
-                  enPeriodo.length > 0 &&
-                  anterioresAlPeriodo.length > 0
+            <div className="pedidos-sectores">
+              {pedidosPorSector.map(([sector, pedidosSector]) => {
+                const meta = metaSector(sector)
+                const nuevos = pedidosSector.filter((p) => !p.visto_por_compras_at).length
                 return (
-                  <div key={pedido.id}>
-                    {showDivider && (
-                      <p className="pedidos-list__divider-label">
-                        Anteriores a {getPeriodoLabel(filtroPeriodo).toLowerCase()}
-                      </p>
-                    )}
-                    <article
-                      className="pedido-card"
-                      onClick={() => navigate(`/compras/pedidos/${pedido.id}`)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') navigate(`/compras/pedidos/${pedido.id}`)
-                      }}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <div className="pedido-header">
-                        <div className="pedido-numero">
-                          <strong>{pedido.numero_pedido}</strong>
-                          {pedido.sector_solicitante && (
-                            <span className="pedido-sector">{pedido.sector_solicitante}</span>
-                          )}
-                        </div>
-                        <div className="pedido-header__badges">
-                          <span
-                            className="pedido-prioridad"
-                            style={{ color: getPrioridadColor(pedido.prioridad) }}
-                          >
-                            {pedido.prioridad}
-                          </span>
-                          <span
-                            className="pedido-estado"
-                            style={{ backgroundColor: getEstadoColor(pedido.estado) }}
-                          >
-                            {pedido.estado}
-                          </span>
-                        </div>
+                  <section
+                    key={sector}
+                    className="pedidos-sector-group"
+                    style={{ '--sector-color': meta.color } as CSSProperties}
+                  >
+                    <header className="pedidos-sector-group__header">
+                      <span className="pedidos-sector-group__icon" aria-hidden>
+                        {meta.icono}
+                      </span>
+                      <div>
+                        <h3>{sector}</h3>
+                        <p>
+                          {pedidosSector.length} {pedidosSector.length === 1 ? 'pedido' : 'pedidos'}
+                        </p>
                       </div>
-                      <div className="pedido-info">
-                        <div className="info-row">
-                          <span className="label">Solicitante</span>
-                          <span>{pedido.nombre_solicitante}</span>
-                        </div>
-                        <div className="info-row">
-                          <span className="label">Items</span>
-                          <span>{pedido.items?.length || 0} productos</span>
-                        </div>
-                        <div className="info-row">
-                          <span className="label">Fecha</span>
-                          <span>{new Date(pedido.fecha_solicitud).toLocaleDateString('es-AR')}</span>
-                        </div>
-                      </div>
-                      {pedido.motivo && (
-                        <div className="pedido-motivo">
-                          <strong>Motivo:</strong> {pedido.motivo}
-                        </div>
+                      {nuevos > 0 && (
+                        <span className="pedidos-sector-group__nuevos">
+                          {nuevos} {nuevos === 1 ? 'nuevo' : 'nuevos'}
+                        </span>
                       )}
-                    </article>
-                  </div>
+                    </header>
+                    <div className="pedidos-list">
+                      {pedidosSector.map((pedido) => (
+                        <PedidoCard
+                          key={pedido.id}
+                          pedido={pedido}
+                          onOpen={() => navigate(`/compras/pedidos/${pedido.id}`)}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 )
               })}
             </div>

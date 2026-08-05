@@ -56,7 +56,19 @@ const PedidoCompraDetallePage = () => {
     try {
       const response = await apiService.getPedidoCompra(Number(id))
       if (response.success && response.data) {
-        setPedido(response.data)
+        let pedidoCargado = response.data
+        // "Nuevo" se conserva en BD hasta que alguien de Compras abre efectivamente el detalle.
+        if (canManageCompras && !pedidoCargado.visto_por_compras_at) {
+          const visto = await apiService.marcarPedidoCompraVisto(pedidoCargado.id, usuario?.id)
+          if (visto.success && visto.data) {
+            pedidoCargado = {
+              ...pedidoCargado,
+              visto_por_compras_at: visto.data.visto_por_compras_at,
+              visto_por_compras_id_usuario: usuario?.id ?? null
+            }
+          }
+        }
+        setPedido(pedidoCargado)
         // Inicializar cantidades aprobadas con las solicitadas
         const cantidades: Record<number, number> = {}
         response.data.items?.forEach(item => {

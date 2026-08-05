@@ -44,6 +44,9 @@ export interface PedidoCompra {
   id_aprobador?: number | null
   nombre_aprobador?: string | null
   motivo_rechazo?: string | null
+  /** Null mientras el equipo de Compras todavía no abrió el pedido. */
+  visto_por_compras_at?: string | null
+  visto_por_compras_id_usuario?: number | null
   created_at: string
   updated_at: string
   items?: PedidoCompraItem[]

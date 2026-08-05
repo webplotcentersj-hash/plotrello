@@ -9880,6 +9880,35 @@ class ApiService {
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
+  /** Marca el pedido como leído por el equipo de Compras. Es idempotente. */
+  async marcarPedidoCompraVisto(
+    id: number,
+    idUsuario?: number | null
+  ): Promise<ApiResponse<{ visto_por_compras_at: string }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const vistoAt = new Date().toISOString()
+      const { data, error } = await supabase
+        .from('pedidos_compras')
+        .update({
+          visto_por_compras_at: vistoAt,
+          visto_por_compras_id_usuario: idUsuario ?? null
+        })
+        .eq('id', id)
+        .is('visto_por_compras_at', null)
+        .select('visto_por_compras_at')
+        .maybeSingle()
+
+      if (error) return { success: false, error: error.message }
+      return {
+        success: true,
+        data: { visto_por_compras_at: data?.visto_por_compras_at ?? vistoAt }
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   async aprobarPedidoCompra(
     id: number,
     aprobador: { id: number; nombre: string },
