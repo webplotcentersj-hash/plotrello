@@ -122,6 +122,8 @@ const TaskCreateModal = ({
   const [isClienteDropdownOpen, setIsClienteDropdownOpen] = useState(false)
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
+  /** Nombre ya elegido de la lista: evita reabrir el dropdown y re-autocompletar. */
+  const clienteElegidoRef = useRef<string | null>(null)
   const attachmentsRef = useRef<LocalAttachment[]>([])
   const [previewAttachment, setPreviewAttachment] = useState<LocalAttachment | null>(null)
 
@@ -184,20 +186,26 @@ const TaskCreateModal = ({
 
   // Buscar clientes cuando se escribe en el campo cliente
   useEffect(() => {
-    const buscarClientes = async () => {
-      if (cliente.trim().length < 2) {
-        setClientesEncontrados([])
-        setIsClienteDropdownOpen(false)
-        return
-      }
+    const q = cliente.trim()
+    // Ya elegido de la lista: no volver a buscar ni reabrir el dropdown sobre el mismo nombre.
+    if (q.length < 2 || clienteElegidoRef.current === q.toLowerCase()) {
+      setClientesEncontrados([])
+      setIsClienteDropdownOpen(false)
+      setBuscandoClientes(false)
+      return
+    }
 
+    let cancelled = false
+    const buscarClientes = async () => {
       setBuscandoClientes(true)
-      const response = await apiService.buscarClientes(cliente.trim())
-      if (response.success && response.data) {
+      const response = await apiService.buscarClientes(q)
+      if (cancelled) return
+      if (response.success && response.data && response.data.length > 0) {
         setClientesEncontrados(response.data)
         setIsClienteDropdownOpen(true)
       } else {
         setClientesEncontrados([])
+        setIsClienteDropdownOpen(false)
       }
       setBuscandoClientes(false)
     }
@@ -206,10 +214,14 @@ const TaskCreateModal = ({
       void buscarClientes()
     }, 300)
 
-    return () => clearTimeout(timeoutId)
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+    }
   }, [cliente])
 
   const handleSelectCliente = (clienteSeleccionado: ClienteRecord) => {
+    clienteElegidoRef.current = clienteSeleccionado.nombre.trim().toLowerCase()
     setCliente(clienteSeleccionado.nombre)
     setDniCuit(clienteSeleccionado.dni_cuit || '')
     setTelefonoCliente(clienteSeleccionado.telefono || '')
@@ -219,16 +231,19 @@ const TaskCreateModal = ({
     setDriveUrl(clienteSeleccionado.drive_link || '')
     setClientesEncontrados([])
     setIsClienteDropdownOpen(false)
+    setBuscandoClientes(false)
   }
 
   // Autocompletar cuando se escribe el nombre exacto de un cliente
   const handleClienteBlur = () => {
     setTimeout(() => {
       setIsClienteDropdownOpen(false)
+      const q = cliente.trim()
+      if (!q || clienteElegidoRef.current === q.toLowerCase()) return
       // Si hay exactamente un cliente encontrado y coincide con el texto escrito, autocompletar
-      if (clientesEncontrados.length === 1 && cliente.trim()) {
+      if (clientesEncontrados.length === 1) {
         const clienteExacto = clientesEncontrados.find(
-          c => c.nombre.toLowerCase() === cliente.trim().toLowerCase()
+          c => c.nombre.toLowerCase() === q.toLowerCase()
         )
         if (clienteExacto) {
           handleSelectCliente(clienteExacto)
@@ -372,6 +387,7 @@ const TaskCreateModal = ({
           const nombreCompleto = clienteData.apellido 
             ? `${clienteData.nombre} ${clienteData.apellido}`
             : clienteData.nombre
+          clienteElegidoRef.current = String(nombreCompleto || '').trim().toLowerCase()
           setCliente(nombreCompleto)
           setDniCuit(clienteData.dni_cuit || '')
           setTelefonoCliente(clienteData.telefono || '')
@@ -463,6 +479,18 @@ const TaskCreateModal = ({
   const handleCreate = async (openChecklist = false) => {
     if (!opNumber || !cliente) {
       alert('Por favor completa los campos obligatorios: N° OP y Cliente')
+      return
+    }
+
+    // DNI y teléfono solo obligatorios en alta manual (sin brief ni pedido web).
+    const altaManual = !briefTokenSeleccionado && !pedidoWebSeleccionado
+    if (altaManual && !dniCuit.trim()) {
+      alert('El DNI / CUIT del cliente es obligatorio.')
+      return
+    }
+
+    if (altaManual && !telefonoCliente.trim()) {
+      alert('El teléfono del cliente es obligatorio.')
       return
     }
 
@@ -1033,7 +1061,10 @@ const TaskCreateModal = ({
               <input
                 type="text"
                 value={cliente}
-                onChange={(e) => setCliente(e.target.value)}
+                onChange={(e) => {
+                  clienteElegidoRef.current = null
+                  setCliente(e.target.value)
+                }}
                 onFocus={() => {
                   if (clientesEncontrados.length > 0) setIsClienteDropdownOpen(true)
                 }}
@@ -1177,74 +1208,42 @@ const TaskCreateModal = ({
                 )}
                 
                 {mostrarSelectorBrief && !briefTokenSeleccionado && (
-                  <div style={{
-                    marginTop: '8px',
-                    padding: '12px',
-                    background: 'var(--surface-card)',
-                    border: '1px solid var(--surface-border)',
-                    borderRadius: '8px',
-                    maxHeight: '300px',
-                    overflowY: 'auto'
-                  }}>
+                  <div className="brief-picker-panel">
                     {loadingBriefs ? (
-                      <div style={{ textAlign: 'center', padding: '20px', color: '#d1d5db' }}>
-                        Cargando briefs...
-                      </div>
+                      <div className="brief-picker-empty">Cargando briefs...</div>
                     ) : briefsPendientes.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '20px', color: '#d1d5db' }}>
-                        No hay briefs pendientes
-                      </div>
+                      <div className="brief-picker-empty">No hay briefs pendientes</div>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {briefsPendientes.map((brief) => (
-                          <button
-                            key={brief.id}
-                            type="button"
-                            onClick={() => handleSeleccionarBrief(brief)}
-                            style={{
-                              padding: '12px',
-                              background: brief.completado ? 'rgba(16, 185, 129, 0.1)' : 'rgba(251, 191, 36, 0.1)',
-                              border: `1px solid ${brief.completado ? 'rgba(16, 185, 129, 0.3)' : 'rgba(251, 191, 36, 0.3)'}`,
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = 'translateY(-2px)'
-                              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)'
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = 'translateY(0)'
-                              e.currentTarget.style.boxShadow = 'none'
-                            }}
-                          >
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                              {brief.mockup_url && (
-                                <BriefMockupCard mockupUrl={brief.mockup_url} compact alt="Mockup" />
-                              )}
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, color: '#e5e7eb', marginBottom: '4px' }}>
+                      briefsPendientes.map((brief) => (
+                        <button
+                          key={brief.id}
+                          type="button"
+                          onClick={() => handleSeleccionarBrief(brief)}
+                          className={`brief-picker-item ${
+                            brief.completado ? 'brief-picker-item--done' : 'brief-picker-item--pending'
+                          }`}
+                        >
+                          {brief.mockup_url && (
+                            <span className="brief-picker-thumb">
+                              <img src={brief.mockup_url} alt="" loading="lazy" />
+                            </span>
+                          )}
+                          <span className="brief-picker-body">
+                            <span className="brief-picker-name">
                               {brief.cliente_nombre_completo || 'Cliente sin nombre'}
-                              {brief.cliente_empresa && ` - ${brief.cliente_empresa}`}
-                            </div>
+                              {brief.cliente_empresa && ` — ${brief.cliente_empresa}`}
+                            </span>
                             {brief.objetivo_proyecto && (
-                              <div style={{ fontSize: '0.85rem', color: '#d1d5db', marginTop: '4px' }}>
-                                {brief.objetivo_proyecto.length > 60 
-                                  ? `${brief.objetivo_proyecto.substring(0, 60)}...` 
-                                  : brief.objetivo_proyecto}
-                              </div>
+                              <span className="brief-picker-goal">{brief.objetivo_proyecto}</span>
                             )}
-                            <div style={{ fontSize: '0.75rem', color: '#d1d5db', marginTop: '4px' }}>
-                              {brief.completado ? '✓ Completado' : '⏳ Pendiente'}
-                              {brief.es_urgencia && ' • ⚠️ Urgencia'}
-                              {brief.mockup_url && ' • 🖼 Mockup'}
-                            </div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
+                            <span className="brief-picker-meta">
+                              <span>{brief.completado ? '✓ Completado' : '⏳ Pendiente'}</span>
+                              {brief.es_urgencia && <span>⚠️ Urgencia</span>}
+                              {brief.mockup_url && <span>🖼 Mockup</span>}
+                            </span>
+                          </span>
+                        </button>
+                      ))
                     )}
                   </div>
                 )}
@@ -1390,24 +1389,32 @@ const TaskCreateModal = ({
             </div>
 
             <div className="form-group">
-              <label>DNI / CUIT</label>
+              <label>
+                DNI / CUIT
+                {!briefTokenSeleccionado && !pedidoWebSeleccionado ? ' *' : ' (opcional)'}
+              </label>
               <input
                 type="text"
                 value={dniCuit}
                 onChange={(e) => setDniCuit(e.target.value)}
                 placeholder="Ej: 12345678 o 20-12345678-9"
+                required={!briefTokenSeleccionado && !pedidoWebSeleccionado}
               />
             </div>
           </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Teléfono cliente (opcional)</label>
+            <label>
+              Teléfono cliente
+              {!briefTokenSeleccionado && !pedidoWebSeleccionado ? ' *' : ' (opcional)'}
+            </label>
             <input
               type="text"
               value={telefonoCliente}
               onChange={(e) => setTelefonoCliente(e.target.value)}
               placeholder="+54 9 11 ..."
+              required={!briefTokenSeleccionado && !pedidoWebSeleccionado}
             />
           </div>
           <div className="form-group">
