@@ -1,255 +1,80 @@
-import jsPDF from 'jspdf'
 import type { PresupuestoVentaItemRecord, PresupuestoVentaRecord } from '../types/api'
 import { formatArgentinaDate } from './dateUtils'
 import { LISTAS_PRECIO_VENTAS, type TipoListaPrecioVentas } from '../constants/ventasListasPrecio'
+import {
+  buildPresupuestoPlanillaPdf,
+  downloadPresupuestoPlanillaPdf,
+  getPresupuestoPlanillaPdfBlob,
+  pdfText,
+  type PresupuestoPlanillaPayload
+} from './presupuestoPlanillaPdf'
 
 const EMPRESA_NOMBRE = 'PLOT CENTER S.R.L.'
-const EMPRESA_DOMICILIO = 'San Juan, Argentina'
-
-/** Helvetica en jsPDF no soporta bien Unicode (acentos, punto medio, etc.). */
-function pdfText(value: string | null | undefined): string {
-  if (!value) return ''
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\u00b7/g, '-')
-    .replace(/[\u2013\u2014]/g, '-')
-    .replace(/\u2026/g, '...')
-    .replace(/[^\x20-\x7E]/g, (ch) => {
-      const map: Record<string, string> = { 'Ñ': 'N', 'ñ': 'n' }
-      return map[ch] ?? ''
-    })
-}
 
 function labelListaPrecioPdf(tipo: TipoListaPrecioVentas): string {
   const meta = LISTAS_PRECIO_VENTAS[tipo]
   return pdfText(`${meta.label} (${meta.subtitle})`)
 }
 
-function cargarLogoBase64(): Promise<string | null> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.naturalWidth || img.width
-        canvas.height = img.naturalHeight || img.height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          resolve(null)
-          return
-        }
-        ctx.drawImage(img, 0, 0)
-        resolve(canvas.toDataURL('image/png'))
-      } catch {
-        resolve(null)
-      }
-    }
-    img.onerror = () => resolve(null)
-    img.src = `${window.location.origin}/logo.png`
-  })
-}
-
-export async function buildPresupuestoVentaPDF(
+function toPlanillaPayload(
   presupuesto: PresupuestoVentaRecord,
   items: PresupuestoVentaItemRecord[]
-): Promise<jsPDF> {
-  const logo = await cargarLogoBase64()
-  const doc = new jsPDF('p', 'mm', 'a4')
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const margin = 18
-  let y = margin
-
-  if (logo) {
-    doc.addImage(logo, 'PNG', margin, y, 32, 32)
-  }
-
-  doc.setFontSize(16)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(30, 41, 59)
-  doc.text(pdfText(EMPRESA_NOMBRE), logo ? margin + 38 : margin, y + 10)
-
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(100, 116, 139)
-  doc.text(pdfText(EMPRESA_DOMICILIO), logo ? margin + 38 : margin, y + 16)
-
-  doc.setFontSize(20)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(37, 99, 235)
-  doc.text('PRESUPUESTO', pageWidth - margin, y + 8, { align: 'right' })
-
-  doc.setFontSize(11)
-  doc.setTextColor(15, 23, 42)
-  doc.text(pdfText(presupuesto.numero_presupuesto), pageWidth - margin, y + 16, { align: 'right' })
-
-  y += 38
-  doc.setDrawColor(226, 232, 240)
-  doc.line(margin, y, pageWidth - margin, y)
-  y += 10
-
-  doc.setFontSize(10)
-  doc.setTextColor(71, 85, 105)
+): PresupuestoPlanillaPayload {
   const fechaCreacion = presupuesto.fecha_creacion
     ? formatArgentinaDate(presupuesto.fecha_creacion)
     : formatArgentinaDate(new Date().toISOString())
-  doc.text(`Fecha: ${fechaCreacion}`, margin, y)
-  if (presupuesto.fecha_vencimiento) {
-    doc.text(
-      pdfText(`Valido hasta: ${formatArgentinaDate(presupuesto.fecha_vencimiento)}`),
-      pageWidth - margin,
-      y,
-      { align: 'right' }
-    )
+
+  return {
+    numero: presupuesto.numero_presupuesto,
+    fecha: fechaCreacion,
+    validez_hasta: presupuesto.fecha_vencimiento
+      ? formatArgentinaDate(presupuesto.fecha_vencimiento)
+      : null,
+    cliente_nombre: presupuesto.cliente_nombre || '-',
+    cliente_empresa: presupuesto.cliente_empresa,
+    cliente_dni_cuit: presupuesto.cliente_dni_cuit,
+    cliente_telefono: presupuesto.cliente_telefono,
+    cliente_email: presupuesto.cliente_email,
+    cliente_direccion: presupuesto.cliente_direccion,
+    lista_label: presupuesto.tipo_lista_precio
+      ? `Lista: ${labelListaPrecioPdf(presupuesto.tipo_lista_precio)}`
+      : null,
+    items: items.map((item) => ({
+      codigo: item.codigo_articulo,
+      descripcion: item.descripcion,
+      cantidad: item.cantidad,
+      precio_unitario: item.precio_unitario,
+      subtotal: item.precio_total
+    })),
+    total: presupuesto.precio_total || 0,
+    notas:
+      presupuesto.observaciones_cliente?.trim() ||
+      'Los precios pueden variar segun disponibilidad. Este presupuesto no constituye factura.',
+    vendedor: presupuesto.nombre_vendedor
   }
-  y += 12
+}
 
-  doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(15, 23, 42)
-  doc.text('Cliente', margin, y)
-  y += 7
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  const clienteLineas: string[] = [
-    pdfText(presupuesto.cliente_nombre || '-'),
-    presupuesto.cliente_empresa ? pdfText(`Empresa: ${presupuesto.cliente_empresa}`) : '',
-    presupuesto.cliente_dni_cuit ? pdfText(`DNI/CUIT: ${presupuesto.cliente_dni_cuit}`) : '',
-    presupuesto.cliente_telefono ? pdfText(`Tel: ${presupuesto.cliente_telefono}`) : '',
-    presupuesto.cliente_email ? pdfText(`Email: ${presupuesto.cliente_email}`) : '',
-    presupuesto.cliente_direccion ? pdfText(`Direccion: ${presupuesto.cliente_direccion}`) : ''
-  ].filter(Boolean)
-
-  for (const linea of clienteLineas) {
-    doc.text(linea, margin + 2, y)
-    y += 5
-  }
-  y += 6
-
-  if (presupuesto.tipo_lista_precio) {
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(71, 85, 105)
-    doc.text(
-      pdfText(`Lista de precios: ${labelListaPrecioPdf(presupuesto.tipo_lista_precio)}`),
-      margin,
-      y
-    )
-    y += 8
-  }
-
-  doc.setDrawColor(226, 232, 240)
-  doc.line(margin, y, pageWidth - margin, y)
-  y += 8
-
-  const colW = [14, 18, 72, 24, 20, 28]
-  const headers = ['#', 'Cod.', 'Descripcion', 'Cant.', 'P. unit.', 'Subtotal']
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9)
-  doc.setTextColor(51, 65, 85)
-  let x = margin
-  headers.forEach((h, i) => {
-    doc.text(h, x, y)
-    x += colW[i]
-  })
-  y += 5
-  doc.line(margin, y, pageWidth - margin, y)
-  y += 5
-
-  doc.setFont('helvetica', 'normal')
-  items.forEach((item, idx) => {
-    if (y > 250) {
-      doc.addPage()
-      y = margin
-    }
-    x = margin
-    const fila = [
-      String(idx + 1),
-      pdfText((item.codigo_articulo || '-').slice(0, 10)),
-      pdfText(
-        item.descripcion.length > 42 ? `${item.descripcion.slice(0, 39)}...` : item.descripcion
-      ),
-      String(item.cantidad),
-      `$${item.precio_unitario.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
-      `$${item.precio_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
-    ]
-    fila.forEach((cell, i) => {
-      doc.text(cell, x, y)
-      x += colW[i]
-    })
-    y += 6
-  })
-
-  y += 6
-  doc.setDrawColor(226, 232, 240)
-  doc.line(margin, y, pageWidth - margin, y)
-  y += 10
-
-  doc.setFontSize(13)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(4, 120, 87)
-  doc.text(
-    `TOTAL: $${(presupuesto.precio_total || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
-    pageWidth - margin,
-    y,
-    { align: 'right' }
-  )
-  y += 12
-
-  if (presupuesto.observaciones_cliente?.trim()) {
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(15, 23, 42)
-    doc.text('Observaciones', margin, y)
-    y += 6
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(71, 85, 105)
-    const lines = doc.splitTextToSize(
-      pdfText(presupuesto.observaciones_cliente),
-      pageWidth - margin * 2
-    )
-    doc.text(lines, margin, y)
-    y += lines.length * 5 + 8
-  }
-
-  doc.setFontSize(8)
-  doc.setTextColor(148, 163, 184)
-  const pie = pdfText(
-    'Los precios pueden variar segun disponibilidad. Este presupuesto no constituye factura. ' +
-      `Documento trazable: ${presupuesto.numero_presupuesto}.`
-  )
-  const pieLines = doc.splitTextToSize(pie, pageWidth - margin * 2)
-  doc.text(pieLines, margin, 285)
-
-  if (presupuesto.nombre_vendedor) {
-    doc.text(
-      pdfText(`Asesor: ${presupuesto.nombre_vendedor}`),
-      pageWidth - margin,
-      285,
-      { align: 'right' }
-    )
-  }
-
-  return doc
+/** PDF sobre la planilla oficial /PRESUPUESTO.pdf (misma que chat y /presupuesto). */
+export async function buildPresupuestoVentaPDF(
+  presupuesto: PresupuestoVentaRecord,
+  items: PresupuestoVentaItemRecord[]
+) {
+  return buildPresupuestoPlanillaPdf(toPlanillaPayload(presupuesto, items))
 }
 
 export async function getPresupuestoVentaPdfBlob(
   presupuesto: PresupuestoVentaRecord,
   items: PresupuestoVentaItemRecord[]
 ): Promise<Blob> {
-  const doc = await buildPresupuestoVentaPDF(presupuesto, items)
-  return doc.output('blob')
+  return getPresupuestoPlanillaPdfBlob(toPlanillaPayload(presupuesto, items))
 }
 
 export async function descargarPresupuestoVentaPDF(
   presupuesto: PresupuestoVentaRecord,
   items: PresupuestoVentaItemRecord[]
 ): Promise<void> {
-  const doc = await buildPresupuestoVentaPDF(presupuesto, items)
   const nombre = `${presupuesto.numero_presupuesto.replace(/\s+/g, '_')}.pdf`
-  doc.save(nombre)
+  await downloadPresupuestoPlanillaPdf(toPlanillaPayload(presupuesto, items), nombre)
 }
 
 function telefonoWhatsapp(tel: string | null | undefined): string | null {
