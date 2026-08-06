@@ -247,6 +247,11 @@
   font-size: 1rem;
 }
 
+.presu-pub__btn--pdf {
+  width: 100%;
+  margin: 4px 0 10px;
+}
+
 .presu-pub__btn--fantasma {
   background: transparent;
   border: 1px solid var(--presu-borde);
@@ -601,6 +606,70 @@
   font-size: 0.72rem;
   color: var(--presu-suave);
   line-height: 1.3;
+}
+
+.presu-pub__tipo-chip__precio {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #86efac;
+}
+
+.presu-pub__tipo-chip.is-activo .presu-pub__tipo-chip__precio {
+  color: #bbf7d0;
+}
+
+.presu-pub__sugeridos {
+  margin: 22px 0 8px;
+  display: grid;
+  gap: 12px;
+}
+
+.presu-pub__sugeridos-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.presu-pub__sugeridos-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.presu-pub__sugeridos-head input {
+  flex: 1;
+  min-width: 160px;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--presu-borde);
+  background: rgba(8, 10, 18, 0.75);
+  color: var(--presu-texto);
+  font-size: 0.9rem;
+}
+
+.presu-pub__panel-vacio {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px dashed var(--presu-borde);
+  color: var(--presu-suave);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.presu-pub__resumen-lista {
+  margin: -4px 0 12px;
+  font-size: 0.8rem;
+  color: #86efac;
+}
+
+.presu-pub__unit {
+  margin-right: auto;
+  font-size: 0.78rem;
+  color: var(--presu-suave);
 }
 
 .presu-pub__tipo-chip:hover {

@@ -29,12 +29,6 @@ import './PresupuestoPublicoPage.css'
 /** Días de validez del presupuesto estimado. */
 const DIAS_VALIDEZ = 15
 
-/**
- * Mínimo de artículos publicados (`visible_web_publica`) para mostrar el catálogo.
- * Con pocos ítems sueltos la página parece rota: ahí entra el armado manual / AI.
- */
-const MIN_CATALOGO_PUBLICO = 6
-
 const AI_CONV_KEY = 'plotlab_presupuesto_publico_conv'
 
 type ModoPresu = 'elegir' | 'manual' | 'ai'
@@ -43,6 +37,10 @@ type ItemElegido = {
   articulo: ArticuloEmpresaRecord
   cantidad: number
   precioUnitario: number
+  /** Rubro que disparó el alta automática (si aplica). */
+  rubroId?: string
+  /** Ítem sugerido al tocar el rubro; se quita si deseleccionás el rubro. */
+  auto?: boolean
 }
 
 type DatosContacto = {
@@ -54,19 +52,145 @@ type DatosContacto = {
 
 const DATOS_VACIOS: DatosContacto = { nombre: '', telefono: '', email: '', mensaje: '' }
 
-/** Rubros gráficos para el armado manual (sin depender del catálogo publicado). */
-const RUBROS_MANUAL: { id: string; label: string; icono: string; hint: string }[] = [
-  { id: 'flyer', label: 'Flyer / Folleto', icono: '📄', hint: 'Promos para repartir' },
-  { id: 'banner', label: 'Banner', icono: '🏁', hint: 'Eventos y fachadas' },
-  { id: 'tarjetas', label: 'Tarjetas', icono: '💳', hint: 'Presentación' },
-  { id: 'carteleria', label: 'Cartelería', icono: '🪧', hint: 'Local o vía pública' },
-  { id: 'vehicular', label: 'Ploteo auto', icono: '🚗', hint: 'Flota o particular' },
-  { id: 'vidrieras', label: 'Vidrieras', icono: '🏪', hint: 'Locales y comercios' },
-  { id: 'stickers', label: 'Stickers', icono: '✨', hint: 'Calcos y etiquetas' },
-  { id: 'logo', label: 'Logo / Marca', icono: '🎨', hint: 'Diseño o rediseño' },
-  { id: 'senaletica', label: 'Señalética', icono: '➡️', hint: 'Orientación' },
-  { id: 'otro', label: 'Otro', icono: '💬', hint: 'Te asesoramos' }
+/**
+ * Armado manual guiado: rubros con match a artículos de Lista 1.
+ * Si hay pocos ítems `visible_web_publica`, igual cotizamos con el catálogo activo.
+ */
+type RubroManual = {
+  id: string
+  label: string
+  icono: string
+  hint: string
+  keywords: string[]
+  prefer?: string[]
+  cantidadDefault?: number
+}
+
+const RUBROS_MANUAL: RubroManual[] = [
+  {
+    id: 'flyer',
+    label: 'Flyer / Folleto',
+    icono: '📄',
+    hint: 'Promos para repartir',
+    keywords: ['folleto', 'flyer', 'diptico', 'díptico', 'triptico', 'tríptico'],
+    prefer: ['FOLLETOS A5 ILUSTRACION FULL COLOR', 'FOLLETOS 10*15 FULL COLOR']
+  },
+  {
+    id: 'banner',
+    label: 'Banner',
+    icono: '🏁',
+    hint: 'Eventos y fachadas',
+    keywords: ['banner', 'lona front', 'lona black', 'porta banner'],
+    prefer: ['BANNERS EN LONA FRONT', 'BANNERS EN LONA BLACK OUT']
+  },
+  {
+    id: 'tarjetas',
+    label: 'Tarjetas',
+    icono: '💳',
+    hint: 'Presentación',
+    keywords: ['tarjeta personal', 'tarjetas personales', 'gift card'],
+    prefer: ['TARJETAS PERSONALES DOBLE FAZ', 'TARJETAS PERSONALES SIMPLE FAZ'],
+    cantidadDefault: 100
+  },
+  {
+    id: 'carteleria',
+    label: 'Cartelería',
+    icono: '🪧',
+    hint: 'Local o vía pública',
+    keywords: ['carteleria', 'cartelería', 'cartel ', 'cartel de', 'via publica', 'vía pública'],
+    prefer: ['CARTEL CORRUGADO IMPRESO', 'CARTEL DE PVC ESPUMADO']
+  },
+  {
+    id: 'vehicular',
+    label: 'Ploteo auto',
+    icono: '🚗',
+    hint: 'Flota o particular',
+    keywords: ['ploteo vehicular', 'rotulacion', 'rotulación', 'pickup', 'pick up'],
+    prefer: ['PLOTEO VEHICULAR X M2 PREMIUM', 'PLOTEO VEHICULAR X M2 ECO']
+  },
+  {
+    id: 'vidrieras',
+    label: 'Vidrieras',
+    icono: '🏪',
+    hint: 'Locales y comercios',
+    keywords: ['vidriera', 'microperforado'],
+    prefer: ['PLOTEO DE VIDRIERA MICROPERFORADO', 'VINILO IMPRESO MICROPERFORADO']
+  },
+  {
+    id: 'stickers',
+    label: 'Stickers',
+    icono: '✨',
+    hint: 'Calcos y etiquetas',
+    keywords: ['sticker', 'calco', 'etiqueta', 'silueta', 'precorte'],
+    prefer: ['VINILO IMPRESO + CORTE EN SILUETA', 'PLOTEO EN VINILO IMPRESO + PRECORTE']
+  },
+  {
+    id: 'logo',
+    label: 'Logo / Marca',
+    icono: '🎨',
+    hint: 'Diseño o rediseño',
+    keywords: ['diseño grafico', 'diseño gráfico', 'armado de archivos'],
+    prefer: ['DISEÑO GRAFICO X HORA', 'ARMADO DE ARCHIVOS BASICOS']
+  },
+  {
+    id: 'senaletica',
+    label: 'Señalética',
+    icono: '➡️',
+    hint: 'Orientación',
+    keywords: ['señal', 'senal', 'reflectivo', 'reglamentario', 'totem', 'tótem'],
+    prefer: ['CIRCULO REFLECTIVO REGLAMENTARIO', 'CARTEL VERTICAL TIPO TOTEM']
+  },
+  {
+    id: 'otro',
+    label: 'Otro',
+    icono: '💬',
+    hint: 'Te asesoramos',
+    keywords: []
+  }
 ]
+
+function textoBusquedaArticulo(a: ArticuloEmpresaRecord): string {
+  return `${a.nombre || ''} ${a.categoria || ''}`.toLowerCase()
+}
+
+function articuloDescartable(a: ArticuloEmpresaRecord): boolean {
+  const n = (a.nombre || '').trim()
+  return !n || /\(no usar\)/i.test(n)
+}
+
+function articulosDeRubro(
+  rubro: RubroManual,
+  articulos: ArticuloEmpresaRecord[],
+  precioDe: (a: ArticuloEmpresaRecord) => number | null
+): ArticuloEmpresaRecord[] {
+  if (!rubro.keywords.length) return []
+  return articulos
+    .filter((a) => !articuloDescartable(a) && (precioDe(a) ?? 0) > 0)
+    .filter((a) => {
+      const t = textoBusquedaArticulo(a)
+      return rubro.keywords.some((k) => t.includes(k.toLowerCase()))
+    })
+    .sort((a, b) => {
+      const prefer = rubro.prefer || []
+      const score = (x: ArticuloEmpresaRecord) => {
+        const name = x.nombre.toUpperCase()
+        const idx = prefer.findIndex((p) => name.includes(p.toUpperCase()))
+        return idx === -1 ? 999 : idx
+      }
+      const sa = score(a)
+      const sb = score(b)
+      if (sa !== sb) return sa - sb
+      return (precioDe(a) ?? 0) - (precioDe(b) ?? 0)
+    })
+}
+
+function sugerirArticuloRubro(
+  rubro: RubroManual,
+  articulos: ArticuloEmpresaRecord[],
+  precioDe: (a: ArticuloEmpresaRecord) => number | null
+): ArticuloEmpresaRecord | null {
+  return articulosDeRubro(rubro, articulos, precioDe)[0] || null
+}
 
 function formatARS(n: number): string {
   return `$${Math.round(n).toLocaleString('es-AR')}`
@@ -76,12 +200,6 @@ function fechaLegible(d: Date): string {
   return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function tituloCategoria(raw: string | null | undefined): string {
-  const txt = (raw || 'Otros').trim()
-  if (!txt) return 'Otros'
-  return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase()
-}
-
 const PresupuestoPublicoPage = () => {
   const [catalogo, setCatalogo] = useState<ArticuloEmpresaRecord[]>([])
   const [ajustes, setAjustes] = useState<ConfigAjustesPreciosVentas>(DEFAULT_AJUSTES_PRECIOS_VENTAS)
@@ -89,16 +207,16 @@ const PresupuestoPublicoPage = () => {
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
 
   const [modo, setModo] = useState<ModoPresu>('elegir')
-  const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null)
-  const [busqueda, setBusqueda] = useState('')
   const [items, setItems] = useState<ItemElegido[]>([])
   const [rubrosElegidos, setRubrosElegidos] = useState<string[]>([])
   const [detalleManual, setDetalleManual] = useState('')
+  const [busquedaSugeridos, setBusquedaSugeridos] = useState('')
 
   const [datos, setDatos] = useState<DatosContacto>(DATOS_VACIOS)
   const [enviando, setEnviando] = useState(false)
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
   const [enviado, setEnviado] = useState<{ numero: string } | null>(null)
+  const [pdfDescargando, setPdfDescargando] = useState(false)
   const aiPersistidoRef = useRef(false)
   const [aiGuardadoNumero, setAiGuardadoNumero] = useState<string | null>(null)
 
@@ -138,7 +256,8 @@ const PresupuestoPublicoPage = () => {
     const cargar = async () => {
       setCargando(true)
       const [resArticulos, resAjustes] = await Promise.all([
-        apiService.getArticulosEmpresa(undefined, false, 'web_publica'),
+        // Catálogo completo con Lista 1: el canal web_publica casi no tiene ítems publicados.
+        apiService.getArticulosEmpresa(undefined, false),
         apiService.getConfiguracionPreciosVentas()
       ])
       if (!vivo) return
@@ -188,53 +307,80 @@ const PresupuestoPublicoPage = () => {
   const conPrecio = useMemo(
     () =>
       catalogo.filter((a) => {
+        if (articuloDescartable(a)) return false
         const precio = resolvePrecioLista(a, 'lista_1', ajustes)
         return (precio ?? 0) > 0
       }),
     [catalogo, ajustes]
   )
 
-  const hayCatalogo = conPrecio.length >= MIN_CATALOGO_PUBLICO
-
-  const categorias = useMemo(() => {
-    const set = new Map<string, number>()
-    for (const a of conPrecio) {
-      const key = a.categoria?.trim() || 'Otros'
-      set.set(key, (set.get(key) ?? 0) + 1)
-    }
-    return [...set.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  }, [conPrecio])
-
-  const visibles = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
-    return conPrecio.filter((a) => {
-      const cat = a.categoria?.trim() || 'Otros'
-      if (categoriaActiva && cat !== categoriaActiva) return false
-      if (!q) return true
-      return (
-        a.nombre.toLowerCase().includes(q) ||
-        (a.descripcion || '').toLowerCase().includes(q) ||
-        cat.toLowerCase().includes(q)
-      )
+  const rubrosConPrecio = useMemo(() => {
+    return RUBROS_MANUAL.map((rubro) => {
+      const matches = articulosDeRubro(rubro, conPrecio, precioDe)
+      const desde = matches.length ? precioDe(matches[0]) : null
+      return { rubro, matches, desde }
     })
-  }, [conPrecio, categoriaActiva, busqueda])
+  }, [conPrecio, ajustes])
+
+  const productosSugeridos = useMemo(() => {
+    const q = busquedaSugeridos.trim().toLowerCase()
+    const rubros = rubrosElegidos.length
+      ? RUBROS_MANUAL.filter((r) => rubrosElegidos.includes(r.id))
+      : []
+    if (!rubros.length) return [] as { articulo: ArticuloEmpresaRecord; rubroId: string }[]
+
+    const seen = new Set<number>()
+    const out: { articulo: ArticuloEmpresaRecord; rubroId: string }[] = []
+    for (const rubro of rubros) {
+      for (const a of articulosDeRubro(rubro, conPrecio, precioDe).slice(0, 8)) {
+        if (seen.has(a.id)) continue
+        if (q) {
+          const t = textoBusquedaArticulo(a)
+          if (!t.includes(q)) continue
+        }
+        seen.add(a.id)
+        out.push({ articulo: a, rubroId: rubro.id })
+      }
+    }
+    return out
+  }, [rubrosElegidos, conPrecio, ajustes, busquedaSugeridos])
 
   const total = useMemo(
     () => items.reduce((acc, it) => acc + it.precioUnitario * it.cantidad, 0),
     [items]
   )
 
-  const agregar = (articulo: ArticuloEmpresaRecord) => {
+  const agregar = (
+    articulo: ArticuloEmpresaRecord,
+    opts?: { rubroId?: string; auto?: boolean; cantidad?: number }
+  ) => {
     const precio = precioDe(articulo)
     if (precio == null || precio <= 0) return
+    const qty = Math.max(1, opts?.cantidad ?? 1)
     setItems((prev) => {
       const existente = prev.find((it) => it.articulo.id === articulo.id)
       if (existente) {
         return prev.map((it) =>
-          it.articulo.id === articulo.id ? { ...it, cantidad: it.cantidad + 1 } : it
+          it.articulo.id === articulo.id
+            ? {
+                ...it,
+                cantidad: opts?.auto ? it.cantidad : it.cantidad + qty,
+                auto: opts?.auto ? it.auto : false,
+                rubroId: opts?.rubroId ?? it.rubroId
+              }
+            : it
         )
       }
-      return [...prev, { articulo, cantidad: 1, precioUnitario: precio }]
+      return [
+        ...prev,
+        {
+          articulo,
+          cantidad: qty,
+          precioUnitario: precio,
+          rubroId: opts?.rubroId,
+          auto: opts?.auto
+        }
+      ]
     })
   }
 
@@ -242,7 +388,9 @@ const PresupuestoPublicoPage = () => {
     setItems((prev) =>
       prev
         .map((it) =>
-          it.articulo.id === id ? { ...it, cantidad: Math.max(0, it.cantidad + delta) } : it
+          it.articulo.id === id
+            ? { ...it, cantidad: Math.max(0, it.cantidad + delta), auto: false }
+            : it
         )
         .filter((it) => it.cantidad > 0)
     )
@@ -251,7 +399,25 @@ const PresupuestoPublicoPage = () => {
   const quitar = (id: number) => setItems((prev) => prev.filter((it) => it.articulo.id !== id))
 
   const toggleRubro = (id: string) => {
-    setRubrosElegidos((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+    const rubro = RUBROS_MANUAL.find((r) => r.id === id)
+    if (!rubro) return
+    const yaEstaba = rubrosElegidos.includes(id)
+
+    if (yaEstaba) {
+      setRubrosElegidos((prev) => prev.filter((x) => x !== id))
+      setItems((prev) => prev.filter((it) => !(it.auto && it.rubroId === id)))
+      return
+    }
+
+    setRubrosElegidos((prev) => [...prev, id])
+    const sugerido = sugerirArticuloRubro(rubro, conPrecio, precioDe)
+    if (sugerido) {
+      agregar(sugerido, {
+        rubroId: id,
+        auto: true,
+        cantidad: rubro.cantidadDefault ?? 1
+      })
+    }
   }
 
   const detalleTexto = useMemo(() => {
@@ -324,27 +490,36 @@ const PresupuestoPublicoPage = () => {
   }
 
   const descargarPdf = async () => {
-    const hoy = new Date()
-    const validez = new Date(hoy.getTime() + DIAS_VALIDEZ * 86_400_000)
-    const doc = await buildEmbedPresupuestoPdf({
-      numero: enviado?.numero || 'ESTIMADO',
-      fecha: fechaLegible(hoy),
-      validez_hasta: fechaLegible(validez),
-      cliente_nombre: datos.nombre.trim() || 'Consumidor final',
-      cliente_telefono: datos.telefono.trim() || null,
-      lista_label: `${LISTAS_PRECIO_VENTAS.lista_1.label} · ${LISTAS_PRECIO_VENTAS.lista_1.subtitle}`,
-      items: items.map((it) => ({
-        codigo: it.articulo.codigo || null,
-        descripcion: it.articulo.nombre,
-        cantidad: it.cantidad,
-        precio_unitario: it.precioUnitario,
-        subtotal: it.precioUnitario * it.cantidad
-      })),
-      total,
-      notas:
-        'Presupuesto estimado generado desde la web. Los valores son de referencia y quedan sujetos a confirmación del asesor técnico.'
-    })
-    doc.save(`presupuesto-plot-lab-${enviado?.numero || 'estimado'}.pdf`)
+    if (items.length === 0 || pdfDescargando) return
+    setPdfDescargando(true)
+    try {
+      const hoy = new Date()
+      const validez = new Date(hoy.getTime() + DIAS_VALIDEZ * 86_400_000)
+      const doc = await buildEmbedPresupuestoPdf({
+        numero: enviado?.numero || 'ESTIMADO',
+        fecha: fechaLegible(hoy),
+        validez_hasta: fechaLegible(validez),
+        cliente_nombre: datos.nombre.trim() || 'Consumidor final',
+        cliente_telefono: datos.telefono.trim() || null,
+        lista_label: `${LISTAS_PRECIO_VENTAS.lista_1.label} · ${LISTAS_PRECIO_VENTAS.lista_1.subtitle}`,
+        items: items.map((it) => ({
+          codigo: it.articulo.codigo || null,
+          descripcion: it.articulo.nombre,
+          cantidad: it.cantidad,
+          precio_unitario: it.precioUnitario,
+          subtotal: it.precioUnitario * it.cantidad
+        })),
+        total,
+        notas:
+          (detalleManual.trim() ? `${detalleManual.trim()}\n\n` : '') +
+          'Presupuesto estimado generado desde la web. Los valores son de Lista 1 (referencia) y quedan sujetos a confirmación del asesor técnico.'
+      })
+      doc.save(`presupuesto-plot-lab-${enviado?.numero || 'estimado'}.pdf`)
+    } catch (e) {
+      setErrorEnvio(e instanceof Error ? e.message : 'No se pudo generar el PDF.')
+    } finally {
+      setPdfDescargando(false)
+    }
   }
 
   const resetAi = useCallback(() => {
@@ -565,8 +740,13 @@ const PresupuestoPublicoPage = () => {
             )}
             <div className="presu-pub__exito-acciones">
               {items.length > 0 && (
-                <button type="button" className="presu-pub__btn" onClick={() => void descargarPdf()}>
-                  Descargar PDF
+                <button
+                  type="button"
+                  className="presu-pub__btn"
+                  onClick={() => void descargarPdf()}
+                  disabled={pdfDescargando}
+                >
+                  {pdfDescargando ? 'Generando PDF…' : 'Descargar PDF'}
                 </button>
               )}
               <a className="presu-pub__btn presu-pub__btn--fantasma" href="/presupuesto">
@@ -635,7 +815,8 @@ const PresupuestoPublicoPage = () => {
               <span className="presu-pub__modo-card__eyebrow">Opción 1</span>
               <strong>Manual</strong>
               <p>
-                Marcá qué necesitás, dejá tus datos y el pedido llega a Ventas → Presupuestos.
+                Elegí rubros y el presupuesto se arma solo con precios de Lista 1. Ajustás
+                cantidades y queda en Ventas.
               </p>
               <span className="presu-pub__modo-card__cta">Empezar →</span>
             </button>
@@ -663,101 +844,103 @@ const PresupuestoPublicoPage = () => {
               {modo === 'manual' && (
                 <>
                   {cargando ? (
-                    <p className="presu-pub__estado">Cargando…</p>
-                  ) : errorCarga && hayCatalogo ? (
+                    <p className="presu-pub__estado">Cargando precios Lista 1…</p>
+                  ) : errorCarga && conPrecio.length === 0 ? (
                     <p className="presu-pub__estado presu-pub__estado--error">{errorCarga}</p>
-                  ) : hayCatalogo ? (
-                    <>
-                      <div className="presu-pub__buscador">
-                        <input
-                          type="search"
-                          value={busqueda}
-                          onChange={(e) => setBusqueda(e.target.value)}
-                          placeholder="Buscar: banner, tarjetas, cartel, ploteo…"
-                          aria-label="Buscar producto"
-                        />
-                      </div>
-                      <div className="presu-pub__rubros" role="group" aria-label="Rubros">
-                        <button
-                          type="button"
-                          className={`presu-pub__rubro${categoriaActiva === null ? ' is-activo' : ''}`}
-                          onClick={() => setCategoriaActiva(null)}
-                        >
-                          Todo
-                        </button>
-                        {categorias.map(([cat, cantidad]) => (
-                          <button
-                            key={cat}
-                            type="button"
-                            className={`presu-pub__rubro${categoriaActiva === cat ? ' is-activo' : ''}`}
-                            onClick={() => setCategoriaActiva(cat)}
-                          >
-                            {tituloCategoria(cat)} <span>{cantidad}</span>
-                          </button>
-                        ))}
-                      </div>
-                      {visibles.length === 0 ? (
-                        <p className="presu-pub__estado">No encontramos nada con esa búsqueda.</p>
-                      ) : (
-                        <ul className="presu-pub__productos">
-                          {visibles.map((a) => {
-                            const precio = precioDe(a) ?? 0
-                            const enCarrito = items.find((it) => it.articulo.id === a.id)
-                            return (
-                              <li key={a.id} className="presu-pub__producto">
-                                <div className="presu-pub__producto-info">
-                                  <strong>{a.nombre}</strong>
-                                  {a.descripcion && <span>{a.descripcion}</span>}
-                                  <em>{tituloCategoria(a.categoria)}</em>
-                                </div>
-                                <div className="presu-pub__producto-precio">
-                                  <b>{formatARS(precio)}</b>
-                                  <button
-                                    type="button"
-                                    className="presu-pub__btn presu-pub__btn--chico"
-                                    onClick={() => agregar(a)}
-                                  >
-                                    {enCarrito ? `Agregar (${enCarrito.cantidad})` : 'Agregar'}
-                                  </button>
-                                </div>
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      )}
-                    </>
                   ) : (
                     <section className="presu-pub__manual-guiado">
                       <h2>¿Qué necesitás?</h2>
                       <p className="presu-pub__manual-guiado__hint">
-                        Tocá una o más opciones. Después contanos medidas, cantidad y plazo.
+                        Tocá una o más opciones: se arman solos con precios de{' '}
+                        <strong>Lista 1</strong> (efectivo / débito / transferencia). Después
+                        ajustá cantidades o sumá variantes.
                       </p>
                       <div className="presu-pub__tipo-grid" role="group" aria-label="Tipos de trabajo">
-                        {RUBROS_MANUAL.map((r) => {
-                          const on = rubrosElegidos.includes(r.id)
+                        {rubrosConPrecio.map(({ rubro, desde }) => {
+                          const on = rubrosElegidos.includes(rubro.id)
                           return (
                             <button
-                              key={r.id}
+                              key={rubro.id}
                               type="button"
                               className={`presu-pub__tipo-chip${on ? ' is-activo' : ''}`}
-                              onClick={() => toggleRubro(r.id)}
+                              onClick={() => toggleRubro(rubro.id)}
                               aria-pressed={on}
-                              title={r.hint}
+                              title={rubro.hint}
                             >
-                              <span aria-hidden>{r.icono}</span>
-                              <strong>{r.label}</strong>
-                              <em>{r.hint}</em>
+                              <span aria-hidden>{rubro.icono}</span>
+                              <strong>{rubro.label}</strong>
+                              <em>{rubro.hint}</em>
+                              {desde != null && desde > 0 ? (
+                                <b className="presu-pub__tipo-chip__precio">
+                                  desde {formatARS(desde)}
+                                </b>
+                              ) : rubro.id === 'otro' ? (
+                                <b className="presu-pub__tipo-chip__precio">Consultar</b>
+                              ) : null}
                             </button>
                           )
                         })}
                       </div>
+
+                      {rubrosElegidos.length > 0 && productosSugeridos.length > 0 && (
+                        <div className="presu-pub__sugeridos">
+                          <div className="presu-pub__sugeridos-head">
+                            <h3>Productos Lista 1</h3>
+                            <input
+                              type="search"
+                              value={busquedaSugeridos}
+                              onChange={(e) => setBusquedaSugeridos(e.target.value)}
+                              placeholder="Filtrar variantes…"
+                              aria-label="Filtrar productos sugeridos"
+                            />
+                          </div>
+                          <ul className="presu-pub__productos">
+                            {productosSugeridos.map(({ articulo: a, rubroId }) => {
+                              const precio = precioDe(a) ?? 0
+                              const enCarrito = items.find((it) => it.articulo.id === a.id)
+                              return (
+                                <li key={a.id} className="presu-pub__producto">
+                                  <div className="presu-pub__producto-info">
+                                    <strong>{a.nombre}</strong>
+                                    {a.descripcion && <span>{a.descripcion}</span>}
+                                    {a.categoria && <em>{a.categoria}</em>}
+                                  </div>
+                                  <div className="presu-pub__producto-precio">
+                                    <b>{formatARS(precio)}</b>
+                                    <button
+                                      type="button"
+                                      className="presu-pub__btn presu-pub__btn--chico"
+                                      onClick={() =>
+                                        agregar(a, {
+                                          rubroId,
+                                          auto: false,
+                                          cantidad: 1
+                                        })
+                                      }
+                                    >
+                                      {enCarrito ? `Sumar (${enCarrito.cantidad})` : 'Agregar'}
+                                    </button>
+                                  </div>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      )}
+
+                      {rubrosElegidos.includes('otro') && productosSugeridos.length === 0 && (
+                        <p className="presu-pub__manual-guiado__hint">
+                          Contanos en el detalle qué necesitás y te cotizamos a mano.
+                        </p>
+                      )}
+
                       <label className="presu-pub__manual-detalle">
                         Detalle del trabajo
                         <textarea
                           value={detalleManual}
                           onChange={(e) => setDetalleManual(e.target.value)}
-                          rows={5}
-                          placeholder="Ej: 2 banners 2×1 m, entrega el viernes, textos los mando por WhatsApp…"
+                          rows={4}
+                          placeholder="Ej: medidas 2×1 m, cantidad, entrega el viernes, textos por WhatsApp…"
                         />
                       </label>
                     </section>
@@ -946,9 +1129,16 @@ const PresupuestoPublicoPage = () => {
 
             {modo === 'manual' && (
               <aside className="presu-pub__panel">
-                {items.length > 0 && (
+                  {items.length === 0 && (
+                    <p className="presu-pub__panel-vacio">
+                      Elegí un rubro a la izquierda: el presupuesto se va armando con Lista 1.
+                    </p>
+                  )}
+
+                  {items.length > 0 && (
                   <section className="presu-pub__resumen">
                     <h2>Tu presupuesto</h2>
+                    <p className="presu-pub__resumen-lista">Lista 1 · efectivo / débito / transferencia</p>
                     <ul>
                       {items.map((it) => (
                         <li key={it.articulo.id}>
@@ -957,6 +1147,9 @@ const PresupuestoPublicoPage = () => {
                             <span>{formatARS(it.precioUnitario * it.cantidad)}</span>
                           </div>
                           <div className="presu-pub__cantidad">
+                            <span className="presu-pub__unit">
+                              {formatARS(it.precioUnitario)} c/u
+                            </span>
                             <button
                               type="button"
                               onClick={() => cambiarCantidad(it.articulo.id, -1)}
@@ -987,9 +1180,17 @@ const PresupuestoPublicoPage = () => {
                       <span>Total estimado</span>
                       <strong>{formatARS(total)}</strong>
                     </p>
+                    <button
+                      type="button"
+                      className="presu-pub__btn presu-pub__btn--pdf"
+                      onClick={() => void descargarPdf()}
+                      disabled={pdfDescargando}
+                    >
+                      {pdfDescargando ? 'Generando PDF…' : 'Descargar presupuesto PDF'}
+                    </button>
                     <p className="presu-pub__aclaracion">
-                      Precios de Lista 1 (efectivo, débito o transferencia). Estimados: el valor
-                      final lo confirma el asesor.
+                      Valores de referencia Lista 1. El asesor confirma medidas, material y total
+                      final.
                     </p>
                   </section>
                 )}
@@ -1032,17 +1233,6 @@ const PresupuestoPublicoPage = () => {
                       placeholder="opcional"
                     />
                   </label>
-                  {hayCatalogo && (
-                    <label>
-                      Detalles del trabajo
-                      <textarea
-                        value={datos.mensaje}
-                        onChange={(e) => setDatos((d) => ({ ...d, mensaje: e.target.value }))}
-                        rows={4}
-                        placeholder="Medidas, materiales, fecha en que lo necesitás…"
-                      />
-                    </label>
-                  )}
 
                   {errorEnvio && <p className="presu-pub__error">{errorEnvio}</p>}
 
