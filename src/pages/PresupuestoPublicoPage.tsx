@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiService } from '../services/api'
-import type { ArticuloEmpresaRecord, OrdenTrabajo } from '../types/api'
+import type { ArticuloEmpresaRecord } from '../types/api'
 import {
   DEFAULT_AJUSTES_PRECIOS_VENTAS,
   LISTAS_PRECIO_VENTAS,
@@ -11,11 +11,19 @@ import { buildEmbedPresupuestoPdf } from '../utils/embedPresupuestoPdf'
 import {
   buildEmbedChatApiPayload,
   EMBED_CHAT_OPENING_GREETING,
+  fileToChatImagePayload,
   type EmbedChatMessage,
   type EmbedPresupuestoPayload
 } from '../utils/embedChatShared'
 import { EmbedPresupuestoBanner } from '../components/embed/EmbedPresupuestoBanner'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
+import { generarMockupImagenIa } from '../services/clientePedidoAiService'
+import {
+  anexarImagenPropuestaPresupuesto,
+  crearPresupuestoWebPublico,
+  dataUrlToUploadedUrl,
+  whatsappHrefDesdeTelefono
+} from '../utils/presupuestoWebPublico'
 import './PresupuestoPublicoPage.css'
 
 /** Días de validez del presupuesto estimado. */
@@ -27,7 +35,6 @@ const DIAS_VALIDEZ = 15
  */
 const MIN_CATALOGO_PUBLICO = 6
 
-const SECTOR_ENTRADA = 'Asesor Técnico'
 const AI_CONV_KEY = 'plotlab_presupuesto_publico_conv'
 
 type ModoPresu = 'elegir' | 'manual' | 'ai'
@@ -92,6 +99,8 @@ const PresupuestoPublicoPage = () => {
   const [enviando, setEnviando] = useState(false)
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null)
   const [enviado, setEnviado] = useState<{ numero: string } | null>(null)
+  const aiPersistidoRef = useRef(false)
+  const [aiGuardadoNumero, setAiGuardadoNumero] = useState<string | null>(null)
 
   // PlotAI
   const [aiMessages, setAiMessages] = useState<EmbedChatMessage[]>([
@@ -110,7 +119,19 @@ const PresupuestoPublicoPage = () => {
       return null
     }
   })
+  const [aiPendingImage, setAiPendingImage] = useState<{
+    mimeType: string
+    data: string
+    previewUrl: string
+    staffPreviewUrl: string
+  } | null>(null)
+  const [aiFotoUrls, setAiFotoUrls] = useState<string[]>([])
+  const [aiDescripcionFotos, setAiDescripcionFotos] = useState('')
+  const [aiImagenPropuesta, setAiImagenPropuesta] = useState<string | null>(null)
+  const [aiImagenLoading, setAiImagenLoading] = useState(false)
+  const [aiPresupuestoId, setAiPresupuestoId] = useState<number | null>(null)
   const aiEndRef = useRef<HTMLDivElement>(null)
+  const aiFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let vivo = true
@@ -148,7 +169,7 @@ const PresupuestoPublicoPage = () => {
 
   useEffect(() => {
     aiEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [aiMessages, aiLoading, aiPresupuesto])
+  }, [aiMessages, aiLoading, aiPresupuesto, aiImagenPropuesta, aiPendingImage])
 
   // Sincroniza el mensaje del formulario con el armado manual (rubros + detalle).
   useEffect(() => {
@@ -260,35 +281,43 @@ const PresupuestoPublicoPage = () => {
     setEnviando(true)
     setErrorEnvio(null)
 
-    const encabezado =
+    const itemsVenta =
       items.length > 0
-        ? 'Presupuesto solicitado desde la web pública (modo manual):'
-        : 'Consulta de presupuesto desde la web pública (modo manual):'
-
-    const payload: Partial<OrdenTrabajo> = {
-      numero_op: 'FICHA-',
-      cliente: datos.nombre.trim(),
-      descripcion: `${encabezado}\n${detalleTexto}`,
-      estado: SECTOR_ENTRADA,
-      prioridad: 'Media',
-      sector: SECTOR_ENTRADA,
-      sectores: [SECTOR_ENTRADA],
-      sector_inicial: SECTOR_ENTRADA,
-      nombre_creador: 'Presupuesto web',
-      telefono_cliente: datos.telefono.trim() || null,
-      email_cliente: datos.email.trim() || null,
-      es_ficha_no_op: true
-    }
+        ? items.map((it) => ({
+            id_articulo_stock: it.articulo.id_articulo_stock ?? undefined,
+            codigo_articulo: it.articulo.codigo || null,
+            descripcion: it.articulo.nombre,
+            cantidad: it.cantidad,
+            precio_unitario: it.precioUnitario,
+            precio_total: it.precioUnitario * it.cantidad
+          }))
+        : [
+            {
+              descripcion: (datos.mensaje.trim() || 'Consulta de presupuesto web').slice(0, 240),
+              cantidad: 1,
+              precio_unitario: 0,
+              precio_total: 0,
+              observaciones: datos.mensaje.trim() || undefined
+            }
+          ]
 
     try {
-      const res = await apiService.createOrden(payload)
+      const res = await crearPresupuestoWebPublico({
+        origen: 'manual',
+        cliente_nombre: datos.nombre,
+        cliente_telefono: datos.telefono,
+        cliente_email: datos.email,
+        items: itemsVenta,
+        observaciones_cliente: detalleTexto || datos.mensaje.trim(),
+        diasValidez: DIAS_VALIDEZ
+      })
       if (!res.success) {
-        setErrorEnvio(res.error || 'No pudimos registrar tu pedido. Probá de nuevo en un momento.')
+        setErrorEnvio(res.error || 'No pudimos registrar tu presupuesto. Probá de nuevo.')
         return
       }
-      setEnviado({ numero: res.data?.numero_op || 'tu solicitud' })
+      setEnviado({ numero: res.data.numero_presupuesto })
     } catch (e) {
-      setErrorEnvio(e instanceof Error ? e.message : 'No pudimos registrar tu pedido.')
+      setErrorEnvio(e instanceof Error ? e.message : 'No pudimos registrar tu presupuesto.')
     } finally {
       setEnviando(false)
     }
@@ -324,6 +353,14 @@ const PresupuestoPublicoPage = () => {
     setAiError(null)
     setAiInput('')
     setAiConversationId(null)
+    setAiGuardadoNumero(null)
+    setAiPendingImage(null)
+    setAiFotoUrls([])
+    setAiDescripcionFotos('')
+    setAiImagenPropuesta(null)
+    setAiImagenLoading(false)
+    setAiPresupuestoId(null)
+    aiPersistidoRef.current = false
     try {
       localStorage.removeItem(AI_CONV_KEY)
     } catch {
@@ -331,14 +368,123 @@ const PresupuestoPublicoPage = () => {
     }
   }, [])
 
+  const pickAiImage = async (file: File | null) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setAiError('Solo se permiten imágenes.')
+      return
+    }
+    setAiError(null)
+    try {
+      const payload = await fileToChatImagePayload(file)
+      setAiPendingImage(payload)
+    } catch {
+      setAiError('No pude procesar la imagen. Probá con otra.')
+    } finally {
+      if (aiFileRef.current) aiFileRef.current.value = ''
+    }
+  }
+
+  const generarImagenFinal = async (presupuesto: EmbedPresupuestoPayload, presupuestoId?: number | null) => {
+    setAiImagenLoading(true)
+    try {
+      const detalle = presupuesto.items
+        .map((it) => `${it.cantidad} x ${it.descripcion}`)
+        .join(', ')
+      const prompt =
+        `Presupuesto Plot Center para ${presupuesto.cliente_nombre}: ${detalle}. ` +
+        `Total estimado ${presupuesto.total}. Producto gráfico / impresión profesional, vista atractiva de referencia.`
+      const dataUrl = await generarMockupImagenIa(prompt)
+      setAiImagenPropuesta(dataUrl)
+      const uploaded = await dataUrlToUploadedUrl(dataUrl, 'presupuesto-web/propuestas')
+      if (uploaded && presupuestoId) {
+        await anexarImagenPropuestaPresupuesto(
+          presupuestoId,
+          uploaded,
+          presupuesto.cliente_telefono
+        )
+      }
+    } catch (e) {
+      console.warn('No se pudo generar imagen propuesta:', e)
+      setAiError(e instanceof Error ? e.message : 'No se pudo generar la imagen de referencia.')
+    } finally {
+      setAiImagenLoading(false)
+    }
+  }
+
+  const persistirPresupuestoAi = async (
+    presupuesto: EmbedPresupuestoPayload,
+    extras?: { fotosUrls?: string[]; descripcionFotos?: string }
+  ) => {
+    if (aiPersistidoRef.current) {
+      setAiPresupuesto(presupuesto)
+      return
+    }
+    const fotos = extras?.fotosUrls ?? aiFotoUrls
+    const desc = extras?.descripcionFotos ?? aiDescripcionFotos
+    const res = await crearPresupuestoWebPublico({
+      origen: 'ai',
+      cliente_nombre: presupuesto.cliente_nombre,
+      cliente_telefono: presupuesto.cliente_telefono || '',
+      items: presupuesto.items.map((it) => ({
+        codigo_articulo: it.codigo,
+        descripcion: it.descripcion,
+        cantidad: it.cantidad,
+        precio_unitario: it.precio_unitario,
+        precio_total: it.subtotal
+      })),
+      observaciones_cliente: presupuesto.notas,
+      fotosUrls: fotos,
+      descripcionFotos: desc || null,
+      diasValidez: DIAS_VALIDEZ
+    })
+    if (!res.success) {
+      setAiPresupuesto(presupuesto)
+      setAiError(res.error || 'Cotización lista, pero no se pudo guardar en Ventas.')
+      return
+    }
+    aiPersistidoRef.current = true
+    setAiGuardadoNumero(res.data.numero_presupuesto)
+    setAiPresupuestoId(res.data.id)
+    const conNumero: EmbedPresupuestoPayload = {
+      ...presupuesto,
+      numero: res.data.numero_presupuesto,
+      lista_label:
+        presupuesto.lista_label ||
+        `${LISTAS_PRECIO_VENTAS.lista_1.label} · ${LISTAS_PRECIO_VENTAS.lista_1.subtitle}`
+    }
+    setAiPresupuesto(conNumero)
+    void generarImagenFinal(conNumero, res.data.id)
+  }
+
   const enviarAi = async (textoRaw?: string) => {
     const text = (textoRaw ?? aiInput).trim()
-    if (!text || aiLoading) return
+    if ((!text && !aiPendingImage) || aiLoading) return
     setAiError(null)
     setAiInput('')
+    const imageSnapshot = aiPendingImage
+    setAiPendingImage(null)
     const historyForApi = aiMessages.map((m) => ({ role: m.role, parts: m.parts }))
-    setAiMessages((prev) => [...prev, { role: 'user', parts: [{ text }] }])
+    const userText = text || (imageSnapshot ? '📷 Imagen enviada' : '')
+    setAiMessages((prev) => [
+      ...prev,
+      {
+        role: 'user',
+        parts: [{ text: userText }],
+        ...(imageSnapshot ? { imagePreviewUrl: imageSnapshot.previewUrl } : {})
+      }
+    ])
     setAiLoading(true)
+
+    // Subir foto al storage para que llegue al panel de Ventas.
+    let fotosParaPanel = [...aiFotoUrls]
+    if (imageSnapshot) {
+      const url = await dataUrlToUploadedUrl(imageSnapshot.previewUrl, 'presupuesto-web/refs')
+      if (url) {
+        fotosParaPanel = fotosParaPanel.includes(url) ? fotosParaPanel : [...fotosParaPanel, url]
+        setAiFotoUrls(fotosParaPanel)
+      }
+    }
 
     const controller = new AbortController()
     const timeoutId = window.setTimeout(() => controller.abort(), 28_000)
@@ -353,7 +499,14 @@ const PresupuestoPublicoPage = () => {
             message: text,
             modo: 'web_publico',
             history: historyForApi,
-            conversationId: aiConversationId
+            conversationId: aiConversationId,
+            image: imageSnapshot
+              ? {
+                  mimeType: imageSnapshot.mimeType,
+                  data: imageSnapshot.data,
+                  staffPreviewUrl: imageSnapshot.staffPreviewUrl
+                }
+              : null
           })
         )
       })
@@ -370,8 +523,18 @@ const PresupuestoPublicoPage = () => {
       }
       const reply = (data.reply && String(data.reply).trim()) || 'No pude generar una respuesta.'
       setAiMessages((prev) => [...prev, { role: 'model', parts: [{ text: reply }] }])
+      let descFotos = aiDescripcionFotos
+      if (imageSnapshot && reply) {
+        descFotos = (descFotos ? `${descFotos}\n\n${reply}` : reply).slice(0, 4000)
+        setAiDescripcionFotos(descFotos)
+      }
       if (data.conversation_id != null) setAiConversationId(Number(data.conversation_id))
-      if (data.presupuesto) setAiPresupuesto(data.presupuesto)
+      if (data.presupuesto) {
+        await persistirPresupuestoAi(data.presupuesto, {
+          fotosUrls: fotosParaPanel,
+          descripcionFotos: descFotos
+        })
+      }
     } catch (err) {
       const aborted = err instanceof DOMException && err.name === 'AbortError'
       setAiError(aborted ? 'La respuesta tardó demasiado. Intentá de nuevo.' : 'Error de conexión.')
@@ -392,7 +555,7 @@ const PresupuestoPublicoPage = () => {
             </span>
             <h1>¡Listo, {datos.nombre.trim().split(' ')[0]}!</h1>
             <p>
-              Recibimos tu pedido de presupuesto <strong>{enviado.numero}</strong>. Un asesor te
+              Recibimos tu presupuesto <strong>{enviado.numero}</strong> en Ventas. Un asesor te
               contacta al <strong>{datos.telefono.trim()}</strong> para confirmarte precios y plazos.
             </p>
             {items.length > 0 && (
@@ -472,8 +635,7 @@ const PresupuestoPublicoPage = () => {
               <span className="presu-pub__modo-card__eyebrow">Opción 1</span>
               <strong>Manual</strong>
               <p>
-                Marcá qué necesitás, contanos medidas y cantidad, y dejá tus datos. Simple y
-                visual.
+                Marcá qué necesitás, dejá tus datos y el pedido llega a Ventas → Presupuestos.
               </p>
               <span className="presu-pub__modo-card__cta">Empezar →</span>
             </button>
@@ -489,8 +651,8 @@ const PresupuestoPublicoPage = () => {
               <span className="presu-pub__modo-card__eyebrow">Opción 2</span>
               <strong>Con PlotAI</strong>
               <p>
-                Cotizá conversando: precios de Lista 1, PDF al instante y el mismo asistente del
-                chat web.
+                Cotizá conversando con precios de Lista 1 y PDF. Queda cargado en Ventas →
+                Presupuestos.
               </p>
               <span className="presu-pub__modo-card__cta">Hablar con PlotAI →</span>
             </button>
@@ -619,6 +781,40 @@ const PresupuestoPublicoPage = () => {
                   {aiPresupuesto && (
                     <div className="presu-pub__ai-presupuesto">
                       <EmbedPresupuestoBanner presupuesto={aiPresupuesto} />
+                      {aiPresupuesto.cliente_telefono ? (
+                        <p className="presu-pub__ai-wa">
+                          WhatsApp:{' '}
+                          <a
+                            href={
+                              whatsappHrefDesdeTelefono(aiPresupuesto.cliente_telefono) || '#'
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {aiPresupuesto.cliente_telefono}
+                          </a>
+                        </p>
+                      ) : null}
+                      {(aiImagenPropuesta || aiImagenLoading) && (
+                        <div className="presu-pub__ai-propuesta">
+                          <p className="presu-pub__ai-propuesta-label">Propuesta visual</p>
+                          {aiImagenLoading && !aiImagenPropuesta ? (
+                            <p className="presu-pub__ai-propuesta-wait">Generando imagen…</p>
+                          ) : null}
+                          {aiImagenPropuesta ? (
+                            <>
+                              <img src={aiImagenPropuesta} alt="Propuesta generada por PlotAI" />
+                              <a
+                                className="presu-pub__btn presu-pub__btn--fantasma"
+                                href={aiImagenPropuesta}
+                                download={`propuesta-${aiGuardadoNumero || aiPresupuestoId || 'plot'}.png`}
+                              >
+                                Descargar imagen
+                              </a>
+                            </>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -628,6 +824,13 @@ const PresupuestoPublicoPage = () => {
                         key={`${m.role}-${i}`}
                         className={`presu-pub__ai-burbuja presu-pub__ai-burbuja--${m.role === 'user' ? 'user' : 'bot'}`}
                       >
+                        {m.imagePreviewUrl ? (
+                          <img
+                            className="presu-pub__ai-msg-img"
+                            src={m.imagePreviewUrl}
+                            alt="Foto adjunta"
+                          />
+                        ) : null}
                         {m.parts[0]?.text}
                       </div>
                     ))}
@@ -655,6 +858,19 @@ const PresupuestoPublicoPage = () => {
                     ))}
                   </div>
 
+                  {aiPendingImage && (
+                    <div className="presu-pub__ai-attach-preview">
+                      <img src={aiPendingImage.previewUrl} alt="Vista previa" />
+                      <button
+                        type="button"
+                        onClick={() => setAiPendingImage(null)}
+                        aria-label="Quitar foto"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+
                   <form
                     className="presu-pub__ai-composer"
                     onSubmit={(e) => {
@@ -663,17 +879,63 @@ const PresupuestoPublicoPage = () => {
                     }}
                   >
                     <input
+                      ref={aiFileRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="presu-pub__ai-file"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null
+                        e.target.value = ''
+                        void pickAiImage(f)
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="presu-pub__ai-attach"
+                      disabled={aiLoading}
+                      title="Adjuntar foto"
+                      aria-label="Adjuntar foto"
+                      onClick={() => aiFileRef.current?.click()}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <path
+                          d="M21 15V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M17 3v6M14 6h6"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                        <circle cx="9" cy="14" r="2" stroke="currentColor" strokeWidth="1.8" />
+                        <path
+                          d="M21 15l-4.5-4.5L7 20"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                    <input
                       type="text"
                       value={aiInput}
                       onChange={(e) => setAiInput(e.target.value)}
-                      placeholder="Escribí tu consulta…"
+                      placeholder={
+                        aiPendingImage
+                          ? 'Describí la foto o pedí cotización…'
+                          : 'Escribí tu consulta…'
+                      }
                       disabled={aiLoading}
                       aria-label="Mensaje para PlotAI"
                     />
                     <button
                       type="submit"
                       className="presu-pub__btn"
-                      disabled={aiLoading || !aiInput.trim()}
+                      disabled={aiLoading || (!aiInput.trim() && !aiPendingImage)}
                     >
                       Enviar
                     </button>
@@ -806,9 +1068,35 @@ const PresupuestoPublicoPage = () => {
                     <li>
                       Empezá con <strong>nombre + WhatsApp</strong> en un solo mensaje.
                     </li>
-                    <li>Decí el producto, medidas y cantidad.</li>
-                    <li>Cuando haya precio, descargá el <strong>PDF</strong> desde el banner.</li>
+                    <li>
+                      Podés <strong>subir una foto</strong>: PlotAI la describe y cotiza con Lista
+                      1.
+                    </li>
+                    <li>
+                      Al cerrar, descargá el <strong>PDF</strong> y la imagen de propuesta. En
+                      Ventas queda el link de WhatsApp.
+                    </li>
                   </ol>
+                  {aiGuardadoNumero && (
+                    <p className="presu-pub__tips-ok">
+                      Guardado en Ventas como <strong>{aiGuardadoNumero}</strong>
+                      {aiPresupuesto?.cliente_telefono &&
+                      whatsappHrefDesdeTelefono(aiPresupuesto.cliente_telefono) ? (
+                        <>
+                          {' '}
+                          ·{' '}
+                          <a
+                            href={whatsappHrefDesdeTelefono(aiPresupuesto.cliente_telefono)!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Abrir WhatsApp
+                          </a>
+                        </>
+                      ) : null}
+                      .
+                    </p>
+                  )}
                   <p>
                     Los valores son de Lista 1 (efectivo / débito / transferencia) y quedan sujetos
                     a confirmación.

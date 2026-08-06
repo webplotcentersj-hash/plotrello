@@ -32,6 +32,10 @@ import {
   type UrgenciaProximaAccion
 } from '../utils/crmVentasHelpers'
 import { generateContent } from '../services/plotAIService'
+import {
+  extraerUrlsDeObservaciones,
+  extraerWhatsappDeObservaciones
+} from '../utils/presupuestoWebPublico'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
@@ -3446,8 +3450,46 @@ const CRMVentasPage = () => {
                     ) : null}
                     {presupuestoModal.cliente_telefono ? (
                       <div className="venta-compact-row">
-                        <span className="venta-compact-k">Tel</span>
-                        <span className="venta-compact-v">{presupuestoModal.cliente_telefono}</span>
+                        <span className="venta-compact-k">Tel / WhatsApp</span>
+                        <span className="venta-compact-v">
+                          {whatsappHrefDesdeTelefono(presupuestoModal.cliente_telefono) ||
+                          extraerWhatsappDeObservaciones(presupuestoModal.observaciones_internas) ? (
+                            <a
+                              className="presupuesto-wa-link"
+                              href={
+                                whatsappHrefDesdeTelefono(presupuestoModal.cliente_telefono) ||
+                                extraerWhatsappDeObservaciones(
+                                  presupuestoModal.observaciones_internas
+                                ) ||
+                                '#'
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {presupuestoModal.cliente_telefono}
+                            </a>
+                          ) : (
+                            presupuestoModal.cliente_telefono
+                          )}
+                        </span>
+                      </div>
+                    ) : extraerWhatsappDeObservaciones(presupuestoModal.observaciones_internas) ? (
+                      <div className="venta-compact-row">
+                        <span className="venta-compact-k">WhatsApp</span>
+                        <span className="venta-compact-v">
+                          <a
+                            className="presupuesto-wa-link"
+                            href={
+                              extraerWhatsappDeObservaciones(
+                                presupuestoModal.observaciones_internas
+                              )!
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Abrir chat
+                          </a>
+                        </span>
                       </div>
                     ) : null}
                     {presupuestoModal.cliente_email ? (
@@ -3533,6 +3575,34 @@ const CRMVentasPage = () => {
                     <div className="venta-detail-block venta-detail-block--notes venta-detail-block--notes-internal">
                       <h3 className="venta-detail-block__title">Observaciones internas</h3>
                       <p className="venta-detail-block__text">{presupuestoModal.observaciones_internas}</p>
+                      {(() => {
+                        const urls = extraerUrlsDeObservaciones(
+                          presupuestoModal.observaciones_internas
+                        ).filter(
+                          (u) =>
+                            !u.includes('wa.me/') &&
+                            (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(u) ||
+                              u.includes('/storage/') ||
+                              u.includes('presupuesto-web'))
+                        )
+                        if (!urls.length) return null
+                        return (
+                          <div className="presupuesto-adjuntos">
+                            {urls.map((url) => (
+                              <a
+                                key={url}
+                                className="presupuesto-adjunto"
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Abrir imagen"
+                              >
+                                <img src={url} alt="Adjunto del presupuesto" />
+                              </a>
+                            ))}
+                          </div>
+                        )
+                      })()}
                     </div>
                   ) : null}
                 </div>
