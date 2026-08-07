@@ -3,9 +3,29 @@
 .totem-bo-page {
   min-height: 100vh;
   box-sizing: border-box;
-  background: radial-gradient(700px 420px at 50% -10%, rgba(99, 102, 241, 0.15), transparent 55%),
-    linear-gradient(168deg, var(--totem-bg-top) 0%, var(--totem-bg-mid) 50%, var(--totem-bg-deep) 100%);
+  --totem-kiosk-fondo-velo: 0.7;
+  background-color: #1f2233;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 8% 0%, rgba(235, 103, 27, 0.2), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 100% 10%, rgba(56, 189, 248, 0.14), transparent 50%),
+    linear-gradient(
+      rgba(31, 34, 51, var(--totem-kiosk-fondo-velo)),
+      rgba(22, 24, 38, var(--totem-kiosk-fondo-velo))
+    ),
+    url('/fondos/tablero-geometrico.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: auto, auto, auto, cover;
+  background-attachment: scroll, scroll, scroll, fixed;
   color: var(--totem-text);
+}
+
+@media (max-width: 900px) {
+  .totem-bo-page {
+    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+    background-size: auto, auto, auto, 420px auto;
+    background-attachment: scroll;
+  }
 }
 
 .totem-bo-header {

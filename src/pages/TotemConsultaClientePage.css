@@ -11,11 +11,21 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  background:
-    radial-gradient(ellipse 80% 55% at 12% -10%, rgba(0, 174, 239, 0.22), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 92% 8%, rgba(236, 0, 140, 0.18), transparent 50%),
-    radial-gradient(ellipse 60% 45% at 70% 100%, rgba(255, 242, 0, 0.08), transparent 55%),
-    linear-gradient(165deg, #05070f 0%, #0a0d18 45%, #070910 100%);
+  /* Fondo geométrico del kanban (también en búsqueda / resultados) */
+  --totem-consulta-fondo-velo: 0.72;
+  background-color: #1f2233;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 8% 0%, rgba(235, 103, 27, 0.18), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 100% 10%, rgba(56, 189, 248, 0.12), transparent 50%),
+    linear-gradient(
+      rgba(31, 34, 51, var(--totem-consulta-fondo-velo)),
+      rgba(22, 24, 38, var(--totem-consulta-fondo-velo))
+    ),
+    url('/fondos/tablero-geometrico.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: auto, auto, auto, cover;
+  background-attachment: scroll, scroll, scroll, fixed;
   color: var(--totem-text);
   font-family: var(--totem-font);
   -webkit-font-smoothing: antialiased;
@@ -28,7 +38,7 @@
   inset: 0;
   background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 100% 4px;
-  opacity: 0.35;
+  opacity: 0.12;
   z-index: 0;
 }
 
@@ -42,6 +52,10 @@
   overflow: hidden;
   border-radius: 0;
   margin: 0;
+  /* Deja ver el fondo geométrico del kiosk / página (antes era casi opaco) */
+  background: transparent !important;
+  border: none;
+  box-shadow: none;
 }
 
 /* Paso búsqueda: permitir scroll del formulario + resultados */
@@ -55,7 +69,7 @@
 
 .totem-consulta-page--fs {
   padding: 0;
-  background: #0b0d17;
+  --totem-consulta-fondo-velo: 0.7;
 }
 
 .totem-consulta-page--fs .consulta-container.totem-container {
@@ -63,6 +77,48 @@
   border: none;
   box-shadow: none;
   min-height: 100dvh;
+}
+
+@media (max-width: 900px) {
+  .totem-consulta-page {
+    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+    background-size: auto, auto, auto, 420px auto;
+    background-attachment: scroll;
+  }
+}
+
+/* Idle: refuerzo del mismo fondo (por si el shell lo fuerza transparente) */
+.totem-consulta-page:has(.totem-step-idle),
+.totem-consulta-page .consulta-container.totem-step-idle,
+.totem-idle {
+  --totem-idle-fondo-velo: 0.72;
+  background-color: #1f2233;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 8% 0%, rgba(235, 103, 27, 0.18), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 100% 10%, rgba(56, 189, 248, 0.12), transparent 50%),
+    linear-gradient(
+      rgba(31, 34, 51, var(--totem-idle-fondo-velo)),
+      rgba(22, 24, 38, var(--totem-idle-fondo-velo))
+    ),
+    url('/fondos/tablero-geometrico.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: auto, auto, auto, cover;
+  background-attachment: scroll, scroll, scroll, fixed;
+}
+
+.totem-consulta-page:has(.totem-step-idle)::before {
+  opacity: 0.12;
+}
+
+@media (max-width: 900px) {
+  .totem-consulta-page:has(.totem-step-idle),
+  .totem-consulta-page .consulta-container.totem-step-idle,
+  .totem-idle {
+    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+    background-size: auto, auto, auto, 420px auto;
+    background-attachment: scroll;
+  }
 }
 
 /* ——— Pantalla en espera / modo kiosk ——— */
@@ -77,6 +133,7 @@
   justify-content: center;
   padding: clamp(16px, 3vh, 36px) clamp(16px, 3vw, 28px);
   cursor: pointer;
+  border-radius: inherit;
 }
 
 .totem-idle-stack {

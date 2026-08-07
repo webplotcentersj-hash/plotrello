@@ -8,10 +8,30 @@
   height: 100%;
   max-height: 100%;
   overflow: hidden;
-  background: radial-gradient(820px 520px at 100% 0%, rgba(244, 114, 182, 0.16), transparent 52%),
-    radial-gradient(640px 440px at 0% 80%, rgba(56, 189, 248, 0.1), transparent 50%),
-    linear-gradient(168deg, var(--totem-bg-top) 0%, var(--totem-bg-mid) 48%, var(--totem-bg-deep) 100%);
+  /* Fondo geométrico del kanban (el kiosk lo refuerza con !important) */
+  --totem-kiosk-fondo-velo: 0.7;
+  background-color: #1f2233;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 8% 0%, rgba(235, 103, 27, 0.2), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 100% 10%, rgba(56, 189, 248, 0.14), transparent 50%),
+    linear-gradient(
+      rgba(31, 34, 51, var(--totem-kiosk-fondo-velo)),
+      rgba(22, 24, 38, var(--totem-kiosk-fondo-velo))
+    ),
+    url('/fondos/tablero-geometrico.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: auto, auto, auto, cover;
+  background-attachment: scroll, scroll, scroll, fixed;
   color: var(--totem-text);
+}
+
+@media (max-width: 900px) {
+  .totem-print-page {
+    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+    background-size: auto, auto, auto, 420px auto;
+    background-attachment: scroll;
+  }
 }
 
 .totem-print-header {
