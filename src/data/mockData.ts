@@ -47,7 +47,7 @@ export const BOARD_COLUMNS: ColumnConfig[] = [
     id: 'metalurgica',
     label: 'Metalúrgica',
     description: 'Estructuras y soportes especiales',
-    accent: '#eab308' // amarillo
+    accent: '#b45309' // cobre / bronce (antes repetía el amarillo de Taller Gráfico)
   },
   {
     id: 'finalizado-taller',

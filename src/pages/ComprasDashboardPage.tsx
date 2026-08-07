@@ -47,7 +47,7 @@ const PRIORIDADES = ['todos', 'Baja', 'Normal', 'Alta', 'Urgente'] as const
 const SECTORES_META: Record<string, { icono: string; color: string }> = {
   'Taller Gráfico': { icono: '🧰', color: '#f97316' },
   'Taller de Imprenta': { icono: '🖨️', color: '#8b5cf6' },
-  Metalúrgica: { icono: '⚙️', color: '#eab308' },
+  Metalúrgica: { icono: '⚙️', color: '#b45309' },
   Instalaciones: { icono: '🪜', color: '#06b6d4' },
   Administración: { icono: '📊', color: '#3b82f6' },
   'Diseño Gráfico': { icono: '🎨', color: '#ec4899' },
