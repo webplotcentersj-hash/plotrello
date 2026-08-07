@@ -108,9 +108,11 @@
 .task-card.ficha-tecnica-cargada::after {
   content: '✓ FICHA TÉCNICA';
   position: absolute;
-  top: 8px;
+  top: auto;
+  bottom: 8px;
   right: 8px;
-  z-index: 22;
+  left: auto;
+  z-index: 5;
   background: rgba(6, 182, 212, 0.9);
   color: white;
   padding: 4px 10px;
@@ -144,9 +146,11 @@
 .task-card.presupuesto-enviado::after {
   content: '✓ PRESUPUESTO';
   position: absolute;
-  top: 8px;
+  top: auto;
+  bottom: 8px;
   right: 8px;
-  z-index: 22;
+  left: auto;
+  z-index: 5;
   background: rgba(245, 158, 11, 0.9);
   color: white;
   padding: 4px 10px;
@@ -205,9 +209,11 @@
 .task-card.presupuesto-armado::after {
   content: 'ARMADO';
   position: absolute;
-  top: 8px;
+  top: auto;
+  bottom: 8px;
   right: 8px;
-  z-index: 22;
+  left: auto;
+  z-index: 5;
   background: rgba(34, 197, 94, 0.92);
   color: white;
   padding: 4px 10px;
@@ -233,9 +239,11 @@
 .task-card.presupuesto-en-espera::after {
   content: 'EN ESPERA';
   position: absolute;
-  top: 8px;
+  top: auto;
+  bottom: 8px;
   right: 8px;
-  z-index: 22;
+  left: auto;
+  z-index: 5;
   background: rgba(167, 139, 250, 0.92);
   color: white;
   padding: 4px 10px;
@@ -246,6 +254,60 @@
   text-transform: uppercase;
   box-shadow: 0 2px 8px rgba(167, 139, 250, 0.35);
   pointer-events: none;
+}
+
+.task-card.ficha-tecnica-cargada:not(.is-minimized),
+.task-card.presupuesto-enviado:not(.is-minimized),
+.task-card.presupuesto-armado:not(.is-minimized),
+.task-card.presupuesto-en-espera:not(.is-minimized) {
+  padding-bottom: 40px;
+}
+
+/* Minimizadas: sin overlay ::after (tapaba nombre / botonera). Chips en .task-min-checklist */
+.task-card.is-minimized.ficha-tecnica-cargada::after,
+.task-card.is-minimized.presupuesto-enviado::after,
+.task-card.is-minimized.presupuesto-armado::after,
+.task-card.is-minimized.presupuesto-en-espera::after {
+  display: none !important;
+}
+
+.task-min-checklist {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.task-min-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  color: #fff;
+  max-width: 100%;
+}
+
+.task-min-chip--ficha {
+  background: rgba(6, 182, 212, 0.92);
+}
+
+.task-min-chip--armado {
+  background: rgba(34, 197, 94, 0.92);
+}
+
+.task-min-chip--enviado {
+  background: rgba(245, 158, 11, 0.92);
+}
+
+.task-min-chip--espera {
+  background: rgba(167, 139, 250, 0.92);
 }
 
 .task-card {
@@ -794,7 +856,7 @@ body.compact-mode .task-toolbar {
   flex-wrap: wrap;
   gap: 3px;
   max-width: calc(100% - 48px);
-  z-index: 12;
+  z-index: 30;
 }
 
 .task-actions-extra {

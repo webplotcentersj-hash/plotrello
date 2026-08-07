@@ -30,6 +30,7 @@ const STATUS_TO_ESTADO: Record<TaskStatus, string> = {
   // Etiquetas de UI en BOARD_COLUMNS; en DB el CHECK sector exige estos valores canónicos.
   'finalizado-taller': 'Finalizado en Taller',
   'almacen-entrega': 'Almacén de Entrega',
+  'visitas-a-coordinar': 'Visitas a coordinar',
   'asesor-tecnico': 'Asesor Técnico',
   presupuestos: 'Presupuestos',
   'armados-enviados-asesor-presupuestos': 'Armados/Enviados',
@@ -91,6 +92,7 @@ const STATUS_TO_PROGRESS: Record<TaskStatus, number> = {
   'metalurgica': 60,
   'finalizado-taller': 80,
   'almacen-entrega': 90,
+  'visitas-a-coordinar': 8,
   'asesor-tecnico': 15,
   presupuestos: 25,
   'armados-enviados-asesor-presupuestos': 45,
@@ -542,9 +544,11 @@ export const tareaToTask = (tarea: TareaRecord, orden: OrdenTrabajo): Task => {
       'Entregas taller de Imprenta': 'finalizado-taller',
       'Entregas taller gráfico': 'almacen-entrega',
       'Entregas taller grafico': 'almacen-entrega',
+      'Visitas a coordinar': 'visitas-a-coordinar',
       'Asesor Técnico': 'asesor-tecnico',
       'Presupuestos': 'presupuestos',
       'Armados/Enviados': 'armados-enviados-asesor-presupuestos',
+      'No Aprobados': 'no-aprobados-asesor-presupuestos',
       'Finalizado': 'finalizado-asesor-presupuestos',
       'Mostrador': 'diseno-grafico',
       'Caja': 'diseno-grafico'

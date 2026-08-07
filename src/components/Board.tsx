@@ -66,6 +66,7 @@ const Board = ({
     metalurgica: null,
     'finalizado-taller': null,
     'almacen-entrega': null,
+    'visitas-a-coordinar': null,
     'asesor-tecnico': null,
     presupuestos: null,
     'armados-enviados-asesor-presupuestos': null,

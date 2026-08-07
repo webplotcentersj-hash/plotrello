@@ -2933,6 +2933,7 @@ class ApiService {
         'Almacén de Entrega': 'Almacén de Entrega',
         'Entregas taller gráfico': 'Almacén de Entrega',
         'Entregas taller grafico': 'Almacén de Entrega',
+        'Visitas a coordinar': 'Visitas a coordinar',
         'Asesor Técnico': 'Asesor Técnico',
         Presupuestos: 'Presupuestos',
         'Armados/Enviados': 'Armados/Enviados',

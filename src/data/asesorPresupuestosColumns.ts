@@ -3,6 +3,12 @@ import type { ColumnConfig } from '../types/board'
 // Kanban Asesor / Presupuestos: aquí el trabajo son fichas (No OP), no OPs de producción hasta cerrar acá.
 export const ASESOR_PRESUPUESTOS_COLUMNS: ColumnConfig[] = [
   {
+    id: 'visitas-a-coordinar',
+    label: 'Visitas a coordinar',
+    description: 'Pedidos de visita: nombre, teléfono, ubicación y descripción',
+    accent: '#14b8a6' // teal
+  },
+  {
     id: 'asesor-tecnico',
     label: 'Asesor Técnico',
     description: 'Fichas en medición y factibilidad (no es OP de taller)',
@@ -33,4 +39,3 @@ export const ASESOR_PRESUPUESTOS_COLUMNS: ColumnConfig[] = [
     accent: '#10b981' // verde
   }
 ]
-

@@ -5,6 +5,7 @@ import Header from '../components/Header'
 import FiltersBar from '../components/FiltersBar'
 import TaskEditModal from '../components/TaskEditModal'
 import FichaNoOPModal from '../components/FichaNoOPModal'
+import VisitaACoordinarModal from '../components/VisitaACoordinarModal'
 import AgendaAsesorTecnico from '../components/AgendaAsesorTecnico'
 import HistorialFichasAsesorPanel from '../components/HistorialFichasAsesorPanel'
 import { ASESOR_PRESUPUESTOS_COLUMNS } from '../data/asesorPresupuestosColumns'
@@ -29,6 +30,7 @@ import './AsesorPresupuestosPage.css'
  */
 /** Columnas del Kanban asesor: el Board agrupa solo por `task.status`. */
 const ASESOR_KANBAN_STATUSES: TaskStatus[] = [
+  'visitas-a-coordinar',
   'asesor-tecnico',
   'presupuestos',
   'armados-enviados-asesor-presupuestos',
@@ -38,6 +40,8 @@ const ASESOR_KANBAN_STATUSES: TaskStatus[] = [
 
 function sectorToAsesorKanbanStatus(sector?: string | null): TaskStatus | null {
   switch (sector) {
+    case 'Visitas a coordinar':
+      return 'visitas-a-coordinar'
     case 'Asesor Técnico':
       return 'asesor-tecnico'
     case 'Presupuestos':
@@ -71,6 +75,9 @@ function normalizeTaskForAsesorKanban(task: Task): Task {
   if (ASESOR_KANBAN_STATUSES.includes(task.status)) {
     return task
   }
+  if (sector === 'Visitas a coordinar') {
+    return { ...task, status: 'visitas-a-coordinar' }
+  }
   if (sector === 'Asesor Técnico') {
     return { ...task, status: 'asesor-tecnico' }
   }
@@ -83,8 +90,12 @@ function normalizeTaskForAsesorKanban(task: Task): Task {
   if (sector === 'No Aprobados') {
     return { ...task, status: 'no-aprobados-asesor-presupuestos' }
   }
+  const inVisitas = task.sectores?.includes('Visitas a coordinar')
   const inAt = task.sectores?.includes('Asesor Técnico')
   const inPr = task.sectores?.includes('Presupuestos')
+  if (inVisitas && !inAt && !inPr) {
+    return { ...task, status: 'visitas-a-coordinar' }
+  }
   if (inAt && !inPr) {
     return { ...task, status: 'asesor-tecnico' }
   }
@@ -138,6 +149,8 @@ const AsesorPresupuestosPage = ({
   /** Modal de ficha No OP: null = crear, Task = editar (misma UI que al crear). */
   const [fichaModalOpen, setFichaModalOpen] = useState(false)
   const [fichaModalEditTask, setFichaModalEditTask] = useState<Task | null>(null)
+  const [visitaModalOpen, setVisitaModalOpen] = useState(false)
+  const [visitaModalEditTask, setVisitaModalEditTask] = useState<Task | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'kanban' | 'agenda' | 'historial'>('kanban')
@@ -145,7 +158,33 @@ const AsesorPresupuestosPage = ({
   const searchInputRef = useRef<HTMLInputElement>(null)
   const isPhoneBoard = usePhoneBoardLayout()
 
-  // Verificar permisos
+  const openFichaNoOP = (task: Task | null) => {
+    setVisitaModalOpen(false)
+    setVisitaModalEditTask(null)
+    setFichaModalEditTask(task)
+    setFichaModalOpen(true)
+  }
+
+  const openVisitaModal = (task: Task | null) => {
+    setFichaModalOpen(false)
+    setFichaModalEditTask(null)
+    setVisitaModalEditTask(task)
+    setVisitaModalOpen(true)
+  }
+
+  const openAsesorFicha = (task: Task) => {
+    if (!task.esFichaNoOP) {
+      setTaskToEdit(task)
+      return
+    }
+    const status = normalizeTaskForAsesorKanban(task).status
+    if (status === 'visitas-a-coordinar') {
+      openVisitaModal(task)
+    } else {
+      openFichaNoOP(task)
+    }
+  }
+
   const canAccess = isAdmin || isAsesorTecnico || isPresupuestos
 
   // Para la agenda: asesor técnico ve la suya; admin y presupuestos ven la del primer asesor técnico
@@ -164,16 +203,19 @@ const AsesorPresupuestosPage = ({
       if (isTaskHiddenFromKanban(task)) return false
       const sector = task.assignedSector || task.sectorInicial
       return (
+        sector === 'Visitas a coordinar' ||
         sector === 'Asesor Técnico' ||
         sector === 'Presupuestos' ||
         sector === 'Armados/Enviados' ||
         sector === 'No Aprobados' ||
+        task.status === 'visitas-a-coordinar' ||
         task.status === 'asesor-tecnico' ||
         task.status === 'presupuestos' ||
         task.status === 'armados-enviados-asesor-presupuestos' ||
         task.status === 'no-aprobados-asesor-presupuestos' ||
         task.status === 'finalizado-asesor-presupuestos' ||
         (task.sectores && (
+          task.sectores.includes('Visitas a coordinar') ||
           task.sectores.includes('Asesor Técnico') ||
           task.sectores.includes('Presupuestos') ||
           task.sectores.includes('Armados/Enviados') ||
@@ -367,7 +409,7 @@ const AsesorPresupuestosPage = ({
         ) {
           revertOptimistic()
           setActionError(
-            'Flujo: Asesor → Presupuestos → Finalizado. Desde Presupuestos o Armados/Enviados, al finalizar, la ficha pasa a OP en el tablero general.'
+            'Flujo: Visitas → Asesor → Presupuestos → Finalizado. Desde Presupuestos o Armados/Enviados, al finalizar, la ficha pasa a OP en el tablero general.'
           )
           return
         }
@@ -412,6 +454,7 @@ const AsesorPresupuestosPage = ({
           `Ficha convertida en OP: ${transformResponse.data?.nuevo_numero_op || 'N/A'}. Ya está en el tablero general.`
         )
       } else if (
+        destination === 'visitas-a-coordinar' ||
         destination === 'asesor-tecnico' ||
         destination === 'presupuestos' ||
         destination === 'armados-enviados-asesor-presupuestos' ||
@@ -570,7 +613,8 @@ const AsesorPresupuestosPage = ({
             <div className="asesor-presupuestos-hero-badge">Flujo asesoría</div>
             <h1 className="asesor-presupuestos-title">Asesor técnico y presupuestos</h1>
             <p className="asesor-presupuestos-lead">
-              Fichas (No OP): medición, factibilidad y presupuesto. Al cerrar en Finalizado pasan a ser OP en el tablero general.
+              Empezá por Visitas a coordinar; seguí en Asesor Técnico / Presupuestos. Al cerrar en
+              Finalizado la ficha pasa a OP en el tablero general.
             </p>
             {activeTab === 'kanban' && (
               <div className="asesor-presupuestos-stats">
@@ -657,10 +701,7 @@ const AsesorPresupuestosPage = ({
                 { id: 'baja', label: 'Baja' }
               ]}
               onPriorityChange={setPriorityFilter}
-              onAddNewOrder={() => {
-                setFichaModalEditTask(null)
-                setFichaModalOpen(true)
-              }}
+              onAddNewOrder={() => openVisitaModal(null)}
             />
 
             <div className="asesor-presupuestos-board-wrap">
@@ -670,14 +711,7 @@ const AsesorPresupuestosPage = ({
                 disableDrag={isPhoneBoard}
                 onMoveTask={handleTaskMove}
                 members={teamMembers}
-                onEditTask={(task) => {
-                  if (task.esFichaNoOP) {
-                    setFichaModalEditTask(task)
-                    setFichaModalOpen(true)
-                  } else {
-                    setTaskToEdit(task)
-                  }
-                }}
+                onEditTask={openAsesorFicha}
                 columns={ASESOR_PRESUPUESTOS_COLUMNS}
                 sectores={sectores}
                 activity={activity}
@@ -704,14 +738,7 @@ const AsesorPresupuestosPage = ({
         ) : (
           <HistorialFichasAsesorPanel
             tasks={tasks}
-            onEditTask={(task) => {
-              if (task.esFichaNoOP) {
-                setFichaModalEditTask(task)
-                setFichaModalOpen(true)
-              } else {
-                setTaskToEdit(task)
-              }
-            }}
+            onEditTask={openAsesorFicha}
             onRefrescarTablero={onReloadData}
           />
         )}
@@ -726,6 +753,21 @@ const AsesorPresupuestosPage = ({
             materiales={materialesCatalog}
             activity={activity}
             showImpresionOpFields={false}
+          />
+        )}
+
+        {visitaModalOpen && (
+          <VisitaACoordinarModal
+            editTask={visitaModalEditTask}
+            onClose={() => {
+              setVisitaModalOpen(false)
+              setVisitaModalEditTask(null)
+            }}
+            onSuccess={() => {
+              void onReloadData?.({ silent: true })
+              setVisitaModalOpen(false)
+              setVisitaModalEditTask(null)
+            }}
           />
         )}
 

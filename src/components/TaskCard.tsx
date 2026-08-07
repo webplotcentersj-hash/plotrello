@@ -607,6 +607,25 @@ const TaskCardInner = ({
                 </span>
               )}
               {isNewMove && <span className="task-new-pill">NEW</span>}
+              {(task.fichaTecnicaCargada ||
+                task.presupuestoArmado ||
+                task.presupuestoEnviadoCliente ||
+                task.presupuestoEnEspera) && (
+                <div className="task-min-checklist" aria-label="Estado presupuesto">
+                  {task.fichaTecnicaCargada ? (
+                    <span className="task-min-chip task-min-chip--ficha">Ficha</span>
+                  ) : null}
+                  {task.presupuestoArmado ? (
+                    <span className="task-min-chip task-min-chip--armado">Armado</span>
+                  ) : null}
+                  {task.presupuestoEnviadoCliente ? (
+                    <span className="task-min-chip task-min-chip--enviado">Enviado</span>
+                  ) : null}
+                  {task.presupuestoEnEspera ? (
+                    <span className="task-min-chip task-min-chip--espera">En espera</span>
+                  ) : null}
+                </div>
+              )}
             </div>
           )}
           {/* Durante drag global: sin botones extra ni flechas (menos nodos y menos reconciliación) */}

@@ -122,6 +122,25 @@ function BoardTaskCardLiteShell({
         <span className="task-min-sep">·</span>
         <span className="task-min-client">{task.title}</span>
       </div>
+      {(task.fichaTecnicaCargada ||
+        task.presupuestoArmado ||
+        task.presupuestoEnviadoCliente ||
+        task.presupuestoEnEspera) && (
+        <div className="task-min-checklist" aria-label="Estado presupuesto">
+          {task.fichaTecnicaCargada ? (
+            <span className="task-min-chip task-min-chip--ficha">Ficha</span>
+          ) : null}
+          {task.presupuestoArmado ? (
+            <span className="task-min-chip task-min-chip--armado">Armado</span>
+          ) : null}
+          {task.presupuestoEnviadoCliente ? (
+            <span className="task-min-chip task-min-chip--enviado">Enviado</span>
+          ) : null}
+          {task.presupuestoEnEspera ? (
+            <span className="task-min-chip task-min-chip--espera">En espera</span>
+          ) : null}
+        </div>
+      )}
     </article>
   )
 }

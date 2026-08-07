@@ -9,6 +9,7 @@ export type TaskStatus =
   | 'metalurgica'
   | 'finalizado-taller'
   | 'almacen-entrega'
+  | 'visitas-a-coordinar'
   | 'asesor-tecnico'
   | 'presupuestos'
   | 'no-aprobados-asesor-presupuestos'

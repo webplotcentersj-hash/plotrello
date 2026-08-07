@@ -11,6 +11,7 @@ const ROL_A_SECTOR: Record<string, string> = {
   caja: 'Caja',
   mostrador: 'Mostrador',
   compras: 'Compras',
+  'visitas-a-coordinar': 'Visitas a coordinar',
   'asesor-tecnico': 'Asesor Técnico',
   presupuestos: 'Presupuestos'
 }
