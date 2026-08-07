@@ -1100,6 +1100,16 @@
   accent-color: #94a3b8;
 }
 
+.create-pagado-check--cc {
+  border-color: rgba(96, 165, 250, 0.55);
+  background: rgba(30, 58, 138, 0.45);
+  color: #bfdbfe;
+}
+
+.create-pagado-check--cc > input[type='checkbox'] {
+  accent-color: #3b82f6;
+}
+
 .create-parcial-monto {
   display: inline-flex;
   align-items: center;

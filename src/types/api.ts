@@ -160,6 +160,8 @@ export interface OrdenTrabajo {
   marcada_pagada?: boolean | null
   /** Marca manual: OP sin pago */
   sin_pago?: boolean | null
+  /** Marca manual: OP a cuenta corriente (CC) */
+  pago_cuenta_corriente?: boolean | null
   /** Monto de seña / pago parcial */
   monto_pago_parcial?: number | null
 }

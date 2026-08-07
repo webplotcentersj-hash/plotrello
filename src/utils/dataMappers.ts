@@ -295,6 +295,7 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
     })(),
     marcadaPagada: orden.marcada_pagada === true,
     sinPago: orden.sin_pago === true,
+    pagoCuentaCorriente: orden.pago_cuenta_corriente === true,
     montoPagoParcial: (() => {
       const n = Number(orden.monto_pago_parcial)
       return Number.isFinite(n) && n > 0 ? n : null
@@ -451,6 +452,7 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     })(),
     marcada_pagada: task.marcadaPagada === true,
     sin_pago: task.sinPago === true,
+    pago_cuenta_corriente: task.pagoCuentaCorriente === true,
     monto_pago_parcial:
       task.montoPagoParcial != null && Number(task.montoPagoParcial) > 0
         ? Number(task.montoPagoParcial)

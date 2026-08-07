@@ -35,6 +35,9 @@ const EntregasCobroPanel = ({ tasks }: Props) => {
       } else if (estado === 'parcial') {
         conSenia += 1
         seniasCobradas += Number(task.montoPagoParcial ?? 0)
+      } else if (estado === 'cuenta_corriente') {
+        // CC: no cuenta como cobrada en mano, pero tampoco como “sin cobrar” genérico
+        sinCobrar += 1
       } else {
         sinCobrar += 1
       }

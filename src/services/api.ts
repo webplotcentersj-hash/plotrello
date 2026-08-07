@@ -183,7 +183,7 @@ export { formatSupabaseStatementTimeoutError }
 
 /** Columnas para listado del tablero (sin `*` ni JSON pesado). */
 const ORDENES_TABLERO_SELECT =
-  'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,hora_estimada,marcada_pagada,sin_pago,monto_pago_parcial,fecha_ingreso,fecha_ultimo_movimiento,panol_slot,entregado,eliminada,visible_en_tablero,motivo_eliminacion,fecha_eliminacion,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final,numero_ficha_original,planilla_preliminar,ficha_tecnica_pdf_url,ficha_tecnica_cargada,ficha_tecnica_incompleta,presupuesto_enviado_cliente,presupuesto_armado,presupuesto_en_espera'
+  'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,hora_estimada,marcada_pagada,sin_pago,pago_cuenta_corriente,monto_pago_parcial,fecha_ingreso,fecha_ultimo_movimiento,panol_slot,entregado,eliminada,visible_en_tablero,motivo_eliminacion,fecha_eliminacion,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final,numero_ficha_original,planilla_preliminar,ficha_tecnica_pdf_url,ficha_tecnica_cargada,ficha_tecnica_incompleta,presupuesto_enviado_cliente,presupuesto_armado,presupuesto_en_espera'
 
 const ORDENES_TABLERO_LIMIT = 1200
 /** OP en reclamo activas se fusionan al tablero aunque queden fuera del tope por id. */
@@ -1464,6 +1464,9 @@ class ApiService {
                 const postCreatePatch: Partial<OrdenTrabajo> = {}
                 if (orden.marcada_pagada != null) postCreatePatch.marcada_pagada = orden.marcada_pagada === true
                 if (orden.sin_pago != null) postCreatePatch.sin_pago = orden.sin_pago === true
+                if (orden.pago_cuenta_corriente != null) {
+                  postCreatePatch.pago_cuenta_corriente = orden.pago_cuenta_corriente === true
+                }
                 if ('monto_pago_parcial' in orden) {
                   postCreatePatch.monto_pago_parcial =
                     orden.monto_pago_parcial != null && Number(orden.monto_pago_parcial) > 0

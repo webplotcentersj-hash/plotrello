@@ -4,17 +4,19 @@ import { formatMontoPagoParcial } from '../utils/opCobroEstado'
 type Props = {
   marcadaPagada?: boolean
   sinPago?: boolean
+  pagoCuentaCorriente?: boolean
   montoPagoParcial?: number | null
   className?: string
   wrapClassName?: string
-  /** Si true, muestra SIN PAGO cuando no hay pagado ni parcial */
+  /** Si true, muestra SIN PAGO cuando no hay pagado ni parcial ni CC */
   showWhenUnpaid?: boolean
 }
 
-/** Pastilla de cobro para fichas (pagada / parcial / sin pago). */
+/** Pastilla de cobro para fichas (pagada / parcial / CC / sin pago). */
 export default function OpCobroPill({
   marcadaPagada,
   sinPago,
+  pagoCuentaCorriente,
   montoPagoParcial,
   className = 'task-pagada-pill',
   wrapClassName,
@@ -30,7 +32,13 @@ export default function OpCobroPill({
   } else if (montoPagoParcial != null && Number(montoPagoParcial) > 0) {
     pill = (
       <span className={`${className} task-pagada-pill--parcial`} title="Pago parcial">
-        PARCIAL - {formatMontoPagoParcial(Number(montoPagoParcial))}
+        PARCIAL · {formatMontoPagoParcial(Number(montoPagoParcial))}
+      </span>
+    )
+  } else if (pagoCuentaCorriente) {
+    pill = (
+      <span className={`${className} task-pagada-pill--cc`} title="Cuenta corriente">
+        CC
       </span>
     )
   } else if (sinPago || showWhenUnpaid) {

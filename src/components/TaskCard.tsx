@@ -590,6 +590,7 @@ const TaskCardInner = ({
               <OpCobroPill
                 marcadaPagada={task.marcadaPagada}
                 sinPago={task.sinPago}
+                pagoCuentaCorriente={task.pagoCuentaCorriente}
                 montoPagoParcial={task.montoPagoParcial}
               />
               <span className="task-min-sep">·</span>
@@ -972,6 +973,7 @@ const TaskCardInner = ({
               <OpCobroPill
                 marcadaPagada={task.marcadaPagada}
                 sinPago={task.sinPago}
+                pagoCuentaCorriente={task.pagoCuentaCorriente}
                 montoPagoParcial={task.montoPagoParcial}
               />
               {hasModifications && (

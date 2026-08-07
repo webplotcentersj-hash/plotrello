@@ -60,6 +60,19 @@ export default function OpCobroFooterChecks({
         )}
       </label>
 
+      <label
+        className={`create-pagado-check create-pagado-check--cc${estado === 'cuenta_corriente' ? ' is-on' : ''}`}
+        title="Cuenta corriente"
+      >
+        <input
+          type="checkbox"
+          checked={estado === 'cuenta_corriente'}
+          disabled={disabled}
+          onChange={() => toggle('cuenta_corriente')}
+        />
+        <span>CC</span>
+      </label>
+
       <label className={`create-pagado-check create-pagado-check--sin${estado === 'sin_pago' ? ' is-on' : ''}`}>
         <input
           type="checkbox"

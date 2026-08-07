@@ -498,6 +498,12 @@
   color: #fde68a;
 }
 
+.task-view-chip.task-pagada-pill--cc {
+  border-color: rgba(96, 165, 250, 0.65);
+  background: rgba(37, 99, 235, 0.28);
+  color: #bfdbfe;
+}
+
 .task-view-chip.task-pagada-pill--sin {
   border-color: rgba(148, 163, 184, 0.55);
   background: rgba(71, 85, 105, 0.35);

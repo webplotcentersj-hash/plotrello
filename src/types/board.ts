@@ -61,6 +61,8 @@ export interface Task {
   marcadaPagada?: boolean
   /** OP marcada sin pago */
   sinPago?: boolean
+  /** OP a cuenta corriente (CC) */
+  pagoCuentaCorriente?: boolean
   /** Monto de seña / pago parcial (si aplica) */
   montoPagoParcial?: number | null
   updatedAt: string

@@ -565,6 +565,7 @@ export default function TaskViewModal({
                 <OpCobroPill
                   marcadaPagada={viewTask.marcadaPagada}
                   sinPago={viewTask.sinPago}
+                  pagoCuentaCorriente={viewTask.pagoCuentaCorriente}
                   montoPagoParcial={viewTask.montoPagoParcial}
                   className="task-view-chip task-view-chip--pagado"
                 />

@@ -117,6 +117,7 @@ function BoardTaskCardLiteShell({
         <OpCobroPill
           marcadaPagada={task.marcadaPagada}
           sinPago={task.sinPago}
+          pagoCuentaCorriente={task.pagoCuentaCorriente}
           montoPagoParcial={task.montoPagoParcial}
         />
         <span className="task-min-sep">·</span>
@@ -288,6 +289,7 @@ function boardTaskCardRowPropsAreEqual(
       'presupuestoEnEspera',
       'marcadaPagada',
       'sinPago',
+      'pagoCuentaCorriente',
       'montoPagoParcial',
       'estimatedTime'
     ] as const
