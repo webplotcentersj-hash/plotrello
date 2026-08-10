@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import {
   cotizarTotemImpresionLista1,
+  normalizeTotemPrintPapel,
   type TotemPrintFormato
 } from '../_lib/totemPrintLista1'
 import { getPlotLabAllowedOrigins, PLOT_LAB_PRIMARY_ORIGIN } from '../_lib/plotLabOrigins'
@@ -36,17 +37,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cantidad_hojas?: number
     color_pages?: number
     bw_pages?: number
+    papel?: string
   }
 
   const formatoRaw = String(body.formato || 'A4').toUpperCase()
   const formato: TotemPrintFormato = formatoRaw === 'A3' ? 'A3' : 'A4'
+  const papel = normalizeTotemPrintPapel(body.papel)
 
   const quote = await cotizarTotemImpresionLista1(supabase, {
     formato,
     tipo_impresion: String(body.tipo_impresion || '').trim(),
     cantidad_hojas: Math.max(1, Math.floor(Number(body.cantidad_hojas) || 1)),
     color_pages: body.color_pages != null ? Number(body.color_pages) : undefined,
-    bw_pages: body.bw_pages != null ? Number(body.bw_pages) : undefined
+    bw_pages: body.bw_pages != null ? Number(body.bw_pages) : undefined,
+    papel
   })
 
   if (!quote.ok) {

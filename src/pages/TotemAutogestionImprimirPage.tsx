@@ -16,6 +16,12 @@ import {
   type TotemPrintColorModo
 } from '@/utils/totemPrintDocument'
 import {
+  TOTEM_PRINT_PAPEL_DEFAULT,
+  gruposTotemPrintPapel,
+  isTotemPrintPapelId,
+  type TotemPrintPapelId
+} from '@/utils/totemPrintPapel'
+import {
   cotizarImpresionTotem,
   formatTotemPrintArs,
   type TotemPrintQuote
@@ -43,10 +49,12 @@ export default function TotemAutogestionImprimirPage() {
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [cantidadHojas, setCantidadHojas] = useState(1)
   const [formatoImpresion, setFormatoImpresion] = useState<PrintFormat>('A4')
+  const [tipoPapel, setTipoPapel] = useState<TotemPrintPapelId>(TOTEM_PRINT_PAPEL_DEFAULT)
   const [modoColor, setModoColor] = useState<TotemPrintColorModo>('auto')
   const [origenArchivo, setOrigenArchivo] = useState<OrigenArchivo>('CelularQR')
   const [archivoUrl, setArchivoUrl] = useState('')
   const [archivoNombre, setArchivoNombre] = useState('')
+  const [descripcionImpresion, setDescripcionImpresion] = useState('')
   const [archivosCargados, setArchivosCargados] = useState<TotemArchivoItem[]>([])
   const [printQuote, setPrintQuote] = useState<TotemPrintQuote | null>(null)
   const [printQuoteLoading, setPrintQuoteLoading] = useState(false)
@@ -184,9 +192,10 @@ export default function TotemAutogestionImprimirPage() {
         formato: formatoImpresion,
         modoColor,
         cantidadHojas,
+        papel: tipoPapel,
         analysis: lastAnalysisRef.current
       }),
-    [formatoImpresion, modoColor, cantidadHojas, colorAutoDetectado, hojasAutoDetectadas]
+    [formatoImpresion, modoColor, cantidadHojas, tipoPapel, colorAutoDetectado, hojasAutoDetectadas]
   )
 
   const handlePrintAnalysis = useCallback(
@@ -227,7 +236,8 @@ export default function TotemAutogestionImprimirPage() {
           tipo_impresion: colorQuote.tipo_impresion,
           cantidad_hojas: cantidadHojas,
           color_pages: colorQuote.color_pages,
-          bw_pages: colorQuote.bw_pages
+          bw_pages: colorQuote.bw_pages,
+          papel: tipoPapel
         })
         if (cancelled) return
         setPrintQuoteLoading(false)
@@ -245,7 +255,7 @@ export default function TotemAutogestionImprimirPage() {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [formatoImpresion, modoColor, cantidadHojas, colorQuote, colorAutoDetectado, hojasAutoDetectadas])
+  }, [formatoImpresion, tipoPapel, modoColor, cantidadHojas, colorQuote, colorAutoDetectado, hojasAutoDetectadas])
 
   useEffect(() => {
     if (step !== 'done') return
@@ -555,17 +565,22 @@ export default function TotemAutogestionImprimirPage() {
 
     if (!urlFinal) return null
 
+    const notas = descripcionImpresion.trim()
+    const tipoBase = colorQuote.tipo_impresion.trim()
+    const tipoConNotas = notas ? `${tipoBase} | Notas: ${notas}` : tipoBase
+
     return {
       cliente_nombre: clienteNombre.trim(),
       cliente_dni: dniDigits,
       cliente_telefono: clienteTelefono.trim(),
       cantidad_hojas: Math.floor(cantidadHojas),
-      tipo_impresion: colorQuote.tipo_impresion.trim(),
+      tipo_impresion: tipoConNotas,
       origen_archivo: origenArchivo === 'CelularQR' ? 'Celular (QR)' : origenArchivo,
       archivo_url: urlFinal,
       archivo_nombre: nombreFinal,
       valor_total: printQuote?.total ?? 0,
       formato_impresion: formatoImpresion,
+      papel_impresion: tipoPapel,
       color_pages: colorQuote.color_pages,
       bw_pages: colorQuote.bw_pages
     }
@@ -752,6 +767,36 @@ export default function TotemAutogestionImprimirPage() {
                   </select>
                 </label>
                 <label className="totem-print-span2">
+                  Tipo de papel
+                  <select
+                    value={tipoPapel}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (isTotemPrintPapelId(v)) setTipoPapel(v)
+                    }}
+                    aria-label="Tipo de papel"
+                  >
+                    {gruposTotemPrintPapel().map(({ group, options }) => (
+                      <optgroup key={group} label={group}>
+                        {options.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  {(tipoPapel === 'obra_240' || tipoPapel.startsWith('adh_') || tipoPapel.startsWith('esp_')) && (
+                    <span className="totem-print-hojasHint">
+                      {tipoPapel === 'obra_240'
+                        ? 'Precio Lista 1: Obra 120–180 g (no hay ítem 240 g).'
+                        : tipoPapel.startsWith('adh_')
+                          ? 'Precio Lista 1: Papel adhesivo del formato elegido.'
+                          : 'Precio Lista 1: Papel especial del formato (texturado / metalizado / perlado).'}
+                    </span>
+                  )}
+                </label>
+                <label className="totem-print-span2">
                   Color / blanco y negro
                   <select
                     value={modoColor}
@@ -916,6 +961,20 @@ export default function TotemAutogestionImprimirPage() {
                   Nombre del archivo
                   <input value={archivoNombre} onChange={(e) => setArchivoNombre(e.target.value)} placeholder="Ej: cartel_frente.pdf" />
                 </label>
+                <label className="totem-print-span2">
+                  Descripción / indicaciones
+                  <textarea
+                    className="totem-print-desc"
+                    value={descripcionImpresion}
+                    onChange={(e) => setDescripcionImpresion(e.target.value.slice(0, 500))}
+                    rows={3}
+                    placeholder="Ej: hoja 1 a color, hojas 2 a 5 en blanco y negro. Imprimir solo el frente…"
+                    maxLength={500}
+                  />
+                  <span className="totem-print-hojasHint">
+                    Opcional. Lo ve mostrador (ej. qué hojas van a color o B/N). {descripcionImpresion.length}/500
+                  </span>
+                </label>
                 {tieneArchivoSeleccionado &&
                   origenArchivo !== 'Pendrive' &&
                   origenArchivo !== 'CelularQR' &&
@@ -954,6 +1013,7 @@ export default function TotemAutogestionImprimirPage() {
                 <TotemPrintPreviewMonitor
                   sources={previewSources}
                   formatoImpresion={formatoImpresion}
+                  modoColor={modoColor}
                   onAnalysis={handlePrintAnalysis}
                 />
               </aside>

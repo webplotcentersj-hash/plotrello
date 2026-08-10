@@ -169,6 +169,7 @@
 
 .totem-print-grid input,
 .totem-print-grid select,
+.totem-print-grid textarea,
 .totem-print-origenBlock input,
 .totem-print-origenBlock select {
   width: 100%;
@@ -180,6 +181,13 @@
   color: var(--totem-text);
   font-size: 1.05rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.totem-print-desc {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.4;
+  font-family: inherit;
 }
 
 .totem-print-nombreWrap {

@@ -9,7 +9,7 @@ import {
 } from '../_lib/mercadopago'
 import { getPlotLabAllowedOrigins, PLOT_LAB_PRIMARY_ORIGIN } from '../_lib/plotLabOrigins'
 import { handleOptions, setCorsRestricted } from '../plotai/plotaiHttp'
-import { cotizarTotemImpresionLista1 } from '../_lib/totemPrintLista1'
+import { cotizarTotemImpresionLista1, normalizeTotemPrintPapel } from '../_lib/totemPrintLista1'
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
@@ -37,6 +37,7 @@ type Draft = {
   archivo_nombre?: string
   valor_total?: number
   formato_impresion?: 'A4' | 'A3'
+  papel_impresion?: string
   color_pages?: number
   bw_pages?: number
 }
@@ -82,13 +83,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const tipoLower = payload.tipo_impresion.toLowerCase()
   const formato =
     String(draft.formato_impresion || '').toUpperCase() === 'A3' || tipoLower.includes('a3') ? 'A3' : 'A4'
+  const papel = normalizeTotemPrintPapel(draft.papel_impresion || payload.tipo_impresion)
 
   const quote = await cotizarTotemImpresionLista1(supabase, {
     formato,
     tipo_impresion: payload.tipo_impresion,
     cantidad_hojas: payload.cantidad_hojas,
     color_pages: draft.color_pages != null ? Number(draft.color_pages) : undefined,
-    bw_pages: draft.bw_pages != null ? Number(draft.bw_pages) : undefined
+    bw_pages: draft.bw_pages != null ? Number(draft.bw_pages) : undefined,
+    papel
   })
 
   if (!quote.ok || quote.total < 1) {

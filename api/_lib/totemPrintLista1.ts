@@ -2,6 +2,20 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type TotemPrintFormato = 'A4' | 'A3'
 export type TotemPrintColorMode = 'color' | 'bw' | 'mixed'
+export type TotemPrintPapelId =
+  | 'obra_80'
+  | 'obra_120'
+  | 'obra_180'
+  | 'obra_240'
+  | 'ilust_115'
+  | 'ilust_170'
+  | 'ilust_300'
+  | 'ilust_350'
+  | 'adh_ilust'
+  | 'adh_obra'
+  | 'esp_texturado'
+  | 'esp_metalizado'
+  | 'esp_perlado'
 
 export type TotemPrintQuoteInput = {
   formato: TotemPrintFormato
@@ -9,6 +23,7 @@ export type TotemPrintQuoteInput = {
   cantidad_hojas: number
   color_pages?: number
   bw_pages?: number
+  papel?: TotemPrintPapelId | string
 }
 
 export type TotemPrintQuoteLine = {
@@ -45,11 +60,75 @@ const DEFAULT_AJUSTES: ConfigAjustes = {
   recargos: []
 }
 
-const ARTICULO_SEARCH: Record<string, string[]> = {
-  'A4-color': ['impresiones a4 ilustracion color 115grs', 'impresiones a4 color obra 80grs'],
-  'A4-bw': ['impresiones a4 b/n obra 80grs', 'impresiones a4 b/n obra 120'],
-  'A3-color': ['impresiones a3 ilustracion color 115grs', 'impresiones a3 color obra 80grs'],
-  'A3-bw': ['impresiones a3 b/n obra 80grs', 'impresiones a3 b/n obra 120']
+const PAPEL_IDS = new Set<string>([
+  'obra_80',
+  'obra_120',
+  'obra_180',
+  'obra_240',
+  'ilust_115',
+  'ilust_170',
+  'ilust_300',
+  'ilust_350',
+  'adh_ilust',
+  'adh_obra',
+  'esp_texturado',
+  'esp_metalizado',
+  'esp_perlado'
+])
+
+/** Términos de búsqueda en articulos_empresa (Lista 1), por papel + color/bn. */
+function searchTermsForPapel(
+  formato: TotemPrintFormato,
+  papel: TotemPrintPapelId,
+  tone: 'color' | 'bw'
+): string[] {
+  const f = formato.toLowerCase()
+
+  if (papel === 'obra_80') {
+    return tone === 'bw'
+      ? [`impresiones ${f} b/n obra 80grs`, `impresiones ${f} b/n obra 80`]
+      : [`impresiones ${f} color obra 80grs`, `impresiones ${f} color obra 80`]
+  }
+
+  // 120, 180 y 240 comparten ítem "120 A 180GRS" en lista (no hay 240 propio).
+  if (papel === 'obra_120' || papel === 'obra_180' || papel === 'obra_240') {
+    return tone === 'bw'
+      ? [`impresiones ${f} b/n obra 120 a 180grs`, `impresiones ${f} b/n obra 120`]
+      : [`impresiones ${f} color obra 120 a 180grs`, `impresiones ${f} color obra 120`]
+  }
+
+  if (papel === 'ilust_115') {
+    return [`impresiones ${f} ilustracion color 115grs`, `impresiones ${f} ilustracion color 115`]
+  }
+  if (papel === 'ilust_170') {
+    return [`impresiones ${f} ilustracion color 170grs`, `impresiones ${f} ilustracion color 170`]
+  }
+  if (papel === 'ilust_300') {
+    return [`impresiones ${f} ilustracion color 300grs`, `impresiones ${f} ilustracion color 300`]
+  }
+  if (papel === 'ilust_350') {
+    return [
+      `impresiones ${f} ilustracion color 350grs`,
+      `impresiones ${f} ilustracion color 350`
+    ]
+  }
+
+  // Adhesivo: un solo ítem por formato en lista.
+  if (papel === 'adh_ilust' || papel === 'adh_obra') {
+    return [`impresiones papel adhesivo ${f}`, `papel adhesivo ${f}`, `impresiones ${f} adhesivo`]
+  }
+
+  // Especiales: Texturado / metalizado / perlado → PAPEL ESPECIAL Ax
+  return [`papel especial ${f}`, `impresiones papel especial ${f}`]
+}
+
+/** Ilustración / adhesivo / especial: se cotiza con el ítem de papel (precio único). */
+function papelUsaPrecioUnico(papel: TotemPrintPapelId): boolean {
+  return (
+    papel.startsWith('ilust_') ||
+    papel.startsWith('adh_') ||
+    papel.startsWith('esp_')
+  )
 }
 
 function round2(n: number): number {
@@ -65,7 +144,7 @@ function normalizeNombre(nombre: string): string {
 
 function isPaqueteFijo(nombre: string): boolean {
   const n = normalizeNombre(nombre)
-  return /foto\s*libros|\b\d{1,3}\s+impresiones?\s+a\s*[345]/i.test(n)
+  return /foto\s*libros|\b\d{1,3}\s+impresiones?\s+a\s*[345]|mas corte|doble faz|plegado/i.test(n)
 }
 
 function resolveBruto(row: ArticuloRow): number | null {
@@ -107,6 +186,14 @@ async function getAjustes(supabase: SupabaseClient): Promise<ConfigAjustes> {
   }
 }
 
+function scoreMatch(nombre: string, term: string): number {
+  const n = normalizeNombre(nombre)
+  const t = normalizeNombre(term)
+  if (n === t) return 100
+  if (n.includes(t)) return 80 - Math.abs(n.length - t.length)
+  return 0
+}
+
 async function buscarArticulo(
   supabase: SupabaseClient,
   searchTerms: string[]
@@ -119,13 +206,36 @@ async function buscarArticulo(
       .eq('activo', true)
       .ilike('nombre', `%${escaped}%`)
       .order('nombre', { ascending: true })
-      .limit(12)
+      .limit(20)
 
-    const rows = (data || []) as ArticuloRow[]
-    const match = rows.find((r) => resolveBruto(r) != null && !isPaqueteFijo(r.nombre || ''))
-    if (match) return match
+    const rows = ((data || []) as ArticuloRow[]).filter(
+      (r) => resolveBruto(r) != null && !isPaqueteFijo(r.nombre || '')
+    )
+    if (!rows.length) continue
+    rows.sort((a, b) => scoreMatch(b.nombre || '', term) - scoreMatch(a.nombre || '', term))
+    return rows[0]
   }
   return null
+}
+
+export function normalizeTotemPrintPapel(raw?: string | null): TotemPrintPapelId {
+  const v = String(raw || '').trim()
+  if (PAPEL_IDS.has(v)) return v as TotemPrintPapelId
+  const t = v.toLowerCase()
+  if (t.includes('perl')) return 'esp_perlado'
+  if (t.includes('metal')) return 'esp_metalizado'
+  if (t.includes('textur')) return 'esp_texturado'
+  if (t.includes('adhes') && t.includes('obra')) return 'adh_obra'
+  if (t.includes('adhes')) return 'adh_ilust'
+  if (t.includes('350')) return 'ilust_350'
+  if (t.includes('300')) return 'ilust_300'
+  if (t.includes('170')) return 'ilust_170'
+  if (t.includes('115')) return 'ilust_115'
+  if (t.includes('240')) return 'obra_240'
+  if (t.includes('180')) return 'obra_180'
+  if (t.includes('120')) return 'obra_120'
+  if (t.includes('80')) return 'obra_80'
+  return 'ilust_115'
 }
 
 export function parseTotemTipoImpresion(tipo: string): {
@@ -156,6 +266,7 @@ export async function cotizarTotemImpresionLista1(
 ): Promise<TotemPrintQuoteResult> {
   const parsed = parseTotemTipoImpresion(input.tipo_impresion)
   const formato = input.formato || parsed.format
+  const papel = normalizeTotemPrintPapel(input.papel || input.tipo_impresion)
   const hojas = Math.max(1, Math.floor(Number(input.cantidad_hojas) || 1))
 
   let colorQty = 0
@@ -173,13 +284,19 @@ export async function cotizarTotemImpresionLista1(
     colorQty = hojas
   }
 
+  // Papeles con precio único: no separar color/B/N en ítems distintos.
+  if (papelUsaPrecioUnico(papel)) {
+    const totalHojas = Math.max(1, colorQty + bwQty || hojas)
+    colorQty = totalHojas
+    bwQty = 0
+  }
+
   const ajustes = await getAjustes(supabase)
   const items: TotemPrintQuoteLine[] = []
 
-  const addLine = async (key: string, qty: number) => {
+  const addLine = async (tone: 'color' | 'bw', qty: number) => {
     if (qty < 1) return
-    const terms = ARTICULO_SEARCH[key]
-    if (!terms?.length) return
+    const terms = searchTermsForPapel(formato, papel, tone)
     const row = await buscarArticulo(supabase, terms)
     if (!row) return
     const bruto = resolveBruto(row)
@@ -187,22 +304,22 @@ export async function cotizarTotemImpresionLista1(
     const unit = calcularFinalLista1(bruto, ajustes)
     items.push({
       codigo: row.codigo,
-      descripcion: row.nombre || key,
+      descripcion: row.nombre || `${formato}-${papel}-${tone}`,
       cantidad: qty,
       precio_unitario: unit,
       subtotal: round2(unit * qty)
     })
   }
 
-  if (colorQty > 0) await addLine(`${formato}-color`, colorQty)
-  if (bwQty > 0) await addLine(`${formato}-bw`, bwQty)
+  if (colorQty > 0) await addLine('color', colorQty)
+  if (bwQty > 0) await addLine('bw', bwQty)
 
   if (!items.length) {
     return {
       ok: false,
       total: 0,
       items: [],
-      error: 'No encontramos precio en Lista 1 para este tipo de impresión. Consultá en mostrador.'
+      error: 'No encontramos precio en Lista 1 para este papel / formato. Consultá en mostrador.'
     }
   }
 

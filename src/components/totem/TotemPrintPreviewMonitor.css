@@ -61,6 +61,27 @@
   word-break: break-all;
 }
 
+.totem-print-monitor-range {
+  margin: 6px 0 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #c4b5fd;
+  letter-spacing: 0.01em;
+}
+
+.totem-print-monitor-more-sub {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.totem-print-monitor-overlay-tag--page {
+  background: rgba(56, 189, 248, 0.85);
+  color: #0f172a;
+}
+
 .totem-print-monitor-bezel {
   position: relative;
   padding: 14px;

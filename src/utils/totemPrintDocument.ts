@@ -1,6 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { copyPdfBytes } from './pdfTextLines'
+import type { TotemPrintPapelId } from './totemPrintPapel'
+import { labelTotemPrintPapel } from './totemPrintPapel'
 
 let workerConfigured = false
 
@@ -55,18 +57,24 @@ export function buildTipoImpresionLabel(
 /** Cómo cobrar color en el tótem: automático del archivo o forzar todo color / todo B/N. */
 export type TotemPrintColorModo = 'auto' | 'color' | 'bn'
 
+function withPapelLabel(base: string, papel?: TotemPrintPapelId | null): string {
+  if (!papel) return base
+  return `${base} · ${labelTotemPrintPapel(papel)}`
+}
+
 export function resolveTotemPrintColorQuote(params: {
   formato: PrintFormat
   modoColor: TotemPrintColorModo
   cantidadHojas: number
+  papel?: TotemPrintPapelId | null
   analysis?: Pick<PrintDocumentAnalysis, 'colorDetection' | 'colorPages' | 'bwPages'> | null
 }): { tipo_impresion: string; color_pages: number; bw_pages: number } {
   const hojas = Math.max(1, Math.floor(params.cantidadHojas) || 1)
-  const { formato, modoColor, analysis } = params
+  const { formato, modoColor, analysis, papel } = params
 
   if (modoColor === 'color') {
     return {
-      tipo_impresion: `${formato} - Color`,
+      tipo_impresion: withPapelLabel(`${formato} - Color`, papel),
       color_pages: hojas,
       bw_pages: 0
     }
@@ -74,18 +82,21 @@ export function resolveTotemPrintColorQuote(params: {
 
   if (modoColor === 'bn') {
     return {
-      tipo_impresion: `${formato} - Blanco y negro`,
+      tipo_impresion: withPapelLabel(`${formato} - Blanco y negro`, papel),
       color_pages: 0,
       bw_pages: hojas
     }
   }
 
   if (analysis) {
-    const tipo = buildTipoImpresionLabel(
-      formato,
-      analysis.colorDetection,
-      analysis.colorPages,
-      analysis.bwPages
+    const tipo = withPapelLabel(
+      buildTipoImpresionLabel(
+        formato,
+        analysis.colorDetection,
+        analysis.colorPages,
+        analysis.bwPages
+      ),
+      papel
     )
     if (analysis.colorDetection === 'mixed') {
       return {
@@ -103,7 +114,7 @@ export function resolveTotemPrintColorQuote(params: {
   }
 
   return {
-    tipo_impresion: `${formato} - Color (detectado)`,
+    tipo_impresion: withPapelLabel(`${formato} - Color (detectado)`, papel),
     color_pages: hojas,
     bw_pages: 0
   }
