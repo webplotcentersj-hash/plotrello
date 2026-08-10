@@ -24,6 +24,8 @@ export type TotemPrintQuoteInput = {
   color_pages?: number
   bw_pages?: number
   papel?: TotemPrintPapelId | string
+  /** simple = 1 cara/hoja; doble = 2 caras/hoja (se cotizan ×2 en Lista 1). */
+  faz?: 'simple' | 'doble' | string
 }
 
 export type TotemPrintQuoteLine = {
@@ -267,7 +269,10 @@ export async function cotizarTotemImpresionLista1(
   const parsed = parseTotemTipoImpresion(input.tipo_impresion)
   const formato = input.formato || parsed.format
   const papel = normalizeTotemPrintPapel(input.papel || input.tipo_impresion)
+  const fazRaw = String(input.faz || input.tipo_impresion || '').toLowerCase()
+  const esDobleFaz = fazRaw === 'doble' || fazRaw.includes('doble faz')
   const hojas = Math.max(1, Math.floor(Number(input.cantidad_hojas) || 1))
+  const carasFactor = esDobleFaz ? 2 : 1
 
   let colorQty = 0
   let bwQty = 0
@@ -290,6 +295,9 @@ export async function cotizarTotemImpresionLista1(
     colorQty = totalHojas
     bwQty = 0
   }
+
+  colorQty *= carasFactor
+  bwQty *= carasFactor
 
   const ajustes = await getAjustes(supabase)
   const items: TotemPrintQuoteLine[] = []

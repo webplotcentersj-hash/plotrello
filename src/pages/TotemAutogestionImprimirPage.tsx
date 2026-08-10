@@ -13,7 +13,8 @@ import {
   resolveTotemPrintColorQuote,
   type PrintColorDetection,
   type PrintFormat,
-  type TotemPrintColorModo
+  type TotemPrintColorModo,
+  type TotemPrintFaz
 } from '@/utils/totemPrintDocument'
 import {
   TOTEM_PRINT_PAPEL_DEFAULT,
@@ -50,6 +51,7 @@ export default function TotemAutogestionImprimirPage() {
   const [cantidadHojas, setCantidadHojas] = useState(1)
   const [formatoImpresion, setFormatoImpresion] = useState<PrintFormat>('A4')
   const [tipoPapel, setTipoPapel] = useState<TotemPrintPapelId>(TOTEM_PRINT_PAPEL_DEFAULT)
+  const [fazImpresion, setFazImpresion] = useState<TotemPrintFaz>('simple')
   const [modoColor, setModoColor] = useState<TotemPrintColorModo>('auto')
   const [origenArchivo, setOrigenArchivo] = useState<OrigenArchivo>('CelularQR')
   const [archivoUrl, setArchivoUrl] = useState('')
@@ -193,9 +195,10 @@ export default function TotemAutogestionImprimirPage() {
         modoColor,
         cantidadHojas,
         papel: tipoPapel,
+        faz: fazImpresion,
         analysis: lastAnalysisRef.current
       }),
-    [formatoImpresion, modoColor, cantidadHojas, tipoPapel, colorAutoDetectado, hojasAutoDetectadas]
+    [formatoImpresion, modoColor, cantidadHojas, tipoPapel, fazImpresion, colorAutoDetectado, hojasAutoDetectadas]
   )
 
   const handlePrintAnalysis = useCallback(
@@ -237,7 +240,8 @@ export default function TotemAutogestionImprimirPage() {
           cantidad_hojas: cantidadHojas,
           color_pages: colorQuote.color_pages,
           bw_pages: colorQuote.bw_pages,
-          papel: tipoPapel
+          papel: tipoPapel,
+          faz: fazImpresion
         })
         if (cancelled) return
         setPrintQuoteLoading(false)
@@ -255,7 +259,7 @@ export default function TotemAutogestionImprimirPage() {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [formatoImpresion, tipoPapel, modoColor, cantidadHojas, colorQuote, colorAutoDetectado, hojasAutoDetectadas])
+  }, [formatoImpresion, tipoPapel, fazImpresion, modoColor, cantidadHojas, colorQuote, colorAutoDetectado, hojasAutoDetectadas])
 
   useEffect(() => {
     if (step !== 'done') return
@@ -581,6 +585,7 @@ export default function TotemAutogestionImprimirPage() {
       valor_total: printQuote?.total ?? 0,
       formato_impresion: formatoImpresion,
       papel_impresion: tipoPapel,
+      faz_impresion: fazImpresion,
       color_pages: colorQuote.color_pages,
       bw_pages: colorQuote.bw_pages
     }
@@ -765,6 +770,22 @@ export default function TotemAutogestionImprimirPage() {
                     <option value="A4">A4</option>
                     <option value="A3">A3</option>
                   </select>
+                </label>
+                <label className="totem-print-span2">
+                  Caras
+                  <select
+                    value={fazImpresion}
+                    onChange={(e) => setFazImpresion(e.target.value === 'doble' ? 'doble' : 'simple')}
+                    aria-label="Simple faz o doble faz"
+                  >
+                    <option value="simple">Simple faz</option>
+                    <option value="doble">Doble faz</option>
+                  </select>
+                  {fazImpresion === 'doble' && (
+                    <span className="totem-print-hojasHint">
+                      Doble faz: se cobran 2 caras por hoja (Lista 1).
+                    </span>
+                  )}
                 </label>
                 <label className="totem-print-span2">
                   Tipo de papel

@@ -23,6 +23,7 @@ export async function cotizarImpresionTotem(params: {
   color_pages?: number
   bw_pages?: number
   papel?: TotemPrintPapelId
+  faz?: 'simple' | 'doble'
 }): Promise<{ ok: boolean; quote?: TotemPrintQuote; error?: string }> {
   try {
     const res = await fetch(plotLabApiUrl('/api/totem/cotizar-impresion'), {
@@ -34,7 +35,8 @@ export async function cotizarImpresionTotem(params: {
         cantidad_hojas: params.cantidad_hojas,
         color_pages: params.color_pages,
         bw_pages: params.bw_pages,
-        papel: params.papel
+        papel: params.papel,
+        faz: params.faz
       })
     })
     const data = (await res.json().catch(() => ({}))) as {

@@ -38,11 +38,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     color_pages?: number
     bw_pages?: number
     papel?: string
+    faz?: string
   }
 
   const formatoRaw = String(body.formato || 'A4').toUpperCase()
   const formato: TotemPrintFormato = formatoRaw === 'A3' ? 'A3' : 'A4'
   const papel = normalizeTotemPrintPapel(body.papel)
+  const faz = String(body.faz || '').toLowerCase() === 'doble' ? 'doble' : 'simple'
 
   const quote = await cotizarTotemImpresionLista1(supabase, {
     formato,
@@ -50,7 +52,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cantidad_hojas: Math.max(1, Math.floor(Number(body.cantidad_hojas) || 1)),
     color_pages: body.color_pages != null ? Number(body.color_pages) : undefined,
     bw_pages: body.bw_pages != null ? Number(body.bw_pages) : undefined,
-    papel
+    papel,
+    faz
   })
 
   if (!quote.ok) {
