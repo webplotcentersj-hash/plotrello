@@ -843,7 +843,7 @@
 
 .totem-welcome-screen .totem-kiosk-tile {
   min-height: clamp(132px, 17vh, 178px);
-  transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease, filter 0.2s ease;
 }
 
 .totem-welcome-screen .totem-kiosk-tile:hover {
@@ -851,21 +851,18 @@
 }
 
 .totem-welcome-screen .totem-kiosk-tile--search {
-  background:
-    linear-gradient(155deg, rgba(255, 242, 0, 0.16) 0%, rgba(255, 255, 255, 0.03) 60%) padding-box,
-    linear-gradient(145deg, rgba(255, 242, 0, 0.7), rgba(255, 255, 255, 0.08)) border-box;
+  background: #b45309;
+  border-color: #facc15;
 }
 
 .totem-welcome-screen .totem-kiosk-tile--print {
-  background:
-    linear-gradient(155deg, rgba(0, 174, 239, 0.18) 0%, rgba(255, 255, 255, 0.03) 60%) padding-box,
-    linear-gradient(145deg, rgba(0, 174, 239, 0.65), rgba(255, 255, 255, 0.08)) border-box;
+  background: #0369a1;
+  border-color: #38bdf8;
 }
 
 .totem-welcome-screen .totem-kiosk-tile--catalog {
-  background:
-    linear-gradient(155deg, rgba(236, 0, 140, 0.16) 0%, rgba(255, 255, 255, 0.03) 60%) padding-box,
-    linear-gradient(145deg, rgba(236, 0, 140, 0.6), rgba(255, 255, 255, 0.08)) border-box;
+  background: #9d174d;
+  border-color: #ec4899;
 }
 
 .totem-welcome-screen .totem-kiosk-ico-ring--orange {
@@ -1469,6 +1466,19 @@
 .totem-input {
   font-size: 1.4rem;
   text-align: center;
+  background: #0f172a;
+  border: 2px solid #334155;
+  color: #f8fafc;
+}
+
+.totem-input:focus {
+  background: #0f172a;
+  border-color: #ea580c;
+  box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.25);
+}
+
+.totem-input::placeholder {
+  color: #94a3b8;
 }
 
 .totem-button {
