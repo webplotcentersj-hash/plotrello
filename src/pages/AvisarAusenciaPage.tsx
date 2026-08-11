@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { useDmMensajeriaUnread } from '../hooks/useDmMensajeriaUnread'
 import apiService from '../services/api'
-import RrhhMessagingCenter from '../components/RrhhMessagingCenter'
-import type { Notification, SolicitudPermiso, UsuarioRecord } from '../types/api'
+import type { SolicitudPermiso } from '../types/api'
 import './AvisarAusenciaPage.css'
 
 const MOTIVOS = [
@@ -16,24 +14,10 @@ const MOTIVOS = [
 
 const LOGO_URL = '/plot-lab-logo.png'
 
-function formatNotifTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
-
 export default function AvisarAusenciaPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { usuario, loading: authLoading, nombreVisible } = useAuth()
-  const dmUnread = useDmMensajeriaUnread(usuario?.id)
 
   const [motivo, setMotivo] = useState<string>(MOTIVOS[0])
   const [motivoOtro, setMotivoOtro] = useState('')
@@ -50,19 +34,10 @@ export default function AvisarAusenciaPage() {
   const [avisoCreadoId, setAvisoCreadoId] = useState<number | null>(null)
   const [historial, setHistorial] = useState<SolicitudPermiso[]>([])
   const [histLoading, setHistLoading] = useState(false)
-  const [comunicados, setComunicados] = useState<Notification[]>([])
-  const [comLoading, setComLoading] = useState(false)
   const [highlightSolicitudId, setHighlightSolicitudId] = useState<number | null>(null)
-  const [highlightComunicadoId, setHighlightComunicadoId] = useState<number | null>(null)
-  const [usuariosMsg, setUsuariosMsg] = useState<UsuarioRecord[]>([])
-  const [msgLoading, setMsgLoading] = useState(false)
-  const [dmPeerId, setDmPeerId] = useState<number | null>(null)
-  const [showMensajeria, setShowMensajeria] = useState(false)
   const [uploadingAdjuntoId, setUploadingAdjuntoId] = useState<number | null>(null)
 
   const histRefs = useRef<Map<number, HTMLLIElement>>(new Map())
-  const comRefs = useRef<Map<number, HTMLLIElement>>(new Map())
-  const mensajeriaRef = useRef<HTMLElement | null>(null)
 
   const dias = useMemo(() => {
     const a = Date.parse(fechaInicio)
@@ -92,35 +67,6 @@ export default function AvisarAusenciaPage() {
     }
   }, [usuario?.id])
 
-  const loadComunicados = useCallback(async () => {
-    if (!usuario?.id) return
-    setComLoading(true)
-    try {
-      const r = await apiService.getUserNotificationsRrhhMasivos(usuario.id, 30)
-      if (r.success && r.data) {
-        setComunicados(r.data)
-      } else {
-        setComunicados([])
-      }
-    } catch {
-      setComunicados([])
-    } finally {
-      setComLoading(false)
-    }
-  }, [usuario?.id])
-
-  const loadUsuariosMsg = useCallback(async () => {
-    setMsgLoading(true)
-    try {
-      const r = await apiService.getUsuarios()
-      setUsuariosMsg(r.success && r.data ? r.data : [])
-    } catch {
-      setUsuariosMsg([])
-    } finally {
-      setMsgLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
     if (authLoading) return
     if (!usuario) {
@@ -129,13 +75,7 @@ export default function AvisarAusenciaPage() {
       return
     }
     void loadHistorial()
-    void loadComunicados()
-  }, [authLoading, usuario, navigate, loadHistorial, loadComunicados])
-
-  useEffect(() => {
-    if (!showMensajeria || usuariosMsg.length > 0 || msgLoading) return
-    void loadUsuariosMsg()
-  }, [showMensajeria, usuariosMsg.length, msgLoading, loadUsuariosMsg])
+  }, [authLoading, usuario, navigate, loadHistorial])
 
   useEffect(() => {
     const m = searchParams.get('motivo')
@@ -153,19 +93,6 @@ export default function AvisarAusenciaPage() {
     } else if (hasSol) {
       setFormPaso(2)
     }
-
-    const comRaw = searchParams.get('comunicado')
-    const comId = comRaw ? Number(comRaw) : NaN
-    setHighlightComunicadoId(Number.isFinite(comId) && comId > 0 ? comId : null)
-
-    const dmRaw = searchParams.get('dm')
-    const dmId = dmRaw ? Number(dmRaw) : NaN
-    const openMsg =
-      searchParams.get('mensajeria') === '1' ||
-      searchParams.get('mensajeria') === 'true' ||
-      (Number.isFinite(dmId) && dmId > 0)
-    if (openMsg) setShowMensajeria(true)
-    setDmPeerId(Number.isFinite(dmId) && dmId > 0 ? dmId : null)
   }, [searchParams])
 
   useEffect(() => {
@@ -178,43 +105,12 @@ export default function AvisarAusenciaPage() {
   }, [avisoCreadoId, historial, histLoading, formPaso])
 
   useEffect(() => {
-    if (!showMensajeria) return
-    const t = window.setTimeout(() => {
-      mensajeriaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 80)
-    return () => window.clearTimeout(t)
-  }, [showMensajeria])
-
-  useEffect(() => {
     if (highlightSolicitudId == null || histLoading) return
     const el = histRefs.current.get(highlightSolicitudId)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, [highlightSolicitudId, histLoading, historial])
-
-  useEffect(() => {
-    if (highlightComunicadoId == null || comLoading) return
-    const el = comRefs.current.get(highlightComunicadoId)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-    const target = comunicados.find((c) => c.id === highlightComunicadoId)
-    if (target && !target.is_read) {
-      void apiService.markNotificationAsRead(target.id)
-      setComunicados((prev) =>
-        prev.map((c) => (c.id === target.id ? { ...c, is_read: true } : c))
-      )
-    }
-    // Solo al abrir por deep-link / al terminar de cargar la lista
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- evitar loop al marcar leído
-  }, [highlightComunicadoId, comLoading])
-
-  const markComunicadoRead = async (n: Notification) => {
-    if (n.is_read) return
-    await apiService.markNotificationAsRead(n.id)
-    setComunicados((prev) => prev.map((c) => (c.id === n.id ? { ...c, is_read: true } : c)))
-  }
 
   const handleSubmitAviso = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -273,7 +169,6 @@ export default function AvisarAusenciaPage() {
           const next = new URLSearchParams(prev)
           next.set('solicitud', String(res.data!.id))
           next.set('paso', '2')
-          next.delete('comunicado')
           return next
         },
         { replace: true }
@@ -408,8 +303,6 @@ export default function AvisarAusenciaPage() {
     )
   }
 
-  const unreadComs = comunicados.filter((c) => !c.is_read).length
-
   return (
     <div className="avisar-ausencia-page">
       <header className="avisar-ausencia-header">
@@ -423,115 +316,6 @@ export default function AvisarAusenciaPage() {
           </p>
         </div>
       </header>
-
-      <section className="avisar-ausencia-comunicados" aria-label="Comunicados RRHH">
-        <div className="avisar-ausencia-comunicados-head">
-          <h2>Comunicados RRHH</h2>
-          {unreadComs > 0 ? (
-            <span className="avisar-ausencia-com-badge">{unreadComs} nuevo{unreadComs === 1 ? '' : 's'}</span>
-          ) : null}
-        </div>
-        {comLoading ? (
-          <p className="avisar-ausencia-hint">Cargando comunicados…</p>
-        ) : comunicados.length === 0 ? (
-          <p className="avisar-ausencia-hint">No hay comunicados por ahora.</p>
-        ) : (
-          <ul>
-            {comunicados.map((n) => (
-              <li
-                key={n.id}
-                ref={(el) => {
-                  if (el) comRefs.current.set(n.id, el)
-                  else comRefs.current.delete(n.id)
-                }}
-                className={`${n.is_read ? '' : 'avisar-ausencia-com--nuevo'}${
-                  highlightComunicadoId === n.id ? ' avisar-ausencia-com--focus' : ''
-                }`}
-              >
-                <button type="button" onClick={() => void markComunicadoRead(n)}>
-                  <strong>{n.title}</strong>
-                  {!n.is_read ? <span className="avisar-ausencia-com-dot">Nuevo</span> : null}
-                  {n.description ? <p>{n.description}</p> : null}
-                  <time dateTime={n.timestamp}>{formatNotifTime(n.timestamp)}</time>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="avisar-ausencia-msg-entry" aria-label="Mensajería interna">
-        <button
-          type="button"
-          className="avisar-ausencia-msg-toggle"
-          onClick={() => {
-            setShowMensajeria((v) => {
-              const next = !v
-              if (next) {
-                setSearchParams(
-                  (prev) => {
-                    const p = new URLSearchParams(prev)
-                    p.set('mensajeria', '1')
-                    return p
-                  },
-                  { replace: true }
-                )
-              } else {
-                setSearchParams(
-                  (prev) => {
-                    const p = new URLSearchParams(prev)
-                    p.delete('mensajeria')
-                    p.delete('dm')
-                    return p
-                  },
-                  { replace: true }
-                )
-              }
-              return next
-            })
-          }}
-        >
-          <span className="avisar-ausencia-msg-toggle-icon" aria-hidden>
-            ✉️
-          </span>
-          <span className="avisar-ausencia-msg-toggle-text">
-            <strong>Mensajería interna</strong>
-            <span>Escribile a RRHH o a un compañero · 1 a 1</span>
-          </span>
-          {dmUnread > 0 ? (
-            <span className="avisar-ausencia-msg-unread">{dmUnread}</span>
-          ) : null}
-        </button>
-      </section>
-
-      {showMensajeria && (
-        <section
-          ref={mensajeriaRef}
-          className="avisar-ausencia-mensajeria"
-          id="mensajeria-interna"
-        >
-          {msgLoading && usuariosMsg.length === 0 ? (
-            <p className="avisar-ausencia-hint">Cargando contactos…</p>
-          ) : (
-            <RrhhMessagingCenter
-              usuarios={usuariosMsg}
-              currentUserId={usuario.id}
-              currentUserName={nombreVisible || usuario.nombre || 'Usuario'}
-              title="Mensajería interna"
-              subtitle={`${usuariosMsg.length > 0 ? usuariosMsg.length - 1 : 0} contactos · mensajes privados (no es el chat del tablero)`}
-              compact
-              initialPeerId={dmPeerId}
-            />
-          )}
-          <button
-            type="button"
-            className="avisar-ausencia-ghost"
-            onClick={() => navigate('/mensajeria')}
-          >
-            Abrir mensajería completa
-          </button>
-        </section>
-      )}
 
       <section className="avisar-ausencia-steps" aria-label="Pasos">
         <ol>
