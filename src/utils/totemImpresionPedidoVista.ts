@@ -20,6 +20,22 @@ export type TotemImpresionDetalle = {
   cliente_nombre?: string | null
   cliente_dni?: string | null
   cliente_telefono?: string | null
+  jobs?: TotemImpresionJobDetalle[] | null
+}
+
+export type TotemImpresionJobDetalle = {
+  url?: string
+  nombre?: string
+  formato?: string
+  papel?: string
+  faz?: string
+  modo_color?: string
+  hojas?: number[]
+  copias?: number
+  page_count?: number
+  tipo_impresion?: string
+  color_pages?: number
+  bw_pages?: number
 }
 
 export type TotemImpresionPedidoVista = {
@@ -34,6 +50,18 @@ export type TotemImpresionPedidoVista = {
   descripcion: string | null
   tipoLabel: string
   archivos: TotemArchivoItem[]
+  jobs: Array<{
+    nombre: string
+    url: string
+    formato: PrintFormat
+    papelLabel: string
+    faz: TotemPrintFaz
+    modoColor: TotemPrintColorModo
+    hojas: number[]
+    copias: number
+    pageCount: number
+    tipoLabel: string
+  }>
 }
 
 function asDetalle(raw: unknown): TotemImpresionDetalle | null {
@@ -125,6 +153,36 @@ export function resolveTotemImpresionPedidoVista(params: {
     archivos.files[0].nombre = String(params.archivo_nombre)
   }
 
+  const rawJobs = Array.isArray(d?.jobs) ? d.jobs : []
+  const jobs = rawJobs.map((job, i) => {
+    const jobTipo = String(job.tipo_impresion || tipo)
+    const jobFormato = parseFormato(job.formato, jobTipo)
+    const jobPapelId = parsePapel(job.papel)
+    const jobFaz = parseFaz(job.faz, jobTipo)
+    const jobModo = parseModoColor(
+      job.modo_color,
+      jobTipo,
+      job.color_pages != null ? Number(job.color_pages) : null,
+      job.bw_pages != null ? Number(job.bw_pages) : null
+    )
+    const hojas = Array.isArray(job.hojas)
+      ? job.hojas.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)
+      : []
+    const copias = Math.max(1, Math.min(99, Math.floor(Number(job.copias) || 1)))
+    return {
+      nombre: String(job.nombre || `Archivo ${i + 1}`),
+      url: String(job.url || ''),
+      formato: jobFormato,
+      papelLabel: jobPapelId ? labelTotemPrintPapel(jobPapelId) : String(job.papel || '—'),
+      faz: jobFaz,
+      modoColor: jobModo,
+      hojas,
+      copias,
+      pageCount: Number(job.page_count) || hojas.length || 0,
+      tipoLabel: jobTipo
+    }
+  })
+
   return {
     formato,
     papelId,
@@ -136,7 +194,8 @@ export function resolveTotemImpresionPedidoVista(params: {
     bwPages: Number.isFinite(bwPages as number) ? bwPages : null,
     descripcion: extractNotas(tipo, d?.descripcion),
     tipoLabel: tipo || `${labelPrintFormat(formato)}`,
-    archivos: archivos.files
+    archivos: archivos.files,
+    jobs
   }
 }
 

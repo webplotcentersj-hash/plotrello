@@ -15,6 +15,7 @@ import {
   TOTEM_PRINT_PAPEL_DEFAULT,
   type TotemPrintPapelId
 } from '../../utils/totemPrintPapel'
+import { formatHojasResumen } from '../../utils/totemPrintJobs'
 import './TotemPrintPreviewMonitor.css'
 
 export type TotemPreviewSource = {
@@ -25,15 +26,26 @@ export type TotemPreviewSource = {
 type Props = {
   sources: TotemPreviewSource[]
   formatoImpresion: 'A4' | 'A3' | 'A3E'
-  /** Si el usuario fuerza B/N o color, la vista previa lo refleja. */
   modoColor?: TotemPrintColorModo
   tipoPapel?: TotemPrintPapelId
   fazImpresion?: TotemPrintFaz
+  /** Índice del archivo activo (para multiarchivo). */
+  activeSourceIndex?: number
+  onActiveSourceChange?: (sourceIndex: number) => void
+  /** Hojas seleccionadas del archivo activo (1-based). */
+  selectedPages?: number[]
+  onTogglePage?: (sourceIndex: number, pageInSource: number) => void
+  onSelectAllPages?: (sourceIndex: number) => void
+  onClearPages?: (sourceIndex: number) => void
+  pageCountForActive?: number
+  copias?: number
   onAnalysis?: (data: {
     pageCount: number
     colorDetection: PrintColorDetection
     colorPages: number
     bwPages: number
+    pageCountsBySource: number[]
+    previews: PrintPagePreview[]
   }) => void
 }
 
@@ -47,12 +59,22 @@ function papelToneClass(papel: TotemPrintPapelId): string {
   return 'ilust'
 }
 
+const MAX_THUMBS_PER_FILE = 40
+
 export default function TotemPrintPreviewMonitor({
   sources,
   formatoImpresion,
   modoColor = 'auto',
   tipoPapel = TOTEM_PRINT_PAPEL_DEFAULT,
   fazImpresion = 'simple',
+  activeSourceIndex = 0,
+  onActiveSourceChange,
+  selectedPages,
+  onTogglePage,
+  onSelectAllPages,
+  onClearPages,
+  pageCountForActive,
+  copias = 1,
   onAnalysis
 }: Props) {
   const [loading, setLoading] = useState(false)
@@ -69,6 +91,9 @@ export default function TotemPrintPreviewMonitor({
     () => sources.map((s) => `${s.name || ''}|${s.source}`).join(';;'),
     [sources]
   )
+
+  const selectionEnabled = typeof onTogglePage === 'function'
+  const selectedSet = useMemo(() => new Set(selectedPages || []), [selectedPages])
 
   useEffect(() => {
     if (sources.length === 0) {
@@ -89,7 +114,7 @@ export default function TotemPrintPreviewMonitor({
 
     void (async () => {
       try {
-        const doc = await analyzePrintSources(sources, 400, 5)
+        const doc = await analyzePrintSources(sources, 360, MAX_THUMBS_PER_FILE)
         if (cancelled) return
         setKind(doc.kind)
         setPageCount(doc.pageCount)
@@ -102,7 +127,9 @@ export default function TotemPrintPreviewMonitor({
           pageCount: doc.pageCount,
           colorDetection: doc.colorDetection,
           colorPages: doc.colorPages,
-          bwPages: doc.bwPages
+          bwPages: doc.bwPages,
+          pageCountsBySource: doc.pageCountsBySource,
+          previews: doc.previews
         })
       } catch {
         if (!cancelled) {
@@ -119,7 +146,17 @@ export default function TotemPrintPreviewMonitor({
     }
   }, [sourcesKey, onAnalysis, sources])
 
-  const active = previews[activePage] ?? null
+  const activeSource = Math.min(Math.max(0, activeSourceIndex), Math.max(0, sources.length - 1))
+  const thumbsForActive = useMemo(
+    () => previews.filter((p) => p.sourceIndex === activeSource),
+    [previews, activeSource]
+  )
+
+  useEffect(() => {
+    setActivePage(0)
+  }, [activeSource, sourcesKey])
+
+  const active = thumbsForActive[activePage] ?? thumbsForActive[0] ?? null
   const forceBw = modoColor === 'bn'
   const forceColor = modoColor === 'color'
   const displayColor: PrintColorMode = forceBw
@@ -135,23 +172,16 @@ export default function TotemPrintPreviewMonitor({
   const colorLabel =
     modoColor === 'bn' ? 'Blanco y negro' : modoColor === 'color' ? 'Color' : 'Automático'
 
+  const activeFilePages = pageCountForActive ?? thumbsForActive.length
+  const selectedCount = selectedPages?.length ?? 0
+
   const title =
     sources.length === 0
       ? 'Sin archivo aún'
-      : sources.length === 1
-        ? sources[0].name?.trim() || 'Documento'
-        : `${sources.length} archivos`
+      : sources[activeSource]?.name?.trim() ||
+        (sources.length === 1 ? 'Documento' : `Archivo ${activeSource + 1}`)
 
-  const hojaActual = active ? activePage + 1 : 0
-  const hojaFinVista = previews.length
-  const rangoTexto =
-    pageCount <= 0
-      ? ''
-      : pageCount === 1
-        ? 'Hoja 1 de 1'
-        : hojaActual > 0
-          ? `Hoja ${hojaActual} de ${pageCount}`
-          : `Hojas 1–${pageCount}`
+  const hojaActual = active?.pageInSource ?? 0
 
   const screenClass = [
     'totem-print-monitor-screen',
@@ -173,12 +203,17 @@ export default function TotemPrintPreviewMonitor({
         <span className="totem-print-monitor-chip totem-print-monitor-chip--pages">
           {loading
             ? '…'
-            : pageCount <= 0
-              ? 'Sin hojas'
-              : pageCount === 1
-                ? '1 hoja'
-                : `Hojas 1–${pageCount}`}
+            : selectionEnabled
+              ? formatHojasResumen(selectedPages || [], activeFilePages, copias)
+              : activeFilePages <= 0
+                ? 'Sin hojas'
+                : activeFilePages === 1
+                  ? '1 hoja'
+                  : `Hojas 1–${activeFilePages}`}
         </span>
+      )}
+      {copias > 1 && (
+        <span className="totem-print-monitor-chip totem-print-monitor-chip--copies">×{copias}</span>
       )}
       {sources.length > 1 && <span className="totem-print-monitor-chip">{sources.length} archivos</span>}
       {kind === 'pdf' && <span className="totem-print-monitor-chip">PDF</span>}
@@ -191,7 +226,8 @@ export default function TotemPrintPreviewMonitor({
       className={[
         'totem-print-monitor',
         sources.length === 0 ? 'totem-print-monitor--empty' : '',
-        forceBw ? 'totem-print-monitor--force-bw' : ''
+        forceBw ? 'totem-print-monitor--force-bw' : '',
+        selectionEnabled ? 'totem-print-monitor--select-pages' : ''
       ]
         .filter(Boolean)
         .join(' ')}
@@ -201,13 +237,30 @@ export default function TotemPrintPreviewMonitor({
         <h2 className="totem-print-monitor-title">{title}</h2>
         <p className="totem-print-monitor-range">
           {labelPrintFormat(formatoImpresion)} · {papelLabel} · {fazLabel} · {colorLabel}
-          {!loading && pageCount > 0
-            ? ` · ${rangoTexto}${pageCount > 1 ? ` · Rango 1–${pageCount}` : ''}${
-                pageCount > hojaFinVista ? ` · Vista 1–${hojaFinVista}` : ''
+          {!loading && activeFilePages > 0
+            ? ` · Hoja ${hojaActual || '—'} de ${activeFilePages}${
+                selectionEnabled ? ` · Imprimir ${selectedCount}/${activeFilePages}` : ''
               }`
             : ''}
         </p>
       </div>
+
+      {sources.length > 1 && (
+        <div className="totem-print-monitor-files" role="tablist" aria-label="Archivos">
+          {sources.map((s, i) => (
+            <button
+              key={`${s.source}-${i}`}
+              type="button"
+              role="tab"
+              aria-selected={i === activeSource}
+              className={`totem-print-monitor-file${i === activeSource ? ' totem-print-monitor-file--active' : ''}`}
+              onClick={() => onActiveSourceChange?.(i)}
+            >
+              {s.name?.trim() || `Archivo ${i + 1}`}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="totem-print-monitor-bezel">
         <div className="totem-print-monitor-led" aria-hidden />
@@ -228,7 +281,7 @@ export default function TotemPrintPreviewMonitor({
           ) : active ? (
             <img
               src={active.previewUrl}
-              alt={`Vista previa hoja ${hojaActual} de ${pageCount}`}
+              alt={`Vista previa hoja ${hojaActual} de ${activeFilePages}`}
               className={`totem-print-monitor-img totem-print-monitor-img--${displayColor}`}
             />
           ) : (
@@ -242,49 +295,83 @@ export default function TotemPrintPreviewMonitor({
             papelLabel={papelLabel}
             fazLabel={fazLabel}
             hojaActual={hojaActual}
-            pageCount={pageCount}
+            pageCount={activeFilePages}
           />
         </div>
       </div>
 
       {specs}
 
-      {previews.length > 0 && (
+      {selectionEnabled && sources.length > 0 && (
+        <div className="totem-print-monitor-page-actions">
+          <button type="button" onClick={() => onSelectAllPages?.(activeSource)}>
+            Todas las hojas
+          </button>
+          <button type="button" onClick={() => onClearPages?.(activeSource)}>
+            Ninguna
+          </button>
+          <span className="totem-print-monitor-page-actions-hint">Tocá ✓ en cada miniatura para imprimir o no</span>
+        </div>
+      )}
+
+      {thumbsForActive.length > 0 && (
         <div className="totem-print-monitor-thumbs" role="tablist" aria-label="Páginas del documento">
-          {previews.map((page, i) => {
+          {thumbsForActive.map((page, i) => {
             const selected = i === activePage
+            const willPrint = !selectionEnabled || selectedSet.has(page.pageInSource)
             const thumbColor: PrintColorMode = forceBw ? 'bw' : forceColor ? 'color' : page.color
             return (
-              <button
+              <div
                 key={`${page.sourceIndex}-${page.pageInSource}-${i}`}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                className={`totem-print-monitor-thumb totem-print-monitor-thumb--papel-${papelTone} ${
-                  selected ? 'totem-print-monitor-thumb--active' : ''
-                }`}
-                onClick={() => setActivePage(i)}
-                title={`Hoja ${i + 1} de ${pageCount} — ${page.label}`}
+                className={`totem-print-monitor-thumb-wrap${willPrint ? '' : ' totem-print-monitor-thumb-wrap--off'}`}
               >
-                <img
-                  src={page.previewUrl}
-                  alt={`Hoja ${i + 1}`}
-                  className={`totem-print-monitor-thumb-img totem-print-monitor-thumb-img--${thumbColor}`}
-                />
-                <span className={`totem-print-monitor-thumb-badge totem-print-monitor-thumb-badge--${thumbColor}`}>
-                  {thumbColor === 'color' ? 'C' : 'B/N'}
-                </span>
-                <span className="totem-print-monitor-thumb-num">
-                  {i + 1}/{pageCount}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  className={`totem-print-monitor-thumb totem-print-monitor-thumb--papel-${papelTone} ${
+                    selected ? 'totem-print-monitor-thumb--active' : ''
+                  }${!willPrint ? ' totem-print-monitor-thumb--excluded' : ''}`}
+                  onClick={() => {
+                    setActivePage(i)
+                    onActiveSourceChange?.(page.sourceIndex)
+                  }}
+                  title={`Hoja ${page.pageInSource} de ${activeFilePages} — ${page.label}`}
+                >
+                  <img
+                    src={page.previewUrl}
+                    alt={`Hoja ${page.pageInSource}`}
+                    className={`totem-print-monitor-thumb-img totem-print-monitor-thumb-img--${thumbColor}`}
+                  />
+                  <span className={`totem-print-monitor-thumb-badge totem-print-monitor-thumb-badge--${thumbColor}`}>
+                    {thumbColor === 'color' ? 'C' : 'B/N'}
+                  </span>
+                  <span className="totem-print-monitor-thumb-num">
+                    {page.pageInSource}/{activeFilePages || pageCount}
+                  </span>
+                </button>
+                {selectionEnabled && (
+                  <button
+                    type="button"
+                    className={`totem-print-monitor-page-toggle${willPrint ? ' is-on' : ''}`}
+                    aria-pressed={willPrint}
+                    title={willPrint ? 'Quitar de la impresión' : 'Incluir en la impresión'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onTogglePage?.(page.sourceIndex, page.pageInSource)
+                    }}
+                  >
+                    {willPrint ? '✓' : '–'}
+                  </button>
+                )}
+              </div>
             )
           })}
-          {pageCount > previews.length && (
+          {activeFilePages > thumbsForActive.length && (
             <div className="totem-print-monitor-more">
-              +{pageCount - previews.length} hojas más
+              +{activeFilePages - thumbsForActive.length} hojas más
               <span className="totem-print-monitor-more-sub">
-                (vista {hojaFinVista + 1}–{pageCount})
+                Usá «Todas» / «Ninguna» para el resto
               </span>
             </div>
           )}

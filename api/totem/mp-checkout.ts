@@ -43,6 +43,7 @@ type Draft = {
   color_pages?: number
   bw_pages?: number
   descripcion?: string
+  jobs?: unknown
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -105,28 +106,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     modo_color: String(draft.modo_color || '').trim() || null,
     color_pages: draft.color_pages != null ? Number(draft.color_pages) : null,
     bw_pages: draft.bw_pages != null ? Number(draft.bw_pages) : null,
-    descripcion: String(draft.descripcion || '').trim() || null
+    descripcion: String(draft.descripcion || '').trim() || null,
+    jobs: Array.isArray(draft.jobs) ? draft.jobs : null
   }
 
-  const quote = await cotizarTotemImpresionLista1(supabase, {
-    formato,
-    tipo_impresion: payload.tipo_impresion,
-    cantidad_hojas: payload.cantidad_hojas,
-    color_pages: payload.color_pages != null ? payload.color_pages : undefined,
-    bw_pages: payload.bw_pages != null ? payload.bw_pages : undefined,
-    papel,
-    faz
-  })
+  let amount = 0
+  if (Array.isArray(payload.jobs) && payload.jobs.length > 0) {
+    for (const rawJob of payload.jobs as Array<Record<string, unknown>>) {
+      const jobTipo = String(rawJob.tipo_impresion || payload.tipo_impresion || '').trim()
+      const jobFormatoRaw = String(rawJob.formato || '').toUpperCase()
+      const jobFormato: 'A4' | 'A3' | 'A3E' =
+        jobFormatoRaw === 'A3E' || jobFormatoRaw.includes('EXTEND')
+          ? 'A3E'
+          : jobFormatoRaw === 'A3'
+            ? 'A3'
+            : 'A4'
+      const jobPapel = normalizeTotemPrintPapel(rawJob.papel || payload.papel_impresion)
+      const jobFaz = String(rawJob.faz || '').toLowerCase() === 'doble' ? 'doble' : 'simple'
+      const hojasArr = Array.isArray(rawJob.hojas) ? rawJob.hojas : []
+      const copias = Math.max(1, Math.min(99, Math.floor(Number(rawJob.copias) || 1)))
+      const jobHojas = Math.max(1, (hojasArr.length || Number(rawJob.page_count) || 1) * copias)
+      const jobQuote = await cotizarTotemImpresionLista1(supabase, {
+        formato: jobFormato,
+        tipo_impresion: jobTipo,
+        cantidad_hojas: jobHojas,
+        color_pages: rawJob.color_pages != null ? Number(rawJob.color_pages) : undefined,
+        bw_pages: rawJob.bw_pages != null ? Number(rawJob.bw_pages) : undefined,
+        papel: jobPapel,
+        faz: jobFaz
+      })
+      if (!jobQuote.ok) {
+        res.status(400).json({
+          ok: false,
+          error: jobQuote.error || 'No se pudo calcular el precio de Lista 1 para un archivo.'
+        })
+        return
+      }
+      amount += jobQuote.total
+    }
+  } else {
+    const quote = await cotizarTotemImpresionLista1(supabase, {
+      formato,
+      tipo_impresion: payload.tipo_impresion,
+      cantidad_hojas: payload.cantidad_hojas,
+      color_pages: payload.color_pages != null ? payload.color_pages : undefined,
+      bw_pages: payload.bw_pages != null ? payload.bw_pages : undefined,
+      papel,
+      faz
+    })
+    if (!quote.ok || quote.total < 1) {
+      res.status(400).json({
+        ok: false,
+        error: quote.error || 'No se pudo calcular el precio de Lista 1 para esta impresión.'
+      })
+      return
+    }
+    amount = quote.total
+  }
 
-  if (!quote.ok || quote.total < 1) {
+  if (amount < 1) {
     res.status(400).json({
       ok: false,
-      error: quote.error || 'No se pudo calcular el precio de Lista 1 para esta impresión.'
+      error: 'No se pudo calcular el precio de Lista 1 para esta impresión.'
     })
     return
   }
 
-  const amount = quote.total
   const payloadWithAmount = { ...payload, valor_total: amount }
 
   const { data: chkRaw, error: chkErr } = await supabase.rpc('crear_totem_impresion_checkout', {

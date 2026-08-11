@@ -405,18 +405,43 @@ export default function TotemImpresionBackofficePage() {
                       <td>
                         <div className="totem-bo-specs">
                           <strong>{vista.tipoLabel}</strong>
-                          <span>
-                            Formato: {vista.formato}
-                            {vista.papelLabel ? ` · ${vista.papelLabel}` : ''}
-                          </span>
-                          <span>
-                            {vista.faz === 'doble' ? 'Doble faz' : 'Simple faz'} ·{' '}
-                            {vista.esBlancoNegro ? 'Blanco y negro' : vista.modoColor === 'auto' ? 'Auto color' : 'Color'}
-                          </span>
-                          {(vista.colorPages != null || vista.bwPages != null) && (
-                            <span>
-                              Págs color: {vista.colorPages ?? '—'} · B/N: {vista.bwPages ?? '—'}
-                            </span>
+                          {vista.jobs.length > 0 ? (
+                            vista.jobs.map((job, i) => (
+                              <span key={`${job.url}-${i}`} className="totem-bo-jobline">
+                                <strong>{job.nombre}</strong>
+                                {` · ${job.formato} · ${job.papelLabel} · ${
+                                  job.faz === 'doble' ? 'Doble faz' : 'Simple faz'
+                                } · ${
+                                  job.modoColor === 'bn'
+                                    ? 'B/N'
+                                    : job.modoColor === 'color'
+                                      ? 'Color'
+                                      : 'Auto'
+                                } · hojas ${
+                                  job.hojas.length > 0 ? job.hojas.join(', ') : '—'
+                                }${job.copias > 1 ? ` · ×${job.copias}` : ''}`}
+                              </span>
+                            ))
+                          ) : (
+                            <>
+                              <span>
+                                Formato: {vista.formato}
+                                {vista.papelLabel ? ` · ${vista.papelLabel}` : ''}
+                              </span>
+                              <span>
+                                {vista.faz === 'doble' ? 'Doble faz' : 'Simple faz'} ·{' '}
+                                {vista.esBlancoNegro
+                                  ? 'Blanco y negro'
+                                  : vista.modoColor === 'auto'
+                                    ? 'Auto color'
+                                    : 'Color'}
+                              </span>
+                              {(vista.colorPages != null || vista.bwPages != null) && (
+                                <span>
+                                  Págs color: {vista.colorPages ?? '—'} · B/N: {vista.bwPages ?? '—'}
+                                </span>
+                              )}
+                            </>
                           )}
                           <span>Origen: {r.origen_archivo}</span>
                           {vista.descripcion ? <span className="totem-bo-notes">Notas: {vista.descripcion}</span> : null}
@@ -425,25 +450,44 @@ export default function TotemImpresionBackofficePage() {
                       <td>
                         <div className="totem-bo-file">
                           <div title={r.archivo_nombre}>{r.archivo_nombre}</div>
-                          {vista.archivos.map((f, i) => (
+                          {(vista.jobs.length > 0
+                            ? vista.jobs.map((job, i) => ({
+                                url: job.url,
+                                nombre: job.nombre,
+                                forzarBn: job.modoColor === 'bn',
+                                label: job.hojas.length
+                                  ? `${job.nombre} (hojas ${job.hojas.join(', ')}${
+                                      job.copias > 1 ? ` ×${job.copias}` : ''
+                                    })`
+                                  : job.nombre,
+                                key: `${job.url}-${i}`
+                              }))
+                            : vista.archivos.map((f, i) => ({
+                                url: f.url,
+                                nombre: f.nombre || r.archivo_nombre,
+                                forzarBn: vista.esBlancoNegro,
+                                label: f.nombre?.trim()
+                                  ? vista.esBlancoNegro
+                                    ? `Abrir B/N · ${f.nombre}`
+                                    : `Abrir · ${f.nombre}`
+                                  : vista.esBlancoNegro
+                                    ? `Abrir archivo ${i + 1} en B/N`
+                                    : `Abrir archivo ${i + 1}`,
+                                key: `${f.url}-${i}`
+                              }))
+                          ).map((f) => (
                             <button
-                              key={`${f.url}-${i}`}
+                              key={f.key}
                               type="button"
                               className="totem-bo-file-link"
                               onClick={() =>
                                 void openTotemArchivoParaImprimir(f.url, {
-                                  nombre: f.nombre || r.archivo_nombre,
-                                  forzarBn: vista.esBlancoNegro
+                                  nombre: f.nombre,
+                                  forzarBn: f.forzarBn
                                 })
                               }
                             >
-                              {vista.esBlancoNegro
-                                ? f.nombre?.trim()
-                                  ? `Abrir B/N · ${f.nombre}`
-                                  : `Abrir archivo ${i + 1} en B/N`
-                                : f.nombre?.trim()
-                                  ? `Abrir · ${f.nombre}`
-                                  : `Abrir archivo ${i + 1}`}
+                              {f.label.startsWith('Abrir') ? f.label : `Abrir · ${f.label}`}
                             </button>
                           ))}
                           <button
@@ -578,6 +622,33 @@ export default function TotemImpresionBackofficePage() {
                                       {vista.archivos.map((f) => f.nombre || f.url).join(' · ') || r.archivo_nombre}
                                     </dd>
                                   </div>
+                                  {vista.jobs.length > 0 ? (
+                                    <div>
+                                      <dt>Jobs / hojas</dt>
+                                      <dd>
+                                        {vista.jobs.map((job, i) => (
+                                          <div key={`${job.url}-d-${i}`} className="totem-bo-jobline">
+                                            <strong>{job.nombre}</strong>
+                                            {` · ${job.formato} · ${job.papelLabel} · ${
+                                              job.faz === 'doble' ? 'Doble faz' : 'Simple faz'
+                                            } · ${
+                                              job.modoColor === 'bn'
+                                                ? 'B/N'
+                                                : job.modoColor === 'color'
+                                                  ? 'Color'
+                                                  : 'Auto'
+                                            } · imprimir: ${
+                                              job.hojas.length > 0 ? job.hojas.join(', ') : '—'
+                                            }/${job.pageCount || '—'}${
+                                              job.copias > 1
+                                                ? ` · ×${job.copias} (=${job.hojas.length * job.copias})`
+                                                : ''
+                                            }`}
+                                          </div>
+                                        ))}
+                                      </dd>
+                                    </div>
+                                  ) : null}
                                   {vista.descripcion ? (
                                     <div>
                                       <dt>Notas del cliente</dt>

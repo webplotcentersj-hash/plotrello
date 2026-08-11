@@ -120,6 +120,43 @@
   color: #86efac;
 }
 
+.totem-print-jobTabs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.totem-print-jobTabs-label {
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.totem-print-jobTabs-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.totem-print-jobTab {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--totem-text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.totem-print-jobTab.is-active {
+  border-color: rgba(251, 146, 60, 0.7);
+  background: rgba(251, 146, 60, 0.18);
+}
+
 .totem-print-readonlyField {
   gap: 8px !important;
 }

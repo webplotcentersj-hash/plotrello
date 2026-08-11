@@ -15,7 +15,21 @@ export type TotemImpresionCheckoutDraft = {
   color_pages?: number
   bw_pages?: number
   descripcion?: string
-}
+    jobs?: Array<{
+      url: string
+      nombre: string
+      formato: 'A4' | 'A3' | 'A3E'
+      papel: string
+      faz: 'simple' | 'doble'
+      modo_color: 'auto' | 'color' | 'bn'
+      hojas: number[]
+      copias?: number
+      page_count: number
+      tipo_impresion: string
+      color_pages: number
+      bw_pages: number
+    }>
+  }
 
 export type TotemMpCheckoutResponse = {
   ok: boolean

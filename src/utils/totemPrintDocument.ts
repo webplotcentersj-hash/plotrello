@@ -33,6 +33,8 @@ export type PrintDocumentAnalysis = {
   colorDetection: PrintColorDetection
   colorPages: number
   bwPages: number
+  /** Cantidad real de páginas por índice de archivo. */
+  pageCountsBySource: number[]
 }
 
 export function labelPrintFormat(format: PrintFormat): string {
@@ -329,10 +331,19 @@ export async function analyzePrintSources(
   maxThumbsPerFile = 5
 ): Promise<PrintDocumentAnalysis> {
   if (sources.length === 0) {
-    return { kind: 'unknown', pageCount: 0, previews: [], colorDetection: 'bw', colorPages: 0, bwPages: 0 }
+    return {
+      kind: 'unknown',
+      pageCount: 0,
+      previews: [],
+      colorDetection: 'bw',
+      colorPages: 0,
+      bwPages: 0,
+      pageCountsBySource: []
+    }
   }
 
   const allPages: PrintPagePreview[] = []
+  const pageCountsBySource: number[] = []
   let kind: PrintDocumentKind = 'unknown'
   let pageCount = 0
 
@@ -344,8 +355,12 @@ export async function analyzePrintSources(
 
     const buffer = await loadFileBytes(item.source)
     const k = detectKindFromSource(item.source, buffer)
-    if (k === 'image') pageCount += 1
-    else if (k === 'pdf' && buffer) pageCount += await countPdfPages(buffer)
+    let filePages = 0
+    if (k === 'image') filePages = 1
+    else if (k === 'pdf' && buffer) filePages = await countPdfPages(buffer)
+    else filePages = doc.pages.length
+    pageCountsBySource.push(filePages)
+    pageCount += filePages
   }
 
   const { colorDetection, colorPages, bwPages } = aggregateColorDetection(allPages)
@@ -356,7 +371,8 @@ export async function analyzePrintSources(
     previews: allPages,
     colorDetection,
     colorPages,
-    bwPages
+    bwPages,
+    pageCountsBySource
   }
 }
 

@@ -460,6 +460,11 @@
   color: #fde68a;
 }
 
+.totem-bo-jobline {
+  display: block;
+  line-height: 1.35;
+}
+
 .totem-bo-row--open {
   background: rgba(56, 189, 248, 0.06);
 }

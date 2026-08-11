@@ -353,7 +353,100 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  align-items: flex-start;
+}
+
+.totem-print-monitor-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.totem-print-monitor-file {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(241, 245, 255, 0.85);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.totem-print-monitor-file--active {
+  border-color: rgba(251, 146, 60, 0.7);
+  background: rgba(251, 146, 60, 0.18);
+  color: #fff7ed;
+}
+
+.totem-print-monitor-page-actions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.totem-print-monitor-page-actions button {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5ff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.totem-print-monitor-page-actions button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.totem-print-monitor-page-actions-hint {
+  color: rgba(241, 245, 255, 0.55);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.totem-print-monitor-thumb-wrap {
+  position: relative;
+  width: 72px;
+}
+
+.totem-print-monitor-thumb-wrap--off {
+  opacity: 0.55;
+}
+
+.totem-print-monitor-thumb--excluded {
+  filter: grayscale(0.35);
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.totem-print-monitor-page-toggle {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 2px solid rgba(15, 23, 42, 0.85);
+  background: #64748b;
+  color: #fff;
+  font-weight: 900;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.totem-print-monitor-page-toggle.is-on {
+  background: #16a34a;
 }
 
 .totem-print-monitor-thumb {

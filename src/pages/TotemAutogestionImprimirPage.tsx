@@ -13,6 +13,7 @@ import {
   resolveTotemPrintColorQuote,
   type PrintColorDetection,
   type PrintFormat,
+  type PrintPagePreview,
   type TotemPrintColorModo,
   type TotemPrintFaz
 } from '@/utils/totemPrintDocument'
@@ -22,6 +23,19 @@ import {
   isTotemPrintPapelId,
   type TotemPrintPapelId
 } from '@/utils/totemPrintPapel'
+import {
+  allPagesRange,
+  buildJobsPayload,
+  formatHojasResumen,
+  jobLabelCorto,
+  normalizeCopias,
+  quoteForJob,
+  summarizeJobsTipoImpresion,
+  syncTotemPrintJobs,
+  togglePageInList,
+  totalHojasSeleccionadas,
+  type TotemPrintJobSpec
+} from '@/utils/totemPrintJobs'
 import {
   cotizarImpresionTotem,
   formatTotemPrintArs,
@@ -53,6 +67,8 @@ export default function TotemAutogestionImprimirPage() {
   const [tipoPapel, setTipoPapel] = useState<TotemPrintPapelId>(TOTEM_PRINT_PAPEL_DEFAULT)
   const [fazImpresion, setFazImpresion] = useState<TotemPrintFaz>('simple')
   const [modoColor, setModoColor] = useState<TotemPrintColorModo>('auto')
+  const [printJobs, setPrintJobs] = useState<TotemPrintJobSpec[]>([])
+  const [activeJobIndex, setActiveJobIndex] = useState(0)
   const [origenArchivo, setOrigenArchivo] = useState<OrigenArchivo>('CelularQR')
   const [archivoUrl, setArchivoUrl] = useState('')
   const [archivoNombre, setArchivoNombre] = useState('')
@@ -93,6 +109,8 @@ export default function TotemAutogestionImprimirPage() {
     colorDetection: PrintColorDetection
     colorPages: number
     bwPages: number
+    pageCountsBySource: number[]
+    previews: PrintPagePreview[]
   } | null>(null)
 
   const [hojasAutoDetectadas, setHojasAutoDetectadas] = useState(false)
@@ -121,6 +139,54 @@ export default function TotemAutogestionImprimirPage() {
     () => archivosActivos.map((a) => ({ source: a.url, name: a.nombre })),
     [archivosActivos]
   )
+
+  const jobDefaults = useMemo(
+    () => ({
+      formato: formatoImpresion,
+      papel: tipoPapel,
+      faz: fazImpresion,
+      modoColor
+    }),
+    [formatoImpresion, tipoPapel, fazImpresion, modoColor]
+  )
+  const jobDefaultsRef = useRef(jobDefaults)
+  jobDefaultsRef.current = jobDefaults
+
+  useEffect(() => {
+    setPrintJobs((prev) => syncTotemPrintJobs(archivosActivos, prev, jobDefaultsRef.current))
+    setActiveJobIndex((i) => (archivosActivos.length === 0 ? 0 : Math.min(i, archivosActivos.length - 1)))
+  }, [archivosActivos])
+
+  const activeJob = printJobs[activeJobIndex] ?? null
+
+  useEffect(() => {
+    if (!activeJob) return
+    setFormatoImpresion(activeJob.formato)
+    setTipoPapel(activeJob.papel)
+    setFazImpresion(activeJob.faz)
+    setModoColor(activeJob.modoColor)
+    // Solo al cambiar de archivo activo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeJob?.key])
+
+  const patchActiveJob = useCallback(
+    (patch: Partial<TotemPrintJobSpec>) => {
+      setPrintJobs((prev) => {
+        if (prev.length === 0) return prev
+        const idx = Math.min(activeJobIndex, prev.length - 1)
+        return prev.map((j, i) => (i === idx ? { ...j, ...patch } : j))
+      })
+    },
+    [activeJobIndex]
+  )
+
+  const hojasTotalesSeleccionadas = useMemo(() => totalHojasSeleccionadas(printJobs), [printJobs])
+
+  useEffect(() => {
+    if (printJobs.length > 0) {
+      setCantidadHojas(Math.max(1, hojasTotalesSeleccionadas || 1))
+    }
+  }, [printJobs, hojasTotalesSeleccionadas])
 
   const tieneArchivoSeleccionado = useMemo(() => {
     if (origenArchivo === 'Pendrive') return pendriveArchivos.length > 0
@@ -156,6 +222,8 @@ export default function TotemAutogestionImprimirPage() {
     qrArchivosAcumuladosRef.current = []
     setArchivoNombre('')
     setQrSesionCompleta(false)
+    setPrintJobs([])
+    setActiveJobIndex(0)
     hojasEditadasManualRef.current = false
     setCantidadHojas(1)
     setModoColor('auto')
@@ -191,22 +259,73 @@ export default function TotemAutogestionImprimirPage() {
     setArchivoNombre(rawNombre?.trim() || summarizeTotemArchivoNombres(manifest.files))
   }, [])
 
-  const colorQuote = useMemo(
-    () =>
-      resolveTotemPrintColorQuote({
-        formato: formatoImpresion,
-        modoColor,
-        cantidadHojas,
-        papel: tipoPapel,
-        faz: fazImpresion,
-        analysis: lastAnalysisRef.current
-      }),
-    [formatoImpresion, modoColor, cantidadHojas, tipoPapel, fazImpresion, colorAutoDetectado, hojasAutoDetectadas]
-  )
+  const colorQuote = useMemo(() => {
+    if (printJobs.length > 0) {
+      const tipo = summarizeJobsTipoImpresion(printJobs)
+      let color_pages = 0
+      let bw_pages = 0
+      for (const job of printJobs) {
+        const q = quoteForJob(job)
+        color_pages += q.color_pages
+        bw_pages += q.bw_pages
+      }
+      return { tipo_impresion: tipo, color_pages, bw_pages }
+    }
+    return resolveTotemPrintColorQuote({
+      formato: formatoImpresion,
+      modoColor,
+      cantidadHojas,
+      papel: tipoPapel,
+      faz: fazImpresion,
+      analysis: lastAnalysisRef.current
+    })
+  }, [
+    printJobs,
+    formatoImpresion,
+    modoColor,
+    cantidadHojas,
+    tipoPapel,
+    fazImpresion,
+    colorAutoDetectado,
+    hojasAutoDetectadas,
+    hojasTotalesSeleccionadas
+  ])
 
   const handlePrintAnalysis = useCallback(
-    (data: { pageCount: number; colorDetection: PrintColorDetection; colorPages: number; bwPages: number }) => {
+    (data: {
+      pageCount: number
+      colorDetection: PrintColorDetection
+      colorPages: number
+      bwPages: number
+      pageCountsBySource: number[]
+      previews: PrintPagePreview[]
+    }) => {
       lastAnalysisRef.current = data
+      setPrintJobs((prev) =>
+        prev.map((job, index) => {
+          const filePages = data.pageCountsBySource[index] ?? job.pageCount
+          const filePreviews = data.previews.filter((p) => p.sourceIndex === index)
+          const colorPagesDetected = filePreviews.filter((p) => p.color === 'color').length
+          const bwPagesDetected = filePreviews.filter((p) => p.color === 'bw').length
+          const colorDetection: PrintColorDetection =
+            colorPagesDetected > 0 && bwPagesDetected > 0
+              ? 'mixed'
+              : colorPagesDetected > 0
+                ? 'color'
+                : 'bw'
+          const shouldInitPages = job.pageCount === 0 || job.hojasSeleccionadas.length === 0
+          return {
+            ...job,
+            pageCount: Math.max(filePages, job.pageCount),
+            colorDetection,
+            colorPagesDetected,
+            bwPagesDetected,
+            hojasSeleccionadas: shouldInitPages
+              ? allPagesRange(Math.max(filePages, 1))
+              : job.hojasSeleccionadas.filter((p) => p <= Math.max(filePages, 1))
+          }
+        })
+      )
       if (!hojasEditadasManualRef.current) {
         setCantidadHojas(Math.max(1, Math.min(999, data.pageCount)))
         setHojasAutoDetectadas(true)
@@ -220,14 +339,13 @@ export default function TotemAutogestionImprimirPage() {
     hojasEditadasManualRef.current = false
     setHojasAutoDetectadas(false)
     setColorAutoDetectado(false)
-    setModoColor('auto')
     lastAnalysisRef.current = null
   }, [previewSources])
 
   useEffect(() => {
-    if (!colorQuote.tipo_impresion.trim() || cantidadHojas < 1) {
+    if (!colorQuote.tipo_impresion.trim() || (printJobs.length > 0 ? hojasTotalesSeleccionadas < 1 : cantidadHojas < 1)) {
       setPrintQuote(null)
-      setPrintQuoteError(null)
+      setPrintQuoteError(printJobs.length > 0 && hojasTotalesSeleccionadas < 1 ? 'Seleccioná al menos una hoja para imprimir.' : null)
       return
     }
 
@@ -237,6 +355,43 @@ export default function TotemAutogestionImprimirPage() {
 
     const t = window.setTimeout(() => {
       void (async () => {
+        if (printJobs.length > 0) {
+          const activeJobs = printJobs.filter((j) => j.hojasSeleccionadas.length > 0)
+          const items: TotemPrintQuote['items'] = []
+          let total = 0
+          for (const job of activeJobs) {
+            const q = quoteForJob(job)
+            const r = await cotizarImpresionTotem({
+              formato: job.formato,
+              tipo_impresion: q.tipo_impresion,
+              cantidad_hojas: q.cantidad_hojas,
+              color_pages: q.color_pages,
+              bw_pages: q.bw_pages,
+              papel: job.papel,
+              faz: job.faz
+            })
+            if (cancelled) return
+            if (!r.ok || !r.quote) {
+              setPrintQuote(null)
+              setPrintQuoteError(r.error || `No se pudo cotizar «${job.nombre}».`)
+              setPrintQuoteLoading(false)
+              return
+            }
+            for (const line of r.quote.items) {
+              items.push({
+                ...line,
+                descripcion: `${job.nombre}: ${line.descripcion}`
+              })
+            }
+            total += r.quote.total
+          }
+          if (cancelled) return
+          setPrintQuote({ total, items, lista: 'lista_1' })
+          setPrintQuoteError(null)
+          setPrintQuoteLoading(false)
+          return
+        }
+
         const r = await cotizarImpresionTotem({
           formato: formatoImpresion,
           tipo_impresion: colorQuote.tipo_impresion,
@@ -262,7 +417,18 @@ export default function TotemAutogestionImprimirPage() {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [formatoImpresion, tipoPapel, fazImpresion, modoColor, cantidadHojas, colorQuote, colorAutoDetectado, hojasAutoDetectadas])
+  }, [
+    printJobs,
+    hojasTotalesSeleccionadas,
+    formatoImpresion,
+    tipoPapel,
+    fazImpresion,
+    modoColor,
+    cantidadHojas,
+    colorQuote,
+    colorAutoDetectado,
+    hojasAutoDetectadas
+  ])
 
   useEffect(() => {
     if (step !== 'done') return
@@ -549,6 +715,9 @@ export default function TotemAutogestionImprimirPage() {
     if (!dniDigits || dniDigits.length < 7) return 'Ingresá un DNI/CUIT válido.'
     if (!clienteTelefono.trim()) return 'Ingresá un teléfono.'
     if (!Number.isFinite(cantidadHojas) || cantidadHojas < 1) return 'Cantidad de hojas inválida.'
+    if (printJobs.length > 0 && hojasTotalesSeleccionadas < 1) {
+      return 'Seleccioná al menos una hoja para imprimir en el monitor.'
+    }
     if (printQuoteLoading) return 'Calculando precio de Lista 1…'
     if (!printQuote || printQuote.total < 1) {
       return printQuoteError || 'Esperá el cálculo del precio según Lista 1.'
@@ -601,24 +770,27 @@ export default function TotemAutogestionImprimirPage() {
     const notas = descripcionImpresion.trim()
     const tipoBase = colorQuote.tipo_impresion.trim()
     const tipoConNotas = notas ? `${tipoBase} | Notas: ${notas}` : tipoBase
+    const jobsPayload = printJobs.length > 0 ? buildJobsPayload(printJobs) : undefined
+    const primaryJob = jobsPayload?.[0]
 
     return {
       cliente_nombre: clienteNombre.trim(),
       cliente_dni: dniDigits,
       cliente_telefono: clienteTelefono.trim(),
-      cantidad_hojas: Math.floor(cantidadHojas),
+      cantidad_hojas: Math.max(1, Math.floor(hojasTotalesSeleccionadas || cantidadHojas)),
       tipo_impresion: tipoConNotas,
       origen_archivo: origenArchivo === 'CelularQR' ? 'Celular (QR)' : origenArchivo,
       archivo_url: urlFinal,
       archivo_nombre: nombreFinal,
       valor_total: printQuote?.total ?? 0,
-      formato_impresion: formatoImpresion,
-      papel_impresion: tipoPapel,
-      faz_impresion: fazImpresion,
-      modo_color: modoColor,
+      formato_impresion: primaryJob?.formato || formatoImpresion,
+      papel_impresion: primaryJob?.papel || tipoPapel,
+      faz_impresion: primaryJob?.faz || fazImpresion,
+      modo_color: primaryJob?.modo_color || modoColor,
       color_pages: colorQuote.color_pages,
       bw_pages: colorQuote.bw_pages,
-      descripcion: notas || undefined
+      descripcion: notas || undefined,
+      jobs: jobsPayload
     }
   }
 
@@ -832,20 +1004,87 @@ export default function TotemAutogestionImprimirPage() {
                   Cantidad de hojas
                   <input
                     inputMode="numeric"
-                    value={String(cantidadHojas)}
+                    value={String(printJobs.length > 0 ? hojasTotalesSeleccionadas : cantidadHojas)}
+                    readOnly={printJobs.length > 0}
                     onChange={(e) => {
+                      if (printJobs.length > 0) return
                       hojasEditadasManualRef.current = true
                       setHojasAutoDetectadas(false)
                       setCantidadHojas(Math.max(1, Math.min(999, Number(e.target.value || '1'))))
                     }}
                   />
-                  {hojasAutoDetectadas && (
-                    <span className="totem-print-hojasHint">Detectado automáticamente del archivo</span>
+                  {printJobs.length > 0 ? (
+                    <span className="totem-print-hojasHint">
+                      Se calcula con las hojas marcadas × copias
+                      {activeJob
+                        ? ` · ${activeJob.nombre}: ${formatHojasResumen(
+                            activeJob.hojasSeleccionadas,
+                            activeJob.pageCount,
+                            activeJob.copias
+                          )}`
+                        : ''}
+                    </span>
+                  ) : (
+                    hojasAutoDetectadas && (
+                      <span className="totem-print-hojasHint">Detectado automáticamente del archivo</span>
+                    )
                   )}
                 </label>
+                {printJobs.length > 0 && (
+                  <label>
+                    Copias
+                    <select
+                      value={String(normalizeCopias(activeJob?.copias ?? 1))}
+                      onChange={(e) => {
+                        const v = normalizeCopias(e.target.value)
+                        patchActiveJob({ copias: v })
+                        hojasEditadasManualRef.current = true
+                      }}
+                      aria-label="Multiplicar hojas (copias)"
+                      disabled={!activeJob}
+                    >
+                      {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>
+                          ×{n}
+                          {n === 1 ? ' (una vez)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="totem-print-hojasHint">
+                      Multiplica las hojas elegidas del archivo activo (ej. 3 hojas ×2 = 6).
+                    </span>
+                  </label>
+                )}
+                {printJobs.length > 1 && (
+                  <div className="totem-print-span2 totem-print-jobTabs">
+                    <span className="totem-print-jobTabs-label">Opciones por archivo</span>
+                    <div className="totem-print-jobTabs-row">
+                      {printJobs.map((job, i) => (
+                        <button
+                          key={job.key}
+                          type="button"
+                          className={`totem-print-jobTab${i === activeJobIndex ? ' is-active' : ''}`}
+                          onClick={() => setActiveJobIndex(i)}
+                        >
+                          {job.nombre || `Archivo ${i + 1}`}
+                        </button>
+                      ))}
+                    </div>
+                    {activeJob && (
+                      <span className="totem-print-hojasHint">{jobLabelCorto(activeJob)}</span>
+                    )}
+                  </div>
+                )}
                 <label>
                   Formato
-                  <select value={formatoImpresion} onChange={(e) => setFormatoImpresion(e.target.value as PrintFormat)}>
+                  <select
+                    value={formatoImpresion}
+                    onChange={(e) => {
+                      const v = e.target.value as PrintFormat
+                      setFormatoImpresion(v)
+                      patchActiveJob({ formato: v })
+                    }}
+                  >
                     <option value="A4">A4</option>
                     <option value="A3">A3</option>
                     <option value="A3E">A3 extendido (32×45 cm)</option>
@@ -855,7 +1094,11 @@ export default function TotemAutogestionImprimirPage() {
                   Caras
                   <select
                     value={fazImpresion}
-                    onChange={(e) => setFazImpresion(e.target.value === 'doble' ? 'doble' : 'simple')}
+                    onChange={(e) => {
+                      const v = e.target.value === 'doble' ? 'doble' : 'simple'
+                      setFazImpresion(v)
+                      patchActiveJob({ faz: v })
+                    }}
                     aria-label="Simple faz o doble faz"
                   >
                     <option value="simple">Simple faz</option>
@@ -873,7 +1116,10 @@ export default function TotemAutogestionImprimirPage() {
                     value={tipoPapel}
                     onChange={(e) => {
                       const v = e.target.value
-                      if (isTotemPrintPapelId(v)) setTipoPapel(v)
+                      if (isTotemPrintPapelId(v)) {
+                        setTipoPapel(v)
+                        patchActiveJob({ papel: v })
+                      }
                     }}
                     aria-label="Tipo de papel"
                   >
@@ -901,7 +1147,11 @@ export default function TotemAutogestionImprimirPage() {
                   Color / blanco y negro
                   <select
                     value={modoColor}
-                    onChange={(e) => setModoColor(e.target.value as TotemPrintColorModo)}
+                    onChange={(e) => {
+                      const v = e.target.value as TotemPrintColorModo
+                      setModoColor(v)
+                      patchActiveJob({ modoColor: v })
+                    }}
                     aria-label="Modo de color"
                   >
                     <option value="auto">Automático (del archivo)</option>
@@ -913,12 +1163,14 @@ export default function TotemAutogestionImprimirPage() {
                   )}
                   {modoColor === 'color' && (
                     <span className="totem-print-hojasHint">
-                      Se cobrarán las {cantidadHojas} hoja(s) como color (Lista 1).
+                      Se cobrarán las {printJobs.length > 0 ? hojasTotalesSeleccionadas : cantidadHojas} hoja(s) como
+                      color (Lista 1).
                     </span>
                   )}
                   {modoColor === 'bn' && (
                     <span className="totem-print-hojasHint">
-                      Se cobrarán las {cantidadHojas} hoja(s) como blanco y negro (Lista 1).
+                      Se cobrarán las {printJobs.length > 0 ? hojasTotalesSeleccionadas : cantidadHojas} hoja(s) como
+                      blanco y negro (Lista 1).
                     </span>
                   )}
                 </label>
@@ -1191,6 +1443,40 @@ export default function TotemAutogestionImprimirPage() {
                   modoColor={modoColor}
                   tipoPapel={tipoPapel}
                   fazImpresion={fazImpresion}
+                  activeSourceIndex={activeJobIndex}
+                  onActiveSourceChange={setActiveJobIndex}
+                  selectedPages={activeJob?.hojasSeleccionadas}
+                  pageCountForActive={activeJob?.pageCount}
+                  copias={activeJob?.copias ?? 1}
+                  onTogglePage={(sourceIndex, pageInSource) => {
+                    setPrintJobs((prev) =>
+                      prev.map((j, i) =>
+                        i === sourceIndex
+                          ? {
+                              ...j,
+                              hojasSeleccionadas: togglePageInList(j.hojasSeleccionadas, pageInSource)
+                            }
+                          : j
+                      )
+                    )
+                    hojasEditadasManualRef.current = true
+                  }}
+                  onSelectAllPages={(sourceIndex) => {
+                    setPrintJobs((prev) =>
+                      prev.map((j, i) =>
+                        i === sourceIndex
+                          ? { ...j, hojasSeleccionadas: allPagesRange(Math.max(1, j.pageCount)) }
+                          : j
+                      )
+                    )
+                    hojasEditadasManualRef.current = true
+                  }}
+                  onClearPages={(sourceIndex) => {
+                    setPrintJobs((prev) =>
+                      prev.map((j, i) => (i === sourceIndex ? { ...j, hojasSeleccionadas: [] } : j))
+                    )
+                    hojasEditadasManualRef.current = true
+                  }}
                   onAnalysis={handlePrintAnalysis}
                 />
               </aside>
