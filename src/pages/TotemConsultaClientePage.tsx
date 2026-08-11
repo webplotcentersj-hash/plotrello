@@ -7,6 +7,7 @@ import { BOARD_COLUMNS } from '../data/mockData'
 import { historialPorOrdenId, historialUnificadoMismoNumeroOp } from '../utils/consultaOpHistorial'
 import { TOTEM_FINALIZADO_TALLER_PATH } from '../constants/totemFinalizadoTaller'
 import { listenAsesorEnCamino, solicitarAsesorTotem } from '../utils/totemSolicitarAsesor'
+import { listenDisenadorEnCamino, solicitarDisenadorTotem } from '../utils/totemSolicitarDisenador'
 import {
   isOpEnAlmacenEntrega,
   isOpFinalizadoEnTaller
@@ -136,6 +137,7 @@ const TotemConsultaClientePage = () => {
   const { toggle: toggleKioskFullscreen } = useTotemKioskFullscreen()
   const pageRef = useRef<HTMLDivElement>(null)
   const unsubAsesorEnCaminoRef = useRef<(() => void) | null>(null)
+  const unsubDisenadorEnCaminoRef = useRef<(() => void) | null>(null)
 
   const registrarInteraccion = () => setLastInteraction(Date.now())
 
@@ -146,10 +148,16 @@ const TotemConsultaClientePage = () => {
     }
   }
 
-  const volverAWelcome = () => {
-    registrarInteraccion()
+  const clearLlamadoListeners = () => {
     unsubAsesorEnCaminoRef.current?.()
     unsubAsesorEnCaminoRef.current = null
+    unsubDisenadorEnCaminoRef.current?.()
+    unsubDisenadorEnCaminoRef.current = null
+  }
+
+  const volverAWelcome = () => {
+    registrarInteraccion()
+    clearLlamadoListeners()
     setSearchOp('')
     setOrdenes([])
     setHistorial({})
@@ -174,8 +182,7 @@ const TotemConsultaClientePage = () => {
 
   useEffect(() => {
     return () => {
-      unsubAsesorEnCaminoRef.current?.()
-      unsubAsesorEnCaminoRef.current = null
+      clearLlamadoListeners()
     }
   }, [])
 
@@ -184,8 +191,7 @@ const TotemConsultaClientePage = () => {
       const elapsed = Date.now() - lastInteraction
       if (step === 'idle') return
       if (elapsed > INACTIVITY_MS) {
-        unsubAsesorEnCaminoRef.current?.()
-        unsubAsesorEnCaminoRef.current = null
+        clearLlamadoListeners()
         setSearchOp('')
         setOrdenes([])
         setHistorial({})
@@ -361,13 +367,12 @@ const TotemConsultaClientePage = () => {
       }
 
       setMensaje(r.mensaje)
-      unsubAsesorEnCaminoRef.current?.()
+      clearLlamadoListeners()
       unsubAsesorEnCaminoRef.current = listenAsesorEnCamino(
         { atencionId: r.atencionId, requestNonce: r.requestNonce },
         (payload) => {
           setMensaje(`✅ ${payload.mensaje}`)
-          unsubAsesorEnCaminoRef.current?.()
-          unsubAsesorEnCaminoRef.current = null
+          clearLlamadoListeners()
         }
       )
     } catch (err) {
@@ -394,22 +399,75 @@ const TotemConsultaClientePage = () => {
       return
     }
 
+    const contexto = `Cliente se dirige a ${sector.label} (desde tótem). Motivo: ${motivo}`
+
     try {
       setError(null)
       setMensaje(null)
       setEnviandoAvisoVoy(true)
+
+      // Presupuestos → llamado a asesor/presupuestos; Recepción → mostrador; Diseño → diseñador.
+      if (sector.id === 'presupuestos') {
+        const r = await solicitarAsesorTotem({
+          clienteNombre: nombre,
+          sectorDestino: sector.sectorDestino,
+          contexto,
+          comoLlamadoPresupuesto: true
+        })
+        if (!r.ok) {
+          setError(r.mensaje || 'No se pudo avisar a presupuestos.')
+          return
+        }
+        setMensaje(r.mensaje)
+        clearLlamadoListeners()
+        unsubAsesorEnCaminoRef.current = listenAsesorEnCamino(
+          { atencionId: r.atencionId, requestNonce: r.requestNonce },
+          (payload) => {
+            setMensaje(`✅ ${payload.mensaje}`)
+            clearLlamadoListeners()
+          }
+        )
+        return
+      }
+
+      if (sector.id === 'diseno') {
+        const r = await solicitarDisenadorTotem({
+          clienteNombre: nombre,
+          contexto
+        })
+        if (!r.ok) {
+          setError(r.mensaje || 'No se pudo avisar a Diseño.')
+          return
+        }
+        setMensaje(r.mensaje)
+        clearLlamadoListeners()
+        unsubDisenadorEnCaminoRef.current = listenDisenadorEnCamino(
+          { atencionId: r.atencionId, requestNonce: r.requestNonce },
+          (payload) => {
+            setMensaje(`✅ ${payload.mensaje}`)
+            clearLlamadoListeners()
+          }
+        )
+        return
+      }
+
+      const sectorDestinoAviso =
+        sector.id === 'recepcion' ? 'Mostrador' : sector.sectorDestino
+
       const res = await apiService.crearAtencionMostrador({
         cliente_nombre: nombre,
         tipo: 'consulta',
         usuario_id: 1,
         usuario_nombre: 'Totem autoservicio',
-        notas: `Cliente se dirige a ${sector.label} (desde tótem). Motivo: ${motivo}`,
-        sector_destino: sector.sectorDestino
+        notas: contexto,
+        sector_destino: sectorDestinoAviso
       })
       if (!res.success) {
         setError(res.error || 'No se pudo enviar el aviso.')
       } else {
-        setMensaje(`✅ Avisamos a ${sector.label} que te dirigís hacia ahí.`)
+        const destinoLabel =
+          sector.id === 'recepcion' ? 'mostrador' : sector.label
+        setMensaje(`✅ Avisamos a ${destinoLabel} que te dirigís hacia ahí.`)
       }
     } catch (err) {
       console.error('Error avisando desde tótem:', err)

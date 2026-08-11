@@ -16,6 +16,7 @@ import {
   notificationIsTotemAtencionMostrador,
   notificationIsTotemImpresionPedido,
   notificationIsTotemSolicitudAsesor,
+  notificationIsTotemSolicitudDisenador,
 } from '../utils/totemNotifications'
 import {
   briefsPendientesPath,
@@ -336,6 +337,11 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         navigate('/asesor')
         return
       }
+      // Tótem: solicitud de diseñador → panel /disenador
+      if (notificationIsTotemSolicitudDisenador(notification)) {
+        navigate('/disenador')
+        return
+      }
       // Tótem / atención mostrador: canal del sector del usuario
       if (notificationIsTotemAtencionMostrador(notification)) {
         navigate(getTotemNotificationNavigatePath(notification, usuario?.rol))
@@ -438,7 +444,9 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
               key={notification.id}
               className={`notification-item ${!notification.is_read ? 'unread' : ''} ${notification.type}${
                 notificationIsTotemSolicitudAsesor(notification) ? ' totem-asesor' : ''
-              }${notificationIsTotemAtencionMostrador(notification) ? ' totem-atencion' : ''}${
+              }${notificationIsTotemSolicitudDisenador(notification) ? ' totem-disenador' : ''}${
+                notificationIsTotemAtencionMostrador(notification) ? ' totem-atencion' : ''
+              }${
                 notificationIsTotemImpresionPedido(notification) ? ' totem-impresion' : ''
               }`}
               onClick={() => handleNotificationClick(notification)}

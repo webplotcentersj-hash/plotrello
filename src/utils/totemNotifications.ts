@@ -1,4 +1,5 @@
 import { TOTEM_SOLICITUD_ASESOR_MARKER } from '../constants/totemSolicitudAsesor'
+import { TOTEM_SOLICITUD_DISENADOR_MARKER } from '../constants/totemSolicitudDisenador'
 import type { Notification, UserRole } from '../types/api'
 
 const TOTEM_ATENCION_TITLE = 'Cliente en tótem esperando atención'
@@ -36,12 +37,19 @@ export function notificationIsTotemImpresionPedido(
   return t.includes('impresión') || t.includes('impresion')
 }
 
+export function notificationIsTotemSolicitudDisenador(
+  n: Pick<Notification, 'title' | 'description'>
+): boolean {
+  return (n.description ?? '').includes(TOTEM_SOLICITUD_DISENADOR_MARKER)
+}
+
 export function notificationIsTotemRelated(
   n: Pick<Notification, 'title' | 'description'>
 ): boolean {
   return (
     notificationIsTotemSolicitudAsesor(n) ||
     notificationIsTotemAtencionMostrador(n) ||
+    notificationIsTotemSolicitudDisenador(n) ||
     notificationIsTotemImpresionPedido(n)
   )
 }
@@ -77,6 +85,7 @@ export function getTotemNotificationNavigatePath(
 ): string {
   if (notificationIsTotemImpresionPedido(n)) return '/impresoras/totem'
   if (notificationIsTotemSolicitudAsesor(n)) return '/asesor'
+  if (notificationIsTotemSolicitudDisenador(n)) return '/disenador'
   if (notificationIsTotemAtencionMostrador(n)) {
     const canalRaw = n.chat_canal?.trim()
     const canalValido =
@@ -153,12 +162,30 @@ export function formatTotemNotificationForDisplay(
   if (notificationIsTotemSolicitudAsesor(n)) {
     const sectorMatch = cleaned.match(/Sector(?: sugerido)?:\s*([^.]+)/i)
     const sector = sectorMatch?.[1]?.trim()
+    const esPresupuesto =
+      (sector ?? '').toLowerCase().includes('presupuesto') ||
+      cleaned.toLowerCase().includes('presupuestos y asesoramiento')
     return {
-      title: op ? `Asesor solicitado · OP ${op}` : 'Asesor solicitado en tótem',
+      title: op
+        ? `${esPresupuesto ? 'Presupuestos' : 'Asesor'} · OP ${op}`
+        : esPresupuesto
+          ? 'Llamado a Presupuestos (tótem)'
+          : 'Asesor solicitado en tótem',
       description: [cliente, sector ? `Sector: ${sector}` : null].filter(Boolean).join(' · ') ||
-        'El cliente tocó «Llamar a un asesor».',
+        (esPresupuesto
+          ? 'El cliente tocó Presupuestos y asesoramiento.'
+          : 'El cliente tocó «Llamar a un asesor».'),
       icon: '📞',
       actionLabel: 'Abrir panel asesor'
+    }
+  }
+
+  if (notificationIsTotemSolicitudDisenador(n)) {
+    return {
+      title: 'Llamado a Diseño (tótem)',
+      description: cliente || 'El cliente se dirige a Diseño gráfico y marketing.',
+      icon: '🎨',
+      actionLabel: 'Abrir panel diseñador'
     }
   }
 
@@ -195,7 +222,12 @@ export function formatNotificationForDisplay(
 export function isChatPanelNotification(n: Notification): boolean {
   // Pedidos de impresión van a /impresoras/totem (campana), no al panel de chat.
   if (notificationIsTotemImpresionPedido(n)) return false
-  if (notificationIsTotemSolicitudAsesor(n) || notificationIsTotemAtencionMostrador(n)) return true
+  if (
+    notificationIsTotemSolicitudAsesor(n) ||
+    notificationIsTotemSolicitudDisenador(n) ||
+    notificationIsTotemAtencionMostrador(n)
+  )
+    return true
   if (n.type === 'mention') return true
   const desc = (n.description ?? '').toLowerCase()
   return desc.includes('chat') || desc.includes('mencionó')

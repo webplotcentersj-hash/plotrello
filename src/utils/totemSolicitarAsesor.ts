@@ -14,6 +14,8 @@ export type SolicitarAsesorTotemOpts = {
   numeroOp?: string
   ordenId?: number
   sectorDestino?: string
+  /** Si true, notifica como llamado a Presupuestos (no fuerza sector «Asesor»). */
+  comoLlamadoPresupuesto?: boolean
 }
 
 export type SolicitarAsesorTotemResult = {
@@ -39,7 +41,16 @@ export async function solicitarAsesorTotem(
     ? `Producto: ${opts.productoNombre}. ${opts.contexto || ''}`.trim()
     : opts.contexto || ''
   const sectorDestino = opts.sectorDestino?.trim() || 'Catálogo tótem'
-  const notas = [detalle, `Sector sugerido: Asesor.`, TOTEM_SOLICITUD_ASESOR_MARKER]
+  const sectorAtencion = opts.comoLlamadoPresupuesto
+    ? opts.sectorDestino?.trim() || 'Presupuestos y asesoramiento'
+    : 'Asesor'
+  const notas = [
+    detalle,
+    opts.comoLlamadoPresupuesto
+      ? `Sector sugerido: Presupuestos y asesoramiento.`
+      : `Sector sugerido: Asesor.`,
+    TOTEM_SOLICITUD_ASESOR_MARKER
+  ]
     .filter(Boolean)
     .join(' ')
   const clientNonce = newClientNonce()
@@ -52,7 +63,7 @@ export async function solicitarAsesorTotem(
       usuario_nombre: 'Totem autoservicio',
       orden_id: opts.ordenId,
       notas,
-      sector_destino: 'Asesor',
+      sector_destino: sectorAtencion,
       orden_numero_op: opts.numeroOp
     })
     if (!res.success) {
@@ -75,14 +86,18 @@ export async function solicitarAsesorTotem(
     if (!broadcastRes.success) {
       return {
         ok: true,
-        mensaje: '📞 Registramos tu solicitud. Un asesor te va a atender en breve.',
+        mensaje: opts.comoLlamadoPresupuesto
+          ? '📞 Registramos tu visita. Presupuestos te va a atender en breve.'
+          : '📞 Registramos tu solicitud. Un asesor te va a atender en breve.',
         atencionId,
         requestNonce
       }
     }
     return {
       ok: true,
-      mensaje: '📞 Avisamos a un asesor. En breve te atienden en mostrador.',
+      mensaje: opts.comoLlamadoPresupuesto
+        ? '📞 Avisamos a Presupuestos. En breve te atienden.'
+        : '📞 Avisamos a un asesor. En breve te atienden en mostrador.',
       atencionId,
       requestNonce
     }
