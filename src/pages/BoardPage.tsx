@@ -22,6 +22,7 @@ const SprintOptimizerModal = lazy(() => import('../components/SprintOptimizerMod
 const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
 import InsightsToolsMenu from '../components/InsightsToolsMenu'
 import EntregasCobroPanel from '../components/EntregasCobroPanel'
+import EntregasSinRetiroPanel from '../components/EntregasSinRetiroPanel'
 const TaskLibraryModal = lazy(() => import('../components/TaskLibraryModal'))
 import QRPrintView from '../components/QRPrintView'
 import SolicitarProductosModal from '../components/SolicitarProductosModal'
@@ -1517,7 +1518,14 @@ const BoardPage = ({
             onSelectTask={setSelectedTaskId}
             onViewTask={handleViewTask}
             disableDrag={isPhoneBoard}
-            sidePanel={!isPhoneBoard ? <EntregasCobroPanel tasks={filteredTasks} /> : undefined}
+            sidePanel={
+              !isPhoneBoard ? (
+                <>
+                  <EntregasCobroPanel tasks={filteredTasks} />
+                  <EntregasSinRetiroPanel tasks={filteredTasks} onSelectTask={setSelectedTaskId} />
+                </>
+              ) : undefined
+            }
           />
         </section>
 
