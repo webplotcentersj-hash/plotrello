@@ -4,7 +4,11 @@ import { supabase } from '../services/supabaseClient'
 import type { Notification } from '../types/api'
 import { useAuth } from './useAuth'
 
-import { notificationIsTotemAtencionMostrador, notificationIsTotemSolicitudAsesor } from '../utils/totemNotifications'
+import {
+  notificationIsTotemAtencionMostrador,
+  notificationIsTotemImpresionPedido,
+  notificationIsTotemSolicitudAsesor
+} from '../utils/totemNotifications'
 
 function countBadgesFromNotifications(notifications: Notification[]): Record<string, number> {
   const unread = notifications.filter((n) => !n.is_read)
@@ -18,16 +22,19 @@ function countBadgesFromNotifications(notifications: Notification[]): Record<str
       notificationIsTotemSolicitudAsesor(n)
   ).length
   const pedidosNotifs = unread.filter((n) => n.pedido_id != null).length
+  const totemImpresionNotifs = unread.filter((n) => notificationIsTotemImpresionPedido(n)).length
 
   return {
     permisos: permisosNotifs,
     'atencion-publico': atencionNotifs,
-    'solicitar-productos': pedidosNotifs
+    'solicitar-productos': pedidosNotifs,
+    'impresoras-totem': totemImpresionNotifs
   }
 }
 
 export function useHeaderQuickNavBadges(): Record<string, number> {
-  const { usuario, canManageRecursosHumanos, canAccessAtencionPublico } = useAuth()
+  const { usuario, canManageRecursosHumanos, canAccessAtencionPublico, canAccessTotemImpresionPanel } =
+    useAuth()
   const [badges, setBadges] = useState<Record<string, number>>({})
 
   const refresh = useCallback(async () => {
@@ -69,12 +76,33 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
       }
     }
 
+    let totemColaPendiente = 0
+    if (canAccessTotemImpresionPanel) {
+      try {
+        const uid =
+          typeof usuario.id === 'number'
+            ? usuario.id
+            : Number.parseInt(String(usuario.id), 10)
+        if (Number.isFinite(uid)) {
+          const listRes = await api.listarSolicitudesImpresionTotem(uid, 120)
+          if (listRes.success && listRes.data) {
+            totemColaPendiente = listRes.data.filter(
+              (r) => r.estado_pago === 'pagado' && !r.impreso_at
+            ).length
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     setBadges({
       ...fromNotifs,
       permisos: Math.max(fromNotifs.permisos ?? 0, permisosPending),
-      'atencion-publico': Math.max(fromNotifs['atencion-publico'] ?? 0, atencionPendientes)
+      'atencion-publico': Math.max(fromNotifs['atencion-publico'] ?? 0, atencionPendientes),
+      'impresoras-totem': Math.max(fromNotifs['impresoras-totem'] ?? 0, totemColaPendiente)
     })
-  }, [usuario?.id, canManageRecursosHumanos, canAccessAtencionPublico])
+  }, [usuario?.id, canManageRecursosHumanos, canAccessAtencionPublico, canAccessTotemImpresionPanel])
 
   useEffect(() => {
     const initial = window.setTimeout(() => void refresh(), 2500)
@@ -103,7 +131,16 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
           void refresh()
 
           if ('Notification' in window && Notification.permission === 'granted' && !n.is_read) {
-            if (n.solicitud_id != null) {
+            if (notificationIsTotemImpresionPedido(n)) {
+              const bn = new Notification(n.title || 'Pedido de impresión tótem', {
+                body: n.description || 'Hay un pedido nuevo en la cola de impresión',
+                tag: `totem-imp-${n.id}`
+              })
+              bn.onclick = () => {
+                window.focus()
+                window.location.assign('/impresoras/totem')
+              }
+            } else if (n.solicitud_id != null) {
               const bn = new Notification(n.title || 'Permisos', {
                 body: n.description || 'Novedad en solicitud de permisos',
                 tag: `permisos-${n.id}`
@@ -217,6 +254,25 @@ export function useHeaderQuickNavBadges(): Record<string, number> {
       if (supabase) void supabase.removeChannel(channel)
     }
   }, [canAccessAtencionPublico, refresh])
+
+  useEffect(() => {
+    if (!canAccessTotemImpresionPanel || !supabase) return
+
+    const channel = supabase
+      .channel(`quick-nav-totem-imp:${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'totem_impresion_solicitudes' },
+        () => {
+          void refresh()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      if (supabase) void supabase.removeChannel(channel)
+    }
+  }, [canAccessTotemImpresionPanel, refresh])
 
   return badges
 }

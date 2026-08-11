@@ -56,23 +56,23 @@ export default function TotemSubirArchivoQrPage() {
 
   const handleFileChange = (list: FileList | null) => {
     setMsg(null)
-    if (!list?.length) {
-      setFiles([])
+    if (!list?.length) return
+    const incoming = Array.from(list)
+    const cupo = TOTEM_PRINT_MAX_FILES - files.length
+    if (cupo <= 0) {
+      setMsg(`Ya tenés el máximo de ${TOTEM_PRINT_MAX_FILES} archivos.`)
       return
     }
-    const picked = Array.from(list)
-    if (picked.length > TOTEM_PRINT_MAX_FILES) {
-      setMsg(`Máximo ${TOTEM_PRINT_MAX_FILES} archivos por envío.`)
-      setFiles(picked.slice(0, TOTEM_PRINT_MAX_FILES))
-      return
+    const picked = incoming.slice(0, cupo)
+    if (incoming.length > cupo) {
+      setMsg(`Solo se agregaron ${cupo} (máx. ${TOTEM_PRINT_MAX_FILES}).`)
     }
     const tooBig = picked.find((f) => f.size > TOTEM_PRINT_MAX_FILE_BYTES)
     if (tooBig) {
       setMsg(`"${tooBig.name}" supera ${TOTEM_PRINT_MAX_FILE_MB} MB.`)
-      setFiles([])
       return
     }
-    setFiles(picked)
+    setFiles((prev) => [...prev, ...picked])
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,9 +134,18 @@ export default function TotemSubirArchivoQrPage() {
             />
             {files.length > 0 && (
               <ul className="totem-qr-upload-fileList">
-                {files.map((f) => (
-                  <li key={`${f.name}-${f.size}`}>
-                    {f.name} ({(f.size / (1024 * 1024)).toFixed(1)} MB)
+                {files.map((f, i) => (
+                  <li key={`${f.name}-${f.size}-${i}`}>
+                    <span>
+                      {f.name} ({(f.size / (1024 * 1024)).toFixed(1)} MB)
+                    </span>
+                    <button
+                      type="button"
+                      className="totem-qr-upload-remove"
+                      onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      Quitar
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -145,6 +154,9 @@ export default function TotemSubirArchivoQrPage() {
             <button type="submit" className="totem-qr-upload-btn" disabled={!files.length || submitting}>
               {submitting ? 'Subiendo…' : files.length > 1 ? `Enviar ${files.length} archivos` : 'Enviar archivo'}
             </button>
+            {files.length > 0 && files.length < TOTEM_PRINT_MAX_FILES && (
+              <p className="totem-qr-upload-muted">Podés seguir eligiendo archivos antes de enviar ({files.length}/{TOTEM_PRINT_MAX_FILES}).</p>
+            )}
           </form>
         )}
         {submitting && <p className="totem-qr-upload-muted">Subiendo, esperá un momento…</p>}

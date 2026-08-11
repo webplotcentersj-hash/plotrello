@@ -2,12 +2,19 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   aspectRatioForFormat,
   analyzePrintSources,
+  labelPrintFormat,
   type PrintColorDetection,
   type PrintColorMode,
   type PrintDocumentKind,
   type PrintPagePreview,
-  type TotemPrintColorModo
+  type TotemPrintColorModo,
+  type TotemPrintFaz
 } from '../../utils/totemPrintDocument'
+import {
+  labelTotemPrintPapel,
+  TOTEM_PRINT_PAPEL_DEFAULT,
+  type TotemPrintPapelId
+} from '../../utils/totemPrintPapel'
 import './TotemPrintPreviewMonitor.css'
 
 export type TotemPreviewSource = {
@@ -17,9 +24,11 @@ export type TotemPreviewSource = {
 
 type Props = {
   sources: TotemPreviewSource[]
-  formatoImpresion: 'A4' | 'A3'
+  formatoImpresion: 'A4' | 'A3' | 'A3E'
   /** Si el usuario fuerza B/N o color, la vista previa lo refleja. */
   modoColor?: TotemPrintColorModo
+  tipoPapel?: TotemPrintPapelId
+  fazImpresion?: TotemPrintFaz
   onAnalysis?: (data: {
     pageCount: number
     colorDetection: PrintColorDetection
@@ -28,10 +37,22 @@ type Props = {
   }) => void
 }
 
+function papelToneClass(papel: TotemPrintPapelId): string {
+  if (papel.startsWith('obra_')) return 'obra'
+  if (papel.startsWith('ilust_')) return 'ilust'
+  if (papel.startsWith('adh_')) return 'adh'
+  if (papel === 'esp_texturado') return 'esp-texturado'
+  if (papel === 'esp_metalizado') return 'esp-metalizado'
+  if (papel === 'esp_perlado') return 'esp-perlado'
+  return 'ilust'
+}
+
 export default function TotemPrintPreviewMonitor({
   sources,
   formatoImpresion,
   modoColor = 'auto',
+  tipoPapel = TOTEM_PRINT_PAPEL_DEFAULT,
+  fazImpresion = 'simple',
   onAnalysis
 }: Props) {
   const [loading, setLoading] = useState(false)
@@ -103,15 +124,23 @@ export default function TotemPrintPreviewMonitor({
   const forceColor = modoColor === 'color'
   const displayColor: PrintColorMode = forceBw
     ? 'bw'
-    : forceColor
+    : forceColor || sources.length === 0
       ? 'color'
       : active?.color ?? (colorDetection === 'color' ? 'color' : 'bw')
 
   const ratio = aspectRatioForFormat(formatoImpresion)
+  const papelTone = papelToneClass(tipoPapel)
+  const papelLabel = labelTotemPrintPapel(tipoPapel)
+  const fazLabel = fazImpresion === 'doble' ? 'Doble faz' : 'Simple faz'
+  const colorLabel =
+    modoColor === 'bn' ? 'Blanco y negro' : modoColor === 'color' ? 'Color' : 'Automático'
+
   const title =
-    sources.length === 1
-      ? sources[0].name?.trim() || 'Documento'
-      : `${sources.length} archivos`
+    sources.length === 0
+      ? 'Sin archivo aún'
+      : sources.length === 1
+        ? sources[0].name?.trim() || 'Documento'
+        : `${sources.length} archivos`
 
   const hojaActual = active ? activePage + 1 : 0
   const hojaFinVista = previews.length
@@ -124,39 +153,75 @@ export default function TotemPrintPreviewMonitor({
           ? `Hoja ${hojaActual} de ${pageCount}`
           : `Hojas 1–${pageCount}`
 
-  if (sources.length === 0) {
-    return (
-      <div className="totem-print-monitor totem-print-monitor--empty">
-        <div className="totem-print-monitor-empty-icon" aria-hidden>
-          🖨️
-        </div>
-        <p className="totem-print-monitor-empty-title">Vista previa</p>
-        <p className="totem-print-monitor-empty-text">Subí uno o más archivos para ver cómo quedará la impresión.</p>
-      </div>
-    )
-  }
+  const screenClass = [
+    'totem-print-monitor-screen',
+    `totem-print-monitor-screen--${formatoImpresion.toLowerCase()}`,
+    `totem-print-monitor-screen--${displayColor}`,
+    `totem-print-monitor-screen--papel-${papelTone}`,
+    fazImpresion === 'doble' ? 'totem-print-monitor-screen--doble' : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const specs = (
+    <div className="totem-print-monitor-meta" aria-live="polite">
+      <span className="totem-print-monitor-chip">{labelPrintFormat(formatoImpresion)}</span>
+      <span className="totem-print-monitor-chip totem-print-monitor-chip--papel">{papelLabel}</span>
+      <span className="totem-print-monitor-chip">{fazLabel}</span>
+      <ColorChip detection={colorDetection} colorPages={colorPages} bwPages={bwPages} modoColor={modoColor} />
+      {sources.length > 0 && (
+        <span className="totem-print-monitor-chip totem-print-monitor-chip--pages">
+          {loading
+            ? '…'
+            : pageCount <= 0
+              ? 'Sin hojas'
+              : pageCount === 1
+                ? '1 hoja'
+                : `Hojas 1–${pageCount}`}
+        </span>
+      )}
+      {sources.length > 1 && <span className="totem-print-monitor-chip">{sources.length} archivos</span>}
+      {kind === 'pdf' && <span className="totem-print-monitor-chip">PDF</span>}
+      {kind === 'image' && <span className="totem-print-monitor-chip">Imagen</span>}
+    </div>
+  )
 
   return (
-    <div className={`totem-print-monitor${forceBw ? ' totem-print-monitor--force-bw' : ''}`}>
+    <div
+      className={[
+        'totem-print-monitor',
+        sources.length === 0 ? 'totem-print-monitor--empty' : '',
+        forceBw ? 'totem-print-monitor--force-bw' : ''
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <div className="totem-print-monitor-head">
         <p className="totem-print-monitor-kicker">Monitor de impresión</p>
         <h2 className="totem-print-monitor-title">{title}</h2>
-        {!loading && pageCount > 0 && (
-          <p className="totem-print-monitor-range" aria-live="polite">
-            {rangoTexto}
-            {pageCount > 1 ? ` · Rango del trabajo: hojas 1 a ${pageCount}` : ''}
-            {pageCount > hojaFinVista ? ` · Vista previa: 1–${hojaFinVista}` : ''}
-          </p>
-        )}
+        <p className="totem-print-monitor-range">
+          {labelPrintFormat(formatoImpresion)} · {papelLabel} · {fazLabel} · {colorLabel}
+          {!loading && pageCount > 0
+            ? ` · ${rangoTexto}${pageCount > 1 ? ` · Rango 1–${pageCount}` : ''}${
+                pageCount > hojaFinVista ? ` · Vista 1–${hojaFinVista}` : ''
+              }`
+            : ''}
+        </p>
       </div>
 
       <div className="totem-print-monitor-bezel">
         <div className="totem-print-monitor-led" aria-hidden />
-        <div
-          className={`totem-print-monitor-screen totem-print-monitor-screen--${formatoImpresion.toLowerCase()} totem-print-monitor-screen--${displayColor}`}
-          style={{ aspectRatio: String(ratio) }}
-        >
-          {loading ? (
+        {fazImpresion === 'doble' && <div className="totem-print-monitor-doble-shadow" aria-hidden />}
+        <div className={screenClass} style={{ aspectRatio: String(ratio) }}>
+          {sources.length === 0 ? (
+            <div className={`totem-print-monitor-mock totem-print-monitor-mock--${displayColor}`}>
+              <span className="totem-print-monitor-mock-format">{labelPrintFormat(formatoImpresion)}</span>
+              <span className="totem-print-monitor-mock-papel">{papelLabel}</span>
+              <span className="totem-print-monitor-mock-hint">
+                {forceBw ? 'Vista B/N' : forceColor ? 'Vista color' : 'Subí un archivo para previsualizar'}
+              </span>
+            </div>
+          ) : loading ? (
             <div className="totem-print-monitor-state">Analizando archivos…</div>
           ) : error ? (
             <div className="totem-print-monitor-state totem-print-monitor-state--error">{error}</div>
@@ -174,33 +239,15 @@ export default function TotemPrintPreviewMonitor({
             detection={colorDetection}
             activeColor={active?.color}
             modoColor={modoColor}
+            papelLabel={papelLabel}
+            fazLabel={fazLabel}
             hojaActual={hojaActual}
             pageCount={pageCount}
           />
         </div>
       </div>
 
-      <div className="totem-print-monitor-meta">
-        <ColorChip
-          detection={colorDetection}
-          colorPages={colorPages}
-          bwPages={bwPages}
-          modoColor={modoColor}
-        />
-        <span className="totem-print-monitor-chip">{formatoImpresion}</span>
-        <span className="totem-print-monitor-chip totem-print-monitor-chip--pages">
-          {loading
-            ? '…'
-            : pageCount <= 0
-              ? 'Sin hojas'
-              : pageCount === 1
-                ? '1 hoja'
-                : `Hojas 1–${pageCount}`}
-        </span>
-        {sources.length > 1 && <span className="totem-print-monitor-chip">{sources.length} archivos</span>}
-        {kind === 'pdf' && <span className="totem-print-monitor-chip">PDF</span>}
-        {kind === 'image' && <span className="totem-print-monitor-chip">Imagen</span>}
-      </div>
+      {specs}
 
       {previews.length > 0 && (
         <div className="totem-print-monitor-thumbs" role="tablist" aria-label="Páginas del documento">
@@ -213,7 +260,9 @@ export default function TotemPrintPreviewMonitor({
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                className={`totem-print-monitor-thumb ${selected ? 'totem-print-monitor-thumb--active' : ''}`}
+                className={`totem-print-monitor-thumb totem-print-monitor-thumb--papel-${papelTone} ${
+                  selected ? 'totem-print-monitor-thumb--active' : ''
+                }`}
                 onClick={() => setActivePage(i)}
                 title={`Hoja ${i + 1} de ${pageCount} — ${page.label}`}
               >
@@ -257,10 +306,10 @@ function ColorChip({
   modoColor: TotemPrintColorModo
 }) {
   if (modoColor === 'bn') {
-    return <span className="totem-print-monitor-chip totem-print-monitor-chip--bw">⬛ Vista en blanco y negro</span>
+    return <span className="totem-print-monitor-chip totem-print-monitor-chip--bw">⬛ Blanco y negro</span>
   }
   if (modoColor === 'color') {
-    return <span className="totem-print-monitor-chip totem-print-monitor-chip--color">🎨 Vista a color</span>
+    return <span className="totem-print-monitor-chip totem-print-monitor-chip--color">🎨 Color</span>
   }
   if (detection === 'mixed') {
     return (
@@ -271,7 +320,7 @@ function ColorChip({
   }
   return (
     <span className={`totem-print-monitor-chip totem-print-monitor-chip--${detection}`}>
-      {detection === 'color' ? '🎨 Color detectado' : '⬛ Blanco y negro detectado'}
+      {detection === 'color' ? '🎨 Color (auto)' : '⬛ B/N (auto)'}
     </span>
   )
 }
@@ -281,13 +330,17 @@ function PrintModeOverlay({
   detection,
   activeColor,
   modoColor,
+  papelLabel,
+  fazLabel,
   hojaActual,
   pageCount
 }: {
-  format: 'A4' | 'A3'
+  format: 'A4' | 'A3' | 'A3E'
   detection: PrintColorDetection
   activeColor?: PrintColorMode
   modoColor: TotemPrintColorModo
+  papelLabel: string
+  fazLabel: string
   hojaActual: number
   pageCount: number
 }) {
@@ -302,6 +355,8 @@ function PrintModeOverlay({
     <div className="totem-print-monitor-overlay" aria-hidden>
       <span className="totem-print-monitor-overlay-tag">{format}</span>
       <span className={`totem-print-monitor-overlay-tag totem-print-monitor-overlay-tag--${tagClass}`}>{tag}</span>
+      <span className="totem-print-monitor-overlay-tag totem-print-monitor-overlay-tag--papel">{papelLabel}</span>
+      <span className="totem-print-monitor-overlay-tag">{fazLabel}</span>
       {hojaActual > 0 && pageCount > 0 && (
         <span className="totem-print-monitor-overlay-tag totem-print-monitor-overlay-tag--page">
           {hojaActual}/{pageCount}

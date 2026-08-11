@@ -10,6 +10,7 @@ import {
   getTotemNotificationNavigatePath,
   isChatPanelNotification,
   notificationIsTotemAtencionMostrador,
+  notificationIsTotemImpresionPedido,
   notificationIsTotemSolicitudAsesor
 } from '../utils/totemNotifications'
 import './ChatFloatingButton.css'
@@ -251,7 +252,9 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
         prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
       )
     }
-    if (notificationIsTotemSolicitudAsesor(notification)) {
+    if (notificationIsTotemImpresionPedido(notification)) {
+      navigate('/impresoras/totem')
+    } else if (notificationIsTotemSolicitudAsesor(notification)) {
       navigate('/asesor')
     } else if (notificationIsTotemAtencionMostrador(notification)) {
       navigate(getTotemNotificationNavigatePath(notification, usuario?.rol))
@@ -306,7 +309,9 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
                 key={notification.id}
                 className={`notification-item ${!notification.is_read ? 'unread' : ''}${
                   notificationIsTotemSolicitudAsesor(notification) ? ' totem-asesor' : ''
-                }${notificationIsTotemAtencionMostrador(notification) ? ' totem-atencion' : ''}`}
+                }${notificationIsTotemAtencionMostrador(notification) ? ' totem-atencion' : ''}${
+                  notificationIsTotemImpresionPedido(notification) ? ' totem-impresion' : ''
+                }`}
                 onClick={() => handleNotificationClick(notification)}
               >
                 <div className="notification-icon">{display.icon}</div>

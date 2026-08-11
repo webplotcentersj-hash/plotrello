@@ -343,6 +343,16 @@
   background: rgba(251, 191, 36, 0.2);
 }
 
+.notification-item.totem-impresion {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(14, 165, 233, 0.12);
+}
+
+.notification-item.totem-impresion.unread {
+  border-color: rgba(56, 189, 248, 0.9);
+  background: rgba(14, 165, 233, 0.22);
+}
+
 .notification-time {
   color: rgba(255, 255, 255, 0.7) !important;
   font-size: 0.75rem;

@@ -338,6 +338,16 @@
   background: #eff6ff;
 }
 
+.notification-item.totem-impresion {
+  border-color: #0ea5e9;
+  background: #f0f9ff;
+}
+
+.notification-item.totem-impresion.unread {
+  border-color: #0284c7;
+  background: #e0f2fe;
+}
+
 .notification-dot {
   position: absolute;
   top: 12px;

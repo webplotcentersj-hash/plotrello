@@ -36,11 +36,13 @@ type Draft = {
   archivo_url?: string
   archivo_nombre?: string
   valor_total?: number
-  formato_impresion?: 'A4' | 'A3'
+  formato_impresion?: 'A4' | 'A3' | 'A3E'
   papel_impresion?: string
   faz_impresion?: 'simple' | 'doble'
+  modo_color?: 'auto' | 'color' | 'bn' | string
   color_pages?: number
   bw_pages?: number
+  descripcion?: string
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -70,33 +72,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  const tipoImpresion = String(draft.tipo_impresion || '').trim()
+  const tipoLower = tipoImpresion.toLowerCase()
+  const formatoDraft = String(draft.formato_impresion || '').toUpperCase()
+  const formato =
+    formatoDraft === 'A3E' ||
+    tipoLower.includes('extend') ||
+    tipoLower.includes('a3e') ||
+    (tipoLower.includes('32') && tipoLower.includes('45'))
+      ? 'A3E'
+      : formatoDraft === 'A3' || tipoLower.includes('a3')
+        ? 'A3'
+        : 'A4'
+  const papel = normalizeTotemPrintPapel(draft.papel_impresion || tipoImpresion)
+  const faz =
+    String(draft.faz_impresion || '').toLowerCase() === 'doble' || tipoLower.includes('doble faz')
+      ? 'doble'
+      : 'simple'
+
   const payload = {
     cliente_nombre: String(draft.cliente_nombre || '').trim(),
     cliente_dni: String(draft.cliente_dni || '').trim(),
     cliente_telefono: String(draft.cliente_telefono || '').trim(),
     cantidad_hojas: Math.max(1, Math.floor(Number(draft.cantidad_hojas) || 1)),
-    tipo_impresion: String(draft.tipo_impresion || '').trim(),
+    tipo_impresion: tipoImpresion,
     origen_archivo: String(draft.origen_archivo || '').trim(),
     archivo_url: String(draft.archivo_url || '').trim(),
-    archivo_nombre: String(draft.archivo_nombre || '').trim()
+    archivo_nombre: String(draft.archivo_nombre || '').trim(),
+    formato_impresion: formato,
+    papel_impresion: papel,
+    faz_impresion: faz,
+    modo_color: String(draft.modo_color || '').trim() || null,
+    color_pages: draft.color_pages != null ? Number(draft.color_pages) : null,
+    bw_pages: draft.bw_pages != null ? Number(draft.bw_pages) : null,
+    descripcion: String(draft.descripcion || '').trim() || null
   }
-
-  const tipoLower = payload.tipo_impresion.toLowerCase()
-  const formato =
-    String(draft.formato_impresion || '').toUpperCase() === 'A3' || tipoLower.includes('a3') ? 'A3' : 'A4'
-  const papel = normalizeTotemPrintPapel(draft.papel_impresion || payload.tipo_impresion)
-  const faz =
-    String(draft.faz_impresion || '').toLowerCase() === 'doble' ||
-    payload.tipo_impresion.toLowerCase().includes('doble faz')
-      ? 'doble'
-      : 'simple'
 
   const quote = await cotizarTotemImpresionLista1(supabase, {
     formato,
     tipo_impresion: payload.tipo_impresion,
     cantidad_hojas: payload.cantidad_hojas,
-    color_pages: draft.color_pages != null ? Number(draft.color_pages) : undefined,
-    bw_pages: draft.bw_pages != null ? Number(draft.bw_pages) : undefined,
+    color_pages: payload.color_pages != null ? payload.color_pages : undefined,
+    bw_pages: payload.bw_pages != null ? payload.bw_pages : undefined,
     papel,
     faz
   })

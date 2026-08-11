@@ -809,6 +809,28 @@
   z-index: 1;
 }
 
+.brand-button--has-badge {
+  overflow: visible;
+  padding-right: 12px;
+}
+
+.header-action-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px rgba(15, 20, 36, 0.35);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
 .ai-button {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);

@@ -42,7 +42,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const formatoRaw = String(body.formato || 'A4').toUpperCase()
-  const formato: TotemPrintFormato = formatoRaw === 'A3' ? 'A3' : 'A4'
+  const formato: TotemPrintFormato =
+    formatoRaw === 'A3E' || formatoRaw.includes('EXTEND') ? 'A3E' : formatoRaw === 'A3' ? 'A3' : 'A4'
   const papel = normalizeTotemPrintPapel(body.papel)
   const faz = String(body.faz || '').toLowerCase() === 'doble' ? 'doble' : 'simple'
 

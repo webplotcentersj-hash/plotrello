@@ -368,10 +368,22 @@ const Header = ({
             {canAccessTotemImpresionPanel && (
               <Link
                 to="/impresoras/totem"
-                className="brand-button"
+                className={`brand-button${(quickNavBadges['impresoras-totem'] ?? 0) > 0 ? ' brand-button--has-badge' : ''}`}
                 onClick={() => setActionsOpen(false)}
               >
                 🖨️ Pedidos tótem (impresión)
+                {(quickNavBadges['impresoras-totem'] ?? 0) > 0 && (
+                  <span
+                    className="header-action-badge"
+                    title={`${quickNavBadges['impresoras-totem']} pedido${
+                      quickNavBadges['impresoras-totem'] === 1 ? '' : 's'
+                    } pendiente${quickNavBadges['impresoras-totem'] === 1 ? '' : 's'}`}
+                  >
+                    {(quickNavBadges['impresoras-totem'] ?? 0) > 99
+                      ? '99+'
+                      : quickNavBadges['impresoras-totem']}
+                  </span>
+                )}
               </Link>
             )}
             {canManageCompras && onNavigateToCompras && (

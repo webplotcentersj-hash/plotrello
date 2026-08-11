@@ -8,11 +8,13 @@ export type TotemImpresionCheckoutDraft = {
   archivo_url: string
   archivo_nombre: string
   valor_total: number
-  formato_impresion?: 'A4' | 'A3'
+  formato_impresion?: 'A4' | 'A3' | 'A3E'
   papel_impresion?: string
   faz_impresion?: 'simple' | 'doble'
+  modo_color?: 'auto' | 'color' | 'bn'
   color_pages?: number
   bw_pages?: number
+  descripcion?: string
 }
 
 export type TotemMpCheckoutResponse = {

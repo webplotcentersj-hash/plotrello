@@ -12,7 +12,7 @@ function ensureWorker(): void {
   workerConfigured = true
 }
 
-export type PrintFormat = 'A4' | 'A3'
+export type PrintFormat = 'A4' | 'A3' | 'A3E'
 export type PrintColorMode = 'color' | 'bw'
 export type PrintColorDetection = PrintColorMode | 'mixed'
 
@@ -35,9 +35,19 @@ export type PrintDocumentAnalysis = {
   bwPages: number
 }
 
+export function labelPrintFormat(format: PrintFormat): string {
+  if (format === 'A3E') return 'A3 extendido (32×45 cm)'
+  return format
+}
+
 export function parseTipoImpresion(tipo: string): { format: PrintFormat; color: PrintColorMode } {
   const t = String(tipo || '').toLowerCase()
-  const format: PrintFormat = t.includes('a3') ? 'A3' : 'A4'
+  const format: PrintFormat =
+    t.includes('extend') || t.includes('a3e') || (t.includes('32') && t.includes('45'))
+      ? 'A3E'
+      : t.includes('a3')
+        ? 'A3'
+        : 'A4'
   const color: PrintColorMode =
     t.includes('blanco') || t.includes('negro') || t.includes('b/n') || t.includes('bn') ? 'bw' : 'color'
   return { format, color }
@@ -49,9 +59,10 @@ export function buildTipoImpresionLabel(
   colorPages: number,
   bwPages: number
 ): string {
-  if (detection === 'color') return `${format} - Color (detectado)`
-  if (detection === 'bw') return `${format} - Blanco y negro (detectado)`
-  return `${format} - Mixto (${colorPages} color, ${bwPages} B/N)`
+  const f = labelPrintFormat(format)
+  if (detection === 'color') return `${f} - Color (detectado)`
+  if (detection === 'bw') return `${f} - Blanco y negro (detectado)`
+  return `${f} - Mixto (${colorPages} color, ${bwPages} B/N)`
 }
 
 /** Cómo cobrar color en el tótem: automático del archivo o forzar todo color / todo B/N. */
@@ -83,7 +94,7 @@ export function resolveTotemPrintColorQuote(params: {
 
   if (modoColor === 'color') {
     return {
-      tipo_impresion: label(`${formato} - Color`),
+      tipo_impresion: label(`${labelPrintFormat(formato)} - Color`),
       color_pages: hojas,
       bw_pages: 0
     }
@@ -91,7 +102,7 @@ export function resolveTotemPrintColorQuote(params: {
 
   if (modoColor === 'bn') {
     return {
-      tipo_impresion: label(`${formato} - Blanco y negro`),
+      tipo_impresion: label(`${labelPrintFormat(formato)} - Blanco y negro`),
       color_pages: 0,
       bw_pages: hojas
     }
@@ -122,14 +133,17 @@ export function resolveTotemPrintColorQuote(params: {
   }
 
   return {
-    tipo_impresion: label(`${formato} - Color (detectado)`),
+    tipo_impresion: label(`${labelPrintFormat(formato)} - Color (detectado)`),
     color_pages: hojas,
     bw_pages: 0
   }
 }
 
 export function aspectRatioForFormat(format: PrintFormat): number {
-  return format === 'A3' ? 297 / 420 : 210 / 297
+  // A3 extendido típico Plot: 32 × 45 cm
+  if (format === 'A3E') return 32 / 45
+  if (format === 'A3') return 297 / 420
+  return 210 / 297
 }
 
 function bytesToArrayBuffer(bytes: ArrayBuffer): ArrayBuffer {

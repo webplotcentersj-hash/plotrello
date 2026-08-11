@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export type TotemPrintFormato = 'A4' | 'A3'
+export type TotemPrintFormato = 'A4' | 'A3' | 'A3E'
+
+/** Área A3E (32×45) / A3 (29.7×42) para cotizar sin ítem propio en lista. */
+const A3E_AREA_FACTOR = (32 * 45) / (29.7 * 42)
 export type TotemPrintColorMode = 'color' | 'bw' | 'mixed'
 export type TotemPrintPapelId =
   | 'obra_80'
@@ -84,7 +87,8 @@ function searchTermsForPapel(
   papel: TotemPrintPapelId,
   tone: 'color' | 'bw'
 ): string[] {
-  const f = formato.toLowerCase()
+  // A3 extendido usa artículos A3 (no hay SKU propio) y luego se aplica factor de área.
+  const f = formato === 'A3E' ? 'a3' : formato.toLowerCase()
 
   if (papel === 'obra_80') {
     return tone === 'bw'
@@ -247,7 +251,12 @@ export function parseTotemTipoImpresion(tipo: string): {
   bwPages: number
 } {
   const t = String(tipo || '').toLowerCase()
-  const format: TotemPrintFormato = t.includes('a3') ? 'A3' : 'A4'
+  const format: TotemPrintFormato =
+    t.includes('extend') || t.includes('a3e') || (t.includes('32') && t.includes('45'))
+      ? 'A3E'
+      : t.includes('a3')
+        ? 'A3'
+        : 'A4'
   const mix = String(tipo || '').match(/mixto\s*\((\d+)\s*color,\s*(\d+)\s*b\/n\)/i)
   if (mix) {
     return {
@@ -309,10 +318,12 @@ export async function cotizarTotemImpresionLista1(
     if (!row) return
     const bruto = resolveBruto(row)
     if (bruto == null) return
-    const unit = calcularFinalLista1(bruto, ajustes)
+    let unit = calcularFinalLista1(bruto, ajustes)
+    if (formato === 'A3E') unit = round2(unit * A3E_AREA_FACTOR)
+    const descBase = row.nombre || `${formato}-${papel}-${tone}`
     items.push({
       codigo: row.codigo,
-      descripcion: row.nombre || `${formato}-${papel}-${tone}`,
+      descripcion: formato === 'A3E' ? `${descBase} (A3 extendido 32×45)` : descBase,
       cantidad: qty,
       precio_unitario: unit,
       subtotal: round2(unit * qty)

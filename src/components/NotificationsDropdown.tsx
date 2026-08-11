@@ -14,6 +14,7 @@ import {
   formatNotificationForDisplay,
   getTotemNotificationNavigatePath,
   notificationIsTotemAtencionMostrador,
+  notificationIsTotemImpresionPedido,
   notificationIsTotemSolicitudAsesor,
 } from '../utils/totemNotifications'
 import {
@@ -325,6 +326,11 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         navigate('/menu-diario')
         return
       }
+      // Tótem: pedido de impresión → cola /impresoras/totem
+      if (notificationIsTotemImpresionPedido(notification)) {
+        navigate('/impresoras/totem')
+        return
+      }
       // Tótem: solicitud de asesor → panel /asesor
       if (notificationIsTotemSolicitudAsesor(notification)) {
         navigate('/asesor')
@@ -432,7 +438,9 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
               key={notification.id}
               className={`notification-item ${!notification.is_read ? 'unread' : ''} ${notification.type}${
                 notificationIsTotemSolicitudAsesor(notification) ? ' totem-asesor' : ''
-              }${notificationIsTotemAtencionMostrador(notification) ? ' totem-atencion' : ''}`}
+              }${notificationIsTotemAtencionMostrador(notification) ? ' totem-atencion' : ''}${
+                notificationIsTotemImpresionPedido(notification) ? ' totem-impresion' : ''
+              }`}
               onClick={() => handleNotificationClick(notification)}
             >
               <div className="notification-icon">{display.icon}</div>

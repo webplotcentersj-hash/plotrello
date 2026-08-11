@@ -11303,6 +11303,7 @@ class ApiService {
         impreso_por_usuario_id?: number | null
         mp_payment_id?: string | null
         mp_preference_id?: string | null
+        detalle?: Record<string, unknown> | null
       }>
     >
   > {

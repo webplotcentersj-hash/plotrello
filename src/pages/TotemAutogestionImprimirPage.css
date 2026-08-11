@@ -436,6 +436,89 @@
   font-size: 0.92rem;
 }
 
+.totem-print-fileList {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.totem-print-fileList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.totem-print-fileList__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.totem-print-fileList__remove {
+  flex: none;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecaca;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 800;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.totem-print-fileActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.totem-print-addFileBtn {
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(14, 165, 233, 0.18);
+  color: #e0f2fe;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.totem-print-addFileBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.totem-print-addFileBtn--block {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.totem-print-driveAdd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.totem-print-driveAdd input {
+  flex: 1;
+  min-width: 180px;
+}
+
 .totem-print-fileInput {
   padding: 12px !important;
   cursor: pointer;

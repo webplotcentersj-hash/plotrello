@@ -111,6 +111,25 @@
   color: var(--totem-text-soft);
 }
 
+.totem-qr-upload-fileList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .totem-qr-upload-fileList li + li {
-  margin-top: 6px;
+  margin-top: 8px;
+}
+
+.totem-qr-upload-remove {
+  flex: none;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecaca;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-weight: 800;
+  font-size: 0.75rem;
+  cursor: pointer;
 }
