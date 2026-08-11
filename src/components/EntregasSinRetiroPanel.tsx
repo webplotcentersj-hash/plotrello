@@ -110,7 +110,7 @@ const EntregasSinRetiroPanel = ({ tasks, onSelectTask }: Props) => {
                     rel="noopener noreferrer"
                     title="WhatsApp: aviso de desecho por +30 días"
                   >
-                    WhatsApp aviso
+                    WhatsApp
                   </a>
                 ) : (
                   <span className="entregas-sin-retiro__wa entregas-sin-retiro__wa--disabled" title="Sin teléfono">
