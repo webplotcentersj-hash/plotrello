@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { SolicitudPermiso } from '../types/api'
+import SolicitudPermisoModal from '../components/SolicitudPermisoModal'
 import './RecursosHumanosPermisosPage.css'
 
 const RecursosHumanosPermisosPage = () => {
@@ -19,6 +20,7 @@ const RecursosHumanosPermisosPage = () => {
   })
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<SolicitudPermiso | null>(null)
   const [mostrarModalAprobar, setMostrarModalAprobar] = useState(false)
+  const [mostrarPedirPermiso, setMostrarPedirPermiso] = useState(false)
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const deepLinkDone = useRef(false)
 
@@ -208,10 +210,24 @@ const RecursosHumanosPermisosPage = () => {
     <div className="rrhh-permisos-page">
       <header className="rrhh-permisos-header">
         <div className="rrhh-header-content">
-          <h1>📋 Gestión de Solicitudes y Permisos</h1>
-          <button className="btn-back" onClick={() => navigate('/rrhh/dashboard')}>
-            ← Volver
-          </button>
+          <div>
+            <h1>📋 Gestión de Solicitudes y Permisos</h1>
+            <p className="rrhh-permisos-subtitle">
+              Aprobá solicitudes del equipo o pedí las tuyas (RRHH / admin / gerencia).
+            </p>
+          </div>
+          <div className="rrhh-permisos-header-actions">
+            <button
+              type="button"
+              className="btn-pedir-permiso"
+              onClick={() => setMostrarPedirPermiso(true)}
+            >
+              + Pedir permiso
+            </button>
+            <button className="btn-back" onClick={() => navigate('/rrhh/dashboard')}>
+              ← Volver
+            </button>
+          </div>
         </div>
       </header>
 
@@ -348,7 +364,14 @@ const RecursosHumanosPermisosPage = () => {
                     </p>
                   </div>
                   <div className="rrhh-solicitud-actions">
-                    {solicitud.estado === 'pendiente' && (
+                    {solicitud.estado === 'pendiente' &&
+                    solicitud.id_usuario === usuario?.id ? (
+                      <span className="rrhh-solicitud-propia-hint">
+                        Tu solicitud · la aprueba otro RRHH/admin
+                      </span>
+                    ) : null}
+                    {solicitud.estado === 'pendiente' &&
+                    solicitud.id_usuario !== usuario?.id ? (
                       <>
                         <button
                           className="btn-success"
@@ -366,7 +389,7 @@ const RecursosHumanosPermisosPage = () => {
                           ❌ Rechazar
                         </button>
                       </>
-                    )}
+                    ) : null}
                     <button
                       className="btn-danger"
                       onClick={() => handleEliminar(solicitud.id)}
@@ -421,6 +444,15 @@ const RecursosHumanosPermisosPage = () => {
           </div>
         </div>
       )}
+
+      {mostrarPedirPermiso ? (
+        <SolicitudPermisoModal
+          onClose={() => setMostrarPedirPermiso(false)}
+          onSolicitudCreada={() => {
+            void loadSolicitudes()
+          }}
+        />
+      ) : null}
     </div>
   )
 }

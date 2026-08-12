@@ -486,6 +486,105 @@
   margin-top: 24px;
 }
 
+.rrhh-usuarios-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(4px);
+}
+
+.rrhh-usuarios-modal {
+  width: 100%;
+  max-width: 440px;
+  max-height: min(90vh, 640px);
+  overflow: auto;
+  background: #0f172a;
+  color: #f8fafc;
+  color-scheme: dark;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+.rrhh-usuarios-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.rrhh-usuarios-modal-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.rrhh-usuarios-modal-close {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rrhh-usuarios-modal-close:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.rrhh-usuarios-modal-body {
+  padding: 16px 18px 18px;
+}
+
+.rrhh-usuarios-modal .form-group input,
+.rrhh-usuarios-modal .form-group select {
+  box-sizing: border-box;
+  height: 44px;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #f8fafc;
+}
+
+.rrhh-usuarios-modal .form-group select {
+  appearance: auto;
+  cursor: pointer;
+}
+
+.rrhh-usuarios-modal .form-group select option {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.rrhh-usuarios-modal-error {
+  margin: 0 0 12px;
+  color: #fca5a5;
+  font-size: 0.88rem;
+}
+
+.rrhh-usuarios-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.rrhh-usuarios-modal-actions .btn-primary:disabled,
+.rrhh-usuarios-modal-actions .btn-secondary:disabled,
+.rrhh-usuarios-modal-close:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
   .rrhh-filters {
     flex-direction: column;

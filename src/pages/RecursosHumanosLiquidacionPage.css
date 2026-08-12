@@ -2,8 +2,8 @@
   min-height: 100vh;
   background: var(--bg-primary);
   color: var(--text-primary);
-  padding: 20px;
-  max-width: 1400px;
+  padding: 20px 24px 48px;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
@@ -16,6 +16,24 @@
   gap: 16px;
 }
 
+.rrhh-liq-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.rrhh-liq-breadcrumb button {
+  border: 0;
+  background: none;
+  color: #93c5fd;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
 .rrhh-liq-header {
   display: flex;
   justify-content: space-between;
@@ -23,12 +41,17 @@
   flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.rrhh-liq-breadcrumb {
+.rrhh-liq-kicker {
   margin: 0 0 6px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #93c5fd;
 }
 
 .rrhh-liq-header h1 {
@@ -39,8 +62,89 @@
 .rrhh-liq-subtitle {
   margin: 8px 0 0;
   color: var(--text-muted);
-  max-width: 640px;
+  max-width: 720px;
   font-size: 0.95rem;
+}
+
+.rrhh-liq-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.rrhh-liq-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-liq-nav-title {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.rrhh-liq-nav button {
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: #e2e8f0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.rrhh-liq-nav button.is-active {
+  background: rgba(37, 99, 235, 0.28);
+  color: #fff;
+  font-weight: 700;
+}
+
+.rrhh-liq-main {
+  min-width: 0;
+}
+
+.rrhh-liq-doc {
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 12px;
+  padding: 24px 28px;
+}
+
+.rrhh-liq-doc h2 {
+  margin: 0 0 12px;
+  font-size: 1.35rem;
+}
+
+.rrhh-liq-doc p {
+  margin: 0 0 12px;
+  line-height: 1.55;
+}
+
+.rrhh-liq-doc a {
+  color: #1d4ed8;
+}
+
+.rrhh-liq-doc ul {
+  margin: 12px 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
+.rrhh-liq-doc-note {
+  margin: 16px 0 0;
+  font-size: 0.88rem;
+  color: #475569;
 }
 
 .rrhh-liq-toolbar {
@@ -157,6 +261,40 @@
   padding-left: 18px;
 }
 
+.rrhh-liq-envio {
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.rrhh-liq-envio h2 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  color: #1d4ed8;
+}
+
+.rrhh-liq-envio dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.rrhh-liq-envio dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.rrhh-liq-envio dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
 .rrhh-liq-totales {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -180,6 +318,13 @@
 
 .rrhh-liq-totales strong {
   font-size: 1.1rem;
+}
+
+.rrhh-liq-split {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.1fr);
+  gap: 16px;
+  align-items: start;
 }
 
 .rrhh-liq-table-wrap {
@@ -209,10 +354,113 @@
   top: 0;
 }
 
-.rrhh-liq-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+.rrhh-liq-table tbody tr {
+  cursor: pointer;
+}
+
+.rrhh-liq-table tbody tr:hover,
+.rrhh-liq-table tbody tr.is-selected {
+  background: rgba(37, 99, 235, 0.18);
+}
+
+.rrhh-liq-recibo {
+  background: #fff;
+  color: #0f172a;
+  border-radius: 12px;
+  padding: 16px 18px 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.rrhh-liq-recibo header p {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1d4ed8;
+}
+
+.rrhh-liq-recibo h3 {
+  margin: 4px 0 10px;
+  font-size: 1.1rem;
+}
+
+.rrhh-liq-recibo header dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.rrhh-liq-recibo header dt {
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.rrhh-liq-recibo header dd {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.rrhh-liq-recibo table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.rrhh-liq-recibo th,
+.rrhh-liq-recibo td {
+  padding: 7px 6px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.rrhh-liq-recibo th {
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.rrhh-liq-recibo tfoot td {
+  font-weight: 800;
+  border-bottom: 0;
+  padding-top: 10px;
+}
+
+.rrhh-liq-recibo-nov {
+  margin-top: 14px;
+}
+
+.rrhh-liq-recibo-nov h4 {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1d4ed8;
+}
+
+.rrhh-liq-recibo-nov ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.8rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.rrhh-liq-recibo-foot {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
 .rrhh-liq-inline-loading {
   color: var(--text-muted);
+}
+
+@media (max-width: 960px) {
+  .rrhh-liq-layout,
+  .rrhh-liq-split,
+  .rrhh-liq-recibo header dl {
+    grid-template-columns: 1fr;
+  }
 }

@@ -115,6 +115,115 @@ export function armarLineasLiquidacion(params: {
   return { lineas, stats, avisosSolapeHe }
 }
 
+/** Concepto al estilo Libro de Sueldos Digital / Mi liquidación digital (reg. 04). */
+export type ConceptoLiquidacionDigital = {
+  codigo: string
+  concepto: string
+  cantidad: string
+  unidad: string
+  importe: number | null
+  debCred: 'C' | 'D' | '—'
+}
+
+export function conceptosMiLiquidacionDigital(
+  l: RrhhLiquidacionLinea,
+  valorHora: number
+): ConceptoLiquidacionDigital[] {
+  const rows: ConceptoLiquidacionDigital[] = [
+    {
+      codigo: 'DIAS',
+      concepto: 'Días trabajados',
+      cantidad: String(l.dias_trabajados),
+      unidad: 'días',
+      importe: null,
+      debCred: '—'
+    }
+  ]
+  if (l.he50 > 0) {
+    rows.push({
+      codigo: 'HE50',
+      concepto: 'Horas extra 50%',
+      cantidad: l.he50.toFixed(2),
+      unidad: 'hs',
+      importe: valorHora > 0 ? Math.round(l.he50 * valorHora * 1.5 * 100) / 100 : null,
+      debCred: 'C'
+    })
+  }
+  if (l.he100 > 0) {
+    rows.push({
+      codigo: 'HE100',
+      concepto: 'Horas extra 100%',
+      cantidad: l.he100.toFixed(2),
+      unidad: 'hs',
+      importe: valorHora > 0 ? Math.round(l.he100 * valorHora * 2 * 100) / 100 : null,
+      debCred: 'C'
+    })
+  }
+  if (l.tardanzas > 0) {
+    rows.push({
+      codigo: 'TARD',
+      concepto: 'Tardanzas',
+      cantidad: String(l.tardanzas),
+      unidad: 'un',
+      importe: null,
+      debCred: '—'
+    })
+  }
+  if (l.faltas_injustificadas > 0) {
+    rows.push({
+      codigo: 'FI',
+      concepto: 'Falta injustificada',
+      cantidad: String(l.faltas_injustificadas),
+      unidad: 'días',
+      importe: null,
+      debCred: '—'
+    })
+  }
+  if (l.ausencias > 0) {
+    rows.push({
+      codigo: 'AUS',
+      concepto: 'Ausencias',
+      cantidad: String(l.ausencias),
+      unidad: 'días',
+      importe: null,
+      debCred: '—'
+    })
+  }
+  if (l.anticipacion_sueldo > 0) {
+    rows.push({
+      codigo: 'ANT',
+      concepto: 'Anticipación de sueldo',
+      cantidad: '1',
+      unidad: 'un',
+      importe: l.anticipacion_sueldo,
+      debCred: 'D'
+    })
+  }
+  if (l.descuento_comida > 0) {
+    rows.push({
+      codigo: 'COM',
+      concepto: 'Descuento beneficio comida',
+      cantidad: '1',
+      unidad: 'un',
+      importe: l.descuento_comida,
+      debCred: 'D'
+    })
+  }
+  return rows
+}
+
+export function totalesConceptosDigital(conceptos: ConceptoLiquidacionDigital[]) {
+  return conceptos.reduce(
+    (acc, c) => {
+      if (c.importe == null) return acc
+      if (c.debCred === 'C') acc.credito += c.importe
+      if (c.debCred === 'D') acc.debito += c.importe
+      return acc
+    },
+    { credito: 0, debito: 0 }
+  )
+}
+
 export function totalesLineas(lineas: RrhhLiquidacionLinea[]) {
   return lineas.reduce(
     (acc, l) => {

@@ -17584,7 +17584,14 @@ class ApiService {
     ApiResponse<
       Record<
         number,
-        { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null; email: string | null }
+        {
+          nombre: string
+          apellido: string
+          sector: string
+          fecha_ingreso: string | null
+          email: string | null
+          dni?: string | null
+        }
       >
     >
   > {
@@ -17597,7 +17604,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('legajos_empleados')
-        .select('id_usuario, nombre, apellido, sector, fecha_ingreso, email')
+        .select('id_usuario, nombre, apellido, sector, fecha_ingreso, email, dni')
 
       if (error) {
         return { success: false, error: error.message }
@@ -17610,6 +17617,7 @@ class ApiService {
         sector: string | null
         fecha_ingreso: string | null
         email: string | null
+        dni?: string | null
       }>) || []
 
       if (soloActivos) {
@@ -17627,7 +17635,7 @@ class ApiService {
 
       const mapa: Record<
         number,
-        { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null; email: string | null }
+        { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null; email: string | null; dni?: string | null }
       > = {}
       for (const row of rows) {
         mapa[row.id_usuario] = {
@@ -17635,7 +17643,8 @@ class ApiService {
           apellido: row.apellido || '',
           sector: row.sector || '',
           fecha_ingreso: row.fecha_ingreso ?? null,
-          email: row.email ?? null
+          email: row.email ?? null,
+          dni: row.dni ?? null
         }
       }
 
@@ -17691,7 +17700,9 @@ class ApiService {
       // Notificar a usuarios de RRHH y Admin
       if (usuariosResponse.success && usuariosResponse.data) {
         const usuariosRRHH = usuariosResponse.data.filter(
-          u => u.rol === 'recursos-humanos' || u.rol === 'administracion'
+          (u) =>
+            u.id !== idUsuario &&
+            (u.rol === 'recursos-humanos' || u.rol === 'administracion')
         )
 
         for (const usuarioRRHH of usuariosRRHH) {

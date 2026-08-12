@@ -384,7 +384,7 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         label: 'Permisos',
         icon: '📋',
         href: '/rrhh/permisos',
-        title: 'Gestionar solicitudes de permisos'
+        title: 'Gestionar y pedir permisos (RRHH / admin)'
       })
     } else if (ctx.onOpenPermisos) {
       push({

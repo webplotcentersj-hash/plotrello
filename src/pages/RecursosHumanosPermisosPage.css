@@ -45,6 +45,36 @@
   font-weight: 600;
 }
 
+.rrhh-permisos-subtitle {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted, #94a3b8);
+  max-width: 520px;
+}
+
+.rrhh-permisos-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-pedir-permiso {
+  padding: 10px 16px;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-pedir-permiso:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
 .rrhh-permisos-content {
   max-width: 1400px;
   margin: 0 auto;
@@ -204,8 +234,18 @@
 
 .rrhh-solicitud-actions {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.rrhh-solicitud-propia-hint {
+  font-size: 0.82rem;
+  color: #fbbf24;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .rrhh-badge {

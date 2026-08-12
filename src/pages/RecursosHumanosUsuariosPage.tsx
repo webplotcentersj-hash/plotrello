@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -13,6 +14,136 @@ import DarDeBajaEmpleadoModal from '../components/DarDeBajaEmpleadoModal'
 import './RecursosHumanosUsuariosPage.css'
 
 type VistaLegajos = 'activo' | 'baja'
+
+type RoleOption = { value: UsuarioRecord['rol']; label: string; color: string }
+
+function UsuarioFormModal({
+  title,
+  submitLabel,
+  formData,
+  setFormData,
+  roleOptions,
+  passwordOptional,
+  busy,
+  error,
+  onClose,
+  onSubmit
+}: {
+  title: string
+  submitLabel: string
+  formData: { nombre: string; password: string; rol: UsuarioRecord['rol'] }
+  setFormData: (next: { nombre: string; password: string; rol: UsuarioRecord['rol'] }) => void
+  roleOptions: RoleOption[]
+  passwordOptional: boolean
+  busy: boolean
+  error: string | null
+  onClose: () => void
+  onSubmit: () => void
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy) onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [busy, onClose])
+
+  return createPortal(
+    <div
+      className="rrhh-usuarios-modal-overlay"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !busy) onClose()
+      }}
+    >
+      <div
+        className="rrhh-usuarios-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rrhh-usuarios-modal-title"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <header className="rrhh-usuarios-modal-header">
+          <h2 id="rrhh-usuarios-modal-title">{title}</h2>
+          <button
+            type="button"
+            className="rrhh-usuarios-modal-close"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Cerrar"
+          >
+            ×
+          </button>
+        </header>
+        <form
+          className="rrhh-usuarios-modal-body"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!busy) onSubmit()
+          }}
+        >
+          <div className="form-group">
+            <label htmlFor="rrhh-usuario-nombre">Nombre</label>
+            <input
+              id="rrhh-usuario-nombre"
+              type="text"
+              autoFocus
+              autoComplete="off"
+              value={formData.nombre}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              placeholder="Nombre del usuario"
+              disabled={busy}
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="rrhh-usuario-password">
+              {passwordOptional ? 'Nueva contraseña (opcional)' : 'Contraseña'}
+            </label>
+            <input
+              id="rrhh-usuario-password"
+              type="password"
+              autoComplete="new-password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder={passwordOptional ? 'Dejar vacío para mantener la actual' : 'Contraseña'}
+              disabled={busy}
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="rrhh-usuario-rol">Rol</label>
+            <select
+              id="rrhh-usuario-rol"
+              value={formData.rol}
+              onChange={(e) => setFormData({ ...formData, rol: e.target.value as UsuarioRecord['rol'] })}
+              disabled={busy}
+            >
+              {roleOptions.map((role) => (
+                <option key={role.value} value={role.value}>
+                  {role.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {error ? <p className="rrhh-usuarios-modal-error">{error}</p> : null}
+          <div className="rrhh-usuarios-modal-actions">
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={busy}>
+              Cancelar
+            </button>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? 'Guardando…' : submitLabel}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  )
+}
 
 const RecursosHumanosUsuariosPage = () => {
   const navigate = useNavigate()
@@ -33,6 +164,8 @@ const RecursosHumanosUsuariosPage = () => {
   const [filterRol, setFilterRol] = useState<string>('todos')
   const [showDarDeBajaModal, setShowDarDeBajaModal] = useState(false)
   const [usuarioParaBaja, setUsuarioParaBaja] = useState<UsuarioRecord | null>(null)
+  const [formBusy, setFormBusy] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   // Formulario
   const [formData, setFormData] = useState({
@@ -79,6 +212,7 @@ const RecursosHumanosUsuariosPage = () => {
     if (user) {
       setSelectedUsuario(user)
       setFormData({ nombre: user.nombre, password: '', rol: user.rol })
+      setFormError(null)
       setShowEditModal(true)
     }
     navigate(location.pathname, { replace: true, state: {} })
@@ -120,10 +254,16 @@ const RecursosHumanosUsuariosPage = () => {
 
   const handleCreate = async () => {
     if (!formData.nombre.trim() || !formData.password.trim()) {
-      alert('Por favor completa todos los campos')
+      setFormError('Completá nombre y contraseña')
+      return
+    }
+    if (formData.password.trim().length < 6) {
+      setFormError('La contraseña debe tener al menos 6 caracteres')
       return
     }
 
+    setFormBusy(true)
+    setFormError(null)
     try {
       const response = await apiService.createUsuario({
         nombre: formData.nombre,
@@ -135,22 +275,29 @@ const RecursosHumanosUsuariosPage = () => {
         setShowCreateModal(false)
         setFormData({ nombre: '', password: '', rol: 'mostrador' })
         await loadUsuarios()
-        alert('Usuario creado exitosamente')
       } else {
-        alert(`Error: ${response.error}`)
+        setFormError(response.error || 'No se pudo crear el usuario')
       }
     } catch (error) {
       console.error('Error creando usuario:', error)
-      alert('Error al crear usuario')
+      setFormError('Error al crear usuario')
+    } finally {
+      setFormBusy(false)
     }
   }
 
   const handleEdit = async () => {
     if (!selectedUsuario || !formData.nombre.trim()) {
-      alert('Por favor completa el nombre del usuario')
+      setFormError('Completá el nombre del usuario')
+      return
+    }
+    if (formData.password.trim() && formData.password.trim().length < 6) {
+      setFormError('La contraseña debe tener al menos 6 caracteres')
       return
     }
 
+    setFormBusy(true)
+    setFormError(null)
     try {
       const updates: {
         nombre?: string
@@ -161,7 +308,6 @@ const RecursosHumanosUsuariosPage = () => {
         rol: formData.rol
       }
 
-      // Solo incluir contraseña si se proporcionó una nueva
       if (formData.password.trim()) {
         updates.password = formData.password
       }
@@ -173,13 +319,14 @@ const RecursosHumanosUsuariosPage = () => {
         setSelectedUsuario(null)
         setFormData({ nombre: '', password: '', rol: 'mostrador' })
         await loadUsuarios()
-        alert('Usuario actualizado exitosamente')
       } else {
-        alert(`Error: ${response.error}`)
+        setFormError(response.error || 'No se pudo actualizar el usuario')
       }
     } catch (error) {
       console.error('Error actualizando usuario:', error)
-      alert('Error al actualizar usuario')
+      setFormError('Error al actualizar usuario')
+    } finally {
+      setFormBusy(false)
     }
   }
 
@@ -261,6 +408,7 @@ const RecursosHumanosUsuariosPage = () => {
               className="btn-primary"
               onClick={() => {
                 setFormData({ nombre: '', password: '', rol: 'mostrador' })
+                setFormError(null)
                 setShowCreateModal(true)
               }}
             >
@@ -434,6 +582,7 @@ const RecursosHumanosUsuariosPage = () => {
                                 password: '',
                                 rol: user.rol
                               })
+                              setFormError(null)
                               setShowEditModal(true)
                             }}
                           >
@@ -548,131 +697,44 @@ const RecursosHumanosUsuariosPage = () => {
         />
       ) : null}
 
-      {/* Modal Crear Usuario */}
-      {showCreateModal && (
-        <div
-          className="modal-overlay"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setShowCreateModal(false)
+      {showCreateModal ? (
+        <UsuarioFormModal
+          title="Crear usuario"
+          submitLabel="Crear usuario"
+          formData={formData}
+          setFormData={setFormData}
+          roleOptions={roleOptions}
+          passwordOptional={false}
+          busy={formBusy}
+          error={formError}
+          onClose={() => {
+            if (formBusy) return
+            setShowCreateModal(false)
+            setFormError(null)
           }}
-          onTouchStart={(e) => {
-            if (e.target === e.currentTarget) setShowCreateModal(false)
-          }}
-        >
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <header className="modal-header">
-              <h3>Crear Nuevo Usuario</h3>
-              <button className="modal-close" onClick={() => setShowCreateModal(false)}>
-                ×
-              </button>
-            </header>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Nombre</label>
-                <input
-                  type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  placeholder="Nombre del usuario"
-                />
-              </div>
-              <div className="form-group">
-                <label>Contraseña</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="Contraseña"
-                />
-              </div>
-              <div className="form-group">
-                <label>Rol</label>
-                <select
-                  value={formData.rol}
-                  onChange={(e) => setFormData({ ...formData, rol: e.target.value as UsuarioRecord['rol'] })}
-                >
-                  {roleOptions.map(role => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="modal-actions">
-                <button className="btn-secondary" onClick={() => setShowCreateModal(false)}>
-                  Cancelar
-                </button>
-                <button className="btn-primary" onClick={handleCreate}>
-                  Crear Usuario
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          onSubmit={() => void handleCreate()}
+        />
+      ) : null}
 
-      {/* Modal Editar Usuario */}
-      {showEditModal && selectedUsuario && (
-        <div
-          className="modal-overlay"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setShowEditModal(false)
+      {showEditModal && selectedUsuario ? (
+        <UsuarioFormModal
+          title="Editar usuario"
+          submitLabel="Guardar cambios"
+          formData={formData}
+          setFormData={setFormData}
+          roleOptions={roleOptions}
+          passwordOptional
+          busy={formBusy}
+          error={formError}
+          onClose={() => {
+            if (formBusy) return
+            setShowEditModal(false)
+            setSelectedUsuario(null)
+            setFormError(null)
           }}
-          onTouchStart={(e) => {
-            if (e.target === e.currentTarget) setShowEditModal(false)
-          }}
-        >
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <header className="modal-header">
-              <h3>Editar Usuario</h3>
-              <button className="modal-close" onClick={() => setShowEditModal(false)}>
-                ×
-              </button>
-            </header>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Nombre</label>
-                <input
-                  type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  placeholder="Nombre del usuario"
-                />
-              </div>
-              <div className="form-group">
-                <label>Nueva Contraseña (opcional)</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="Dejar vacío para mantener la actual"
-                />
-              </div>
-              <div className="form-group">
-                <label>Rol</label>
-                <select
-                  value={formData.rol}
-                  onChange={(e) => setFormData({ ...formData, rol: e.target.value as UsuarioRecord['rol'] })}
-                >
-                  {roleOptions.map(role => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="modal-actions">
-                <button className="btn-secondary" onClick={() => setShowEditModal(false)}>
-                  Cancelar
-                </button>
-                <button className="btn-primary" onClick={handleEdit}>
-                  Guardar Cambios
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          onSubmit={() => void handleEdit()}
+        />
+      ) : null}
 
       {/* Modal Ver Legajo (Solo Lectura) */}
       {showVerLegajoModal && selectedUsuario && (
