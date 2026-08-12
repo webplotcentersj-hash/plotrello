@@ -28,6 +28,11 @@ import {
 import { etiquetaCodigoRrhhNovedad } from '../utils/rrhhNovedadCatalog'
 import { asistenciaHoraCorta } from '../utils/dateUtils'
 import {
+  joinAsistenciaObservaciones,
+  parseAsistenciaObservaciones,
+  tieneAclaracionAsistencia
+} from '../utils/asistenciaAclaracion'
+import {
   buildExtraAcumuladoPorEmpleado,
   calcularStatsAsistencia,
   diasEntre,
@@ -316,6 +321,7 @@ const RecursosHumanosHorariosPage = () => {
             fechaHasta={fechaHasta}
             registradoPorId={usuario?.id ?? null}
             onNovedadesActualizadas={loadNovedades}
+            onAsistenciaActualizada={loadAsistencia}
             onIrNovedades={() => navigate('/rrhh/novedades')}
           />
         )}
@@ -1036,6 +1042,7 @@ const AsistenciaTab = ({
   fechaHasta,
   registradoPorId,
   onNovedadesActualizadas,
+  onAsistenciaActualizada,
   onIrNovedades
 }: {
   asistencia: Asistencia[]
@@ -1045,12 +1052,17 @@ const AsistenciaTab = ({
   fechaHasta: string
   registradoPorId: number | null
   onNovedadesActualizadas: () => void
+  onAsistenciaActualizada: () => void
   onIrNovedades: () => void
 }) => {
   const [novedadDetalle, setNovedadDetalle] = useState<RrhhNovedad | null>(null)
   const [asistenciaDetalle, setAsistenciaDetalle] = useState<Asistencia | null>(null)
   const [asistenciaDetalleExtra, setAsistenciaDetalleExtra] = useState<number | null>(null)
   const [asistenciaDetalleAcum, setAsistenciaDetalleAcum] = useState<number | null>(null)
+  const [aclaracionDraft, setAclaracionDraft] = useState('')
+  const [aclaracionSaving, setAclaracionSaving] = useState(false)
+  const [aclaracionError, setAclaracionError] = useState<string | null>(null)
+  const [aclaracionOk, setAclaracionOk] = useState(false)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
   const [legajos, setLegajos] = useState<Record<number, { nombre: string; apellido: string }>>({})
   const syncNovedadesRef = useRef(false)
@@ -1277,6 +1289,58 @@ const AsistenciaTab = ({
     onClick?: () => void
   }
 
+  const cerrarDetalleAsistencia = () => {
+    setAsistenciaDetalle(null)
+    setAsistenciaDetalleExtra(null)
+    setAsistenciaDetalleAcum(null)
+    setAclaracionDraft('')
+    setAclaracionError(null)
+    setAclaracionOk(false)
+  }
+
+  const guardarAclaracion = async () => {
+    if (!asistenciaDetalle) return
+    setAclaracionSaving(true)
+    setAclaracionError(null)
+    setAclaracionOk(false)
+    try {
+      const { sistema } = parseAsistenciaObservaciones(asistenciaDetalle.observaciones)
+      const observaciones = joinAsistenciaObservaciones(sistema, aclaracionDraft)
+      const res = await apiService.guardarObservacionesAsistencia({
+        id: asistenciaDetalle.id,
+        idUsuario: asistenciaDetalle.id_usuario,
+        fecha: asistenciaDetalle.fecha,
+        horaEntrada: asistenciaDetalle.hora_entrada,
+        horaSalida: asistenciaDetalle.hora_salida,
+        horasTrabajadas: asistenciaDetalle.horas_trabajadas,
+        tipoRegistro: asistenciaDetalle.tipo_registro,
+        observaciones
+      })
+      if (!res.success || !res.data) {
+        setAclaracionError(res.error || 'No se pudo guardar la aclaración.')
+        return
+      }
+      setAsistenciaDetalle({
+        ...asistenciaDetalle,
+        id: res.data,
+        observaciones
+      })
+      setAclaracionOk(true)
+      onAsistenciaActualizada()
+    } catch (err) {
+      setAclaracionError(err instanceof Error ? err.message : 'No se pudo guardar la aclaración.')
+    } finally {
+      setAclaracionSaving(false)
+    }
+  }
+
+  const notaBadge = (obs: string | null | undefined) =>
+    tieneAclaracionAsistencia(obs) ? (
+      <span className="celda-nota" title="Hay una aclaración">
+        ✎
+      </span>
+    ) : null
+
   const renderCelda = (empId: number, f: string, a: Asistencia | undefined): CeldaRender => {
     const novs = novedadesPorUsuarioDia.get(`${empId}|${f}`) ?? []
     const finde = !esDiaHabil(f)
@@ -1294,6 +1358,9 @@ const AsistenciaTab = ({
       setAsistenciaDetalle(reg)
       setAsistenciaDetalleExtra(det.total)
       setAsistenciaDetalleAcum(extraAcumulado.get(empId)?.get(f) ?? det.total)
+      setAclaracionDraft(parseAsistenciaObservaciones(reg.observaciones).aclaracion)
+      setAclaracionError(null)
+      setAclaracionOk(false)
     }
 
     const acum = extraAcumulado.get(empId)?.get(f) ?? 0
@@ -1314,7 +1381,12 @@ const AsistenciaTab = ({
           : 'AUS'
       return {
         cls: `celda-aus${nov ? ' celda-nov-vinc' : ''}`,
-        contenido: <span className="celda-nov-label">{label}</span>,
+        contenido: (
+          <>
+            <span className="celda-nov-label">{label}</span>
+            {notaBadge(a.observaciones)}
+          </>
+        ),
         title: [nov ? etiquetaCodigoRrhhNovedad(nov.codigo) : a.tipo_registro, a.observaciones, nov?.observaciones]
           .filter(Boolean)
           .join(' · '),
@@ -1334,6 +1406,7 @@ const AsistenciaTab = ({
             <span className="celda-h celda-h-salida">{s || '—'}</span>
             {extraBadge(det.total)}
             {(ev.esTarde || tardeNov) ? <span className="celda-nov-mini">T</span> : null}
+            {notaBadge(a.observaciones)}
           </>
         ),
         title: [
@@ -1435,7 +1508,7 @@ const AsistenciaTab = ({
             <strong className="leyenda-extra">verde</strong> (<strong>Σ</strong> = acumulado del mes). Tardanzas en amarillo, ausencias en rojo.
             Tardanzas y faltas se detectan automáticamente desde marcaciones y se sincronizan con novedades del legajo.
             Las horas extra de novedades manuales se suman al acumulado.{' '}
-            <strong>S/M</strong> = sin marca en día hábil. Clic en celda para ver detalle.
+            <strong>S/M</strong> = sin marca en día hábil. Clic en celda para ver detalle y dejar una aclaración.
           </p>
           <div className="rrhh-asis-leyenda">
             <span className="leyenda-entrada">▲ Entrada</span>
@@ -1525,11 +1598,11 @@ const AsistenciaTab = ({
       ) : null}
 
       {asistenciaDetalle ? (
-        <div className="rrhh-asis-detalle-overlay" onMouseDown={() => { setAsistenciaDetalle(null); setAsistenciaDetalleExtra(null); setAsistenciaDetalleAcum(null) }}>
+        <div className="rrhh-asis-detalle-overlay" onMouseDown={cerrarDetalleAsistencia}>
           <div className="rrhh-asis-detalle-modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="rrhh-asis-detalle-head">
               <h3>Registro de asistencia</h3>
-              <button type="button" className="rrhh-asis-detalle-close" onClick={() => { setAsistenciaDetalle(null); setAsistenciaDetalleExtra(null); setAsistenciaDetalleAcum(null) }}>
+              <button type="button" className="rrhh-asis-detalle-close" onClick={cerrarDetalleAsistencia}>
                 ✕
               </button>
             </div>
@@ -1558,13 +1631,40 @@ const AsistenciaTab = ({
               ) : null}
               <dt>Tipo</dt>
               <dd>{asistenciaDetalle.tipo_registro}</dd>
-              {asistenciaDetalle.observaciones ? (
+              {parseAsistenciaObservaciones(asistenciaDetalle.observaciones).sistema ? (
                 <>
-                  <dt>Observaciones</dt>
-                  <dd>{asistenciaDetalle.observaciones}</dd>
+                  <dt>Sistema</dt>
+                  <dd>{parseAsistenciaObservaciones(asistenciaDetalle.observaciones).sistema}</dd>
                 </>
               ) : null}
             </dl>
+            <form
+              className="rrhh-asis-aclaracion"
+              onSubmit={(e) => {
+                e.preventDefault()
+                void guardarAclaracion()
+              }}
+            >
+              <label htmlFor="rrhh-asis-aclaracion">Aclaración</label>
+              <textarea
+                id="rrhh-asis-aclaracion"
+                rows={3}
+                value={aclaracionDraft}
+                onChange={(e) => {
+                  setAclaracionDraft(e.target.value)
+                  setAclaracionOk(false)
+                }}
+                placeholder="Ej: salió a las 08:07 por trámite; reingresó después."
+                maxLength={500}
+              />
+              <div className="rrhh-asis-aclaracion-actions">
+                <button type="submit" className="btn-primary" disabled={aclaracionSaving}>
+                  {aclaracionSaving ? 'Guardando…' : 'Guardar aclaración'}
+                </button>
+                {aclaracionOk ? <span className="rrhh-asis-aclaracion-ok">Guardada</span> : null}
+              </div>
+              {aclaracionError ? <p className="rrhh-asis-aclaracion-error">{aclaracionError}</p> : null}
+            </form>
           </div>
         </div>
       ) : null}

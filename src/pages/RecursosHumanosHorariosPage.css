@@ -1865,6 +1865,69 @@ thead .rrhh-asis-sticky {
   margin: 0;
 }
 
+.rrhh-asis-aclaracion {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rrhh-asis-aclaracion label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #4b5563;
+}
+
+.rrhh-asis-aclaracion textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 72px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #111827;
+  background: #f8fafc;
+}
+
+.rrhh-asis-aclaracion textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: #fff;
+}
+
+.rrhh-asis-aclaracion-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rrhh-asis-aclaracion .btn-primary {
+  padding: 7px 12px;
+  font-size: 0.82rem;
+}
+
+.rrhh-asis-aclaracion-ok {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.rrhh-asis-aclaracion-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #b91c1c;
+}
+
+.celda-nota {
+  display: inline-block;
+  margin-top: 1px;
+  font-size: 0.62rem;
+  line-height: 1;
+  color: #b45309;
+}
+
 /* Estad?sticas de asistencia */
 .rrhh-stats-tab {
   color: #1f2937;

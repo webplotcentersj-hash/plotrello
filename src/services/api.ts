@@ -17397,6 +17397,62 @@ class ApiService {
     }
   }
 
+  /** Guarda observaciones / aclaración de un día de asistencia. */
+  async guardarObservacionesAsistencia(params: {
+    id: number
+    idUsuario: number
+    fecha: string
+    horaEntrada?: string | null
+    horaSalida?: string | null
+    horasTrabajadas?: number | null
+    tipoRegistro?: string
+    observaciones: string | null
+  }): Promise<ApiResponse<number>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+
+    try {
+      const fecha = params.fecha.slice(0, 10)
+      const observaciones = params.observaciones?.trim() || null
+
+      if (params.id > 0) {
+        const { error } = await supabase
+          .from('asistencia')
+          .update({ observaciones, updated_at: new Date().toISOString() })
+          .eq('id', params.id)
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: params.id }
+      }
+
+      const { data, error } = await supabase
+        .from('asistencia')
+        .upsert(
+          {
+            id_usuario: params.idUsuario,
+            fecha,
+            hora_entrada: params.horaEntrada ?? null,
+            hora_salida: params.horaSalida ?? null,
+            horas_trabajadas: params.horasTrabajadas ?? null,
+            tipo_registro: params.tipoRegistro || 'normal',
+            observaciones
+          },
+          { onConflict: 'id_usuario,fecha' }
+        )
+        .select('id')
+        .single()
+
+      if (error) return { success: false, error: error.message }
+      const id = Number(data?.id)
+      if (!Number.isFinite(id) || id <= 0) {
+        return { success: false, error: 'No se obtuvo el id de asistencia' }
+      }
+      return { success: true, data: id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   /** Elimina un registro de asistencia por id. */
   async eliminarAsistencia(id: number): Promise<ApiResponse<boolean>> {
     if (!supabase) {
