@@ -46,15 +46,16 @@ function NavTile({ title, desc, icon, accent, badge, onClick }: NavTileProps) {
 
 export default function ClientesDashboardPage() {
   const navigate = useNavigate()
-  const { canAccessMostradorViews, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, canAccessClientesConsulta, loading: authLoading } = useAuth()
   const [stats, setStats] = useState({ ccPendientes: 0, ccAprobados: 0 })
 
   useEffect(() => {
     if (authLoading) return
-    if (!canAccessMostradorViews) {
+    if (!canAccessClientesConsulta) {
       navigate('/', { replace: true })
       return
     }
+    if (!canAccessMostradorViews) return
     void apiService.listClientesCuentaCorriente().then((res) => {
       if (!res.success || !res.data) return
       const rows = res.data
@@ -63,7 +64,7 @@ export default function ClientesDashboardPage() {
         ccAprobados: rows.filter((r) => r.estado === 'aprobada').length
       })
     })
-  }, [authLoading, canAccessMostradorViews, navigate])
+  }, [authLoading, canAccessClientesConsulta, canAccessMostradorViews, navigate])
 
   if (authLoading) {
     return (
@@ -73,7 +74,7 @@ export default function ClientesDashboardPage() {
     )
   }
 
-  if (!canAccessMostradorViews) return null
+  if (!canAccessClientesConsulta) return null
 
   return (
     <div className="cl-dash-page">
@@ -84,7 +85,11 @@ export default function ClientesDashboardPage() {
           </span>
           <div>
             <h1>Clientes</h1>
-            <p>Buscar, alta, portal web, atención y cuenta corriente</p>
+            <p>
+              {canAccessMostradorViews
+                ? 'Buscar, alta, portal web, atención y cuenta corriente'
+                : 'Consulta de clientes, frecuentes y atención'}
+            </p>
           </div>
         </div>
         <button
@@ -99,7 +104,11 @@ export default function ClientesDashboardPage() {
       <section className="cl-dash-section">
         <header className="cl-dash-section__head">
           <h2>Gestión de clientes</h2>
-          <p>Buscar, alta, VIP, portal y cobranzas</p>
+          <p>
+            {canAccessMostradorViews
+              ? 'Buscar, alta, VIP, portal y cobranzas'
+              : 'Buscar ficha, frecuentes y atención'}
+          </p>
         </header>
         <div className="cl-dash-grid">
           <NavTile
@@ -109,13 +118,15 @@ export default function ClientesDashboardPage() {
             accent="search"
             onClick={() => navigate(CLIENTES_BUSCAR)}
           />
-          <NavTile
-            title="Agregar cliente"
-            desc="Alta rápida sin acceso web"
-            icon="➕"
-            accent="add"
-            onClick={() => navigate(CLIENTES_AGREGAR)}
-          />
+          {canAccessMostradorViews && (
+            <NavTile
+              title="Agregar cliente"
+              desc="Alta rápida sin acceso web"
+              icon="➕"
+              accent="add"
+              onClick={() => navigate(CLIENTES_AGREGAR)}
+            />
+          )}
           <NavTile
             title="Clientes frecuentes"
             desc="VIP, preferencias y historial"
@@ -123,28 +134,34 @@ export default function ClientesDashboardPage() {
             accent="vip"
             onClick={() => navigate(CLIENTES_FRECUENTES)}
           />
-          <NavTile
-            title="Cuenta corriente"
-            desc="Saldos, cobros y altas CC"
-            icon="💳"
-            accent="cc"
-            badge={stats.ccPendientes}
-            onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
-          />
-          <NavTile
-            title="Gestión clientes web"
-            desc="Alta, edición y acceso al portal"
-            icon="🌐"
-            accent="web"
-            onClick={() => navigate(CLIENTES_WEB_GESTION)}
-          />
-          <NavTile
-            title="Ventas"
-            desc="Pipeline, cobros y venta rápida"
-            icon="💰"
-            accent="add"
-            onClick={() => navigate(VENTAS)}
-          />
+          {canAccessMostradorViews && (
+            <NavTile
+              title="Cuenta corriente"
+              desc="Saldos, cobros y altas CC"
+              icon="💳"
+              accent="cc"
+              badge={stats.ccPendientes}
+              onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
+            />
+          )}
+          {canAccessMostradorViews && (
+            <NavTile
+              title="Gestión clientes web"
+              desc="Alta, edición y acceso al portal"
+              icon="🌐"
+              accent="web"
+              onClick={() => navigate(CLIENTES_WEB_GESTION)}
+            />
+          )}
+          {canAccessMostradorViews && (
+            <NavTile
+              title="Ventas"
+              desc="Pipeline, cobros y venta rápida"
+              icon="💰"
+              accent="add"
+              onClick={() => navigate(VENTAS)}
+            />
+          )}
           <NavTile
             title="Atención al público"
             desc="Cola, turnos y totem"
@@ -153,7 +170,7 @@ export default function ClientesDashboardPage() {
             onClick={() => navigate(ATENCION_PUBLICO)}
           />
         </div>
-        {stats.ccAprobados > 0 && (
+        {canAccessMostradorViews && stats.ccAprobados > 0 && (
           <p className="cl-dash-meta">
             {stats.ccAprobados} cuenta{stats.ccAprobados === 1 ? '' : 's'} corriente aprobada
             {stats.ccAprobados === 1 ? '' : 's'}

@@ -359,6 +359,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
 
   // ——— Accesos comunes visibles para todos los usuarios logueados ———
   push({
+    id: 'clientes-consulta',
+    label: 'Clientes',
+    icon: '👥',
+    href: '/clientes/buscar',
+    title: 'Buscar clientes (todos los empleados)'
+  })
+  push({
     id: 'menu-diario',
     label: 'Menú diario',
     icon: '🍽️',

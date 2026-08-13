@@ -262,7 +262,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     icon: '👥',
     path: '/clientes/dashboard',
     category: 'ventas',
-    roles: ['mostrador', 'caja', 'presupuestos', 'administracion', 'gerencia'],
+    roles: 'all',
     accent: '#1d4ed8',
     featured: true
   },

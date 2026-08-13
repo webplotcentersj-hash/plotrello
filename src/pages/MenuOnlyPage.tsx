@@ -19,6 +19,7 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
     nombreVisible,
     isAdmin,
     canAccessMostradorViews,
+    canAccessClientesConsulta,
     canManageCaja,
     canManageCompras,
     canManageRecursosHumanos,
@@ -36,6 +37,14 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
         icon: '🧩',
         path: '/',
         enabled: !!usuario
+      },
+      {
+        id: 'clientes',
+        title: 'Clientes',
+        description: 'Buscar ficha, frecuentes e historial de OPs',
+        icon: '👥',
+        path: '/clientes/dashboard',
+        enabled: !!usuario && canAccessClientesConsulta
       },
       {
         id: 'atencion-publico',
@@ -115,6 +124,7 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
     canManageRecursosHumanos,
     isAdmin,
     canAccessMostradorViews,
+    canAccessClientesConsulta,
     usuario,
     canAccessTotemImpresionPanel
   ])

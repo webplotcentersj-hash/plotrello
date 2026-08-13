@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type {
   ClienteCuentaCorrienteRecord,
@@ -82,6 +83,7 @@ function OrdenFichaBuscar({
 
 const BuscarClientePage = () => {
   const navigate = useNavigate()
+  const { canAccessMostradorViews } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedTerm, setDebouncedTerm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -267,7 +269,7 @@ const BuscarClientePage = () => {
       </div>
 
       <main className="bc-main">
-        {buscando && !clienteSeleccionado && gruposDuplicadosEnBusqueda.length > 0 && (
+        {canAccessMostradorViews && buscando && !clienteSeleccionado && gruposDuplicadosEnBusqueda.length > 0 && (
           <div className="bc-duplicados-busqueda">
             <ClienteDuplicadosPanel
               candidatos={clientesEncontrados}
@@ -318,7 +320,7 @@ const BuscarClientePage = () => {
 
         {clienteSeleccionado && (
           <section className="bc-detalle">
-            {(loadingDuplicados || duplicadosRelacionados.length > 0) && (
+            {canAccessMostradorViews && (loadingDuplicados || duplicadosRelacionados.length > 0) && (
               <div className="bc-duplicados-detalle">
                 {loadingDuplicados ? (
                   <p className="bc-duplicados-loading">Analizando posibles duplicados…</p>
@@ -390,7 +392,7 @@ const BuscarClientePage = () => {
                       <dd>{clienteSeleccionado.direccion}</dd>
                     </div>
                   )}
-                  {clienteSeleccionado.cuentaCorriente && (
+                  {canAccessMostradorViews && clienteSeleccionado.cuentaCorriente && (
                     <>
                       <div>
                         <dt>CC — Razón social</dt>
@@ -433,7 +435,8 @@ const BuscarClientePage = () => {
                 >
                   Ver ficha completa
                 </button>
-                {isClienteCcOperativo(clienteSeleccionado.cuentaCorriente ?? {}) && (
+                {canAccessMostradorViews &&
+                  isClienteCcOperativo(clienteSeleccionado.cuentaCorriente ?? {}) && (
                   <button
                     type="button"
                     className="bc-btn bc-btn--secondary"

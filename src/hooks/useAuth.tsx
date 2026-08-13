@@ -104,6 +104,8 @@ type AuthContextValue = {
   canAccessTotemImpresionPanel: boolean
   canMarcarPagoTotemImpresion: boolean
   canAccessMostradorViews: boolean
+  /** Consulta de clientes (buscar / ficha / frecuentes) para todo el staff interno. */
+  canAccessClientesConsulta: boolean
   canManageWorkPool: boolean
   isWorkPoolOperario: boolean
   canAccessPlotDesign: boolean
@@ -283,6 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isOperarioExternoDiseno = usuarioTieneRol(usuario, 'operario-diseno')
     const isOperarioExternoBolsa = usuarioTieneRol(usuario, 'operario-bolsa')
     const isOperarioExterno = isOperarioExternoDiseno || isOperarioExternoBolsa
+    const canAccessClientesConsulta = !!usuario && !isOperarioExterno
     const isWorkPoolOperario =
       !!usuario &&
       (usuarioTieneAlgunRol(usuario, ['diseno', 'instalaciones', 'metalurgica']) ||
@@ -329,6 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canAccessTotemImpresionPanel,
       canMarcarPagoTotemImpresion,
       canAccessMostradorViews,
+      canAccessClientesConsulta,
       canManageWorkPool,
       isWorkPoolOperario,
       canAccessPlotDesign,

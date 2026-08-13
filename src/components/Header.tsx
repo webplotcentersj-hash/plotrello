@@ -15,6 +15,7 @@ import PwaUpdateButton from './PwaUpdateButton'
 import PwaUpdateModalHost from './PwaUpdateModalHost'
 import TemaToggle from './TemaToggle'
 import { VENTAS } from '../utils/ventasRoutes'
+import { CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
 import './Header.css'
 
 type HeaderProps = {
@@ -84,6 +85,7 @@ const Header = ({
     isPresupuestos,
     canAccessAtencionPublico,
     canAccessMostradorViews,
+    canAccessClientesConsulta,
     isTallerGrafico,
     isTallerImprenta,
     isMetalurgica,
@@ -418,9 +420,18 @@ const Header = ({
                 👥 Recursos Humanos
               </button>
             )}
+            {canAccessClientesConsulta && (
+              <Link
+                to={CLIENTES_DASHBOARD}
+                className="brand-button"
+                onClick={() => setActionsOpen(false)}
+              >
+                👥 Clientes
+              </Link>
+            )}
             {canAccessMostradorViews && onNavigateToClientesWeb && (
               <button className="brand-button" onClick={onNavigateToClientesWeb}>
-                Clientes
+                Portal web
               </button>
             )}
             {canAccessAsesorPresupuestos && onNavigateToAsesorPresupuestos && (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type {
   CcPerfilCliente,
@@ -66,6 +67,7 @@ export default function ClientePerfilPage() {
   const { idCliente: idParam } = useParams<{ idCliente: string }>()
   const idCliente = Number(idParam)
   const navigate = useNavigate()
+  const { canAccessMostradorViews } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -195,7 +197,7 @@ export default function ClientePerfilPage() {
                 {cliente.es_cliente_web ? (
                   <span className="cpf-badge cpf-badge--web">Portal web</span>
                 ) : null}
-                {cuentaCorriente ? (
+                {canAccessMostradorViews && cuentaCorriente ? (
                   <span
                     className={`cpf-badge cpf-badge--cc cpf-badge--cc-${normalizeEstadoCc(cuentaCorriente)}`}
                   >
@@ -221,7 +223,7 @@ export default function ClientePerfilPage() {
               <span className="cpf-stat__val">{pedidos.length}</span>
               <span className="cpf-stat__lbl">Pedidos web</span>
             </div>
-            {saldoCc != null && ccOperativa ? (
+            {canAccessMostradorViews && saldoCc != null && ccOperativa ? (
               <div className="cpf-stat cpf-stat--debt">
                 <span className="cpf-stat__val">{formatMontoArs(Number(saldoCc))}</span>
                 <span className="cpf-stat__lbl">Saldo CC</span>
@@ -237,7 +239,7 @@ export default function ClientePerfilPage() {
             { id: 'datos' as const, label: 'Datos' },
             { id: 'ops' as const, label: `OPs (${ordenes.length})` },
             { id: 'compras' as const, label: `Compras (${ventas.length + pedidos.length})` },
-            ...(cuentaCorriente
+            ...(canAccessMostradorViews && cuentaCorriente
               ? [{ id: 'cuenta' as const, label: 'Cuenta corriente' }]
               : [])
           ]
@@ -423,7 +425,7 @@ export default function ClientePerfilPage() {
           </section>
         )}
 
-        {tab === 'cuenta' && cuentaCorriente && (
+        {canAccessMostradorViews && tab === 'cuenta' && cuentaCorriente && (
           <section className="cpf-section">
             <div className="cpf-section__head">
               <h2>Cuenta corriente</h2>
