@@ -20,6 +20,9 @@ const RecursosHumanosHorasExtraPage = () => {
   const [solicitudes, setSolicitudes] = useState<RrhhSolicitudHe[]>([])
   const [nombres, setNombres] = useState<Map<number, string>>(new Map())
   const [estado, setEstado] = useState<string>('pendiente')
+  const [filtroMes, setFiltroMes] = useState('')
+  const [filtroDia, setFiltroDia] = useState('')
+  const [busqueda, setBusqueda] = useState('')
   const [seleccionada, setSeleccionada] = useState<RrhhSolicitudHe | null>(null)
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [busy, setBusy] = useState(false)
@@ -84,6 +87,26 @@ const RecursosHumanosHorasExtraPage = () => {
     () => solicitudes.filter((s) => s.estado === 'pendiente').length,
     [solicitudes]
   )
+
+  const solicitudesFiltradas = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    return solicitudes.filter((s) => {
+      const fecha = String(s.fecha || '').slice(0, 10)
+      if (filtroDia && fecha !== filtroDia) return false
+      if (!filtroDia && filtroMes && !fecha.startsWith(filtroMes)) return false
+      if (!q) return true
+      const nombre = nombreDe(s).toLowerCase()
+      const tipo = tipoLabel(s.tipo).toLowerCase()
+      const obs = (s.observaciones || '').toLowerCase()
+      return (
+        nombre.includes(q) ||
+        tipo.includes(q) ||
+        obs.includes(q) ||
+        String(s.horas).includes(q) ||
+        fecha.includes(q)
+      )
+    })
+  }, [solicitudes, filtroDia, filtroMes, busqueda, nombres])
 
   const aprobar = async (s: RrhhSolicitudHe) => {
     if (!usuario?.id) return
@@ -170,7 +193,44 @@ const RecursosHumanosHorasExtraPage = () => {
       </header>
 
       <div className="rrhh-permisos-content">
-        <div className="rrhh-filters-section">
+        <div className="rrhh-filters-section rrhh-he-filters">
+          <label>
+            Buscar
+            <input
+              type="search"
+              className="rrhh-date-input rrhh-he-search"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Nombre, texto, HE 50/100…"
+            />
+          </label>
+          <label>
+            Mes
+            <input
+              type="month"
+              className="rrhh-date-input"
+              value={filtroMes}
+              onChange={(e) => {
+                setFiltroMes(e.target.value)
+                if (e.target.value && filtroDia && !filtroDia.startsWith(e.target.value)) {
+                  setFiltroDia('')
+                }
+              }}
+            />
+          </label>
+          <label>
+            Día
+            <input
+              type="date"
+              className="rrhh-date-input"
+              value={filtroDia}
+              onChange={(e) => {
+                const v = e.target.value
+                setFiltroDia(v)
+                if (v) setFiltroMes(v.slice(0, 7))
+              }}
+            />
+          </label>
           <label>
             Estado
             <select
@@ -188,9 +248,13 @@ const RecursosHumanosHorasExtraPage = () => {
         </div>
 
         {error ? <p className="rrhh-he-error">{error}</p> : null}
+        <p className="rrhh-he-count">
+          {solicitudesFiltradas.length} resultado{solicitudesFiltradas.length === 1 ? '' : 's'}
+          {filtroMes || filtroDia || busqueda ? ` · de ${solicitudes.length}` : ''}
+        </p>
 
         <div className="rrhh-solicitudes-list">
-          {solicitudes.map((s) => {
+          {solicitudesFiltradas.map((s) => {
             const sel = seleccionada?.id === s.id
             return (
               <article
@@ -220,7 +284,9 @@ const RecursosHumanosHorasExtraPage = () => {
               </article>
             )
           })}
-          {solicitudes.length === 0 ? <p>No hay declaraciones con este filtro.</p> : null}
+          {solicitudesFiltradas.length === 0 ? (
+            <p className="rrhh-he-empty">No hay declaraciones con este filtro.</p>
+          ) : null}
         </div>
 
         {seleccionada ? (

@@ -3,9 +3,9 @@
   left: max(16px, env(safe-area-inset-left));
   bottom: max(20px, env(safe-area-inset-bottom));
   z-index: 100200;
-  min-width: 132px;
-  height: 58px;
-  padding: 0 16px 0 12px;
+  min-width: 92px;
+  height: 40px;
+  padding: 0 10px 0 8px;
   border: 0;
   border-radius: 999px;
   cursor: pointer;
@@ -39,8 +39,8 @@
 }
 
 .plotai-floating-button.open {
-  min-width: 58px;
-  width: 58px;
+  min-width: 40px;
+  width: 40px;
   padding: 0;
   background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
   box-shadow: 0 10px 28px rgba(185, 28, 28, 0.45);
@@ -96,11 +96,11 @@
 .plotai-fab-core {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .plotai-fab-bot {
-  font-size: 1.35rem;
+  font-size: 1.05rem;
   line-height: 1;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
 }
@@ -114,13 +114,13 @@
 }
 
 .plotai-fab-copy strong {
-  font-size: 0.95rem;
+  font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
 
 .plotai-fab-copy small {
-  font-size: 0.68rem;
+  font-size: 0.58rem;
   font-weight: 600;
   opacity: 0.9;
   text-transform: uppercase;
@@ -128,22 +128,22 @@
 }
 
 .plotai-fab-close {
-  font-size: 1.75rem;
+  font-size: 1.35rem;
   font-weight: 700;
   line-height: 1;
 }
 
 .plotai-fab-badge {
   position: absolute;
-  top: -6px;
+  top: -5px;
   right: -4px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
   border-radius: 999px;
   background: #fbbf24;
   color: #7c2d12;
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
@@ -156,12 +156,12 @@
   .plotai-floating-button {
     left: max(12px, env(safe-area-inset-left));
     bottom: max(14px, env(safe-area-inset-bottom));
-    min-width: 118px;
-    height: 52px;
+    min-width: 84px;
+    height: 36px;
   }
 
   .plotai-floating-button.open {
-    min-width: 52px;
-    width: 52px;
+    min-width: 36px;
+    width: 36px;
   }
 }

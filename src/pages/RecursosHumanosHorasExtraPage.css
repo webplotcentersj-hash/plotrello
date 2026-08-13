@@ -6,6 +6,81 @@
   color: var(--text-muted, #94a3b8);
 }
 
+.rrhh-he-filters {
+  align-items: flex-end;
+}
+
+.rrhh-he-search {
+  min-width: min(100%, 240px);
+}
+
+.rrhh-he-count,
+.rrhh-he-empty {
+  color: #94a3b8;
+  font-size: 0.88rem;
+  margin: 0 0 12px;
+}
+
+.rrhh-he-page .rrhh-solicitud-card {
+  background: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #e2e8f0;
+  box-shadow: none;
+  cursor: pointer;
+  gap: 8px;
+}
+
+.rrhh-he-page .rrhh-solicitud-card:hover,
+.rrhh-he-page .rrhh-solicitud-card.is-selected {
+  border-color: #3b82f6;
+  background: #1e293b;
+}
+
+.rrhh-he-page .rrhh-solicitud-header h3 {
+  color: #f8fafc;
+}
+
+.rrhh-he-page .rrhh-solicitud-card p,
+.rrhh-he-page .rrhh-solicitud-card strong {
+  color: #e2e8f0;
+}
+
+.rrhh-he-page .rrhh-solicitud-descripcion {
+  background: #1e293b;
+  color: #cbd5e1;
+  font-style: normal;
+}
+
+.rrhh-he-page .rrhh-solicitud-sin-adjunto {
+  color: #94a3b8;
+}
+
+.rrhh-he-page .rrhh-estado-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rrhh-he-page .rrhh-estado-badge.pendiente {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.rrhh-he-page .rrhh-estado-badge.aprobado {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.rrhh-he-page .rrhh-estado-badge.rechazado,
+.rrhh-he-page .rrhh-estado-badge.cancelado {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
 .rrhh-he-error {
   color: #fca5a5;
   margin: 0 0 12px;
