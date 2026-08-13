@@ -15,7 +15,7 @@ const LIMITE_LISTA = 2500
 
 const ClientesWebGestionPage = () => {
   const navigate = useNavigate()
-  const { canAccessMostradorViews, loading: authLoading } = useAuth()
+  const { canAccessMostradorViews, loading: authLoading, usuario } = useAuth()
   const [loadingStats, setLoadingStats] = useState(true)
   const [buscando, setBuscando] = useState(false)
   const [stats, setStats] = useState({ total: 0, conPortal: 0, sinPortal: 0 })
@@ -284,6 +284,11 @@ const ClientesWebGestionPage = () => {
       }
     }
 
+    if (!usuario?.id) {
+      alert('Sesión inválida: recargá e intentá de nuevo')
+      return
+    }
+
     try {
       let response
       if (editingCliente) {
@@ -297,7 +302,7 @@ const ClientesWebGestionPage = () => {
             email: formData.email || undefined,
             dni_cuit: formData.dni_cuit || undefined,
             direccion: formData.direccion || undefined
-          })
+          }, usuario.id)
         } else {
           response = await apiService.actualizarClienteDatos(editingCliente.id, {
             nombre: formData.nombre,
@@ -307,7 +312,7 @@ const ClientesWebGestionPage = () => {
             email: formData.email || undefined,
             dni_cuit: formData.dni_cuit || undefined,
             direccion: formData.direccion || undefined
-          })
+          }, usuario.id)
         }
       } else if (crearConAcceso) {
         response = await apiService.crearClienteWeb({
@@ -319,7 +324,8 @@ const ClientesWebGestionPage = () => {
           telefono: formData.telefono,
           email: formData.email,
           dni_cuit: formData.dni_cuit,
-          direccion: formData.direccion
+          direccion: formData.direccion,
+          actorId: usuario.id
         })
       } else {
         response = await apiService.crearClienteSinAcceso({
@@ -329,7 +335,8 @@ const ClientesWebGestionPage = () => {
           telefono: formData.telefono,
           email: formData.email,
           dni_cuit: formData.dni_cuit,
-          direccion: formData.direccion
+          direccion: formData.direccion,
+          actorId: usuario.id
         })
       }
 
@@ -366,10 +373,15 @@ const ClientesWebGestionPage = () => {
       return
     }
     try {
+      if (!usuario?.id) {
+        alert('Sesión inválida: recargá e intentá de nuevo')
+        return
+      }
       const response = await apiService.habilitarAccesoCliente(
         darAccesoCliente.id,
         darAccesoForm.usuario,
-        darAccesoForm.password
+        darAccesoForm.password,
+        usuario.id
       )
       if (response.success) {
         setDarAccesoCliente(null)
@@ -387,7 +399,11 @@ const ClientesWebGestionPage = () => {
   const handleQuitarAcceso = async (cliente: ClienteRecord) => {
     if (!confirm(`¿Quitar acceso al portal a ${cliente.nombre}? El cliente no podrá ingresar pero se conservan sus datos.`)) return
     try {
-      const response = await apiService.quitarAccesoCliente(cliente.id)
+      if (!usuario?.id) {
+        alert('Sesión inválida: recargá e intentá de nuevo')
+        return
+      }
+      const response = await apiService.quitarAccesoCliente(cliente.id, usuario.id)
       if (response.success) {
         await refreshStats()
         await refreshLista()
@@ -400,8 +416,12 @@ const ClientesWebGestionPage = () => {
 
   const handleToggleActivo = async (cliente: ClienteRecord) => {
     if (!cliente.es_cliente_web) return
+    if (!usuario?.id) {
+      alert('Sesión inválida: recargá e intentá de nuevo')
+      return
+    }
     try {
-      const response = await apiService.actualizarClienteWeb(cliente.id, { activo: !cliente.activo })
+      const response = await apiService.actualizarClienteWeb(cliente.id, { activo: !cliente.activo }, usuario.id)
       if (response.success) {
         await refreshStats()
         await refreshLista()

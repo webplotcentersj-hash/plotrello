@@ -7,7 +7,7 @@ import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import './UsuariosPage.css'
 
 const UsuariosPage = () => {
-  const { isAdmin, loading } = useAuth()
+  const { isAdmin, loading, usuario: sesionUsuario } = useAuth()
   const navigate = useNavigate()
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
   const [loadingUsuarios, setLoadingUsuarios] = useState(false)
@@ -90,12 +90,18 @@ const UsuariosPage = () => {
       return
     }
 
+    if (!sesionUsuario?.id) {
+      setError('Sesión inválida: recargá e intentá de nuevo')
+      return
+    }
+
     setCreating(true)
     try {
       const response = await apiService.createUsuario({
         nombre: formData.nombre.trim(),
         password: formData.password,
-        rol: formData.rol
+        rol: formData.rol,
+        actorId: sesionUsuario.id
       })
 
       if (response.success) {
@@ -119,15 +125,19 @@ const UsuariosPage = () => {
     }
   }
 
-  const handleChangeRol = async (usuario: UsuarioRecord, newRol: UserRole) => {
-    if (newRol === usuario.rol) return
+  const handleChangeRol = async (target: UsuarioRecord, newRol: UserRole) => {
+    if (newRol === target.rol) return
+    if (!sesionUsuario?.id) {
+      setError('Sesión inválida: recargá e intentá de nuevo')
+      return
+    }
     setError(null)
     setSuccess(null)
-    setUpdatingRolId(usuario.id)
+    setUpdatingRolId(target.id)
     try {
-      const response = await apiService.updateUsuario(usuario.id, { rol: newRol })
+      const response = await apiService.updateUsuario(target.id, { rol: newRol }, sesionUsuario.id)
       if (response.success) {
-        setSuccess(`Rol de "${nombreVisibleDesdeRecord(usuario)}" actualizado a ${roleOptions.find((r) => r.value === newRol)?.label ?? newRol}`)
+        setSuccess(`Rol de "${nombreVisibleDesdeRecord(target)}" actualizado a ${roleOptions.find((r) => r.value === newRol)?.label ?? newRol}`)
         await loadUsuarios()
       } else {
         setError(response.error || 'Error al actualizar rol')

@@ -11,7 +11,7 @@ import './AgregarClientePage.css'
 
 export default function AgregarClientePage() {
   const navigate = useNavigate()
-  const { canAccessMostradorViews } = useAuth()
+  const { canAccessMostradorViews, usuario } = useAuth()
   const [nombre, setNombre] = useState('')
   const [apellido, setApellido] = useState('')
   const [empresa, setEmpresa] = useState('')
@@ -51,6 +51,11 @@ export default function AgregarClientePage() {
       return
     }
 
+    if (!usuario?.id) {
+      setError('Sesión inválida: recargá e intentá de nuevo')
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
@@ -61,7 +66,8 @@ export default function AgregarClientePage() {
         dni_cuit: dniCuit.trim() || undefined,
         telefono: telefono.trim() || undefined,
         email: email.trim() || undefined,
-        direccion: direccion.trim() || undefined
+        direccion: direccion.trim() || undefined,
+        actorId: usuario.id
       })
       if (!res.success || !res.data) {
         setError(res.error || 'No se pudo crear el cliente')

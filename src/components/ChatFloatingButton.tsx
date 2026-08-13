@@ -248,7 +248,7 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
-      await apiService.markNotificationAsRead(notification.id)
+      await apiService.markNotificationAsRead(notification.id, usuario?.id)
       setNotifications((prev) =>
         prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
       )

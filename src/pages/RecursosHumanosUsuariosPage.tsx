@@ -262,13 +262,19 @@ const RecursosHumanosUsuariosPage = () => {
       return
     }
 
+    if (!usuario?.id) {
+      setFormError('Sesión inválida: recargá e intentá de nuevo')
+      return
+    }
+
     setFormBusy(true)
     setFormError(null)
     try {
       const response = await apiService.createUsuario({
         nombre: formData.nombre,
         password: formData.password,
-        rol: formData.rol
+        rol: formData.rol,
+        actorId: usuario.id
       })
 
       if (response.success) {
@@ -295,6 +301,10 @@ const RecursosHumanosUsuariosPage = () => {
       setFormError('La contraseña debe tener al menos 6 caracteres')
       return
     }
+    if (!usuario?.id) {
+      setFormError('Sesión inválida: recargá e intentá de nuevo')
+      return
+    }
 
     setFormBusy(true)
     setFormError(null)
@@ -312,7 +322,7 @@ const RecursosHumanosUsuariosPage = () => {
         updates.password = formData.password
       }
 
-      const response = await apiService.updateUsuario(selectedUsuario.id, updates)
+      const response = await apiService.updateUsuario(selectedUsuario.id, updates, usuario.id)
 
       if (response.success) {
         setShowEditModal(false)

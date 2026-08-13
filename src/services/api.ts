@@ -5183,7 +5183,8 @@ class ApiService {
       nombre?: string
       rol?: UserRole
       password?: string
-    }
+    },
+    actorId: number
   ): Promise<ApiResponse<UsuarioRecord>> {
     if (supabase) {
       try {
@@ -5191,7 +5192,8 @@ class ApiService {
           p_id: id,
           p_nombre: updates.nombre || null,
           p_rol: updates.rol || null,
-          p_password: updates.password || null
+          p_password: updates.password || null,
+          p_actor_id: actorId
         })
 
         if (error) {
@@ -5241,6 +5243,7 @@ class ApiService {
     nombre: string
     password: string
     rol: UserRole
+    actorId: number
   }): Promise<ApiResponse<UsuarioRecord>> {
     let lastError: string | null = null
 
@@ -5257,7 +5260,8 @@ class ApiService {
       const { data, error } = await supabase.rpc('crear_usuario', {
         p_nombre: usuario.nombre.trim(),
         p_password: usuario.password,
-        p_rol: usuario.rol
+        p_rol: usuario.rol,
+        p_actor_id: usuario.actorId
       })
 
       console.log('🔍 [createUsuario] Respuesta RPC:', { data, error })
@@ -5323,7 +5327,7 @@ class ApiService {
     if (!supabase) return []
     const patron = `*${this.escapeIlikeCliente(token)}*`
     const { data, error } = await supabase
-      .from('clientes')
+      .from('clientes_publico')
       .select('*')
       .or(
         `nombre.ilike.${patron},apellido.ilike.${patron},dni_cuit.ilike.${patron},telefono.ilike.${patron},email.ilike.${patron},empresa.ilike.${patron}`
@@ -5344,9 +5348,9 @@ class ApiService {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
       const [totalRes, portalRes] = await Promise.all([
-        supabase.from('clientes').select('*', { count: 'exact', head: true }),
+        supabase.from('clientes_publico').select('*', { count: 'exact', head: true }),
         supabase
-          .from('clientes')
+          .from('clientes_publico')
           .select('*', { count: 'exact', head: true })
           .eq('es_cliente_web', true)
       ])
@@ -5424,7 +5428,7 @@ class ApiService {
       await import('../utils/buscarClienteMatch')
 
     try {
-      const { data: base, error } = await supabase.from('clientes').select('*').eq('id', idCliente).maybeSingle()
+      const { data: base, error } = await supabase.from('clientes_publico').select('*').eq('id', idCliente).maybeSingle()
       if (error || !base) return { success: false, error: error?.message || 'Cliente no encontrado' }
 
       const cliente = base as ClienteRecord
@@ -5445,7 +5449,7 @@ class ApiService {
       const dni = normalizarDniCuit(cliente.dni_cuit)
       if (dni.length >= 6) {
         const { data } = await supabase
-          .from('clientes')
+          .from('clientes_publico')
           .select('*')
           .ilike('dni_cuit', `%${this.escapeIlikeCliente(dni)}%`)
           .neq('id', idCliente)
@@ -5456,7 +5460,7 @@ class ApiService {
       const tel = normalizarTelefono(cliente.telefono)
       if (tel.length >= 8) {
         const { data } = await supabase
-          .from('clientes')
+          .from('clientes_publico')
           .select('*')
           .ilike('telefono', `%${tel.slice(-8)}%`)
           .neq('id', idCliente)
@@ -5467,7 +5471,7 @@ class ApiService {
       const mail = normalizarTexto(cliente.email)
       if (mail.length >= 5) {
         const { data } = await supabase
-          .from('clientes')
+          .from('clientes_publico')
           .select('*')
           .ilike('email', mail)
           .neq('id', idCliente)
@@ -5481,7 +5485,7 @@ class ApiService {
         const patron = apellido && apellido.length >= 2 ? apellido : nombre.split(' ')[0]
         if (patron && patron.length >= 2) {
           const { data } = await supabase
-            .from('clientes')
+            .from('clientes_publico')
             .select('*')
             .or(`apellido.ilike.%${this.escapeIlikeCliente(patron)}%,nombre.ilike.%${this.escapeIlikeCliente(patron)}%`)
             .neq('id', idCliente)
@@ -5503,7 +5507,7 @@ class ApiService {
   async fusionarClientes(
     idPrincipal: number,
     idSecundario: number,
-    datosFinales?: {
+    datosFinales: {
       nombre?: string
       apellido?: string
       empresa?: string
@@ -5511,7 +5515,8 @@ class ApiService {
       email?: string
       dni_cuit?: string
       direccion?: string
-    }
+    } | undefined,
+    actorId: number
   ): Promise<ApiResponse<ClienteRecord>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     if (idPrincipal === idSecundario) {
@@ -5519,190 +5524,22 @@ class ApiService {
     }
 
     try {
-      const [{ data: principal }, { data: secundario }] = await Promise.all([
-        supabase.from('clientes').select('*').eq('id', idPrincipal).maybeSingle(),
-        supabase.from('clientes').select('*').eq('id', idSecundario).maybeSingle()
-      ])
-
-      if (!principal || !secundario) {
-        return { success: false, error: 'No se encontraron ambos clientes' }
-      }
-
-      const p = principal as ClienteRecord
-      const s = secundario as ClienteRecord
-
-      const [{ data: ccP }, { data: ccS }] = await Promise.all([
-        supabase.from('clientes_cuenta_corriente').select('id').eq('id_cliente', idPrincipal).maybeSingle(),
-        supabase.from('clientes_cuenta_corriente').select('id').eq('id_cliente', idSecundario).maybeSingle()
-      ])
-
-      const tablasIdCliente = [
-        'pedidos_clientes',
-        'presupuestos_clientes',
-        'presupuestos_ventas',
-        'ventas',
-        'oportunidades_venta',
-        'facturas_venta',
-        'citas_asesor_tecnico',
-        'agenda_asesor_tecnico',
-        'briefs_publicos',
-        'briefs_tokens_pendientes',
-        'carritos_clientes',
-        'mensajes_pedidos_clientes',
-        'notificaciones_clientes',
-        'cuentas_por_cobrar',
-        'cc_cuenta_movimientos',
-        'cc_scoring_historial'
-      ] as const
-
-      for (const tabla of tablasIdCliente) {
-        const { error: upErr } = await supabase
-          .from(tabla)
-          .update({ id_cliente: idPrincipal })
-          .eq('id_cliente', idSecundario)
-        if (upErr && !/does not exist|relation|duplicate|unique/i.test(upErr.message)) {
-          console.warn(`fusionarClientes: ${tabla}`, upErr.message)
-        }
-      }
-
-      const { error: atenErr } = await supabase
-        .from('atenciones_mostrador')
-        .update({ cliente_id: idPrincipal })
-        .eq('cliente_id', idSecundario)
-      if (atenErr && !/does not exist|relation/i.test(atenErr.message)) {
-        console.warn('fusionarClientes: atenciones_mostrador', atenErr.message)
-      }
-
-      if (ccP && ccS) {
-        // Movimientos ya reasignados arriba; la ficha CC secundaria se elimina para no chocar el UNIQUE.
-        const { error: delCcErr } = await supabase
-          .from('clientes_cuenta_corriente')
-          .delete()
-          .eq('id_cliente', idSecundario)
-        if (delCcErr) {
-          return {
-            success: false,
-            error:
-              'Ambos tienen cuenta corriente y no se pudo consolidar la secundaria. Revisá CC con administración.'
-          }
-        }
-      } else if (!ccP && ccS) {
-        const { error: ccMoveErr } = await supabase
-          .from('clientes_cuenta_corriente')
-          .update({ id_cliente: idPrincipal })
-          .eq('id_cliente', idSecundario)
-        if (ccMoveErr) {
-          return { success: false, error: ccMoveErr.message }
-        }
-      }
-
-      const mergePayload: Record<string, string | boolean> = { activo: true }
-
-      if (datosFinales) {
-        if (datosFinales.nombre?.trim()) mergePayload.nombre = datosFinales.nombre.trim()
-        if (datosFinales.apellido !== undefined) mergePayload.apellido = datosFinales.apellido.trim()
-        if (datosFinales.empresa !== undefined) mergePayload.empresa = datosFinales.empresa.trim()
-        if (datosFinales.telefono !== undefined) mergePayload.telefono = datosFinales.telefono.trim()
-        if (datosFinales.email !== undefined) mergePayload.email = datosFinales.email.trim()
-        if (datosFinales.dni_cuit !== undefined) mergePayload.dni_cuit = datosFinales.dni_cuit.trim()
-        if (datosFinales.direccion !== undefined) mergePayload.direccion = datosFinales.direccion.trim()
-      } else {
-        const pickMejor = (pv?: string | null, sv?: string | null) => {
-          const a = pv?.trim() || ''
-          const b = sv?.trim() || ''
-          if (!a && b) return b
-          return null
-        }
-        const apellido = pickMejor(p.apellido, s.apellido)
-        if (apellido) mergePayload.apellido = apellido
-        const empresa = pickMejor(p.empresa, s.empresa)
-        if (empresa) mergePayload.empresa = empresa
-        const telefono = pickMejor(p.telefono, s.telefono)
-        if (telefono) mergePayload.telefono = telefono
-        const email = pickMejor(p.email, s.email)
-        if (email) mergePayload.email = email
-        const direccion = pickMejor(p.direccion, s.direccion)
-        if (direccion) mergePayload.direccion = direccion
-
-        const dniP = (p.dni_cuit || '').replace(/\D/g, '')
-        const dniS = (s.dni_cuit || '').replace(/\D/g, '')
-        if ((!dniP && dniS) || (dniS.length > dniP.length && (!dniP || dniS.endsWith(dniP.slice(-8))))) {
-          if (s.dni_cuit?.trim()) mergePayload.dni_cuit = s.dni_cuit.trim()
-        }
-        if (!p.nombre?.trim() && s.nombre?.trim()) mergePayload.nombre = s.nombre.trim()
-      }
-
-      // unique_cliente_nombre: liberar el nombre de la secundaria antes de aplicarlo al principal.
-      const nombreDestino =
-        typeof mergePayload.nombre === 'string' ? mergePayload.nombre.trim() : ''
-      if (nombreDestino) {
-        await supabase
-          .from('clientes')
-          .update({
-            nombre: `__fusionado_${idSecundario}_${Date.now()}`.slice(0, 120),
-            activo: false
-          })
-          .eq('id', idSecundario)
-      }
-
-      const { error: mergeErr } = await supabase
-        .from('clientes')
-        .update(mergePayload)
-        .eq('id', idPrincipal)
-      if (mergeErr) return { success: false, error: mergeErr.message }
-
-      // Alinear OPs históricas del secundario (texto libre) al nombre/contacto del principal.
-      const nombreOp =
-        (typeof mergePayload.nombre === 'string' && mergePayload.nombre) ||
-        p.nombre ||
-        s.nombre ||
-        ''
-      if (nombreOp) {
-        const patchOp: Record<string, string> = { cliente: nombreOp }
-        const tel =
-          (typeof mergePayload.telefono === 'string' && mergePayload.telefono) ||
-          p.telefono ||
-          s.telefono
-        const mail =
-          (typeof mergePayload.email === 'string' && mergePayload.email) || p.email || s.email
-        const dni =
-          (typeof mergePayload.dni_cuit === 'string' && mergePayload.dni_cuit) ||
-          p.dni_cuit ||
-          s.dni_cuit
-        if (tel) patchOp.telefono_cliente = tel
-        if (mail) patchOp.email_cliente = mail
-        if (dni) patchOp.dni_cuit = dni
-
-        const nombreSec = [s.nombre, s.apellido].filter(Boolean).join(' ').trim()
-        if (nombreSec.length >= 3) {
-          await supabase
-            .from('ordenes_trabajo')
-            .update(patchOp)
-            .ilike('cliente', `%${nombreSec.replace(/%/g, '')}%`)
-        }
-        if (s.dni_cuit && String(s.dni_cuit).replace(/\D/g, '').length >= 6) {
-          await supabase
-            .from('ordenes_trabajo')
-            .update(patchOp)
-            .ilike('dni_cuit', `%${String(s.dni_cuit).replace(/\D/g, '')}%`)
-        }
-      }
-
-      // Ya renombramos/desactivamos la secundaria arriba si hacía falta; asegurar activo=false.
-      const { error: offErr } = await supabase
-        .from('clientes')
-        .update({ activo: false })
-        .eq('id', idSecundario)
-      if (offErr) return { success: false, error: offErr.message }
-
-      const { data: actualizado, error: fetchErr } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('id', idPrincipal)
-        .single()
-      if (fetchErr) return { success: false, error: fetchErr.message }
-
-      return { success: true, data: actualizado as ClienteRecord }
+      const { data: fusionRpc, error: fusionErr } = await supabase.rpc('fusionar_clientes', {
+        p_id_principal: idPrincipal,
+        p_id_secundario: idSecundario,
+        p_actor_id: actorId,
+        p_nombre: datosFinales?.nombre ?? null,
+        p_apellido: datosFinales?.apellido ?? null,
+        p_empresa: datosFinales?.empresa ?? null,
+        p_telefono: datosFinales?.telefono ?? null,
+        p_email: datosFinales?.email ?? null,
+        p_dni_cuit: datosFinales?.dni_cuit ?? null,
+        p_direccion: datosFinales?.direccion ?? null
+      })
+      if (fusionErr) return { success: false, error: fusionErr.message }
+      const row = Array.isArray(fusionRpc) ? fusionRpc[0] : fusionRpc
+      if (!row) return { success: false, error: 'No se pudo fusionar' }
+      return { success: true, data: row as ClienteRecord }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al fusionar clientes' }
     }
@@ -5714,7 +5551,7 @@ class ApiService {
   async fusionarGrupoClientes(
     idPrincipal: number,
     idsSecundarios: number[],
-    datosFinales?: {
+    datosFinales: {
       nombre?: string
       apellido?: string
       empresa?: string
@@ -5722,7 +5559,8 @@ class ApiService {
       email?: string
       dni_cuit?: string
       direccion?: string
-    }
+    } | undefined,
+    actorId: number
   ): Promise<ApiResponse<{ principal: ClienteRecord; idsFusionados: number[] }>> {
     const secs = [...new Set(idsSecundarios.filter((id) => id !== idPrincipal))]
     if (secs.length === 0) {
@@ -5733,7 +5571,7 @@ class ApiService {
     const fusionados: number[] = [idPrincipal]
 
     for (const idSec of secs) {
-      const res = await this.fusionarClientes(idPrincipal, idSec, datosFinales)
+      const res = await this.fusionarClientes(idPrincipal, idSec, datosFinales, actorId)
       if (!res.success || !res.data) {
         return {
           success: false,
@@ -9349,12 +9187,11 @@ class ApiService {
 
   async getUserNotifications(userId: number, limit: number = 50): Promise<ApiResponse<Notification[]>> {
     if (supabase) {
-      const { data, error } = await supabase
-        .from('user_notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('timestamp', { ascending: false })
-        .limit(limit)
+      const { data, error } = await supabase.rpc('listar_notificaciones_usuario', {
+        p_user_id: userId,
+        p_limit: limit,
+        p_origen: null
+      })
 
       if (error) return { success: false, error: error.message }
       return { success: true, data: (data as Notification[]) ?? [] }
@@ -9372,13 +9209,11 @@ class ApiService {
     limit: number = 50
   ): Promise<ApiResponse<Notification[]>> {
     if (supabase) {
-      const { data, error } = await supabase
-        .from('user_notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('origen', 'rrhh_masivo')
-        .order('timestamp', { ascending: false })
-        .limit(limit)
+      const { data, error } = await supabase.rpc('listar_notificaciones_usuario', {
+        p_user_id: userId,
+        p_limit: limit,
+        p_origen: 'rrhh_masivo'
+      })
 
       if (error) return { success: false, error: error.message }
       return { success: true, data: (data as Notification[]) ?? [] }
@@ -9391,9 +9226,9 @@ class ApiService {
     user_id: number
     title: string
     description?: string
-    type?: 'info' | 'success' | 'warning' | 'error' | 'mention'
+    type?: 'info' | 'success' | 'warning' | 'error' | 'mention' | string
     /** rrhh_masivo: mismo criterio que enviar_notificacion_masiva (columna origen) */
-    origen?: 'sistema' | 'rrhh_masivo'
+    origen?: 'sistema' | 'rrhh_masivo' | string
     orden_id?: number
     pedido_id?: number
     solicitud_id?: number
@@ -9402,32 +9237,35 @@ class ApiService {
     venta_id?: number
     solicitud_chat_id?: number
     reclamo_id?: number
+    brief_id?: number
+    related_id?: string
+    chat_canal?: string
   }): Promise<ApiResponse<Notification>> {
     if (supabase) {
       const origen = notification.origen ?? 'sistema'
-      const { data, error } = await supabase
-        .from('user_notifications')
-        .insert({
-          user_id: notification.user_id,
-          title: notification.title,
-          description: notification.description || null,
-          type: notification.type || 'info',
-          origen,
-          orden_id: notification.orden_id || null,
-          pedido_id: notification.pedido_id || null,
-          solicitud_id: notification.solicitud_id || null,
-          capacitacion_id: notification.capacitacion_id || null,
-          oportunidad_id: notification.oportunidad_id || null,
-          venta_id: notification.venta_id || null,
-          solicitud_chat_id: notification.solicitud_chat_id || null,
-          reclamo_id: notification.reclamo_id || null,
-          is_read: false
-        })
-        .select()
-        .single()
+      const { data, error } = await supabase.rpc('crear_notificacion_usuario', {
+        p_user_id: notification.user_id,
+        p_title: notification.title,
+        p_description: notification.description || null,
+        p_type: notification.type || 'info',
+        p_origen: origen,
+        p_orden_id: notification.orden_id || null,
+        p_pedido_id: notification.pedido_id || null,
+        p_solicitud_id: notification.solicitud_id || null,
+        p_capacitacion_id: notification.capacitacion_id || null,
+        p_oportunidad_id: notification.oportunidad_id || null,
+        p_venta_id: notification.venta_id || null,
+        p_solicitud_chat_id: notification.solicitud_chat_id || null,
+        p_reclamo_id: notification.reclamo_id || null,
+        p_brief_id: notification.brief_id || null,
+        p_related_id: notification.related_id || null,
+        p_chat_canal: notification.chat_canal || null
+      })
 
       if (error) return { success: false, error: error.message }
-      return { success: true, data: data as Notification }
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row) return { success: false, error: 'No se pudo crear la notificación' }
+      return { success: true, data: row as Notification }
     }
 
     return { success: false, error: 'Supabase no configurado' }
@@ -9578,15 +9416,19 @@ class ApiService {
     }
   }
 
-  async markNotificationAsRead(notificationId: number): Promise<ApiResponse<void>> {
+  async markNotificationAsRead(notificationId: number, userId?: number): Promise<ApiResponse<void>> {
     if (supabase) {
-      const { error } = await supabase
-        .from('user_notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId)
-
+      if (userId == null) {
+        return { success: false, error: 'Falta el usuario para marcar la notificación' }
+      }
+      const { data, error } = await supabase.rpc('marcar_notificacion_leida', {
+        p_id: notificationId,
+        p_user_id: userId
+      })
       if (error) return { success: false, error: error.message }
-      return { success: true }
+      return data === false
+        ? { success: false, error: 'No se pudo marcar la notificación' }
+        : { success: true }
     }
 
     return { success: false, error: 'Supabase no configurado' }
@@ -9638,12 +9480,9 @@ class ApiService {
 
   async markAllNotificationsAsRead(userId: number): Promise<ApiResponse<void>> {
     if (supabase) {
-      const { error } = await supabase
-        .from('user_notifications')
-        .update({ is_read: true })
-        .eq('user_id', userId)
-        .eq('is_read', false)
-
+      const { error } = await supabase.rpc('marcar_todas_notificaciones_leidas', {
+        p_user_id: userId
+      })
       if (error) return { success: false, error: error.message }
       return { success: true }
     }
@@ -10331,36 +10170,30 @@ class ApiService {
     if (!supabase) return
 
     try {
-      // Verificar si ya existe una notificación reciente para este artículo
-      const hace24Horas = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      
-      const { data: notificacionesExistentes } = await supabase
-        .from('user_notifications')
-        .select('id')
-        .eq('type', 'stock_bajo')
-        .eq('related_id', articulo.id.toString())
-        .gte('timestamp', hace24Horas)
-        .limit(1)
-
-      // Si ya hay una notificación reciente, no crear otra
-      if (notificacionesExistentes && notificacionesExistentes.length > 0) {
+      const relatedId = articulo.id.toString()
+      const { data: existeRpc, error: existeErr } = await supabase.rpc('notif_existe_reciente', {
+        p_type: 'stock_bajo',
+        p_related_id: relatedId,
+        p_hours: 24
+      })
+      if (existeErr) {
+        console.warn('notif_existe_reciente:', existeErr.message)
         return
       }
+      if (existeRpc) return
 
-      // Crear notificación para usuarios de compras y admin
       const { data: usuariosCompras } = await supabase.rpc('usuarios_ids_por_roles', {
         p_roles: ['compras', 'administracion', 'gerencia']
       })
 
       if (usuariosCompras) {
         for (const usuario of usuariosCompras) {
-          await supabase.from('user_notifications').insert({
+          await this.createNotification({
             user_id: usuario.id,
             type: 'stock_bajo',
             title: `Stock Bajo: ${articulo.descripcion}`,
             description: `El artículo "${articulo.descripcion}" tiene stock bajo (${stockActual} unidades).`,
-            related_id: articulo.id.toString(),
-            is_read: false
+            related_id: relatedId
           })
         }
       }
@@ -10374,35 +10207,30 @@ class ApiService {
     if (!supabase) return
 
     try {
-      // Verificar si ya existe una notificación reciente
-      const hace24Horas = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      
-      const { data: notificacionesExistentes } = await supabase
-        .from('user_notifications')
-        .select('id')
-        .eq('type', 'stock_agotado')
-        .eq('related_id', articulo.id.toString())
-        .gte('timestamp', hace24Horas)
-        .limit(1)
-
-      if (notificacionesExistentes && notificacionesExistentes.length > 0) {
+      const relatedId = articulo.id.toString()
+      const { data: existeRpc, error: existeErr } = await supabase.rpc('notif_existe_reciente', {
+        p_type: 'stock_agotado',
+        p_related_id: relatedId,
+        p_hours: 24
+      })
+      if (existeErr) {
+        console.warn('notif_existe_reciente:', existeErr.message)
         return
       }
+      if (existeRpc) return
 
-      // Crear notificación para usuarios de compras y admin
       const { data: usuariosCompras } = await supabase.rpc('usuarios_ids_por_roles', {
         p_roles: ['compras', 'administracion', 'gerencia']
       })
 
       if (usuariosCompras) {
         for (const usuario of usuariosCompras) {
-          await supabase.from('user_notifications').insert({
+          await this.createNotification({
             user_id: usuario.id,
             type: 'stock_agotado',
             title: `⚠️ Stock Agotado: ${articulo.descripcion}`,
             description: `El artículo "${articulo.descripcion}" se ha agotado. Se requiere reposición urgente.`,
-            related_id: articulo.id.toString(),
-            is_read: false
+            related_id: relatedId
           })
         }
       }
@@ -14079,7 +13907,7 @@ class ApiService {
         // Obtener el registro completo con todos los campos incluyendo 'activo'
         if (supabase && clienteData.id) {
         const { data: clienteCompleto, error: errorCompleto } = await supabase
-          .from('clientes')
+          .from('clientes_publico')
           .select('*')
           .eq('id', clienteData.id)
           .eq('es_cliente_web', true)
@@ -14125,6 +13953,7 @@ class ApiService {
     email?: string
     dni_cuit?: string
     direccion?: string
+    actorId: number
   }): Promise<ApiResponse<ClienteWebRecord>> {
     if (supabase) {
       try {
@@ -14137,7 +13966,8 @@ class ApiService {
           p_telefono: cliente.telefono || null,
           p_email: cliente.email || null,
           p_dni_cuit: cliente.dni_cuit || null,
-          p_direccion: cliente.direccion || null
+          p_direccion: cliente.direccion || null,
+          p_actor_id: cliente.actorId
         })
 
         if (error) return { success: false, error: error.message }
@@ -14168,13 +13998,15 @@ class ApiService {
       dni_cuit?: string
       direccion?: string
       activo?: boolean
-    }
+    },
+    actorId: number
   ): Promise<ApiResponse<ClienteWebRecord>> {
     if (supabase) {
       try {
         // Construir objeto de parámetros solo con los campos que se proporcionaron
         const params: Record<string, any> = {
-          p_id: id
+          p_id: id,
+          p_actor_id: actorId
         }
         
         if (cliente.password !== undefined) params.p_password = cliente.password || null
@@ -14211,7 +14043,7 @@ class ApiService {
     if (supabase) {
       try {
         const { data, error } = await supabase
-          .from('clientes')
+          .from('clientes_publico')
           .select('*')
           .eq('es_cliente_web', true)
           .order('created_at', { ascending: false })
@@ -14232,7 +14064,7 @@ class ApiService {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     if (!Number.isFinite(id) || id <= 0) return { success: false, error: 'ID inválido' }
     try {
-      const { data, error } = await supabase.from('clientes').select('*').eq('id', id).maybeSingle()
+      const { data, error } = await supabase.from('clientes_publico').select('*').eq('id', id).maybeSingle()
       if (error) return { success: false, error: error.message }
       if (!data) return { success: true, data: null }
       return { success: true, data: data as ClienteRecord }
@@ -14252,7 +14084,7 @@ class ApiService {
     try {
       const limite = Math.min(Math.max(options?.limit ?? 2500, 1), 5000)
       let query = supabase
-        .from('clientes')
+        .from('clientes_publico')
         .select('*')
         .order('nombre', { ascending: true })
         .limit(limite)
@@ -14273,7 +14105,7 @@ class ApiService {
     try {
       const limite = Math.min(Math.max(options?.limit ?? 2500, 1), 5000)
       const { data, error } = await supabase
-        .from('clientes')
+        .from('clientes_publico')
         .select('*')
         .eq('es_cliente_web', false)
         .order('nombre', { ascending: true })
@@ -14296,6 +14128,7 @@ class ApiService {
     email?: string
     dni_cuit?: string
     direccion?: string
+    actorId: number
   }): Promise<ApiResponse<ClienteRecord>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
@@ -14306,12 +14139,13 @@ class ApiService {
         p_telefono: cliente.telefono || null,
         p_email: cliente.email || null,
         p_dni_cuit: cliente.dni_cuit || null,
-        p_direccion: cliente.direccion || null
+        p_direccion: cliente.direccion || null,
+        p_actor_id: cliente.actorId
       })
       if (error) return { success: false, error: error.message }
       if (!data || data.length === 0) return { success: false, error: 'No se pudo crear el cliente' }
       const created = data[0] as { id: number }
-      const { data: full } = await supabase.from('clientes').select('*').eq('id', created.id).single()
+      const { data: full } = await supabase.from('clientes_publico').select('*').eq('id', created.id).single()
       return { success: true, data: full as ClienteRecord }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al crear cliente' }
@@ -14321,17 +14155,23 @@ class ApiService {
   /**
    * Habilitar acceso web a un cliente existente (dar usuario y contraseña)
    */
-  async habilitarAccesoCliente(id: number, usuario: string, password: string): Promise<ApiResponse<ClienteRecord>> {
+  async habilitarAccesoCliente(
+    id: number,
+    usuario: string,
+    password: string,
+    actorId: number
+  ): Promise<ApiResponse<ClienteRecord>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
       const { data, error } = await supabase.rpc('habilitar_acceso_cliente', {
         p_id: id,
         p_usuario: usuario.trim(),
-        p_password: password
+        p_password: password,
+        p_actor_id: actorId
       })
       if (error) return { success: false, error: error.message }
       if (!data || data.length === 0) return { success: false, error: 'No se pudo habilitar acceso' }
-      const { data: full } = await supabase.from('clientes').select('*').eq('id', id).single()
+      const { data: full } = await supabase.from('clientes_publico').select('*').eq('id', id).single()
       return { success: true, data: full as ClienteRecord }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al habilitar acceso' }
@@ -14341,10 +14181,10 @@ class ApiService {
   /**
    * Quitar acceso web a un cliente (sin borrarlo)
    */
-  async quitarAccesoCliente(id: number): Promise<ApiResponse<void>> {
+  async quitarAccesoCliente(id: number, actorId: number): Promise<ApiResponse<void>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { error } = await supabase.rpc('quitar_acceso_cliente', { p_id: id })
+      const { error } = await supabase.rpc('quitar_acceso_cliente', { p_id: id, p_actor_id: actorId })
       if (error) return { success: false, error: error.message }
       return { success: true }
     } catch (e: any) {
@@ -14357,22 +14197,26 @@ class ApiService {
    */
   async actualizarClienteDatos(
     id: number,
-    datos: { nombre?: string; apellido?: string; empresa?: string; telefono?: string; email?: string; dni_cuit?: string; direccion?: string }
+    datos: { nombre?: string; apellido?: string; empresa?: string; telefono?: string; email?: string; dni_cuit?: string; direccion?: string },
+    actorId: number
   ): Promise<ApiResponse<ClienteRecord>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
-      if (datos.nombre !== undefined) payload.nombre = datos.nombre
-      if (datos.apellido !== undefined) payload.apellido = datos.apellido
-      if (datos.empresa !== undefined) payload.empresa = datos.empresa
-      if (datos.telefono !== undefined) payload.telefono = datos.telefono
-      if (datos.email !== undefined) payload.email = datos.email
-      if (datos.dni_cuit !== undefined) payload.dni_cuit = datos.dni_cuit
-      if (datos.direccion !== undefined) payload.direccion = datos.direccion
-      const { error } = await supabase.from('clientes').update(payload).eq('id', id)
+      const { data, error } = await supabase.rpc('actualizar_cliente_ficha', {
+        p_id: id,
+        p_nombre: datos.nombre ?? null,
+        p_apellido: datos.apellido ?? null,
+        p_empresa: datos.empresa ?? null,
+        p_telefono: datos.telefono ?? null,
+        p_email: datos.email ?? null,
+        p_dni_cuit: datos.dni_cuit ?? null,
+        p_direccion: datos.direccion ?? null,
+        p_actor_id: actorId
+      })
       if (error) return { success: false, error: error.message }
-      const { data } = await supabase.from('clientes').select('*').eq('id', id).single()
-      return { success: true, data: data as ClienteRecord }
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row) return { success: false, error: 'No se pudo actualizar el cliente' }
+      return { success: true, data: row as ClienteRecord }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al actualizar cliente' }
     }
@@ -16676,7 +16520,7 @@ class ApiService {
 
       if (dniKeys.length > 0) {
         const { data: clientesRows } = await supabase
-          .from('clientes')
+          .from('clientes_publico')
           .select('id, nombre, apellido, empresa, telefono, email, dni_cuit, activo')
           .not('dni_cuit', 'is', null)
           .or('activo.is.null,activo.eq.true')

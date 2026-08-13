@@ -257,7 +257,8 @@ export async function rrhhPostulacionIngresar(params: {
     const created = await api.createUsuario({
       nombre: loginNombre.trim(),
       password,
-      rol
+      rol,
+      actorId: gestorId
     })
     if (!created.success || !created.data?.id) {
       return { success: false, error: created.error || 'No se pudo crear el usuario' }

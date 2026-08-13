@@ -106,7 +106,7 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
   // Marcar notificación como leída
   const markAsRead = async (notificationId: number) => {
     try {
-      const response = await apiService.markNotificationAsRead(notificationId)
+      const response = await apiService.markNotificationAsRead(notificationId, usuario?.id)
       if (response.success) {
         setNotifications((prev) =>
           prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))

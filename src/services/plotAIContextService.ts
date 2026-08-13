@@ -174,7 +174,7 @@ export async function getCompleteSystemContext(
       
       // Clientes
       supabase
-        .from('clientes')
+        .from('clientes_publico')
         .select('id, activo, es_cliente_web, created_at')
         .then(r => r.data || []),
       

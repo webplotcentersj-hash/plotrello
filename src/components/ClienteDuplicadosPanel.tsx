@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ClienteRecord } from '../types/api'
 import apiService from '../services/api'
+import { useAuth } from '../hooks/useAuth'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
 import {
   CAMPOS_FUSION_CLIENTE,
@@ -84,6 +85,7 @@ function GrupoDuplicadoCard({
   onVerCliente?: (c: ClienteRecord) => void
   onClienteActualizado?: (c: ClienteRecord) => void
 }) {
+  const { usuario } = useAuth()
   const [clientes, setClientes] = useState(grupo.clientes)
   const defaultPrincipal =
     referencia && clientes.some((c) => c.id === referencia.id)
@@ -181,6 +183,10 @@ function GrupoDuplicadoCard({
 
   const guardarEdicion = async () => {
     if (editId == null || !draft) return
+    if (!usuario?.id) {
+      setError('Sesión inválida: recargá e intentá de nuevo')
+      return
+    }
     setGuardando(true)
     setError(null)
     setOkMsg(null)
@@ -193,7 +199,7 @@ function GrupoDuplicadoCard({
         telefono: draft.telefono.trim() || undefined,
         email: draft.email.trim() || undefined,
         direccion: draft.direccion.trim() || undefined
-      })
+      }, usuario.id)
       if (!res.success || !res.data) {
         setError(res.error || 'No se pudo guardar')
         return
@@ -226,6 +232,10 @@ function GrupoDuplicadoCard({
     )
     if (!ok) return
 
+    if (!usuario?.id) {
+      setError('Sesión inválida: recargá e intentá de nuevo')
+      return
+    }
     setFusionando(true)
     setError(null)
     setOkMsg(null)
@@ -233,7 +243,8 @@ function GrupoDuplicadoCard({
       const res = await apiService.fusionarGrupoClientes(
         idPrincipal,
         secundarios.map((s) => s.id),
-        datosFinales
+        datosFinales,
+        usuario.id
       )
       if (!res.success || !res.data) {
         setError(res.error || 'No se pudo unificar')

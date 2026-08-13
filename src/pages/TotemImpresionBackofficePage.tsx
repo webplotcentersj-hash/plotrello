@@ -112,7 +112,7 @@ export default function TotemImpresionBackofficePage() {
         const unread = notifRes.data.filter(
           (n) => !n.is_read && notificationIsTotemImpresionPedido(n)
         )
-        await Promise.all(unread.map((n) => apiService.markNotificationAsRead(n.id)))
+        await Promise.all(unread.map((n) => apiService.markNotificationAsRead(n.id, usuarioId)))
       } catch {
         /* ignore */
       }

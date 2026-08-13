@@ -399,7 +399,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                       }`}
                       onClick={() => {
                         if (n.is_read) return
-                        void apiService.markNotificationAsRead(n.id)
+                        void apiService.markNotificationAsRead(n.id, resolvedId ?? undefined)
                         setNotifs((prev) =>
                           prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x))
                         )
