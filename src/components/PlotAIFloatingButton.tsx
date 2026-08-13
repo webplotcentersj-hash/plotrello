@@ -9,6 +9,25 @@ type PlotAIFloatingButtonProps = {
   hasUnreadMessages?: boolean
 }
 
+const SEEN_ALERTS_KEY = 'plotai-fab-alerts-seen'
+
+function readSeenAlertCount(): number {
+  try {
+    const n = Number(sessionStorage.getItem(SEEN_ALERTS_KEY) || 0)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+function writeSeenAlertCount(n: number) {
+  try {
+    sessionStorage.setItem(SEEN_ALERTS_KEY, String(n))
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 const PlotAIFloatingButton = ({
   onClick,
   isOpen = false,
@@ -16,21 +35,32 @@ const PlotAIFloatingButton = ({
   hasUnreadMessages = false
 }: PlotAIFloatingButtonProps) => {
   const [pulse, setPulse] = useState(false)
-  const showBadge = !isOpen && (alertCount > 0 || hasUnreadMessages)
-  const badgeLabel = alertCount > 99 ? '99+' : alertCount > 0 ? String(alertCount) : '!'
+  const [seenAlertCount, setSeenAlertCount] = useState(readSeenAlertCount)
+  const pendingAlerts = Math.max(0, alertCount - seenAlertCount)
+  const showBadge = !isOpen && (pendingAlerts > 0 || hasUnreadMessages)
+  const badgeLabel = pendingAlerts > 99 ? '99+' : pendingAlerts > 0 ? String(pendingAlerts) : '!'
 
   useEffect(() => {
-    if (isOpen) return
+    if (!isOpen || alertCount <= seenAlertCount) return
+    setSeenAlertCount(alertCount)
+    writeSeenAlertCount(alertCount)
+  }, [isOpen, alertCount, seenAlertCount])
+
+  useEffect(() => {
+    if (isOpen) {
+      setPulse(false)
+      return
+    }
     let timeoutId: ReturnType<typeof setTimeout> | undefined
     const interval = setInterval(() => {
       setPulse(true)
       timeoutId = setTimeout(() => setPulse(false), 700)
-    }, alertCount > 0 ? 2200 : 4500)
+    }, pendingAlerts > 0 ? 2200 : 4500)
     return () => {
       clearInterval(interval)
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [isOpen, alertCount])
+  }, [isOpen, pendingAlerts])
 
   const button = (
     <button
@@ -40,7 +70,7 @@ const PlotAIFloatingButton = ({
         isOpen ? 'open' : '',
         pulse ? 'pulse' : '',
         showBadge ? 'has-alerts' : '',
-        alertCount > 0 ? 'has-critical' : ''
+        pendingAlerts > 0 ? 'has-critical' : ''
       ]
         .filter(Boolean)
         .join(' ')}
@@ -49,8 +79,8 @@ const PlotAIFloatingButton = ({
       title={
         isOpen
           ? 'Cerrar PlotAI'
-          : alertCount > 0
-            ? `PlotAI · ${alertCount} alerta${alertCount === 1 ? '' : 's'} del tablero`
+          : pendingAlerts > 0
+            ? `PlotAI · ${pendingAlerts} alerta${pendingAlerts === 1 ? '' : 's'} del tablero`
             : 'PlotAI · asistente agéntico'
       }
     >
@@ -67,7 +97,7 @@ const PlotAIFloatingButton = ({
             </span>
             <span className="plotai-fab-copy">
               <strong>PlotAI</strong>
-              <small>{alertCount > 0 ? 'Alertas' : 'Agéntico'}</small>
+              <small>{pendingAlerts > 0 ? 'Alertas' : 'Agéntico'}</small>
             </span>
           </>
         )}

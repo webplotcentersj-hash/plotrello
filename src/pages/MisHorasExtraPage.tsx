@@ -2,11 +2,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { RrhhNovedadAdjunto, RrhhSolicitudHe, RrhhSolicitudHeTipo } from '../types/api'
-import { fechaCortaEs } from '../utils/rrhhLiquidacion'
+import type { Asistencia, RrhhNovedadAdjunto, RrhhSolicitudHe, RrhhSolicitudHeTipo } from '../types/api'
+import {
+  calcularHorasExtraDiaDetalle,
+  type HorarioFijoAsistencia
+} from '../utils/asistenciaStats'
+import { asistenciaHoraCorta } from '../utils/dateUtils'
+import { etiquetaPeriodoEs, fechaCortaEs, periodoRango } from '../utils/rrhhLiquidacion'
 import './MisHorasExtraPage.css'
 
 const LOGO_URL = '/plot-lab-logo.png'
+
+function mesActualYm(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
 
 function tipoLabel(tipo: RrhhSolicitudHeTipo) {
   return tipo === 'horas_extra_100' ? '100%' : '50%'
@@ -17,6 +27,11 @@ function estadoLabel(estado: RrhhSolicitudHe['estado']) {
   if (estado === 'rechazado') return 'Rechazada'
   if (estado === 'cancelado') return 'Cancelada'
   return 'Pendiente'
+}
+
+function fmtHs(n: number) {
+  const v = Math.round(n * 100) / 100
+  return Number.isInteger(v) ? String(v) : v.toFixed(2)
 }
 
 export default function MisHorasExtraPage() {
@@ -34,6 +49,10 @@ export default function MisHorasExtraPage() {
   const [okMsg, setOkMsg] = useState<string | null>(null)
   const [historial, setHistorial] = useState<RrhhSolicitudHe[]>([])
   const [histLoading, setHistLoading] = useState(false)
+  const [periodo, setPeriodo] = useState(mesActualYm)
+  const [asistenciaMes, setAsistenciaMes] = useState<Asistencia[]>([])
+  const [horarioMes, setHorarioMes] = useState<HorarioFijoAsistencia | null>(null)
+  const [relojLoading, setRelojLoading] = useState(false)
   const highlightId = Number(searchParams.get('solicitud') || 0) || null
 
   const previews = useMemo(
@@ -60,6 +79,37 @@ export default function MisHorasExtraPage() {
     }
   }, [usuario?.id])
 
+  const loadRelojMes = useCallback(async () => {
+    if (!usuario?.id || !periodo) return
+    setRelojLoading(true)
+    try {
+      const { desde, hasta } = periodoRango(periodo)
+      const [asistRes, horRes] = await Promise.all([
+        apiService.obtenerAsistencia(usuario.id, desde, hasta),
+        apiService.obtenerHorariosFijos(periodo)
+      ])
+      setAsistenciaMes(asistRes.success && asistRes.data ? asistRes.data : [])
+      const h = horRes.success && horRes.data ? horRes.data[usuario.id] : undefined
+      setHorarioMes(
+        h
+          ? {
+              entrada: h.entrada,
+              salida: h.salida,
+              horas: h.horas,
+              trabajaSabado: h.trabajaSabado,
+              sabadoEntrada: h.sabadoEntrada,
+              sabadoSalida: h.sabadoSalida
+            }
+          : null
+      )
+    } catch {
+      setAsistenciaMes([])
+      setHorarioMes(null)
+    } finally {
+      setRelojLoading(false)
+    }
+  }, [usuario?.id, periodo])
+
   useEffect(() => {
     if (authLoading) return
     if (!usuario) {
@@ -68,6 +118,11 @@ export default function MisHorasExtraPage() {
     }
     void loadHistorial()
   }, [authLoading, usuario, navigate, loadHistorial])
+
+  useEffect(() => {
+    if (!usuario?.id || authLoading) return
+    void loadRelojMes()
+  }, [usuario?.id, authLoading, loadRelojMes])
 
   const enviar = async () => {
     if (!usuario?.id) return
@@ -103,6 +158,8 @@ export default function MisHorasExtraPage() {
       setDetalle('')
       setHoras('1')
       setArchivos([])
+      const mesFecha = String(fecha || '').slice(0, 7)
+      if (mesFecha && mesFecha !== periodo) setPeriodo(mesFecha)
       void loadHistorial()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al enviar')
@@ -121,6 +178,74 @@ export default function MisHorasExtraPage() {
     }
     void loadHistorial()
   }
+
+  const historialMes = useMemo(
+    () => historial.filter((s) => String(s.fecha || '').slice(0, 7) === periodo),
+    [historial, periodo]
+  )
+
+  const cuentaAprobadas = useMemo(() => {
+    let extra50 = 0
+    let extra100 = 0
+    let pendientesHs = 0
+    for (const s of historialMes) {
+      if (s.estado === 'pendiente') pendientesHs += s.horas
+      if (s.estado !== 'aprobado') continue
+      if (s.tipo === 'horas_extra_100') extra100 += s.horas
+      else extra50 += s.horas
+    }
+    return {
+      extra50: Math.round(extra50 * 100) / 100,
+      extra100: Math.round(extra100 * 100) / 100,
+      total: Math.round((extra50 + extra100) * 100) / 100,
+      pendientesHs: Math.round(pendientesHs * 100) / 100,
+      cantidad: historialMes.filter((s) => s.estado === 'aprobado').length
+    }
+  }, [historialMes])
+
+  const diasReloj = useMemo(() => {
+    const out: Array<{
+      fecha: string
+      extra50: number
+      extra100: number
+      total: number
+      entrada: string
+      salida: string
+    }> = []
+    for (const a of asistenciaMes) {
+      const f = String(a.fecha || '').slice(0, 10)
+      if (!f.startsWith(periodo)) continue
+      const det = calcularHorasExtraDiaDetalle(a, f, horarioMes, [])
+      if (det.total <= 0) continue
+      out.push({
+        fecha: f,
+        extra50: det.extra50,
+        extra100: det.extra100,
+        total: det.total,
+        entrada: asistenciaHoraCorta(a.hora_entrada) || '—',
+        salida: asistenciaHoraCorta(a.hora_salida) || '—'
+      })
+    }
+    out.sort((a, b) => a.fecha.localeCompare(b.fecha))
+    return out
+  }, [asistenciaMes, horarioMes, periodo])
+
+  const cuentaReloj = useMemo(() => {
+    let extra50 = 0
+    let extra100 = 0
+    for (const d of diasReloj) {
+      extra50 += d.extra50
+      extra100 += d.extra100
+    }
+    return {
+      extra50: Math.round(extra50 * 100) / 100,
+      extra100: Math.round(extra100 * 100) / 100,
+      total: Math.round((extra50 + extra100) * 100) / 100
+    }
+  }, [diasReloj])
+
+  const totalMes = Math.round((cuentaReloj.total + cuentaAprobadas.total) * 100) / 100
+  const anilloPct = Math.max(0, Math.min(100, (cuentaAprobadas.total / Math.max(8, totalMes || 8)) * 100))
 
   if (authLoading || !usuario) {
     return (
@@ -143,6 +268,87 @@ export default function MisHorasExtraPage() {
           </p>
         </div>
       </header>
+
+      <section className="mis-he-card mis-he-resumen">
+        <div className="mis-he-resumen-top">
+          <h2>Cuenta del mes</h2>
+          <label>
+            Mes
+            <input type="month" value={periodo} onChange={(e) => setPeriodo(e.target.value)} />
+          </label>
+        </div>
+        <p className="mis-he-muted mis-he-resumen-lead">
+          {etiquetaPeriodoEs(periodo)} · reloj + declaraciones aprobadas (lo que entra en liquidación)
+        </p>
+        <div className="mis-he-meters">
+          <div className="mis-he-ring" aria-label="Horas extra aprobadas del mes">
+            <svg viewBox="0 0 120 120" className="mis-he-ring-svg">
+              <circle cx="60" cy="60" r="48" className="mis-he-ring-track" />
+              <circle
+                cx="60"
+                cy="60"
+                r="48"
+                className="mis-he-ring-value"
+                strokeDasharray={`${(anilloPct / 100) * 301.6} 301.6`}
+              />
+            </svg>
+            <div className="mis-he-ring-label">
+              <strong>{fmtHs(cuentaAprobadas.total)}</strong>
+              <span>h aprobadas</span>
+            </div>
+          </div>
+          <div className="mis-he-kpis">
+            <div>
+              <span>Reloj</span>
+              <strong>{relojLoading ? '…' : `${fmtHs(cuentaReloj.total)} h`}</strong>
+              <small>
+                50% {fmtHs(cuentaReloj.extra50)} · 100% {fmtHs(cuentaReloj.extra100)}
+              </small>
+            </div>
+            <div>
+              <span>Aprobadas</span>
+              <strong>{fmtHs(cuentaAprobadas.total)} h</strong>
+              <small>
+                {cuentaAprobadas.cantidad} envío{cuentaAprobadas.cantidad === 1 ? '' : 's'} · 50%{' '}
+                {fmtHs(cuentaAprobadas.extra50)} · 100% {fmtHs(cuentaAprobadas.extra100)}
+              </small>
+            </div>
+            <div>
+              <span>Total mes</span>
+              <strong>{fmtHs(totalMes)} h</strong>
+              <small>
+                {cuentaAprobadas.pendientesHs > 0
+                  ? `${fmtHs(cuentaAprobadas.pendientesHs)} h pendientes de RRHH`
+                  : 'sin pendientes'}
+              </small>
+            </div>
+          </div>
+        </div>
+        <div className="mis-he-reloj-dias">
+          <h3>Horas extra del reloj</h3>
+          {relojLoading ? <p className="mis-he-muted">Calculando marcas…</p> : null}
+          {!relojLoading && diasReloj.length === 0 ? (
+            <p className="mis-he-muted">Este mes el reloj no registró extra (entrada/salida vs horario).</p>
+          ) : null}
+          {diasReloj.length > 0 ? (
+            <ul>
+              {diasReloj.map((d) => (
+                <li key={d.fecha}>
+                  <strong>{fechaCortaEs(d.fecha)}</strong>
+                  <span>
+                    {d.entrada} → {d.salida}
+                  </span>
+                  <em>
+                    {fmtHs(d.total)} h
+                    {d.extra50 > 0 ? ` · 50% ${fmtHs(d.extra50)}` : ''}
+                    {d.extra100 > 0 ? ` · 100% ${fmtHs(d.extra100)}` : ''}
+                  </em>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </section>
 
       <section className="mis-he-card">
         <h2>Nueva declaración</h2>
@@ -217,13 +423,13 @@ export default function MisHorasExtraPage() {
       </section>
 
       <section className="mis-he-card">
-        <h2>Mis envíos</h2>
+        <h2>Mis envíos · {etiquetaPeriodoEs(periodo)}</h2>
         {histLoading ? <p className="mis-he-muted">Cargando…</p> : null}
-        {!histLoading && historial.length === 0 ? (
-          <p className="mis-he-muted">Todavía no declaraste horas extra.</p>
+        {!histLoading && historialMes.length === 0 ? (
+          <p className="mis-he-muted">No hay declaraciones en este mes.</p>
         ) : null}
         <ul className="mis-he-list">
-          {historial.map((s) => (
+          {historialMes.map((s) => (
             <li
               key={s.id}
               className={`mis-he-item is-${s.estado}${highlightId === s.id ? ' is-hl' : ''}`}

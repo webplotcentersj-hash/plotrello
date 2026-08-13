@@ -17,6 +17,14 @@ import {
   cobroOpToTaskFields,
   type CobroOpEstado
 } from '../utils/opCobroEstado'
+import {
+  clearOpCreateDraft,
+  formatOpCreateDraftSavedAt,
+  isOpCreateDraftMeaningful,
+  loadOpCreateDraft,
+  saveOpCreateDraft,
+  type OpCreateDraftData
+} from '../utils/opCreateDraft'
 import './TaskEditModal.css'
 
 type TaskCreateModalProps = {
@@ -47,7 +55,8 @@ const TaskCreateModal = ({
   onClose,
   onCreate
 }: TaskCreateModalProps) => {
-  const { nombreVisible, isAdmin, isDiseno } = useAuth()
+  const { usuario, nombreVisible, isAdmin, isDiseno } = useAuth()
+  const draftUserKey = String(usuario?.id || (typeof localStorage !== 'undefined' ? localStorage.getItem('usuario_id') : '') || 'anon')
   const [briefTokenSeleccionado, setBriefTokenSeleccionado] = useState<string | null>(null)
   const [briefMockupUrl, setBriefMockupUrl] = useState<string | null>(null)
   const [briefsPendientes, setBriefsPendientes] = useState<any[]>([])
@@ -126,6 +135,11 @@ const TaskCreateModal = ({
   const clienteElegidoRef = useRef<string | null>(null)
   const attachmentsRef = useRef<LocalAttachment[]>([])
   const [previewAttachment, setPreviewAttachment] = useState<LocalAttachment | null>(null)
+  const [draftReady, setDraftReady] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
+  const [draftSaving, setDraftSaving] = useState(false)
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null)
+  const draftSnapshotRef = useRef<OpCreateDraftData | null>(null)
 
   // No necesitamos sector inicial, se crean automáticamente para cada sector requerido
 
@@ -276,14 +290,69 @@ const TaskCreateModal = ({
     }
   }
 
-  // Cargar brief token desde localStorage si existe
+  // Brief desde otra pantalla, o recuperar borrador local (autosave)
   useEffect(() => {
     const tokenGuardado = localStorage.getItem('brief_token_seleccionado')
     if (tokenGuardado) {
       setBriefTokenSeleccionado(tokenGuardado)
       localStorage.removeItem('brief_token_seleccionado')
-      cargarBriefDesdeToken(tokenGuardado)
+      void cargarBriefDesdeToken(tokenGuardado)
+      setDraftReady(true)
+      return
     }
+    const rec = loadOpCreateDraft(draftUserKey)
+    if (rec?.data) {
+      const d = rec.data
+      setOpNumber(d.opNumber || '')
+      setCliente(d.cliente || '')
+      if (d.cliente.trim()) clienteElegidoRef.current = d.cliente.trim().toLowerCase()
+      setDniCuit(d.dniCuit || '')
+      setTelefonoCliente(d.telefonoCliente || '')
+      setEmailCliente(d.emailCliente || '')
+      setDireccionCliente(d.direccionCliente || '')
+      setUbicacionUrl(d.ubicacionUrl || '')
+      setDriveUrl(d.driveUrl || '')
+      setFechaEntrega(d.fechaEntrega || '')
+      setHoraEstimada(d.horaEstimada || '')
+      setCobroOp(d.cobroOp || 'ninguno')
+      setMontoPagoParcialInput(d.montoPagoParcialInput || '')
+      setSelectedSectores(Array.isArray(d.selectedSectores) ? d.selectedSectores : [])
+      setOperario(d.operario || '')
+      setComplejidad(d.complejidad || 'Media')
+      setPrioridad(d.prioridad || 'Normal')
+      setDescripcion(d.descripcion || '')
+      setBriefPublico(d.briefPublico || '')
+      setObjetivoProyecto(d.objetivoProyecto || '')
+      setPublicoObjetivo(d.publicoObjetivo || '')
+      setEstiloDiseno(d.estiloDiseno || '')
+      setReferencias(d.referencias || '')
+      setDeadlineBrief(d.deadlineBrief || '')
+      setMaterials(Array.isArray(d.materials) ? d.materials : [])
+      setPhotoUrl(d.photoUrl || '')
+      setMetrosCuadrados(d.metrosCuadrados || '')
+      setLineasMetrosM2(Array.isArray(d.lineasMetrosM2) ? d.lineasMetrosM2 : [])
+      setTags(Array.isArray(d.tags) ? d.tags : [])
+      setTagColors(new Map(Object.entries(d.tagColors || {})))
+      setBriefTokenSeleccionado(d.briefTokenSeleccionado)
+      setBriefMockupUrl(d.briefMockupUrl)
+      setPedidoWebSeleccionado(d.pedidoWebSeleccionado)
+      setAttachments(
+        (d.attachments || [])
+          .filter((a) => a.remoteUrl)
+          .map((a) => ({
+            id: a.id || `att-${a.remoteUrl}`,
+            name: a.name,
+            previewUrl: a.remoteUrl,
+            remoteUrl: a.remoteUrl,
+            uploading: false,
+            type: a.type
+          }))
+      )
+      setDraftSavedAt(rec.savedAt)
+      setDraftRestored(true)
+    }
+    setDraftReady(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hidratar una sola vez al abrir
   }, [])
 
   // Cargar briefs pendientes si es diseño gráfico o admin
@@ -442,6 +511,138 @@ const TaskCreateModal = ({
   )
 
   const createBlockedPorFotos = requiereFotosLugar && !tieneFotosLugarListas
+
+  const buildDraftSnapshot = (): OpCreateDraftData => ({
+    opNumber,
+    cliente,
+    dniCuit,
+    telefonoCliente,
+    emailCliente,
+    direccionCliente,
+    ubicacionUrl,
+    driveUrl,
+    fechaEntrega,
+    horaEstimada,
+    cobroOp,
+    montoPagoParcialInput,
+    selectedSectores,
+    operario,
+    complejidad,
+    prioridad,
+    descripcion,
+    briefPublico,
+    objetivoProyecto,
+    publicoObjetivo,
+    estiloDiseno,
+    referencias,
+    deadlineBrief,
+    materials,
+    photoUrl,
+    metrosCuadrados,
+    lineasMetrosM2,
+    tags,
+    tagColors: Object.fromEntries(tagColors),
+    briefTokenSeleccionado,
+    briefMockupUrl,
+    pedidoWebSeleccionado,
+    attachments: attachments
+      .filter((a) => a.remoteUrl && !a.uploading)
+      .map((a) => ({
+        id: a.id,
+        name: a.name,
+        remoteUrl: a.remoteUrl as string,
+        type: a.type
+      }))
+  })
+
+  draftSnapshotRef.current = buildDraftSnapshot()
+
+  const persistDraftNow = () => {
+    const snap = draftSnapshotRef.current || buildDraftSnapshot()
+    if (!isOpCreateDraftMeaningful(snap)) {
+      clearOpCreateDraft(draftUserKey)
+      setDraftSavedAt(null)
+      setDraftSaving(false)
+      return false
+    }
+    const ts = saveOpCreateDraft(draftUserKey, snap)
+    setDraftSavedAt(ts)
+    setDraftSaving(false)
+    return true
+  }
+
+  const handleCloseKeepDraft = () => {
+    persistDraftNow()
+    onClose()
+  }
+
+  const handleSaveDraftAndClose = () => {
+    const ok = persistDraftNow()
+    if (!ok) {
+      alert('No hay datos para guardar como borrador.')
+      return
+    }
+    onClose()
+  }
+
+  const handleDiscardDraft = () => {
+    if (!confirm('¿Descartar el borrador de esta orden? Se pierde lo cargado.')) return
+    clearOpCreateDraft(draftUserKey)
+    setDraftRestored(false)
+    setDraftSavedAt(null)
+    onClose()
+  }
+
+  useEffect(() => {
+    if (!draftReady) return
+    const snap = buildDraftSnapshot()
+    if (!isOpCreateDraftMeaningful(snap)) return
+    setDraftSaving(true)
+    const t = window.setTimeout(() => {
+      const ts = saveOpCreateDraft(draftUserKey, snap)
+      setDraftSavedAt(ts)
+      setDraftSaving(false)
+    }, 800)
+    return () => window.clearTimeout(t)
+    // Campos del formulario: el snapshot se arma en cada render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    draftReady,
+    draftUserKey,
+    opNumber,
+    cliente,
+    dniCuit,
+    telefonoCliente,
+    emailCliente,
+    direccionCliente,
+    ubicacionUrl,
+    driveUrl,
+    fechaEntrega,
+    horaEstimada,
+    cobroOp,
+    montoPagoParcialInput,
+    selectedSectores,
+    operario,
+    complejidad,
+    prioridad,
+    descripcion,
+    briefPublico,
+    objetivoProyecto,
+    publicoObjetivo,
+    estiloDiseno,
+    referencias,
+    deadlineBrief,
+    materials,
+    photoUrl,
+    metrosCuadrados,
+    lineasMetrosM2,
+    tags,
+    tagColors,
+    briefTokenSeleccionado,
+    briefMockupUrl,
+    pedidoWebSeleccionado,
+    attachments
+  ])
 
   const handleImproveDescriptionPlotAI = async () => {
     const hasAny =
@@ -644,6 +845,9 @@ const TaskCreateModal = ({
     }
     
     await onCreate(newTask, { openChecklist })
+    clearOpCreateDraft(draftUserKey)
+    setDraftSavedAt(null)
+    setDraftRestored(false)
     
     // Asociar brief a la OP si hay token
     if (briefTokenSeleccionado && opNumber) {
@@ -1015,10 +1219,10 @@ const TaskCreateModal = ({
     <div
       className="modal-overlay"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) handleCloseKeepDraft()
       }}
       onTouchStart={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) handleCloseKeepDraft()
       }}
     >
       <div
@@ -1037,14 +1241,34 @@ const TaskCreateModal = ({
           void uploadSingleAttachment(named)
         }}
       >
-        <header className="modal-header">
-          <h2>Agregar Nueva Orden</h2>
-          <button type="button" className="modal-close" onClick={onClose}>
+        <header className="modal-header create-modal-header">
+          <div>
+            <h2>Agregar Nueva Orden</h2>
+            <p
+              className={`create-draft-status${draftSaving ? ' is-saving' : ''}`}
+              aria-live="polite"
+            >
+              {draftSaving
+                ? 'Guardando borrador…'
+                : draftSavedAt
+                  ? `Borrador guardado · ${formatOpCreateDraftSavedAt(draftSavedAt)}`
+                  : 'Guardado automático como borrador'}
+            </p>
+          </div>
+          <button type="button" className="modal-close" onClick={handleCloseKeepDraft}>
             ×
           </button>
         </header>
 
         <div className="modal-body">
+          {draftRestored ? (
+            <div className="create-draft-banner">
+              <span>Recuperamos tu borrador. El guardado automático sigue activo.</span>
+              <button type="button" onClick={handleDiscardDraft}>
+                Descartar
+              </button>
+            </div>
+          ) : null}
           <div className="form-row">
             <div className="form-group">
               <label>N° OP</label>
@@ -2261,8 +2485,11 @@ const TaskCreateModal = ({
             onEstadoChange={setCobroOp}
             onMontoChange={setMontoPagoParcialInput}
           />
-          <button type="button" className="btn-cancel" onClick={onClose}>
-            Cancelar
+          <button type="button" className="btn-cancel" onClick={handleCloseKeepDraft}>
+            Cerrar
+          </button>
+          <button type="button" className="btn-draft" onClick={handleSaveDraftAndClose}>
+            Guardar borrador
           </button>
           <div className="footer-actions">
             <button
