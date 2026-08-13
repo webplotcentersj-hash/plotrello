@@ -8,7 +8,7 @@ export type PlotAICreateOpPayload = {
   dni_cuit?: string | null
   op_number?: string | null
   prioridad?: Priority | string | null
-  impacto?: 'baja' | 'media' | 'alta' | string | null
+  impacto?: Task['impact'] | string | null
   columna?: TaskStatus | string | null
   fecha_entrega?: string | null
   observaciones?: string | null
@@ -243,10 +243,10 @@ export function normalizePriority(value?: string | null): Priority {
   return 'media'
 }
 
-export function normalizeImpact(value?: string | null): 'baja' | 'media' | 'alta' {
+export function normalizeImpact(value?: string | null): Task['impact'] {
   const v = (value || 'media').toLowerCase()
   if (v.includes('alt')) return 'alta'
-  if (v.includes('baj')) return 'baja'
+  if (v.includes('baj') || v === 'low') return 'low'
   return 'media'
 }
 

@@ -1659,7 +1659,10 @@ const PlotAIChat = ({
 
           <section className="plotai-chat-stream">
             <div className="plotai-messages">
-              {messages.map((message) => (
+              {messages.map((message) => {
+                const pending = message.pendingAction
+                const action = pending?.action
+                return (
                 <div key={message.id} className={`plotai-message ${message.role}`}>
                   <div className="message-avatar">
                     {message.role === 'user' ? '👤' : '🤖'}
@@ -1667,105 +1670,99 @@ const PlotAIChat = ({
                   <div className="message-content">
                     <div className="message-text">{message.content}</div>
 
-                    {message.pendingAction ? (
+                    {pending && action ? (
                       <div
-                        className={`plotai-action-card plotai-action-card--${message.pendingAction.status}`}
+                        className={`plotai-action-card plotai-action-card--${pending.status}`}
                       >
                         <div className="plotai-action-card-title">
-                          {message.pendingAction.action.type === 'create_op'
+                          {action.type === 'create_op'
                             ? '📋 Confirmar creación de OP'
-                            : message.pendingAction.action.type === 'create_venta'
+                            : action.type === 'create_venta'
                               ? '💵 Confirmar venta'
-                              : message.pendingAction.action.type === 'move_op'
+                              : action.type === 'move_op'
                                 ? '🔀 Confirmar mover / asignar OP'
-                                : message.pendingAction.action.type === 'draft_presupuesto'
+                                : action.type === 'draft_presupuesto'
                                   ? '📝 Confirmar borrador de presupuesto'
                                   : '💬 Confirmar aviso WhatsApp'}
                         </div>
                         <p className="plotai-action-card-hint">
                           Nada se ejecuta solo: solo corre si confirmás.
                         </p>
-                        {message.pendingAction.action.type === 'create_op' ? (
+                        {action.type === 'create_op' ? (
                           <ul className="plotai-action-card-fields">
                             <li>
-                              <strong>Cliente:</strong> {message.pendingAction.action.cliente}
+                              <strong>Cliente:</strong> {action.cliente}
                             </li>
                             <li>
-                              <strong>Trabajo:</strong> {message.pendingAction.action.descripcion}
+                              <strong>Trabajo:</strong> {action.descripcion}
                             </li>
-                            {message.pendingAction.action.dni_cuit ? (
+                            {action.dni_cuit ? (
                               <li>
-                                <strong>DNI/CUIT:</strong> {message.pendingAction.action.dni_cuit}
+                                <strong>DNI/CUIT:</strong> {action.dni_cuit}
                               </li>
                             ) : null}
                             <li>
-                              <strong>Prioridad:</strong>{' '}
-                              {normalizePriority(message.pendingAction.action.prioridad)}
+                              <strong>Prioridad:</strong> {normalizePriority(action.prioridad)}
                             </li>
                             <li>
                               <strong>Columna:</strong>{' '}
-                              {BOARD_COLUMNS.find(
-                                (c) => c.id === normalizeColumn(message.pendingAction.action.columna)
-                              )?.label || 'Diseño Gráfico'}
+                              {BOARD_COLUMNS.find((c) => c.id === normalizeColumn(action.columna))
+                                ?.label || 'Diseño Gráfico'}
                             </li>
                           </ul>
-                        ) : message.pendingAction.action.type === 'create_venta' ? (
+                        ) : action.type === 'create_venta' ? (
                           <ul className="plotai-action-card-fields">
                             <li>
-                              <strong>Cliente:</strong> {message.pendingAction.action.cliente}
+                              <strong>Cliente:</strong> {action.cliente}
                             </li>
                             <li>
-                              <strong>Monto:</strong> $
-                              {message.pendingAction.action.monto.toLocaleString('es-AR')}
+                              <strong>Monto:</strong> ${action.monto.toLocaleString('es-AR')}
                             </li>
                             <li>
-                              <strong>Pago:</strong>{' '}
-                              {normalizeMetodoPago(message.pendingAction.action.metodo_pago)} ·{' '}
-                              {normalizeEstadoPago(message.pendingAction.action.estado_pago)}
+                              <strong>Pago:</strong> {normalizeMetodoPago(action.metodo_pago)} ·{' '}
+                              {normalizeEstadoPago(action.estado_pago)}
                             </li>
-                            {message.pendingAction.action.observaciones ? (
+                            {action.observaciones ? (
                               <li>
-                                <strong>Obs:</strong> {message.pendingAction.action.observaciones}
+                                <strong>Obs:</strong> {action.observaciones}
                               </li>
                             ) : null}
                           </ul>
-                        ) : message.pendingAction.action.type === 'move_op' ? (
+                        ) : action.type === 'move_op' ? (
                           <ul className="plotai-action-card-fields">
                             <li>
-                              <strong>OP:</strong> {message.pendingAction.action.op_number}
+                              <strong>OP:</strong> {action.op_number}
                             </li>
-                            {message.pendingAction.action.columna ? (
+                            {action.columna ? (
                               <li>
                                 <strong>Columna:</strong>{' '}
                                 {BOARD_COLUMNS.find(
-                                  (c) =>
-                                    c.id === normalizeColumn(message.pendingAction!.action.type === 'move_op' ? message.pendingAction!.action.columna : null)
-                                )?.label || message.pendingAction.action.columna}
+                                  (c) => c.id === normalizeColumn(action.columna)
+                                )?.label || action.columna}
                               </li>
                             ) : null}
-                            {message.pendingAction.action.responsable ? (
+                            {action.responsable ? (
                               <li>
-                                <strong>Responsable:</strong>{' '}
-                                {message.pendingAction.action.responsable}
+                                <strong>Responsable:</strong> {action.responsable}
                               </li>
                             ) : null}
-                            {message.pendingAction.action.nota ? (
+                            {action.nota ? (
                               <li>
-                                <strong>Nota:</strong> {message.pendingAction.action.nota}
+                                <strong>Nota:</strong> {action.nota}
                               </li>
                             ) : null}
                           </ul>
-                        ) : message.pendingAction.action.type === 'draft_presupuesto' ? (
+                        ) : action.type === 'draft_presupuesto' ? (
                           <ul className="plotai-action-card-fields">
                             <li>
-                              <strong>Cliente:</strong> {message.pendingAction.action.cliente}
+                              <strong>Cliente:</strong> {action.cliente}
                             </li>
-                            {message.pendingAction.action.precios_pendientes ? (
+                            {action.precios_pendientes ? (
                               <li>
                                 <strong>Precios:</strong> pendientes (no inventados)
                               </li>
                             ) : null}
-                            {message.pendingAction.action.items.map((it, idx) => (
+                            {action.items.map((it, idx) => (
                               <li key={`${it.descripcion}-${idx}`}>
                                 <strong>Ítem:</strong> {it.cantidad} × {it.descripcion}
                                 {it.precio_unitario > 0
@@ -1776,25 +1773,25 @@ const PlotAIChat = ({
                           </ul>
                         ) : (
                           <ul className="plotai-action-card-fields">
-                            {message.pendingAction.action.op_number ? (
+                            {action.op_number ? (
                               <li>
-                                <strong>OP:</strong> {message.pendingAction.action.op_number}
+                                <strong>OP:</strong> {action.op_number}
                               </li>
                             ) : null}
-                            {message.pendingAction.action.cliente ? (
+                            {action.cliente ? (
                               <li>
-                                <strong>Cliente:</strong> {message.pendingAction.action.cliente}
+                                <strong>Cliente:</strong> {action.cliente}
                               </li>
                             ) : null}
                             <li>
-                              <strong>Mensaje:</strong> {message.pendingAction.action.mensaje}
+                              <strong>Mensaje:</strong> {action.mensaje}
                             </li>
                             <li>
                               <em>Al confirmar se abre WhatsApp; el envío lo hacés vos.</em>
                             </li>
                           </ul>
                         )}
-                        {message.pendingAction.status === 'pending' ? (
+                        {pending.status === 'pending' ? (
                           <div className="plotai-action-card-actions">
                             <button
                               type="button"
@@ -1802,9 +1799,7 @@ const PlotAIChat = ({
                               disabled={isLoading}
                               onClick={() => void handleConfirmPendingAction(message.id)}
                             >
-                              {message.pendingAction.action.type === 'whatsapp_aviso'
-                                ? 'Abrir WhatsApp'
-                                : 'Confirmar'}
+                              {action.type === 'whatsapp_aviso' ? 'Abrir WhatsApp' : 'Confirmar'}
                             </button>
                             <button
                               type="button"
@@ -1817,7 +1812,7 @@ const PlotAIChat = ({
                           </div>
                         ) : (
                           <p className="plotai-action-card-result">
-                            {message.pendingAction.resultMessage || message.pendingAction.status}
+                            {pending.resultMessage || pending.status}
                           </p>
                         )}
                       </div>
@@ -1907,7 +1902,8 @@ const PlotAIChat = ({
                     </div>
                   </div>
                 </div>
-              ))}
+                )
+              })}
               {isLoading && (
                 <div className="plotai-message assistant">
                   <div className="message-avatar">🤖</div>
