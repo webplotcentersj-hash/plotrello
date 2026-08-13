@@ -1809,6 +1809,31 @@ export interface RrhhVacacionesAjuste {
   created_at: string
 }
 
+/** Marcador en observaciones de novedad HE creada al aprobar una declaración. */
+export const HE_DECLARADA_MARKER = '[HE declarada]'
+
+export type RrhhSolicitudHeTipo = 'horas_extra_50' | 'horas_extra_100'
+export type RrhhSolicitudHeEstado = 'pendiente' | 'aprobado' | 'rechazado' | 'cancelado'
+
+export interface RrhhSolicitudHe {
+  id: number
+  id_usuario: number
+  nombre_usuario?: string | null
+  fecha: string
+  tipo: RrhhSolicitudHeTipo
+  horas: number
+  observaciones: string
+  adjuntos: RrhhNovedadAdjunto[]
+  estado: RrhhSolicitudHeEstado
+  motivo_rechazo: string | null
+  aprobado_por: number | null
+  aprobado_por_nombre?: string | null
+  aprobado_at: string | null
+  id_novedad: number | null
+  created_at: string
+  updated_at: string
+}
+
 export interface SolicitudPermiso {
   id: number
   id_usuario: number

@@ -2,9 +2,27 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import type { Task, TeamMember, ActivityEvent, TaskStatus, Priority } from '../types/board'
 import { generateContent, getSystemContext } from '../services/plotAIService'
 import { generateImage, generateVideo, detectGenerationIntent, type GenerationResult } from '../services/plotAIGenerationService'
-import { buildAgenticContext } from '../utils/agentInsights'
+import {
+  buildWhatsappAvisoHref,
+  detectCreateIntent,
+  findTaskByOpRef,
+  intentLabel,
+  normalizeColumn,
+  normalizeEstadoPago,
+  normalizeImpact,
+  normalizeMetodoPago,
+  normalizePriority,
+  parsePlotAIActionBlock,
+  resolveTeamMemberId,
+  stripPlotAIActionBlock,
+  type PlotAICreateAction,
+  type PlotAIPendingAction
+} from '../services/plotAICreateActions'
+import { buildAgenticContext, buildPlotAIOpeningBrief } from '../utils/agentInsights'
 import { BOARD_COLUMNS } from '../data/mockData'
 import { useAuth } from '../hooks/useAuth'
+import apiService from '../services/api'
+import { parseTaskIdToOrdenId } from '../utils/dataMappers'
 import './PlotAIChat.css'
 
 type PlotAIChatProps = {
@@ -13,6 +31,8 @@ type PlotAIChatProps = {
   teamMembers: TeamMember[]
   onClose: () => void
   onCreateTask?: (newTask: Omit<Task, 'id'>, options?: { openChecklist?: boolean }) => Promise<void>
+  onMoveTask?: (taskId: string, destination: TaskStatus, sourceColumn?: TaskStatus) => Promise<void> | void
+  onAssignTaskOwner?: (taskId: string, ownerId: string, ownerName: string) => Promise<void> | void
 }
 
 type SpeechRecognitionResultEventLike = {
@@ -49,6 +69,7 @@ type Message = {
     dataUrl?: string
     prompt: string
   }
+  pendingAction?: PlotAIPendingAction
 }
 
 const stripEmailDomain = (value?: string | null) => {
@@ -59,14 +80,23 @@ const stripEmailDomain = (value?: string | null) => {
   return atIndex > 0 ? trimmed.slice(0, atIndex) : trimmed
 }
 
-const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: PlotAIChatProps) => {
+const PlotAIChat = ({
+  tasks,
+  activity,
+  teamMembers,
+  onClose,
+  onCreateTask,
+  onMoveTask,
+  onAssignTaskOwner
+}: PlotAIChatProps) => {
   const { usuario } = useAuth()
-  const [messages, setMessages] = useState<Message[]>([
+  const agenticContext = useMemo(() => buildAgenticContext(tasks, activity, teamMembers), [tasks, activity, teamMembers])
+  const openingName = stripEmailDomain(usuario?.nombre) || usuario?.nombre || undefined
+  const [messages, setMessages] = useState<Message[]>(() => [
     {
       id: '1',
       role: 'assistant',
-      content:
-        '¡Hola! Soy PlotAI.\n\nHablemos: contame qué necesitás y te ayudo.\n\n- Podés **dictar** con 🎙️, **adjuntar** fotos/PDFs 📎 y (si querés) activar que te **responda con voz** 🔊.\n- Si querés, también puedo **generar imágenes** ("haceme una imagen de…") y **videos** ("haceme un video de…").\n\n¿En qué te doy una mano ahora?',
+      content: buildPlotAIOpeningBrief(buildAgenticContext(tasks, activity, teamMembers), openingName),
       timestamp: new Date()
     }
   ])
@@ -77,7 +107,6 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
-  const agenticContext = useMemo(() => buildAgenticContext(tasks, activity, teamMembers), [tasks, activity, teamMembers])
   const [isMicSupported, setIsMicSupported] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
@@ -140,6 +169,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         // Eliminar bloques de código completamente
         .replace(/```[\s\S]*?```/g, '')
         .replace(/`[^`]+`/g, '')
+        .replace(/<<<PLOTAI_ACTION[\s\S]*?>>>/gi, '')
         
         // Convertir emojis comunes a palabras
         .replace(/✅/g, 'listo')
@@ -522,6 +552,226 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
           ? (value as Task['impact'])
           : value
     }))
+  }
+
+  const createOpFromAction = async (action: Extract<PlotAICreateAction, { type: 'create_op' }>) => {
+    if (!onCreateTask) throw new Error('La creación de OP no está disponible en esta vista.')
+    const status = normalizeColumn(action.columna)
+    const selectedColumn = BOARD_COLUMNS.find((col) => col.id === status)
+    const creatorName = stripEmailDomain(usuario?.nombre) ?? usuario?.nombre ?? 'Usuario'
+    const due = action.fecha_entrega
+      ? new Date(action.fecha_entrega).toISOString()
+      : new Date().toISOString()
+    const summary = action.observaciones
+      ? `${action.descripcion.trim()}\n\nObs: ${action.observaciones.trim()}`
+      : action.descripcion.trim()
+    const newTask: Omit<Task, 'id'> = {
+      opNumber: (action.op_number || '').trim() || `OP-${Date.now().toString().slice(-5)}`,
+      title: action.cliente.trim(),
+      dniCuit: action.dni_cuit?.trim() || undefined,
+      summary,
+      status,
+      priority: normalizePriority(action.prioridad),
+      ownerId: teamMembers[0]?.id || '',
+      createdBy: creatorName,
+      tags: ['plotai'],
+      materials: [],
+      assignedSector: selectedColumn?.label ?? 'Sin sector',
+      photoUrl: '',
+      storyPoints: 0,
+      progress: 0,
+      createdAt: new Date().toISOString(),
+      dueDate: Number.isNaN(new Date(due).getTime()) ? new Date().toISOString() : due,
+      updatedAt: new Date().toISOString(),
+      impact: normalizeImpact(action.impacto)
+    }
+    await onCreateTask(newTask, { openChecklist: false })
+    return `OP ${newTask.opNumber} creada · ${newTask.title}`
+  }
+
+  const createVentaFromAction = async (action: Extract<PlotAICreateAction, { type: 'create_venta' }>) => {
+    if (!usuario?.id) throw new Error('Tenés que estar logueado para registrar una venta.')
+    const nombreVendedor = stripEmailDomain(usuario.nombre) || usuario.nombre || 'Vendedor'
+    const res = await apiService.crearVentaDirecta({
+      cliente_nombre: action.cliente.trim(),
+      cliente_dni_cuit: action.dni_cuit?.trim() || undefined,
+      cliente_telefono: action.telefono?.trim() || undefined,
+      cliente_email: action.email?.trim() || undefined,
+      valor_total: action.monto,
+      metodo_pago: normalizeMetodoPago(action.metodo_pago),
+      estado_pago: normalizeEstadoPago(action.estado_pago),
+      id_vendedor: usuario.id,
+      nombre_vendedor: nombreVendedor,
+      observaciones: action.observaciones?.trim()
+        ? `[PlotAI] ${action.observaciones.trim()}`
+        : '[PlotAI] Venta creada por chat/voz'
+    })
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'No se pudo crear la venta')
+    }
+    return `Venta ${res.data.numero_venta} · ${action.cliente} · $${action.monto.toLocaleString('es-AR')}`
+  }
+
+  const moveOpFromAction = async (action: Extract<PlotAICreateAction, { type: 'move_op' }>) => {
+    const task = findTaskByOpRef(tasks, action.op_number, action.task_id)
+    if (!task) throw new Error(`No encontré la OP ${action.op_number} en el tablero cargado.`)
+
+    const parts: string[] = []
+    if (action.columna) {
+      if (!onMoveTask) throw new Error('Mover OP no está disponible en esta vista.')
+      const dest = normalizeColumn(action.columna)
+      if (dest !== task.status) {
+        await onMoveTask(task.id, dest, task.status)
+        const label = BOARD_COLUMNS.find((c) => c.id === dest)?.label || dest
+        parts.push(`movida a ${label}`)
+      }
+    }
+
+    if (action.responsable || action.responsable_id) {
+      const member = resolveTeamMemberId(teamMembers, action.responsable, action.responsable_id)
+      if (!member) throw new Error(`No encontré al responsable "${action.responsable || action.responsable_id}".`)
+      if (onAssignTaskOwner) {
+        await onAssignTaskOwner(task.id, member.id, member.name)
+      } else {
+        const ordenId = parseTaskIdToOrdenId(task.id)
+        if (!ordenId) throw new Error('No se pudo actualizar el responsable en la base.')
+        const res = await apiService.updateOrden(ordenId, { operario_asignado: member.id })
+        if (!res.success) throw new Error(res.error || 'No se pudo asignar responsable')
+      }
+      parts.push(`asignada a ${member.name}`)
+    }
+
+    if (parts.length === 0) throw new Error('No hay cambios para aplicar (misma columna / mismo responsable).')
+    return `OP ${task.opNumber}: ${parts.join(' · ')}`
+  }
+
+  const draftPresupuestoFromAction = async (
+    action: Extract<PlotAICreateAction, { type: 'draft_presupuesto' }>
+  ) => {
+    if (!usuario?.id) throw new Error('Tenés que estar logueado para crear un presupuesto.')
+    const nombreVendedor = stripEmailDomain(usuario.nombre) || usuario.nombre || 'Vendedor'
+    const items = action.items.map((it) => {
+      const precio = it.precio_unitario > 0 ? it.precio_unitario : 0
+      const total = Math.round(precio * it.cantidad * 100) / 100
+      return {
+        descripcion: it.descripcion,
+        cantidad: it.cantidad,
+        precio_unitario: precio,
+        precio_total: total,
+        observaciones: precio <= 0 ? 'Precio pendiente de completar' : undefined
+      }
+    })
+    const obsInternas = [
+      '[PlotAI] Borrador — requiere revisión humana.',
+      action.precios_pendientes || items.every((i) => i.precio_unitario <= 0)
+        ? 'Precios en 0 / pendientes: no inventados.'
+        : null,
+      action.observaciones?.trim() || null
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    const res = await apiService.crearPresupuestoVenta({
+      cliente_nombre: action.cliente.trim(),
+      cliente_telefono: action.telefono?.trim() || undefined,
+      cliente_email: action.email?.trim() || undefined,
+      cliente_dni_cuit: action.dni_cuit?.trim() || undefined,
+      id_vendedor: usuario.id,
+      nombre_vendedor: nombreVendedor,
+      items,
+      estado: 'borrador',
+      observaciones_internas: obsInternas,
+      observaciones_cliente: action.observaciones?.trim() || undefined
+    })
+    if (!res.success || !res.data) {
+      throw new Error(res.error || 'No se pudo crear el borrador de presupuesto')
+    }
+    const num = (res.data as { numero_presupuesto?: string }).numero_presupuesto || `#${res.data.id}`
+    return `Presupuesto borrador ${num} · ${action.cliente}${
+      action.precios_pendientes ? ' · precios a completar' : ''
+    }`
+  }
+
+  const whatsappAvisoFromAction = async (
+    action: Extract<PlotAICreateAction, { type: 'whatsapp_aviso' }>
+  ) => {
+    const task = findTaskByOpRef(tasks, action.op_number, action.task_id)
+    const href = buildWhatsappAvisoHref(action, task)
+    if (!href) {
+      throw new Error(
+        'Falta teléfono/WhatsApp del cliente. Indicá un número o una OP con teléfono cargado.'
+      )
+    }
+    window.open(href, '_blank', 'noopener,noreferrer')
+    return 'WhatsApp abierto — revisá el texto y enviá vos el mensaje (no se envió solo).'
+  }
+
+  const handleConfirmPendingAction = async (messageId: string) => {
+    const msg = messages.find((m) => m.id === messageId)
+    const pending = msg?.pendingAction
+    if (!pending || pending.status !== 'pending') return
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId && m.pendingAction
+          ? { ...m, pendingAction: { ...m.pendingAction, resultMessage: 'Ejecutando…' } }
+          : m
+      )
+    )
+
+    try {
+      const action = pending.action
+      let resultMessage = ''
+      if (action.type === 'create_op') resultMessage = await createOpFromAction(action)
+      else if (action.type === 'create_venta') resultMessage = await createVentaFromAction(action)
+      else if (action.type === 'move_op') resultMessage = await moveOpFromAction(action)
+      else if (action.type === 'draft_presupuesto') resultMessage = await draftPresupuestoFromAction(action)
+      else if (action.type === 'whatsapp_aviso') resultMessage = await whatsappAvisoFromAction(action)
+      else throw new Error('Acción no soportada')
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId && m.pendingAction
+            ? {
+                ...m,
+                pendingAction: { ...m.pendingAction, status: 'done', resultMessage: `✅ ${resultMessage}` }
+              }
+            : m
+        )
+      )
+    } catch (error) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId && m.pendingAction
+            ? {
+                ...m,
+                pendingAction: {
+                  ...m.pendingAction,
+                  status: 'error',
+                  resultMessage: error instanceof Error ? error.message : 'Error al ejecutar'
+                }
+              }
+            : m
+        )
+      )
+    }
+  }
+
+  const handleCancelPendingAction = (messageId: string) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId && m.pendingAction
+          ? {
+              ...m,
+              pendingAction: {
+                ...m.pendingAction,
+                status: 'cancelled',
+                resultMessage: 'Cancelado'
+              }
+            }
+          : m
+      )
+    )
   }
 
   const handleQuickOpSubmit = async (event?: React.FormEvent) => {
@@ -1070,7 +1320,12 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         .map((msg) => `${msg.role === 'user' ? 'Usuario' : 'PlotAI'}: ${msg.content}`)
         .join('\n\n')
 
-      const userPrompt = `PREGUNTA DEL USUARIO:\n${userMessage.content}`
+      const createIntent = detectCreateIntent(userMessage.content)
+      const userPrompt = createIntent
+        ? `PREGUNTA DEL USUARIO:\n${userMessage.content}\n\nNOTA SISTEMA: El usuario quiere ${intentLabel(
+            createIntent
+          )}. NUNCA digas que ya lo hiciste. Si ya tenés los datos mínimos, emití el bloque <<<PLOTAI_ACTION ... >>> al final para que el usuario CONFIRME. Si faltan, preguntá solo lo que falta. Para WhatsApp: solo se abrirá el chat; el usuario envía.`
+        : `PREGUNTA DEL USUARIO:\n${userMessage.content}`
 
       // Obtener nombre del usuario
       const nombreUsuario = usuario?.nombre || stripEmailDomain(usuario?.nombre) || undefined
@@ -1091,11 +1346,22 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
         userName: nombreUsuario // Pasar nombre del usuario
       })
 
+      const parsedAction = parsePlotAIActionBlock(response)
+      const displayContent = stripPlotAIActionBlock(response) || response
+      const pendingAction: PlotAIPendingAction | undefined = parsedAction
+        ? {
+            id: `action-${Date.now()}`,
+            action: parsedAction,
+            status: 'pending'
+          }
+        : undefined
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response,
-        timestamp: new Date()
+        content: displayContent,
+        timestamp: new Date(),
+        pendingAction
       }
 
       setMessages((prev) => [...prev, assistantMessage])
@@ -1104,7 +1370,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
       if (isVoiceEnabled) {
         // Pequeño delay para asegurar que el mensaje se agregó
         setTimeout(() => {
-          speakText(response)
+          speakText(displayContent)
         }, 100)
       }
     } catch (error) {
@@ -1207,7 +1473,7 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
           <div className="plotai-header-content">
             <div>
               <h2>🤖 PlotAI</h2>
-              <p>Asistente Inteligente con Capacidad Agéntica</p>
+              <p>Agente de operaciones · {agenticContext.summaryLine}</p>
             </div>
             <button className="plotai-close" onClick={onClose}>
               ×
@@ -1400,6 +1666,162 @@ const PlotAIChat = ({ tasks, activity, teamMembers, onClose, onCreateTask }: Plo
                   </div>
                   <div className="message-content">
                     <div className="message-text">{message.content}</div>
+
+                    {message.pendingAction ? (
+                      <div
+                        className={`plotai-action-card plotai-action-card--${message.pendingAction.status}`}
+                      >
+                        <div className="plotai-action-card-title">
+                          {message.pendingAction.action.type === 'create_op'
+                            ? '📋 Confirmar creación de OP'
+                            : message.pendingAction.action.type === 'create_venta'
+                              ? '💵 Confirmar venta'
+                              : message.pendingAction.action.type === 'move_op'
+                                ? '🔀 Confirmar mover / asignar OP'
+                                : message.pendingAction.action.type === 'draft_presupuesto'
+                                  ? '📝 Confirmar borrador de presupuesto'
+                                  : '💬 Confirmar aviso WhatsApp'}
+                        </div>
+                        <p className="plotai-action-card-hint">
+                          Nada se ejecuta solo: solo corre si confirmás.
+                        </p>
+                        {message.pendingAction.action.type === 'create_op' ? (
+                          <ul className="plotai-action-card-fields">
+                            <li>
+                              <strong>Cliente:</strong> {message.pendingAction.action.cliente}
+                            </li>
+                            <li>
+                              <strong>Trabajo:</strong> {message.pendingAction.action.descripcion}
+                            </li>
+                            {message.pendingAction.action.dni_cuit ? (
+                              <li>
+                                <strong>DNI/CUIT:</strong> {message.pendingAction.action.dni_cuit}
+                              </li>
+                            ) : null}
+                            <li>
+                              <strong>Prioridad:</strong>{' '}
+                              {normalizePriority(message.pendingAction.action.prioridad)}
+                            </li>
+                            <li>
+                              <strong>Columna:</strong>{' '}
+                              {BOARD_COLUMNS.find(
+                                (c) => c.id === normalizeColumn(message.pendingAction.action.columna)
+                              )?.label || 'Diseño Gráfico'}
+                            </li>
+                          </ul>
+                        ) : message.pendingAction.action.type === 'create_venta' ? (
+                          <ul className="plotai-action-card-fields">
+                            <li>
+                              <strong>Cliente:</strong> {message.pendingAction.action.cliente}
+                            </li>
+                            <li>
+                              <strong>Monto:</strong> $
+                              {message.pendingAction.action.monto.toLocaleString('es-AR')}
+                            </li>
+                            <li>
+                              <strong>Pago:</strong>{' '}
+                              {normalizeMetodoPago(message.pendingAction.action.metodo_pago)} ·{' '}
+                              {normalizeEstadoPago(message.pendingAction.action.estado_pago)}
+                            </li>
+                            {message.pendingAction.action.observaciones ? (
+                              <li>
+                                <strong>Obs:</strong> {message.pendingAction.action.observaciones}
+                              </li>
+                            ) : null}
+                          </ul>
+                        ) : message.pendingAction.action.type === 'move_op' ? (
+                          <ul className="plotai-action-card-fields">
+                            <li>
+                              <strong>OP:</strong> {message.pendingAction.action.op_number}
+                            </li>
+                            {message.pendingAction.action.columna ? (
+                              <li>
+                                <strong>Columna:</strong>{' '}
+                                {BOARD_COLUMNS.find(
+                                  (c) =>
+                                    c.id === normalizeColumn(message.pendingAction!.action.type === 'move_op' ? message.pendingAction!.action.columna : null)
+                                )?.label || message.pendingAction.action.columna}
+                              </li>
+                            ) : null}
+                            {message.pendingAction.action.responsable ? (
+                              <li>
+                                <strong>Responsable:</strong>{' '}
+                                {message.pendingAction.action.responsable}
+                              </li>
+                            ) : null}
+                            {message.pendingAction.action.nota ? (
+                              <li>
+                                <strong>Nota:</strong> {message.pendingAction.action.nota}
+                              </li>
+                            ) : null}
+                          </ul>
+                        ) : message.pendingAction.action.type === 'draft_presupuesto' ? (
+                          <ul className="plotai-action-card-fields">
+                            <li>
+                              <strong>Cliente:</strong> {message.pendingAction.action.cliente}
+                            </li>
+                            {message.pendingAction.action.precios_pendientes ? (
+                              <li>
+                                <strong>Precios:</strong> pendientes (no inventados)
+                              </li>
+                            ) : null}
+                            {message.pendingAction.action.items.map((it, idx) => (
+                              <li key={`${it.descripcion}-${idx}`}>
+                                <strong>Ítem:</strong> {it.cantidad} × {it.descripcion}
+                                {it.precio_unitario > 0
+                                  ? ` · $${it.precio_unitario.toLocaleString('es-AR')}`
+                                  : ' · $ pendiente'}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <ul className="plotai-action-card-fields">
+                            {message.pendingAction.action.op_number ? (
+                              <li>
+                                <strong>OP:</strong> {message.pendingAction.action.op_number}
+                              </li>
+                            ) : null}
+                            {message.pendingAction.action.cliente ? (
+                              <li>
+                                <strong>Cliente:</strong> {message.pendingAction.action.cliente}
+                              </li>
+                            ) : null}
+                            <li>
+                              <strong>Mensaje:</strong> {message.pendingAction.action.mensaje}
+                            </li>
+                            <li>
+                              <em>Al confirmar se abre WhatsApp; el envío lo hacés vos.</em>
+                            </li>
+                          </ul>
+                        )}
+                        {message.pendingAction.status === 'pending' ? (
+                          <div className="plotai-action-card-actions">
+                            <button
+                              type="button"
+                              className="plotai-action-confirm"
+                              disabled={isLoading}
+                              onClick={() => void handleConfirmPendingAction(message.id)}
+                            >
+                              {message.pendingAction.action.type === 'whatsapp_aviso'
+                                ? 'Abrir WhatsApp'
+                                : 'Confirmar'}
+                            </button>
+                            <button
+                              type="button"
+                              className="plotai-action-cancel"
+                              disabled={isLoading}
+                              onClick={() => handleCancelPendingAction(message.id)}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="plotai-action-card-result">
+                            {message.pendingAction.resultMessage || message.pendingAction.status}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
                     
                     {/* Mostrar media generada (imágenes o videos) */}
                     {message.generatedMedia && (

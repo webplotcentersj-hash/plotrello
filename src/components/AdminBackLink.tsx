@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { isAdminStaffHomeRole } from '../utils/adminStaffHome'
 import './AdminBackLink.css'
 
-const HIDDEN_PATHS = new Set(['/admin', '/login', '/', '/avisar-ausencia', '/permisos'])
+const HIDDEN_PATHS = new Set(['/admin', '/login', '/', '/avisar-ausencia', '/permisos', '/horas-extra'])
 
 function shouldShow(pathname: string): boolean {
   if (HIDDEN_PATHS.has(pathname)) return false

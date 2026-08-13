@@ -125,7 +125,7 @@ export default function InsightsToolsMenu({
             <span className="insights-tools-item-text">
               <span className="insights-tools-item-title">PlotAI</span>
               <span className="insights-tools-item-sub">
-                {isPlotAIOpen ? 'Cerrar asistente' : 'Asistente inteligente'}
+                {isPlotAIOpen ? 'Cerrar agente' : 'Agente · flotante abajo a la izquierda'}
               </span>
             </span>
           </button>

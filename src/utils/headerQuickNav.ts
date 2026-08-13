@@ -386,6 +386,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         href: '/rrhh/permisos',
         title: 'Gestionar y pedir permisos (RRHH / admin)'
       })
+      push({
+        id: 'horas-extra',
+        label: 'Horas extra',
+        icon: '⏱️',
+        href: '/rrhh/horas-extra',
+        title: 'Aprobar horas extra declaradas'
+      })
     } else if (ctx.onOpenPermisos) {
       push({
         id: 'permisos',
@@ -393,6 +400,21 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         icon: '📋',
         onClick: ctx.onOpenPermisos,
         title: 'Solicitar permisos, turnos o vacaciones'
+      })
+      push({
+        id: 'horas-extra',
+        label: 'Horas extra',
+        icon: '⏱️',
+        href: '/horas-extra',
+        title: 'Declarar horas extra (además del reloj)'
+      })
+    } else {
+      push({
+        id: 'horas-extra',
+        label: 'Horas extra',
+        icon: '⏱️',
+        href: '/horas-extra',
+        title: 'Declarar horas extra (además del reloj)'
       })
     }
   }

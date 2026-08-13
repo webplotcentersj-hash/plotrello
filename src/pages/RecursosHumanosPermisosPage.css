@@ -354,7 +354,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(2, 6, 23, 0.82);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -363,55 +364,92 @@
 }
 
 .rrhh-modal {
-  background: var(--bg-primary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0f172a;
+  color: #f8fafc;
+  color-scheme: dark;
+  border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 12px;
   padding: 24px;
   max-width: 500px;
   width: 100%;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
 }
 
 .rrhh-modal h2 {
   margin: 0 0 24px 0;
   font-size: 1.5rem;
   font-weight: 600;
+  color: #ffffff;
 }
 
-.form-group {
+.rrhh-modal .form-group {
   margin-bottom: 20px;
 }
 
-.form-group label {
+.rrhh-modal .form-group label {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: #f8fafc;
 }
 
-.form-group textarea {
+.rrhh-modal .form-group textarea {
   width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 8px;
-  color: var(--text-primary);
+  color: #f8fafc;
   font-size: 0.9rem;
   font-family: inherit;
   resize: vertical;
   min-height: 100px;
 }
 
-.form-group textarea:focus {
-  outline: none;
-  border-color: #3b82f6;
-  background: rgba(255, 255, 255, 0.08);
+.rrhh-modal .form-group textarea::placeholder {
+  color: #94a3b8;
 }
 
-.form-actions {
+.rrhh-modal .form-group textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: #1e293b;
+}
+
+.rrhh-modal .form-actions {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
   margin-top: 24px;
+}
+
+.rrhh-modal .btn-secondary {
+  background: #334155;
+  color: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.rrhh-modal .btn-secondary:hover {
+  background: #475569;
+}
+
+.rrhh-modal .btn-danger {
+  background: #dc2626;
+  color: #fff;
+  border: 1px solid #dc2626;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.rrhh-modal .btn-danger:hover {
+  background: #b91c1c;
 }
 
 /* Responsive */

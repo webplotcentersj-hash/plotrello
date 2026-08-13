@@ -78,6 +78,8 @@ import type {
   Asistencia,
   RrhhRelojReporteSemanal,
   SolicitudPermiso,
+  RrhhSolicitudHe,
+  RrhhSolicitudHeTipo,
   RrhhNovedad,
   RrhhNovedadAdjunto,
   RrhhNovedadGrupo,
@@ -18486,6 +18488,163 @@ class ApiService {
         success: false,
         error: supabaseErrorMessage(e, 'Error al eliminar ajuste de vacaciones')
       }
+    }
+  }
+
+  private mapRrhhSolicitudHe(row: Record<string, unknown>): RrhhSolicitudHe {
+    const adj = row.adjuntos
+    const tipo = String(row.tipo || '') === 'horas_extra_100' ? 'horas_extra_100' : 'horas_extra_50'
+    const estadoRaw = String(row.estado || 'pendiente')
+    const estado: RrhhSolicitudHe['estado'] =
+      estadoRaw === 'aprobado' || estadoRaw === 'rechazado' || estadoRaw === 'cancelado'
+        ? estadoRaw
+        : 'pendiente'
+    return {
+      id: Number(row.id),
+      id_usuario: Number(row.id_usuario),
+      nombre_usuario: row.nombre_usuario != null ? String(row.nombre_usuario) : null,
+      fecha: String(row.fecha || '').slice(0, 10),
+      tipo,
+      horas: Number(row.horas) || 0,
+      observaciones: String(row.observaciones || ''),
+      adjuntos: Array.isArray(adj) ? (adj as RrhhNovedadAdjunto[]) : [],
+      estado,
+      motivo_rechazo: row.motivo_rechazo != null ? String(row.motivo_rechazo) : null,
+      aprobado_por: row.aprobado_por != null ? Number(row.aprobado_por) : null,
+      aprobado_por_nombre:
+        row.aprobado_por_nombre != null ? String(row.aprobado_por_nombre) : null,
+      aprobado_at: row.aprobado_at != null ? String(row.aprobado_at) : null,
+      id_novedad: row.id_novedad != null ? Number(row.id_novedad) : null,
+      created_at: String(row.created_at || ''),
+      updated_at: String(row.updated_at || '')
+    }
+  }
+
+  async rrhhSolicitudHeCrear(input: {
+    id_usuario: number
+    fecha: string
+    tipo: RrhhSolicitudHeTipo
+    horas: number
+    observaciones: string
+    adjuntos?: RrhhNovedadAdjunto[]
+  }): Promise<ApiResponse<RrhhSolicitudHe>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('crear_solicitud_he', {
+        p_id_usuario: input.id_usuario,
+        p_fecha: input.fecha,
+        p_tipo: input.tipo,
+        p_horas: input.horas,
+        p_observaciones: input.observaciones,
+        p_adjuntos: input.adjuntos ?? []
+      })
+      if (error) throw error
+      const solicitud = this.mapRrhhSolicitudHe(data as Record<string, unknown>)
+      const usuariosResponse = await this.getUsuarios()
+      const nombreUsuario =
+        usuariosResponse.data?.find((u) => u.id === input.id_usuario)?.nombre || 'Usuario'
+      if (usuariosResponse.success && usuariosResponse.data) {
+        const destinatarios = usuariosResponse.data.filter(
+          (u) =>
+            u.id !== input.id_usuario &&
+            (u.rol === 'recursos-humanos' || u.rol === 'administracion' || u.rol === 'gerencia')
+        )
+        const tipoLabel = input.tipo === 'horas_extra_100' ? '100%' : '50%'
+        for (const dest of destinatarios) {
+          await this.createNotification({
+            user_id: dest.id,
+            title: `⏱️ Horas extra para revisar (${tipoLabel})`,
+            description: `${nombreUsuario} declaró ${input.horas} h el ${input.fecha}. ${input.observaciones.slice(0, 180)}`,
+            type: 'info',
+            solicitud_id: solicitud.id
+          })
+        }
+      }
+      return { success: true, data: solicitud }
+    } catch (e) {
+      return { success: false, error: supabaseErrorMessage(e, 'Error al enviar horas extra') }
+    }
+  }
+
+  async rrhhSolicitudesHeListar(filters?: {
+    idUsuario?: number | null
+    estado?: string | null
+    fechaDesde?: string | null
+    fechaHasta?: string | null
+  }): Promise<ApiResponse<RrhhSolicitudHe[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('obtener_solicitudes_he', {
+        p_id_usuario: filters?.idUsuario ?? null,
+        p_estado: filters?.estado || null,
+        p_fecha_desde: filters?.fechaDesde || null,
+        p_fecha_hasta: filters?.fechaHasta || null
+      })
+      if (error) throw error
+      const rows = (data ?? []) as Record<string, unknown>[]
+      return { success: true, data: rows.map((r) => this.mapRrhhSolicitudHe(r)) }
+    } catch (e) {
+      return { success: false, error: supabaseErrorMessage(e, 'Error al listar horas extra') }
+    }
+  }
+
+  async rrhhSolicitudHeAprobarRechazar(input: {
+    id: number
+    estado: 'aprobado' | 'rechazado'
+    idAprobador: number
+    motivoRechazo?: string | null
+  }): Promise<ApiResponse<RrhhSolicitudHe>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const prev = await this.rrhhSolicitudesHeListar({})
+      const solicitud = prev.data?.find((s) => s.id === input.id)
+      const { data, error } = await supabase.rpc('aprobar_rechazar_solicitud_he', {
+        p_id: input.id,
+        p_estado: input.estado,
+        p_id_aprobador: input.idAprobador,
+        p_motivo_rechazo: input.motivoRechazo ?? null
+      })
+      if (error) throw error
+      const actualizada = this.mapRrhhSolicitudHe(data as Record<string, unknown>)
+      if (solicitud?.id_usuario) {
+        const usuariosResponse = await this.getUsuarios()
+        const nombreAprobador =
+          usuariosResponse.data?.find((u) => u.id === input.idAprobador)?.nombre || 'RRHH'
+        if (input.estado === 'aprobado') {
+          await this.createNotification({
+            user_id: solicitud.id_usuario,
+            title: '✅ Horas extra aprobadas',
+            description: `RRHH aprobó ${solicitud.horas} h (${solicitud.tipo === 'horas_extra_100' ? '100%' : '50%'}) del ${solicitud.fecha}. Entran en la liquidación.`,
+            type: 'success',
+            solicitud_id: solicitud.id
+          })
+        } else {
+          await this.createNotification({
+            user_id: solicitud.id_usuario,
+            title: '❌ Horas extra rechazadas',
+            description: `Tus horas extra del ${solicitud.fecha} fueron rechazadas por ${nombreAprobador}.${input.motivoRechazo ? ` Motivo: ${input.motivoRechazo}` : ''}`,
+            type: 'error',
+            solicitud_id: solicitud.id
+          })
+        }
+      }
+      return { success: true, data: actualizada }
+    } catch (e) {
+      return { success: false, error: supabaseErrorMessage(e, 'Error al procesar horas extra') }
+    }
+  }
+
+  async rrhhSolicitudHeCancelar(id: number, idUsuario: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('cancelar_solicitud_he', {
+        p_id: id,
+        p_id_usuario: idUsuario
+      })
+      if (error) throw error
+      return { success: true, data: Boolean(data) }
+    } catch (e) {
+      return { success: false, error: supabaseErrorMessage(e, 'Error al cancelar horas extra') }
     }
   }
 

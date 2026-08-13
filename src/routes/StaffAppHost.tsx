@@ -64,6 +64,8 @@ const RecursosHumanosHorariosPage = lazy(() => import('../pages/RecursosHumanosH
 const RecursosHumanosEvaluacionesPage = lazy(() => import('../pages/RecursosHumanosEvaluacionesPage'))
 const RecursosHumanosEstadisticasPage = lazy(() => import('../pages/RecursosHumanosEstadisticasPage'))
 const RecursosHumanosPermisosPage = lazy(() => import('../pages/RecursosHumanosPermisosPage'))
+const RecursosHumanosHorasExtraPage = lazy(() => import('../pages/RecursosHumanosHorasExtraPage'))
+const MisHorasExtraPage = lazy(() => import('../pages/MisHorasExtraPage'))
 const CajaDashboardPage = lazy(() => import('../pages/CajaDashboardPage'))
 const RecursosHumanosNotificacionesPage = lazy(() => import('../pages/RecursosHumanosNotificacionesPage'))
 const RecursosHumanosCapacitacionesPage = lazy(() => import('../pages/RecursosHumanosCapacitacionesPage'))
@@ -1245,6 +1247,10 @@ function AppRoutes({
         element={<RecursosHumanosPermisosPage />}
       />
       <Route
+        path="/rrhh/horas-extra"
+        element={<RecursosHumanosHorasExtraPage />}
+      />
+      <Route
         path="/rrhh/notificaciones"
         element={<RecursosHumanosNotificacionesPage />}
       />
@@ -1299,6 +1305,7 @@ function AppRoutes({
       <Route path="/mis-recibos" element={<MisRecibosPage />} />
       <Route path="/avisar-ausencia" element={<AvisarAusenciaPage />} />
       <Route path="/permisos" element={<AvisarAusenciaPage />} />
+      <Route path="/horas-extra" element={<MisHorasExtraPage />} />
       <Route path="/encuesta-clima/:id" element={<EncuestaClimaPage />} />
       <Route
         path="/mis-pruebas"

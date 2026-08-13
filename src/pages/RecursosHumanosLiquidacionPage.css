@@ -256,6 +256,11 @@
   font-size: 0.9rem;
 }
 
+.rrhh-liq-avisos-cat {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
 .rrhh-liq-avisos ul {
   margin: 8px 0 0;
   padding-left: 18px;
@@ -445,6 +450,32 @@
   font-size: 0.8rem;
   color: #334155;
   line-height: 1.45;
+}
+
+.rrhh-liq-recibo-nov li {
+  margin-bottom: 8px;
+}
+
+.rrhh-liq-recibo-nov-cruzada h4 {
+  color: #b91c1c;
+}
+
+.rrhh-liq-recibo-nov li.is-aviso {
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 8px;
+  padding: 8px 10px;
+  list-style: none;
+  margin-left: -18px;
+}
+
+.rrhh-liq-nov-aviso {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #c2410c;
+  font-style: normal;
+  font-weight: 700;
 }
 
 .rrhh-liq-recibo-foot {

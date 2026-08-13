@@ -51,6 +51,7 @@ import {
   ordenarNovedadesCalendario
 } from '../utils/rrhhNovedadDates'
 import { filtrarUsuariosRrhhOperarios, idsUsuariosGenericosRrhh } from '../utils/rrhhUsuariosExcluidos'
+import { novedadEmpleadoIncorrecto } from '../utils/rrhhNovedadEmpleadoObs'
 import './RecursosHumanosNovedadesPage.css'
 
 type GrupoCounts = Partial<Record<RrhhNovedadGrupo, number>>
@@ -273,7 +274,7 @@ const RecursosHumanosNovedadesPage = () => {
     setEditId(null)
     setAdjuntos([])
     setForm({
-      id_usuario: usuarios[0]?.id ?? 0,
+      id_usuario: typeof filtroUsuario === 'number' ? filtroUsuario : 0,
       id_solicitud_permiso: '',
       grupo: 'falta',
       codigo: 'falta_justificada_enfermedad',
@@ -324,6 +325,17 @@ const RecursosHumanosNovedadesPage = () => {
     if (form.grupo === 'horas_extra' && (he == null || Number.isNaN(he))) {
       alert('Indicá la cantidad de horas extra.')
       return
+    }
+    const cruzados = novedadEmpleadoIncorrecto(
+      { id_usuario: form.id_usuario, observaciones: form.observaciones },
+      nombreUsuario
+    )
+    if (cruzados.length > 0) {
+      const titular = empleadoMostrar(form.id_usuario, 'usuario-hash')
+      const ok = window.confirm(
+        `La observación menciona a ${cruzados[0]!.nombre}, pero el empleado elegido es ${titular}.\n\n¿Guardar igual? Si te confundiste de persona, cancelá y cambiá el empleado.`
+      )
+      if (!ok) return
     }
     setSaving(true)
     try {

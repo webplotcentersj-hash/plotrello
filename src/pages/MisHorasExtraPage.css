@@ -1,0 +1,219 @@
+.mis-he-page {
+  min-height: 100dvh;
+  padding: 20px 16px 48px;
+  max-width: 720px;
+  margin: 0 auto;
+  background: radial-gradient(1200px 600px at 10% -10%, rgba(234, 88, 12, 0.2), transparent 55%),
+    linear-gradient(165deg, #020617 0%, #0b1220 45%, #111827 100%);
+  color: #f8fafc;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.mis-he-loading {
+  text-align: center;
+  padding-top: 64px;
+  color: #94a3b8;
+}
+
+.mis-he-header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.mis-he-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+.mis-he-kicker {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fdba74;
+}
+
+.mis-he-header h1 {
+  margin: 0 0 6px;
+  font-size: 1.65rem;
+}
+
+.mis-he-lead {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.mis-he-card {
+  background: #111827;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  padding: 18px 16px;
+  margin-bottom: 16px;
+}
+
+.mis-he-card h2 {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+}
+
+.mis-he-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.mis-he-card input,
+.mis-he-card textarea,
+.mis-he-card select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: #0b1220;
+  color: inherit;
+  font: inherit;
+}
+
+.mis-he-tipo {
+  border: 0;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mis-he-tipo legend {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.mis-he-tipo label {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.mis-he-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.mis-he-previews img {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.mis-he-error {
+  color: #fca5a5;
+  margin: 0 0 10px;
+}
+
+.mis-he-ok {
+  color: #86efac;
+  margin: 0 0 10px;
+}
+
+.mis-he-muted {
+  color: #94a3b8;
+  margin: 0;
+}
+
+.mis-he-submit {
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: #ea580c;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mis-he-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mis-he-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mis-he-item {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 12px;
+  background: #0b1220;
+}
+
+.mis-he-item.is-hl {
+  outline: 2px solid #fdba74;
+}
+
+.mis-he-item > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.mis-he-item p {
+  margin: 0 0 8px;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+}
+
+.mis-he-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.mis-he-badge.is-pendiente {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.mis-he-badge.is-aprobado {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.mis-he-badge.is-rechazado,
+.mis-he-badge.is-cancelado {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
+.mis-he-cancel {
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: transparent;
+  color: #fca5a5;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}

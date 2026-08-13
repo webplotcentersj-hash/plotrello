@@ -20,6 +20,7 @@ const TaskViewModal = lazy(() => import('../components/TaskViewModal'))
 const TaskCreateModal = lazy(() => import('../components/TaskCreateModal'))
 const SprintOptimizerModal = lazy(() => import('../components/SprintOptimizerModal'))
 const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
+import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
 import InsightsToolsMenu from '../components/InsightsToolsMenu'
 import EntregasCobroPanel from '../components/EntregasCobroPanel'
 import EntregasSinRetiroPanel from '../components/EntregasSinRetiroPanel'
@@ -32,6 +33,7 @@ import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../t
 import type { MaterialRecord, SectorRecord } from '../types/api'
 import { useAuth } from '../hooks/useAuth'
 import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
+import { buildAgenticContext } from '../utils/agentInsights'
 import { getApiService } from '../services/apiLoader'
 import {
   ordenToTask,
@@ -147,6 +149,10 @@ const BoardPage = ({
   const [activityFeedOpen, setActivityFeedOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const isPhoneBoard = usePhoneBoardLayout()
+  const plotAIAgentic = useMemo(
+    () => buildAgenticContext(tasks, activity, teamMembers),
+    [tasks, activity, teamMembers]
+  )
 
   /** Usuario de sesión: la bitácora local debe mostrar quién hizo el cambio, no el operario asignado a la ficha. */
   const sessionActor = useMemo(
@@ -1278,6 +1284,47 @@ const BoardPage = ({
     }
   }
 
+  const handleAssignTaskOwner = useCallback(
+    async (taskId: string, ownerId: string, ownerName: string) => {
+      const taskBefore = tasksRef.current.find((t) => t.id === taskId)
+      if (!taskBefore) return
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId ? { ...t, ownerId, updatedAt: new Date().toISOString() } : t
+        )
+      )
+      const ordenId = parseTaskIdToOrdenId(taskId)
+      if (!ordenId) return
+      try {
+        const response = await (await getApiService()).updateOrden(ordenId, {
+          operario_asignado: ownerId
+        })
+        if (!response.success) {
+          setActionError(response.error || 'No se pudo asignar el responsable.')
+          setTasks((prev) => prev.map((t) => (t.id === taskId ? taskBefore : t)))
+          return
+        }
+        setActivity((prev) => [
+          {
+            id: `assign-${Date.now()}`,
+            taskId,
+            from: taskBefore.status,
+            to: taskBefore.status,
+            actorId: sessionActor.id || ownerId,
+            actorName: sessionActor.name,
+            timestamp: new Date().toISOString(),
+            note: `PlotAI: asignado a ${ownerName}`
+          },
+          ...prev
+        ])
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Error al asignar responsable')
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? taskBefore : t)))
+      }
+    },
+    [sessionActor.id, sessionActor.name]
+  )
+
   const handleApplyOptimizations = (suggestions: Array<{
     type: 'reassign' | 'move' | 'priority'
     taskId: string
@@ -1375,6 +1422,11 @@ const BoardPage = ({
           showImpresoras
         />
       )}
+      <PlotAIFloatingButton
+        isOpen={isChatAIOpen}
+        alertCount={plotAIAgentic.alertCount}
+        onClick={() => setIsChatAIOpen((v) => !v)}
+      />
     </>
   )
 
@@ -1596,13 +1648,15 @@ const BoardPage = ({
         </Suspense>
       )}
 
-      {!isPhoneBoard && isChatAIOpen && (
+      {isChatAIOpen && (
         <Suspense fallback={null}>
           <PlotAIChat
             tasks={tasks}
             teamMembers={teamMembers}
             activity={activity}
             onCreateTask={handleCreateTask}
+            onMoveTask={handleMoveTask}
+            onAssignTaskOwner={handleAssignTaskOwner}
             onClose={() => setIsChatAIOpen(false)}
           />
         </Suspense>

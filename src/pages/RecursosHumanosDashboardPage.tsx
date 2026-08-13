@@ -215,6 +215,15 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/horas-extra')}
+            >
+              <div className="rrhh-action-icon">⏱️</div>
+              <h3>Horas extra declaradas</h3>
+              <p>Aprobar o rechazar 1 a 1 las HE que carga cada empleado (foto + texto)</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/liquidacion')}
             >
               <div className="rrhh-action-icon">📑</div>

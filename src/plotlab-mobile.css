@@ -159,9 +159,9 @@
     box-sizing: border-box;
   }
 
-  /* Respaldo si el overlay de IA quedara montado al rotar el dispositivo */
+  /* PlotAI flotante también en phone: overlay usable a pantalla completa */
   .trello-plot-app--phone .plotai-overlay {
-    display: none !important;
+    display: flex !important;
   }
 
   /* Sin arrastre: menos animación y mejor toque (scroll vertical vs “tirar” la ficha) */

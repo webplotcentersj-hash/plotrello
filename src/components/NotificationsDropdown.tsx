@@ -393,8 +393,17 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         navigate(ventasConOportunidadId(notification.oportunidad_id))
         return
       }
-      // Solicitud de permiso / ausencia
+      // Solicitud de permiso / ausencia / horas extra declaradas
       if (notification.solicitud_id != null) {
+        const esHe = /hora extra/i.test(`${notification.title || ''} ${notification.description || ''}`)
+        if (esHe) {
+          navigate(
+            canManageRecursosHumanos || isAdmin
+              ? `/rrhh/horas-extra?solicitud=${notification.solicitud_id}`
+              : `/horas-extra?solicitud=${notification.solicitud_id}`
+          )
+          return
+        }
         if (canManageRecursosHumanos || isAdmin) {
           navigate(`/rrhh/permisos?solicitud=${notification.solicitud_id}`)
         } else {

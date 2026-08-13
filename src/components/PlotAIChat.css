@@ -297,6 +297,91 @@
   cursor: not-allowed;
 }
 
+.plotai-action-card {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(249, 115, 22, 0.45);
+  background: linear-gradient(145deg, rgba(249, 115, 22, 0.14), rgba(15, 23, 42, 0.55));
+  color: #fff7ed;
+}
+
+.plotai-action-card--done {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.plotai-action-card--cancelled,
+.plotai-action-card--cancelled {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.plotai-action-card-title {
+  font-weight: 800;
+  font-size: 0.92rem;
+  margin-bottom: 6px;
+}
+
+.plotai-action-card-hint {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.plotai-action-card-fields {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.plotai-action-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.plotai-action-confirm,
+.plotai-action-cancel {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+.plotai-action-confirm {
+  background: #ea580c;
+  color: #fff;
+}
+
+.plotai-action-confirm:hover:not(:disabled) {
+  background: #c2410c;
+}
+
+.plotai-action-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+.plotai-action-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.plotai-action-confirm:disabled,
+.plotai-action-cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.plotai-action-card-result {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
 .plotai-header-content {
   display: flex;
   justify-content: space-between;

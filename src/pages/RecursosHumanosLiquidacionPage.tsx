@@ -9,16 +9,28 @@ import type {
   RrhhLiquidacionPeriodo,
   RrhhNovedad
 } from '../types/api'
-import { formatArs, LS_VALOR_HORA_EXTRA, type HorarioFijoAsistencia } from '../utils/asistenciaStats'
 import {
+  diasEntre,
+  formatArs,
+  LS_VALOR_HORA_EXTRA,
+  type HorarioFijoAsistencia
+} from '../utils/asistenciaStats'
+import {
+  avisosCategoriaCierre,
   armarLineasLiquidacion,
   conceptosMiLiquidacionDigital,
+  conteosNovedadCierre,
+  etiquetaNovedadCierre,
+  etiquetaPeriodoEs,
+  fechaCortaEs,
+  numDetalleLinea,
   periodoRango,
+  rangoNovedadCorto,
   totalesConceptosDigital,
   totalesLineas
 } from '../utils/rrhhLiquidacion'
 import { exportarLiquidacionXlsx } from '../utils/exportLiquidacionXlsx'
-import { etiquetaCodigoRrhhNovedad } from '../utils/rrhhNovedadCatalog'
+import { novedadEmpleadoIncorrecto } from '../utils/rrhhNovedadEmpleadoObs'
 import { nombreSinDominioCorreo } from '../utils/userDisplayName'
 import './RecursosHumanosLiquidacionPage.css'
 
@@ -222,16 +234,31 @@ const RecursosHumanosLiquidacionPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo, canAccess, authLoading])
 
-  const tot = useMemo(() => totalesLineas(lineas), [lineas])
+  const { desde: periodoDesde, hasta: periodoHasta } = useMemo(() => periodoRango(periodo), [periodo])
+  const diasMes = useMemo(() => diasEntre(periodoDesde, periodoHasta), [periodoDesde, periodoHasta])
+  const totBase = useMemo(() => totalesLineas(lineas), [lineas])
+  const totNov = useMemo(
+    () => conteosNovedadCierre(novedades, diasMes, undefined, nombres),
+    [novedades, diasMes, nombres]
+  )
+  const tot = useMemo(() => {
+    if (novedades.length === 0) return totBase
+    return {
+      ...totBase,
+      vacaciones: totNov.vacaciones,
+      licencias: totNov.licencias,
+      faltas_justificadas: totNov.faltas_justificadas,
+      faltas_injustificadas: totNov.faltas_injustificadas
+    }
+  }, [totBase, totNov, novedades.length])
+  const avisosCategoria = useMemo(
+    () => avisosCategoriaCierre(novedades, nombres, periodo),
+    [novedades, nombres, periodo]
+  )
   const lineaSel = useMemo(
     () => (empleadoSel != null ? lineas.find((l) => l.id_usuario === empleadoSel) ?? null : lineas[0] ?? null),
     [empleadoSel, lineas]
   )
-  const conceptosSel = useMemo(
-    () => (lineaSel ? conceptosMiLiquidacionDigital(lineaSel, valorHora) : []),
-    [lineaSel, valorHora]
-  )
-  const totConceptosSel = useMemo(() => totalesConceptosDigital(conceptosSel), [conceptosSel])
   const novedadesSel = useMemo(
     () =>
       lineaSel
@@ -241,6 +268,33 @@ const RecursosHumanosLiquidacionPage = () => {
         : [],
     [lineaSel, novedades]
   )
+  const novedadesSelOk = useMemo(
+    () => novedadesSel.filter((n) => novedadEmpleadoIncorrecto(n, nombres).length === 0),
+    [novedadesSel, nombres]
+  )
+  const novedadesSelCruzadas = useMemo(
+    () =>
+      novedadesSel
+        .map((n) => ({ n, cruzados: novedadEmpleadoIncorrecto(n, nombres) }))
+        .filter((x) => x.cruzados.length > 0),
+    [novedadesSel, nombres]
+  )
+  const conceptosSel = useMemo(
+    () =>
+      lineaSel
+        ? conceptosMiLiquidacionDigital(lineaSel, valorHora, novedadesSelOk, periodo, nombres)
+        : [],
+    [lineaSel, valorHora, novedadesSelOk, periodo, nombres]
+  )
+  const totConceptosSel = useMemo(() => totalesConceptosDigital(conceptosSel), [conceptosSel])
+  const conteosPorEmpleado = useMemo(() => {
+    const map = new Map<number, ReturnType<typeof conteosNovedadCierre>>()
+    for (const l of lineas) {
+      const novs = novedades.filter((n) => n.id_usuario === l.id_usuario)
+      map.set(l.id_usuario, conteosNovedadCierre(novs, diasMes, l.nombre, nombres))
+    }
+    return map
+  }, [lineas, novedades, diasMes, nombres])
 
   const handleCerrar = async () => {
     if (!usuario?.id) return
@@ -356,8 +410,8 @@ const RecursosHumanosLiquidacionPage = () => {
           <p className="rrhh-liq-kicker">Plot Lab · RRHH</p>
           <h1>Liquidación mensual</h1>
           <p className="rrhh-liq-subtitle">
-            Cierre interno del mes para el estudio contable: novedades, horas extra, faltas, anticipos y
-            descuento comida. Conceptos con cantidad, importe y débito/crédito.
+            Cierre interno del mes para el estudio: días trabajados, vacaciones, licencias, faltas, horas extra,
+            anticipos y descuento comida. No es el recibo de sueldo ni F.931.
           </p>
         </div>
         <div className="rrhh-liq-header-actions">
@@ -398,17 +452,19 @@ const RecursosHumanosLiquidacionPage = () => {
             <article className="rrhh-liq-doc">
               <h2>Qué incluye este cierre</h2>
               <p>
-                Plot Lab arma el borrador con lo que ya está cargado en RRHH del período. El estudio usa el
-                Excel para liquidar el sueldo; acá no se calcula el básico ni los aportes.
+                Plot Lab arma el borrador con lo cargado en RRHH del período. El estudio liquida el sueldo; acá
+                no se calcula básico, SAC ni aportes.
               </p>
               <ul>
-                <li>Asistencia: días trabajados, tardanzas, ausencias y faltas injustificadas</li>
-                <li>Novedades de horas extra 50% y 100% (con valor hora configurable)</li>
-                <li>Anticipaciones de sueldo (débito)</li>
-                <li>Descuento por beneficio comida (débito)</li>
+                <li>Días trabajados y tardanzas (asistencia)</li>
+                <li>Vacaciones y licencias (días informativos para el estudio)</li>
+                <li>Faltas justificadas e injustificadas</li>
+                <li>Horas extra 50% y 100% del reloj + HE declaradas aprobadas (crédito)</li>
+                <li>Anticipaciones de sueldo y descuento beneficio comida (débito)</li>
               </ul>
               <p className="rrhh-liq-doc-note">
-                Si falta un dato, cargalo en Novedades, Asistencia o Menú diario y regenerá el borrador.
+                Si una novedad está mal categorizada (p. ej. vacaciones cargadas como injustificada), el cierre
+                avisa y toma el texto. Conviene corregirla en Novedades y regenerar.
               </p>
             </article>
           ) : seccion === 'envio' ? (
@@ -416,14 +472,14 @@ const RecursosHumanosLiquidacionPage = () => {
               <h2>Envío al estudio</h2>
               <p>Para mandar el mes:</p>
               <ul>
-                <li>Revisá el valor hora de HE y las notas</li>
-                <li>Regenerá el borrador y controlá avisos de solape marca / HE</li>
+                <li>Revisá valor hora HE, notas y avisos de categoría (vacaciones mal cargadas, etc.)</li>
+                <li>Regenerá el borrador y controlá solape marca / novedad de HE</li>
                 <li>Cerrá el período (queda bloqueado hasta que gerencia o admin lo reabra)</li>
-                <li>Exportá el Excel (hojas Liquidación, HE y Novedades del mes)</li>
+                <li>Exportá el Excel (Liquidación, HE y Novedades del mes)</li>
               </ul>
               <p className="rrhh-liq-doc-note">
-                Estado actual: {cerrado ? 'cerrado' : 'borrador'} · {lineas.length} trabajadores · período{' '}
-                {periodo}.
+                {etiquetaPeriodoEs(periodo)} · {fechaCortaEs(periodoDesde)} – {fechaCortaEs(periodoHasta)} ·{' '}
+                {cerrado ? 'cerrado' : 'borrador'} · {lineas.length} trabajadores.
               </p>
             </article>
           ) : (
@@ -487,6 +543,17 @@ const RecursosHumanosLiquidacionPage = () => {
 
               {error ? <p className="rrhh-liq-error">{error}</p> : null}
               {msg ? <p className="rrhh-liq-msg">{msg}</p> : null}
+              {avisosCategoria.length > 0 ? (
+                <div className="rrhh-liq-avisos rrhh-liq-avisos-cat">
+                  <strong>Revisar categoría de novedades</strong>
+                  <ul>
+                    {avisosCategoria.slice(0, 12).map((a) => (
+                      <li key={a}>{a}</li>
+                    ))}
+                    {avisosCategoria.length > 12 ? <li>… y {avisosCategoria.length - 12} más</li> : null}
+                  </ul>
+                </div>
+              ) : null}
               {avisosSolape.length > 0 ? (
                 <div className="rrhh-liq-avisos">
                   <strong>Aviso: posible solape marca / novedad HE</strong>
@@ -503,24 +570,22 @@ const RecursosHumanosLiquidacionPage = () => {
                 <p className="rrhh-liq-inline-loading">Calculando…</p>
               ) : (
                 <>
-                  <section className="rrhh-liq-envio" aria-label="Datos del período">
-                    <h2>Datos del período</h2>
+                  <section className="rrhh-liq-envio" aria-label="Cierre del período">
+                    <h2>Cierre del período</h2>
                     <dl>
                       <div>
-                        <dt>Empresa</dt>
-                        <dd>Plot Center</dd>
-                      </div>
-                      <div>
-                        <dt>Sistema</dt>
-                        <dd>Plot Lab</dd>
-                      </div>
-                      <div>
                         <dt>Período</dt>
-                        <dd>{periodo}</dd>
+                        <dd>{etiquetaPeriodoEs(periodo)}</dd>
                       </div>
                       <div>
-                        <dt>Tipo</dt>
-                        <dd>Mensual</dd>
+                        <dt>Desde / hasta</dt>
+                        <dd>
+                          {fechaCortaEs(periodoDesde)} – {fechaCortaEs(periodoHasta)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Valor hora HE</dt>
+                        <dd>{valorHora > 0 ? formatArs(valorHora) : 'Sin cargar'}</dd>
                       </div>
                       <div>
                         <dt>Estado</dt>
@@ -529,6 +594,10 @@ const RecursosHumanosLiquidacionPage = () => {
                       <div>
                         <dt>Trabajadores</dt>
                         <dd>{lineas.length}</dd>
+                      </div>
+                      <div>
+                        <dt>Destino</dt>
+                        <dd>Estudio contable</dd>
                       </div>
                     </dl>
                   </section>
@@ -547,16 +616,20 @@ const RecursosHumanosLiquidacionPage = () => {
                       <strong>{valorHora > 0 ? formatArs(tot.costo_he) : '—'}</strong>
                     </div>
                     <div>
+                      <span>Vacaciones</span>
+                      <strong>{tot.vacaciones} d</strong>
+                    </div>
+                    <div>
+                      <span>Faltas injust.</span>
+                      <strong>{tot.faltas_injustificadas}</strong>
+                    </div>
+                    <div>
                       <span>Anticipaciones (débito)</span>
                       <strong>{formatArs(tot.anticipacion_sueldo)}</strong>
                     </div>
                     <div>
                       <span>Desc. comida (débito)</span>
                       <strong>{formatArs(tot.descuento_comida)}</strong>
-                    </div>
-                    <div>
-                      <span>Faltas injust.</span>
-                      <strong>{tot.faltas_injustificadas}</strong>
                     </div>
                   </div>
 
@@ -568,6 +641,8 @@ const RecursosHumanosLiquidacionPage = () => {
                             <th>Trabajador</th>
                             <th>Sector</th>
                             <th>Días</th>
+                            <th>Vac.</th>
+                            <th>FI</th>
                             <th>HE 50</th>
                             <th>HE 100</th>
                             <th>Débitos</th>
@@ -577,6 +652,10 @@ const RecursosHumanosLiquidacionPage = () => {
                           {lineas.map((l) => {
                             const debitos = l.anticipacion_sueldo + l.descuento_comida
                             const sel = (lineaSel?.id_usuario ?? null) === l.id_usuario
+                            const cEmp = conteosPorEmpleado.get(l.id_usuario)
+                            const tieneNov = novedades.some((n) => n.id_usuario === l.id_usuario)
+                            const vac = tieneNov ? cEmp?.vacaciones ?? 0 : numDetalleLinea(l, 'dias_vacaciones')
+                            const fi = tieneNov ? cEmp?.faltas_injustificadas ?? 0 : l.faltas_injustificadas
                             return (
                               <tr
                                 key={l.id_usuario}
@@ -586,6 +665,8 @@ const RecursosHumanosLiquidacionPage = () => {
                                 <td>{l.nombre}</td>
                                 <td>{legajos.get(l.id_usuario)?.sector || '—'}</td>
                                 <td>{l.dias_trabajados}</td>
+                                <td>{vac || '—'}</td>
+                                <td>{fi || '—'}</td>
                                 <td>{l.he50.toFixed(2)}</td>
                                 <td>{l.he100.toFixed(2)}</td>
                                 <td>{debitos ? formatArs(debitos) : '—'}</td>
@@ -594,7 +675,7 @@ const RecursosHumanosLiquidacionPage = () => {
                           })}
                           {lineas.length === 0 ? (
                             <tr>
-                              <td colSpan={6}>Sin datos para este período</td>
+                              <td colSpan={8}>Sin datos para este período</td>
                             </tr>
                           ) : null}
                         </tbody>
@@ -604,7 +685,7 @@ const RecursosHumanosLiquidacionPage = () => {
                     {lineaSel ? (
                       <article className="rrhh-liq-recibo" aria-label="Detalle de liquidación del trabajador">
                         <header>
-                          <p>Conceptos del período</p>
+                          <p>Detalle para el estudio</p>
                           <h3>{lineaSel.nombre}</h3>
                           <dl>
                             <div>
@@ -617,7 +698,7 @@ const RecursosHumanosLiquidacionPage = () => {
                             </div>
                             <div>
                               <dt>Período</dt>
-                              <dd>{periodo}</dd>
+                              <dd>{etiquetaPeriodoEs(periodo)}</dd>
                             </div>
                           </dl>
                         </header>
@@ -655,23 +736,55 @@ const RecursosHumanosLiquidacionPage = () => {
                             </tr>
                           </tfoot>
                         </table>
-                        {novedadesSel.length > 0 ? (
-                          <div className="rrhh-liq-recibo-nov">
-                            <h4>Novedades del mes</h4>
+                        {novedadesSelCruzadas.length > 0 ? (
+                          <div className="rrhh-liq-recibo-nov rrhh-liq-recibo-nov-cruzada">
+                            <h4>No corresponden a este trabajador</h4>
                             <ul>
-                              {novedadesSel.map((n) => (
-                                <li key={n.id}>
-                                  {n.fecha_desde.slice(0, 10)} · {etiquetaCodigoRrhhNovedad(n.codigo)}
-                                  {n.horas_extra_cantidad != null ? ` · ${n.horas_extra_cantidad} hs` : ''}
-                                  {n.observaciones ? ` · ${n.observaciones}` : ''}
+                              {novedadesSelCruzadas.map(({ n, cruzados }) => (
+                                <li key={n.id} className="is-aviso">
+                                  <strong>
+                                    {rangoNovedadCorto(n)} · el texto habla de {cruzados[0]?.nombre}
+                                  </strong>
+                                  <em className="rrhh-liq-nov-aviso">
+                                    Datos cruzados: corregí el empleado en Novedades. No entra en este cierre.
+                                  </em>
+                                  {n.observaciones ? <span> — {n.observaciones}</span> : null}
                                 </li>
                               ))}
                             </ul>
                           </div>
                         ) : null}
+                        {novedadesSelOk.length > 0 ? (
+                          <div className="rrhh-liq-recibo-nov">
+                            <h4>Novedades del período</h4>
+                            <ul>
+                              {novedadesSelOk.map((n) => {
+                                const et = etiquetaNovedadCierre(n)
+                                return (
+                                  <li key={n.id} className={et.recategorizada ? 'is-aviso' : undefined}>
+                                    <strong>
+                                      {rangoNovedadCorto(n)} · {et.grupo} · {et.etiqueta}
+                                    </strong>
+                                    {n.horas_extra_cantidad != null ? ` · ${n.horas_extra_cantidad} hs` : ''}
+                                    {n.duracion_minutos != null && n.grupo === 'tardanza_retiro'
+                                      ? ` · ${n.duracion_minutos} min`
+                                      : ''}
+                                    {et.recategorizada ? (
+                                      <em className="rrhh-liq-nov-aviso">
+                                        {' '}
+                                        Cargada como {et.codigoOriginal}; el texto indica vacaciones.
+                                      </em>
+                                    ) : null}
+                                    {n.observaciones ? <span> — {n.observaciones}</span> : null}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          </div>
+                        ) : null}
                         <p className="rrhh-liq-recibo-foot">
-                          C = haber (HE) · D = descuento (anticipo / comida). El sueldo básico lo liquida el
-                          estudio.
+                          C = haber (HE) · D = descuento (anticipo / comida) · — = informativo (días, vacaciones,
+                          faltas). El sueldo básico lo liquida el estudio.
                         </p>
                       </article>
                     ) : null}

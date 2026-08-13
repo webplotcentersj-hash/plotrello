@@ -503,6 +503,28 @@ export async function getCompleteSystemContext(
         mensaje: `${pedidosPendientes} pedidos web pendientes de revisión`
       })
     }
+
+    if (pedidosComprasData.filter((p: any) => ['pendiente', 'Pendiente', 'borrador'].includes(p.estado)).length > 5) {
+      const comprasPend = pedidosComprasData.filter((p: any) =>
+        ['pendiente', 'Pendiente', 'borrador'].includes(p.estado)
+      ).length
+      alertas.push({
+        tipo: 'compras',
+        severidad: 'media',
+        mensaje: `${comprasPend} pedidos de compra pendientes/aprobación`
+      })
+    }
+
+    if ((presupuestosVentasData.filter((p: any) => ['pendiente', 'enviado', 'Pendiente', 'Enviado'].includes(p.estado)).length || 0) > 8) {
+      const presupPend = presupuestosVentasData.filter((p: any) =>
+        ['pendiente', 'enviado', 'Pendiente', 'Enviado'].includes(p.estado)
+      ).length
+      alertas.push({
+        tipo: 'presupuestos',
+        severidad: 'media',
+        mensaje: `${presupPend} presupuestos de venta en seguimiento`
+      })
+    }
     
     // Contar usuarios trabajando
     const usuariosTrabajando = ordenesVisibles.filter((o: any) => o.usuario_trabajando_id).length
