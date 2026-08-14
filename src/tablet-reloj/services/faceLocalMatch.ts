@@ -3,14 +3,20 @@ import type { EmpleadoRelojTablet } from './relojTabletApi'
 const MODEL_URI = '/models/face-api'
 /**
  * Distancia euclidiana máxima para aceptar match (estricto, 1 frame).
- * face-api típico ~0.6; mantenemos 0.55 para no marcar a la persona equivocada.
+ * face-api típico ~0.6. Bajamos de 0.55 → 0.48: con umbral flojo se confundían
+ * empleados parecidos (ej. Ivero vs Lolmos).
  */
-export const MATCH_MAX_DISTANCE = 0.55
+export const MATCH_MAX_DISTANCE = 0.48
 /**
  * Solo si el MISMO empleado gana en ≥2 frames, aceptamos hasta este tope.
  * Evita aflojar el umbral con un solo frame dudoso.
  */
-export const MATCH_CONSENSUS_MAX_DISTANCE = 0.58
+export const MATCH_CONSENSUS_MAX_DISTANCE = 0.52
+/**
+ * Separación mínima entre el 1.º y el 2.º más cercano.
+ * Sin esto, el “más cercano” gana aunque el 2.º esté a 0.01 (falso positivo).
+ */
+export const MATCH_MIN_TOP2_MARGIN = 0.08
 
 export type FaceGalleryStats = {
   indexed: number
@@ -87,7 +93,7 @@ export function legajoImageUrlForFace(url: string): string {
   if (u.includes('/storage/v1/object/public/')) {
     const rendered = u.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
     const sep = rendered.includes('?') ? '&' : '?'
-    return `${rendered}${sep}width=320&height=320&resize=contain&quality=75`
+    return `${rendered}${sep}width=448&height=448&resize=contain&quality=85`
   }
   return u
 }
@@ -134,21 +140,52 @@ async function descriptorFromImageSource(
   return det?.descriptor ?? null
 }
 
-function bestGalleryMatch(
-  api: FaceApiModule,
-  query: Float32Array
-): { entry: GalleryEntry; dist: number } | null {
+type GalleryRank = {
+  entry: GalleryEntry
+  dist: number
+  second: GalleryEntry | null
+  secondDist: number
+  margin: number
+}
+
+function topTwoGalleryMatch(api: FaceApiModule, query: Float32Array): GalleryRank | null {
   let best: GalleryEntry | null = null
   let bestDist = Number.POSITIVE_INFINITY
+  let second: GalleryEntry | null = null
+  let secondDist = Number.POSITIVE_INFINITY
   for (const entry of gallery) {
     const dist = api.euclideanDistance(query, entry.descriptor)
     if (dist < bestDist) {
-      bestDist = dist
+      second = best
+      secondDist = bestDist
       best = entry
+      bestDist = dist
+    } else if (dist < secondDist) {
+      second = entry
+      secondDist = dist
     }
   }
   if (!best) return null
-  return { entry: best, dist: bestDist }
+  const margin = second ? secondDist - bestDist : Number.POSITIVE_INFINITY
+  return { entry: best, dist: bestDist, second, secondDist, margin }
+}
+
+/** Acepta solo si está cerca Y claramente más cerca que el 2.º. */
+function isConfidentMatch(
+  rank: GalleryRank,
+  maxDistance: number,
+  minMargin = MATCH_MIN_TOP2_MARGIN
+): boolean {
+  if (rank.dist > maxDistance) return false
+  if (!rank.second) return true
+  return rank.margin >= minMargin
+}
+
+function ambiguousMotivo(rank: GalleryRank): string {
+  if (rank.second && rank.margin < MATCH_MIN_TOP2_MARGIN) {
+    return `Rostro ambiguo entre ${rank.entry.nombre} y ${rank.second.nombre} (margen ${rank.margin.toFixed(2)}). Mejorá luz o usá QR.`
+  }
+  return `Rostro no coincide lo suficiente (${rank.entry.nombre}, dist ${rank.dist.toFixed(2)}). Mejorá luz o usá QR.`
 }
 
 function hitFromEntry(entry: GalleryEntry, dist: number): FaceMatchHit {
@@ -369,14 +406,12 @@ export async function matchSelfieDataUrl(
     return { hit: null, motivo: 'No se detectó un rostro. Mirá de frente a la cámara.' }
   }
 
-  const best = bestGalleryMatch(api, query)
-  if (!best || best.dist > maxDistance) {
-    return {
-      hit: null,
-      motivo: best
-        ? `Rostro no coincide lo suficiente (${best.entry.nombre}, dist ${best.dist.toFixed(2)}). Mejorá luz o usá QR.`
-        : 'No se reconoció a ningún empleado.'
-    }
+  const best = topTwoGalleryMatch(api, query)
+  if (!best) {
+    return { hit: null, motivo: 'No se reconoció a ningún empleado.' }
+  }
+  if (!isConfidentMatch(best, maxDistance)) {
+    return { hit: null, motivo: ambiguousMotivo(best) }
   }
 
   return { hit: hitFromEntry(best.entry, best.dist) }
@@ -384,15 +419,16 @@ export async function matchSelfieDataUrl(
 
 /**
  * Varios frames del video en vivo (sin JPEG).
- * - Acepta ya si un frame entra en umbral estricto (0.55).
- * - Si queda en zona gris (≤0.58), solo acepta si el mismo id gana en ≥2 frames.
- * Así no aflojamos el umbral con un único frame dudoso.
+ * - Acepta ya si un frame entra en umbral estricto (0.48) Y hay margen vs el 2.º.
+ * - Zona gris (≤0.52): solo si el mismo id gana en ≥2 frames, también con margen.
+ * Así no marcamos al “más cercano” cuando hay dos parecidos (Ivero/Lolmos).
  */
 export async function matchFromVideoFrames(
   video: HTMLVideoElement,
   opts?: {
     maxDistance?: number
     consensusMaxDistance?: number
+    minTop2Margin?: number
     attempts?: number
     gapMs?: number
     onAttempt?: (n: number, total: number) => void
@@ -416,13 +452,15 @@ export async function matchFromVideoFrames(
 
   const maxDistance = opts?.maxDistance ?? MATCH_MAX_DISTANCE
   const consensusMax = opts?.consensusMaxDistance ?? MATCH_CONSENSUS_MAX_DISTANCE
-  const attempts = Math.max(1, opts?.attempts ?? 3)
+  const minMargin = opts?.minTop2Margin ?? MATCH_MIN_TOP2_MARGIN
+  const attempts = Math.max(1, opts?.attempts ?? 4)
   const gapMs = opts?.gapMs ?? 280
   const api = await loadFaceApi()
 
   const votes = new Map<number, { entry: GalleryEntry; bestDist: number; count: number }>()
-  let bestOverall: { entry: GalleryEntry; dist: number } | null = null
+  let bestOverall: GalleryRank | null = null
   let sawFace = false
+  let lastAmbiguous: GalleryRank | null = null
   let attemptsUsed = 0
 
   for (let i = 0; i < attempts; i++) {
@@ -435,12 +473,18 @@ export async function matchFromVideoFrames(
     if (!query) continue
     sawFace = true
 
-    const best = bestGalleryMatch(api, query)
+    const best = topTwoGalleryMatch(api, query)
     if (!best) continue
     if (!bestOverall || best.dist < bestOverall.dist) bestOverall = best
 
-    // Umbral estricto: un solo frame bueno alcanza
-    if (best.dist <= maxDistance) {
+    // Cerca del 2.º → no votar ni aceptar (evita swap entre parecidos)
+    if (best.second && best.margin < minMargin) {
+      lastAmbiguous = best
+      continue
+    }
+
+    // Umbral estricto: un solo frame bueno + margen alcanza
+    if (isConfidentMatch(best, maxDistance, minMargin)) {
       return { hit: hitFromEntry(best.entry, best.dist), attemptsUsed }
     }
 
@@ -471,13 +515,17 @@ export async function matchFromVideoFrames(
     }
   }
 
+  if (lastAmbiguous) {
+    return { hit: null, motivo: ambiguousMotivo(lastAmbiguous), attemptsUsed }
+  }
+
   if (!bestOverall) {
     return { hit: null, motivo: 'No se reconoció a ningún empleado.', attemptsUsed }
   }
 
   return {
     hit: null,
-    motivo: `Rostro no coincide lo suficiente (${bestOverall.entry.nombre}, dist ${bestOverall.dist.toFixed(2)}). Mejorá luz o usá QR.`,
+    motivo: ambiguousMotivo(bestOverall),
     attemptsUsed
   }
 }

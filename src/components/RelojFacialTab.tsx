@@ -180,9 +180,10 @@ export default function RelojFacialTab({ onVerAuditoria, onIrAHorarios }: RelojF
         <div>
           <h3>Reloj con reconocimiento facial</h3>
           <p>
-            El kiosco usa un índice de rostros guardado en el servidor (no reindexa en cada actualización).
-            Cuando cargues fotos nuevas de legajo, actualizá el índice acá. La base de
-            entrada/tardanza es <strong>Horarios reloj</strong> (tolerancia 15 min).
+            El kiosco usa un índice de rostros guardado en el servidor (no reindexa solo).
+            Cuando cargues fotos nuevas de legajo, tocá <strong>Indexar rostros</strong>.
+            El match exige rostro claro y separación frente a otro empleado parecido (si duda,
+            pide QR). Entrada/tardanza: <strong>Horarios reloj</strong> (tolerancia 15 min).
           </p>
         </div>
         <div className="reloj-facial-hero-actions">

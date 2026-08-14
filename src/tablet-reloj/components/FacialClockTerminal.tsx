@@ -361,7 +361,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
 
       const face = await import('../services/faceLocalMatch')
       const { hit, motivo } = await face.matchFromVideoFrames(video, {
-        attempts: 3,
+        attempts: 4,
         gapMs: 260,
         onAttempt: (n, total) => {
           setStatusMessage(n === 1 ? 'Comparando rostros…' : `Reintentando (${n}/${total})…`)
