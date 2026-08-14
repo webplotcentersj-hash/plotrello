@@ -16,12 +16,61 @@
 }
 
 .facial-clock-chrome {
+  display: none;
+}
+
+.facial-clock-top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 10px;
+  background: #05070d;
+  border-bottom: 1px solid var(--fc-border);
+  flex-shrink: 0;
+  z-index: 6;
+}
+
+.facial-clock-top__row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 8px;
-  padding: 10px 12px 0;
-  background: transparent;
+}
+
+.facial-clock-top__row .facial-clock-time {
+  margin-left: auto;
+}
+
+.facial-clock-top__err {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.35);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.facial-clock-btn--cam {
+  flex-shrink: 0;
+  color: #fff;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  border-radius: 12px;
+}
+
+.facial-clock-btn--cam-ok {
+  background: rgba(22, 163, 74, 0.22);
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #bbf7d0;
+}
+
+.facial-clock-top .facial-clock-btn--marcar {
+  max-width: none;
+  width: 100%;
+  align-self: stretch;
 }
 
 .facial-clock-header {
@@ -165,7 +214,7 @@
 
 .facial-clock-stage {
   flex: 1;
-  min-height: 42vh;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -204,7 +253,14 @@
   height: 100%;
   justify-content: center;
   border-radius: inherit;
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(15, 23, 42, 0.88);
+  pointer-events: none;
+}
+
+.facial-clock-empty--overlay h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #fecaca;
 }
 
 .facial-clock-empty--warn {
@@ -227,18 +283,23 @@
 
 .facial-clock-viewport {
   position: relative;
-  width: min(100%, 420px);
+  width: min(100%, 480px);
   aspect-ratio: 3 / 4;
-  max-height: min(68vh, 560px);
+  max-height: min(62vh, 560px);
   border-radius: 22px;
   overflow: hidden;
   background: #000;
   border: 1px solid rgba(255, 255, 255, 0.12);
+  contain: layout paint;
 }
 
 .facial-clock-viewport--live {
   border-color: rgba(74, 222, 128, 0.4);
   box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.15), 0 0 48px rgba(74, 222, 128, 0.12);
+}
+
+.facial-clock-viewport--err {
+  border-color: rgba(248, 113, 113, 0.35);
 }
 
 .facial-clock-video {
@@ -347,14 +408,7 @@
 }
 
 .facial-clock-footer {
-  padding: 14px 16px 18px;
-  border-top: 1px solid var(--fc-border);
-  background: #05070d;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-  text-align: center;
+  display: none;
 }
 
 .facial-clock-footer-hint {
@@ -566,10 +620,20 @@
 
 @media (max-width: 640px) {
   .facial-clock-stage {
-    min-height: 48vh;
+    min-height: 0;
   }
 
   .facial-clock-viewport {
-    max-height: 58vh;
+    max-height: 52vh;
+  }
+
+  .facial-clock-top {
+    padding: 10px 12px 8px;
+    gap: 8px;
+  }
+
+  .facial-clock-btn--marcar {
+    min-height: 48px;
+    font-size: 1rem;
   }
 }
