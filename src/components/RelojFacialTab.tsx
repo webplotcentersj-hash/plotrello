@@ -243,7 +243,7 @@ export default function RelojFacialTab({ onVerAuditoria, onIrAHorarios }: RelojF
     setUploadingId(idUsuario)
     setError('')
     try {
-      const up = await apiService.uploadFotoEmpleado(file, idUsuario)
+      const up = await apiService.uploadFotoEmpleado(file, idUsuario, { facialExtra: true })
       if (!up.success || !up.data) throw new Error(up.error || 'No se pudo subir la foto')
 
       const resp = await plotLabFetch('/api/rrhh/facial-fotos-extra', {
@@ -458,7 +458,8 @@ export default function RelojFacialTab({ onVerAuditoria, onIrAHorarios }: RelojF
                     <strong>{e.nombre_completo}</strong>
                     <span>
                       {e.sector ? `${e.sector} · ` : ''}
-                      {totalFotos} foto{totalFotos === 1 ? '' : 's'}
+                      {totalFotos}/{1 + MAX_EXTRA} fotos
+                      {extrasEmp.length > 0 ? ` (${extrasEmp.length} extra)` : ''}
                     </span>
                   </div>
                 </div>

@@ -4284,7 +4284,11 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
-  async uploadFotoEmpleado(file: File, idUsuario: number): Promise<ApiResponse<string>> {
+  async uploadFotoEmpleado(
+    file: File,
+    idUsuario: number,
+    opts?: { facialExtra?: boolean }
+  ): Promise<ApiResponse<string>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no configurado' }
     }
@@ -4295,9 +4299,12 @@ class ApiService {
         return { success: false, error: 'Usuario no autenticado. Por favor, inicia sesión nuevamente.' }
       }
 
+      const facialExtra = Boolean(opts?.facialExtra)
       const fileExtRaw = file.name.split('.').pop()?.toLowerCase() || 'jpg'
       const fileExt = fileExtRaw === 'jpeg' ? 'jpg' : fileExtRaw.replace(/[^a-z0-9]/g, '') || 'jpg'
-      const fileName = `empleados/${idUsuario}.${fileExt}`
+      const fileName = facialExtra
+        ? `empleados/facial/${idUsuario}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`
+        : `empleados/${idUsuario}.${fileExt}`
 
       // 1) API staff + service role (si hay JWT). Ante cualquier fallo → Storage directo.
       try {
@@ -4326,7 +4333,8 @@ class ApiService {
               id_usuario: idUsuario,
               mime_type: file.type || `image/${fileExt}`,
               file_ext: fileExt,
-              base64
+              base64,
+              facial_extra: facialExtra
             })
           })
           const json = (await resp.json().catch(() => ({}))) as {
@@ -4344,10 +4352,10 @@ class ApiService {
       }
 
       // 2) Storage directo (anon). Policies permiten INSERT/UPDATE en empleados/%
-      console.log('📤 Subiendo foto:', fileName, 'Usuario ID:', idUsuario)
+      console.log('📤 Subiendo foto:', fileName, 'Usuario ID:', idUsuario, facialExtra ? '(facial extra)' : '')
       const uploadResult = await supabase.storage.from('legajos').upload(fileName, file, {
         cacheControl: '3600',
-        upsert: true
+        upsert: !facialExtra
       })
 
       if (uploadResult.error) {

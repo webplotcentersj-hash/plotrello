@@ -12,6 +12,8 @@ type Body = {
   mime_type?: string
   base64?: string
   file_ext?: string
+  /** Si true, ruta única (no pisa la foto de legajo). Para enrolamiento facial multi-foto. */
+  facial_extra?: boolean
 }
 
 function stripDataUrl(raw: string): { mime: string; base64: string } | null {
@@ -91,13 +93,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const extRaw = String(body.file_ext || mime.split('/')[1] || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
   const ext = extRaw === 'jpeg' ? 'jpg' : extRaw || 'jpg'
-  const path = `empleados/${idUsuario}.${ext}`
+  const facialExtra = Boolean(body.facial_extra)
+  // Legajo: un archivo fijo por empleado. Extras faciales: path único (si no, el upsert
+  // pisa el legajo y el foto_key queda igual → siempre 1 fila en rrhh_facial_fotos_extra).
+  const path = facialExtra
+    ? `empleados/facial/${idUsuario}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
+    : `empleados/${idUsuario}.${ext}`
 
   const supabase = createClient(url, key)
   const { error: uploadError } = await supabase.storage.from('legajos').upload(path, buf, {
     contentType: mime,
     cacheControl: '3600',
-    upsert: true
+    upsert: !facialExtra
   })
 
   if (uploadError) {
