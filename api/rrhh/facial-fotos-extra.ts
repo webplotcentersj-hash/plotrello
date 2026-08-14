@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 export const maxDuration = 20
 
 /** Máximo de fotos extra por empleado (además de la de legajo). */
-const MAX_EXTRA_POR_EMPLEADO = 2
+const MAX_EXTRA_POR_EMPLEADO = 5
 
 function staffOk(rol: string): boolean {
   return ['recursos-humanos', 'administracion', 'gerencia', 'admin'].includes(rol)

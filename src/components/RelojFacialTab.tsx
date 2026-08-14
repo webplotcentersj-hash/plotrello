@@ -11,7 +11,7 @@ import {
 import type { EmpleadoRelojTablet } from '../tablet-reloj/services/relojTabletApi'
 import './RelojFacialTab.css'
 
-const MAX_EXTRA = 2
+const MAX_EXTRA = 5
 
 type EmpleadoFotoRow = {
   id_usuario: number
