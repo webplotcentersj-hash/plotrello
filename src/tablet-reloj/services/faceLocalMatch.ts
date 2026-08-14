@@ -149,25 +149,33 @@ type GalleryRank = {
 }
 
 function topTwoGalleryMatch(api: FaceApiModule, query: Float32Array): GalleryRank | null {
-  let best: GalleryEntry | null = null
-  let bestDist = Number.POSITIVE_INFINITY
-  let second: GalleryEntry | null = null
-  let secondDist = Number.POSITIVE_INFINITY
+  // Mejor distancia por empleado (varias fotos → min), después top-1 / top-2 entre personas.
+  const bestByUser = new Map<number, { entry: GalleryEntry; dist: number }>()
   for (const entry of gallery) {
     const dist = api.euclideanDistance(query, entry.descriptor)
-    if (dist < bestDist) {
+    const prev = bestByUser.get(entry.id_usuario)
+    if (!prev || dist < prev.dist) bestByUser.set(entry.id_usuario, { entry, dist })
+  }
+
+  let best: { entry: GalleryEntry; dist: number } | null = null
+  let second: { entry: GalleryEntry; dist: number } | null = null
+  for (const row of bestByUser.values()) {
+    if (!best || row.dist < best.dist) {
       second = best
-      secondDist = bestDist
-      best = entry
-      bestDist = dist
-    } else if (dist < secondDist) {
-      second = entry
-      secondDist = dist
+      best = row
+    } else if (!second || row.dist < second.dist) {
+      second = row
     }
   }
   if (!best) return null
-  const margin = second ? secondDist - bestDist : Number.POSITIVE_INFINITY
-  return { entry: best, dist: bestDist, second, secondDist, margin }
+  const margin = second ? second.dist - best.dist : Number.POSITIVE_INFINITY
+  return {
+    entry: best.entry,
+    dist: best.dist,
+    second: second?.entry ?? null,
+    secondDist: second?.dist ?? Number.POSITIVE_INFINITY,
+    margin
+  }
 }
 
 /** Acepta solo si está cerca Y claramente más cerca que el 2.º. */
@@ -237,10 +245,34 @@ function employeeNombre(emp: EmpleadoRelojTablet): string {
   )
 }
 
-export function gallerySigFromEmpleados(empleados: EmpleadoRelojTablet[]): string {
+export function employeeFotoUrls(emp: {
+  foto_url?: string | null
+  fotos_extra?: string[] | null
+}): string[] {
+  const urls: string[] = []
+  const seen = new Set<string>()
+  const push = (raw?: string | null) => {
+    const u = String(raw || '').trim()
+    if (!u) return
+    const key = fotoKeyFromUrl(u)
+    if (seen.has(key)) return
+    seen.add(key)
+    urls.push(u)
+  }
+  push(emp.foto_url)
+  for (const extra of emp.fotos_extra || []) push(extra)
+  return urls
+}
+
+export function gallerySigFromEmpleados(
+  empleados: Array<{ id_usuario: number; foto_url?: string | null; fotos_extra?: string[] | null }>
+): string {
   return empleados
-    .filter((e) => Boolean(e.foto_url?.trim()))
-    .map((e) => `${e.id_usuario}:${fotoKeyFromUrl(String(e.foto_url))}`)
+    .map((e) => {
+      const keys = employeeFotoUrls(e).map(fotoKeyFromUrl).sort().join(',')
+      return keys ? `${e.id_usuario}:${keys}` : ''
+    })
+    .filter(Boolean)
     .sort()
     .join('|')
 }
@@ -280,73 +312,72 @@ export function getFaceGallerySignature(): string {
 }
 
 /**
- * Indexa fotos de legajo en este navegador (panel RRHH).
- * No lo llama el kiosco en cada refresh.
+ * Indexa fotos de legajo (+ extras) en este navegador (panel RRHH).
+ * Puede generar varias entradas por empleado. No lo llama el kiosco en cada refresh.
  */
 export async function buildFaceGallery(
-  empleados: EmpleadoRelojTablet[],
+  empleados: Array<EmpleadoRelojTablet & { fotos_extra?: string[] | null }>,
   onProgress?: (done: number, total: number) => void,
   options?: { onlyChangedKeys?: Set<string> }
 ): Promise<FaceGalleryStats & { records: FaceDescriptorRecord[] }> {
   await ensureFaceModels()
 
-  const conFoto = empleados.filter((e) => Boolean(e.foto_url?.trim()))
+  const conFoto = empleados.filter((e) => employeeFotoUrls(e).length > 0)
   const onlyKeys = options?.onlyChangedKeys
-  const toProcess = onlyKeys?.size
-    ? conFoto.filter((e) => onlyKeys.has(fotoKeyFromUrl(String(e.foto_url))))
-    : conFoto
 
-  const keepById = new Map<number, GalleryEntry>()
-  if (onlyKeys?.size) {
-    for (const entry of gallery) {
-      const emp = conFoto.find((e) => e.id_usuario === entry.id_usuario)
-      if (!emp) continue
-      const key = fotoKeyFromUrl(String(emp.foto_url))
-      if (entry.foto_key === key && !onlyKeys.has(key)) {
-        keepById.set(entry.id_usuario, entry)
-      }
+  type Job = { emp: (typeof conFoto)[number]; foto_url: string; foto_key: string }
+  const jobs: Job[] = []
+  for (const emp of conFoto) {
+    for (const foto_url of employeeFotoUrls(emp)) {
+      const foto_key = fotoKeyFromUrl(foto_url)
+      if (onlyKeys?.size && !onlyKeys.has(foto_key)) continue
+      jobs.push({ emp, foto_url, foto_key })
     }
   }
 
-  const next = new Map<number, GalleryEntry>(keepById)
+  const keep: GalleryEntry[] = []
+  if (onlyKeys?.size) {
+    const currentKeys = new Set(conFoto.flatMap((e) => employeeFotoUrls(e).map(fotoKeyFromUrl)))
+    for (const entry of gallery) {
+      if (!currentKeys.has(entry.foto_key)) continue
+      if (onlyKeys.has(entry.foto_key)) continue
+      keep.push(entry)
+    }
+  }
+
+  const nextByKey = new Map<string, GalleryEntry>()
+  for (const entry of keep) nextByKey.set(entry.foto_key, entry)
+
   let failed = 0
   let done = 0
-  const total = toProcess.length
+  const total = jobs.length || 1
 
-  for (const emp of toProcess) {
-    const foto_url = String(emp.foto_url).trim()
-    const foto_key = fotoKeyFromUrl(foto_url)
-    const descriptor = await descriptorFromFotoUrl(foto_url)
+  for (const job of jobs) {
+    const descriptor = await descriptorFromFotoUrl(job.foto_url)
     done += 1
     onProgress?.(done, total)
     if (!descriptor) {
       failed += 1
-      next.delete(emp.id_usuario)
+      nextByKey.delete(job.foto_key)
       continue
     }
-    next.set(emp.id_usuario, {
-      id_usuario: emp.id_usuario,
-      nombre: employeeNombre(emp),
-      foto_url,
-      foto_key,
+    nextByKey.set(job.foto_key, {
+      id_usuario: job.emp.id_usuario,
+      nombre: employeeNombre(job.emp),
+      foto_url: job.foto_url,
+      foto_key: job.foto_key,
       descriptor
     })
   }
 
-  // Full rebuild: drop anyone not in current conFoto
   if (!onlyKeys?.size) {
-    for (const id of [...next.keys()]) {
-      if (!conFoto.some((e) => e.id_usuario === id)) next.delete(id)
-    }
-  } else {
-    for (const emp of conFoto) {
-      if (!next.has(emp.id_usuario) && !onlyKeys.has(fotoKeyFromUrl(String(emp.foto_url)))) {
-        /* keep unchanged already in next via keepById */
-      }
+    const keepKeys = new Set(conFoto.flatMap((e) => employeeFotoUrls(e).map(fotoKeyFromUrl)))
+    for (const key of [...nextByKey.keys()]) {
+      if (!keepKeys.has(key)) nextByKey.delete(key)
     }
   }
 
-  gallery = [...next.values()]
+  gallery = [...nextByKey.values()]
   gallerySignature = gallerySigFromEmpleados(conFoto)
 
   const records: FaceDescriptorRecord[] = gallery.map((e) => ({
@@ -357,26 +388,33 @@ export async function buildFaceGallery(
     descriptor: Array.from(e.descriptor)
   }))
 
+  const personas = new Set(gallery.map((e) => e.id_usuario)).size
   return {
-    indexed: gallery.length,
+    indexed: personas,
     failed,
     total: conFoto.length,
     records
   }
 }
 
-/** Compara fotos actuales vs índice guardado: cuántas faltan o cambiaron. */
+/** Compara fotos actuales (legajo + extras) vs índice: cuántas faltan o cambiaron. */
 export function countPendingFacialIndex(
-  empleados: Array<{ id_usuario: number; foto_url?: string | null }>,
+  empleados: Array<{ id_usuario: number; foto_url?: string | null; fotos_extra?: string[] | null }>,
   indexed: Array<{ id_usuario: number; foto_key: string }>
 ): number {
-  const byId = new Map(indexed.map((r) => [r.id_usuario, r.foto_key]))
+  const indexedKeys = new Set(indexed.map((r) => r.foto_key))
   let pending = 0
   for (const e of empleados) {
-    const url = e.foto_url?.trim()
-    if (!url) continue
-    const key = fotoKeyFromUrl(url)
-    if (byId.get(e.id_usuario) !== key) pending += 1
+    for (const url of employeeFotoUrls(e)) {
+      if (!indexedKeys.has(fotoKeyFromUrl(url))) pending += 1
+    }
+  }
+  // Fotos indexadas que ya no existen en el legajo/extras también cuentan como desfasadas
+  const currentKeys = new Set(
+    empleados.flatMap((e) => employeeFotoUrls(e).map(fotoKeyFromUrl))
+  )
+  for (const row of indexed) {
+    if (!currentKeys.has(row.foto_key)) pending += 1
   }
   return pending
 }

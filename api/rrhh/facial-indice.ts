@@ -113,6 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const failed = Math.max(0, Number(body.failed_count) || 0)
+    const personas = new Set(clean.map((r) => r.id_usuario)).size
     const total = Math.max(clean.length, Number(body.total_fotos) || clean.length)
     const signature = String(body.signature || '').slice(0, 8000)
     const staffId = Number(staff.sub)
@@ -121,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { error: metaErr } = await supabase.from('rrhh_facial_indice_meta').upsert({
       id: 1,
       signature,
-      indexed_count: clean.length,
+      indexed_count: personas,
       failed_count: failed,
       total_fotos: total,
       built_at: new Date().toISOString(),
@@ -134,7 +135,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.status(200).json({
       success: true,
-      indexed: clean.length,
+      indexed: personas,
+      descriptores: clean.length,
       failed,
       total
     })

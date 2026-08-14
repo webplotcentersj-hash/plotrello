@@ -15,6 +15,8 @@ export type EmpleadoRelojTablet = {
   entrada_hoy?: string | null
   salida_hoy?: string | null
   tiene_foto_legajo?: boolean
+  /** Fotos extra de enrolamiento facial (además del legajo). */
+  fotos_extra?: string[]
 }
 
 export type MarcacionTabletResult = {
