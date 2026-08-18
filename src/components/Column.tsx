@@ -222,7 +222,9 @@ const Column = ({
                 onSelect={onSelectTask}
                 onViewTask={onViewTask}
                 hideReclamoUI={hideReclamoUI}
-                onAgendarVisita={onAgendarVisita}
+                onAgendarVisita={
+                  column.id === 'visitas-a-coordinar' ? onAgendarVisita : undefined
+                }
                 touchColumnMove={disableDrag}
               />
             )}

@@ -218,6 +218,10 @@ const AsesorPresupuestosPage = ({
 
   const handleAgendarVisita = useCallback(
     (task: Task) => {
+      if (normalizeTaskForAsesorKanban(task).status !== 'visitas-a-coordinar') {
+        setActionError('Solo se puede agendar cuando la ficha está en Visitas a coordinar.')
+        return
+      }
       if (idAsesorParaAgenda == null) {
         setActionError('No hay un asesor técnico cargado para agendar la visita.')
         return
