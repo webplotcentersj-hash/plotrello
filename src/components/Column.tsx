@@ -41,6 +41,7 @@ type ColumnProps = {
   onSelectTask?: (taskId: string | null) => void
   onViewTask?: (task: Task) => void
   hideReclamoUI?: boolean
+  onAgendarVisita?: (task: Task) => void
   /** True mientras se arrastra en el tablero: filas no arrastradas usan shell ligero (sin TaskCard completo). */
   isBoardDragging?: boolean
   /** Teléfono: sin arrastre de fichas. */
@@ -66,6 +67,7 @@ const Column = ({
   onSelectTask,
   onViewTask,
   hideReclamoUI,
+  onAgendarVisita,
   isBoardDragging = false,
   disableDrag = false
 }: ColumnProps) => {
@@ -220,6 +222,7 @@ const Column = ({
                 onSelect={onSelectTask}
                 onViewTask={onViewTask}
                 hideReclamoUI={hideReclamoUI}
+                onAgendarVisita={onAgendarVisita}
                 touchColumnMove={disableDrag}
               />
             )}

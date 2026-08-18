@@ -1,4 +1,5 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import type { ActivityEvent, ColumnConfig, Task, TaskStatus, TeamMember } from '../types/board'
@@ -31,6 +32,7 @@ export type BoardTaskCardRowProps = {
   onSelect?: (taskId: string | null) => void
   onViewTask?: (task: Task) => void
   hideReclamoUI?: boolean
+  onAgendarVisita?: (task: Task) => void
   /** Tablero en teléfono: panel «Mover a…» en la ficha. */
   touchColumnMove?: boolean
 }
@@ -43,6 +45,9 @@ type LiteShellProps = {
   hideReclamoUI?: boolean
   onSelect?: (taskId: string | null) => void
   onViewTask?: (task: Task) => void
+  onAgendarVisita?: (task: Task) => void
+  onMoveTask?: (taskId: string, destination: TaskStatus, sourceColumn?: TaskStatus) => void
+  columns?: ColumnConfig[]
   isDragSurface?: boolean
 }
 
@@ -54,9 +59,13 @@ function BoardTaskCardLiteShell({
   hideReclamoUI,
   onSelect,
   onViewTask,
+  onAgendarVisita,
+  onMoveTask,
+  columns = [],
   isDragSurface = false
 }: LiteShellProps) {
   const [, setTick] = useState(0)
+  const [contextMenu, setContextMenu] = useState<{ left: number; top: number } | null>(null)
   const isNewMove = typeof task.uiMovedAt === 'number' && Date.now() - task.uiMovedAt < NEW_MOVE_MS
 
   useEffect(() => {
@@ -65,6 +74,16 @@ function BoardTaskCardLiteShell({
     const t = window.setTimeout(() => setTick((x) => x + 1), remaining + 50)
     return () => window.clearTimeout(t)
   }, [isNewMove, task.uiMovedAt])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    const t = window.setTimeout(() => document.addEventListener('click', close), 0)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('click', close)
+    }
+  }, [contextMenu])
 
   const handleClick = (e: MouseEvent) => {
     if (snapshot.isDragging) return
@@ -78,7 +97,12 @@ function BoardTaskCardLiteShell({
     e.stopPropagation()
   }
 
+  const moveTargets = columns.filter((c) => c.id !== task.status)
+  const canAgendar = Boolean(onAgendarVisita)
+  const canMove = Boolean(onMoveTask && moveTargets.length > 0)
+
   return (
+    <>
     <article
       ref={provided.innerRef}
       {...provided.draggableProps}
@@ -105,6 +129,18 @@ function BoardTaskCardLiteShell({
       )}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onContextMenu={(e) => {
+        if (!canAgendar && !canMove) return
+        e.preventDefault()
+        e.stopPropagation()
+        const rect = e.currentTarget.getBoundingClientRect()
+        const itemCount = (canAgendar ? 1 : 0) + moveTargets.length
+        const estHeight = 40 + itemCount * 44 + 16
+        let left = rect.right + 8
+        let top = Math.max(8, Math.min(e.clientY - 12, window.innerHeight - estHeight - 8))
+        if (left + 220 > window.innerWidth - 8) left = Math.max(8, rect.left - 228)
+        setContextMenu({ left, top })
+      }}
       title="Clic para expandir · doble clic para ver detalle"
     >
       <div className="task-minimized-label" title={`#${task.opNumber} — ${task.title}`}>
@@ -122,6 +158,21 @@ function BoardTaskCardLiteShell({
         />
         <span className="task-min-sep">·</span>
         <span className="task-min-client">{task.title}</span>
+        {onAgendarVisita && (
+          <button
+            type="button"
+            className="task-min-agendar"
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              onAgendarVisita(task)
+            }}
+            title="Agendar visita"
+            aria-label="Agendar visita"
+          >
+            Agenda
+          </button>
+        )}
       </div>
       {(task.fichaTecnicaCargada ||
         task.presupuestoArmado ||
@@ -143,6 +194,51 @@ function BoardTaskCardLiteShell({
         </div>
       )}
     </article>
+    {contextMenu &&
+      createPortal(
+        <div
+          className="task-card-context-menu"
+          style={{ left: contextMenu.left, top: contextMenu.top }}
+          role="menu"
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {onAgendarVisita && (
+            <button
+              type="button"
+              className="context-menu-item context-menu-item--agenda"
+              role="menuitem"
+              onClick={() => {
+                onAgendarVisita(task)
+                setContextMenu(null)
+              }}
+            >
+              Agendar visita
+            </button>
+          )}
+          {canMove && onMoveTask && (
+            <>
+              <div className="context-menu-title">Mover a →</div>
+              {moveTargets.map((col) => (
+                <button
+                  key={col.id}
+                  type="button"
+                  className="context-menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    onMoveTask(task.id, col.id, task.status)
+                    setContextMenu(null)
+                  }}
+                >
+                  {col.label}
+                </button>
+              ))}
+            </>
+          )}
+        </div>,
+        document.body
+      )}
+    </>
   )
 }
 
@@ -170,6 +266,7 @@ function BoardTaskCardRowInner(props: BoardTaskCardRowProps) {
     onSelect,
     onViewTask,
     hideReclamoUI,
+    onAgendarVisita,
     touchColumnMove = false
   } = props
 
@@ -196,6 +293,9 @@ function BoardTaskCardRowInner(props: BoardTaskCardRowProps) {
         hideReclamoUI={hideReclamoUI}
         onSelect={onSelect}
         onViewTask={onViewTask}
+        onAgendarVisita={onAgendarVisita}
+        onMoveTask={onMoveTask}
+        columns={columns}
         isDragSurface={isBoardDragging}
       />
     )
@@ -210,6 +310,9 @@ function BoardTaskCardRowInner(props: BoardTaskCardRowProps) {
       hideReclamoUI={hideReclamoUI}
       onSelect={onSelect}
       onViewTask={onViewTask}
+      onAgendarVisita={onAgendarVisita}
+      onMoveTask={onMoveTask}
+      columns={columns}
     />
   )
 
@@ -233,6 +336,7 @@ function BoardTaskCardRowInner(props: BoardTaskCardRowProps) {
         isDraggable={false}
         boardDnD={{ provided, snapshot }}
         hideReclamoUI={hideReclamoUI}
+        onAgendarVisita={onAgendarVisita}
         explicitMoveSheet={explicitMoveSheet}
       />
     </Suspense>
@@ -312,6 +416,7 @@ function boardTaskCardRowPropsAreEqual(
   if (prev.onSelect !== next.onSelect) return false
   if (prev.onViewTask !== next.onViewTask) return false
   if (prev.hideReclamoUI !== next.hideReclamoUI) return false
+  if (prev.onAgendarVisita !== next.onAgendarVisita) return false
 
   return true
 }

@@ -22,6 +22,8 @@ type BoardProps = {
   onViewTask?: (task: Task) => void
   /** Ocultar UI de reclamo en tarjetas (tablero asesor/presupuestos) */
   hideReclamoUI?: boolean
+  /** Enviar ficha a la agenda del asesor. */
+  onAgendarVisita?: (task: Task) => void
   /** Teléfono: desactiva arrastre (las fichas no se mueven con el dedo). */
   disableDrag?: boolean
   /** Excluir fichas eliminadas u ocultas del tablero (asesor/presupuestos). */
@@ -44,6 +46,7 @@ const Board = ({
   onSelectTask,
   onViewTask,
   hideReclamoUI,
+  onAgendarVisita,
   disableDrag = false,
   excludeHiddenFromKanban = false,
   sidePanel
@@ -191,6 +194,7 @@ const Board = ({
                   onSelectTask={onSelectTask}
                   onViewTask={onViewTask}
                   hideReclamoUI={hideReclamoUI}
+                  onAgendarVisita={onAgendarVisita}
                   disableDrag={disableDrag}
                 />
               )}

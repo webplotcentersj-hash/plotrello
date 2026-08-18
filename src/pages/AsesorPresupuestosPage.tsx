@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback, type Dispatch, type SetStateAction } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Board from '../components/Board'
 import Header from '../components/Header'
@@ -7,6 +7,7 @@ import TaskEditModal from '../components/TaskEditModal'
 import FichaNoOPModal from '../components/FichaNoOPModal'
 import VisitaACoordinarModal from '../components/VisitaACoordinarModal'
 import AgendaAsesorTecnico from '../components/AgendaAsesorTecnico'
+import CitaModal, { type CitaPrefillFicha } from '../components/CitaModal'
 import HistorialFichasAsesorPanel from '../components/HistorialFichasAsesorPanel'
 import { ASESOR_PRESUPUESTOS_COLUMNS } from '../data/asesorPresupuestosColumns'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
@@ -151,6 +152,7 @@ const AsesorPresupuestosPage = ({
   const [fichaModalEditTask, setFichaModalEditTask] = useState<Task | null>(null)
   const [visitaModalOpen, setVisitaModalOpen] = useState(false)
   const [visitaModalEditTask, setVisitaModalEditTask] = useState<Task | null>(null)
+  const [fichaParaAgenda, setFichaParaAgenda] = useState<Task | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'kanban' | 'agenda' | 'historial'>('kanban')
@@ -194,6 +196,42 @@ const AsesorPresupuestosPage = ({
     const asesor = teamMembers.find((m) => m.role === 'asesor-tecnico')
     return asesor ? parseInt(asesor.id, 10) : null
   }, [usuario, isAsesorTecnico, teamMembers])
+
+  const citaPrefillFromFicha = useMemo((): CitaPrefillFicha | null => {
+    if (!fichaParaAgenda) return null
+    const idFicha = parseTaskIdToOrdenId(fichaParaAgenda.id)
+    if (!idFicha) return null
+    const summary =
+      fichaParaAgenda.summary && fichaParaAgenda.summary !== 'Sin descripción'
+        ? fichaParaAgenda.summary
+        : ''
+    return {
+      idFichaNoOP: idFicha,
+      clienteNombre: fichaParaAgenda.title?.trim() || 'Cliente',
+      telefono: fichaParaAgenda.clientPhone,
+      direccion: fichaParaAgenda.clientAddress,
+      ubicacionLink: fichaParaAgenda.locationUrl,
+      descripcion: summary,
+      fichaNumero: fichaParaAgenda.opNumber
+    }
+  }, [fichaParaAgenda])
+
+  const handleAgendarVisita = useCallback(
+    (task: Task) => {
+      if (idAsesorParaAgenda == null) {
+        setActionError('No hay un asesor técnico cargado para agendar la visita.')
+        return
+      }
+      const idFicha = parseTaskIdToOrdenId(task.id)
+      if (!idFicha) {
+        setActionError('No se pudo identificar la ficha para agendar.')
+        return
+      }
+      setActionError(null)
+      setFichaParaAgenda(task)
+    },
+    [idAsesorParaAgenda]
+  )
 
   // Filtrar fichas del flujo Asesor Técnico y Presupuestos (no es el tablero general de OPs)
   const filteredTasks = useMemo(() => {
@@ -718,6 +756,7 @@ const AsesorPresupuestosPage = ({
                 selectedTaskId={selectedTaskId}
                 onSelectTask={setSelectedTaskId}
                 hideReclamoUI
+                onAgendarVisita={handleAgendarVisita}
               />
             </div>
           </>
@@ -783,6 +822,22 @@ const AsesorPresupuestosPage = ({
               setFichaModalOpen(false)
               setFichaModalEditTask(null)
             }}
+          />
+        )}
+
+        {fichaParaAgenda && idAsesorParaAgenda != null && citaPrefillFromFicha && (
+          <CitaModal
+            fechaSeleccionada={null}
+            idAsesor={idAsesorParaAgenda}
+            clientes={[]}
+            prefillFicha={citaPrefillFromFicha}
+            onClose={() => setFichaParaAgenda(null)}
+            onSave={() => {
+              setFichaParaAgenda(null)
+              setActionSuccess(`Visita de ${fichaParaAgenda.title} agendada. Está en la pestaña Agenda.`)
+              setActiveTab('agenda')
+            }}
+            onDelete={() => setFichaParaAgenda(null)}
           />
         )}
         </div>

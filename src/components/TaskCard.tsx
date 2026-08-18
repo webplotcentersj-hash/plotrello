@@ -90,6 +90,8 @@ type TaskCardProps = {
   boardDnD?: TaskCardBoardDnD | null
   /** Ocultar marca/indicadores y acciones de reclamo (ej. tablero asesor/presupuestos) */
   hideReclamoUI?: boolean
+  /** Enviar la ficha a la agenda del asesor (cita de visita). */
+  onAgendarVisita?: (task: Task) => void
   /** Fuerza desactivar arrastre (ej. kanban de etapas en teléfono). Solo aplica al `Draggable` interno. */
   dragDisabled?: boolean
   /**
@@ -150,6 +152,7 @@ const TaskCardInner = ({
   onViewTask,
   boardDnD = null,
   hideReclamoUI = false,
+  onAgendarVisita,
   dragDisabled = false,
   explicitMoveSheet = null,
   readOnly = false,
@@ -530,9 +533,12 @@ const TaskCardInner = ({
             e.preventDefault()
             e.stopPropagation()
             if (isReadOnly) return
-            if (!onMoveTask || columns.length === 0 || moveBlocked) return
+            const canMove = Boolean(onMoveTask && columns.length > 0 && !moveBlocked)
+            const canAgendar = Boolean(onAgendarVisita)
+            if (!canMove && !canAgendar) return
             const el = e.currentTarget as HTMLElement
-            const itemCount = columns.filter((c) => c.id !== task.status).length
+            const moveCount = canMove ? columns.filter((c) => c.id !== task.status).length : 0
+            const itemCount = (canAgendar ? 1 : 0) + moveCount
             if (itemCount === 0) return
             setContextMenu(
               getContextMenuViewportPosition(el, e.clientX, e.clientY, itemCount)
@@ -608,6 +614,20 @@ const TaskCardInner = ({
                 </span>
               )}
               {isNewMove && <span className="task-new-pill">NEW</span>}
+              {onAgendarVisita && !isReadOnly && (
+                <button
+                  type="button"
+                  className="task-min-agendar"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAgendarVisita(task)
+                  }}
+                  title="Agendar visita"
+                  aria-label="Agendar visita"
+                >
+                  Agenda
+                </button>
+              )}
               {(task.fichaTecnicaCargada ||
                 task.presupuestoArmado ||
                 task.presupuestoEnviadoCliente ||
@@ -739,6 +759,19 @@ const TaskCardInner = ({
                   Mover
                 </button>
               )}
+            {onAgendarVisita && !isReadOnly && (
+              <button
+                type="button"
+                className="task-action-btn task-agendar-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAgendarVisita(task)
+                }}
+                title="Agendar visita"
+              >
+                Agenda
+              </button>
+            )}
             {task.status === 'presupuestos' && task.fichaTecnicaPdfUrl && (
               <button
                 type="button"
@@ -1932,9 +1965,8 @@ const TaskCardInner = ({
     <>
       {cardContent}
       {contextMenu &&
-        onMoveTask &&
-        columns.length > 0 &&
         !moveBlocked &&
+        (onAgendarVisita || (onMoveTask && columns.length > 0)) &&
         createPortal(
           <div
             className="task-card-context-menu"
@@ -1943,23 +1975,40 @@ const TaskCardInner = ({
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.preventDefault()}
           >
-            <div className="context-menu-title">Mover a →</div>
-            {columns
-              .filter((c) => c.id !== task.status)
-              .map((col) => (
-                <button
-                  key={col.id}
-                  type="button"
-                  className="context-menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    onMoveTask(task.id, col.id, task.status)
-                    setContextMenu(null)
-                  }}
-                >
-                  {col.label}
-                </button>
-              ))}
+            {onAgendarVisita && (
+              <button
+                type="button"
+                className="context-menu-item context-menu-item--agenda"
+                role="menuitem"
+                onClick={() => {
+                  onAgendarVisita(task)
+                  setContextMenu(null)
+                }}
+              >
+                Agendar visita
+              </button>
+            )}
+            {onMoveTask && columns.length > 0 && (
+              <>
+                <div className="context-menu-title">Mover a →</div>
+                {columns
+                  .filter((c) => c.id !== task.status)
+                  .map((col) => (
+                    <button
+                      key={col.id}
+                      type="button"
+                      className="context-menu-item"
+                      role="menuitem"
+                      onClick={() => {
+                        onMoveTask(task.id, col.id, task.status)
+                        setContextMenu(null)
+                      }}
+                    >
+                      {col.label}
+                    </button>
+                  ))}
+              </>
+            )}
           </div>,
           document.body
         )}
@@ -2427,6 +2476,7 @@ function taskCardPropsAreEqual(prev: TaskCardProps, next: TaskCardProps): boolea
   if (prev.onSelect !== next.onSelect) return false
   if (prev.onViewTask !== next.onViewTask) return false
   if (prev.hideReclamoUI !== next.hideReclamoUI) return false
+  if (prev.onAgendarVisita !== next.onAgendarVisita) return false
   if (prev.readOnly !== next.readOnly) return false
   if (prev.onInspectReadOnly !== next.onInspectReadOnly) return false
   if (prev.dragDisabled !== next.dragDisabled) return false

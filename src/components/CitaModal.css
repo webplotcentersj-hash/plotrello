@@ -5,6 +5,15 @@
   overflow-y: auto;
 }
 
+.cita-prefill-hint {
+  margin: 0;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  color: #334155;
+  background: #f0f9ff;
+  border-bottom: 1px solid #bae6fd;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;

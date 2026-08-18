@@ -4,11 +4,23 @@ import type { CitaAsesorTecnico, ClienteRecord } from '../types/api'
 import { formatArgentinaDateOnly, isoToArgentinaDateKey, isoToArgentinaTime } from '../utils/dateUtils'
 import './CitaModal.css'
 
+export type CitaPrefillFicha = {
+  idFichaNoOP: number
+  clienteNombre: string
+  telefono?: string
+  direccion?: string
+  ubicacionLink?: string
+  descripcion?: string
+  fichaNumero?: string
+}
+
 type CitaModalProps = {
   cita?: CitaAsesorTecnico | null
   fechaSeleccionada: Date | null
   idAsesor: number
   clientes: ClienteRecord[]
+  /** Alta desde una ficha del kanban (Visitas / Asesor / Presupuestos). */
+  prefillFicha?: CitaPrefillFicha | null
   onClose: () => void
   onSave: () => void
   onDelete: () => void
@@ -18,6 +30,7 @@ const CitaModal = ({
   cita,
   fechaSeleccionada,
   idAsesor,
+  prefillFicha = null,
   onClose,
   onSave,
   onDelete
@@ -58,12 +71,32 @@ const CitaModal = ({
       setUbicacionLink(cita.ubicacion_link || '')
       setEstado(cita.estado)
       setNotas(cita.notas || '')
-    } else if (fechaSeleccionada) {
-      setFechaCita(formatArgentinaDateOnly(fechaSeleccionada))
-      setClienteNombre('')
-      setTelefono('')
+      return
     }
-  }, [cita, fechaSeleccionada])
+
+    const fechaBase = fechaSeleccionada || new Date()
+    setFechaCita(formatArgentinaDateOnly(fechaBase))
+    setHoraCita('09:00')
+    setDuracionMinutos(60)
+    setEstado('programada')
+
+    if (prefillFicha) {
+      setClienteNombre(prefillFicha.clienteNombre.trim())
+      setTelefono((prefillFicha.telefono || '').trim())
+      setDireccion((prefillFicha.direccion || '').trim())
+      setUbicacionLink((prefillFicha.ubicacionLink || '').trim())
+      setDescripcion((prefillFicha.descripcion || '').trim())
+      setNotas(prefillFicha.fichaNumero ? `Ficha ${prefillFicha.fichaNumero}` : '')
+      return
+    }
+
+    setClienteNombre('')
+    setTelefono('')
+    setDireccion('')
+    setUbicacionLink('')
+    setDescripcion('')
+    setNotas('')
+  }, [cita, fechaSeleccionada, prefillFicha])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,7 +136,7 @@ const CitaModal = ({
           tituloFinal,
           fechaHoraCompleta,
           undefined,
-          undefined,
+          prefillFicha?.idFichaNoOP,
           descripcion || undefined,
           duracionMinutos,
           direccion || undefined,
@@ -162,11 +195,17 @@ const CitaModal = ({
       <div className="modal-content cita-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>
-            {cita ? 'Editar Visita' : 'Nueva Visita'}
+            {cita ? 'Editar Visita' : prefillFicha ? 'Agendar visita' : 'Nueva Visita'}
             {!cita && clienteHeader ? ` — ${clienteHeader}` : ''}
           </h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
+
+        {prefillFicha?.fichaNumero && !cita && (
+          <p className="cita-prefill-hint">
+            Desde la ficha <strong>{prefillFicha.fichaNumero}</strong>. Elegí fecha y hora para que aparezca en la agenda.
+          </p>
+        )}
 
         {error && (
           <div className="alert alert-error">
