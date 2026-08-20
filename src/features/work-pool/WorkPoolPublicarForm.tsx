@@ -226,6 +226,7 @@ export default function WorkPoolPublicarForm({
 
   const aplicarPedidoPortal = (pedido: PedidoClienteRecord) => {
     setPedidoPortalSeleccionado(pedido)
+    setModo('asignado')
     const texto = [pedido.brief_publico, pedido.objetivo_proyecto, pedido.observaciones_cliente]
       .filter(Boolean)
       .join('\n\n')
@@ -247,6 +248,59 @@ export default function WorkPoolPublicarForm({
   const empleadoSeleccionado = empleados.find((u) => u.id === empleadoId)
   const asignadoEsExterno = isOperarioExternoRol(empleadoSeleccionado?.rol)
   const modoEfectivo = asignadoEsExterno ? 'asignado' : modo
+
+  type PublishStep = 1 | 2 | 3 | 4
+  const [step, setStep] = useState<PublishStep>(1)
+
+  const stepsMeta = useMemo(
+    () => [
+      { id: 1 as const, label: 'Origen', hint: 'OP o pedido' },
+      { id: 2 as const, label: 'Destino', hint: 'Bolsa o persona' },
+      { id: 3 as const, label: 'Precio', hint: 'Tarifa / monto' },
+      { id: 4 as const, label: 'Publicar', hint: 'Brief y listo' }
+    ],
+    []
+  )
+
+  const canGoNext = (from: PublishStep): boolean => {
+    if (from === 1) return Boolean(createOp.trim() || pedidoPortalSeleccionado)
+    if (from === 2) {
+      if (pedidoPortalSeleccionado && !empleadoId) return false
+      if (modo === 'asignado' && !empleadoId) return false
+      return true
+    }
+    return true
+  }
+
+  const goNext = () => {
+    setLocalError('')
+    if (!canGoNext(step)) {
+      if (step === 1) {
+        setLocalError('Elegí una OP o un pedido del portal para seguir')
+        return
+      }
+      if (step === 2) {
+        setLocalError(
+          pedidoPortalSeleccionado
+            ? 'Los pedidos del portal requieren asignar un operario'
+            : 'Elegí a quién asignar el trabajo'
+        )
+        return
+      }
+    }
+    setStep((s) => Math.min(4, s + 1) as PublishStep)
+  }
+
+  const goBack = () => {
+    setLocalError('')
+    setStep((s) => Math.max(1, s - 1) as PublishStep)
+  }
+
+  const montoResumen = createMonto
+    ? Number(createMonto)
+    : createTarifa
+      ? montoFromTarifa
+      : 0
 
   const handleSubmit = async () => {
     if (!createOp.trim() && !pedidoPortalSeleccionado) {
@@ -303,165 +357,163 @@ export default function WorkPoolPublicarForm({
     setCreateMonto('')
     setEmpleadoId('')
     setModo('bolsa')
+    setStep(1)
     void loadDisponibles()
     onSuccess?.()
   }
 
-  return (
-    <div className={`work-pool-publicar${compact ? ' work-pool-publicar--compact' : ''}`}>
-      {!compact && (
-        <>
-          <h3>
-            {cfg.icon} Publicar en {cfg.label}
-          </h3>
-          <p className="work-pool-publicar__hint">
-            Buscá la OP, elegí tarifario y publicá en bolsa o asigná a un empleado.
-          </p>
-        </>
-      )}
+  const sectorPicker =
+    sectors.length > 1 ? (
+      <div className="work-pool-module__tabs work-pool-publicar__sectors">
+        {sectors.map((s) => (
+          <button
+            key={s}
+            type="button"
+            className={`work-pool-module__tab${sector === s ? ' is-active' : ''}`}
+            onClick={() => setSector(s)}
+          >
+            {WORK_POOL_SECTOR_LABELS[s]}
+          </button>
+        ))}
+      </div>
+    ) : null
 
-      {sectors.length > 1 && (
-        <div className="work-pool-module__tabs work-pool-publicar__sectors">
-          {sectors.map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`work-pool-module__tab${sector === s ? ' is-active' : ''}`}
-              onClick={() => setSector(s)}
-            >
-              {WORK_POOL_SECTOR_LABELS[s]}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Bolsa disponible actual */}
-      <section className="work-pool-publicar__disponibles">
-        <div className="work-pool-publicar__disponibles-head">
-          <h4>Disponibles en bolsa ({WORK_POOL_SECTOR_LABELS[sector]})</h4>
-          <span className="work-pool-publicar__pill">{disponibles.length}</span>
-        </div>
-        {loadingDisponibles ? (
-          <p className="work-pool-publicar__muted">Cargando…</p>
-        ) : disponibles.length === 0 ? (
-          <p className="work-pool-publicar__muted">No hay trabajos disponibles en este sector.</p>
-        ) : (
-          <div className="work-pool-publicar__disponibles-grid">
-            {disponibles.map((job) => (
-              <article key={job.id} className="work-pool-publicar__disp-card">
-                <strong>{job.titulo}</strong>
-                <span>{job.numero_op ? `OP ${job.numero_op}` : 'Sin OP'}</span>
-                <span>{formatArs(job.monto_presupuestado)}</span>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {pedidoPortalSeleccionado && (
-        <div className="work-pool-module__alert work-pool-module__alert--info">
-          Pedido portal <strong>{pedidoPortalSeleccionado.numero_pedido}</strong> listo para asignar. Elegí
-          operario y publicá; no se envía automáticamente a la bolsa.
-        </div>
-      )}
-
-      {!compact && (
-        <WorkPoolFuentesEntrada
-          product={product}
-          sector={sector}
-          idUsuarioCreador={idUsuarioCreador}
-          onSeleccionarOp={seleccionarOp}
-          onAplicarBrief={aplicarBriefPendiente}
-          onAplicarPedido={aplicarPedidoPortal}
+  const opBlock = (
+    <div className="work-pool-publicar__search-block" ref={opSearchRef}>
+      <label className="work-pool-publicar__search-label">
+        Buscar OP <span className="work-pool-publicar__req">*</span>
+        <input
+          value={opQuery}
+          onChange={(e) => {
+            setOpQuery(e.target.value)
+            setCreateOp(e.target.value)
+            setOpSeleccionada(null)
+          }}
+          onFocus={() => {
+            if (opSugerencias.length > 0 || opSearchParsed.canSearch) setOpDropdownOpen(true)
+          }}
+          placeholder="Nº OP (ej. 100660), cliente, DNI, #id…"
+          readOnly={Boolean(numeroOp) && compact}
+          autoComplete="off"
         />
+      </label>
+      {opBuscando && <span className="work-pool-publicar__search-status">Buscando en toda la base…</span>}
+      {opSearchError && (
+        <span className="work-pool-publicar__search-status work-pool-publicar__search-status--error" role="alert">
+          {opSearchError}
+        </span>
       )}
+      {opDropdownOpen && opSearchParsed.canSearch && !opBuscando && opSugerencias.length === 0 && !opSearchError && (
+        <p className="work-pool-publicar__search-empty">Sin coincidencias. Probá nº OP, apellido o #id de BD.</p>
+      )}
+      {opDropdownOpen && opSugerencias.length > 0 && (
+        <ul className="work-pool-publicar__dropdown" role="listbox">
+          {opSugerencias.map((orden) => (
+            <li key={orden.id}>
+              <button type="button" onClick={() => seleccionarOp(orden)}>
+                <strong>
+                  OP {orden.numero_op.trim()}
+                  {orden.en_tablero || orden.en_tablero_diseno
+                    ? ` · Tablero ${TABLERO_COLA_SHORT[sector]}`
+                    : ''}
+                </strong>
+                <span>{orden.cliente}</span>
+                {orden.descripcion ? (
+                  <small className="work-pool-publicar__dropdown-desc">{resumenDescripcion(orden.descripcion)}</small>
+                ) : null}
+                <small>
+                  #{orden.id} · {orden.estado}
+                  {orden.sector ? ` · ${orden.sector}` : ''}
+                </small>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {opSeleccionada && (
+        <div className="work-pool-publicar__op-preview">
+          <strong>OP {opSeleccionada.numero_op}</strong> — {opSeleccionada.cliente}
+          <span>{opSeleccionada.estado}</span>
+        </div>
+      )}
+      {jobExistente && (
+        <div className="work-pool-module__alert work-pool-module__alert--info">
+          Esta OP ya tiene un trabajo en {WORK_POOL_SECTOR_LABELS[sector]} (
+          {WORK_POOL_ESTADO_LABELS[jobExistente.estado]}).
+        </div>
+      )}
+    </div>
+  )
 
+  const destinoBlock = (
+    <>
       <div className="work-pool-publicar__modo" role="radiogroup" aria-label="Modo de publicación">
         <button
           type="button"
           className={`work-pool-publicar__modo-btn${modo === 'bolsa' ? ' is-active' : ''}`}
           onClick={() => setModo('bolsa')}
+          disabled={Boolean(pedidoPortalSeleccionado)}
         >
           <strong>Bolsa libre</strong>
           <span>Cualquier operario del sector puede tomarlo</span>
         </button>
         <button
           type="button"
-          className={`work-pool-publicar__modo-btn${modo === 'asignado' ? ' is-active' : ''}`}
+          className={`work-pool-publicar__modo-btn${modo === 'asignado' || pedidoPortalSeleccionado ? ' is-active' : ''}`}
           onClick={() => setModo('asignado')}
         >
-          <strong>Asignar empleado</strong>
-          <span>Va directo a un integrante del equipo</span>
+          <strong>Asignar persona</strong>
+          <span>Va directo a un integrante o freelancer</span>
         </button>
       </div>
 
-      {/* Buscador OP */}
-      <div className="work-pool-publicar__search-block" ref={opSearchRef}>
-        <label className="work-pool-publicar__search-label">
-          Buscar OP <span className="work-pool-publicar__req">*</span>
-          <input
-            value={opQuery}
-            onChange={(e) => {
-              setOpQuery(e.target.value)
-              setCreateOp(e.target.value)
-              setOpSeleccionada(null)
-            }}
-            onFocus={() => {
-              if (opSugerencias.length > 0 || opSearchParsed.canSearch) setOpDropdownOpen(true)
-            }}
-            placeholder="Nº OP (ej. 100660), cliente, DNI, #id…"
-            readOnly={Boolean(numeroOp) && compact}
-            autoComplete="off"
+      {(modo === 'asignado' || pedidoPortalSeleccionado) && (
+        <div className="work-pool-publicar__search-block">
+          <WorkPoolOperarioRecommender
+            sector={sector}
+            candidatos={empleados}
+            descripcion={briefParaIA}
+            codigoTarifa={createTarifa}
+            empleadoQuery={empleadoQuery}
+            selectedId={empleadoId}
+            onSelect={(id) => setEmpleadoId(id)}
           />
-        </label>
-        {opBuscando && <span className="work-pool-publicar__search-status">Buscando en toda la base…</span>}
-        {opSearchError && (
-          <span className="work-pool-publicar__search-status work-pool-publicar__search-status--error" role="alert">
-            {opSearchError}
-          </span>
-        )}
-        {opDropdownOpen && opSearchParsed.canSearch && !opBuscando && opSugerencias.length === 0 && !opSearchError && (
-          <p className="work-pool-publicar__search-empty">Sin coincidencias. Probá nº OP, apellido o #id de BD.</p>
-        )}
-        {opDropdownOpen && opSugerencias.length > 0 && (
-          <ul className="work-pool-publicar__dropdown" role="listbox">
-            {opSugerencias.map((orden) => (
-              <li key={orden.id}>
-                <button type="button" onClick={() => seleccionarOp(orden)}>
-                  <strong>
-                    OP {orden.numero_op.trim()}
-                    {orden.en_tablero || orden.en_tablero_diseno
-                      ? ` · Tablero ${TABLERO_COLA_SHORT[sector]}`
-                      : ''}
-                  </strong>
-                  <span>{orden.cliente}</span>
-                  {orden.descripcion ? (
-                    <small className="work-pool-publicar__dropdown-desc">{resumenDescripcion(orden.descripcion)}</small>
-                  ) : null}
-                  <small>
-                    #{orden.id} · {orden.estado}
-                    {orden.sector ? ` · ${orden.sector}` : ''}
-                  </small>
+          <label className="work-pool-publicar__search-label">
+            Buscar ({WORK_POOL_SECTOR_LABELS[sector]})
+            <input
+              value={empleadoQuery}
+              onChange={(e) => setEmpleadoQuery(e.target.value)}
+              placeholder="Nombre…"
+            />
+          </label>
+          <div className="work-pool-publicar__empleado-grid">
+            {empleadosFiltrados.length === 0 ? (
+              <p className="work-pool-publicar__muted">No hay personas para este sector.</p>
+            ) : (
+              empleadosFiltrados.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  className={`work-pool-publicar__empleado-card${empleadoId === u.id ? ' is-active' : ''}`}
+                  onClick={() => {
+                    const next = empleadoId === u.id ? '' : u.id
+                    setEmpleadoId(next)
+                    if (next && isOperarioExternoRol(u.rol)) setModo('asignado')
+                  }}
+                >
+                  {u.nombre}
+                  {isOperarioExternoRol(u.rol) ? ' · externo' : ''}
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {opSeleccionada && (
-          <div className="work-pool-publicar__op-preview">
-            <strong>OP {opSeleccionada.numero_op}</strong> — {opSeleccionada.cliente}
-            <span>{opSeleccionada.estado}</span>
+              ))
+            )}
           </div>
-        )}
-        {jobExistente && (
-          <div className="work-pool-module__alert work-pool-module__alert--info">
-            Esta OP ya tiene un trabajo en {WORK_POOL_SECTOR_LABELS[sector]} (
-            {WORK_POOL_ESTADO_LABELS[jobExistente.estado]}).
-          </div>
-        )}
-      </div>
+        </div>
+      )}
+    </>
+  )
 
-      {/* Tarifario con buscador */}
+  const precioBlock = (
+    <>
       <div className="work-pool-publicar__search-block">
         <label className="work-pool-publicar__search-label">
           Tarifario disponible
@@ -489,7 +541,6 @@ export default function WorkPoolPublicarForm({
           </div>
         )}
       </div>
-
       <div className="work-pool-module__form-row">
         <label>
           Monto manual (opcional)
@@ -502,75 +553,239 @@ export default function WorkPoolPublicarForm({
           />
         </label>
       </div>
+    </>
+  )
 
-      {modo === 'asignado' && (
-        <div className="work-pool-publicar__search-block">
-          <WorkPoolOperarioRecommender
-            sector={sector}
-            candidatos={empleados}
-            descripcion={briefParaIA}
-            codigoTarifa={createTarifa}
-            empleadoQuery={empleadoQuery}
-            selectedId={empleadoId}
-            onSelect={(id) => setEmpleadoId(id)}
-          />
-          <label className="work-pool-publicar__search-label">
-            Buscar empleado ({WORK_POOL_SECTOR_LABELS[sector]})
-            <input
-              value={empleadoQuery}
-              onChange={(e) => setEmpleadoQuery(e.target.value)}
-              placeholder="Nombre del operario…"
-            />
-          </label>
-          <div className="work-pool-publicar__empleado-grid">
-            {empleadosFiltrados.length === 0 ? (
-              <p className="work-pool-publicar__muted">No hay empleados para este sector.</p>
-            ) : (
-              empleadosFiltrados.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  className={`work-pool-publicar__empleado-card${empleadoId === u.id ? ' is-active' : ''}`}
-                  onClick={() => {
-                    const next = empleadoId === u.id ? '' : u.id
-                    setEmpleadoId(next)
-                    if (next && isOperarioExternoRol(u.rol)) setModo('asignado')
-                  }}
-                >
-                  {u.nombre}
-                  {isOperarioExternoRol(u.rol) ? ' · externo' : ''}
-                </button>
-              ))
-            )}
+  const briefBlock = (
+    <div className="work-pool-module__form-row">
+      <label style={{ gridColumn: '1 / -1' }}>
+        Descripción / brief
+        <textarea
+          value={createDesc}
+          onChange={(e) => setCreateDesc(e.target.value)}
+          placeholder="Qué debe hacer el operario…"
+          rows={5}
+        />
+      </label>
+    </div>
+  )
+
+  // Compact: flujo plano (p. ej. desde ficha OP)
+  if (compact) {
+    return (
+      <div className="work-pool-publicar work-pool-publicar--compact">
+        {sectorPicker}
+        {pedidoPortalSeleccionado && (
+          <div className="work-pool-module__alert work-pool-module__alert--info">
+            Pedido portal <strong>{pedidoPortalSeleccionado.numero_pedido}</strong> listo para asignar.
           </div>
-        </div>
-      )}
+        )}
+        {destinoBlock}
+        {opBlock}
+        {precioBlock}
+        {briefBlock}
+        {localError && <div className="work-pool-module__alert work-pool-module__alert--error">{localError}</div>}
+        <button
+          type="button"
+          className="work-pool-module__btn work-pool-module__btn--primary"
+          disabled={creating}
+          onClick={() => void handleSubmit()}
+        >
+          {creating
+            ? 'Publicando…'
+            : modoEfectivo === 'bolsa'
+              ? `Publicar en bolsa ${cfg.shortLabel}`
+              : 'Asignar a empleado'}
+        </button>
+      </div>
+    )
+  }
 
-      <div className="work-pool-module__form-row">
-        <label style={{ gridColumn: '1 / -1' }}>
-          Descripción / brief
-          <textarea
-            value={createDesc}
-            onChange={(e) => setCreateDesc(e.target.value)}
-            placeholder="Qué debe hacer el operario…"
-          />
-        </label>
+  return (
+    <div className={`work-pool-publicar work-pool-publicar--wizard work-pool-publicar--${product}`}>
+      <header className="work-pool-publicar__hero">
+        <span className="work-pool-publicar__hero-mark" aria-hidden>
+          {cfg.icon}
+        </span>
+        <div>
+          <p className="work-pool-publicar__hero-eyebrow">Publicar trabajo</p>
+          <h3>Nueva pieza en {cfg.label}</h3>
+          <p className="work-pool-publicar__hint">
+            Cuatro pasos: origen → destino → precio → brief. Claro y listo para bolsa o asignación.
+          </p>
+        </div>
+      </header>
+
+      {sectorPicker}
+
+      <nav className="work-pool-publicar__steps" aria-label="Etapas de publicación">
+        {stepsMeta.map((s) => {
+          const done = step > s.id
+          const current = step === s.id
+          return (
+            <button
+              key={s.id}
+              type="button"
+              className={`work-pool-publicar__step${done ? ' is-done' : ''}${current ? ' is-current' : ''}`}
+              onClick={() => {
+                if (done || current) setStep(s.id)
+              }}
+              disabled={!done && !current}
+            >
+              <span className="work-pool-publicar__step-num" aria-hidden>
+                {done ? '✓' : s.id}
+              </span>
+              <span className="work-pool-publicar__step-copy">
+                <strong>{s.label}</strong>
+                <em>{s.hint}</em>
+              </span>
+            </button>
+          )
+        })}
+      </nav>
+
+      <div className="work-pool-publicar__stage" key={step}>
+        {step === 1 && (
+          <>
+            <div className="work-pool-publicar__stage-head">
+              <h4>1 · Origen del trabajo</h4>
+              <p>Buscá la OP del tablero o tomá una entrada (brief / pedido portal).</p>
+            </div>
+
+            <section className="work-pool-publicar__disponibles work-pool-publicar__disponibles--compact">
+              <div className="work-pool-publicar__disponibles-head">
+                <h4>Ya en bolsa ({WORK_POOL_SECTOR_LABELS[sector]})</h4>
+                <span className="work-pool-publicar__pill">{disponibles.length}</span>
+              </div>
+              {loadingDisponibles ? (
+                <p className="work-pool-publicar__muted">Cargando…</p>
+              ) : disponibles.length === 0 ? (
+                <p className="work-pool-publicar__muted">Ninguno disponible ahora — podés publicar el primero.</p>
+              ) : (
+                <div className="work-pool-publicar__disponibles-grid">
+                  {disponibles.slice(0, 4).map((job) => (
+                    <article key={job.id} className="work-pool-publicar__disp-card">
+                      <strong>{job.titulo}</strong>
+                      <span>{job.numero_op ? `OP ${job.numero_op}` : 'Sin OP'}</span>
+                      <span>{formatArs(job.monto_presupuestado)}</span>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {pedidoPortalSeleccionado && (
+              <div className="work-pool-module__alert work-pool-module__alert--info">
+                Pedido portal <strong>{pedidoPortalSeleccionado.numero_pedido}</strong> seleccionado.
+              </div>
+            )}
+
+            <WorkPoolFuentesEntrada
+              product={product}
+              sector={sector}
+              idUsuarioCreador={idUsuarioCreador}
+              onSeleccionarOp={seleccionarOp}
+              onAplicarBrief={aplicarBriefPendiente}
+              onAplicarPedido={aplicarPedidoPortal}
+            />
+            {opBlock}
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <div className="work-pool-publicar__stage-head">
+              <h4>2 · Destino</h4>
+              <p>
+                {createOp.trim()
+                  ? `OP ${createOp.trim()} · ¿bolsa libre o asignación directa?`
+                  : '¿Bolsa libre o asignación directa?'}
+              </p>
+            </div>
+            {destinoBlock}
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <div className="work-pool-publicar__stage-head">
+              <h4>3 · Precio</h4>
+              <p>Elegí una tarifa del listado o cargá un monto manual.</p>
+            </div>
+            {precioBlock}
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <div className="work-pool-publicar__stage-head">
+              <h4>4 · Brief y confirmar</h4>
+              <p>Último vistazo antes de publicar.</p>
+            </div>
+
+            <div className="work-pool-publicar__resumen" aria-label="Resumen">
+              <div>
+                <small>Origen</small>
+                <strong>
+                  {pedidoPortalSeleccionado
+                    ? `Pedido ${pedidoPortalSeleccionado.numero_pedido}`
+                    : createOp.trim()
+                      ? `OP ${createOp.trim()}`
+                      : '—'}
+                </strong>
+              </div>
+              <div>
+                <small>Destino</small>
+                <strong>
+                  {modoEfectivo === 'bolsa'
+                    ? 'Bolsa libre'
+                    : empleadoSeleccionado?.nombre ?? 'Asignado'}
+                </strong>
+              </div>
+              <div>
+                <small>Monto</small>
+                <strong>{montoResumen > 0 ? formatArs(montoResumen) : 'Sin definir'}</strong>
+              </div>
+              <div>
+                <small>Sector</small>
+                <strong>{WORK_POOL_SECTOR_LABELS[sector]}</strong>
+              </div>
+            </div>
+
+            {briefBlock}
+          </>
+        )}
       </div>
 
       {localError && <div className="work-pool-module__alert work-pool-module__alert--error">{localError}</div>}
 
-      <button
-        type="button"
-        className="work-pool-module__btn work-pool-module__btn--primary"
-        disabled={creating}
-        onClick={() => void handleSubmit()}
-      >
-        {creating
-          ? 'Publicando…'
-          : modo === 'bolsa'
-            ? `Publicar en bolsa ${cfg.shortLabel}`
-            : 'Asignar a empleado'}
-      </button>
+      <div className="work-pool-publicar__nav">
+        {step > 1 ? (
+          <button type="button" className="work-pool-module__btn work-pool-module__btn--ghost" onClick={goBack}>
+            ← Atrás
+          </button>
+        ) : (
+          <span />
+        )}
+        {step < 4 ? (
+          <button type="button" className="work-pool-module__btn work-pool-module__btn--primary" onClick={goNext}>
+            Siguiente →
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="work-pool-module__btn work-pool-module__btn--primary"
+            disabled={creating}
+            onClick={() => void handleSubmit()}
+          >
+            {creating
+              ? 'Publicando…'
+              : modoEfectivo === 'bolsa'
+                ? `Publicar en bolsa ${cfg.shortLabel}`
+                : 'Asignar y publicar'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

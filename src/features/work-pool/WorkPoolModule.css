@@ -595,8 +595,254 @@
 
 .work-pool--plot-design .work-pool-publicar__tarifa-card.is-active,
 .work-pool--plot-design .work-pool-publicar__empleado-card.is-active {
-  border-color: rgba(168, 85, 247, 0.45);
-  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(47, 129, 247, 0.55);
+  background: rgba(47, 129, 247, 0.12);
+}
+
+/* —— Publicar wizard por etapas —— */
+.work-pool-publicar--wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.work-pool-publicar__hero {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  border-radius: 20px;
+  background:
+    radial-gradient(ellipse 70% 80% at 0% 0%, rgba(47, 129, 247, 0.2), transparent 55%),
+    linear-gradient(145deg, #f6f1ea 0%, #fff 55%, #eef5ff 100%);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 3px 3px 0 rgba(47, 129, 247, 0.35);
+}
+
+.work-pool--bolsa-plot .work-pool-publicar__hero {
+  background:
+    radial-gradient(ellipse 70% 80% at 0% 0%, rgba(249, 115, 22, 0.22), transparent 55%),
+    linear-gradient(145deg, #12141c 0%, #0c0e18 100%);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  color: #e2e8f0;
+}
+
+.work-pool-publicar__hero-mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: #0b0b0b;
+  color: #f6f1ea;
+  font-size: 1.4rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  flex-shrink: 0;
+}
+
+.work-pool--plot-design .work-pool-publicar__hero-mark {
+  background: #2f81f7;
+  color: #fff;
+}
+
+.work-pool-publicar__hero-eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.work-pool-publicar__hero h3 {
+  margin: 4px 0 6px;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+
+.work-pool-publicar__steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.work-pool-publicar__step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(11, 11, 11, 0.1);
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.work-pool-publicar__step:disabled {
+  cursor: default;
+}
+
+.work-pool-publicar__step.is-current,
+.work-pool-publicar__step.is-done {
+  opacity: 1;
+}
+
+.work-pool-publicar__step.is-current {
+  border-color: rgba(47, 129, 247, 0.55);
+  box-shadow: 2px 2px 0 rgba(47, 129, 247, 0.35);
+  background: #f8fbff;
+}
+
+.work-pool--bolsa-plot .work-pool-publicar__step {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+.work-pool--bolsa-plot .work-pool-publicar__step.is-current {
+  border-color: rgba(249, 115, 22, 0.55);
+  box-shadow: none;
+  background: rgba(249, 115, 22, 0.12);
+}
+
+.work-pool--bolsa-plot .work-pool-publicar__step.is-current .work-pool-publicar__step-num {
+  background: #f97316;
+}
+
+.work-pool-publicar__step.is-done {
+  border-color: rgba(22, 163, 74, 0.4);
+}
+
+.work-pool-publicar__step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 11, 11, 0.08);
+  font-size: 0.78rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.work-pool-publicar__step.is-current .work-pool-publicar__step-num {
+  background: #2f81f7;
+  color: #fff;
+}
+
+.work-pool-publicar__step.is-done .work-pool-publicar__step-num {
+  background: #16a34a;
+  color: #fff;
+}
+
+.work-pool-publicar__step-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.work-pool-publicar__step-copy strong {
+  font-size: 0.84rem;
+}
+
+.work-pool-publicar__step-copy em {
+  font-style: normal;
+  font-size: 0.68rem;
+  opacity: 0.55;
+}
+
+.work-pool-publicar__stage {
+  padding: 18px 18px 8px;
+  border-radius: 18px;
+  border: 1.5px solid rgba(11, 11, 11, 0.08);
+  background: rgba(255, 255, 255, 0.55);
+  animation: wp-publish-stage-in 0.28s ease;
+}
+
+.work-pool--bolsa-plot .work-pool-publicar__stage {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.work-pool-publicar__stage-head {
+  margin-bottom: 14px;
+}
+
+.work-pool-publicar__stage-head h4 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.work-pool-publicar__stage-head p {
+  margin: 0;
+  font-size: 0.86rem;
+  opacity: 0.65;
+}
+
+.work-pool-publicar__disponibles--compact {
+  margin-bottom: 14px;
+}
+
+.work-pool-publicar__resumen {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.work-pool-publicar__resumen > div {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(11, 11, 11, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.work-pool-publicar__resumen small {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+}
+
+.work-pool-publicar__resumen strong {
+  font-size: 0.95rem;
+}
+
+.work-pool-publicar__nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+@keyframes wp-publish-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 800px) {
+  .work-pool-publicar__steps {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .work-pool-publicar__resumen {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* —— Recomendador IA operarios —— */

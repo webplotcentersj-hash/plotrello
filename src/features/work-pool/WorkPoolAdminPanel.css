@@ -1,4 +1,4 @@
-/* —— Animaciones base —— */
+﻿/* â€”â€” Animaciones base â€”â€” */
 @keyframes wp-admin-float {
   0%,
   100% {
@@ -63,7 +63,7 @@
   }
 }
 
-/* —— Layout principal —— */
+/* â€”â€” Layout principal â€”â€” */
 .work-pool-admin {
   position: relative;
   min-height: 100vh;
@@ -89,7 +89,7 @@
     linear-gradient(180deg, #0a0a0c 0%, #121214 42%, #0c0c0e 100%);
 }
 
-/* —— Ambiente animado —— */
+/* â€”â€” Ambiente animado â€”â€” */
 .work-pool-admin__ambient {
   position: fixed;
   inset: 0;
@@ -155,7 +155,7 @@
   background: rgba(255, 194, 36, 0.12);
 }
 
-/* —— Hero —— */
+/* â€”â€” Hero â€”â€” */
 .work-pool-admin__hero {
   position: relative;
   z-index: 1;
@@ -459,7 +459,7 @@
   transform: translate(-1px, -1px);
 }
 
-/* —— Toolbar y tabs —— */
+/* â€”â€” Toolbar y tabs â€”â€” */
 .work-pool-admin__toolbar {
   position: relative;
   z-index: 1;
@@ -525,6 +525,87 @@
   box-shadow: 3px 3px 0 rgba(47, 129, 247, 0.75);
 }
 
+.work-pool-admin__tab-badge {
+  margin-left: 6px;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ff6b7a;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.35rem;
+  text-align: center;
+}
+
+.work-pool-admin__tab.is-active .work-pool-admin__tab-badge {
+  background: #0b0b0b;
+  color: #fff;
+}
+
+.work-pool-admin__tab-badge--ok {
+  background: #16a34a;
+}
+
+.work-pool--plot-design .work-pool-admin__tab.is-active .work-pool-admin__tab-badge {
+  background: #2f81f7;
+  color: #fff;
+}
+
+.work-pool--plot-design .work-pool-admin__tab.is-active .work-pool-admin__tab-badge--ok {
+  background: #16a34a;
+}
+
+.work-pool-solicitud-compact-row__origen {
+  background: #2f81f7 !important;
+  color: #fff !important;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.work-pool-solicitud-compact-row__origen--phi {
+  background: #0b0b0b !important;
+  color: #f6f1ea !important;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.95em;
+}
+
+.work-pool-admin__origen-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.work-pool-admin__origen-chip {
+  border: 1.5px solid rgba(11, 11, 11, 0.14);
+  background: #fff;
+  color: #0b0b0b;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.work-pool-admin__origen-chip:hover {
+  border-color: rgba(47, 129, 247, 0.55);
+}
+
+.work-pool-admin__origen-chip.is-active {
+  background: #0b0b0b;
+  color: #f6f1ea;
+  border-color: #0b0b0b;
+}
+
+.work-pool--plot-design .work-pool-admin__section-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
 .work-pool-admin__sector-filter {
   display: flex;
   align-items: center;
@@ -546,7 +627,7 @@
   font: inherit;
 }
 
-/* —— Contenido animado —— */
+/* â€”â€” Contenido animado â€”â€” */
 .work-pool-admin__content {
   position: relative;
   z-index: 1;
@@ -557,7 +638,7 @@
   animation-delay: 0.05s;
 }
 
-/* —— Skeleton loading —— */
+/* â€”â€” Skeleton loading â€”â€” */
 .work-pool-admin__skeleton {
   position: relative;
   z-index: 1;
@@ -594,7 +675,7 @@
   height: 200px;
 }
 
-/* —— KPIs —— */
+/* â€”â€” KPIs â€”â€” */
 .work-pool-admin__kpi-grid,
 .work-pool-admin__sector-board,
 .work-pool-admin__flow,
@@ -730,7 +811,7 @@
   color: transparent;
 }
 
-/* —— Sector board —— */
+/* â€”â€” Sector board â€”â€” */
 .work-pool-admin__flow-track {
   display: flex;
   flex-wrap: wrap;
@@ -917,7 +998,7 @@
   color: #94a3b8;
 }
 
-/* —— Secciones —— */
+/* â€”â€” Secciones â€”â€” */
 .work-pool-admin__section-head {
   display: flex;
   align-items: center;
@@ -1034,7 +1115,7 @@
   color: #cbd5e1;
 }
 
-/* —— Freelancers —— */
+/* â€”â€” Freelancers â€”â€” */
 .work-pool-admin__freelancer-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1188,8 +1269,11 @@
 }
 
 .work-pool--plot-design .work-pool-admin__publish {
-  border-color: rgba(168, 85, 247, 0.2);
-  box-shadow: 0 8px 48px rgba(88, 28, 135, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  background:
+    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(47, 129, 247, 0.1), transparent 50%),
+    #faf8f5;
+  box-shadow: 4px 4px 0 rgba(47, 129, 247, 0.28);
 }
 
 .work-pool-admin__table-wrap {
@@ -1240,7 +1324,7 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
-/* Plot Design — botones primarios del módulo */
+/* Plot Design â€” botones primarios del mÃ³dulo */
 .work-pool--plot-design .work-pool-module__btn--primary {
   background: linear-gradient(135deg, #c084fc, #a855f7);
   box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35);
@@ -1293,7 +1377,7 @@
   }
 }
 
-/* —— Links formulario público —— */
+/* â€”â€” Links formulario pÃºblico â€”â€” */
 .work-pool-admin__form-links {
   margin: 0 0 18px;
   font-size: 0.84rem;
@@ -1318,7 +1402,7 @@
   color: #f0abfc;
 }
 
-/* —— Solicitudes compactas —— */
+/* â€”â€” Solicitudes compactas â€”â€” */
 .work-pool-solicitud-compact-list {
   list-style: none;
   margin: 0;
@@ -1326,6 +1410,29 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.work-pool-admin__list-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.work-pool-admin__list-pager-meta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.work-pool--plot-design .work-pool-admin__list-pager-meta {
+  color: rgba(11, 11, 11, 0.55);
+}
+
+.work-pool-admin__ver-mas {
+  min-width: 160px;
 }
 
 .work-pool-solicitud-compact-row {
@@ -1415,7 +1522,7 @@
   opacity: 0.7;
 }
 
-/* —— Modal solicitud —— */
+/* â€”â€” Modal solicitud â€”â€” */
 .work-pool-solicitud-modal {
   position: fixed;
   inset: 0;
@@ -1615,12 +1722,12 @@
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* —— Hero más compacto y pulido —— */
+/* â€”â€” Hero mÃ¡s compacto y pulido â€”â€” */
 .work-pool-admin__hero-inner {
   padding: 28px 28px 24px;
 }
 
-/* —— Sector cards más densas —— */
+/* â€”â€” Sector cards mÃ¡s densas â€”â€” */
 .work-pool-admin__sector-cards {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
@@ -1644,7 +1751,7 @@
   color: transparent;
 }
 
-/* —— Entregas compactas —— */
+/* â€”â€” Entregas compactas â€”â€” */
 .work-pool-admin__review-card--compact {
   flex-wrap: nowrap;
   align-items: center;
@@ -1694,7 +1801,7 @@
   font-size: 0.72rem;
 }
 
-/* —— Freelancers top más pulidos —— */
+/* â€”â€” Freelancers top mÃ¡s pulidos â€”â€” */
 .work-pool-admin__freelancer-grid {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 10px;
@@ -1738,5 +1845,717 @@
   .work-pool-admin__review-card-actions {
     width: 100%;
     flex-wrap: wrap;
+  }
+}
+
+
+/* —— Avances por operario (sala creativa en vivo) —— */
+.work-pool-admin__section--avances {
+  max-width: 960px;
+}
+
+.work-pool-avances-hero {
+  position: relative;
+  margin-bottom: 22px;
+  padding: 22px 24px 20px;
+  border-radius: 22px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 70% at 0% 0%, rgba(47, 129, 247, 0.22), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 100% 20%, rgba(255, 107, 122, 0.16), transparent 50%),
+    linear-gradient(145deg, #f6f1ea 0%, #fff 55%, #eef5ff 100%);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 4px 4px 0 rgba(47, 129, 247, 0.35);
+}
+
+.work-pool-admin:not(.work-pool--plot-design) .work-pool-avances-hero {
+  background:
+    radial-gradient(ellipse 80% 70% at 0% 0%, rgba(249, 115, 22, 0.25), transparent 55%),
+    linear-gradient(145deg, #12141c 0%, #0c0e18 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.work-pool-avances-hero--empty {
+  text-align: center;
+  padding: 36px 24px;
+}
+
+.work-pool-avances-hero h2 {
+  margin: 10px 0 6px;
+  font-size: 1.55rem;
+  letter-spacing: -0.03em;
+}
+
+.work-pool-avances-hero p {
+  margin: 0;
+  max-width: 42ch;
+  font-size: 0.92rem;
+  opacity: 0.72;
+  line-height: 1.45;
+}
+
+.work-pool-avances-hero--empty p {
+  margin-inline: auto;
+}
+
+.work-pool-avances-hero__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.work-pool-avances-hero__stats {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.work-pool-avances-hero__stats strong {
+  color: #16a34a;
+  font-size: 1.05rem;
+}
+
+.work-pool-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #0b0b0b;
+  color: #f6f1ea;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.work-pool-live-pill time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.work-pool-live-pill--idle {
+  background: rgba(11, 11, 11, 0.55);
+}
+
+.work-pool-live-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: wp-live-pulse 1.6s ease-out infinite;
+}
+
+.work-pool-avances-now {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.work-pool-avances-now__chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 8px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(34, 197, 94, 0.45);
+  background: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.work-pool-avances-now__chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(34, 197, 94, 0.18);
+}
+
+.work-pool-avances-now__pulse {
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 1.5px solid rgba(34, 197, 94, 0.35);
+  animation: wp-live-ring 2s ease-out infinite;
+  pointer-events: none;
+}
+
+.work-pool-avances-now__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.work-pool-avances-now__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.work-pool-avances-now__text strong {
+  font-size: 0.86rem;
+}
+
+.work-pool-avances-now__text em {
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #16a34a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.work-pool-avances-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.work-pool-avance-card {
+  border: 1.5px solid rgba(11, 11, 11, 0.1);
+  border-radius: 18px;
+  background: #fff;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.work-pool-avance-card.is-live {
+  border-color: rgba(34, 197, 94, 0.45);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.12), 3px 3px 0 rgba(34, 197, 94, 0.2);
+}
+
+.work-pool-admin:not(.work-pool--plot-design) .work-pool-avance-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.work-pool-avance-card__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.work-pool-avance-card.is-live .work-pool-avance-card__head {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.08), transparent 55%);
+}
+
+.work-pool-avance-card__avatar {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: #0b0b0b;
+  color: #f6f1ea;
+  font-size: 0.78rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.work-pool--plot-design .work-pool-avance-card__avatar {
+  background: #2f81f7;
+  color: #fff;
+}
+
+.work-pool-avance-card__avatar.is-live {
+  background: #16a34a;
+}
+
+.work-pool-avance-card__ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  border: 2px solid rgba(34, 197, 94, 0.55);
+  animation: wp-live-ring 1.8s ease-out infinite;
+}
+
+.work-pool-avance-card__title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.work-pool-avance-card__title strong {
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+}
+
+.work-pool-avance-card__title > span {
+  font-size: 0.78rem;
+  opacity: 0.65;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.work-pool-avance-card__working {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem !important;
+  font-weight: 700;
+  color: #16a34a !important;
+  opacity: 1 !important;
+}
+
+.work-pool-avance-card__working-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+  animation: wp-live-pulse 1.4s ease-out infinite;
+}
+
+.work-pool-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.work-pool-live-badge--sm {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-weight: 700;
+}
+
+.work-pool-avance-card__count {
+  min-width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  background: rgba(11, 11, 11, 0.08);
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.work-pool-avance-card__chev {
+  transition: transform 0.18s ease;
+  opacity: 0.5;
+}
+
+.work-pool-avance-card__chev.is-open {
+  transform: rotate(90deg);
+}
+
+.work-pool-avance-card__jobs {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid rgba(11, 11, 11, 0.08);
+}
+
+.work-pool-avance-job {
+  padding: 14px 14px 12px;
+  border-radius: 14px;
+  background: rgba(11, 11, 11, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.work-pool-avance-job.is-live {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(47, 129, 247, 0.06));
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.work-pool-avance-job__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.work-pool-avance-job__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.work-pool-avance-job__top h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.work-pool-avance-job__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.74rem;
+  opacity: 0.65;
+}
+
+.work-pool-avance-track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.work-pool-avance-track__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  opacity: 0.4;
+  text-align: center;
+}
+
+.work-pool-avance-track__dot {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(11, 11, 11, 0.1);
+}
+
+.work-pool-avance-track__step.is-done {
+  opacity: 0.85;
+}
+
+.work-pool-avance-track__step.is-done .work-pool-avance-track__dot {
+  background: #16a34a;
+}
+
+.work-pool-avance-track__step.is-current {
+  opacity: 1;
+  font-weight: 700;
+}
+
+.work-pool-avance-track__step.is-current .work-pool-avance-track__dot {
+  background: #2f81f7;
+  animation: wp-track-glow 1.8s ease-in-out infinite;
+}
+
+.work-pool-avance-track__step.is-cambios .work-pool-avance-track__dot {
+  background: #f59e0b;
+  animation: wp-track-glow 1.4s ease-in-out infinite;
+}
+
+.work-pool-avance-job__note {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.75;
+  line-height: 1.4;
+}
+
+.work-pool-avance-job__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.work-pool-admin__avances-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  font-size: 0.78rem;
+  opacity: 0.55;
+}
+
+@keyframes wp-live-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.65); }
+  70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+@keyframes wp-live-ring {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(1.12); opacity: 0; }
+}
+
+@keyframes wp-track-glow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+
+@media (max-width: 640px) {
+  .work-pool-avance-track {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .work-pool-avances-hero {
+    padding: 18px 16px;
+  }
+}
+/* —— Contabilidad —— */
+.work-pool-admin__section--contabilidad {
+  max-width: 1100px;
+}
+
+.work-pool-conta-hero {
+  margin-bottom: 22px;
+  padding: 22px 24px 20px;
+  border-radius: 22px;
+  background:
+    radial-gradient(ellipse 70% 60% at 100% 0%, rgba(47, 129, 247, 0.18), transparent 55%),
+    linear-gradient(145deg, #f6f1ea 0%, #fff 60%, #f0fdf4 100%);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 4px 4px 0 rgba(15, 23, 42, 0.12);
+}
+
+.work-pool-admin:not(.work-pool--plot-design) .work-pool-conta-hero {
+  background:
+    radial-gradient(ellipse 70% 60% at 100% 0%, rgba(249, 115, 22, 0.2), transparent 55%),
+    linear-gradient(145deg, #12141c 0%, #0c0e18 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.work-pool-conta-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.work-pool-conta-hero h2 {
+  margin: 8px 0 6px;
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+}
+
+.work-pool-conta-hero > p {
+  margin: 0 0 18px;
+  font-size: 0.9rem;
+  opacity: 0.7;
+  max-width: 48ch;
+}
+
+.work-pool-conta-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.work-pool-conta-kpi {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1.5px solid rgba(11, 11, 11, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.work-pool-admin:not(.work-pool--plot-design) .work-pool-conta-kpi {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.work-pool-conta-kpi small {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+
+.work-pool-conta-kpi strong {
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+}
+
+.work-pool-conta-kpi span {
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.work-pool-conta-kpi--deuda {
+  border-color: rgba(255, 107, 122, 0.45);
+  background: linear-gradient(135deg, rgba(255, 107, 122, 0.12), rgba(255, 255, 255, 0.8));
+}
+
+.work-pool-conta-kpi--deuda strong {
+  color: #e11d48;
+}
+
+.work-pool-conta-kpi--ok strong {
+  color: #16a34a;
+}
+
+.work-pool-conta-list-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.work-pool-conta-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 36px 20px;
+  text-align: center;
+  color: #16a34a;
+  opacity: 0.9;
+}
+
+.work-pool-conta-empty p {
+  margin: 0;
+  max-width: 40ch;
+  color: inherit;
+  opacity: 0.85;
+  font-size: 0.9rem;
+}
+
+.work-pool-conta-table-wrap {
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1.5px solid rgba(11, 11, 11, 0.1);
+  background: #fff;
+}
+
+.work-pool-admin:not(.work-pool--plot-design) .work-pool-conta-table-wrap {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.work-pool-conta-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.work-pool-conta-table th,
+.work-pool-conta-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(11, 11, 11, 0.06);
+  vertical-align: middle;
+}
+
+.work-pool-conta-table th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+  font-weight: 700;
+  background: rgba(11, 11, 11, 0.03);
+}
+
+.work-pool-conta-table tr.is-debt {
+  background: rgba(255, 107, 122, 0.05);
+}
+
+.work-pool-conta-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.work-pool-conta-person__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: #0b0b0b;
+  color: #f6f1ea;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.work-pool--plot-design .work-pool-conta-person__avatar {
+  background: #2f81f7;
+  color: #fff;
+}
+
+.work-pool-conta-person strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.work-pool-conta-person small {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.6;
+}
+
+.work-pool-conta-sectors {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.work-pool-conta-deuda {
+  color: #e11d48;
+  font-size: 1rem;
+}
+
+.work-pool-conta-ok {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #16a34a;
+}
+
+.work-pool-conta-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.work-pool-conta-pay-box {
+  margin-top: 18px;
+}
+
+@media (max-width: 800px) {
+  .work-pool-conta-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .work-pool-conta-table th:nth-child(2),
+  .work-pool-conta-table td:nth-child(2) {
+    display: none;
   }
 }

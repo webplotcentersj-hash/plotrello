@@ -55,6 +55,9 @@ export type WorkPoolSolicitud = {
   id_usuario_creado: number | null
   revisado_por: number | null
   notas_admin: string | null
+  /** formulario = /postulacion-operarios; rrhh = espejo desde /rrhh/postulaciones */
+  origen: 'formulario' | 'rrhh'
+  id_rrhh_postulacion: number | null
   created_at: string
   updated_at: string
 }
@@ -184,6 +187,33 @@ export type WorkPoolAdminDashboard = {
   freelancers: WorkPoolFreelancerResumen[]
   pendientes_revision: WorkPoolJob[]
   jobs_recientes: WorkPoolJob[]
+  /** Avances de trabajos activos agrupados por operario asignado. */
+  avances_por_operario: WorkPoolOperarioAvance[]
+}
+
+/** Pasos del flujo creativo / bolsa para seguimiento admin. */
+export const WORK_POOL_AVANCE_PASOS = [
+  { key: 'asignado', label: 'Asignado' },
+  { key: 'en_curso', label: 'En curso' },
+  { key: 'revision', label: 'Revisión' },
+  { key: 'aprobado', label: 'Aprobado' }
+] as const
+
+export type WorkPoolJobAvance = {
+  job: WorkPoolJob
+  /** 1..4 según WORK_POOL_AVANCE_PASOS */
+  paso: number
+  etiqueta_paso: string
+  /** true si está en 'cambios' (vuelve a producir) */
+  en_cambios: boolean
+}
+
+export type WorkPoolOperarioAvance = {
+  id_usuario: number
+  nombre: string
+  trabajos_en_curso: number
+  en_revision: number
+  jobs: WorkPoolJobAvance[]
 }
 
 export const WORK_POOL_SECTOR_LABELS: Record<WorkPoolSector, string> = {

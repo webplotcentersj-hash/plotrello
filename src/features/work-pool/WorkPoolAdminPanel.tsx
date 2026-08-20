@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
+  Activity,
   Briefcase,
   CheckCircle2,
   ClipboardCheck,
@@ -41,12 +42,31 @@ import {
 } from './workPoolRepository'
 import WorkPoolPublicarForm from './WorkPoolPublicarForm'
 import WorkPoolSolicitudesPanel from './WorkPoolSolicitudesPanel'
+import WorkPoolAvancesPanel from './WorkPoolAvancesPanel'
+import WorkPoolContabilidadPanel from './WorkPoolContabilidadPanel'
 import './WorkPoolModule.css'
 import './WorkPoolAdminPanel.css'
 
 type Props = { product: WorkPoolProduct }
 
-type AdminTab = 'dashboard' | 'freelancers' | 'publicar' | 'pipeline'
+type AdminTab =
+  | 'dashboard'
+  | 'freelancers'
+  | 'aprobados'
+  | 'avances'
+  | 'contabilidad'
+  | 'publicar'
+  | 'pipeline'
+
+const ADMIN_TABS: AdminTab[] = [
+  'dashboard',
+  'freelancers',
+  'aprobados',
+  'avances',
+  'contabilidad',
+  'publicar',
+  'pipeline'
+]
 
 function formatArs(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
@@ -77,36 +97,63 @@ function productHeroIcon(product: WorkPoolProduct): LucideIcon {
 
 export default function WorkPoolAdminPanel({ product }: Props) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { usuario, canAccessPlotDesign, canAccessBolsaPlot } = useAuth()
   const cfg = WORK_POOL_PRODUCT_CONFIG[product]
   const SECTORS = sectorsForProduct(product)
-  const [tab, setTab] = useState<AdminTab>('dashboard')
+  const initialTab = (searchParams.get('tab') as AdminTab | null) || 'dashboard'
+  const [tab, setTab] = useState<AdminTab>(
+    ADMIN_TABS.includes(initialTab) ? initialTab : 'dashboard'
+  )
   const [sectorFilter, setSectorFilter] = useState<WorkPoolSector | 'todos'>('todos')
   const [dashboard, setDashboard] = useState<WorkPoolAdminDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [pendingSolicitudes, setPendingSolicitudes] = useState(0)
 
   const [payUserId, setPayUserId] = useState<number | null>(null)
   const [payMonto, setPayMonto] = useState('')
   const [payNotas, setPayNotas] = useState('')
   const [paying, setPaying] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
+  const selectTab = useCallback(
+    (next: AdminTab) => {
+      setTab(next)
+      const nextParams = new URLSearchParams(searchParams)
+      if (next === 'dashboard') nextParams.delete('tab')
+      else nextParams.set('tab', next)
+      setSearchParams(nextParams, { replace: true })
+    },
+    [searchParams, setSearchParams]
+  )
+
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setLoading(true)
+      setError('')
+    }
     const res = await loadWorkPoolAdminDashboard(product)
     if (!res.success || !res.data) {
-      setError(res.error || 'No se pudo cargar el panel')
-      setDashboard(null)
+      if (!opts?.silent) {
+        setError(res.error || 'No se pudo cargar el panel')
+        setDashboard(null)
+      }
     } else {
       setDashboard(res.data)
     }
-    setLoading(false)
+    if (!opts?.silent) setLoading(false)
   }, [product])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    const t = searchParams.get('tab') as AdminTab | null
+    if (t && ADMIN_TABS.includes(t) && t !== tab) {
+      setTab(t)
+    }
+  }, [searchParams, tab])
 
   const filteredFreelancers = useMemo(() => {
     if (!dashboard) return []
@@ -114,6 +161,11 @@ export default function WorkPoolAdminPanel({ product }: Props) {
     if (sectorFilter === 'todos') return afines
     return afines.filter((f) => f.sectores.includes(sectorFilter))
   }, [dashboard, sectorFilter, SECTORS])
+
+  const aprobadosFreelancers = useMemo(
+    () => filteredFreelancers.filter((f) => f.perfil_aprobado),
+    [filteredFreelancers]
+  )
 
   const filteredPendientes = useMemo(() => {
     if (!dashboard) return []
@@ -151,16 +203,23 @@ export default function WorkPoolAdminPanel({ product }: Props) {
   }
 
   const kpis = dashboard?.kpis
+  const isPlotDesign = product === 'plot-design'
 
   const tabItems: { id: AdminTab; label: string; Icon: LucideIcon }[] = [
     { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-    { id: 'freelancers', label: 'Afines', Icon: Users },
+    {
+      id: 'freelancers',
+      label: isPlotDesign ? 'Afines · Postulantes' : 'Afines',
+      Icon: Users
+    },
+    { id: 'aprobados', label: 'Aprobados', Icon: CheckCircle2 },
+    { id: 'avances', label: 'Avances', Icon: Activity },
+    { id: 'contabilidad', label: 'Contabilidad', Icon: Wallet },
     { id: 'publicar', label: 'Publicar', Icon: Send },
     { id: 'pipeline', label: 'Pipeline', Icon: GitBranch }
   ]
 
   const HeroIcon = productHeroIcon(product)
-  const isPlotDesign = product === 'plot-design'
 
   const flowCounts = useMemo(() => {
     if (!kpis) return null
@@ -282,12 +341,35 @@ export default function WorkPoolAdminPanel({ product }: Props) {
               role="tab"
               aria-selected={tab === id}
               className={`work-pool-admin__tab${tab === id ? ' is-active' : ''}`}
-              onClick={() => setTab(id)}
+              onClick={() => selectTab(id)}
             >
               <span className="work-pool-admin__tab-icon" aria-hidden>
                 <Icon size={16} strokeWidth={2} />
               </span>
               {label}
+              {id === 'freelancers' && pendingSolicitudes > 0 ? (
+                <span className="work-pool-admin__tab-badge" aria-label={`${pendingSolicitudes} postulaciones`}>
+                  {pendingSolicitudes > 99 ? '99+' : pendingSolicitudes}
+                </span>
+              ) : null}
+              {id === 'aprobados' && aprobadosFreelancers.length > 0 ? (
+                <span className="work-pool-admin__tab-badge work-pool-admin__tab-badge--ok" aria-label={`${aprobadosFreelancers.length} aprobados`}>
+                  {aprobadosFreelancers.length > 99 ? '99+' : aprobadosFreelancers.length}
+                </span>
+              ) : null}
+              {id === 'avances' && (dashboard?.avances_por_operario?.length ?? 0) > 0 ? (
+                <span className="work-pool-admin__tab-badge" aria-label="Avances activos">
+                  {(dashboard?.avances_por_operario?.length ?? 0) > 99
+                    ? '99+'
+                    : dashboard?.avances_por_operario?.length}
+                </span>
+              ) : null}
+              {id === 'contabilidad' &&
+              filteredFreelancers.some((f) => f.saldo_pendiente > 0) ? (
+                <span className="work-pool-admin__tab-badge" aria-label="Deuda pendiente">
+                  $
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -383,14 +465,14 @@ export default function WorkPoolAdminPanel({ product }: Props) {
                 <span className="work-pool-admin__pill">Diseño</span>
               </div>
               <div className="work-pool-admin__flow-track">
-                <button type="button" className="work-pool-admin__flow-step" onClick={() => setTab('pipeline')}>
+                <button type="button" className="work-pool-admin__flow-step" onClick={() => selectTab('pipeline')}>
                   <span>Disponible</span>
                   <strong>{flowCounts.disponible}</strong>
                 </button>
                 <span className="work-pool-admin__flow-arrow" aria-hidden>
                   →
                 </span>
-                <button type="button" className="work-pool-admin__flow-step" onClick={() => setTab('pipeline')}>
+                <button type="button" className="work-pool-admin__flow-step" onClick={() => selectTab('pipeline')}>
                   <span>En curso</span>
                   <strong>{flowCounts.enCurso}</strong>
                 </button>
@@ -400,7 +482,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
                 <button
                   type="button"
                   className={`work-pool-admin__flow-step${flowCounts.revision > 0 ? ' is-alert' : ''}`}
-                  onClick={() => setTab('dashboard')}
+                  onClick={() => selectTab('pipeline')}
                 >
                   <span>En revisión</span>
                   <strong>{flowCounts.revision}</strong>
@@ -492,7 +574,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
             </div>
             <div className="work-pool-admin__freelancer-grid">
               {filteredFreelancers.slice(0, 6).map((f) => (
-                <FreelancerCard key={f.id_usuario} f={f} onPay={() => { setPayUserId(f.id_usuario); setTab('freelancers') }} />
+                <FreelancerCard key={f.id_usuario} f={f} onPay={() => { setPayUserId(f.id_usuario); selectTab('freelancers') }} />
               ))}
               {filteredFreelancers.length === 0 && (
                 <p className="work-pool-module__empty">
@@ -508,10 +590,10 @@ export default function WorkPoolAdminPanel({ product }: Props) {
 
       {dashboard && tab === 'freelancers' && (
         <div className="work-pool-admin__content">
-        <WorkPoolSolicitudesPanel />
+        <WorkPoolSolicitudesPanel product={product} onPendingCount={setPendingSolicitudes} />
         <section className="work-pool-admin__section">
           <div className="work-pool-admin__section-head">
-            <h2>Operarios afines</h2>
+            <h2>{isPlotDesign ? 'Diseñadores afines' : 'Operarios afines'}</h2>
             <span className="work-pool-admin__pill">{filteredFreelancers.length}</span>
           </div>
           <div className="work-pool-admin__freelancer-grid work-pool-admin__freelancer-grid--full">
@@ -524,7 +606,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
               />
             ))}
           </div>
-          {payUserId != null && (
+          {payUserId != null && tab === 'freelancers' && (
             <div className="work-pool-admin__pay-box">
               <h3>Registrar pago</h3>
               <p>
@@ -557,6 +639,120 @@ export default function WorkPoolAdminPanel({ product }: Props) {
         </div>
       )}
 
+      {dashboard && tab === 'aprobados' && (
+        <div className="work-pool-admin__content">
+          <section className="work-pool-admin__section">
+            <div className="work-pool-admin__section-head">
+              <h2>{isPlotDesign ? 'Diseñadores aprobados' : 'Operarios aprobados'}</h2>
+              <span className="work-pool-admin__pill">{aprobadosFreelancers.length}</span>
+            </div>
+            <p className="work-pool-admin__form-links">
+              {isPlotDesign
+                ? 'Perfiles con acceso a la bolsa creativa (postulación aprobada o perfil activo).'
+                : 'Operarios externos con perfil aprobado en la bolsa.'}
+            </p>
+            {aprobadosFreelancers.length === 0 ? (
+              <p className="work-pool-module__empty">
+                {isPlotDesign
+                  ? 'Todavía no hay diseñadores aprobados. Revisá Afines · Postulantes.'
+                  : 'Todavía no hay operarios aprobados.'}
+              </p>
+            ) : (
+              <div className="work-pool-admin__freelancer-grid work-pool-admin__freelancer-grid--full">
+                {aprobadosFreelancers.map((f) => (
+                  <FreelancerCard
+                    key={f.id_usuario}
+                    f={f}
+                    detailed
+                    onPay={() => setPayUserId(f.id_usuario)}
+                  />
+                ))}
+              </div>
+            )}
+            {payUserId != null && (
+              <div className="work-pool-admin__pay-box">
+                <h3>Registrar pago</h3>
+                <p>
+                  Operario:{' '}
+                  <strong>
+                    {aprobadosFreelancers.find((f) => f.id_usuario === payUserId)?.nombre ?? `#${payUserId}`}
+                  </strong>
+                </p>
+                <div className="work-pool-module__form-row">
+                  <label>
+                    Monto ARS
+                    <input type="number" min="0" value={payMonto} onChange={(e) => setPayMonto(e.target.value)} />
+                  </label>
+                  <label style={{ gridColumn: '1 / -1' }}>
+                    Notas
+                    <input value={payNotas} onChange={(e) => setPayNotas(e.target.value)} placeholder="Transferencia, fecha…" />
+                  </label>
+                </div>
+                <div className="work-pool-admin__pay-actions">
+                  <button type="button" className="work-pool-module__btn work-pool-module__btn--primary" disabled={paying} onClick={() => void handlePago()}>
+                    {paying ? 'Registrando…' : 'Confirmar pago'}
+                  </button>
+                  <button type="button" className="work-pool-module__btn work-pool-module__btn--ghost" onClick={() => setPayUserId(null)}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {dashboard && tab === 'avances' && (
+        <div className="work-pool-admin__content">
+          <WorkPoolAvancesPanel
+            product={product}
+            avances={dashboard.avances_por_operario ?? []}
+            canReview={!!usuario}
+            onRefreshLive={() => void load({ silent: true })}
+            onNavigateOp={(op) => navigate(`/op/${op}`)}
+            onAprobar={(job) => {
+              if (!usuario) return
+              void runAction(() => aprobarWorkPoolJob(job.id, usuario.id))
+            }}
+            onPedirCambios={(job) => {
+              if (!usuario) return
+              const motivo = window.prompt('Motivo de cambios') ?? ''
+              void runAction(() => solicitarCambiosWorkPoolJob(job.id, usuario.id, motivo || undefined))
+            }}
+          />
+        </div>
+      )}
+
+      {dashboard && tab === 'contabilidad' && (
+        <div className="work-pool-admin__content">
+          <WorkPoolContabilidadPanel
+            product={product}
+            freelancers={filteredFreelancers}
+            deudaTotal={filteredFreelancers.reduce((s, f) => s + f.saldo_pendiente, 0)}
+            acreditadoTotal={filteredFreelancers.reduce((s, f) => s + f.acreditado, 0)}
+            pagadoTotal={filteredFreelancers.reduce((s, f) => s + f.pagado, 0)}
+            payUserId={payUserId}
+            payMonto={payMonto}
+            payNotas={payNotas}
+            paying={paying}
+            onPayMonto={setPayMonto}
+            onPayNotas={setPayNotas}
+            onStartPay={(id) => {
+              setPayUserId(id)
+              const f = filteredFreelancers.find((x) => x.id_usuario === id)
+              setPayMonto(f && f.saldo_pendiente > 0 ? String(Math.round(f.saldo_pendiente)) : '')
+              setPayNotas('')
+            }}
+            onCancelPay={() => {
+              setPayUserId(null)
+              setPayMonto('')
+              setPayNotas('')
+            }}
+            onConfirmPay={() => void handlePago()}
+          />
+        </div>
+      )}
+
       {tab === 'publicar' && usuario && (
         <div className="work-pool-admin__content">
         <section className="work-pool-admin__publish">
@@ -564,7 +760,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
             product={product}
             idUsuarioCreador={usuario.id}
             onSuccess={() => {
-              setTab('dashboard')
+              selectTab('dashboard')
               void load()
             }}
             onError={(msg) => setError(msg)}

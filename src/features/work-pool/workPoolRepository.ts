@@ -4,6 +4,8 @@ import type {
   WorkPoolAdminDashboard,
   WorkPoolFreelancerResumen,
   WorkPoolJob,
+  WorkPoolJobAvance,
+  WorkPoolOperarioAvance,
   WorkPoolOrdenSugerida,
   WorkPoolPedidoChat,
   WorkPoolPricingRule,
@@ -16,6 +18,12 @@ import type {
   WorkPoolSolicitudNivel,
   WorkPoolSolicitudRubro
 } from '../../types/workPool'
+import { WORK_POOL_ESTADO_LABELS } from '../../types/workPool'
+import {
+  esNombreTipoEmail,
+  fallbackNombreSinEmail,
+  nombreCompletoLegajo
+} from '../../utils/usuarioDisplayName'
 import { sectorsForProduct, operarioExternoRolForProduct } from './workPoolConfig'
 import {
   mapOrdenRow,
@@ -703,13 +711,17 @@ async function fetchUsuarioNombres(
   const map = new Map<number, string>()
   if (!supabase || ids.length === 0) return map
 
-  const unique = [...new Set(ids)]
+  const unique = [...new Set(ids)].filter((id) => Number.isFinite(id) && id > 0)
+  if (unique.length === 0) return map
+
   const { data, error } = await supabase.rpc('obtener_usuarios_por_ids', {
     p_ids: unique
   })
   if (!error && Array.isArray(data)) {
     for (const row of data as Array<{ id: number; nombre?: string }>) {
-      map.set(Number(row.id), String(row.nombre ?? `Usuario #${row.id}`))
+      const id = Number(row.id)
+      const raw = String(row.nombre ?? '').trim()
+      if (id > 0 && raw) map.set(id, fallbackNombreSinEmail(raw))
     }
   }
 
@@ -720,11 +732,60 @@ async function fetchUsuarioNombres(
       .select('id, nombre')
       .in('id', missing)
     for (const row of rows ?? []) {
-      map.set(Number((row as { id: number }).id), String((row as { nombre: string }).nombre))
+      const id = Number((row as { id: number }).id)
+      const raw = String((row as { nombre?: string }).nombre ?? '').trim()
+      if (id > 0 && raw) map.set(id, fallbackNombreSinEmail(raw))
+    }
+  }
+
+  // Legajo RRHH (nombre + apellido) pisa login/email cuando existe
+  const { data: legajos } = await supabase
+    .from('legajos_empleados')
+    .select('id_usuario, nombre, apellido')
+    .in('id_usuario', unique)
+  for (const row of legajos ?? []) {
+    const id = Number((row as { id_usuario: number }).id_usuario)
+    const full = nombreCompletoLegajo(row as { nombre?: string; apellido?: string })
+    if (id > 0 && full) map.set(id, full)
+  }
+
+  // Solicitudes aprobadas: nombre completo del postulante
+  const stillWeak = unique.filter((id) => {
+    const n = map.get(id)
+    return !n || n.startsWith('Operario #') || n.startsWith('Usuario #')
+  })
+  if (stillWeak.length > 0) {
+    const { data: sols } = await supabase
+      .from('work_pool_solicitudes')
+      .select('id_usuario_creado, nombre_completo')
+      .eq('estado', 'aprobada')
+      .in('id_usuario_creado', stillWeak)
+    for (const row of sols ?? []) {
+      const id = Number((row as { id_usuario_creado: number }).id_usuario_creado)
+      const nom = String((row as { nombre_completo?: string }).nombre_completo ?? '').trim()
+      if (id > 0 && nom) map.set(id, nom)
     }
   }
 
   return map
+}
+
+function applyNombresToFreelancers(
+  freelancerMap: Map<number, WorkPoolFreelancerResumen>,
+  nombres: Map<number, string>
+) {
+  for (const [id, f] of freelancerMap) {
+    const resolved = nombres.get(id)?.trim()
+    if (!resolved) continue
+    if (
+      !f.nombre ||
+      f.nombre === `Operario #${id}` ||
+      f.nombre === `Usuario #${id}` ||
+      esNombreTipoEmail(f.nombre)
+    ) {
+      f.nombre = resolved
+    }
+  }
 }
 
 function isCurrentMonth(iso: string | null): boolean {
@@ -732,6 +793,75 @@ function isCurrentMonth(iso: string | null): boolean {
   const d = new Date(iso)
   const now = new Date()
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+}
+
+function jobToAvance(job: WorkPoolJob): WorkPoolJobAvance {
+  const estado = job.estado
+  if (estado === 'asignado') {
+    return { job, paso: 1, etiqueta_paso: 'Asignado', en_cambios: false }
+  }
+  if (estado === 'en_curso') {
+    return { job, paso: 2, etiqueta_paso: 'En curso', en_cambios: false }
+  }
+  if (estado === 'cambios') {
+    return { job, paso: 2, etiqueta_paso: 'Cambios', en_cambios: true }
+  }
+  if (estado === 'entregado' || estado === 'en_revision') {
+    return {
+      job,
+      paso: 3,
+      etiqueta_paso: estado === 'en_revision' ? 'En revisión' : 'Entregado',
+      en_cambios: false
+    }
+  }
+  if (estado === 'aprobado') {
+    return { job, paso: 4, etiqueta_paso: 'Aprobado', en_cambios: false }
+  }
+  return {
+    job,
+    paso: 0,
+    etiqueta_paso: WORK_POOL_ESTADO_LABELS[estado] ?? estado,
+    en_cambios: false
+  }
+}
+
+function buildAvancesPorOperario(
+  jobs: WorkPoolJob[],
+  nombres: Map<number, string>
+): WorkPoolOperarioAvance[] {
+  const activos = new Set(['asignado', 'en_curso', 'cambios', 'entregado', 'en_revision'])
+  const byUser = new Map<number, WorkPoolJobAvance[]>()
+
+  for (const job of jobs) {
+    if (!job.id_usuario_asignado || !activos.has(job.estado)) continue
+    const id = job.id_usuario_asignado
+    const list = byUser.get(id) ?? []
+    list.push(jobToAvance(job))
+    byUser.set(id, list)
+  }
+
+  const rows: WorkPoolOperarioAvance[] = []
+  for (const [id_usuario, jobAvances] of byUser) {
+    jobAvances.sort((a, b) => String(b.job.updated_at).localeCompare(String(a.job.updated_at)))
+    rows.push({
+      id_usuario,
+      nombre: nombres.get(id_usuario) ?? `Operario #${id_usuario}`,
+      trabajos_en_curso: jobAvances.filter((j) =>
+        ['asignado', 'en_curso', 'cambios'].includes(j.job.estado)
+      ).length,
+      en_revision: jobAvances.filter((j) =>
+        ['entregado', 'en_revision'].includes(j.job.estado)
+      ).length,
+      jobs: jobAvances
+    })
+  }
+
+  rows.sort(
+    (a, b) =>
+      b.trabajos_en_curso + b.en_revision - (a.trabajos_en_curso + a.en_revision) ||
+      a.nombre.localeCompare(b.nombre, 'es')
+  )
+  return rows
 }
 
 function rubroToSector(rubro: string | null | undefined): WorkPoolSector | null {
@@ -779,13 +909,22 @@ async function mergeOperariosExternosAfines(
   for (const u of usuarios ?? []) {
     const id = Number((u as { id: number }).id)
     const f = ensureFreelancer(id)
-    f.nombre = String((u as { nombre?: string }).nombre ?? nombres.get(id) ?? f.nombre)
+    const rawNombre = String((u as { nombre?: string }).nombre ?? '').trim()
+    const resolved =
+      (rawNombre ? fallbackNombreSinEmail(rawNombre) : null) ||
+      nombres.get(id) ||
+      f.nombre
+    if (resolved && resolved !== `Operario #${id}`) f.nombre = resolved
     f.perfil_aprobado = true
     f.perfil_activo = true
 
     const sectorSolicitud = rubroPorUsuario.get(id)
     if (sectorSolicitud && productSectors.includes(sectorSolicitud) && !f.sectores.includes(sectorSolicitud)) {
       f.sectores.push(sectorSolicitud)
+    }
+    // operario-diseno sin perfil/solicitud aún: mostrar en Afines Plot Design
+    if (product === 'plot-design' && f.sectores.length === 0 && productSectors.includes('diseno')) {
+      f.sectores.push('diseno')
     }
   }
 }
@@ -886,6 +1025,10 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
     }
   }
 
+  // Nombres reales: RPC + legajo + solicitud (después de armar todo el mapa)
+  const nombresFinal = await fetchUsuarioNombres([...freelancerMap.keys()])
+  applyNombresToFreelancers(freelancerMap, nombresFinal)
+
   const saldoResults = await Promise.all(
     [...freelancerMap.keys()].map(async (id) => {
       const res = await getSaldoOperario(id)
@@ -903,6 +1046,26 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
   const freelancers = [...freelancerMap.values()]
     .filter((f) => f.sectores.some((s) => !productSectors || productSectors.includes(s)))
     .sort((a, b) => b.saldo_pendiente - a.saldo_pendiente || b.trabajos_activos - a.trabajos_activos)
+
+  const nombrePorId = new Map<number, string>()
+  for (const f of freelancers) nombrePorId.set(f.id_usuario, f.nombre)
+  for (const [id, nom] of nombresFinal) {
+    if (!nombrePorId.has(id) || nombrePorId.get(id)?.startsWith('Operario #')) {
+      nombrePorId.set(id, nom)
+    }
+  }
+  // Assignees de jobs que no estén en freelancers (p. ej. staff)
+  const assigneeIds = [
+    ...new Set(
+      jobs
+        .map((j) => j.id_usuario_asignado)
+        .filter((id): id is number => id != null && id > 0 && !nombrePorId.has(id))
+    )
+  ]
+  if (assigneeIds.length > 0) {
+    const extra = await fetchUsuarioNombres(assigneeIds)
+    for (const [id, nom] of extra) nombrePorId.set(id, nom)
+  }
 
   // KPIs operativos desde jobs (misma fuente que la UI); deuda financiera desde ledger/resumen.
   const jobsAbiertos = jobs.filter((j) => j.estado !== 'aprobado' && j.estado !== 'cancelado')
@@ -949,7 +1112,8 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
       resumen_sectores: resumenUnificado,
       freelancers,
       pendientes_revision: jobs.filter((j) => j.estado === 'entregado' || j.estado === 'en_revision'),
-      jobs_recientes: jobs.slice(0, 40)
+      jobs_recientes: jobs.slice(0, 40),
+      avances_por_operario: buildAvancesPorOperario(jobs, nombrePorId)
     }
   }
 }
@@ -985,6 +1149,8 @@ function mapSolicitud(row: Record<string, unknown>): WorkPoolSolicitud {
     id_usuario_creado: row.id_usuario_creado != null ? Number(row.id_usuario_creado) : null,
     revisado_por: row.revisado_por != null ? Number(row.revisado_por) : null,
     notas_admin: (row.notas_admin as string) ?? null,
+    origen: row.origen === 'rrhh' ? 'rrhh' : 'formulario',
+    id_rrhh_postulacion: row.id_rrhh_postulacion != null ? Number(row.id_rrhh_postulacion) : null,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? '')
   }
@@ -1045,14 +1211,37 @@ export async function enviarSolicitudOperarioExterno(input: {
 }
 
 export async function listarSolicitudesOperario(
-  estado?: WorkPoolSolicitud['estado']
+  estado?: WorkPoolSolicitud['estado'],
+  product?: WorkPoolProduct
 ): Promise<{ success: boolean; data?: WorkPoolSolicitud[]; error?: string }> {
   if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
   let q = supabase.from('work_pool_solicitudes').select('*').order('created_at', { ascending: false })
   if (estado) q = q.eq('estado', estado)
   const { data, error } = await q
   if (error) return { success: false, error: error.message }
-  return { success: true, data: (data ?? []).map((r) => mapSolicitud(r as Record<string, unknown>)) }
+  let rows = (data ?? []).map((r) => mapSolicitud(r as Record<string, unknown>))
+  if (product === 'plot-design') {
+    rows = rows.filter((s) => s.rubro === 'diseno' || s.tipo === 'diseno')
+  } else if (product === 'bolsa-plot') {
+    rows = rows.filter((s) => s.rubro !== 'diseno' && s.tipo !== 'diseno')
+  }
+  return { success: true, data: rows }
+}
+
+/** Espeja una postulación RRHH de diseño a la bolsa Plot Design (Afines). */
+export async function importarPostulacionRrhhAWorkPool(
+  idRrhh: number,
+  notify = true
+): Promise<{ success: boolean; data?: { id_solicitud: number }; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const { data, error } = await supabase.rpc('work_pool_mirror_rrhh_postulacion', {
+    p_id_rrhh: idRrhh,
+    p_notify: notify
+  })
+  if (error) return { success: false, error: error.message }
+  const id = typeof data === 'number' ? data : Number(data)
+  if (!Number.isFinite(id) || id <= 0) return { success: false, error: 'No se creó la solicitud' }
+  return { success: true, data: { id_solicitud: id } }
 }
 
 export async function aprobarSolicitudOperario(input: {

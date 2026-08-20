@@ -137,7 +137,12 @@ export default function WorkPoolSolicitudDetailModal({
               {initials(solicitud.nombre_completo)}
             </span>
             <div>
-              <p className="work-pool-solicitud-modal__eyebrow">Solicitud #{solicitud.id}</p>
+              <p className="work-pool-solicitud-modal__eyebrow">
+                Solicitud #{solicitud.id}
+                {solicitud.origen === 'rrhh'
+                  ? ` · RRHH${solicitud.id_rrhh_postulacion ? ` #${solicitud.id_rrhh_postulacion}` : ''}`
+                  : ' · φ phi /postulacion-operarios'}
+              </p>
               <h2 id="wp-sol-modal-title">{solicitud.nombre_completo}</h2>
               <p className="work-pool-solicitud-modal__email">{solicitud.email}</p>
             </div>

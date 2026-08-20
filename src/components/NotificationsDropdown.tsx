@@ -24,9 +24,16 @@ import {
   parseBriefIdFromNotification
 } from '../utils/briefsPendientesNuevos'
 
-function notificationIsWorkPoolBolsa(n: Pick<Notification, 'title'>): boolean {
+function notificationIsWorkPoolBolsa(n: Pick<Notification, 'title' | 'origen'>): boolean {
+  if (n.origen === 'work_pool_postulacion') return false
   const title = (n.title ?? '').trim()
   return title.startsWith('[Plot Design]') || title.startsWith('[Bolsa Plot]')
+}
+
+function notificationIsWorkPoolPostulacion(n: Pick<Notification, 'origen' | 'title'>): boolean {
+  if (n.origen === 'work_pool_postulacion') return true
+  const title = (n.title ?? '').trim().toLowerCase()
+  return title.includes('nueva postulación') && (title.includes('[plot design]') || title.includes('[bolsa plot]'))
 }
 
 /** Coincide con títulos/textos insertados por solicitar/responder_intercambio_turno_menu (menú diario). */
@@ -298,6 +305,12 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
     }
 
     try {
+      if (notificationIsWorkPoolPostulacion(notification)) {
+        const title = (notification.title ?? '').toLowerCase()
+        const path = title.includes('[bolsa plot]') ? '/bolsa-plot' : '/plot-design'
+        navigate(`${path}?tab=freelancers`)
+        return
+      }
       if (notificationIsWorkPoolBolsa(notification)) {
         const route = operarioExternoHomeRoute(usuario?.rol) ?? '/plot-design'
         if (notification.pedido_id != null) {

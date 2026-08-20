@@ -103,6 +103,18 @@ function fmtCount(n: number | null | undefined): string {
   return n.toLocaleString('es-AR')
 }
 
+function rrhhPostulacionEsDiseno(p: Pick<RrhhPostulacion, 'puesto' | 'categoria_puesto'>): boolean {
+  const cat = (p.categoria_puesto ?? '').toLowerCase()
+  const puesto = (p.puesto ?? '').toLowerCase()
+  return (
+    cat.includes('dise') ||
+    puesto.includes('diseñ') ||
+    puesto.includes('disen') ||
+    puesto.includes('diseñador') ||
+    puesto.includes('disenador')
+  )
+}
+
 async function getPlotAiApi() {
   const m = await import('../services/api')
   return m.default
@@ -135,6 +147,8 @@ const RecursosHumanosPostulacionesPage = () => {
   const [ingresarPassword, setIngresarPassword] = useState('')
   const [ingresarRol, setIngresarRol] = useState<UserRole>('mostrador')
   const [ingresando, setIngresando] = useState(false)
+  const [enviandoPlotDesign, setEnviandoPlotDesign] = useState(false)
+  const [plotDesignMsg, setPlotDesignMsg] = useState('')
 
   const listFilters = useCallback(
     () => ({
@@ -235,6 +249,7 @@ const RecursosHumanosPostulacionesPage = () => {
       setDetailNotas(row.notas_rrhh || '')
       setDetailEntrevistaLocal(toDatetimeLocalValue(row.entrevista_at))
       setShowIngresarModal(false)
+      setPlotDesignMsg('')
     })
     void rrhhPostulacionObtener(row.id).then((res) => {
       if (res.success && res.data) {
@@ -278,6 +293,30 @@ const RecursosHumanosPostulacionesPage = () => {
       alert(res.error || 'Error al guardar')
     }
     setSaving(false)
+  }
+
+  const enviarAPlotDesign = async () => {
+    if (!selected) return
+    if (!rrhhPostulacionEsDiseno(selected)) {
+      alert('Solo postulaciones de diseño se envían a Plot Design')
+      return
+    }
+    setEnviandoPlotDesign(true)
+    setPlotDesignMsg('')
+    try {
+      const { importarPostulacionRrhhAWorkPool } = await import('../features/work-pool/workPoolRepository')
+      const res = await importarPostulacionRrhhAWorkPool(selected.id, true)
+      if (!res.success) {
+        alert(res.error || 'No se pudo enviar a Plot Design')
+      } else {
+        setPlotDesignMsg(
+          `Enviado a Plot Design (solicitud #${res.data?.id_solicitud}). Revisá Afines · Postulantes.`
+        )
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error al enviar a Plot Design')
+    }
+    setEnviandoPlotDesign(false)
   }
 
   const confirmarIngreso = async () => {
@@ -694,6 +733,18 @@ const RecursosHumanosPostulacionesPage = () => {
                         ? 'Continuar alta…'
                         : 'Guardar'}
                   </button>
+                  {rrhhPostulacionEsDiseno(selected) && (
+                    <button
+                      type="button"
+                      className="rrhh-post-btn-outline"
+                      onClick={() => void enviarAPlotDesign()}
+                      disabled={enviandoPlotDesign}
+                      title="Copia la postulación a Plot Design → Afines · Postulantes"
+                    >
+                      {enviandoPlotDesign ? 'Enviando…' : 'Enviar a Plot Design'}
+                    </button>
+                  )}
+                  {plotDesignMsg && <p className="rrhh-post-pipeline-hint">{plotDesignMsg}</p>}
                   {selectedEsFormulario && (
                     <button
                       type="button"
