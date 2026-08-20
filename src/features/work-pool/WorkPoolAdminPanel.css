@@ -2473,6 +2473,14 @@
   background: #fff;
   overflow: hidden;
   transition: border-color 0.2s, box-shadow 0.2s;
+  color: inherit;
+}
+
+.work-pool--plot-design .work-pool-avance-card {
+  background: linear-gradient(155deg, #121826 0%, #0b1220 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  color: #f8fafc;
 }
 
 .work-pool-avance-card.is-live {
@@ -2480,9 +2488,15 @@
   box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.12), 3px 3px 0 rgba(34, 197, 94, 0.2);
 }
 
+.work-pool--plot-design .work-pool-avance-card.is-live {
+  border-color: rgba(74, 222, 128, 0.45);
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.15), 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
 .work-pool-admin:not(.work-pool--plot-design) .work-pool-avance-card {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
 }
 
 .work-pool-avance-card__head {
@@ -2499,8 +2513,16 @@
   cursor: pointer;
 }
 
+.work-pool--plot-design .work-pool-avance-card__head:hover {
+  background: rgba(47, 129, 247, 0.1);
+}
+
 .work-pool-avance-card.is-live .work-pool-avance-card__head {
   background: linear-gradient(90deg, rgba(34, 197, 94, 0.08), transparent 55%);
+}
+
+.work-pool--plot-design .work-pool-avance-card.is-live .work-pool-avance-card__head {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.16), transparent 60%);
 }
 
 .work-pool-avance-card__avatar {
@@ -2547,12 +2569,21 @@
   letter-spacing: -0.02em;
 }
 
+.work-pool--plot-design .work-pool-avance-card__title strong {
+  color: #fff;
+}
+
 .work-pool-avance-card__title > span {
   font-size: 0.78rem;
   opacity: 0.65;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.work-pool--plot-design .work-pool-avance-card__title > span {
+  color: #cbd5e1;
+  opacity: 0.85;
 }
 
 .work-pool-avance-card__working {
@@ -2563,6 +2594,10 @@
   font-weight: 700;
   color: #16a34a !important;
   opacity: 1 !important;
+}
+
+.work-pool--plot-design .work-pool-avance-card__working {
+  color: #4ade80 !important;
 }
 
 .work-pool-avance-card__working-dot {
@@ -2595,6 +2630,11 @@
   font-weight: 700;
 }
 
+.work-pool--plot-design .work-pool-live-badge--sm {
+  background: rgba(74, 222, 128, 0.16);
+  color: #86efac;
+}
+
 .work-pool-avance-card__count {
   min-width: 1.6rem;
   height: 1.6rem;
@@ -2606,9 +2646,19 @@
   font-weight: 700;
 }
 
+.work-pool--plot-design .work-pool-avance-card__count {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+}
+
 .work-pool-avance-card__chev {
   transition: transform 0.18s ease;
   opacity: 0.5;
+}
+
+.work-pool--plot-design .work-pool-avance-card__chev {
+  color: #e2e8f0;
+  opacity: 0.7;
 }
 
 .work-pool-avance-card__chev.is-open {
@@ -2625,6 +2675,10 @@
   border-top: 1px solid rgba(11, 11, 11, 0.08);
 }
 
+.work-pool--plot-design .work-pool-avance-card__jobs {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
 .work-pool-avance-job {
   padding: 14px 14px 12px;
   border-radius: 14px;
@@ -2634,9 +2688,19 @@
   gap: 10px;
 }
 
+.work-pool--plot-design .work-pool-avance-job {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
 .work-pool-avance-job.is-live {
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(47, 129, 247, 0.06));
   border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.work-pool--plot-design .work-pool-avance-job.is-live {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.16), rgba(47, 129, 247, 0.1));
+  border-color: rgba(74, 222, 128, 0.35);
 }
 
 .work-pool-avance-job__top {
@@ -2659,12 +2723,21 @@
   font-size: 0.95rem;
 }
 
+.work-pool--plot-design .work-pool-avance-job__top h4 {
+  color: #fff;
+}
+
 .work-pool-avance-job__meta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   font-size: 0.74rem;
   opacity: 0.65;
+}
+
+.work-pool--plot-design .work-pool-avance-job__meta {
+  color: #cbd5e1;
+  opacity: 0.85;
 }
 
 .work-pool-avance-track {
@@ -2686,11 +2759,19 @@
   text-align: center;
 }
 
+.work-pool--plot-design .work-pool-avance-track__step {
+  color: #cbd5e1;
+}
+
 .work-pool-avance-track__dot {
   width: 100%;
   height: 7px;
   border-radius: 999px;
   background: rgba(11, 11, 11, 0.1);
+}
+
+.work-pool--plot-design .work-pool-avance-track__dot {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .work-pool-avance-track__step.is-done {
@@ -2723,6 +2804,10 @@
   line-height: 1.4;
 }
 
+.work-pool--plot-design .work-pool-avance-job__note {
+  color: #cbd5e1;
+}
+
 .work-pool-avance-job__actions {
   display: flex;
   flex-wrap: wrap;
@@ -2736,6 +2821,10 @@
   margin: 16px 0 0;
   font-size: 0.78rem;
   opacity: 0.55;
+}
+
+.work-pool--plot-design .work-pool-admin__avances-legend {
+  color: #cbd5e1;
 }
 
 @keyframes wp-live-pulse {
