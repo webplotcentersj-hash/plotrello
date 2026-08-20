@@ -17307,6 +17307,40 @@ class ApiService {
     }
   }
 
+  /** Actualiza entrada/salida/horas/tipo de un registro de asistencia (admin/gerencia). */
+  async actualizarAsistencia(params: {
+    id: number
+    horaEntrada?: string | null
+    horaSalida?: string | null
+    horasTrabajadas?: number | null
+    tipoRegistro?: 'normal' | 'tarde' | 'ausente' | 'justificado'
+    observaciones?: string | null
+  }): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'No hay conexión a Supabase' }
+    }
+    if (!params.id || params.id <= 0) {
+      return { success: false, error: 'Id de asistencia inválido' }
+    }
+
+    try {
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (params.horaEntrada !== undefined) patch.hora_entrada = params.horaEntrada
+      if (params.horaSalida !== undefined) patch.hora_salida = params.horaSalida
+      if (params.horasTrabajadas !== undefined) patch.horas_trabajadas = params.horasTrabajadas
+      if (params.tipoRegistro !== undefined) patch.tipo_registro = params.tipoRegistro
+      if (params.observaciones !== undefined) {
+        patch.observaciones = params.observaciones?.trim() || null
+      }
+
+      const { error } = await supabase.from('asistencia').update(patch).eq('id', params.id)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   /** Elimina un registro de asistencia por id. */
   async eliminarAsistencia(id: number): Promise<ApiResponse<boolean>> {
     if (!supabase) {

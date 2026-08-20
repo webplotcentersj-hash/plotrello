@@ -1055,6 +1055,7 @@ const AsistenciaTab = ({
   onAsistenciaActualizada: () => void
   onIrNovedades: () => void
 }) => {
+  const { isAdmin } = useAuth()
   const [novedadDetalle, setNovedadDetalle] = useState<RrhhNovedad | null>(null)
   const [asistenciaDetalle, setAsistenciaDetalle] = useState<Asistencia | null>(null)
   const [asistenciaDetalleExtra, setAsistenciaDetalleExtra] = useState<number | null>(null)
@@ -1063,6 +1064,13 @@ const AsistenciaTab = ({
   const [aclaracionSaving, setAclaracionSaving] = useState(false)
   const [aclaracionError, setAclaracionError] = useState<string | null>(null)
   const [aclaracionOk, setAclaracionOk] = useState(false)
+  const [editEntrada, setEditEntrada] = useState('')
+  const [editSalida, setEditSalida] = useState('')
+  const [editTipo, setEditTipo] = useState<Asistencia['tipo_registro']>('normal')
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [editOk, setEditOk] = useState(false)
+  const [deletingAsistencia, setDeletingAsistencia] = useState(false)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
   const [legajos, setLegajos] = useState<Record<number, { nombre: string; apellido: string }>>({})
   const syncNovedadesRef = useRef(false)
@@ -1296,6 +1304,108 @@ const AsistenciaTab = ({
     setAclaracionDraft('')
     setAclaracionError(null)
     setAclaracionOk(false)
+    setEditEntrada('')
+    setEditSalida('')
+    setEditTipo('normal')
+    setEditError(null)
+    setEditOk(false)
+    setDeletingAsistencia(false)
+  }
+
+  const argentinaHoraToTs = (fecha: string, hhmm: string): string | null => {
+    const t = hhmm.trim()
+    if (!t) return null
+    if (!/^\d{2}:\d{2}$/.test(t)) return null
+    return `${fecha.slice(0, 10)}T${t}:00-03:00`
+  }
+
+  const calcHorasTrabajadas = (entradaTs: string | null, salidaTs: string | null): number | null => {
+    if (!entradaTs || !salidaTs) return null
+    const e = new Date(entradaTs).getTime()
+    const s = new Date(salidaTs).getTime()
+    if (!Number.isFinite(e) || !Number.isFinite(s) || s < e) return null
+    return Math.round(((s - e) / 3_600_000) * 100) / 100
+  }
+
+  const guardarEdicionAsistencia = async () => {
+    if (!asistenciaDetalle || !isAdmin) return
+    if (asistenciaDetalle.id <= 0) {
+      setEditError('Este día no tiene un registro guardado para editar.')
+      return
+    }
+    setEditSaving(true)
+    setEditError(null)
+    setEditOk(false)
+    try {
+      const horaEntrada = argentinaHoraToTs(asistenciaDetalle.fecha, editEntrada)
+      const horaSalida = argentinaHoraToTs(asistenciaDetalle.fecha, editSalida)
+      if (editEntrada.trim() && !horaEntrada) {
+        setEditError('Entrada inválida. Usá formato HH:MM.')
+        return
+      }
+      if (editSalida.trim() && !horaSalida) {
+        setEditError('Salida inválida. Usá formato HH:MM.')
+        return
+      }
+      if (editTipo !== 'ausente' && editTipo !== 'justificado' && !horaEntrada) {
+        setEditError('La hora de entrada es obligatoria.')
+        return
+      }
+      const horasTrabajadas = calcHorasTrabajadas(horaEntrada, horaSalida)
+      const res = await apiService.actualizarAsistencia({
+        id: asistenciaDetalle.id,
+        horaEntrada,
+        horaSalida,
+        horasTrabajadas,
+        tipoRegistro: editTipo
+      })
+      if (!res.success) {
+        setEditError(res.error || 'No se pudo guardar el registro.')
+        return
+      }
+      setAsistenciaDetalle({
+        ...asistenciaDetalle,
+        hora_entrada: horaEntrada,
+        hora_salida: horaSalida,
+        horas_trabajadas: horasTrabajadas,
+        tipo_registro: editTipo
+      })
+      setEditOk(true)
+      onAsistenciaActualizada()
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'No se pudo guardar el registro.')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const eliminarRegistroAsistencia = async () => {
+    if (!asistenciaDetalle || !isAdmin || asistenciaDetalle.id <= 0) return
+    const nombre =
+      asistenciaDetalle.nombre_usuario || nombres.get(asistenciaDetalle.id_usuario) || 'el empleado'
+    const fechaLabel = new Date(asistenciaDetalle.fecha).toLocaleDateString('es-AR')
+    if (
+      !window.confirm(
+        `¿Eliminar la asistencia de ${nombre} del ${fechaLabel}?\nEsta acción no se puede deshacer.`
+      )
+    ) {
+      return
+    }
+    setDeletingAsistencia(true)
+    setEditError(null)
+    try {
+      const res = await apiService.eliminarAsistencia(asistenciaDetalle.id)
+      if (!res.success) {
+        setEditError(res.error || 'No se pudo eliminar el registro.')
+        return
+      }
+      cerrarDetalleAsistencia()
+      onAsistenciaActualizada()
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'No se pudo eliminar el registro.')
+    } finally {
+      setDeletingAsistencia(false)
+    }
   }
 
   const guardarAclaracion = async () => {
@@ -1361,6 +1471,11 @@ const AsistenciaTab = ({
       setAclaracionDraft(parseAsistenciaObservaciones(reg.observaciones).aclaracion)
       setAclaracionError(null)
       setAclaracionOk(false)
+      setEditEntrada(asistenciaHoraCorta(reg.hora_entrada))
+      setEditSalida(asistenciaHoraCorta(reg.hora_salida))
+      setEditTipo(reg.tipo_registro)
+      setEditError(null)
+      setEditOk(false)
     }
 
     const acum = extraAcumulado.get(empId)?.get(f) ?? 0
@@ -1611,12 +1726,22 @@ const AsistenciaTab = ({
               <dd>{asistenciaDetalle.nombre_usuario || nombres.get(asistenciaDetalle.id_usuario) || '—'}</dd>
               <dt>Fecha</dt>
               <dd>{new Date(asistenciaDetalle.fecha).toLocaleDateString('es-AR')}</dd>
-              <dt>Entrada</dt>
-              <dd className="leyenda-entrada">{asistenciaHoraCorta(asistenciaDetalle.hora_entrada) || '—'}</dd>
-              <dt>Salida</dt>
-              <dd className="leyenda-salida">{asistenciaHoraCorta(asistenciaDetalle.hora_salida) || '—'}</dd>
-              <dt>Horas</dt>
-              <dd>{asistenciaDetalle.horas_trabajadas != null ? `${asistenciaDetalle.horas_trabajadas.toFixed(1)} hs` : '—'}</dd>
+              {!isAdmin ? (
+                <>
+                  <dt>Entrada</dt>
+                  <dd className="leyenda-entrada">{asistenciaHoraCorta(asistenciaDetalle.hora_entrada) || '—'}</dd>
+                  <dt>Salida</dt>
+                  <dd className="leyenda-salida">{asistenciaHoraCorta(asistenciaDetalle.hora_salida) || '—'}</dd>
+                  <dt>Horas</dt>
+                  <dd>
+                    {asistenciaDetalle.horas_trabajadas != null
+                      ? `${asistenciaDetalle.horas_trabajadas.toFixed(1)} hs`
+                      : '—'}
+                  </dd>
+                  <dt>Tipo</dt>
+                  <dd>{asistenciaDetalle.tipo_registro}</dd>
+                </>
+              ) : null}
               {asistenciaDetalleExtra != null && asistenciaDetalleExtra > 0 ? (
                 <>
                   <dt>Extra del día</dt>
@@ -1629,8 +1754,6 @@ const AsistenciaTab = ({
                   ) : null}
                 </>
               ) : null}
-              <dt>Tipo</dt>
-              <dd>{asistenciaDetalle.tipo_registro}</dd>
               {parseAsistenciaObservaciones(asistenciaDetalle.observaciones).sistema ? (
                 <>
                   <dt>Sistema</dt>
@@ -1638,6 +1761,91 @@ const AsistenciaTab = ({
                 </>
               ) : null}
             </dl>
+
+            {isAdmin ? (
+              <form
+                className="rrhh-asis-edicion"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void guardarEdicionAsistencia()
+                }}
+              >
+                <p className="rrhh-asis-edicion-hint">Admin / gerencia: podés corregir o borrar este registro.</p>
+                <div className="rrhh-asis-edicion-grid">
+                  <label>
+                    Entrada
+                    <input
+                      type="time"
+                      value={editEntrada}
+                      onChange={(e) => {
+                        setEditEntrada(e.target.value)
+                        setEditOk(false)
+                        setEditError(null)
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Salida
+                    <input
+                      type="time"
+                      value={editSalida}
+                      onChange={(e) => {
+                        setEditSalida(e.target.value)
+                        setEditOk(false)
+                        setEditError(null)
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Tipo
+                    <select
+                      value={editTipo}
+                      onChange={(e) => {
+                        setEditTipo(e.target.value as Asistencia['tipo_registro'])
+                        setEditOk(false)
+                        setEditError(null)
+                      }}
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="tarde">Tarde</option>
+                      <option value="ausente">Ausente</option>
+                      <option value="justificado">Justificado</option>
+                    </select>
+                  </label>
+                  <div className="rrhh-asis-edicion-horas">
+                    <span>Horas</span>
+                    <strong>
+                      {(() => {
+                        const e = argentinaHoraToTs(asistenciaDetalle.fecha, editEntrada)
+                        const s = argentinaHoraToTs(asistenciaDetalle.fecha, editSalida)
+                        const h = calcHorasTrabajadas(e, s)
+                        return h != null ? `${h.toFixed(1)} hs` : '—'
+                      })()}
+                    </strong>
+                  </div>
+                </div>
+                <div className="rrhh-asis-edicion-actions">
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={editSaving || deletingAsistencia || asistenciaDetalle.id <= 0}
+                  >
+                    {editSaving ? 'Guardando…' : 'Guardar cambios'}
+                  </button>
+                  <button
+                    type="button"
+                    className="rrhh-asis-btn-eliminar"
+                    disabled={editSaving || deletingAsistencia || asistenciaDetalle.id <= 0}
+                    onClick={() => void eliminarRegistroAsistencia()}
+                  >
+                    {deletingAsistencia ? 'Eliminando…' : 'Eliminar registro'}
+                  </button>
+                  {editOk ? <span className="rrhh-asis-aclaracion-ok">Guardado</span> : null}
+                </div>
+                {editError ? <p className="rrhh-asis-aclaracion-error">{editError}</p> : null}
+              </form>
+            ) : null}
+
             <form
               className="rrhh-asis-aclaracion"
               onSubmit={(e) => {

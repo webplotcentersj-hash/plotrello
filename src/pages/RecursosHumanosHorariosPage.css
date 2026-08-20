@@ -1920,6 +1920,89 @@ thead .rrhh-asis-sticky {
   color: #b91c1c;
 }
 
+.rrhh-asis-edicion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.rrhh-asis-edicion-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.rrhh-asis-edicion-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.rrhh-asis-edicion-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.rrhh-asis-edicion-grid input,
+.rrhh-asis-edicion-grid select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 0.9rem;
+  background: #fff;
+  color: #0f172a;
+}
+
+.rrhh-asis-edicion-horas {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.rrhh-asis-edicion-horas strong {
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.rrhh-asis-edicion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rrhh-asis-btn-eliminar {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rrhh-asis-btn-eliminar:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
+.rrhh-asis-btn-eliminar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .celda-nota {
   display: inline-block;
   margin-top: 1px;
