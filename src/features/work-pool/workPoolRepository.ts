@@ -1462,6 +1462,32 @@ export async function aprobarSolicitudOperario(input: {
   }
 }
 
+/** Si el login ya existe, agrega 2, 3… hasta encontrar uno libre. */
+export async function sugerirLoginPlotPhiDisponible(
+  loginBase: string
+): Promise<{ success: boolean; data?: string; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const base = loginBase.trim().toLowerCase()
+  if (!base) return { success: false, error: 'Login vacío' }
+
+  const at = base.lastIndexOf('@')
+  const local = at > 0 ? base.slice(0, at) : base
+  const domain = at > 0 ? base.slice(at) : '@plotphi.com.ar'
+
+  for (let i = 0; i < 30; i++) {
+    const candidate = i === 0 ? `${local}${domain}` : `${local}${i + 1}${domain}`
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('id')
+      .ilike('nombre', candidate)
+      .limit(1)
+    if (error) return { success: false, error: error.message }
+    if (!data || data.length === 0) return { success: true, data: candidate }
+  }
+
+  return { success: true, data: `${local}${Date.now().toString().slice(-4)}${domain}` }
+}
+
 export async function rechazarSolicitudOperario(
   idSolicitud: number,
   idAdmin: number,

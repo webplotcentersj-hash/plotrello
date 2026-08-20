@@ -6,7 +6,8 @@ import { nivelLabel, rubroLabel } from './workPoolPostulacion'
 import {
   aprobarSolicitudOperario,
   listarSolicitudesOperario,
-  rechazarSolicitudOperario
+  rechazarSolicitudOperario,
+  sugerirLoginPlotPhiDisponible
 } from './workPoolRepository'
 import { operarioExternoHomeRoute, OPERARIO_EXTERNO_LOGIN } from './workPoolOperarioExterno'
 import WorkPoolSolicitudDetailModal from './WorkPoolSolicitudDetailModal'
@@ -54,6 +55,31 @@ function matchesSolicitudQuery(s: WorkPoolSolicitud, q: string) {
     .join(' ')
     .toLowerCase()
   return haystack.includes(q)
+}
+
+const PLOT_PHI_DOMAIN = 'plotphi.com.ar'
+
+/** nombre + apellido → nombreapellido@plotphi.com.ar */
+function loginPlotPhiFromNombre(nombreCompleto: string): string {
+  const parts = nombreCompleto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  const first = parts[0] ?? 'usuario'
+  const last = parts.length > 1 ? parts[parts.length - 1] : ''
+  const local = `${first}${last}`.replace(/[^a-z0-9]/g, '').slice(0, 48) || 'usuario'
+  return `${local}@${PLOT_PHI_DOMAIN}`
+}
+
+function generarPasswordPlotPhi(): string {
+  const n = Math.floor(1000 + Math.random() * 9000)
+  const letter = String.fromCharCode(97 + Math.floor(Math.random() * 26))
+  return `PlotPhi${n}${letter}`
 }
 
 export default function WorkPoolSolicitudesPanel({ product, onPendingCount }: Props) {
@@ -132,7 +158,7 @@ export default function WorkPoolSolicitudesPanel({ product, onPendingCount }: Pr
     }
     const home = operarioExternoHomeRoute(res.data?.rol) ?? '/operario-externo'
     setSuccessMsg(
-      `Usuario «${loginUser.trim()}» creado. Ingreso en ${OPERARIO_EXTERNO_LOGIN} → panel en ${home}.`
+      `Usuario creado. Login: ${loginUser.trim()} · Contraseña: ${password} · Ingreso en ${OPERARIO_EXTERNO_LOGIN} → ${home}. Guardá estos datos para enviárselos.`
     )
     setAprobarId(null)
     setDetailId(null)
@@ -156,7 +182,15 @@ export default function WorkPoolSolicitudesPanel({ product, onPendingCount }: Pr
   const openAprobar = (s: WorkPoolSolicitud) => {
     setDetailId(null)
     setAprobarId(s.id)
-    setLoginUser(s.nombre_completo.split(/\s+/)[0].toLowerCase())
+    setError('')
+    setSuccessMsg('')
+    setNotas('')
+    const base = loginPlotPhiFromNombre(s.nombre_completo)
+    setLoginUser(base)
+    setPassword(generarPasswordPlotPhi())
+    void sugerirLoginPlotPhiDisponible(base).then((res) => {
+      if (res.success && res.data) setLoginUser(res.data)
+    })
   }
 
   return (
@@ -343,14 +377,37 @@ export default function WorkPoolSolicitudesPanel({ product, onPendingCount }: Pr
       {aprobarId != null && (
         <div className="work-pool-admin__pay-box work-pool-admin__pay-box--approve">
           <h3>Aprobar solicitud #{aprobarId}</h3>
+          <p className="work-pool-admin__approve-hint">
+            Se generan solos: usuario <code>nombreapellido@{PLOT_PHI_DOMAIN}</code> y contraseña. Podés
+            editarlos antes de confirmar.
+          </p>
           <div className="work-pool-module__form-row">
             <label>
               Usuario de login
-              <input value={loginUser} onChange={(e) => setLoginUser(e.target.value)} />
+              <input
+                value={loginUser}
+                onChange={(e) => setLoginUser(e.target.value.trim().toLowerCase())}
+                placeholder={`nombreapellido@${PLOT_PHI_DOMAIN}`}
+                autoComplete="off"
+              />
             </label>
             <label>
               Contraseña inicial
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <div className="work-pool-admin__approve-pass-row">
+                <input
+                  type="text"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="work-pool-module__btn work-pool-module__btn--ghost"
+                  onClick={() => setPassword(generarPasswordPlotPhi())}
+                >
+                  Regenerar
+                </button>
+              </div>
             </label>
             <label style={{ gridColumn: '1 / -1' }}>
               Notas admin
@@ -361,6 +418,7 @@ export default function WorkPoolSolicitudesPanel({ product, onPendingCount }: Pr
             <button
               type="button"
               className="work-pool-module__btn work-pool-module__btn--primary"
+              disabled={!loginUser.trim() || !password.trim()}
               onClick={() => void handleAprobar()}
             >
               Crear usuario y aprobar

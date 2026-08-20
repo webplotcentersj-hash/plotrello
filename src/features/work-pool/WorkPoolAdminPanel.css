@@ -2268,6 +2268,36 @@
   margin-top: 16px;
 }
 
+.work-pool-admin__approve-hint {
+  margin: 0 0 12px;
+  font-size: 0.84rem;
+  opacity: 0.75;
+  line-height: 1.4;
+}
+
+.work-pool-admin__approve-hint code {
+  font-size: 0.8rem;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.work-pool-admin__approve-pass-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.work-pool-admin__approve-pass-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.work-pool-admin__approve-pass-row .work-pool-module__btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .work-pool-solicitud-compact-row {
     grid-template-columns: 32px 1fr 18px;
