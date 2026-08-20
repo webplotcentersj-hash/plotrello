@@ -757,6 +757,28 @@
   border-color: rgba(16, 185, 129, 0.35);
 }
 
+.work-pool-admin__kpi--entrantes {
+  border-color: rgba(47, 129, 247, 0.45);
+  cursor: pointer;
+}
+
+.work-pool-admin__kpi--entrantes:hover {
+  border-color: rgba(96, 165, 250, 0.7);
+  transform: translateY(-2px);
+}
+
+.work-pool-admin__section--entrantes .work-pool-admin__section-head {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.work-pool-admin__section-lead {
+  margin: -4px 0 14px;
+  font-size: 0.88rem;
+  opacity: 0.7;
+  max-width: 62ch;
+}
+
 .work-pool-admin__kpi-icon {
   font-size: 1.6rem;
   line-height: 1;
@@ -1118,84 +1140,131 @@
 /* â€”â€” Freelancers â€”â€” */
 .work-pool-admin__freelancer-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
 }
 
 .work-pool-admin__freelancer-grid--full {
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 .work-pool-admin__freelancer-card {
-  padding: 18px;
-  border-radius: 20px;
+  padding: 12px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.09);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .work-pool-admin__freelancer-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(168, 85, 247, 0.28);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+  transform: translateY(-2px);
+  border-color: rgba(47, 129, 247, 0.35);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
 }
 
 .work-pool-admin__freelancer-card.has-debt {
   border-color: rgba(249, 115, 22, 0.4);
-  box-shadow: 0 12px 32px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.1);
+}
+
+.work-pool--plot-design .work-pool-admin__freelancer-card {
+  background: #fff;
+  border: 1.5px solid rgba(11, 11, 11, 0.08);
+  box-shadow: 2px 2px 0 rgba(47, 129, 247, 0.12);
 }
 
 .work-pool--plot-design .work-pool-admin__freelancer-card.has-debt {
-  border-color: rgba(236, 72, 153, 0.35);
-  box-shadow: 0 12px 32px rgba(236, 72, 153, 0.08);
+  border-color: rgba(236, 72, 153, 0.4);
+  box-shadow: 2px 2px 0 rgba(236, 72, 153, 0.2);
 }
 
 .work-pool-admin__freelancer-head {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
 }
 
 .work-pool-admin__avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 0.78rem;
   background: linear-gradient(135deg, #f97316, #ea580c);
   color: #fff;
   flex-shrink: 0;
-  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.35);
+  object-fit: cover;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3);
+}
+
+.work-pool-admin__avatar--photo {
+  padding: 0;
+  display: block;
 }
 
 .work-pool--plot-design .work-pool-admin__avatar {
-  background: linear-gradient(135deg, #a855f7, #7c3aed);
-  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.4);
+  background: linear-gradient(135deg, #2f81f7, #1d4ed8);
+  box-shadow: 0 4px 14px rgba(47, 129, 247, 0.35);
+}
+
+.work-pool-admin__freelancer-id {
+  min-width: 0;
 }
 
 .work-pool-admin__freelancer-head h4 {
-  margin: 0 0 6px;
-  font-size: 1rem;
+  margin: 0 0 4px;
+  font-size: 0.86rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.work-pool-admin__freelancer-saldo {
+  text-align: right;
+  line-height: 1.15;
+  flex-shrink: 0;
+}
+
+.work-pool-admin__freelancer-saldo small {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+}
+
+.work-pool-admin__freelancer-saldo strong {
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .work-pool-admin__freelancer-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .work-pool-admin__freelancer-tags span {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 600;
-  padding: 3px 9px;
+  padding: 2px 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: #cbd5e1;
+}
+
+.work-pool--plot-design .work-pool-admin__freelancer-tags span {
+  background: rgba(11, 11, 11, 0.06);
+  color: #475569;
 }
 
 .work-pool-admin__freelancer-tags .is-ok {
@@ -1203,40 +1272,80 @@
   color: #6ee7b7;
 }
 
+.work-pool--plot-design .work-pool-admin__freelancer-tags .is-ok {
+  color: #047857;
+}
+
 .work-pool-admin__freelancer-tags .is-live {
   background: rgba(59, 130, 246, 0.18);
   color: #93c5fd;
 }
 
+.work-pool--plot-design .work-pool-admin__freelancer-tags .is-live {
+  color: #1d4ed8;
+}
+
 .work-pool-admin__freelancer-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.work-pool-admin__freelancer-stats > div {
+  padding: 6px 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: center;
+  min-width: 0;
+}
+
+.work-pool--plot-design .work-pool-admin__freelancer-stats > div {
+  background: rgba(11, 11, 11, 0.04);
 }
 
 .work-pool-admin__freelancer-stats small {
   display: block;
-  font-size: 0.65rem;
+  font-size: 0.58rem;
   color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .work-pool-admin__freelancer-stats strong {
-  font-size: 0.95rem;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .work-pool-admin__freelancer-detail {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   color: #94a3b8;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+}
+
+.work-pool--plot-design .work-pool-admin__freelancer-detail {
+  color: #64748b;
 }
 
 .work-pool-admin__freelancer-detail span {
   color: #64748b;
   margin-right: 6px;
+}
+
+.work-pool-admin__freelancer-skills {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.work-pool-admin__freelancer-card .work-pool-module__btn {
+  margin-top: auto;
+  padding: 6px 10px;
+  font-size: 0.72rem;
 }
 
 .work-pool-admin__pay-box {
@@ -1269,11 +1378,12 @@
 }
 
 .work-pool--plot-design .work-pool-admin__publish {
-  border: 2px solid rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background:
-    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(47, 129, 247, 0.1), transparent 50%),
-    #faf8f5;
-  box-shadow: 4px 4px 0 rgba(47, 129, 247, 0.28);
+    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(47, 129, 247, 0.22), transparent 50%),
+    linear-gradient(160deg, #0f172a 0%, #0b1220 100%);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  color: #f8fafc;
 }
 
 .work-pool-admin__table-wrap {
@@ -1803,18 +1913,12 @@
 
 /* â€”â€” Freelancers top mÃ¡s pulidos â€”â€” */
 .work-pool-admin__freelancer-grid {
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
 }
 
-.work-pool-admin__freelancer-card {
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: linear-gradient(160deg, rgba(168, 85, 247, 0.06), rgba(255, 255, 255, 0.02));
-}
-
-.work-pool-admin__freelancer-head h4 {
-  font-size: 0.92rem;
+.work-pool-admin__freelancer-grid--full {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 .work-pool-admin__pay-box--approve {
@@ -1860,12 +1964,13 @@
   padding: 22px 24px 20px;
   border-radius: 22px;
   overflow: hidden;
+  color: #f8fafc;
   background:
-    radial-gradient(ellipse 80% 70% at 0% 0%, rgba(47, 129, 247, 0.22), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 100% 20%, rgba(255, 107, 122, 0.16), transparent 50%),
-    linear-gradient(145deg, #f6f1ea 0%, #fff 55%, #eef5ff 100%);
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 4px 4px 0 rgba(47, 129, 247, 0.35);
+    radial-gradient(ellipse 80% 70% at 0% 0%, rgba(47, 129, 247, 0.35), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 100% 20%, rgba(255, 107, 122, 0.18), transparent 50%),
+    linear-gradient(145deg, #0f172a 0%, #0b1220 55%, #111827 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
 .work-pool-admin:not(.work-pool--plot-design) .work-pool-avances-hero {
@@ -1913,7 +2018,7 @@
 }
 
 .work-pool-avances-hero__stats strong {
-  color: #16a34a;
+  color: #4ade80;
   font-size: 1.05rem;
 }
 
@@ -1967,10 +2072,10 @@
   padding: 8px 14px 8px 8px;
   border-radius: 999px;
   border: 1.5px solid rgba(34, 197, 94, 0.45);
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.08);
   cursor: pointer;
   font: inherit;
-  color: inherit;
+  color: #f8fafc;
   text-align: left;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -2333,11 +2438,13 @@
   margin-bottom: 22px;
   padding: 22px 24px 20px;
   border-radius: 22px;
+  color: #f8fafc;
   background:
-    radial-gradient(ellipse 70% 60% at 100% 0%, rgba(47, 129, 247, 0.18), transparent 55%),
-    linear-gradient(145deg, #f6f1ea 0%, #fff 60%, #f0fdf4 100%);
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 4px 4px 0 rgba(15, 23, 42, 0.12);
+    radial-gradient(ellipse 70% 60% at 100% 0%, rgba(47, 129, 247, 0.28), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(34, 197, 94, 0.12), transparent 50%),
+    linear-gradient(145deg, #0f172a 0%, #0b1220 60%, #111827 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
 .work-pool-admin:not(.work-pool--plot-design) .work-pool-conta-hero {
@@ -2381,11 +2488,12 @@
 .work-pool-conta-kpi {
   padding: 14px 16px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1.5px solid rgba(11, 11, 11, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
   gap: 4px;
+  color: #f8fafc;
 }
 
 .work-pool-admin:not(.work-pool--plot-design) .work-pool-conta-kpi {
@@ -2413,7 +2521,7 @@
 
 .work-pool-conta-kpi--deuda {
   border-color: rgba(255, 107, 122, 0.45);
-  background: linear-gradient(135deg, rgba(255, 107, 122, 0.12), rgba(255, 255, 255, 0.8));
+  background: linear-gradient(135deg, rgba(255, 107, 122, 0.18), rgba(255, 255, 255, 0.04));
 }
 
 .work-pool-conta-kpi--deuda strong {
@@ -2504,6 +2612,12 @@
   font-size: 0.7rem;
   font-weight: 700;
   flex-shrink: 0;
+}
+
+.work-pool-conta-person__avatar--photo {
+  object-fit: cover;
+  padding: 0;
+  display: block;
 }
 
 .work-pool--plot-design .work-pool-conta-person__avatar {

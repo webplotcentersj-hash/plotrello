@@ -305,13 +305,13 @@
 }
 
 .work-pool--plot-design .work-pool-fuentes {
-  border-color: rgba(168, 85, 247, 0.28);
-  background: linear-gradient(160deg, rgba(88, 28, 135, 0.28), rgba(15, 23, 42, 0.55));
+  border-color: rgba(47, 129, 247, 0.35);
+  background: linear-gradient(160deg, rgba(30, 58, 138, 0.45), rgba(15, 23, 42, 0.75));
 }
 
 .work-pool--plot-design .work-pool-fuentes__tabs button.is-active {
-  border-color: rgba(168, 85, 247, 0.55);
-  background: rgba(88, 28, 135, 0.38);
+  border-color: rgba(47, 129, 247, 0.55);
+  background: rgba(47, 129, 247, 0.28);
 }
 
 .work-pool--plot-design .work-pool-ai-recommender {
@@ -612,11 +612,12 @@
   align-items: flex-start;
   padding: 18px 20px;
   border-radius: 20px;
+  color: #f8fafc;
   background:
-    radial-gradient(ellipse 70% 80% at 0% 0%, rgba(47, 129, 247, 0.2), transparent 55%),
-    linear-gradient(145deg, #f6f1ea 0%, #fff 55%, #eef5ff 100%);
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 3px 3px 0 rgba(47, 129, 247, 0.35);
+    radial-gradient(ellipse 70% 80% at 0% 0%, rgba(47, 129, 247, 0.35), transparent 55%),
+    linear-gradient(145deg, #0f172a 0%, #0b1220 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
 
 .work-pool--bolsa-plot .work-pool-publicar__hero {
@@ -673,9 +674,9 @@
   gap: 10px;
   padding: 10px 12px;
   border-radius: 14px;
-  border: 1.5px solid rgba(11, 11, 11, 0.1);
-  background: #fff;
-  color: inherit;
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -693,8 +694,8 @@
 
 .work-pool-publicar__step.is-current {
   border-color: rgba(47, 129, 247, 0.55);
-  box-shadow: 2px 2px 0 rgba(47, 129, 247, 0.35);
-  background: #f8fbff;
+  box-shadow: none;
+  background: rgba(47, 129, 247, 0.16);
 }
 
 .work-pool--bolsa-plot .work-pool-publicar__step {
@@ -723,7 +724,7 @@
   border-radius: 999px;
   display: grid;
   place-items: center;
-  background: rgba(11, 11, 11, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   font-size: 0.78rem;
   font-weight: 800;
   flex-shrink: 0;
@@ -759,9 +760,10 @@
 .work-pool-publicar__stage {
   padding: 18px 18px 8px;
   border-radius: 18px;
-  border: 1.5px solid rgba(11, 11, 11, 0.08);
-  background: rgba(255, 255, 255, 0.55);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
   animation: wp-publish-stage-in 0.28s ease;
+  color: #e2e8f0;
 }
 
 .work-pool--bolsa-plot .work-pool-publicar__stage {
@@ -798,7 +800,7 @@
 .work-pool-publicar__resumen > div {
   padding: 12px 14px;
   border-radius: 14px;
-  background: rgba(11, 11, 11, 0.04);
+  background: rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
   gap: 4px;

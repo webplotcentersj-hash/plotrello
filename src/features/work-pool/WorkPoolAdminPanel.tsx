@@ -10,6 +10,7 @@ import {
   GitBranch,
   Layers,
   HardHat,
+  Inbox,
   LayoutDashboard,
   Palette,
   RefreshCw,
@@ -31,6 +32,7 @@ import {
   WORK_POOL_SECTOR_LABELS
 } from '../../types/workPool'
 import {
+  defaultSectorForProduct,
   sectorsForProduct,
   WORK_POOL_PRODUCT_CONFIG
 } from './workPoolConfig'
@@ -44,6 +46,7 @@ import WorkPoolPublicarForm from './WorkPoolPublicarForm'
 import WorkPoolSolicitudesPanel from './WorkPoolSolicitudesPanel'
 import WorkPoolAvancesPanel from './WorkPoolAvancesPanel'
 import WorkPoolContabilidadPanel from './WorkPoolContabilidadPanel'
+import WorkPoolFuentesEntrada from './WorkPoolFuentesEntrada'
 import './WorkPoolModule.css'
 import './WorkPoolAdminPanel.css'
 
@@ -296,6 +299,17 @@ export default function WorkPoolAdminPanel({ product }: Props) {
                     <span>En revisión</span>
                   </span>
                 </div>
+                {isPlotDesign ? (
+                  <div className="work-pool-admin__hero-stat">
+                    <span className="work-pool-admin__hero-stat-icon" aria-hidden>
+                      <Inbox size={16} strokeWidth={2} />
+                    </span>
+                    <span className="work-pool-admin__hero-stat-text">
+                      <strong>{kpis.trabajos_entrantes ?? 0}</strong>
+                      <span>Entrantes</span>
+                    </span>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             <span className="work-pool-admin__live">
@@ -438,6 +452,28 @@ export default function WorkPoolAdminPanel({ product }: Props) {
                 <strong>{kpis?.disponibles_bolsa ?? 0}</strong>
               </div>
             </article>
+            {isPlotDesign ? (
+              <article
+                className="work-pool-admin__kpi work-pool-admin__kpi--entrantes"
+                role="button"
+                tabIndex={0}
+                onClick={() => selectTab('publicar')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    selectTab('publicar')
+                  }
+                }}
+              >
+                <span className="work-pool-admin__kpi-icon" aria-hidden>
+                  <Inbox size={22} strokeWidth={1.75} />
+                </span>
+                <div>
+                  <small>Trabajos entrantes</small>
+                  <strong>{kpis?.trabajos_entrantes ?? 0}</strong>
+                </div>
+              </article>
+            ) : null}
             <article className="work-pool-admin__kpi">
               <span className="work-pool-admin__kpi-icon" aria-hidden>
                 <Users size={22} strokeWidth={1.75} />
@@ -545,6 +581,33 @@ export default function WorkPoolAdminPanel({ product }: Props) {
               </div>
             </section>
           )}
+
+          {isPlotDesign && usuario ? (
+            <section className="work-pool-admin__section work-pool-admin__section--entrantes">
+              <div className="work-pool-admin__section-head">
+                <h2>Trabajos entrantes</h2>
+                <span className="work-pool-admin__pill">{kpis?.trabajos_entrantes ?? 0}</span>
+                <button
+                  type="button"
+                  className="work-pool-module__btn work-pool-module__btn--ghost"
+                  onClick={() => selectTab('publicar')}
+                >
+                  Ir a Publicar →
+                </button>
+              </div>
+              <p className="work-pool-admin__section-lead">
+                OPs del tablero, briefs y pedidos del portal listos para publicar en bolsa o asignar.
+              </p>
+              <WorkPoolFuentesEntrada
+                product={product}
+                sector={defaultSectorForProduct(product)}
+                idUsuarioCreador={usuario.id}
+                onSeleccionarOp={() => selectTab('publicar')}
+                onAplicarBrief={() => selectTab('publicar')}
+                onAplicarPedido={() => selectTab('publicar')}
+              />
+            </section>
+          ) : null}
 
           <section className="work-pool-admin__section">
             <div className="work-pool-admin__section-head">
@@ -881,61 +944,76 @@ function FreelancerCard({
   onPay: () => void
 }) {
   return (
-    <article className={`work-pool-admin__freelancer-card${f.saldo_pendiente > 0 ? ' has-debt' : ''}`}>
+    <article
+      className={`work-pool-admin__freelancer-card${detailed ? ' is-detailed' : ''}${f.saldo_pendiente > 0 ? ' has-debt' : ''}`}
+    >
       <div className="work-pool-admin__freelancer-head">
-        <div className="work-pool-admin__avatar">{initials(f.nombre)}</div>
-        <div>
-          <h4>{f.nombre}</h4>
+        {f.foto_url ? (
+          <img
+            src={f.foto_url}
+            alt=""
+            className="work-pool-admin__avatar work-pool-admin__avatar--photo"
+          />
+        ) : (
+          <div className="work-pool-admin__avatar" aria-hidden>
+            {initials(f.nombre)}
+          </div>
+        )}
+        <div className="work-pool-admin__freelancer-id">
+          <h4 title={f.nombre}>{f.nombre}</h4>
           <div className="work-pool-admin__freelancer-tags">
             {f.sectores.map((s) => (
               <span key={s}>{WORK_POOL_SECTOR_LABELS[s]}</span>
             ))}
-            {f.perfil_aprobado && <span className="is-ok">Perfil OK</span>}
+            {f.perfil_aprobado && <span className="is-ok">OK</span>}
             {f.perfil_activo && <span className="is-live">Activo</span>}
           </div>
         </div>
-      </div>
-      <div className="work-pool-admin__freelancer-stats">
-        <div>
+        <div className="work-pool-admin__freelancer-saldo" title="Saldo pendiente">
           <small>Saldo</small>
           <strong>{formatArs(f.saldo_pendiente)}</strong>
         </div>
+      </div>
+
+      <div className="work-pool-admin__freelancer-stats">
         <div>
           <small>Activos</small>
           <strong>{f.trabajos_activos}</strong>
         </div>
         <div>
-          <small>Aprobados</small>
+          <small>Aprob.</small>
           <strong>{f.trabajos_aprobados}</strong>
         </div>
         <div>
-          <small>En revisión</small>
+          <small>Revisión</small>
           <strong>{f.pendientes_revision}</strong>
         </div>
-      </div>
-      {detailed && (
-        <div className="work-pool-admin__freelancer-detail">
-          <p>
-            <span>Acreditado</span> {formatArs(f.acreditado)}
-          </p>
-          <p>
-            <span>Pagado</span> {formatArs(f.pagado)}
-          </p>
-          <p>
-            <span>Último trabajo</span> {formatDate(f.ultimo_trabajo_at)}
-          </p>
-          {f.zona_cobertura && (
-            <p>
-              <span>Zona</span> {f.zona_cobertura}
-            </p>
-          )}
-          {f.skills.length > 0 && (
-            <p>
-              <span>Skills</span> {f.skills.join(', ')}
-            </p>
-          )}
+        <div>
+          <small>Acred.</small>
+          <strong>{formatArs(f.acreditado)}</strong>
         </div>
-      )}
+      </div>
+
+      <div className="work-pool-admin__freelancer-detail">
+        <p>
+          <span>Pagado</span> {formatArs(f.pagado)}
+        </p>
+        <p>
+          <span>Último</span> {formatDate(f.ultimo_trabajo_at)}
+        </p>
+        {f.zona_cobertura ? (
+          <p>
+            <span>Zona</span> {f.zona_cobertura}
+          </p>
+        ) : null}
+        {f.skills.length > 0 ? (
+          <p className="work-pool-admin__freelancer-skills" title={f.skills.join(', ')}>
+            <span>Skills</span> {f.skills.slice(0, 4).join(', ')}
+            {f.skills.length > 4 ? ` +${f.skills.length - 4}` : ''}
+          </p>
+        ) : null}
+      </div>
+
       {f.saldo_pendiente > 0 && (
         <button type="button" className="work-pool-module__btn work-pool-module__btn--ghost" onClick={onPay}>
           Registrar pago

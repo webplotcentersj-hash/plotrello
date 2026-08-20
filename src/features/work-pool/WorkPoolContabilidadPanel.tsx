@@ -146,9 +146,17 @@ export default function WorkPoolContabilidadPanel({
                 <tr key={f.id_usuario} className={f.saldo_pendiente > 0 ? 'is-debt' : ''}>
                   <td>
                     <div className="work-pool-conta-person">
-                      <span className="work-pool-conta-person__avatar" aria-hidden>
-                        {initials(f.nombre)}
-                      </span>
+                      {f.foto_url ? (
+                        <img
+                          src={f.foto_url}
+                          alt=""
+                          className="work-pool-conta-person__avatar work-pool-conta-person__avatar--photo"
+                        />
+                      ) : (
+                        <span className="work-pool-conta-person__avatar" aria-hidden>
+                          {initials(f.nombre)}
+                        </span>
+                      )}
                       <span>
                         <strong>{f.nombre}</strong>
                         <small>

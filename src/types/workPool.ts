@@ -139,6 +139,7 @@ export type WorkPoolProfile = {
 export type WorkPoolFreelancerResumen = {
   id_usuario: number
   nombre: string
+  foto_url: string | null
   sectores: WorkPoolSector[]
   skills: string[]
   zona_cobertura: string | null
@@ -162,6 +163,8 @@ export type WorkPoolAdminKpis = {
   aprobados_mes: number
   acreditado_total: number
   pagado_total: number
+  /** Briefs + pedidos portal + OPs en cola del tablero (entrantes a publicar). */
+  trabajos_entrantes: number
 }
 
 export type WorkPoolOrdenSugerida = {

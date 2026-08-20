@@ -788,6 +788,23 @@ function applyNombresToFreelancers(
   }
 }
 
+async function applyFotosToFreelancers(
+  freelancerMap: Map<number, WorkPoolFreelancerResumen>
+): Promise<void> {
+  if (!supabase || freelancerMap.size === 0) return
+  const ids = [...freelancerMap.keys()]
+  const { data: legajos } = await supabase
+    .from('legajos_empleados')
+    .select('id_usuario, foto_url')
+    .in('id_usuario', ids)
+  for (const row of legajos ?? []) {
+    const id = Number((row as { id_usuario: number }).id_usuario)
+    const foto = String((row as { foto_url?: string | null }).foto_url ?? '').trim()
+    const f = freelancerMap.get(id)
+    if (f && foto) f.foto_url = foto
+  }
+}
+
 function isCurrentMonth(iso: string | null): boolean {
   if (!iso) return false
   const d = new Date(iso)
@@ -971,6 +988,7 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
       f = {
         id_usuario: idUsuario,
         nombre: nombres.get(idUsuario) ?? `Operario #${idUsuario}`,
+        foto_url: null,
         sectores: [],
         skills: [],
         zona_cobertura: null,
@@ -1028,6 +1046,7 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
   // Nombres reales: RPC + legajo + solicitud (después de armar todo el mapa)
   const nombresFinal = await fetchUsuarioNombres([...freelancerMap.keys()])
   applyNombresToFreelancers(freelancerMap, nombresFinal)
+  await applyFotosToFreelancers(freelancerMap)
 
   const saldoResults = await Promise.all(
     [...freelancerMap.keys()].map(async (id) => {
@@ -1075,6 +1094,32 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
     (f) => f.trabajos_activos > 0 || (f.perfil_activo && f.perfil_aprobado)
   ).length
 
+  let trabajosEntrantes = 0
+  const sectorEntrantes = productSectors?.[0] ?? ('diseno' as WorkPoolSector)
+  const tabEntrantes = await listOrdenesTableroPorSector(sectorEntrantes, 40)
+  if (tabEntrantes.success) trabajosEntrantes += tabEntrantes.data?.length ?? 0
+  if (product === 'plot-design' && supabase) {
+    const [{ data: briefs }, { data: pedidos }] = await Promise.all([
+      supabase.rpc('listar_briefs_pendientes'),
+      supabase
+        .from('pedidos_clientes')
+        .select('id, id_op_asociada, numero_op, estado')
+        .in('estado', ['pendiente', 'en_revision', 'aprobado'])
+        .limit(80)
+    ])
+    if (Array.isArray(briefs)) trabajosEntrantes += briefs.length
+    if (Array.isArray(pedidos)) {
+      trabajosEntrantes += pedidos.filter(
+        (p) =>
+          !(p as { id_op_asociada?: number | null }).id_op_asociada &&
+          !(p as { numero_op?: string | null }).numero_op &&
+          !['convertido_completo', 'cancelado', 'rechazado'].includes(
+            String((p as { estado?: string }).estado ?? '')
+          )
+      ).length
+    }
+  }
+
   // Resumen por sector: unir métricas de jobs con deuda del ledger (sin duplicar sectores).
   const sectorKeys = new Set<string>([
     ...resumen.map((r) => String(r.sector)),
@@ -1107,7 +1152,8 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
         disponibles_bolsa: disponiblesBolsa,
         aprobados_mes: aprobadosMes,
         acreditado_total: freelancers.reduce((s, f) => s + f.acreditado, 0),
-        pagado_total: freelancers.reduce((s, f) => s + f.pagado, 0)
+        pagado_total: freelancers.reduce((s, f) => s + f.pagado, 0),
+        trabajos_entrantes: trabajosEntrantes
       },
       resumen_sectores: resumenUnificado,
       freelancers,
