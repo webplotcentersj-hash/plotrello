@@ -12,10 +12,19 @@ import {
   listValoracionesClientePorOps,
   listWorkPoolValoraciones,
   loadOperarioWorkPoolDetail,
+  obtenerLoginUsuarioWorkPool,
+  regenerarCredencialesWorkPool,
+  sugerirLoginPlotPhiDisponible,
   upsertWorkPoolProfile,
   updateWorkPoolUsuarioNombre,
   type WorkPoolOperarioTrabajoItem
 } from './workPoolRepository'
+import {
+  generarPasswordPlotPhi,
+  loginPlotPhiFromNombre,
+  PLOT_PHI_DOMAIN
+} from './workPoolCredenciales'
+import { OPERARIO_EXTERNO_LOGIN } from './workPoolOperarioExterno'
 
 type Props = {
   f: WorkPoolFreelancerResumen
@@ -79,6 +88,12 @@ export default function WorkPoolFreelancerFicha({
   const [newOp, setNewOp] = useState('')
   const [savingVal, setSavingVal] = useState(false)
 
+  const [loginActual, setLoginActual] = useState('')
+  const [loginEdit, setLoginEdit] = useState('')
+  const [passNueva, setPassNueva] = useState('')
+  const [credMsg, setCredMsg] = useState('')
+  const [savingCred, setSavingCred] = useState(false)
+
   useEffect(() => {
     if (!open) return
     setSector(f.sectores[0] ?? defaultSectorForProduct(product))
@@ -91,6 +106,18 @@ export default function WorkPoolFreelancerFicha({
     setDirty(false)
     setError('')
     setOkMsg('')
+    setCredMsg('')
+    setPassNueva('')
+    void obtenerLoginUsuarioWorkPool(f.id_usuario).then((res) => {
+      if (res.success && res.data) {
+        setLoginActual(res.data)
+        setLoginEdit(res.data)
+      } else {
+        const base = loginPlotPhiFromNombre(f.nombre)
+        setLoginActual('')
+        setLoginEdit(base)
+      }
+    })
     // Solo al abrir: no pisar lo que el admin está tipeando si el padre re-renderiza.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -153,7 +180,9 @@ export default function WorkPoolFreelancerFicha({
       return
     }
 
-    if (nombreTrim !== f.nombre.trim()) {
+    // No pisar el login (usuarios.nombre tipo email) con el nombre visible
+    const loginEsEmail = (loginActual || loginEdit).includes('@')
+    if (nombreTrim !== f.nombre.trim() && !loginEsEmail) {
       const nomRes = await updateWorkPoolUsuarioNombre(f.id_usuario, nombreTrim)
       if (!nomRes.success) {
         setSaving(false)
@@ -178,6 +207,61 @@ export default function WorkPoolFreelancerFicha({
     }
     setDirty(false)
     setOkMsg('Cambios guardados')
+    onSaved?.()
+  }
+
+  const regenerarLoginSugerido = async () => {
+    setCredMsg('')
+    setError('')
+    const base = loginPlotPhiFromNombre(nombre || f.nombre)
+    setLoginEdit(base)
+    const res = await sugerirLoginPlotPhiDisponible(base)
+    if (res.success && res.data) setLoginEdit(res.data)
+  }
+
+  const regenerarPasswordSugerida = () => {
+    setCredMsg('')
+    setPassNueva(generarPasswordPlotPhi())
+  }
+
+  const handleGuardarCredenciales = async () => {
+    setSavingCred(true)
+    setError('')
+    setCredMsg('')
+    const loginTrim = loginEdit.trim().toLowerCase()
+    const passTrim = passNueva.trim()
+    if (!loginTrim && !passTrim) {
+      setSavingCred(false)
+      setError('Generá o editá usuario y/o contraseña')
+      return
+    }
+
+    const loginChanged = loginTrim && loginTrim !== loginActual.trim().toLowerCase()
+    if (!loginChanged && !passTrim) {
+      setSavingCred(false)
+      setError('No hay cambios en las credenciales')
+      return
+    }
+
+    const res = await regenerarCredencialesWorkPool({
+      id_usuario: f.id_usuario,
+      nuevo_login: loginChanged ? loginTrim : undefined,
+      nueva_password: passTrim || undefined
+    })
+    setSavingCred(false)
+    if (!res.success) {
+      setError(res.error || 'No se pudieron regenerar las credenciales')
+      return
+    }
+    const nuevoLogin = res.data?.nombre ?? loginTrim
+    setLoginActual(nuevoLogin)
+    setLoginEdit(nuevoLogin)
+    setCredMsg(
+      passTrim
+        ? `Credenciales actualizadas. Login: ${nuevoLogin} · Contraseña: ${passTrim} · Ingreso: ${OPERARIO_EXTERNO_LOGIN}`
+        : `Login actualizado a ${nuevoLogin}. La contraseña no cambió.`
+    )
+    setPassNueva('')
     onSaved?.()
   }
 
@@ -383,6 +467,68 @@ export default function WorkPoolFreelancerFicha({
                 </button>
               ) : null}
             </div>
+          </section>
+
+          <section className="work-pool-ficha-block work-pool-ficha-creds">
+            <h5>Acceso (si olvidó usuario o clave)</h5>
+            <p className="work-pool-ficha-creds__hint">
+              Login actual: <strong>{loginActual || '—'}</strong>
+              {loginActual ? null : ` · sugerido @${PLOT_PHI_DOMAIN}`}
+            </p>
+            <div className="work-pool-ficha-edit__grid">
+              <label className="work-pool-ficha-edit__full">
+                Usuario de login
+                <div className="work-pool-admin__approve-pass-row">
+                  <input
+                    value={loginEdit}
+                    onChange={(e) => setLoginEdit(e.target.value.trim().toLowerCase())}
+                    placeholder={`nombreapellido@${PLOT_PHI_DOMAIN}`}
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    className="work-pool-module__btn work-pool-module__btn--ghost"
+                    onClick={() => void regenerarLoginSugerido()}
+                  >
+                    Regenerar
+                  </button>
+                </div>
+              </label>
+              <label className="work-pool-ficha-edit__full">
+                Nueva contraseña
+                <div className="work-pool-admin__approve-pass-row">
+                  <input
+                    type="text"
+                    value={passNueva}
+                    onChange={(e) => setPassNueva(e.target.value)}
+                    placeholder="Tocá Regenerar o escribí una"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="work-pool-module__btn work-pool-module__btn--ghost"
+                    onClick={regenerarPasswordSugerida}
+                  >
+                    Regenerar
+                  </button>
+                </div>
+              </label>
+            </div>
+            <div className="work-pool-ficha-actions">
+              <button
+                type="button"
+                className="work-pool-module__btn work-pool-module__btn--primary"
+                disabled={savingCred}
+                onClick={() => void handleGuardarCredenciales()}
+              >
+                {savingCred ? 'Guardando…' : 'Guardar credenciales'}
+              </button>
+            </div>
+            {credMsg ? (
+              <div className="work-pool-module__alert work-pool-module__alert--info work-pool-ficha-creds__msg">
+                {credMsg}
+              </div>
+            ) : null}
           </section>
 
           <section className="work-pool-ficha-block">

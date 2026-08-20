@@ -2298,6 +2298,21 @@
   white-space: nowrap;
 }
 
+.work-pool-ficha-creds__hint {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.work-pool-ficha-creds__hint strong {
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.work-pool-ficha-creds__msg {
+  margin-top: 10px;
+}
+
 @media (max-width: 640px) {
   .work-pool-solicitud-compact-row {
     grid-template-columns: 32px 1fr 18px;

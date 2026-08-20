@@ -11,6 +11,11 @@ import {
 } from './workPoolRepository'
 import { operarioExternoHomeRoute, OPERARIO_EXTERNO_LOGIN } from './workPoolOperarioExterno'
 import WorkPoolSolicitudDetailModal from './WorkPoolSolicitudDetailModal'
+import {
+  generarPasswordPlotPhi,
+  loginPlotPhiFromNombre,
+  PLOT_PHI_DOMAIN
+} from './workPoolCredenciales'
 
 type Props = {
   product?: WorkPoolProduct
@@ -55,31 +60,6 @@ function matchesSolicitudQuery(s: WorkPoolSolicitud, q: string) {
     .join(' ')
     .toLowerCase()
   return haystack.includes(q)
-}
-
-const PLOT_PHI_DOMAIN = 'plotphi.com.ar'
-
-/** nombre + apellido → nombreapellido@plotphi.com.ar */
-function loginPlotPhiFromNombre(nombreCompleto: string): string {
-  const parts = nombreCompleto
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-
-  const first = parts[0] ?? 'usuario'
-  const last = parts.length > 1 ? parts[parts.length - 1] : ''
-  const local = `${first}${last}`.replace(/[^a-z0-9]/g, '').slice(0, 48) || 'usuario'
-  return `${local}@${PLOT_PHI_DOMAIN}`
-}
-
-function generarPasswordPlotPhi(): string {
-  const n = Math.floor(1000 + Math.random() * 9000)
-  const letter = String.fromCharCode(97 + Math.floor(Math.random() * 26))
-  return `PlotPhi${n}${letter}`
 }
 
 export default function WorkPoolSolicitudesPanel({ product, onPendingCount }: Props) {
@@ -384,12 +364,28 @@ export default function WorkPoolSolicitudesPanel({ product, onPendingCount }: Pr
           <div className="work-pool-module__form-row">
             <label>
               Usuario de login
-              <input
-                value={loginUser}
-                onChange={(e) => setLoginUser(e.target.value.trim().toLowerCase())}
-                placeholder={`nombreapellido@${PLOT_PHI_DOMAIN}`}
-                autoComplete="off"
-              />
+              <div className="work-pool-admin__approve-pass-row">
+                <input
+                  value={loginUser}
+                  onChange={(e) => setLoginUser(e.target.value.trim().toLowerCase())}
+                  placeholder={`nombreapellido@${PLOT_PHI_DOMAIN}`}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  className="work-pool-module__btn work-pool-module__btn--ghost"
+                  onClick={() => {
+                    const s = solicitudes.find((x) => x.id === aprobarId)
+                    const base = loginPlotPhiFromNombre(s?.nombre_completo ?? loginUser)
+                    setLoginUser(base)
+                    void sugerirLoginPlotPhiDisponible(base).then((res) => {
+                      if (res.success && res.data) setLoginUser(res.data)
+                    })
+                  }}
+                >
+                  Regenerar
+                </button>
+              </div>
             </label>
             <label>
               Contraseña inicial

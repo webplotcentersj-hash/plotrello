@@ -1488,6 +1488,43 @@ export async function sugerirLoginPlotPhiDisponible(
   return { success: true, data: `${local}${Date.now().toString().slice(-4)}${domain}` }
 }
 
+export async function obtenerLoginUsuarioWorkPool(
+  idUsuario: number
+): Promise<{ success: boolean; data?: string; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('nombre')
+    .eq('id', idUsuario)
+    .maybeSingle()
+  if (error) return { success: false, error: error.message }
+  const nombre = String((data as { nombre?: string } | null)?.nombre ?? '').trim()
+  return { success: true, data: nombre || undefined }
+}
+
+export async function regenerarCredencialesWorkPool(input: {
+  id_usuario: number
+  nuevo_login?: string
+  nueva_password?: string
+}): Promise<{ success: boolean; data?: { id_usuario: number; nombre: string }; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const { data, error } = await supabase.rpc('work_pool_regenerar_credenciales', {
+    p_id_usuario: input.id_usuario,
+    p_nuevo_login: input.nuevo_login ?? null,
+    p_nueva_password: input.nueva_password ?? null
+  })
+  if (error) return { success: false, error: error.message }
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) return { success: false, error: 'No se actualizaron las credenciales' }
+  return {
+    success: true,
+    data: {
+      id_usuario: Number((row as { id_usuario: number }).id_usuario),
+      nombre: String((row as { nombre: string }).nombre)
+    }
+  }
+}
+
 export async function rechazarSolicitudOperario(
   idSolicitud: number,
   idAdmin: number,
