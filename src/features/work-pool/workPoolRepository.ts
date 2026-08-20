@@ -16,7 +16,8 @@ import type {
   WorkPoolSector,
   WorkPoolSolicitud,
   WorkPoolSolicitudNivel,
-  WorkPoolSolicitudRubro
+  WorkPoolSolicitudRubro,
+  WorkPoolValoracion
 } from '../../types/workPool'
 import { WORK_POOL_ESTADO_LABELS } from '../../types/workPool'
 import {
@@ -280,6 +281,147 @@ export async function loadOperarioWorkPoolDetail(input: {
       acreditado: saldoRes.data?.acreditado ?? 0,
       trabajos: trabajos.slice(0, 24)
     }
+  }
+}
+
+export async function updateWorkPoolUsuarioNombre(
+  idUsuario: number,
+  nombre: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const clean = nombre.trim()
+  if (!clean) return { success: false, error: 'Nombre vacío' }
+
+  const { error } = await supabase.from('usuarios').update({ nombre: clean }).eq('id', idUsuario)
+  if (error) return { success: false, error: error.message }
+
+  // Si tiene legajo, sincronizar nombre/apellido aproximado
+  const parts = clean.split(/\s+/).filter(Boolean)
+  if (parts.length >= 1) {
+    const apellido = parts.length > 1 ? parts.slice(1).join(' ') : null
+    await supabase
+      .from('legajos_empleados')
+      .update({
+        nombre: parts[0],
+        ...(apellido ? { apellido } : {})
+      })
+      .eq('id_usuario', idUsuario)
+  }
+
+  return { success: true }
+}
+
+export async function upsertWorkPoolProfile(input: {
+  id_usuario: number
+  sector: WorkPoolSector
+  skills: string[]
+  zona_cobertura: string | null
+  activo: boolean
+  aprobado: boolean
+  notas_admin: string | null
+}): Promise<{ success: boolean; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+
+  const { error } = await supabase.from('work_pool_profiles').upsert(
+    {
+      id_usuario: input.id_usuario,
+      sector: input.sector,
+      skills: input.skills,
+      zona_cobertura: input.zona_cobertura,
+      activo: input.activo,
+      aprobado: input.aprobado,
+      notas_admin: input.notas_admin,
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: 'id_usuario,sector' }
+  )
+
+  return error ? { success: false, error: error.message } : { success: true }
+}
+
+export async function listWorkPoolValoraciones(
+  idUsuario: number
+): Promise<{ success: boolean; data?: WorkPoolValoracion[]; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+
+  const { data, error } = await supabase
+    .from('work_pool_valoraciones')
+    .select('id, id_usuario, id_job, numero_op, rating, comentario, id_usuario_autor, created_at')
+    .eq('id_usuario', idUsuario)
+    .order('created_at', { ascending: false })
+    .limit(40)
+
+  if (error) return { success: false, error: error.message }
+
+  const adminRows = (data ?? []).map((row) => ({
+    id: Number((row as { id: number }).id),
+    id_usuario: Number((row as { id_usuario: number }).id_usuario),
+    id_job: (row as { id_job?: number | null }).id_job != null ? Number((row as { id_job: number }).id_job) : null,
+    numero_op: (row as { numero_op?: string | null }).numero_op ?? null,
+    rating: Number((row as { rating: number }).rating),
+    comentario: (row as { comentario?: string | null }).comentario ?? null,
+    id_usuario_autor:
+      (row as { id_usuario_autor?: number | null }).id_usuario_autor != null
+        ? Number((row as { id_usuario_autor: number }).id_usuario_autor)
+        : null,
+    created_at: String((row as { created_at: string }).created_at),
+    origen: 'admin' as const
+  }))
+
+  return { success: true, data: adminRows }
+}
+
+export async function crearWorkPoolValoracion(input: {
+  id_usuario: number
+  rating: number
+  comentario?: string
+  numero_op?: string
+  id_job?: number
+  id_usuario_autor?: number
+}): Promise<{ success: boolean; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const rating = Math.min(5, Math.max(1, Math.round(input.rating)))
+  const { error } = await supabase.from('work_pool_valoraciones').insert({
+    id_usuario: input.id_usuario,
+    rating,
+    comentario: input.comentario?.trim() || null,
+    numero_op: input.numero_op?.trim() || null,
+    id_job: input.id_job ?? null,
+    id_usuario_autor: input.id_usuario_autor ?? null
+  })
+  return error ? { success: false, error: error.message } : { success: true }
+}
+
+/** Valoraciones de cliente (firmas de entrega) ligadas a OPs del operario. */
+export async function listValoracionesClientePorOps(
+  numerosOp: string[]
+): Promise<{ success: boolean; data?: WorkPoolValoracion[]; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const ops = [...new Set(numerosOp.map((o) => o.trim()).filter(Boolean))]
+  if (ops.length === 0) return { success: true, data: [] }
+
+  const { data, error } = await supabase
+    .from('firmas_entrega_cliente')
+    .select('id, numero_op, rating, comentario, created_at')
+    .in('numero_op', ops)
+    .order('created_at', { ascending: false })
+    .limit(40)
+
+  if (error) return { success: false, error: error.message }
+
+  return {
+    success: true,
+    data: (data ?? []).map((row) => ({
+      id: Number((row as { id: number }).id),
+      id_usuario: 0,
+      id_job: null,
+      numero_op: (row as { numero_op?: string | null }).numero_op ?? null,
+      rating: Number((row as { rating: number }).rating),
+      comentario: (row as { comentario?: string | null }).comentario ?? null,
+      id_usuario_autor: null,
+      created_at: String((row as { created_at: string }).created_at),
+      origen: 'cliente' as const
+    }))
   }
 }
 
@@ -1000,7 +1142,8 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
         acreditado: 0,
         pagado: 0,
         saldo_pendiente: 0,
-        ultimo_trabajo_at: null
+        ultimo_trabajo_at: null,
+        notas_admin: null
       }
       freelancerMap.set(idUsuario, f)
     }
@@ -1014,6 +1157,7 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
     f.zona_cobertura = p.zona_cobertura ?? f.zona_cobertura
     f.perfil_aprobado = f.perfil_aprobado || p.aprobado
     f.perfil_activo = f.perfil_activo || p.activo
+    if (p.notas_admin && !f.notas_admin) f.notas_admin = p.notas_admin
   }
 
   if (product && productSectors) {

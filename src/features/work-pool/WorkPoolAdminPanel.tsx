@@ -47,6 +47,7 @@ import WorkPoolSolicitudesPanel from './WorkPoolSolicitudesPanel'
 import WorkPoolAvancesPanel from './WorkPoolAvancesPanel'
 import WorkPoolContabilidadPanel from './WorkPoolContabilidadPanel'
 import WorkPoolFuentesEntrada from './WorkPoolFuentesEntrada'
+import WorkPoolFreelancerFicha from './WorkPoolFreelancerFicha'
 import './WorkPoolModule.css'
 import './WorkPoolAdminPanel.css'
 
@@ -659,13 +660,15 @@ export default function WorkPoolAdminPanel({ product }: Props) {
             <h2>{isPlotDesign ? 'Diseñadores afines' : 'Operarios afines'}</h2>
             <span className="work-pool-admin__pill">{filteredFreelancers.length}</span>
           </div>
-          <div className="work-pool-admin__freelancer-grid work-pool-admin__freelancer-grid--full">
+          <div className="work-pool-admin__freelancer-grid work-pool-admin__freelancer-grid--fichas">
             {filteredFreelancers.map((f) => (
-              <FreelancerCard
+              <WorkPoolFreelancerFicha
                 key={f.id_usuario}
                 f={f}
-                detailed
+                product={product}
+                idUsuarioAdmin={usuario?.id}
                 onPay={() => setPayUserId(f.id_usuario)}
+                onSaved={() => void load({ silent: true })}
               />
             ))}
           </div>
@@ -721,13 +724,15 @@ export default function WorkPoolAdminPanel({ product }: Props) {
                   : 'Todavía no hay operarios aprobados.'}
               </p>
             ) : (
-              <div className="work-pool-admin__freelancer-grid work-pool-admin__freelancer-grid--full">
+              <div className="work-pool-admin__freelancer-grid work-pool-admin__freelancer-grid--fichas">
                 {aprobadosFreelancers.map((f) => (
-                  <FreelancerCard
+                  <WorkPoolFreelancerFicha
                     key={f.id_usuario}
                     f={f}
-                    detailed
+                    product={product}
+                    idUsuarioAdmin={usuario?.id}
                     onPay={() => setPayUserId(f.id_usuario)}
+                    onSaved={() => void load({ silent: true })}
                   />
                 ))}
               </div>
@@ -936,18 +941,23 @@ function ReviewJobCard({
 
 function FreelancerCard({
   f,
-  detailed = false,
   onPay
 }: {
   f: WorkPoolFreelancerResumen
-  detailed?: boolean
   onPay: () => void
 }) {
+  const [open, setOpen] = useState(false)
+
   return (
     <article
-      className={`work-pool-admin__freelancer-card${detailed ? ' is-detailed' : ''}${f.saldo_pendiente > 0 ? ' has-debt' : ''}`}
+      className={`work-pool-admin__freelancer-card${open ? ' is-open' : ''}${f.saldo_pendiente > 0 ? ' has-debt' : ''}`}
     >
-      <div className="work-pool-admin__freelancer-head">
+      <button
+        type="button"
+        className="work-pool-admin__freelancer-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
         {f.foto_url ? (
           <img
             src={f.foto_url}
@@ -955,70 +965,91 @@ function FreelancerCard({
             className="work-pool-admin__avatar work-pool-admin__avatar--photo"
           />
         ) : (
-          <div className="work-pool-admin__avatar" aria-hidden>
+          <span className="work-pool-admin__avatar" aria-hidden>
             {initials(f.nombre)}
-          </div>
+          </span>
         )}
-        <div className="work-pool-admin__freelancer-id">
-          <h4 title={f.nombre}>{f.nombre}</h4>
+        <span className="work-pool-admin__freelancer-id">
+          <strong className="work-pool-admin__freelancer-name" title={f.nombre}>
+            {f.nombre}
+          </strong>
+          <span className="work-pool-admin__freelancer-meta">
+            {f.sectores.map((s) => WORK_POOL_SECTOR_LABELS[s]).join(' · ') || '—'}
+            {f.trabajos_activos > 0 ? ` · ${f.trabajos_activos} activos` : ''}
+            {f.perfil_aprobado ? ' · OK' : ''}
+          </span>
+        </span>
+        <span className="work-pool-admin__freelancer-saldo" title="Saldo pendiente">
+          <small>Saldo</small>
+          <b>{formatArs(f.saldo_pendiente)}</b>
+        </span>
+        <span className="work-pool-admin__freelancer-chev" aria-hidden>
+          {open ? '▲' : '▼'}
+        </span>
+      </button>
+
+      {open ? (
+        <div className="work-pool-admin__freelancer-body">
           <div className="work-pool-admin__freelancer-tags">
             {f.sectores.map((s) => (
               <span key={s}>{WORK_POOL_SECTOR_LABELS[s]}</span>
             ))}
-            {f.perfil_aprobado && <span className="is-ok">OK</span>}
+            {f.perfil_aprobado && <span className="is-ok">Perfil OK</span>}
             {f.perfil_activo && <span className="is-live">Activo</span>}
           </div>
-        </div>
-        <div className="work-pool-admin__freelancer-saldo" title="Saldo pendiente">
-          <small>Saldo</small>
-          <strong>{formatArs(f.saldo_pendiente)}</strong>
-        </div>
-      </div>
 
-      <div className="work-pool-admin__freelancer-stats">
-        <div>
-          <small>Activos</small>
-          <strong>{f.trabajos_activos}</strong>
-        </div>
-        <div>
-          <small>Aprob.</small>
-          <strong>{f.trabajos_aprobados}</strong>
-        </div>
-        <div>
-          <small>Revisión</small>
-          <strong>{f.pendientes_revision}</strong>
-        </div>
-        <div>
-          <small>Acred.</small>
-          <strong>{formatArs(f.acreditado)}</strong>
-        </div>
-      </div>
+          <div className="work-pool-admin__freelancer-stats">
+            <div>
+              <small>Activos</small>
+              <strong>{f.trabajos_activos}</strong>
+            </div>
+            <div>
+              <small>Aprobados</small>
+              <strong>{f.trabajos_aprobados}</strong>
+            </div>
+            <div>
+              <small>Revisión</small>
+              <strong>{f.pendientes_revision}</strong>
+            </div>
+            <div>
+              <small>Acreditado</small>
+              <strong>{formatArs(f.acreditado)}</strong>
+            </div>
+          </div>
 
-      <div className="work-pool-admin__freelancer-detail">
-        <p>
-          <span>Pagado</span> {formatArs(f.pagado)}
-        </p>
-        <p>
-          <span>Último</span> {formatDate(f.ultimo_trabajo_at)}
-        </p>
-        {f.zona_cobertura ? (
-          <p>
-            <span>Zona</span> {f.zona_cobertura}
-          </p>
-        ) : null}
-        {f.skills.length > 0 ? (
-          <p className="work-pool-admin__freelancer-skills" title={f.skills.join(', ')}>
-            <span>Skills</span> {f.skills.slice(0, 4).join(', ')}
-            {f.skills.length > 4 ? ` +${f.skills.length - 4}` : ''}
-          </p>
-        ) : null}
-      </div>
+          <div className="work-pool-admin__freelancer-detail">
+            <p>
+              <span>Pagado</span> {formatArs(f.pagado)}
+            </p>
+            <p>
+              <span>Último</span> {formatDate(f.ultimo_trabajo_at)}
+            </p>
+            {f.zona_cobertura ? (
+              <p>
+                <span>Zona</span> {f.zona_cobertura}
+              </p>
+            ) : null}
+            {f.skills.length > 0 ? (
+              <p className="work-pool-admin__freelancer-skills" title={f.skills.join(', ')}>
+                <span>Skills</span> {f.skills.join(', ')}
+              </p>
+            ) : null}
+          </div>
 
-      {f.saldo_pendiente > 0 && (
-        <button type="button" className="work-pool-module__btn work-pool-module__btn--ghost" onClick={onPay}>
-          Registrar pago
-        </button>
-      )}
+          {f.saldo_pendiente > 0 ? (
+            <button
+              type="button"
+              className="work-pool-module__btn work-pool-module__btn--ghost"
+              onClick={(e) => {
+                e.stopPropagation()
+                onPay()
+              }}
+            >
+              Registrar pago
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   )
 }

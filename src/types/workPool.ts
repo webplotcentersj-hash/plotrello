@@ -152,6 +152,20 @@ export type WorkPoolFreelancerResumen = {
   pagado: number
   saldo_pendiente: number
   ultimo_trabajo_at: string | null
+  /** Notas admin del perfil principal (si hay). */
+  notas_admin?: string | null
+}
+
+export type WorkPoolValoracion = {
+  id: number
+  id_usuario: number
+  id_job: number | null
+  numero_op: string | null
+  rating: number
+  comentario: string | null
+  id_usuario_autor: number | null
+  created_at: string
+  origen?: 'admin' | 'cliente'
 }
 
 export type WorkPoolAdminKpis = {
