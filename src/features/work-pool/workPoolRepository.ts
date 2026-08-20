@@ -904,9 +904,34 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
     .filter((f) => f.sectores.some((s) => !productSectors || productSectors.includes(s)))
     .sort((a, b) => b.saldo_pendiente - a.saldo_pendiente || b.trabajos_activos - a.trabajos_activos)
 
+  // KPIs operativos desde jobs (misma fuente que la UI); deuda financiera desde ledger/resumen.
+  const jobsAbiertos = jobs.filter((j) => j.estado !== 'aprobado' && j.estado !== 'cancelado')
   const deudaTotal = resumen.reduce((s, r) => s + Number(r.deuda_operarios ?? 0), 0)
-  const trabajosAbiertos = resumen.reduce((s, r) => s + Number(r.trabajos_abiertos ?? 0), 0)
-  const operariosActivos = freelancers.filter((f) => f.trabajos_activos > 0 || f.saldo_pendiente > 0).length
+  const trabajosAbiertos = jobsAbiertos.length
+  const operariosActivos = freelancers.filter(
+    (f) => f.trabajos_activos > 0 || (f.perfil_activo && f.perfil_aprobado)
+  ).length
+
+  // Resumen por sector: unir métricas de jobs con deuda del ledger (sin duplicar sectores).
+  const sectorKeys = new Set<string>([
+    ...resumen.map((r) => String(r.sector)),
+    ...jobs.map((j) => j.sector),
+    ...(productSectors ?? [])
+  ])
+  const resumenUnificado = [...sectorKeys]
+    .filter((s) => !productSectors || productSectors.includes(s as WorkPoolSector))
+    .map((sector) => {
+      const fromLedger = resumen.find((r) => String(r.sector) === sector)
+      const sectorJobs = jobs.filter((j) => j.sector === sector)
+      return {
+        sector,
+        trabajos_abiertos: sectorJobs.filter((j) => j.estado !== 'aprobado' && j.estado !== 'cancelado')
+          .length,
+        trabajos_aprobados: sectorJobs.filter((j) => j.estado === 'aprobado').length,
+        deuda_operarios: Number(fromLedger?.deuda_operarios ?? 0)
+      }
+    })
+    .sort((a, b) => a.sector.localeCompare(b.sector))
 
   return {
     success: true,
@@ -921,7 +946,7 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
         acreditado_total: freelancers.reduce((s, f) => s + f.acreditado, 0),
         pagado_total: freelancers.reduce((s, f) => s + f.pagado, 0)
       },
-      resumen_sectores: resumen,
+      resumen_sectores: resumenUnificado,
       freelancers,
       pendientes_revision: jobs.filter((j) => j.estado === 'entregado' || j.estado === 'en_revision'),
       jobs_recientes: jobs.slice(0, 40)

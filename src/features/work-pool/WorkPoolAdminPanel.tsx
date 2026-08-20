@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Briefcase,
+  CheckCircle2,
   ClipboardCheck,
   Cog,
   GitBranch,
@@ -13,6 +14,7 @@ import {
   RefreshCw,
   Send,
   Users,
+  Wallet,
   Wrench
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
@@ -158,6 +160,21 @@ export default function WorkPoolAdminPanel({ product }: Props) {
   ]
 
   const HeroIcon = productHeroIcon(product)
+  const isPlotDesign = product === 'plot-design'
+
+  const flowCounts = useMemo(() => {
+    if (!kpis) return null
+    const enCurso = Math.max(
+      0,
+      kpis.trabajos_abiertos - kpis.disponibles_bolsa - kpis.pendientes_revision
+    )
+    return {
+      disponible: kpis.disponibles_bolsa,
+      enCurso,
+      revision: kpis.pendientes_revision,
+      aprobadoMes: kpis.aprobados_mes
+    }
+  }, [kpis])
 
   return (
     <div className={`work-pool-admin ${cfg.themeClass}`}>
@@ -172,12 +189,23 @@ export default function WorkPoolAdminPanel({ product }: Props) {
         <div className="work-pool-admin__hero-glow" aria-hidden />
         <div className="work-pool-admin__hero-inner">
           <div className="work-pool-admin__hero-copy">
-            <span className="work-pool-admin__eyebrow">Administración · {cfg.label}</span>
+            <span className="work-pool-admin__eyebrow">
+              {isPlotDesign ? 'phi · administración' : `Administración · ${cfg.label}`}
+            </span>
             <h1>
               <span className="work-pool-admin__hero-brand" aria-hidden>
-                <HeroIcon size={26} strokeWidth={1.75} />
+                {isPlotDesign ? <span className="work-pool-admin__phi">φ</span> : <HeroIcon size={26} strokeWidth={1.75} />}
               </span>
-              <span className="work-pool-admin__hero-title">{cfg.label}</span>
+              <span className="work-pool-admin__hero-title">
+                {isPlotDesign ? (
+                  <>
+                    <span className="work-pool-admin__hero-title-main">Plot Design</span>
+                    <span className="work-pool-admin__hero-title-sub">bolsa creativa</span>
+                  </>
+                ) : (
+                  cfg.label
+                )}
+              </span>
             </h1>
             <p>{cfg.adminTagline}</p>
             {kpis && !loading ? (
@@ -221,7 +249,9 @@ export default function WorkPoolAdminPanel({ product }: Props) {
               <div className="work-pool-admin__product-switch">
                 {product === 'bolsa-plot' ? (
                   <button type="button" className="work-pool-module__btn work-pool-module__btn--ghost work-pool-admin__product-btn" onClick={() => navigate('/plot-design')}>
-                    <Palette size={16} aria-hidden />
+                    <span className="work-pool-admin__phi-inline" aria-hidden>
+                      φ
+                    </span>
                     Plot Design
                   </button>
                 ) : (
@@ -289,44 +319,56 @@ export default function WorkPoolAdminPanel({ product }: Props) {
         </div>
       ) : dashboard && tab === 'dashboard' ? (
         <div className="work-pool-admin__content work-pool-admin__content--dashboard">
-          <section className="work-pool-admin__kpi-grid">
+          <section className="work-pool-admin__kpi-grid" aria-label="Indicadores">
             <article className="work-pool-admin__kpi work-pool-admin__kpi--deuda">
-              <span className="work-pool-admin__kpi-icon">💳</span>
+              <span className="work-pool-admin__kpi-icon" aria-hidden>
+                <Wallet size={22} strokeWidth={1.75} />
+              </span>
               <div>
-                <small>Deuda total Plot</small>
+                <small>{isPlotDesign ? 'Deuda diseño' : 'Deuda total Plot'}</small>
                 <strong>{formatArs(kpis?.deuda_total ?? 0)}</strong>
               </div>
             </article>
             <article className="work-pool-admin__kpi">
-              <span className="work-pool-admin__kpi-icon">📋</span>
+              <span className="work-pool-admin__kpi-icon" aria-hidden>
+                <Briefcase size={22} strokeWidth={1.75} />
+              </span>
               <div>
                 <small>Trabajos abiertos</small>
                 <strong>{kpis?.trabajos_abiertos ?? 0}</strong>
               </div>
             </article>
             <article className="work-pool-admin__kpi work-pool-admin__kpi--warn">
-              <span className="work-pool-admin__kpi-icon">⏳</span>
+              <span className="work-pool-admin__kpi-icon" aria-hidden>
+                <ClipboardCheck size={22} strokeWidth={1.75} />
+              </span>
               <div>
                 <small>Pendientes de revisión</small>
                 <strong>{kpis?.pendientes_revision ?? 0}</strong>
               </div>
             </article>
             <article className="work-pool-admin__kpi">
-              <span className="work-pool-admin__kpi-icon">🧰</span>
+              <span className="work-pool-admin__kpi-icon" aria-hidden>
+                <Layers size={22} strokeWidth={1.75} />
+              </span>
               <div>
                 <small>En bolsa disponible</small>
                 <strong>{kpis?.disponibles_bolsa ?? 0}</strong>
               </div>
             </article>
             <article className="work-pool-admin__kpi">
-              <span className="work-pool-admin__kpi-icon">👷</span>
+              <span className="work-pool-admin__kpi-icon" aria-hidden>
+                <Users size={22} strokeWidth={1.75} />
+              </span>
               <div>
-                <small>Operarios activos</small>
+                <small>{isPlotDesign ? 'Diseñadores activos' : 'Operarios activos'}</small>
                 <strong>{kpis?.operarios_activos ?? 0}</strong>
               </div>
             </article>
             <article className="work-pool-admin__kpi work-pool-admin__kpi--ok">
-              <span className="work-pool-admin__kpi-icon">✓</span>
+              <span className="work-pool-admin__kpi-icon" aria-hidden>
+                <CheckCircle2 size={22} strokeWidth={1.75} />
+              </span>
               <div>
                 <small>Aprobados este mes</small>
                 <strong>{kpis?.aprobados_mes ?? 0}</strong>
@@ -334,57 +376,93 @@ export default function WorkPoolAdminPanel({ product }: Props) {
             </article>
           </section>
 
-          <section className="work-pool-admin__sector-board">
-            <h2>Por sector</h2>
-            <div className="work-pool-admin__sector-cards">
-              {(dashboard.resumen_sectores.length > 0
-                ? dashboard.resumen_sectores
-                : SECTORS.map((s) => ({
-                    sector: s,
-                    trabajos_abiertos: 0,
-                    trabajos_aprobados: 0,
-                    deuda_operarios: 0
-                  }))
-              ).map((r) => {
-                const sector = r.sector as WorkPoolSector
-                const SectorIcon = sectorIcon(sector)
-                const max = Math.max(
-                  Number(r.trabajos_abiertos),
-                  Number(r.trabajos_aprobados),
-                  1
-                )
-                return (
-                  <article key={r.sector} className="work-pool-admin__sector-card">
-                    <div className="work-pool-admin__sector-card-head">
-                      <span className="work-pool-admin__sector-card-icon" aria-hidden>
-                        <SectorIcon size={20} strokeWidth={1.75} />
-                      </span>
-                      <h3>{WORK_POOL_SECTOR_LABELS[sector] ?? r.sector}</h3>
-                    </div>
-                    <div className="work-pool-admin__sector-metrics">
-                      <div>
-                        <span>Abiertos</span>
-                        <strong>{r.trabajos_abiertos}</strong>
-                        <div className="work-pool-admin__bar">
-                          <i style={{ width: `${(Number(r.trabajos_abiertos) / max) * 100}%` }} />
+          {isPlotDesign && flowCounts ? (
+            <section className="work-pool-admin__flow" aria-label="Flujo creativo">
+              <div className="work-pool-admin__section-head">
+                <h2>Flujo creativo</h2>
+                <span className="work-pool-admin__pill">Diseño</span>
+              </div>
+              <div className="work-pool-admin__flow-track">
+                <button type="button" className="work-pool-admin__flow-step" onClick={() => setTab('pipeline')}>
+                  <span>Disponible</span>
+                  <strong>{flowCounts.disponible}</strong>
+                </button>
+                <span className="work-pool-admin__flow-arrow" aria-hidden>
+                  →
+                </span>
+                <button type="button" className="work-pool-admin__flow-step" onClick={() => setTab('pipeline')}>
+                  <span>En curso</span>
+                  <strong>{flowCounts.enCurso}</strong>
+                </button>
+                <span className="work-pool-admin__flow-arrow" aria-hidden>
+                  →
+                </span>
+                <button
+                  type="button"
+                  className={`work-pool-admin__flow-step${flowCounts.revision > 0 ? ' is-alert' : ''}`}
+                  onClick={() => setTab('dashboard')}
+                >
+                  <span>En revisión</span>
+                  <strong>{flowCounts.revision}</strong>
+                </button>
+                <span className="work-pool-admin__flow-arrow" aria-hidden>
+                  →
+                </span>
+                <div className="work-pool-admin__flow-step work-pool-admin__flow-step--ok">
+                  <span>Aprobados mes</span>
+                  <strong>{flowCounts.aprobadoMes}</strong>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="work-pool-admin__sector-board">
+              <h2>Por sector</h2>
+              <div className="work-pool-admin__sector-cards">
+                {(dashboard.resumen_sectores.length > 0
+                  ? dashboard.resumen_sectores
+                  : SECTORS.map((s) => ({
+                      sector: s,
+                      trabajos_abiertos: 0,
+                      trabajos_aprobados: 0,
+                      deuda_operarios: 0
+                    }))
+                ).map((r) => {
+                  const sector = r.sector as WorkPoolSector
+                  const SectorIcon = sectorIcon(sector)
+                  const max = Math.max(Number(r.trabajos_abiertos), Number(r.trabajos_aprobados), 1)
+                  return (
+                    <article key={r.sector} className="work-pool-admin__sector-card">
+                      <div className="work-pool-admin__sector-card-head">
+                        <span className="work-pool-admin__sector-card-icon" aria-hidden>
+                          <SectorIcon size={20} strokeWidth={1.75} />
+                        </span>
+                        <h3>{WORK_POOL_SECTOR_LABELS[sector] ?? r.sector}</h3>
+                      </div>
+                      <div className="work-pool-admin__sector-metrics">
+                        <div>
+                          <span>Abiertos</span>
+                          <strong>{r.trabajos_abiertos}</strong>
+                          <div className="work-pool-admin__bar">
+                            <i style={{ width: `${(Number(r.trabajos_abiertos) / max) * 100}%` }} />
+                          </div>
+                        </div>
+                        <div>
+                          <span>Aprobados</span>
+                          <strong>{r.trabajos_aprobados}</strong>
+                          <div className="work-pool-admin__bar work-pool-admin__bar--ok">
+                            <i style={{ width: `${(Number(r.trabajos_aprobados) / max) * 100}%` }} />
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <span>Aprobados</span>
-                        <strong>{r.trabajos_aprobados}</strong>
-                        <div className="work-pool-admin__bar work-pool-admin__bar--ok">
-                          <i style={{ width: `${(Number(r.trabajos_aprobados) / max) * 100}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                    <p className="work-pool-admin__sector-deuda">
-                      Deuda sector: <strong>{formatArs(Number(r.deuda_operarios))}</strong>
-                    </p>
-                  </article>
-                )
-              })}
-            </div>
-          </section>
+                      <p className="work-pool-admin__sector-deuda">
+                        Deuda sector: <strong>{formatArs(Number(r.deuda_operarios))}</strong>
+                      </p>
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
           <section className="work-pool-admin__section">
             <div className="work-pool-admin__section-head">
@@ -410,14 +488,18 @@ export default function WorkPoolAdminPanel({ product }: Props) {
 
           <section className="work-pool-admin__section">
             <div className="work-pool-admin__section-head">
-              <h2>Top freelancers por saldo</h2>
+              <h2>{isPlotDesign ? 'Diseñadores con saldo' : 'Top freelancers por saldo'}</h2>
             </div>
             <div className="work-pool-admin__freelancer-grid">
               {filteredFreelancers.slice(0, 6).map((f) => (
                 <FreelancerCard key={f.id_usuario} f={f} onPay={() => { setPayUserId(f.id_usuario); setTab('freelancers') }} />
               ))}
               {filteredFreelancers.length === 0 && (
-                <p className="work-pool-module__empty">Todavía no hay operarios con actividad en la bolsa.</p>
+                <p className="work-pool-module__empty">
+                  {isPlotDesign
+                    ? 'Todavía no hay diseñadores con actividad en la bolsa.'
+                    : 'Todavía no hay operarios con actividad en la bolsa.'}
+                </p>
               )}
             </div>
           </section>

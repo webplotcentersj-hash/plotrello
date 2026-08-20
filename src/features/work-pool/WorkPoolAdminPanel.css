@@ -77,11 +77,16 @@
 }
 
 .work-pool--plot-design.work-pool-admin {
+  --wp-phi-ink: #0b0b0b;
+  --wp-phi-pink: #ff6b7a;
+  --wp-phi-blue: #2f81f7;
+  --wp-phi-yellow: #ffc224;
+  --wp-phi-cream: #f6f1ea;
   background:
-    radial-gradient(ellipse 85% 60% at 12% -12%, rgba(168, 85, 247, 0.28), transparent 52%),
-    radial-gradient(ellipse 55% 40% at 88% 8%, rgba(99, 102, 241, 0.18), transparent 48%),
-    radial-gradient(ellipse 40% 30% at 50% 100%, rgba(236, 72, 153, 0.08), transparent 55%),
-    linear-gradient(180deg, #07060f 0%, #0b0918 38%, #08070f 100%);
+    radial-gradient(ellipse 70% 50% at 0% 0%, rgba(47, 129, 247, 0.18), transparent 55%),
+    radial-gradient(ellipse 55% 40% at 100% 0%, rgba(255, 107, 122, 0.14), transparent 50%),
+    radial-gradient(ellipse 40% 30% at 70% 100%, rgba(255, 194, 36, 0.08), transparent 55%),
+    linear-gradient(180deg, #0a0a0c 0%, #121214 42%, #0c0c0e 100%);
 }
 
 /* —— Ambiente animado —— */
@@ -139,15 +144,15 @@
 }
 
 .work-pool--plot-design .work-pool-admin__orb--1 {
-  background: rgba(168, 85, 247, 0.32);
+  background: rgba(47, 129, 247, 0.28);
 }
 
 .work-pool--plot-design .work-pool-admin__orb--2 {
-  background: rgba(99, 102, 241, 0.22);
+  background: rgba(255, 107, 122, 0.2);
 }
 
 .work-pool--plot-design .work-pool-admin__orb--3 {
-  background: rgba(236, 72, 153, 0.14);
+  background: rgba(255, 194, 36, 0.12);
 }
 
 /* —— Hero —— */
@@ -168,7 +173,7 @@
 }
 
 .work-pool--plot-design .work-pool-admin__hero-glow {
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.38), transparent 65%);
+  background: radial-gradient(circle, rgba(47, 129, 247, 0.28), transparent 65%);
 }
 
 .work-pool-admin__hero-inner {
@@ -201,9 +206,9 @@
 }
 
 .work-pool--plot-design .work-pool-admin__eyebrow {
-  color: #e9d5ff;
-  background: rgba(168, 85, 247, 0.14);
-  border-color: rgba(168, 85, 247, 0.28);
+  color: var(--wp-phi-cream, #f6f1ea);
+  background: rgba(47, 129, 247, 0.16);
+  border-color: rgba(47, 129, 247, 0.35);
 }
 
 .work-pool-admin__hero h1 {
@@ -246,10 +251,24 @@
 }
 
 .work-pool--plot-design .work-pool-admin__hero-brand {
-  background: linear-gradient(145deg, rgba(168, 85, 247, 0.38), rgba(124, 58, 237, 0.18));
-  border-color: rgba(192, 132, 252, 0.4);
-  color: #e9d5ff;
-  box-shadow: 0 8px 32px rgba(168, 85, 247, 0.3);
+  background: #f6f1ea;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  color: #0b0b0b;
+  box-shadow: 4px 4px 0 rgba(47, 129, 247, 0.85);
+  border-radius: 14px;
+}
+
+.work-pool-admin__phi {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.work-pool-admin__phi-inline {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .work-pool-admin__hero-title {
@@ -260,10 +279,27 @@
 }
 
 .work-pool--plot-design .work-pool-admin__hero-title {
-  background: linear-gradient(135deg, #fdf4ff 0%, #e9d5ff 40%, #c084fc 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  color: #f8fafc;
+}
+
+.work-pool-admin__hero-title-main {
+  font-size: inherit;
+  letter-spacing: -0.03em;
+}
+
+.work-pool-admin__hero-title-sub {
+  font-size: 0.42em;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #94a3b8;
 }
 
 .work-pool-admin__hero p {
@@ -328,17 +364,17 @@
 }
 
 .work-pool--plot-design .work-pool-admin__hero-stat {
-  background: rgba(168, 85, 247, 0.08);
-  border-color: rgba(168, 85, 247, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .work-pool--plot-design .work-pool-admin__hero-stat-icon {
-  background: rgba(168, 85, 247, 0.2);
-  color: #e9d5ff;
+  background: rgba(47, 129, 247, 0.2);
+  color: #93c5fd;
 }
 
 .work-pool--plot-design .work-pool-admin__hero-stat-text strong {
-  color: #f3e8ff;
+  color: #f8fafc;
 }
 
 .work-pool-admin__live {
@@ -412,13 +448,15 @@
 }
 
 .work-pool--plot-design .work-pool-admin__refresh {
-  border-color: rgba(168, 85, 247, 0.4);
-  background: rgba(168, 85, 247, 0.14);
-  color: #e9d5ff;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  background: #2f81f7;
+  color: #fff;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
 }
 
 .work-pool--plot-design .work-pool-admin__refresh:hover:not(:disabled) {
-  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.25);
+  box-shadow: 4px 4px 0 rgba(255, 107, 122, 0.55);
+  transform: translate(-1px, -1px);
 }
 
 /* —— Toolbar y tabs —— */
@@ -481,9 +519,10 @@
 }
 
 .work-pool--plot-design .work-pool-admin__tab.is-active {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.32), rgba(124, 58, 237, 0.16));
-  border-color: rgba(168, 85, 247, 0.5);
-  box-shadow: 0 8px 28px rgba(168, 85, 247, 0.22);
+  background: #f6f1ea;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  color: #0b0b0b;
+  box-shadow: 3px 3px 0 rgba(47, 129, 247, 0.75);
 }
 
 .work-pool-admin__sector-filter {
@@ -558,6 +597,7 @@
 /* —— KPIs —— */
 .work-pool-admin__kpi-grid,
 .work-pool-admin__sector-board,
+.work-pool-admin__flow,
 .work-pool-admin__section,
 .work-pool-admin__publish {
   max-width: 1400px;
@@ -614,8 +654,8 @@
 }
 
 .work-pool--plot-design .work-pool-admin__kpi:hover {
-  border-color: rgba(168, 85, 247, 0.25);
-  box-shadow: 0 12px 36px rgba(168, 85, 247, 0.1);
+  border-color: rgba(47, 129, 247, 0.35);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
 }
 
 .work-pool-admin__kpi--deuda {
@@ -624,8 +664,8 @@
 }
 
 .work-pool--plot-design .work-pool-admin__kpi--deuda {
-  border-color: rgba(168, 85, 247, 0.4);
-  background: linear-gradient(145deg, rgba(88, 28, 135, 0.22), rgba(255, 255, 255, 0.03));
+  border-color: rgba(255, 107, 122, 0.45);
+  background: linear-gradient(145deg, rgba(255, 107, 122, 0.16), rgba(255, 255, 255, 0.03));
 }
 
 .work-pool-admin__kpi--warn {
@@ -640,6 +680,35 @@
   font-size: 1.6rem;
   line-height: 1;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
+.work-pool--plot-design .work-pool-admin__kpi-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(47, 129, 247, 0.16);
+  color: #93c5fd;
+  filter: none;
+  font-size: inherit;
+  flex-shrink: 0;
+}
+
+.work-pool--plot-design .work-pool-admin__kpi--deuda .work-pool-admin__kpi-icon {
+  background: rgba(255, 107, 122, 0.2);
+  color: #fda4af;
+}
+
+.work-pool--plot-design .work-pool-admin__kpi--warn .work-pool-admin__kpi-icon {
+  background: rgba(255, 194, 36, 0.18);
+  color: #fde68a;
+}
+
+.work-pool--plot-design .work-pool-admin__kpi--ok .work-pool-admin__kpi-icon {
+  background: rgba(52, 211, 153, 0.16);
+  color: #6ee7b7;
 }
 
 .work-pool-admin__kpi small {
@@ -662,6 +731,82 @@
 }
 
 /* —— Sector board —— */
+.work-pool-admin__flow-track {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.work-pool-admin__flow-step {
+  flex: 1 1 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.work-pool-admin__flow-step:hover {
+  transform: translateY(-2px);
+  border-color: rgba(47, 129, 247, 0.4);
+  background: rgba(47, 129, 247, 0.1);
+}
+
+.work-pool-admin__flow-step span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.work-pool-admin__flow-step strong {
+  font-size: 1.55rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #f8fafc;
+}
+
+.work-pool-admin__flow-step.is-alert {
+  border-color: rgba(255, 194, 36, 0.45);
+  background: rgba(255, 194, 36, 0.08);
+}
+
+.work-pool-admin__flow-step--ok {
+  cursor: default;
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.work-pool-admin__flow-arrow {
+  display: none;
+  align-self: center;
+  color: #64748b;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+@media (min-width: 900px) {
+  .work-pool-admin__flow-arrow {
+    display: inline-flex;
+  }
+
+  .work-pool-admin__flow-track {
+    flex-wrap: nowrap;
+  }
+
+  .work-pool-admin__flow-step {
+    flex: 1 1 0;
+  }
+}
+
 .work-pool-admin__sector-board h2,
 .work-pool-admin__section-head h2,
 .work-pool-admin__publish h2 {

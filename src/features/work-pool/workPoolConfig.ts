@@ -20,12 +20,12 @@ export const WORK_POOL_PRODUCT_CONFIG: Record<
     label: 'Plot Design',
     shortLabel: 'Design',
     tagline: 'Bolsa y asignaciones de diseño para freelancers y equipo interno.',
-    adminTagline: 'Gestioná diseñadores externos, bolsa creativa y cuenta corriente de diseño.',
-    icon: '🎨',
+    adminTagline: 'Bolsa creativa, revisión de entregas y cuenta corriente de diseñadores.',
+    icon: 'φ',
     route: '/plot-design',
     sectors: ['diseno'],
     themeClass: 'work-pool--plot-design',
-    accent: '#a855f7'
+    accent: '#2f81f7'
   },
   'bolsa-plot': {
     label: 'Bolsa Plot',
