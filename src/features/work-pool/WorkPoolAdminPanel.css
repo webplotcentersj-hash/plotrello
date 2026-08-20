@@ -2508,6 +2508,11 @@
   color: #f8fafc;
 }
 
+.work-pool-avance-card.is-live {
+  border-color: rgba(34, 197, 94, 0.45);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.12), 3px 3px 0 rgba(34, 197, 94, 0.2);
+}
+
 .work-pool--plot-design .work-pool-avance-card.is-live {
   border-color: rgba(74, 222, 128, 0.5);
   box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.18), 0 12px 32px rgba(0, 0, 0, 0.45);
