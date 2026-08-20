@@ -614,10 +614,10 @@
   border-radius: 20px;
   color: #f8fafc;
   background:
-    radial-gradient(ellipse 70% 80% at 0% 0%, rgba(47, 129, 247, 0.35), transparent 55%),
-    linear-gradient(145deg, #0f172a 0%, #0b1220 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+    radial-gradient(ellipse 70% 80% at 0% 0%, rgba(47, 129, 247, 0.28), transparent 55%),
+    #000;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 
 .work-pool--bolsa-plot .work-pool-publicar__hero {

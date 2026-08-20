@@ -82,11 +82,21 @@
   --wp-phi-blue: #2f81f7;
   --wp-phi-yellow: #ffc224;
   --wp-phi-cream: #f6f1ea;
-  background:
-    radial-gradient(ellipse 70% 50% at 0% 0%, rgba(47, 129, 247, 0.18), transparent 55%),
-    radial-gradient(ellipse 55% 40% at 100% 0%, rgba(255, 107, 122, 0.14), transparent 50%),
-    radial-gradient(ellipse 40% 30% at 70% 100%, rgba(255, 194, 36, 0.08), transparent 55%),
-    linear-gradient(180deg, #0a0a0c 0%, #121214 42%, #0c0c0e 100%);
+  background: #000;
+  color: #f8fafc;
+}
+
+.work-pool--plot-design .work-pool-admin__section-head h2,
+.work-pool--plot-design .work-pool-admin__section-lead,
+.work-pool--plot-design .work-pool-admin__form-links,
+.work-pool--plot-design .work-pool-module__empty {
+  color: #f1f5f9;
+}
+
+.work-pool--plot-design .work-pool-admin__section-lead,
+.work-pool--plot-design .work-pool-admin__form-links,
+.work-pool--plot-design .work-pool-module__empty {
+  opacity: 0.78;
 }
 
 /* â€”â€” Ambiente animado â€”â€” */
@@ -1163,9 +1173,9 @@
 }
 
 .work-pool--plot-design .work-pool-admin__freelancer-card {
-  background: linear-gradient(155deg, #121826 0%, #0b1220 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
   color: #f8fafc;
 }
 
@@ -1720,11 +1730,11 @@
 }
 
 .work-pool--plot-design .work-pool-admin__publish {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   background:
-    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(47, 129, 247, 0.22), transparent 50%),
-    linear-gradient(160deg, #0f172a 0%, #0b1220 100%);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(47, 129, 247, 0.18), transparent 50%),
+    #000;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
   color: #f8fafc;
 }
 
@@ -2291,6 +2301,10 @@
   max-width: 960px;
 }
 
+.work-pool--plot-design .work-pool-admin__section--avances {
+  color: #f8fafc;
+}
+
 .work-pool-avances-hero {
   position: relative;
   margin-bottom: 22px;
@@ -2299,11 +2313,22 @@
   overflow: hidden;
   color: #f8fafc;
   background:
-    radial-gradient(ellipse 80% 70% at 0% 0%, rgba(47, 129, 247, 0.35), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 100% 20%, rgba(255, 107, 122, 0.18), transparent 50%),
-    linear-gradient(145deg, #0f172a 0%, #0b1220 55%, #111827 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    radial-gradient(ellipse 80% 70% at 0% 0%, rgba(47, 129, 247, 0.28), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 100% 20%, rgba(255, 107, 122, 0.14), transparent 50%),
+    #000;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.work-pool--plot-design .work-pool-avances-hero h2,
+.work-pool--plot-design .work-pool-avances-hero p,
+.work-pool--plot-design .work-pool-avances-hero__stats {
+  color: #f8fafc;
+}
+
+.work-pool--plot-design .work-pool-avances-hero p,
+.work-pool--plot-design .work-pool-avances-hero__stats {
+  opacity: 0.78;
 }
 
 .work-pool-admin:not(.work-pool--plot-design) .work-pool-avances-hero {
@@ -2477,20 +2502,15 @@
 }
 
 .work-pool--plot-design .work-pool-avance-card {
-  background: linear-gradient(155deg, #121826 0%, #0b1220 100%);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  background: #000;
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
   color: #f8fafc;
 }
 
-.work-pool-avance-card.is-live {
-  border-color: rgba(34, 197, 94, 0.45);
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.12), 3px 3px 0 rgba(34, 197, 94, 0.2);
-}
-
 .work-pool--plot-design .work-pool-avance-card.is-live {
-  border-color: rgba(74, 222, 128, 0.45);
-  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.15), 0 12px 32px rgba(0, 0, 0, 0.35);
+  border-color: rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.18), 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
 .work-pool-admin:not(.work-pool--plot-design) .work-pool-avance-card {
@@ -2513,8 +2533,12 @@
   cursor: pointer;
 }
 
+.work-pool--plot-design .work-pool-avance-card__head {
+  color: #f8fafc;
+}
+
 .work-pool--plot-design .work-pool-avance-card__head:hover {
-  background: rgba(47, 129, 247, 0.1);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .work-pool-avance-card.is-live .work-pool-avance-card__head {
@@ -2522,7 +2546,7 @@
 }
 
 .work-pool--plot-design .work-pool-avance-card.is-live .work-pool-avance-card__head {
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.16), transparent 60%);
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.2), transparent 60%);
 }
 
 .work-pool-avance-card__avatar {
@@ -2862,11 +2886,11 @@
   border-radius: 22px;
   color: #f8fafc;
   background:
-    radial-gradient(ellipse 70% 60% at 100% 0%, rgba(47, 129, 247, 0.28), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(34, 197, 94, 0.12), transparent 50%),
-    linear-gradient(145deg, #0f172a 0%, #0b1220 60%, #111827 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    radial-gradient(ellipse 70% 60% at 100% 0%, rgba(47, 129, 247, 0.22), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(34, 197, 94, 0.1), transparent 50%),
+    #000;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
 
 .work-pool-admin:not(.work-pool--plot-design) .work-pool-conta-hero {
