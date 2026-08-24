@@ -825,7 +825,7 @@ export type WorkPoolJobDetalleOperario = {
     brief_publico: string | null
     objetivo_proyecto: string | null
     publico_objetivo: string | null
-    etiquetas: string | null
+    etiquetas: string | string[] | null
     foto_url: string | null
     fecha_limite_brief: string | null
     deadline_brief: string | null

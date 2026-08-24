@@ -45,8 +45,21 @@ function isImageUrl(url: string, name?: string | null) {
   return /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(t) || t.includes('image/')
 }
 
-function Field({ label, value }: { label: string; value: string | null | undefined }) {
-  const v = (value ?? '').trim()
+function formatTextValue(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => formatTextValue(item))
+      .filter(Boolean)
+      .join(', ')
+  }
+  return ''
+}
+
+function Field({ label, value }: { label: string; value: unknown }) {
+  const v = formatTextValue(value)
   if (!v) return null
   return (
     <div className="wp-job-detalle__field">
