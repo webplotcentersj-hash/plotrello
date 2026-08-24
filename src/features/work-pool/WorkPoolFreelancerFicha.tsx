@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   WorkPoolFreelancerResumen,
   WorkPoolProduct,
@@ -8,28 +8,25 @@ import type {
 import { WORK_POOL_ESTADO_LABELS, WORK_POOL_SECTOR_LABELS } from '../../types/workPool'
 import { sectorsForProduct, defaultSectorForProduct } from './workPoolConfig'
 import {
-  crearWorkPoolValoracion,
   listValoracionesClientePorOps,
-  listWorkPoolValoraciones,
   loadOperarioWorkPoolDetail,
+  loadWorkPoolLegajoPersona,
   obtenerLoginUsuarioWorkPool,
   regenerarCredencialesWorkPool,
+  saveWorkPoolLegajoPersona,
   sugerirLoginPlotPhiDisponible,
+  sugerirPasswordPlotPhiDisponible,
   upsertWorkPoolProfile,
   updateWorkPoolUsuarioNombre,
   type WorkPoolOperarioTrabajoItem
 } from './workPoolRepository'
-import {
-  generarPasswordPlotPhi,
-  loginPlotPhiFromNombre,
-  PLOT_PHI_DOMAIN
-} from './workPoolCredenciales'
+import { loginPlotPhiFromNombre, PLOT_PHI_DOMAIN } from './workPoolCredenciales'
 import { OPERARIO_EXTERNO_LOGIN } from './workPoolOperarioExterno'
+import { apiService } from '../../services/api'
 
 type Props = {
   f: WorkPoolFreelancerResumen
   product: WorkPoolProduct
-  idUsuarioAdmin?: number
   onPay: () => void
   onSaved?: () => void
 }
@@ -59,7 +56,6 @@ function stars(n: number) {
 export default function WorkPoolFreelancerFicha({
   f,
   product,
-  idUsuarioAdmin,
   onPay,
   onSaved
 }: Props) {
@@ -83,16 +79,22 @@ export default function WorkPoolFreelancerFicha({
 
   const [trabajos, setTrabajos] = useState<WorkPoolOperarioTrabajoItem[]>([])
   const [valoraciones, setValoraciones] = useState<WorkPoolValoracion[]>([])
-  const [newRating, setNewRating] = useState(5)
-  const [newComentario, setNewComentario] = useState('')
-  const [newOp, setNewOp] = useState('')
-  const [savingVal, setSavingVal] = useState(false)
 
   const [loginActual, setLoginActual] = useState('')
   const [loginEdit, setLoginEdit] = useState('')
   const [passNueva, setPassNueva] = useState('')
   const [credMsg, setCredMsg] = useState('')
   const [savingCred, setSavingCred] = useState(false)
+
+  const [telefono, setTelefono] = useState('')
+  const [dni, setDni] = useState('')
+  const [fechaNac, setFechaNac] = useState('')
+  const [domicilio, setDomicilio] = useState('')
+  const [apellido, setApellido] = useState('')
+  const [fotoUrl, setFotoUrl] = useState<string | null>(f.foto_url)
+  const [fechaIngreso, setFechaIngreso] = useState<string | null>(null)
+  const [uploadingFoto, setUploadingFoto] = useState(false)
+  const fotoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -108,6 +110,7 @@ export default function WorkPoolFreelancerFicha({
     setOkMsg('')
     setCredMsg('')
     setPassNueva('')
+    setFotoUrl(f.foto_url)
     void obtenerLoginUsuarioWorkPool(f.id_usuario).then((res) => {
       if (res.success && res.data) {
         setLoginActual(res.data)
@@ -117,6 +120,21 @@ export default function WorkPoolFreelancerFicha({
         setLoginActual('')
         setLoginEdit(base)
       }
+    })
+    void loadWorkPoolLegajoPersona(f.id_usuario).then((res) => {
+      if (!res.success || !res.data) return
+      const L = res.data
+      if (L.nombre || L.apellido) {
+        const full = [L.nombre, L.apellido].filter(Boolean).join(' ').trim()
+        if (full) setNombre(full)
+      }
+      setApellido(L.apellido ?? '')
+      setTelefono(L.telefono ?? '')
+      setDni(L.dni ?? '')
+      setFechaNac(L.fecha_nacimiento ? String(L.fecha_nacimiento).slice(0, 10) : '')
+      setDomicilio(L.direccion ?? '')
+      setFechaIngreso(L.fecha_ingreso ? String(L.fecha_ingreso).slice(0, 10) : null)
+      if (L.foto_url) setFotoUrl(L.foto_url)
     })
     // Solo al abrir: no pisar lo que el admin está tipeando si el padre re-renderiza.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,16 +159,15 @@ export default function WorkPoolFreelancerFicha({
       const jobs = detailRes.data?.trabajos ?? []
       setTrabajos(jobs)
 
-      const adminVal = await listWorkPoolValoraciones(f.id_usuario)
       const ops = jobs.map((j) => j.numero_op).filter((x): x is string => Boolean(x))
       const clienteVal = await listValoracionesClientePorOps(ops)
       if (cancelled) return
 
-      const merged = [
-        ...(adminVal.data ?? []),
-        ...(clienteVal.data ?? [])
-      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      setValoraciones(merged)
+      setValoraciones(
+        (clienteVal.data ?? []).sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+      )
       setLoading(false)
     })()
     return () => {
@@ -159,10 +176,10 @@ export default function WorkPoolFreelancerFicha({
   }, [open, f.id_usuario, f.nombre, f.sectores, product])
 
   const promedio = useMemo(() => {
-    if (valoraciones.length === 0) return null
+    if (valoraciones.length === 0) return f.valoracion_promedio
     const sum = valoraciones.reduce((s, v) => s + v.rating, 0)
-    return sum / valoraciones.length
-  }, [valoraciones])
+    return Math.round((sum / valoraciones.length) * 10) / 10
+  }, [valoraciones, f.valoracion_promedio])
 
   const handleSave = async () => {
     setSaving(true)
@@ -191,6 +208,28 @@ export default function WorkPoolFreelancerFicha({
       }
     }
 
+    const parts = nombreTrim.split(/\s+/).filter(Boolean)
+    const legajoNombre = parts[0] || nombreTrim
+    const legajoApellido = apellido.trim() || (parts.length > 1 ? parts.slice(1).join(' ') : '')
+
+    const legajoRes = await saveWorkPoolLegajoPersona(f.id_usuario, {
+      nombre: legajoNombre,
+      apellido: legajoApellido || null,
+      telefono: telefono.trim() || null,
+      dni: dni.trim() || null,
+      fecha_nacimiento: fechaNac.trim() || null,
+      direccion: domicilio.trim() || null,
+      foto_url: fotoUrl,
+      email: loginActual.includes('@') ? loginActual : null,
+      fecha_ingreso: fechaIngreso,
+      sector: WORK_POOL_SECTOR_LABELS[sector] ?? sector
+    })
+    if (!legajoRes.success) {
+      setSaving(false)
+      setError(legajoRes.error || 'No se pudo guardar datos personales')
+      return
+    }
+
     const res = await upsertWorkPoolProfile({
       id_usuario: f.id_usuario,
       sector,
@@ -210,6 +249,46 @@ export default function WorkPoolFreelancerFicha({
     onSaved?.()
   }
 
+  const handleFotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError('Elegí una imagen (JPG/PNG)')
+      return
+    }
+    setUploadingFoto(true)
+    setError('')
+    const up = await apiService.uploadFotoEmpleado(file, f.id_usuario)
+    if (!up.success || !up.data) {
+      setUploadingFoto(false)
+      setError(up.error || 'No se pudo subir la foto')
+      if (fotoInputRef.current) fotoInputRef.current.value = ''
+      return
+    }
+    setFotoUrl(up.data)
+    const legajoRes = await saveWorkPoolLegajoPersona(f.id_usuario, {
+      nombre: nombre.trim().split(/\s+/)[0] || f.nombre,
+      apellido: apellido.trim() || null,
+      telefono: telefono.trim() || null,
+      dni: dni.trim() || null,
+      fecha_nacimiento: fechaNac.trim() || null,
+      direccion: domicilio.trim() || null,
+      foto_url: up.data,
+      email: loginActual.includes('@') ? loginActual : null,
+      fecha_ingreso: fechaIngreso,
+      sector: WORK_POOL_SECTOR_LABELS[sector] ?? sector
+    })
+    setUploadingFoto(false)
+    if (!legajoRes.success) {
+      setError(legajoRes.error || 'Foto subida pero no se guardó en el legajo')
+    } else {
+      setOkMsg('Foto actualizada')
+      setDirty(true)
+      onSaved?.()
+    }
+    if (fotoInputRef.current) fotoInputRef.current.value = ''
+  }
+
   const regenerarLoginSugerido = async () => {
     setCredMsg('')
     setError('')
@@ -221,7 +300,10 @@ export default function WorkPoolFreelancerFicha({
 
   const regenerarPasswordSugerida = () => {
     setCredMsg('')
-    setPassNueva(generarPasswordPlotPhi())
+    setPassNueva('…')
+    void sugerirPasswordPlotPhiDisponible(f.id_usuario).then((res) => {
+      if (res.success && res.data) setPassNueva(res.data)
+    })
   }
 
   const handleGuardarCredenciales = async () => {
@@ -258,39 +340,11 @@ export default function WorkPoolFreelancerFicha({
     setLoginEdit(nuevoLogin)
     setCredMsg(
       passTrim
-        ? `Credenciales actualizadas. Login: ${nuevoLogin} · Contraseña: ${passTrim} · Ingreso: ${OPERARIO_EXTERNO_LOGIN}`
-        : `Login actualizado a ${nuevoLogin}. La contraseña no cambió.`
+        ? `Credenciales actualizadas y acceso activo. Login: ${nuevoLogin} · Contraseña: ${passTrim} · Ingreso: ${OPERARIO_EXTERNO_LOGIN}`
+        : `Login actualizado a ${nuevoLogin} y acceso activo. La contraseña no cambió.`
     )
     setPassNueva('')
     onSaved?.()
-  }
-
-  const handleAddValoracion = async () => {
-    setSavingVal(true)
-    setError('')
-    const res = await crearWorkPoolValoracion({
-      id_usuario: f.id_usuario,
-      rating: newRating,
-      comentario: newComentario,
-      numero_op: newOp || undefined,
-      id_usuario_autor: idUsuarioAdmin
-    })
-    setSavingVal(false)
-    if (!res.success) {
-      setError(res.error || 'No se pudo guardar la valoración')
-      return
-    }
-    setNewComentario('')
-    setNewOp('')
-    setNewRating(5)
-    const adminVal = await listWorkPoolValoraciones(f.id_usuario)
-    const ops = trabajos.map((j) => j.numero_op).filter((x): x is string => Boolean(x))
-    const clienteVal = await listValoracionesClientePorOps(ops)
-    setValoraciones(
-      [...(adminVal.data ?? []), ...(clienteVal.data ?? [])].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
-    )
   }
 
   return (
@@ -303,11 +357,11 @@ export default function WorkPoolFreelancerFicha({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        {f.foto_url ? (
-          <img src={f.foto_url} alt="" className="work-pool-admin__avatar work-pool-admin__avatar--photo" />
+        {fotoUrl || f.foto_url ? (
+          <img src={fotoUrl || f.foto_url || ''} alt="" className="work-pool-admin__avatar work-pool-admin__avatar--photo" />
         ) : (
           <span className="work-pool-admin__avatar" aria-hidden>
-            {initials(f.nombre)}
+            {initials(open ? nombre || f.nombre : f.nombre)}
           </span>
         )}
         <span className="work-pool-admin__freelancer-id">
@@ -320,7 +374,7 @@ export default function WorkPoolFreelancerFicha({
               <>
                 {f.sectores.map((s) => WORK_POOL_SECTOR_LABELS[s]).join(' · ') || '—'}
                 {f.trabajos_activos > 0 ? ` · ${f.trabajos_activos} activos` : ''}
-                {promedio != null ? ` · ${promedio.toFixed(1)}★` : ''}
+                {promedio != null ? ` · ${promedio.toFixed(1)}★` : ' · sin valoración'}
                 {' · expandir'}
               </>
             ) : null}
@@ -362,6 +416,46 @@ export default function WorkPoolFreelancerFicha({
 
           <section className="work-pool-ficha-block work-pool-ficha-edit">
             <h5>Datos editables {dirty ? <em className="work-pool-ficha-dirty">sin guardar</em> : null}</h5>
+
+            <div className="work-pool-ficha-foto">
+              {fotoUrl ? (
+                <img src={fotoUrl} alt="" className="work-pool-ficha-foto__img" />
+              ) : (
+                <span className="work-pool-ficha-foto__placeholder" aria-hidden>
+                  {initials(nombre || f.nombre)}
+                </span>
+              )}
+              <div className="work-pool-ficha-foto__actions">
+                <input
+                  ref={fotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="work-pool-ficha-foto__input"
+                  onChange={(e) => void handleFotoChange(e)}
+                />
+                <button
+                  type="button"
+                  className="work-pool-module__btn work-pool-module__btn--ghost"
+                  disabled={uploadingFoto}
+                  onClick={() => fotoInputRef.current?.click()}
+                >
+                  {uploadingFoto ? 'Subiendo…' : fotoUrl ? 'Cambiar foto' : 'Agregar foto'}
+                </button>
+                {fotoUrl ? (
+                  <button
+                    type="button"
+                    className="work-pool-module__btn work-pool-module__btn--ghost"
+                    onClick={() => {
+                      setFotoUrl(null)
+                      markDirty()
+                    }}
+                  >
+                    Quitar
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
             <div className="work-pool-ficha-edit__grid">
               <label>
                 Nombre
@@ -373,6 +467,54 @@ export default function WorkPoolFreelancerFicha({
                   }}
                   placeholder="Nombre completo"
                   autoComplete="off"
+                />
+              </label>
+              <label>
+                Apellido
+                <input
+                  value={apellido}
+                  onChange={(e) => {
+                    setApellido(e.target.value)
+                    markDirty()
+                  }}
+                  placeholder="Apellido"
+                  autoComplete="off"
+                />
+              </label>
+              <label>
+                Teléfono
+                <input
+                  value={telefono}
+                  onChange={(e) => {
+                    setTelefono(e.target.value)
+                    markDirty()
+                  }}
+                  placeholder="11 1234-5678"
+                  inputMode="tel"
+                  autoComplete="off"
+                />
+              </label>
+              <label>
+                DNI
+                <input
+                  value={dni}
+                  onChange={(e) => {
+                    setDni(e.target.value)
+                    markDirty()
+                  }}
+                  placeholder="Documento"
+                  autoComplete="off"
+                />
+              </label>
+              <label>
+                Fecha de nacimiento
+                <input
+                  type="date"
+                  value={fechaNac}
+                  onChange={(e) => {
+                    setFechaNac(e.target.value)
+                    markDirty()
+                  }}
                 />
               </label>
               <label>
@@ -390,6 +532,18 @@ export default function WorkPoolFreelancerFicha({
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="work-pool-ficha-edit__full">
+                Domicilio
+                <input
+                  value={domicilio}
+                  onChange={(e) => {
+                    setDomicilio(e.target.value)
+                    markDirty()
+                  }}
+                  placeholder="Calle, número, localidad…"
+                  autoComplete="off"
+                />
               </label>
               <label>
                 Zona
@@ -563,49 +717,20 @@ export default function WorkPoolFreelancerFicha({
                 </span>
               ) : null}
             </h5>
-
-            <div className="work-pool-ficha-val-form">
-              <label>
-                Estrellas
-                <select value={newRating} onChange={(e) => setNewRating(Number(e.target.value))}>
-                  {[5, 4, 3, 2, 1].map((n) => (
-                    <option key={n} value={n}>
-                      {n} ★
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                OP (opc.)
-                <input value={newOp} onChange={(e) => setNewOp(e.target.value)} placeholder="102745" />
-              </label>
-              <label style={{ gridColumn: '1 / -1' }}>
-                Comentario
-                <input
-                  value={newComentario}
-                  onChange={(e) => setNewComentario(e.target.value)}
-                  placeholder="Calidad, plazos, comunicación…"
-                />
-              </label>
-              <button
-                type="button"
-                className="work-pool-module__btn work-pool-module__btn--ghost"
-                disabled={savingVal}
-                onClick={() => void handleAddValoracion()}
-              >
-                {savingVal ? 'Guardando…' : 'Agregar valoración'}
-              </button>
-            </div>
+            <p className="work-pool-publicar__muted work-pool-ficha-val-hint">
+              Las pone el cliente en la encuesta de entrega (portal / firma).
+            </p>
 
             {valoraciones.length === 0 ? (
-              <p className="work-pool-publicar__muted">Sin valoraciones todavía.</p>
+              <p className="work-pool-publicar__muted">
+                Todavía no hay calificaciones en las OPs de este perfil.
+              </p>
             ) : (
               <ul className="work-pool-ficha-vals">
                 {valoraciones.map((v) => (
                   <li key={`${v.origen}-${v.id}`}>
                     <strong>
-                      {stars(v.rating)}{' '}
-                      <em>{v.origen === 'cliente' ? 'Cliente' : 'Admin'}</em>
+                      {stars(v.rating)} <em>Cliente</em>
                     </strong>
                     <span>
                       {v.numero_op ? `OP ${v.numero_op} · ` : ''}

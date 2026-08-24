@@ -30,8 +30,8 @@ export function operarioExternoDashboardForRubro(
     : OPERARIO_EXTERNO_DASHBOARD.bolsa
 }
 
-/** Operario externo: solo trabajos asignados desde Plot Design / Bolsa Plot admin. */
-export function operarioExternoSoloAsignados(): boolean {
+/** Operario externo puede ver bolsa libre y tomar trabajos publicados. */
+export function operarioExternoPuedeTomarBolsa(): boolean {
   return true
 }
 

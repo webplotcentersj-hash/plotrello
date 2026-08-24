@@ -152,6 +152,10 @@ export type WorkPoolFreelancerResumen = {
   pagado: number
   saldo_pendiente: number
   ultimo_trabajo_at: string | null
+  /** Promedio de encuesta cliente (1–5) sobre OPs del operario; null si no hay. */
+  valoracion_promedio: number | null
+  /** Cantidad de calificaciones cliente usadas en el promedio. */
+  valoracion_count: number
   /** Notas admin del perfil principal (si hay). */
   notas_admin?: string | null
 }
@@ -203,6 +207,8 @@ export type WorkPoolAdminDashboard = {
   resumen_sectores: WorkPoolResumenSector[]
   freelancers: WorkPoolFreelancerResumen[]
   pendientes_revision: WorkPoolJob[]
+  /** Trabajos publicados en bolsa (estado disponible). */
+  publicados_bolsa: WorkPoolJob[]
   jobs_recientes: WorkPoolJob[]
   /** Avances de trabajos activos agrupados por operario asignado. */
   avances_por_operario: WorkPoolOperarioAvance[]

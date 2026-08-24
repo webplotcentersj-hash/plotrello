@@ -7,15 +7,12 @@ import {
   aprobarSolicitudOperario,
   listarSolicitudesOperario,
   rechazarSolicitudOperario,
-  sugerirLoginPlotPhiDisponible
+  sugerirLoginPlotPhiDisponible,
+  sugerirPasswordPlotPhiDisponible
 } from './workPoolRepository'
 import { operarioExternoHomeRoute, OPERARIO_EXTERNO_LOGIN } from './workPoolOperarioExterno'
 import WorkPoolSolicitudDetailModal from './WorkPoolSolicitudDetailModal'
-import {
-  generarPasswordPlotPhi,
-  loginPlotPhiFromNombre,
-  PLOT_PHI_DOMAIN
-} from './workPoolCredenciales'
+import { loginPlotPhiFromNombre, PLOT_PHI_DOMAIN } from './workPoolCredenciales'
 
 type Props = {
   product?: WorkPoolProduct
@@ -167,9 +164,12 @@ export default function WorkPoolSolicitudesPanel({ product, onPendingCount }: Pr
     setNotas('')
     const base = loginPlotPhiFromNombre(s.nombre_completo)
     setLoginUser(base)
-    setPassword(generarPasswordPlotPhi())
+    setPassword('…')
     void sugerirLoginPlotPhiDisponible(base).then((res) => {
       if (res.success && res.data) setLoginUser(res.data)
+    })
+    void sugerirPasswordPlotPhiDisponible().then((res) => {
+      if (res.success && res.data) setPassword(res.data)
     })
   }
 
@@ -358,8 +358,8 @@ export default function WorkPoolSolicitudesPanel({ product, onPendingCount }: Pr
         <div className="work-pool-admin__pay-box work-pool-admin__pay-box--approve">
           <h3>Aprobar solicitud #{aprobarId}</h3>
           <p className="work-pool-admin__approve-hint">
-            Se generan solos: usuario <code>nombreapellido@{PLOT_PHI_DOMAIN}</code> y contraseña. Podés
-            editarlos antes de confirmar.
+            Se generan solos: usuario <code>nombreapellido@{PLOT_PHI_DOMAIN}</code> y contraseña únicos
+            (no se reutilizan). Podés editarlos antes de confirmar.
           </p>
           <div className="work-pool-module__form-row">
             <label>
@@ -399,7 +399,11 @@ export default function WorkPoolSolicitudesPanel({ product, onPendingCount }: Pr
                 <button
                   type="button"
                   className="work-pool-module__btn work-pool-module__btn--ghost"
-                  onClick={() => setPassword(generarPasswordPlotPhi())}
+                  onClick={() => {
+                    void sugerirPasswordPlotPhiDisponible().then((res) => {
+                      if (res.success && res.data) setPassword(res.data)
+                    })
+                  }}
                 >
                   Regenerar
                 </button>

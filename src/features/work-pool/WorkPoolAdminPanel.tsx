@@ -162,8 +162,20 @@ export default function WorkPoolAdminPanel({ product }: Props) {
   const filteredFreelancers = useMemo(() => {
     if (!dashboard) return []
     const afines = dashboard.freelancers.filter((f) => f.sectores.some((s) => SECTORS.includes(s)))
-    if (sectorFilter === 'todos') return afines
-    return afines.filter((f) => f.sectores.includes(sectorFilter))
+    const list = sectorFilter === 'todos' ? afines : afines.filter((f) => f.sectores.includes(sectorFilter))
+    return [...list].sort((a, b) => {
+      const ra = a.valoracion_promedio
+      const rb = b.valoracion_promedio
+      if (ra == null && rb == null) {
+        return (
+          b.trabajos_aprobados - a.trabajos_aprobados ||
+          a.nombre.localeCompare(b.nombre, 'es')
+        )
+      }
+      if (ra == null) return 1
+      if (rb == null) return -1
+      return rb - ra || b.valoracion_count - a.valoracion_count || a.nombre.localeCompare(b.nombre, 'es')
+    })
   }, [dashboard, sectorFilter, SECTORS])
 
   const aprobadosFreelancers = useMemo(
@@ -175,6 +187,13 @@ export default function WorkPoolAdminPanel({ product }: Props) {
     if (!dashboard) return []
     if (sectorFilter === 'todos') return dashboard.pendientes_revision
     return dashboard.pendientes_revision.filter((j) => j.sector === sectorFilter)
+  }, [dashboard, sectorFilter])
+
+  const filteredPublicados = useMemo(() => {
+    if (!dashboard) return []
+    const list = dashboard.publicados_bolsa ?? []
+    if (sectorFilter === 'todos') return list
+    return list.filter((j) => j.sector === sectorFilter)
   }, [dashboard, sectorFilter])
 
   const runAction = async (fn: () => Promise<{ success: boolean; error?: string }>) => {
@@ -612,6 +631,67 @@ export default function WorkPoolAdminPanel({ product }: Props) {
 
           <section className="work-pool-admin__section">
             <div className="work-pool-admin__section-head">
+              <h2>Publicados en bolsa</h2>
+              <span className="work-pool-admin__pill">{filteredPublicados.length}</span>
+              <button
+                type="button"
+                className="work-pool-module__btn work-pool-module__btn--ghost"
+                onClick={() => selectTab('publicar')}
+              >
+                Publicar →
+              </button>
+            </div>
+            {filteredPublicados.length === 0 ? (
+              <p className="work-pool-module__empty">No hay trabajos disponibles en bolsa.</p>
+            ) : (
+              <div className="work-pool-admin__review-list">
+                {filteredPublicados.map((job) => (
+                  <article
+                    key={job.id}
+                    className="work-pool-admin__review-card work-pool-admin__review-card--compact work-pool-admin__review-card--publicado"
+                  >
+                    <div className="work-pool-admin__review-card-main">
+                      <div className="work-pool-admin__publicado-badges">
+                        <span className="work-pool-module__badge work-pool-module__badge--disponible">
+                          Disponible
+                        </span>
+                        <span>{WORK_POOL_SECTOR_LABELS[job.sector]}</span>
+                      </div>
+                      <h4>{job.numero_op ? `OP ${job.numero_op}` : job.titulo}</h4>
+                      <div className="work-pool-module__job-meta work-pool-admin__review-card-meta">
+                        {job.numero_op && job.titulo !== `Diseño OP ${job.numero_op}` ? (
+                          <span>{job.titulo}</span>
+                        ) : null}
+                        <span>{formatArs(job.monto_presupuestado)}</span>
+                        {job.modo === 'bolsa' ? <span>Bolsa libre</span> : <span>Asignado</span>}
+                      </div>
+                    </div>
+                    <div className="work-pool-module__job-actions work-pool-admin__review-card-actions">
+                      {job.numero_op ? (
+                        <button
+                          type="button"
+                          className="work-pool-module__btn work-pool-module__btn--ghost"
+                          onClick={() => navigate(`/op/${job.numero_op}`)}
+                        >
+                          Ver OP
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="work-pool-module__btn work-pool-module__btn--ghost"
+                        onClick={() => selectTab('publicar')}
+                      >
+                        Ir a Publicar
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="work-pool-admin__section">
+            <div className="work-pool-admin__section-head">
               <h2>Entregas pendientes de aprobación</h2>
               <span className="work-pool-admin__pill">{filteredPendientes.length}</span>
             </div>
@@ -666,7 +746,6 @@ export default function WorkPoolAdminPanel({ product }: Props) {
                 key={f.id_usuario}
                 f={f}
                 product={product}
-                idUsuarioAdmin={usuario?.id}
                 onPay={() => setPayUserId(f.id_usuario)}
                 onSaved={() => void load({ silent: true })}
               />
@@ -730,7 +809,6 @@ export default function WorkPoolAdminPanel({ product }: Props) {
                     key={f.id_usuario}
                     f={f}
                     product={product}
-                    idUsuarioAdmin={usuario?.id}
                     onPay={() => setPayUserId(f.id_usuario)}
                     onSaved={() => void load({ silent: true })}
                   />

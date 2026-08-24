@@ -6,6 +6,7 @@ import { apiService } from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { generateContent, getSystemContext } from '../services/plotAIService'
+import { isOperarioExternoRol } from '../features/work-pool/workPoolOperarioExterno'
 import './ChatPage.css'
 
 type ChatMessage = {
@@ -163,6 +164,7 @@ const ChatPage = ({
     if (mentionHandles.length === 0) return []
 
     return resolvedMembers.filter((member) => {
+      if (isOperarioExternoRol(member.role)) return false
       const memberHandle = normalizeHandle(member.name)
       if (!memberHandle) return false
       return mentionHandles.includes(memberHandle)
@@ -758,6 +760,7 @@ const ChatPage = ({
         for (const member of mentions) {
           const memberId = Number(member.id)
           if (Number.isNaN(memberId)) continue
+          if (isOperarioExternoRol(member.role)) continue
           await apiService.createNotification({
             user_id: memberId,
             title: `Te mencionaron en #${currentChannel}`,
@@ -771,6 +774,7 @@ const ChatPage = ({
         for (const member of resolvedMembers) {
           const memberId = Number(member.id)
           if (Number.isNaN(memberId) || memberId === usuario.id) continue
+          if (isOperarioExternoRol(member.role)) continue
           await apiService.createNotification({
             user_id: memberId,
             title: '🚨 Sirena en chat',

@@ -84,6 +84,14 @@ export default function WorkPoolOperarioView({ product }: Props) {
     if (!jobsRes.success) {
       setError(jobsRes.error || 'Error al cargar trabajos')
       setJobs([])
+    } else if (externo) {
+      // Entrantes: bolsa disponible + trabajos propios (no cancelados)
+      setJobs(
+        (jobsRes.data ?? []).filter((j) =>
+          j.estado === 'disponible' ||
+          ['asignado', 'en_curso', 'entregado', 'en_revision', 'cambios', 'aprobado'].includes(j.estado)
+        )
+      )
     } else if (view === 'mis') {
       setJobs(
         (jobsRes.data ?? []).filter((j) =>
@@ -144,6 +152,11 @@ export default function WorkPoolOperarioView({ product }: Props) {
     void runAction(() => entregarWorkPoolJob(jobId, usuario.id, notas || undefined))
   }
 
+  const handleTomar = (jobId: number) => {
+    if (!usuario) return
+    void runAction(() => tomarWorkPoolJob(jobId, usuario.id))
+  }
+
   if (externo && usuario) {
     const dashView =
       view === 'bolsa' ? 'mis' : (view as 'mis' | 'mensajes' | 'cuenta')
@@ -161,6 +174,7 @@ export default function WorkPoolOperarioView({ product }: Props) {
         saldo={saldo}
         mensajesNoLeidos={mensajesNoLeidos}
         onEntregar={handleEntregar}
+        onTomar={handleTomar}
         pedidoMensajesInicial={Number.isNaN(pedidoMensajesInicial ?? NaN) ? null : pedidoMensajesInicial}
         onUnreadChange={setMensajesNoLeidos}
         lastUpdated={lastUpdated}
@@ -193,8 +207,8 @@ export default function WorkPoolOperarioView({ product }: Props) {
 
       {externo && (
         <div className="work-pool-module__alert work-pool-module__alert--info">
-          Los trabajos te los asigna el equipo desde Plot Design. No ves datos de contacto del cliente ni
-          número de OP; solo el pedido portal cuando corresponde.
+          En bolsa ves trabajos publicados por Plot Design. Podés tomarlos. No ves datos de contacto del
+          cliente ni número de OP; solo el pedido portal cuando corresponde.
         </div>
       )}
 

@@ -27,6 +27,10 @@ import {
 } from '../../utils/usuarioDisplayName'
 import { sectorsForProduct, operarioExternoRolForProduct } from './workPoolConfig'
 import {
+  generarPasswordPlotPhi,
+  loginPlotPhiIdentidad
+} from './workPoolCredenciales'
+import {
   mapOrdenRow,
   mergeAndRankWorkPoolOpRows,
   parseWorkPoolOpQuery,
@@ -96,29 +100,36 @@ export async function listWorkPoolJobs(opts: {
   return { success: true, data: (data ?? []).map((r) => mapJob(r as Record<string, unknown>)) }
 }
 
-/** Operario externo: todos los sectores del producto (bolsa = instalaciones + metalúrgica). */
+/** Operario externo: trabajos asignados + publicados en bolsa (disponible) del producto. */
 export async function listWorkPoolJobsForOperario(
   idUsuario: number,
   product: WorkPoolProduct
 ): Promise<{ success: boolean; data?: WorkPoolJob[]; error?: string }> {
   const sectors = sectorsForProduct(product)
-  const batches = await Promise.all(
+  const assignedBatches = await Promise.all(
     sectors.map((s) => listWorkPoolJobs({ sector: s, idUsuario, limit: 100 }))
   )
-  const failed = batches.find((b) => !b.success)
+  const bolsaBatches = await Promise.all(
+    sectors.map((s) => listWorkPoolJobs({ sector: s, soloDisponibles: true, limit: 100 }))
+  )
+
+  const failed =
+    assignedBatches.find((b) => !b.success) || bolsaBatches.find((b) => !b.success)
   if (failed && !failed.success) return { success: false, error: failed.error }
 
   const seen = new Set<number>()
   const merged: WorkPoolJob[] = []
-  for (const batch of batches) {
+  for (const batch of [...bolsaBatches, ...assignedBatches]) {
     for (const job of batch.data ?? []) {
-      if (!seen.has(job.id)) {
-        seen.add(job.id)
-        merged.push(job)
-      }
+      if (seen.has(job.id)) continue
+      seen.add(job.id)
+      merged.push(job)
     }
   }
-  merged.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  merged.sort((a, b) => {
+    const rank = (j: WorkPoolJob) => (j.estado === 'disponible' ? 0 : 1)
+    return rank(a) - rank(b) || String(b.created_at).localeCompare(String(a.created_at))
+  })
   return { success: true, data: merged }
 }
 
@@ -311,6 +322,92 @@ export async function updateWorkPoolUsuarioNombre(
   return { success: true }
 }
 
+export type WorkPoolLegajoPersona = {
+  nombre: string | null
+  apellido: string | null
+  telefono: string | null
+  dni: string | null
+  fecha_nacimiento: string | null
+  direccion: string | null
+  foto_url: string | null
+  email: string | null
+  fecha_ingreso: string | null
+}
+
+export async function loadWorkPoolLegajoPersona(
+  idUsuario: number
+): Promise<{ success: boolean; data?: WorkPoolLegajoPersona; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+
+  const { data, error } = await supabase.rpc('obtener_legajo_empleado', { p_id_usuario: idUsuario })
+  if (error) return { success: false, error: error.message }
+
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null
+  if (!row) {
+    return {
+      success: true,
+      data: {
+        nombre: null,
+        apellido: null,
+        telefono: null,
+        dni: null,
+        fecha_nacimiento: null,
+        direccion: null,
+        foto_url: null,
+        email: null,
+        fecha_ingreso: null
+      }
+    }
+  }
+
+  return {
+    success: true,
+    data: {
+      nombre: (row.nombre as string) ?? null,
+      apellido: (row.apellido as string) ?? null,
+      telefono: (row.telefono as string) ?? null,
+      dni: (row.dni as string) ?? null,
+      fecha_nacimiento: (row.fecha_nacimiento as string) ?? null,
+      direccion: (row.direccion as string) ?? null,
+      foto_url: (row.foto_url as string) ?? null,
+      email: (row.email as string) ?? null,
+      fecha_ingreso: (row.fecha_ingreso as string) ?? null
+    }
+  }
+}
+
+export async function saveWorkPoolLegajoPersona(
+  idUsuario: number,
+  persona: WorkPoolLegajoPersona & { sector?: string | null }
+): Promise<{ success: boolean; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+
+  const fechaIngreso =
+    persona.fecha_ingreso?.trim() || new Date().toISOString().slice(0, 10)
+
+  const { error } = await supabase.rpc('crear_actualizar_legajo', {
+    p_id_usuario: idUsuario,
+    p_nombre: persona.nombre?.trim() || null,
+    p_apellido: persona.apellido?.trim() || null,
+    p_telefono: persona.telefono?.trim() || null,
+    p_ubicacion: null,
+    p_foto_url: persona.foto_url?.trim() || null,
+    p_sector: persona.sector?.trim() || null,
+    p_funciones: null,
+    p_fecha_ingreso: fechaIngreso,
+    p_fecha_nacimiento: persona.fecha_nacimiento?.trim() || null,
+    p_dni: persona.dni?.trim() || null,
+    p_direccion: persona.direccion?.trim() || null,
+    p_email: persona.email?.trim() || null,
+    p_estado_civil: null,
+    p_contacto_emergencia_nombre: null,
+    p_contacto_emergencia_telefono: null,
+    p_observaciones: null
+  })
+
+  return error ? { success: false, error: error.message } : { success: true }
+}
+
 export async function upsertWorkPoolProfile(input: {
   id_usuario: number
   sector: WorkPoolSector
@@ -392,7 +489,10 @@ export async function crearWorkPoolValoracion(input: {
   return error ? { success: false, error: error.message } : { success: true }
 }
 
-/** Valoraciones de cliente (firmas de entrega) ligadas a OPs del operario. */
+/**
+ * Valoraciones del cliente ligadas a OPs del operario.
+ * Fuente: encuesta post-entrega del portal (/firma-cliente → atencion_satisfaccion_entrega).
+ */
 export async function listValoracionesClientePorOps(
   numerosOp: string[]
 ): Promise<{ success: boolean; data?: WorkPoolValoracion[]; error?: string }> {
@@ -401,10 +501,10 @@ export async function listValoracionesClientePorOps(
   if (ops.length === 0) return { success: true, data: [] }
 
   const { data, error } = await supabase
-    .from('firmas_entrega_cliente')
-    .select('id, numero_op, rating, comentario, created_at')
+    .from('atencion_satisfaccion_entrega')
+    .select('id, numero_op, rating, comentario, created_at, updated_at')
     .in('numero_op', ops)
-    .order('created_at', { ascending: false })
+    .order('updated_at', { ascending: false })
     .limit(40)
 
   if (error) return { success: false, error: error.message }
@@ -419,7 +519,10 @@ export async function listValoracionesClientePorOps(
       rating: Number((row as { rating: number }).rating),
       comentario: (row as { comentario?: string | null }).comentario ?? null,
       id_usuario_autor: null,
-      created_at: String((row as { created_at: string }).created_at),
+      created_at: String(
+        (row as { updated_at?: string; created_at: string }).updated_at ||
+          (row as { created_at: string }).created_at
+      ),
       origen: 'cliente' as const
     }))
   }
@@ -947,6 +1050,174 @@ async function applyFotosToFreelancers(
   }
 }
 
+/** Saca del listado de afines a usuarios dados de baja (evita duplicados con login nuevo). */
+async function pruneInactiveFreelancers(
+  freelancerMap: Map<number, WorkPoolFreelancerResumen>
+): Promise<void> {
+  if (!supabase || freelancerMap.size === 0) return
+  const ids = [...freelancerMap.keys()]
+  const { data } = await supabase.from('usuarios').select('id, activo').in('id', ids)
+  if (!data) return
+  const activoPorId = new Map<number, boolean>()
+  for (const row of data) {
+    activoPorId.set(Number((row as { id: number }).id), Boolean((row as { activo?: boolean }).activo))
+  }
+  for (const id of ids) {
+    // Si no aparece en usuarios, dejarlo; si activo=false, sacar.
+    if (activoPorId.has(id) && activoPorId.get(id) === false) {
+      freelancerMap.delete(id)
+    }
+  }
+}
+
+/** Promedio de encuesta de entrega (cliente) por OPs asignadas a cada freelancer. */
+async function applyValoracionesClienteToFreelancers(
+  freelancerMap: Map<number, WorkPoolFreelancerResumen>,
+  jobs: WorkPoolJob[]
+): Promise<void> {
+  if (!supabase || freelancerMap.size === 0) return
+
+  const opsPorUsuario = new Map<number, Set<string>>()
+  for (const j of jobs) {
+    if (!j.id_usuario_asignado || !j.numero_op?.trim()) continue
+    const id = j.id_usuario_asignado
+    if (!freelancerMap.has(id)) continue
+    const set = opsPorUsuario.get(id) ?? new Set<string>()
+    set.add(j.numero_op.trim())
+    opsPorUsuario.set(id, set)
+  }
+
+  const allOps = [...new Set([...opsPorUsuario.values()].flatMap((s) => [...s]))]
+  if (allOps.length === 0) return
+
+  const ratingPorOp = new Map<string, number>()
+  const chunkSize = 80
+  for (let i = 0; i < allOps.length; i += chunkSize) {
+    const chunk = allOps.slice(i, i + chunkSize)
+    const { data, error } = await supabase
+      .from('atencion_satisfaccion_entrega')
+      .select('numero_op, rating')
+      .in('numero_op', chunk)
+    if (error) continue
+    for (const row of data ?? []) {
+      const op = String((row as { numero_op?: string | null }).numero_op ?? '').trim()
+      const rating = Number((row as { rating?: number }).rating)
+      if (!op || !Number.isFinite(rating)) continue
+      ratingPorOp.set(op, Math.min(5, Math.max(1, rating)))
+    }
+  }
+
+  for (const [id, ops] of opsPorUsuario) {
+    const f = freelancerMap.get(id)
+    if (!f) continue
+    let sum = 0
+    let count = 0
+    for (const op of ops) {
+      const r = ratingPorOp.get(op)
+      if (r == null) continue
+      sum += r
+      count += 1
+    }
+    if (count === 0) continue
+    f.valoracion_count = count
+    f.valoracion_promedio = Math.round((sum / count) * 10) / 10
+  }
+}
+
+function compareFreelancersByValoracion(a: WorkPoolFreelancerResumen, b: WorkPoolFreelancerResumen) {
+  const ra = a.valoracion_promedio
+  const rb = b.valoracion_promedio
+  if (ra == null && rb == null) {
+    return (
+      b.trabajos_aprobados - a.trabajos_aprobados ||
+      b.trabajos_activos - a.trabajos_activos ||
+      a.nombre.localeCompare(b.nombre, 'es')
+    )
+  }
+  if (ra == null) return 1
+  if (rb == null) return -1
+  return (
+    rb - ra ||
+    b.valoracion_count - a.valoracion_count ||
+    b.trabajos_aprobados - a.trabajos_aprobados ||
+    a.nombre.localeCompare(b.nombre, 'es')
+  )
+}
+
+/** Clave de identidad visible: evita “ale” + “ale@plotphi…” como dos fichas. */
+function freelancerIdentityKey(f: WorkPoolFreelancerResumen): string {
+  const raw = f.nombre.trim().toLowerCase()
+  const local = raw.includes('@') ? raw.split('@')[0]! : raw
+  return local
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '')
+}
+
+function freelancerKeepScore(f: WorkPoolFreelancerResumen): number {
+  return (
+    (f.valoracion_promedio ?? 0) * 10 +
+    f.valoracion_count * 2 +
+    f.trabajos_aprobados * 5 +
+    f.trabajos_activos * 3 +
+    (f.perfil_aprobado ? 4 : 0) +
+    (f.perfil_activo ? 2 : 0) +
+    (f.foto_url ? 1 : 0) +
+    f.id_usuario / 100000
+  )
+}
+
+function mergeFreelancerDup(into: WorkPoolFreelancerResumen, from: WorkPoolFreelancerResumen) {
+  into.sectores = [...new Set([...into.sectores, ...from.sectores])]
+  into.skills = [...new Set([...into.skills, ...from.skills])]
+  into.zona_cobertura = into.zona_cobertura || from.zona_cobertura
+  into.perfil_aprobado = into.perfil_aprobado || from.perfil_aprobado
+  into.perfil_activo = into.perfil_activo || from.perfil_activo
+  into.trabajos_activos += from.trabajos_activos
+  into.trabajos_aprobados += from.trabajos_aprobados
+  into.pendientes_revision += from.pendientes_revision
+  into.acreditado += from.acreditado
+  into.pagado += from.pagado
+  into.saldo_pendiente += from.saldo_pendiente
+  if (!into.foto_url && from.foto_url) into.foto_url = from.foto_url
+  if (!into.notas_admin && from.notas_admin) into.notas_admin = from.notas_admin
+  if (
+    from.ultimo_trabajo_at &&
+    (!into.ultimo_trabajo_at || from.ultimo_trabajo_at > into.ultimo_trabajo_at)
+  ) {
+    into.ultimo_trabajo_at = from.ultimo_trabajo_at
+  }
+  if (from.valoracion_count > 0) {
+    const sum =
+      (into.valoracion_promedio ?? 0) * into.valoracion_count +
+      (from.valoracion_promedio ?? 0) * from.valoracion_count
+    const count = into.valoracion_count + from.valoracion_count
+    into.valoracion_count = count
+    into.valoracion_promedio = count > 0 ? Math.round((sum / count) * 10) / 10 : null
+  }
+}
+
+/** Una ficha por persona (mismo nombre visible / login local). */
+function dedupeFreelancersByIdentity(list: WorkPoolFreelancerResumen[]): WorkPoolFreelancerResumen[] {
+  const byKey = new Map<string, WorkPoolFreelancerResumen>()
+  for (const f of list) {
+    const key = freelancerIdentityKey(f) || `id-${f.id_usuario}`
+    const prev = byKey.get(key)
+    if (!prev) {
+      byKey.set(key, { ...f, sectores: [...f.sectores], skills: [...f.skills] })
+      continue
+    }
+    const keepPrev = freelancerKeepScore(prev) >= freelancerKeepScore(f)
+    if (keepPrev) mergeFreelancerDup(prev, f)
+    else {
+      const next = { ...f, sectores: [...f.sectores], skills: [...f.skills] }
+      mergeFreelancerDup(next, prev)
+      byKey.set(key, next)
+    }
+  }
+  return [...byKey.values()]
+}
+
 function isCurrentMonth(iso: string | null): boolean {
   if (!iso) return false
   const d = new Date(iso)
@@ -1143,6 +1414,8 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
         pagado: 0,
         saldo_pendiente: 0,
         ultimo_trabajo_at: null,
+        valoracion_promedio: null,
+        valoracion_count: 0,
         notas_admin: null
       }
       freelancerMap.set(idUsuario, f)
@@ -1191,6 +1464,8 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
   const nombresFinal = await fetchUsuarioNombres([...freelancerMap.keys()])
   applyNombresToFreelancers(freelancerMap, nombresFinal)
   await applyFotosToFreelancers(freelancerMap)
+  await pruneInactiveFreelancers(freelancerMap)
+  await applyValoracionesClienteToFreelancers(freelancerMap, jobs)
 
   const saldoResults = await Promise.all(
     [...freelancerMap.keys()].map(async (id) => {
@@ -1206,9 +1481,11 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
     f.saldo_pendiente = saldo.saldo_pendiente
   }
 
-  const freelancers = [...freelancerMap.values()]
-    .filter((f) => f.sectores.some((s) => !productSectors || productSectors.includes(s)))
-    .sort((a, b) => b.saldo_pendiente - a.saldo_pendiente || b.trabajos_activos - a.trabajos_activos)
+  const freelancers = dedupeFreelancersByIdentity(
+    [...freelancerMap.values()].filter((f) =>
+      f.sectores.some((s) => !productSectors || productSectors.includes(s))
+    )
+  ).sort(compareFreelancersByValoracion)
 
   const nombrePorId = new Map<number, string>()
   for (const f of freelancers) nombrePorId.set(f.id_usuario, f.nombre)
@@ -1302,6 +1579,9 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
       resumen_sectores: resumenUnificado,
       freelancers,
       pendientes_revision: jobs.filter((j) => j.estado === 'entregado' || j.estado === 'en_revision'),
+      publicados_bolsa: jobs
+        .filter((j) => j.estado === 'disponible')
+        .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at))),
       jobs_recientes: jobs.slice(0, 40),
       avances_por_operario: buildAvancesPorOperario(jobs, nombrePorId)
     }
@@ -1462,7 +1742,7 @@ export async function aprobarSolicitudOperario(input: {
   }
 }
 
-/** Si el login ya existe, agrega 2, 3… hasta encontrar uno libre. */
+/** Si el login ya existe (mismo email o misma identidad local), agrega 2, 3… */
 export async function sugerirLoginPlotPhiDisponible(
   loginBase: string
 ): Promise<{ success: boolean; data?: string; error?: string }> {
@@ -1474,18 +1754,64 @@ export async function sugerirLoginPlotPhiDisponible(
   const local = at > 0 ? base.slice(0, at) : base
   const domain = at > 0 ? base.slice(at) : '@plotphi.com.ar'
 
-  for (let i = 0; i < 30; i++) {
-    const candidate = i === 0 ? `${local}${domain}` : `${local}${i + 1}${domain}`
+  const { data: existentes, error: listErr } = await supabase
+    .from('usuarios')
+    .select('nombre, activo')
+    .or(`rol.eq.operario-diseno,rol.eq.operario-bolsa,rol.eq.operario,nombre.ilike.%@plotphi.com.ar`)
+    .limit(500)
+
+  if (listErr) return { success: false, error: listErr.message }
+
+  const tomadas = new Set<string>()
+  for (const row of existentes ?? []) {
+    if ((row as { activo?: boolean }).activo === false) continue
+    const nom = String((row as { nombre?: string }).nombre ?? '').trim().toLowerCase()
+    if (!nom) continue
+    tomadas.add(nom)
+    const idn = loginPlotPhiIdentidad(nom)
+    if (idn) tomadas.add(idn)
+  }
+
+  for (let i = 0; i < 40; i++) {
+    const candidateLocal = i === 0 ? local : `${local}${i + 1}`
+    const candidate = `${candidateLocal}${domain}`
+    const idn = loginPlotPhiIdentidad(candidate)
+    if (tomadas.has(candidate) || tomadas.has(idn)) continue
+    // Doble check exacto por si el filtro de roles dejó afuera un staff con mismo login
     const { data, error } = await supabase
       .from('usuarios')
       .select('id')
       .ilike('nombre', candidate)
+      .eq('activo', true)
       .limit(1)
     if (error) return { success: false, error: error.message }
-    if (!data || data.length === 0) return { success: true, data: candidate }
+    if (data && data.length > 0) continue
+    return { success: true, data: candidate }
   }
 
   return { success: true, data: `${local}${Date.now().toString().slice(-4)}${domain}` }
+}
+
+/** Genera una contraseña que no coincida con la de otro operario externo. */
+export async function sugerirPasswordPlotPhiDisponible(
+  exceptIdUsuario?: number
+): Promise<{ success: boolean; data?: string; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+
+  for (let i = 0; i < 12; i++) {
+    const candidate = generarPasswordPlotPhi()
+    const { data, error } = await supabase.rpc('work_pool_password_en_uso', {
+      p_password: candidate,
+      p_except_id: exceptIdUsuario ?? null
+    })
+    if (error) {
+      // Si el RPC no está, devolvemos la generada (alta entropía).
+      return { success: true, data: candidate }
+    }
+    if (!data) return { success: true, data: candidate }
+  }
+
+  return { success: true, data: generarPasswordPlotPhi() }
 }
 
 export async function obtenerLoginUsuarioWorkPool(

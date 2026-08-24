@@ -652,10 +652,13 @@ export default function WorkPoolPublicarForm({
               <p>Buscá la OP del tablero o tomá una entrada (brief / pedido portal).</p>
             </div>
 
-            <section className="work-pool-publicar__disponibles work-pool-publicar__disponibles--compact">
+            <section className="work-pool-publicar__disponibles work-pool-publicar__disponibles--compact work-pool-publicar__disponibles--live">
               <div className="work-pool-publicar__disponibles-head">
+                <span className="work-pool-publicar__live-dot" aria-hidden />
                 <h4>Ya en bolsa ({WORK_POOL_SECTOR_LABELS[sector]})</h4>
-                <span className="work-pool-publicar__pill">{disponibles.length}</span>
+                <span className="work-pool-publicar__pill work-pool-publicar__pill--live">
+                  {disponibles.length} activo{disponibles.length === 1 ? '' : 's'}
+                </span>
               </div>
               {loadingDisponibles ? (
                 <p className="work-pool-publicar__muted">Cargando…</p>
@@ -663,11 +666,15 @@ export default function WorkPoolPublicarForm({
                 <p className="work-pool-publicar__muted">Ninguno disponible ahora — podés publicar el primero.</p>
               ) : (
                 <div className="work-pool-publicar__disponibles-grid">
-                  {disponibles.slice(0, 4).map((job) => (
-                    <article key={job.id} className="work-pool-publicar__disp-card">
-                      <strong>{job.titulo}</strong>
-                      <span>{job.numero_op ? `OP ${job.numero_op}` : 'Sin OP'}</span>
-                      <span>{formatArs(job.monto_presupuestado)}</span>
+                  {disponibles.slice(0, 6).map((job) => (
+                    <article key={job.id} className="work-pool-publicar__disp-card work-pool-publicar__disp-card--live">
+                      <span className="work-pool-publicar__disp-badge">En bolsa</span>
+                      <strong>{job.numero_op ? `OP ${job.numero_op}` : job.titulo}</strong>
+                      <span className="work-pool-publicar__disp-meta">
+                        {WORK_POOL_SECTOR_LABELS[job.sector]}
+                        {job.modo === 'bolsa' ? ' · Libre' : ' · Directo'}
+                      </span>
+                      <span className="work-pool-publicar__disp-monto">{formatArs(job.monto_presupuestado)}</span>
                     </article>
                   ))}
                 </div>

@@ -210,6 +210,13 @@
   justify-content: center;
 }
 
+.wp-operario-dash__nav-badge--hot {
+  background: #16a34a;
+  border: 2px solid var(--phi-black, #0b0b0b);
+  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.55);
+  animation: wp-dash-pulse 1.6s ease-out infinite;
+}
+
 .wp-operario-dash__user {
   margin-top: auto;
   padding: 14px;
@@ -347,6 +354,16 @@
   overflow: hidden;
 }
 
+.wp-operario-dash__stat--hot {
+  background: #ecfdf5;
+  box-shadow: 6px 6px 0 0 var(--phi-black, #0b0b0b);
+}
+
+.wp-operario-dash__stat--hot .wp-operario-dash__stat-head {
+  background: #bbf7d0;
+  color: var(--phi-black, #0b0b0b);
+}
+
 .wp-operario-dash__stat-head {
   display: flex;
   align-items: center;
@@ -411,7 +428,73 @@
 .wp-operario-dash__jobs {
   display: flex;
   flex-direction: column;
+  gap: 20px;
+}
+
+.wp-operario-dash__jobs-section {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+}
+
+.wp-operario-dash__jobs-section--hot {
+  gap: 14px;
+  padding: 14px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: var(--phi-radius-sm, 12px);
+  background:
+    linear-gradient(135deg, #ecfdf5 0%, #d1fae5 48%, #a7f3d0 100%);
+  box-shadow: 8px 8px 0 0 var(--phi-black, #0b0b0b);
+}
+
+.wp-operario-dash__jobs-section-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wp-operario-dash__jobs-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--phi-muted, #393939);
+}
+
+.wp-operario-dash__jobs-section--hot .wp-operario-dash__jobs-section-title {
+  font-size: 0.92rem;
+  color: var(--phi-black, #0b0b0b);
+}
+
+.wp-operario-dash__jobs-section-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #065f46;
+}
+
+.wp-operario-dash__jobs-section-count {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 2px solid var(--phi-black, #0b0b0b);
+  background: #d1fae5;
+  color: var(--phi-black, #0b0b0b);
+}
+
+.wp-operario-dash__jobs-section-count.is-pulse {
+  background: #16a34a;
+  color: #fff;
+  min-width: 1.6rem;
+  justify-content: center;
+  display: inline-flex;
+  animation: wp-dash-pulse 1.6s ease-out infinite;
 }
 
 .wp-operario-dash__job {
@@ -420,6 +503,41 @@
   background: #fff;
   box-shadow: 4px 4px 0 0 var(--phi-black, #0b0b0b);
   overflow: hidden;
+}
+
+.wp-operario-dash__job--entrante {
+  border-width: 4px;
+  box-shadow: 6px 6px 0 0 var(--phi-black, #0b0b0b);
+  transform: translateZ(0);
+}
+
+.wp-operario-dash__job--entrante .wp-operario-dash__job-head {
+  background: linear-gradient(90deg, #bbf7d0 0%, #f0fdf4 55%, #fff 100%);
+}
+
+.wp-operario-dash__job-head-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.wp-operario-dash__job-pill-nuevo {
+  font-size: 0.62rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 2px solid var(--phi-black, #0b0b0b);
+  background: #16a34a;
+  color: #fff;
+  animation: wp-dash-pulse 1.6s ease-out infinite;
+}
+
+.wp-operario-dash__job-badge--disponible {
+  background: #d1fae5;
+  color: var(--phi-black, #0b0b0b);
 }
 
 .wp-operario-dash__job-head {
@@ -441,6 +559,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.wp-operario-dash__job--entrante .wp-operario-dash__job-title {
+  font-size: 1.05rem;
 }
 
 .wp-operario-dash__job-badge {
@@ -495,6 +617,14 @@
   margin-bottom: 12px;
 }
 
+.wp-operario-dash__job-monto {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #065f46;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .wp-operario-dash__job-actions {
   display: flex;
   flex-wrap: wrap;
@@ -504,6 +634,41 @@
 .wp-operario-dash__btn {
   padding: 12px 18px !important;
   font-size: 0.85rem !important;
+}
+
+.wp-operario-dash__btn--tomar {
+  width: 100%;
+  justify-content: center;
+  padding: 16px 22px !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em;
+  background: #16a34a !important;
+  border-color: var(--phi-black, #0b0b0b) !important;
+  box-shadow: 4px 4px 0 0 var(--phi-black, #0b0b0b);
+}
+
+.wp-operario-dash__btn--tomar:hover {
+  background: #15803d !important;
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 0 var(--phi-black, #0b0b0b);
+}
+
+.wp-operario-dash__btn--tomar:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 0 var(--phi-black, #0b0b0b);
+}
+
+@keyframes wp-dash-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(22, 163, 74, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
 }
 
 .wp-operario-dash__empty {
@@ -532,6 +697,14 @@
 .wp-operario-dash__alert--info {
   background: var(--wp-dash-accent-soft);
   color: var(--phi-black, #0b0b0b);
+}
+
+.wp-operario-dash__alert--hot {
+  background: #dcfce7;
+  border-color: #16a34a;
+  color: #14532d;
+  font-size: 0.92rem;
+  box-shadow: 4px 4px 0 0 var(--phi-black, #0b0b0b);
 }
 
 /* ─── Right rail ──────────────────────────────────────────────────────────── */
@@ -950,4 +1123,12 @@
 
 .phi-root.wp-operario-dash--loading .wp-operario-dash__empty {
   padding: 4rem 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wp-operario-dash__nav-badge--hot,
+  .wp-operario-dash__jobs-section-count.is-pulse,
+  .wp-operario-dash__job-pill-nuevo {
+    animation: none;
+  }
 }

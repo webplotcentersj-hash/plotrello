@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Inbox, LogOut, MessageCircle, Wallet } from 'lucide-react'
+import { Inbox, LogOut, MessageCircle, Wallet, Briefcase } from 'lucide-react'
 import type { Notification } from '../../types/api'
 import type { WorkPoolJob, WorkPoolProduct, WorkPoolSaldoOperario } from '../../types/workPool'
 import { WORK_POOL_ESTADO_LABELS } from '../../types/workPool'
@@ -7,7 +7,7 @@ import apiService from '../../services/api'
 import { nombreVisibleDesdeRecord } from '../../utils/usuarioDisplayName'
 import { PHI_PUBLIC_URL } from '../../utils/phiPublicUrl'
 import { WORK_POOL_PRODUCT_CONFIG } from './workPoolConfig'
-import { jobPedidoLabel, maskJobForOperarioExterno } from './workPoolOperarioExterno'
+import { filtrarNotificacionesOperarioExterno } from './operarioExternoNotificaciones'
 import WorkPoolOperarioMensajes from './WorkPoolOperarioMensajes'
 import '../phi/phi-landing.css'
 import './WorkPoolOperarioDashboard.css'
@@ -31,6 +31,7 @@ type Props = {
   saldo: WorkPoolSaldoOperario
   mensajesNoLeidos: number
   onEntregar: (jobId: number) => void
+  onTomar: (jobId: number) => void
   pedidoMensajesInicial: number | null
   onUnreadChange: (count: number) => void
   lastUpdated: Date
@@ -62,7 +63,7 @@ const VIEW_META: Record<
   mis: {
     title: 'Entrantes',
     icon: <Inbox size={20} strokeWidth={2.25} aria-hidden />,
-    description: (d) => `Actualizado ${formatTime(d)}`
+    description: (d) => `Bolsa y tus trabajos · ${formatTime(d)}`
   },
   mensajes: {
     title: 'Mensajes',
@@ -94,6 +95,7 @@ export default function WorkPoolOperarioDashboard({
   saldo,
   mensajesNoLeidos,
   onEntregar,
+  onTomar,
   pedidoMensajesInicial,
   onUnreadChange,
   lastUpdated
@@ -121,17 +123,28 @@ export default function WorkPoolOperarioDashboard({
   }, [])
 
   useEffect(() => {
-    void apiService.getUserNotifications(usuario.id, 8).then((res) => {
-      if (res.success && res.data) setNotifications(res.data)
+    void apiService.getUserNotifications(usuario.id, 20).then((res) => {
+      if (res.success && res.data) {
+        setNotifications(filtrarNotificacionesOperarioExterno(res.data).slice(0, 8))
+      }
     })
   }, [usuario.id, view, lastUpdated])
 
   const maskedJobs = useMemo(() => jobs.map((j) => maskJobForOperarioExterno(j)), [jobs])
 
-  const activos = maskedJobs.filter((j) =>
+  const bolsaJobs = useMemo(
+    () => maskedJobs.filter((j) => j.estado === 'disponible'),
+    [maskedJobs]
+  )
+  const misJobs = useMemo(
+    () => maskedJobs.filter((j) => j.estado !== 'disponible'),
+    [maskedJobs]
+  )
+
+  const activos = misJobs.filter((j) =>
     ['asignado', 'en_curso', 'cambios'].includes(j.estado)
   ).length
-  const entregados = maskedJobs.filter((j) =>
+  const entregados = misJobs.filter((j) =>
     ['entregado', 'en_revision', 'aprobado'].includes(j.estado)
   ).length
 
@@ -140,16 +153,74 @@ export default function WorkPoolOperarioDashboard({
   const productLabel = product === 'plot-design' ? 'Plot Design' : 'Bolsa Plot'
   const unreadNotifs = notifications.filter((n) => !n.is_read).length
 
+  const renderJobCard = (job: WorkPoolJob, opts: { canTomar?: boolean; canEntregar?: boolean }) => {
+    const pedidoLabel = jobPedidoLabel(job)
+    const isEntrante = Boolean(opts.canTomar)
+    return (
+      <article
+        key={job.id}
+        className={`wp-operario-dash__job${isEntrante ? ' wp-operario-dash__job--entrante' : ''}`}
+      >
+        <header className="wp-operario-dash__job-head">
+          <h3 className="wp-operario-dash__job-title">
+            <span className="wp-operario-dash__bullet" aria-hidden />
+            {job.titulo}
+          </h3>
+          <div className="wp-operario-dash__job-head-tags">
+            {isEntrante ? (
+              <span className="wp-operario-dash__job-pill-nuevo">Nuevo</span>
+            ) : null}
+            <span className={`wp-operario-dash__job-badge wp-operario-dash__job-badge--${job.estado}`}>
+              {WORK_POOL_ESTADO_LABELS[job.estado]}
+            </span>
+          </div>
+        </header>
+        <div className="wp-operario-dash__job-body">
+          {job.descripcion && <p className="wp-operario-dash__job-desc">{job.descripcion}</p>}
+          <div className="wp-operario-dash__job-meta">
+            {pedidoLabel && <span>Pedido {pedidoLabel}</span>}
+            <span className={isEntrante ? 'wp-operario-dash__job-monto' : undefined}>
+              {formatArs(job.monto_presupuestado)}
+            </span>
+            {job.plazo && <span>Plazo {job.plazo}</span>}
+          </div>
+          {(opts.canTomar || opts.canEntregar) && (
+            <div className="wp-operario-dash__job-actions">
+              {opts.canTomar ? (
+                <button
+                  type="button"
+                  className="phi-btn phi-btn--dark wp-operario-dash__btn wp-operario-dash__btn--tomar"
+                  onClick={() => onTomar(job.id)}
+                >
+                  Tomar ahora
+                </button>
+              ) : null}
+              {opts.canEntregar ? (
+                <button
+                  type="button"
+                  className="phi-btn phi-btn--dark wp-operario-dash__btn"
+                  onClick={() => onEntregar(job.id)}
+                >
+                  Marcar entregado
+                </button>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </article>
+    )
+  }
+
   const renderJobs = () => {
     if (loading) {
       return <p className="wp-operario-dash__empty">Cargando trabajos…</p>
     }
-    if (maskedJobs.length === 0) {
+    if (bolsaJobs.length === 0 && misJobs.length === 0) {
       return (
         <div className="wp-operario-dash__empty">
-          <p>Todavía no tenés trabajos asignados.</p>
+          <p>No hay trabajos en bolsa ni asignados todavía.</p>
           <p style={{ marginTop: 8, fontSize: '0.78rem' }}>
-            El equipo de {productLabel} te enviará pedidos desde el panel de publicación.
+            Cuando Plot publique en bolsa, van a aparecer acá para que los tomes.
           </p>
         </div>
       )
@@ -157,41 +228,54 @@ export default function WorkPoolOperarioDashboard({
 
     return (
       <div className="wp-operario-dash__jobs">
-        {maskedJobs.map((job) => {
-          const pedidoLabel = jobPedidoLabel(job)
-          return (
-            <article key={job.id} className="wp-operario-dash__job">
-              <header className="wp-operario-dash__job-head">
-                <h3 className="wp-operario-dash__job-title">
-                  <span className="wp-operario-dash__bullet" aria-hidden />
-                  {job.titulo}
-                </h3>
-                <span className={`wp-operario-dash__job-badge wp-operario-dash__job-badge--${job.estado}`}>
-                  {WORK_POOL_ESTADO_LABELS[job.estado]}
+        {bolsaJobs.length > 0 ? (
+          <section className="wp-operario-dash__jobs-section wp-operario-dash__jobs-section--hot">
+            <div className="wp-operario-dash__jobs-section-banner">
+              <h2 className="wp-operario-dash__jobs-section-title">
+                <Briefcase size={18} aria-hidden />
+                Trabajos entrantes
+                <span className="wp-operario-dash__jobs-section-count is-pulse">
+                  {bolsaJobs.length}
                 </span>
-              </header>
-              <div className="wp-operario-dash__job-body">
-                {job.descripcion && <p className="wp-operario-dash__job-desc">{job.descripcion}</p>}
-                <div className="wp-operario-dash__job-meta">
-                  {pedidoLabel && <span>Pedido {pedidoLabel}</span>}
-                  <span>{formatArs(job.monto_presupuestado)}</span>
-                  {job.plazo && <span>Plazo {job.plazo}</span>}
-                </div>
-                {['en_curso', 'asignado', 'cambios'].includes(job.estado) && (
-                  <div className="wp-operario-dash__job-actions">
-                    <button
-                      type="button"
-                      className="phi-btn phi-btn--dark wp-operario-dash__btn"
-                      onClick={() => onEntregar(job.id)}
-                    >
-                      Marcar entregado
-                    </button>
-                  </div>
-                )}
-              </div>
-            </article>
-          )
-        })}
+              </h2>
+              <p className="wp-operario-dash__jobs-section-hint">
+                Publicados en bolsa · tomalos antes que otro operario
+              </p>
+            </div>
+            {bolsaJobs.map((job) => renderJobCard(job, { canTomar: true }))}
+          </section>
+        ) : (
+          <section className="wp-operario-dash__jobs-section">
+            <h2 className="wp-operario-dash__jobs-section-title">
+              <Briefcase size={16} aria-hidden />
+              Trabajos entrantes
+            </h2>
+            <p className="wp-operario-dash__empty" style={{ padding: '0.75rem 0' }}>
+              No hay trabajos libres ahora.
+            </p>
+          </section>
+        )}
+
+        <section className="wp-operario-dash__jobs-section">
+          <h2 className="wp-operario-dash__jobs-section-title">
+            <Inbox size={16} aria-hidden />
+            Tus trabajos
+            {misJobs.length > 0 ? (
+              <span className="wp-operario-dash__jobs-section-count">{misJobs.length}</span>
+            ) : null}
+          </h2>
+          {misJobs.length === 0 ? (
+            <p className="wp-operario-dash__empty" style={{ padding: '0.75rem 0' }}>
+              Todavía no tomaste ni te asignaron trabajos.
+            </p>
+          ) : (
+            misJobs.map((job) =>
+              renderJobCard(job, {
+                canEntregar: ['en_curso', 'asignado', 'cambios'].includes(job.estado)
+              })
+            )
+          )}
+        </section>
       </div>
     )
   }
@@ -258,31 +342,37 @@ export default function WorkPoolOperarioDashboard({
     return (
       <>
         <div className="wp-operario-dash__stats">
-          <div className="wp-operario-dash__stat">
+          <div
+            className={`wp-operario-dash__stat${
+              bolsaJobs.length > 0 ? ' wp-operario-dash__stat--hot' : ''
+            }`}
+          >
             <div className="wp-operario-dash__stat-head">
               <span>
                 <span className="wp-operario-dash__bullet" />
-                Activos
+                En bolsa
               </span>
               <span>{cfg.icon}</span>
             </div>
             <div className="wp-operario-dash__stat-body">
-              <div className="wp-operario-dash__stat-value wp-operario-dash__stat-value--accent">
-                {activos}
+              <div className="wp-operario-dash__stat-value wp-operario-dash__stat-value--positive">
+                {bolsaJobs.length}
               </div>
-              <p className="wp-operario-dash__stat-desc">En curso o asignados</p>
+              <p className="wp-operario-dash__stat-desc">
+                {bolsaJobs.length > 0 ? '¡Nuevos para tomar!' : 'Disponibles para tomar'}
+              </p>
             </div>
           </div>
           <div className="wp-operario-dash__stat">
             <div className="wp-operario-dash__stat-head">
               <span>
                 <span className="wp-operario-dash__bullet" />
-                Saldo pendiente
+                Activos
               </span>
             </div>
             <div className="wp-operario-dash__stat-body">
-              <div className="wp-operario-dash__stat-value">{formatArs(saldo.saldo_pendiente)}</div>
-              <p className="wp-operario-dash__stat-desc">Cuenta corriente Plot</p>
+              <div className="wp-operario-dash__stat-value">{activos}</div>
+              <p className="wp-operario-dash__stat-desc">En curso o asignados</p>
             </div>
           </div>
           <div className="wp-operario-dash__stat">
@@ -341,6 +431,7 @@ export default function WorkPoolOperarioDashboard({
             onClick={() => onChangeView(item.id)}
           >
             {item.label}
+            {item.id === 'mis' && bolsaJobs.length > 0 && ` (${bolsaJobs.length})`}
             {item.id === 'mensajes' && mensajesNoLeidos > 0 && ` (${mensajesNoLeidos})`}
           </button>
         ))}
@@ -371,6 +462,11 @@ export default function WorkPoolOperarioDashboard({
               >
                 <span className="wp-operario-dash__nav-icon">{item.icon}</span>
                 {item.label}
+                {item.id === 'mis' && bolsaJobs.length > 0 && (
+                  <span className="wp-operario-dash__nav-badge wp-operario-dash__nav-badge--hot">
+                    {bolsaJobs.length > 9 ? '9+' : bolsaJobs.length}
+                  </span>
+                )}
                 {item.id === 'mensajes' && mensajesNoLeidos > 0 && (
                   <span className="wp-operario-dash__nav-badge">
                     {mensajesNoLeidos > 9 ? '9+' : mensajesNoLeidos}
@@ -398,10 +494,20 @@ export default function WorkPoolOperarioDashboard({
           </header>
 
           <div className="wp-operario-dash__content">
-            {view === 'mis' && (
+            {view === 'mis' && bolsaJobs.length > 0 && (
+              <div className="wp-operario-dash__alert wp-operario-dash__alert--hot" role="status">
+                <strong>
+                  {bolsaJobs.length === 1
+                    ? 'Hay 1 trabajo nuevo en bolsa'
+                    : `Hay ${bolsaJobs.length} trabajos nuevos en bolsa`}
+                </strong>
+                <span> · revisá abajo y tomá el que puedas hacer</span>
+              </div>
+            )}
+            {view === 'mis' && bolsaJobs.length === 0 && (
               <div className="wp-operario-dash__alert wp-operario-dash__alert--info">
-                Los trabajos te los asigna Plot Center. No ves teléfono, dirección ni OP; solo el pedido
-                portal cuando corresponde.
+                En bolsa ves los trabajos publicados por Plot. Podés tomarlos o esperar una asignación
+                directa. No se muestran teléfono, dirección ni OP; solo el pedido portal cuando corresponde.
               </div>
             )}
             {error && <div className="wp-operario-dash__alert wp-operario-dash__alert--error">{error}</div>}

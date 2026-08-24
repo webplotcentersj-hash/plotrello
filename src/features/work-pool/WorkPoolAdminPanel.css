@@ -1525,6 +1525,12 @@
   font-weight: 500;
   width: 100%;
   box-sizing: border-box;
+  color-scheme: dark;
+}
+
+.work-pool-ficha-edit__grid select option {
+  background: #0f172a;
+  color: #f8fafc;
 }
 
 .work-pool-ficha-edit__grid input::placeholder,
@@ -1642,41 +1648,9 @@
   margin-left: 6px;
 }
 
-.work-pool-ficha-val-form {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.work-pool-ficha-val-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.72rem;
-  opacity: 0.85;
-}
-
-.work-pool-ficha-val-form input,
-.work-pool-ficha-val-form select {
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  color: #f8fafc;
-  padding: 7px 9px;
-  font: inherit;
-}
-
-.work-pool--plot-design .work-pool-ficha-val-form input,
-.work-pool--plot-design .work-pool-ficha-val-form select {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  color: #f8fafc;
-}
-
-.work-pool-ficha-val-form .work-pool-module__btn {
-  grid-column: 1 / -1;
-  justify-self: start;
+.work-pool-ficha-val-hint {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
 }
 
 @media (max-width: 520px) {
@@ -1689,10 +1663,6 @@
     grid-template-columns: 36px minmax(0, 1fr) auto 16px;
     gap: 8px;
     padding: 8px;
-  }
-
-  .work-pool-ficha-val-form {
-    grid-template-columns: 1fr;
   }
 
   .work-pool-ficha-edit__grid {
@@ -2222,6 +2192,21 @@
   gap: 12px;
 }
 
+.work-pool-admin__review-card--publicado {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: linear-gradient(120deg, rgba(6, 78, 59, 0.28), rgba(15, 23, 42, 0.4));
+}
+
+.work-pool-admin__publicado-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  opacity: 0.9;
+}
+
 .work-pool-admin__review-card--compact:hover {
   transform: none;
   box-shadow: 0 4px 20px rgba(168, 85, 247, 0.12);
@@ -2311,6 +2296,45 @@
 
 .work-pool-ficha-creds__msg {
   margin-top: 10px;
+}
+
+.work-pool-ficha-foto {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.work-pool-ficha-foto__img,
+.work-pool-ficha-foto__placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.work-pool-ficha-foto__placeholder {
+  display: grid;
+  place-items: center;
+  background: #2f81f7;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.work-pool-ficha-foto__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.work-pool-ficha-foto__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media (max-width: 640px) {
