@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Inbox, LogOut, MessageCircle, Wallet, Briefcase, ExternalLink } from 'lucide-react'
+import { Inbox, LogOut, MessageCircle, Wallet, Briefcase, ExternalLink, Search } from 'lucide-react'
 import type { Notification } from '../../types/api'
-import type { WorkPoolJob, WorkPoolProduct, WorkPoolSaldoOperario } from '../../types/workPool'
+import type { WorkPoolJob, WorkPoolJobEstado, WorkPoolProduct, WorkPoolSaldoOperario } from '../../types/workPool'
 import { WORK_POOL_ESTADO_LABELS } from '../../types/workPool'
 import apiService from '../../services/api'
 import { nombreVisibleDesdeRecord } from '../../utils/usuarioDisplayName'
@@ -85,6 +85,33 @@ const NAV: Array<{ id: OperarioDashView; label: string; icon: ReactNode }> = [
   { id: 'cuenta', label: 'Mi cuenta', icon: <Wallet size={18} strokeWidth={2} aria-hidden /> }
 ]
 
+const MIS_JOBS_FILTERS: Array<{ id: 'todos' | WorkPoolJobEstado; label: string }> = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'en_curso', label: 'En curso' },
+  { id: 'asignado', label: 'Asignado' },
+  { id: 'cambios', label: 'Cambios' },
+  { id: 'entregado', label: 'Entregado' },
+  { id: 'en_revision', label: 'En revisión' },
+  { id: 'aprobado', label: 'Aprobado' }
+]
+
+function jobMatchesQuery(job: WorkPoolJob, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  const pedido = jobPedidoLabel(job) ?? ''
+  const blob = [
+    job.titulo,
+    job.descripcion ?? '',
+    pedido,
+    job.numero_op ?? '',
+    WORK_POOL_ESTADO_LABELS[job.estado],
+    job.plazo ?? ''
+  ]
+    .join(' ')
+    .toLowerCase()
+  return blob.includes(q)
+}
+
 export default function WorkPoolOperarioDashboard({
   product,
   usuario,
@@ -106,6 +133,8 @@ export default function WorkPoolOperarioDashboard({
   const [now, setNow] = useState(() => new Date())
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [detalleJob, setDetalleJob] = useState<WorkPoolJob | null>(null)
+  const [misQuery, setMisQuery] = useState('')
+  const [misEstado, setMisEstado] = useState<'todos' | WorkPoolJobEstado>('todos')
 
   useEffect(() => {
     document.title = `Panel operario · phi (φ) ${cfg.label}`
@@ -143,6 +172,18 @@ export default function WorkPoolOperarioDashboard({
     () => maskedJobs.filter((j) => j.estado !== 'disponible'),
     [maskedJobs]
   )
+
+  const misJobsFiltrados = useMemo(() => {
+    return misJobs.filter((job) => {
+      if (misEstado !== 'todos' && job.estado !== misEstado) return false
+      return jobMatchesQuery(job, misQuery)
+    })
+  }, [misJobs, misEstado, misQuery])
+
+  const misFiltrosVisibles = useMemo(() => {
+    const present = new Set(misJobs.map((j) => j.estado))
+    return MIS_JOBS_FILTERS.filter((f) => f.id === 'todos' || present.has(f.id))
+  }, [misJobs])
 
   const activos = misJobs.filter((j) =>
     ['asignado', 'en_curso', 'cambios'].includes(j.estado)
@@ -272,19 +313,61 @@ export default function WorkPoolOperarioDashboard({
             <Inbox size={16} aria-hidden />
             Tus trabajos
             {misJobs.length > 0 ? (
-              <span className="wp-operario-dash__jobs-section-count">{misJobs.length}</span>
+              <span className="wp-operario-dash__jobs-section-count">
+                {misJobsFiltrados.length === misJobs.length
+                  ? misJobs.length
+                  : `${misJobsFiltrados.length}/${misJobs.length}`}
+              </span>
             ) : null}
           </h2>
+
           {misJobs.length === 0 ? (
             <p className="wp-operario-dash__empty" style={{ padding: '0.75rem 0' }}>
               Todavía no tomaste ni te asignaron trabajos.
             </p>
           ) : (
-            misJobs.map((job) =>
-              renderJobCard(job, {
-                canEntregar: ['en_curso', 'asignado', 'cambios'].includes(job.estado)
-              })
-            )
+            <>
+              <div className="wp-operario-dash__jobs-toolbar">
+                <label className="wp-operario-dash__jobs-search">
+                  <Search size={16} aria-hidden />
+                  <span className="phi-sr-only">Buscar trabajos</span>
+                  <input
+                    type="search"
+                    value={misQuery}
+                    onChange={(e) => setMisQuery(e.target.value)}
+                    placeholder="Buscar por título, OP, pedido…"
+                    autoComplete="off"
+                  />
+                </label>
+                <div className="wp-operario-dash__jobs-filters" role="group" aria-label="Filtrar por estado">
+                  {misFiltrosVisibles.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className={`wp-operario-dash__jobs-filter${misEstado === f.id ? ' is-active' : ''}`}
+                      onClick={() => setMisEstado(f.id)}
+                    >
+                      {f.label}
+                      {f.id !== 'todos' ? (
+                        <span>{misJobs.filter((j) => j.estado === f.id).length}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {misJobsFiltrados.length === 0 ? (
+                <p className="wp-operario-dash__empty" style={{ padding: '0.75rem 0' }}>
+                  Ningún trabajo coincide con la búsqueda o el filtro.
+                </p>
+              ) : (
+                misJobsFiltrados.map((job) =>
+                  renderJobCard(job, {
+                    canEntregar: ['en_curso', 'asignado', 'cambios'].includes(job.estado)
+                  })
+                )
+              )}
+            </>
           )}
         </section>
       </div>

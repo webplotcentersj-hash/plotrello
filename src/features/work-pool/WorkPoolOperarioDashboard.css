@@ -615,6 +615,84 @@
   gap: 12px;
 }
 
+.wp-operario-dash__jobs-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wp-operario-dash__jobs-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 3px solid var(--phi-black, #0b0b0b);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 3px 3px 0 0 var(--phi-black, #0b0b0b);
+  color: #0b0b0b;
+}
+
+.wp-operario-dash__jobs-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0b0b0b;
+}
+
+.wp-operario-dash__jobs-search input::placeholder {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.wp-operario-dash__jobs-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wp-operario-dash__jobs-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 2px solid var(--phi-black, #0b0b0b);
+  border-radius: 999px;
+  background: #fff;
+  color: #0b0b0b;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.wp-operario-dash__jobs-filter span {
+  min-width: 1.1rem;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  border: 1px solid var(--phi-black, #0b0b0b);
+  font-size: 0.65rem;
+  text-align: center;
+}
+
+.wp-operario-dash__jobs-filter.is-active {
+  background: var(--phi-black, #0b0b0b);
+  color: #fff;
+}
+
+.wp-operario-dash__jobs-filter.is-active span {
+  background: #fff;
+  color: #0b0b0b;
+}
+
 .wp-operario-dash__jobs-section--hot {
   gap: 14px;
   padding: 14px;
