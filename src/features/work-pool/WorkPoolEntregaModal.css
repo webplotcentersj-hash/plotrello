@@ -1,0 +1,99 @@
+.wp-entrega-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.wp-entrega-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(11, 11, 11, 0.45);
+  cursor: pointer;
+}
+
+.wp-entrega-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border: 3px solid #0b0b0b;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 8px 8px 0 0 #0b0b0b;
+}
+
+.wp-entrega-modal__head {
+  margin-bottom: 6px;
+}
+
+.wp-entrega-modal__head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.wp-entrega-modal__sub {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #393939;
+  font-weight: 600;
+}
+
+.wp-entrega-modal__label {
+  margin-top: 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #0b0b0b;
+}
+
+.wp-entrega-modal__input,
+.wp-entrega-modal__textarea {
+  width: 100%;
+  border: 2px solid #0b0b0b;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.9rem;
+  background: #fff;
+}
+
+.wp-entrega-modal__textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.wp-entrega-modal__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #393939;
+  line-height: 1.4;
+}
+
+.wp-entrega-modal__error {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  border: 2px solid #ef4444;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.wp-entrega-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}

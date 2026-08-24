@@ -505,6 +505,36 @@
   overflow: hidden;
 }
 
+.wp-operario-dash__job-open {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.wp-operario-dash__job-open:hover .wp-operario-dash__job-open-hint,
+.wp-operario-dash__job-open:focus-visible .wp-operario-dash__job-open-hint {
+  color: #065f46;
+}
+
+.wp-operario-dash__job-open-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.02em;
+}
+
+.wp-operario-dash__job-actions--footer {
+  padding: 0 14px 14px;
+}
+
 .wp-operario-dash__job--entrante {
   border-width: 4px;
   box-shadow: 6px 6px 0 0 var(--phi-black, #0b0b0b);

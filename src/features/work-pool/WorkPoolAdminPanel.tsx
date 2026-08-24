@@ -48,6 +48,7 @@ import WorkPoolAvancesPanel from './WorkPoolAvancesPanel'
 import WorkPoolContabilidadPanel from './WorkPoolContabilidadPanel'
 import WorkPoolFuentesEntrada from './WorkPoolFuentesEntrada'
 import WorkPoolFreelancerFicha from './WorkPoolFreelancerFicha'
+import { jobEntregaDriveUrl } from './workPoolEntrega'
 import './WorkPoolModule.css'
 import './WorkPoolAdminPanel.css'
 
@@ -970,6 +971,7 @@ function ReviewJobCard({
   onAction: (fn: () => Promise<{ success: boolean; error?: string }>) => Promise<void>
   onNavigateOp: (op: string) => void
 }) {
+  const driveUrl = jobEntregaDriveUrl(job)
   return (
     <article className="work-pool-admin__review-card work-pool-admin__review-card--compact">
       <div className="work-pool-admin__review-card-main">
@@ -979,10 +981,24 @@ function ReviewJobCard({
           {job.numero_op && <span>OP {job.numero_op}</span>}
           <span>{formatArs(job.monto_presupuestado)}</span>
         </div>
-        {(job.descripcion || job.notas_entrega) && (
-          <p className="work-pool-admin__review-card-snippet">
-            {job.notas_entrega || job.descripcion}
-          </p>
+        {(job.descripcion || job.notas_entrega || driveUrl) && (
+          <div className="work-pool-admin__review-card-snippet">
+            {driveUrl ? (
+              <p>
+                <a
+                  href={driveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="work-pool-admin__drive-link"
+                >
+                  Abrir entrega en Drive
+                </a>
+              </p>
+            ) : null}
+            {(job.notas_entrega || (!driveUrl && job.descripcion)) && (
+              <p>{job.notas_entrega || job.descripcion}</p>
+            )}
+          </div>
         )}
       </div>
       <div className="work-pool-module__job-actions work-pool-admin__review-card-actions">

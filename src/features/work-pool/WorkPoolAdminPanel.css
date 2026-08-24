@@ -2233,9 +2233,24 @@
   margin: 4px 0 0 !important;
   font-size: 0.75rem !important;
   color: #64748b !important;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+}
+
+.work-pool-admin__review-card-snippet p {
+  margin: 0 0 4px;
+}
+
+.work-pool-admin__drive-link,
+.work-pool-avance-job__drive {
+  font-weight: 800;
+  color: #0b0b0b;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.work-pool--plot-design .work-pool-avance-job__drive {
+  color: #86efac;
 }
 
 .work-pool-admin__review-card-actions {
@@ -2900,6 +2915,14 @@
   font-size: 0.8rem;
   opacity: 0.75;
   line-height: 1.4;
+}
+
+.work-pool-avance-job__note p {
+  margin: 0 0 4px;
+}
+
+.work-pool-avance-job__note p:last-child {
+  margin-bottom: 0;
 }
 
 .work-pool--plot-design .work-pool-avance-job__note {

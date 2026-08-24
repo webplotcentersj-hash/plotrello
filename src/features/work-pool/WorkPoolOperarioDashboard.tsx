@@ -10,6 +10,7 @@ import { WORK_POOL_PRODUCT_CONFIG } from './workPoolConfig'
 import { filtrarNotificacionesOperarioExterno } from './operarioExternoNotificaciones'
 import { jobPedidoLabel, maskJobForOperarioExterno } from './workPoolOperarioExterno'
 import WorkPoolOperarioMensajes from './WorkPoolOperarioMensajes'
+import WorkPoolJobDetalleModal from './WorkPoolJobDetalleModal'
 import '../phi/phi-landing.css'
 import './WorkPoolOperarioDashboard.css'
 
@@ -104,6 +105,7 @@ export default function WorkPoolOperarioDashboard({
   const cfg = WORK_POOL_PRODUCT_CONFIG[product]
   const [now, setNow] = useState(() => new Date())
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [detalleJob, setDetalleJob] = useState<WorkPoolJob | null>(null)
 
   useEffect(() => {
     document.title = `Panel operario · phi (φ) ${cfg.label}`
@@ -162,52 +164,60 @@ export default function WorkPoolOperarioDashboard({
         key={job.id}
         className={`wp-operario-dash__job${isEntrante ? ' wp-operario-dash__job--entrante' : ''}`}
       >
-        <header className="wp-operario-dash__job-head">
-          <h3 className="wp-operario-dash__job-title">
-            <span className="wp-operario-dash__bullet" aria-hidden />
-            {job.titulo}
-          </h3>
-          <div className="wp-operario-dash__job-head-tags">
-            {isEntrante ? (
-              <span className="wp-operario-dash__job-pill-nuevo">Nuevo</span>
-            ) : null}
-            <span className={`wp-operario-dash__job-badge wp-operario-dash__job-badge--${job.estado}`}>
-              {WORK_POOL_ESTADO_LABELS[job.estado]}
-            </span>
-          </div>
-        </header>
-        <div className="wp-operario-dash__job-body">
-          {job.descripcion && <p className="wp-operario-dash__job-desc">{job.descripcion}</p>}
-          <div className="wp-operario-dash__job-meta">
-            {pedidoLabel && <span>Pedido {pedidoLabel}</span>}
-            <span className={isEntrante ? 'wp-operario-dash__job-monto' : undefined}>
-              {formatArs(job.monto_presupuestado)}
-            </span>
-            {job.plazo && <span>Plazo {job.plazo}</span>}
-          </div>
-          {(opts.canTomar || opts.canEntregar) && (
-            <div className="wp-operario-dash__job-actions">
-              {opts.canTomar ? (
-                <button
-                  type="button"
-                  className="phi-btn phi-btn--dark wp-operario-dash__btn wp-operario-dash__btn--tomar"
-                  onClick={() => onTomar(job.id)}
-                >
-                  Tomar ahora
-                </button>
+        <button
+          type="button"
+          className="wp-operario-dash__job-open"
+          onClick={() => setDetalleJob(jobs.find((j) => j.id === job.id) ?? job)}
+          aria-label={`Ver detalle de ${job.titulo}`}
+        >
+          <header className="wp-operario-dash__job-head">
+            <h3 className="wp-operario-dash__job-title">
+              <span className="wp-operario-dash__bullet" aria-hidden />
+              {job.titulo}
+            </h3>
+            <div className="wp-operario-dash__job-head-tags">
+              {isEntrante ? (
+                <span className="wp-operario-dash__job-pill-nuevo">Nuevo</span>
               ) : null}
-              {opts.canEntregar ? (
-                <button
-                  type="button"
-                  className="phi-btn phi-btn--dark wp-operario-dash__btn"
-                  onClick={() => onEntregar(job.id)}
-                >
-                  Marcar entregado
-                </button>
-              ) : null}
+              <span className={`wp-operario-dash__job-badge wp-operario-dash__job-badge--${job.estado}`}>
+                {WORK_POOL_ESTADO_LABELS[job.estado]}
+              </span>
             </div>
-          )}
-        </div>
+          </header>
+          <div className="wp-operario-dash__job-body">
+            {job.descripcion && <p className="wp-operario-dash__job-desc">{job.descripcion}</p>}
+            <div className="wp-operario-dash__job-meta">
+              {pedidoLabel && <span>Pedido {pedidoLabel}</span>}
+              <span className={isEntrante ? 'wp-operario-dash__job-monto' : undefined}>
+                {formatArs(job.monto_presupuestado)}
+              </span>
+              {job.plazo && <span>Plazo {job.plazo}</span>}
+            </div>
+            <p className="wp-operario-dash__job-open-hint">Tocá para ver brief, fotos y archivos</p>
+          </div>
+        </button>
+        {(opts.canTomar || opts.canEntregar) && (
+          <div className="wp-operario-dash__job-actions wp-operario-dash__job-actions--footer">
+            {opts.canTomar ? (
+              <button
+                type="button"
+                className="phi-btn phi-btn--dark wp-operario-dash__btn wp-operario-dash__btn--tomar"
+                onClick={() => onTomar(job.id)}
+              >
+                Tomar ahora
+              </button>
+            ) : null}
+            {opts.canEntregar ? (
+              <button
+                type="button"
+                className="phi-btn phi-btn--dark wp-operario-dash__btn"
+                onClick={() => onEntregar(job.id)}
+              >
+                Marcar entregado
+              </button>
+            ) : null}
+          </div>
+        )}
       </article>
     )
   }
@@ -398,6 +408,7 @@ export default function WorkPoolOperarioDashboard({
   }
 
   return (
+    <>
     <div
       className={`phi-root wp-operario-dash wp-operario-dash--${
         product === 'plot-design' ? 'plot-design' : 'bolsa-plot'
@@ -582,5 +593,14 @@ export default function WorkPoolOperarioDashboard({
         </aside>
       </div>
     </div>
+    <WorkPoolJobDetalleModal
+      open={Boolean(detalleJob)}
+      job={detalleJob}
+      idUsuario={usuario.id}
+      onClose={() => setDetalleJob(null)}
+      onTomar={onTomar}
+      onEntregar={onEntregar}
+    />
+    </>
   )
 }

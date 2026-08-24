@@ -6,6 +6,7 @@ import {
   WORK_POOL_ESTADO_LABELS,
   WORK_POOL_SECTOR_LABELS
 } from '../../types/workPool'
+import { jobEntregaDriveUrl } from './workPoolEntrega'
 
 type Props = {
   product: WorkPoolProduct
@@ -209,6 +210,7 @@ export default function WorkPoolAvancesPanel({
                 <ul className="work-pool-avance-card__jobs" role="list">
                   {op.jobs.map(({ job, paso, etiqueta_paso, en_cambios }) => {
                     const jobLive = ['asignado', 'en_curso', 'cambios'].includes(job.estado)
+                    const driveUrl = jobEntregaDriveUrl(job)
                     return (
                       <li
                         key={job.id}
@@ -254,12 +256,26 @@ export default function WorkPoolAvancesPanel({
                           })}
                         </ol>
 
-                        {(job.notas_entrega || job.motivo_rechazo) && (
-                          <p className="work-pool-avance-job__note">
-                            {job.motivo_rechazo
-                              ? `Cambios: ${job.motivo_rechazo}`
-                              : job.notas_entrega}
-                          </p>
+                        {(job.notas_entrega || job.motivo_rechazo || driveUrl) && (
+                          <div className="work-pool-avance-job__note">
+                            {driveUrl ? (
+                              <p>
+                                <a
+                                  href={driveUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="work-pool-avance-job__drive"
+                                >
+                                  Abrir entrega en Drive
+                                </a>
+                              </p>
+                            ) : null}
+                            {job.motivo_rechazo ? (
+                              <p>Cambios: {job.motivo_rechazo}</p>
+                            ) : job.notas_entrega ? (
+                              <p>{job.notas_entrega}</p>
+                            ) : null}
+                          </div>
                         )}
 
                         <div className="work-pool-avance-job__actions">

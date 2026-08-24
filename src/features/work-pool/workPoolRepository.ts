@@ -773,15 +773,110 @@ export async function tomarWorkPoolJob(
 export async function entregarWorkPoolJob(
   idJob: number,
   idUsuario: number,
-  notas?: string
+  notas?: string,
+  driveUrl?: string
 ): Promise<{ success: boolean; error?: string }> {
   if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const drive = (driveUrl ?? '').trim()
+  if (!drive) {
+    return { success: false, error: 'Para entregar necesitás el link de Google Drive' }
+  }
   const { error } = await supabase.rpc('work_pool_entregar_job', {
     p_id_job: idJob,
     p_id_usuario: idUsuario,
-    p_notas: notas ?? null
+    p_notas: notas ?? null,
+    p_drive_url: drive
   })
   return error ? { success: false, error: error.message } : { success: true }
+}
+
+export type WorkPoolJobDetalleOperario = {
+  job: {
+    id: number
+    titulo: string
+    descripcion: string | null
+    sector: string
+    estado: string
+    modo: string
+    prioridad: string
+    plazo: string | null
+    monto_presupuestado: number
+    monto_final: number | null
+    numero_op: string | null
+    numero_pedido: string | null
+    id_orden: number | null
+    id_pedido_cliente: number | null
+    metadata: Record<string, unknown>
+    notas_entrega: string | null
+    motivo_rechazo: string | null
+    entregado_at: string | null
+    tomado_at: string | null
+    aprobado_at: string | null
+    created_at: string | null
+  }
+  orden: {
+    id: number
+    numero_op: string | null
+    cliente: string | null
+    cliente_empresa: string | null
+    cliente_nombre_completo: string | null
+    sector: string | null
+    descripcion: string | null
+    brief_publico: string | null
+    objetivo_proyecto: string | null
+    publico_objetivo: string | null
+    etiquetas: string | null
+    foto_url: string | null
+    fecha_limite_brief: string | null
+    deadline_brief: string | null
+    id_pedido_cliente: number | null
+    brief_token: string | null
+  } | null
+  adjuntos: Array<{
+    id: number
+    titulo: string | null
+    url: string
+    creado_en: string | null
+    es_evidencia_campo: boolean | null
+  }>
+  pedido_archivos: Array<{
+    id: number
+    nombre_archivo: string | null
+    url: string
+    tipo: string | null
+    uploaded_at: string | null
+  }>
+  entrega_drive_url: string | null
+}
+
+export async function loadWorkPoolJobDetalleOperario(
+  idJob: number,
+  idUsuario: number
+): Promise<{ success: boolean; data?: WorkPoolJobDetalleOperario; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const { data, error } = await supabase.rpc('work_pool_job_detalle_operario', {
+    p_id_job: idJob,
+    p_id_usuario: idUsuario
+  })
+  if (error) return { success: false, error: error.message }
+  if (!data || typeof data !== 'object') {
+    return { success: false, error: 'Sin detalle del trabajo' }
+  }
+  const raw = data as Record<string, unknown>
+  return {
+    success: true,
+    data: {
+      job: (raw.job ?? {}) as WorkPoolJobDetalleOperario['job'],
+      orden: (raw.orden as WorkPoolJobDetalleOperario['orden']) ?? null,
+      adjuntos: Array.isArray(raw.adjuntos)
+        ? (raw.adjuntos as WorkPoolJobDetalleOperario['adjuntos'])
+        : [],
+      pedido_archivos: Array.isArray(raw.pedido_archivos)
+        ? (raw.pedido_archivos as WorkPoolJobDetalleOperario['pedido_archivos'])
+        : [],
+      entrega_drive_url: (raw.entrega_drive_url as string) || null
+    }
+  }
 }
 
 export async function aprobarWorkPoolJob(

@@ -27,7 +27,9 @@ import {
 } from './workPoolRepository'
 import WorkPoolOperarioMensajes from './WorkPoolOperarioMensajes'
 import WorkPoolOperarioDashboard from './WorkPoolOperarioDashboard'
+import WorkPoolEntregaModal from './WorkPoolEntregaModal'
 import './WorkPoolModule.css'
+import './WorkPoolEntregaModal.css'
 
 type ViewTab = 'bolsa' | 'mis' | 'cuenta' | 'mensajes'
 
@@ -144,12 +146,16 @@ export default function WorkPoolOperarioView({ product }: Props) {
     const res = await fn()
     if (!res.success) setError(res.error || 'Error en la acción')
     else void load()
+    return res
   }
 
+  const [entregaJob, setEntregaJob] = useState<WorkPoolJob | null>(null)
+  const [entregaBusy, setEntregaBusy] = useState(false)
+
   const handleEntregar = (jobId: number) => {
-    if (!usuario) return
-    const notas = window.prompt('Notas de entrega (opcional)') ?? ''
-    void runAction(() => entregarWorkPoolJob(jobId, usuario.id, notas || undefined))
+    const job = jobs.find((j) => j.id === jobId) ?? null
+    if (!job) return
+    setEntregaJob(job)
   }
 
   const handleTomar = (jobId: number) => {
@@ -157,28 +163,49 @@ export default function WorkPoolOperarioView({ product }: Props) {
     void runAction(() => tomarWorkPoolJob(jobId, usuario.id))
   }
 
+  const confirmEntrega = async (payload: { driveUrl: string; notas: string }) => {
+    if (!usuario || !entregaJob) return
+    setEntregaBusy(true)
+    const res = await runAction(() =>
+      entregarWorkPoolJob(entregaJob.id, usuario.id, payload.notas || undefined, payload.driveUrl)
+    )
+    setEntregaBusy(false)
+    if (res.success) setEntregaJob(null)
+  }
+
   if (externo && usuario) {
     const dashView =
       view === 'bolsa' ? 'mis' : (view as 'mis' | 'mensajes' | 'cuenta')
 
     return (
-      <WorkPoolOperarioDashboard
-        product={product}
-        usuario={usuario}
-        view={dashView}
-        onChangeView={(v) => changeView(v)}
-        onLogout={handleLogout}
-        jobs={jobs}
-        loading={loading}
-        error={error}
-        saldo={saldo}
-        mensajesNoLeidos={mensajesNoLeidos}
-        onEntregar={handleEntregar}
-        onTomar={handleTomar}
-        pedidoMensajesInicial={Number.isNaN(pedidoMensajesInicial ?? NaN) ? null : pedidoMensajesInicial}
-        onUnreadChange={setMensajesNoLeidos}
-        lastUpdated={lastUpdated}
-      />
+      <>
+        <WorkPoolOperarioDashboard
+          product={product}
+          usuario={usuario}
+          view={dashView}
+          onChangeView={(v) => changeView(v)}
+          onLogout={handleLogout}
+          jobs={jobs}
+          loading={loading}
+          error={error}
+          saldo={saldo}
+          mensajesNoLeidos={mensajesNoLeidos}
+          onEntregar={handleEntregar}
+          onTomar={handleTomar}
+          pedidoMensajesInicial={Number.isNaN(pedidoMensajesInicial ?? NaN) ? null : pedidoMensajesInicial}
+          onUnreadChange={setMensajesNoLeidos}
+          lastUpdated={lastUpdated}
+        />
+        <WorkPoolEntregaModal
+          open={Boolean(entregaJob)}
+          jobTitle={entregaJob?.titulo ?? ''}
+          busy={entregaBusy}
+          onClose={() => {
+            if (!entregaBusy) setEntregaJob(null)
+          }}
+          onConfirm={(payload) => void confirmEntrega(payload)}
+        />
+      </>
     )
   }
 
@@ -339,10 +366,7 @@ export default function WorkPoolOperarioView({ product }: Props) {
                       <button
                         type="button"
                         className="work-pool-module__btn work-pool-module__btn--success"
-                        onClick={() => {
-                          const notas = window.prompt('Notas de entrega (opcional)') ?? ''
-                          void runAction(() => entregarWorkPoolJob(job.id, usuario.id, notas || undefined))
-                        }}
+                        onClick={() => handleEntregar(job.id)}
                       >
                         Marcar entregado
                       </button>
@@ -375,6 +399,15 @@ export default function WorkPoolOperarioView({ product }: Props) {
           de publicación.
         </div>
       )}
+      <WorkPoolEntregaModal
+        open={Boolean(entregaJob)}
+        jobTitle={entregaJob?.titulo ?? ''}
+        busy={entregaBusy}
+        onClose={() => {
+          if (!entregaBusy) setEntregaJob(null)
+        }}
+        onConfirm={(payload) => void confirmEntrega(payload)}
+      />
     </div>
   )
 }
