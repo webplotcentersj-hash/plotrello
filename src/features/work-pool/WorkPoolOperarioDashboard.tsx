@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Inbox, LogOut, MessageCircle, Wallet, Briefcase } from 'lucide-react'
+import { Inbox, LogOut, MessageCircle, Wallet, Briefcase, ExternalLink } from 'lucide-react'
 import type { Notification } from '../../types/api'
 import type { WorkPoolJob, WorkPoolProduct, WorkPoolSaldoOperario } from '../../types/workPool'
 import { WORK_POOL_ESTADO_LABELS } from '../../types/workPool'
@@ -460,6 +460,27 @@ export default function WorkPoolOperarioDashboard({
             </div>
           </div>
 
+          <div className="wp-operario-dash__side-stats" aria-label="Resumen rápido">
+            <button
+              type="button"
+              className={`wp-operario-dash__side-stat${bolsaJobs.length > 0 ? ' is-hot' : ''}`}
+              onClick={() => onChangeView('mis')}
+            >
+              <span className="wp-operario-dash__side-stat-value">{bolsaJobs.length}</span>
+              <span className="wp-operario-dash__side-stat-label">En bolsa</span>
+            </button>
+            <button type="button" className="wp-operario-dash__side-stat" onClick={() => onChangeView('mis')}>
+              <span className="wp-operario-dash__side-stat-value">{activos}</span>
+              <span className="wp-operario-dash__side-stat-label">Activos</span>
+            </button>
+            <button type="button" className="wp-operario-dash__side-stat" onClick={() => onChangeView('cuenta')}>
+              <span className="wp-operario-dash__side-stat-value wp-operario-dash__side-stat-value--sm">
+                {formatArs(saldo.saldo_pendiente)}
+              </span>
+              <span className="wp-operario-dash__side-stat-label">A cobrar</span>
+            </button>
+          </div>
+
           <div className="wp-operario-dash__nav-group">
             <div className="wp-operario-dash__nav-label">
               <span className="wp-operario-dash__bullet" />
@@ -488,8 +509,67 @@ export default function WorkPoolOperarioDashboard({
             ))}
           </div>
 
+          <div className="wp-operario-dash__side-card">
+            <div className="wp-operario-dash__side-card-head">
+              <span className="wp-operario-dash__bullet" />
+              Cómo laburar
+            </div>
+            <ol className="wp-operario-dash__side-steps">
+              <li>
+                <strong>Entrantes</strong> — tomá trabajos de la bolsa
+              </li>
+              <li>
+                <strong>Entregá</strong> — con link de Google Drive
+              </li>
+              <li>
+                <strong>Mi cuenta</strong> — saldo y pagos Plot
+              </li>
+            </ol>
+            {bolsaJobs.length > 0 ? (
+              <p className="wp-operario-dash__side-card-note is-hot">
+                Tenés {bolsaJobs.length} disponible{bolsaJobs.length === 1 ? '' : 's'} ahora
+              </p>
+            ) : (
+              <p className="wp-operario-dash__side-card-note">
+                Actualizado {formatTime(lastUpdated)}
+              </p>
+            )}
+          </div>
+
           <div className="wp-operario-dash__user">
-            <div className="wp-operario-dash__user-rol">{productLabel} · operario externo</div>
+            <div className="wp-operario-dash__user-top">
+              <div className="wp-operario-dash__user-avatar" aria-hidden>
+                {nombreVisibleDesdeRecord(usuario)
+                  .split(/\s+/)
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((p) => p[0]?.toUpperCase() ?? '')
+                  .join('') || 'φ'}
+              </div>
+              <div>
+                <div className="wp-operario-dash__user-name">{nombreVisibleDesdeRecord(usuario)}</div>
+                <div className="wp-operario-dash__user-rol">{productLabel} · externo</div>
+              </div>
+            </div>
+            {mensajesNoLeidos > 0 || unreadNotifs > 0 ? (
+              <div className="wp-operario-dash__user-alerts">
+                {mensajesNoLeidos > 0 ? (
+                  <button type="button" onClick={() => onChangeView('mensajes')}>
+                    {mensajesNoLeidos} mensaje{mensajesNoLeidos === 1 ? '' : 's'}
+                  </button>
+                ) : null}
+                {unreadNotifs > 0 ? <span>{unreadNotifs} aviso{unreadNotifs === 1 ? '' : 's'}</span> : null}
+              </div>
+            ) : null}
+            <a
+              className="wp-operario-dash__side-link"
+              href={PHI_PUBLIC_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Sitio phi (φ)
+              <ExternalLink size={14} aria-hidden />
+            </a>
             <button type="button" className="phi-btn phi-btn--outline phi-btn--block wp-operario-dash__logout" onClick={onLogout}>
               Cerrar sesión
             </button>

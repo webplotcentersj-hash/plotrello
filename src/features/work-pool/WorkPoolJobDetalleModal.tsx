@@ -298,13 +298,13 @@ export default function WorkPoolJobDetalleModal({
         </div>
 
         <footer className="wp-job-detalle__footer">
-          <button type="button" className="phi-btn phi-btn--outline" onClick={onClose}>
+          <button type="button" className="wp-job-detalle__btn wp-job-detalle__btn--ghost" onClick={onClose}>
             Cerrar
           </button>
           {canTomar ? (
             <button
               type="button"
-              className="phi-btn phi-btn--dark"
+              className="wp-job-detalle__btn wp-job-detalle__btn--primary"
               onClick={() => {
                 onTomar?.(job.id)
                 onClose()
@@ -316,7 +316,7 @@ export default function WorkPoolJobDetalleModal({
           {canEntregar ? (
             <button
               type="button"
-              className="phi-btn phi-btn--dark"
+              className="wp-job-detalle__btn wp-job-detalle__btn--primary"
               onClick={() => {
                 onEntregar?.(job.id)
                 onClose()

@@ -285,3 +285,46 @@
   background: #f8fafc;
   color: #0b0b0b;
 }
+
+.wp-job-detalle__footer .phi-btn,
+.wp-job-detalle__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 3px solid #0b0b0b;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.wp-job-detalle__footer .phi-btn--outline,
+.wp-job-detalle__btn--ghost {
+  background: #fff;
+  color: #0b0b0b;
+}
+
+.wp-job-detalle__footer .phi-btn--outline:hover,
+.wp-job-detalle__btn--ghost:hover {
+  background: #f1f5f9;
+}
+
+.wp-job-detalle__footer .phi-btn--dark,
+.wp-job-detalle__btn--primary {
+  background: #0b0b0b !important;
+  color: #fff !important;
+  border-color: #0b0b0b !important;
+  box-shadow: 4px 4px 0 0 #16a34a;
+}
+
+.wp-job-detalle__footer .phi-btn--dark:hover,
+.wp-job-detalle__btn--primary:hover {
+  background: #000 !important;
+  color: #fff !important;
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 0 #16a34a;
+}
