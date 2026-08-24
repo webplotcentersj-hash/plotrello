@@ -5,6 +5,7 @@
   display: grid;
   place-items: center;
   padding: 16px;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__backdrop {
@@ -25,6 +26,7 @@
   border: 3px solid #0b0b0b;
   border-radius: 16px;
   background: #fff;
+  color: #0b0b0b;
   box-shadow: 10px 10px 0 0 #0b0b0b;
   overflow: hidden;
 }
@@ -37,6 +39,7 @@
   padding: 18px 18px 14px;
   border-bottom: 2px solid #0b0b0b;
   background: linear-gradient(135deg, #ecfdf5 0%, #fff 55%);
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__eyebrow {
@@ -45,7 +48,7 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #065f46;
+  color: #064e3b;
 }
 
 .wp-job-detalle__head h2 {
@@ -54,6 +57,7 @@
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.25;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__meta-row {
@@ -65,7 +69,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #393939;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__badge {
@@ -73,6 +77,7 @@
   border: 2px solid #0b0b0b;
   border-radius: 999px;
   background: #fff;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__badge--disponible {
@@ -100,6 +105,7 @@
   border: 2px solid #0b0b0b;
   border-radius: 10px;
   background: #fff;
+  color: #0b0b0b;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -113,6 +119,8 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+  color: #0b0b0b;
+  background: #fff;
 }
 
 .wp-job-detalle__section h3 {
@@ -121,6 +129,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__grid {
@@ -132,7 +141,8 @@
   padding: 10px 12px;
   border: 2px solid #0b0b0b;
   border-radius: 10px;
-  background: #fafafa;
+  background: #f8fafc;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__label {
@@ -141,22 +151,25 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #334155;
   margin-bottom: 4px;
 }
 
 .wp-job-detalle__value {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__muted {
   margin: 0;
-  color: #64748b;
+  color: #334155;
   font-size: 0.88rem;
+  font-weight: 600;
 }
 
 .wp-job-detalle__error {
@@ -165,8 +178,8 @@
   border: 2px solid #ef4444;
   border-radius: 10px;
   background: #fef2f2;
-  color: #991b1b;
-  font-weight: 600;
+  color: #7f1d1d;
+  font-weight: 700;
 }
 
 .wp-job-detalle__link {
@@ -175,7 +188,7 @@
   gap: 6px;
   margin-top: 10px;
   font-weight: 800;
-  color: #065f46;
+  color: #064e3b;
 }
 
 .wp-job-detalle__gallery {
@@ -193,7 +206,7 @@
   overflow: hidden;
   background: #fff;
   text-decoration: none;
-  color: inherit;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__thumb img {
@@ -208,6 +221,7 @@
   font-size: 0.7rem;
   font-weight: 700;
   line-height: 1.3;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__files {
@@ -229,12 +243,14 @@
   border: 2px solid #0b0b0b;
   border-radius: 10px;
   background: #fff;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__file-name {
   font-size: 0.85rem;
   font-weight: 700;
   word-break: break-word;
+  color: #0b0b0b;
 }
 
 .wp-job-detalle__file-actions {
@@ -266,5 +282,6 @@
   justify-content: flex-end;
   padding: 14px 18px;
   border-top: 2px solid #0b0b0b;
-  background: #fafafa;
+  background: #f8fafc;
+  color: #0b0b0b;
 }
