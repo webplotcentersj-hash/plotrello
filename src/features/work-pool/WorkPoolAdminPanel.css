@@ -782,6 +782,17 @@
   gap: 10px;
 }
 
+.work-pool-admin__section--entrantes .work-pool-fuentes {
+  margin-bottom: 0;
+}
+
+.work-pool-admin__section--entrantes {
+  border-color: rgba(47, 129, 247, 0.35);
+  background:
+    radial-gradient(90% 60% at 100% 0%, rgba(47, 129, 247, 0.08), transparent 50%),
+    rgba(15, 23, 42, 0.35);
+}
+
 .work-pool-admin__section-lead {
   margin: -4px 0 14px;
   font-size: 0.88rem;
@@ -1153,6 +1164,81 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 8px;
   align-items: start;
+}
+
+.work-pool-admin__section--bajas {
+  border-color: rgba(248, 113, 113, 0.28);
+  background: rgba(127, 29, 29, 0.12);
+}
+
+.work-pool-admin__bajas-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.work-pool-admin__baja-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.work-pool-admin__baja-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.work-pool-admin__baja-main strong {
+  display: block;
+  font-size: 0.92rem;
+  color: #f8fafc;
+}
+
+.work-pool-admin__baja-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.work-pool-admin__baja-motivo {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: #e2e8f0;
+  line-height: 1.4;
+}
+
+.work-pool-admin__baja-obs {
+  margin: 4px 0 0;
+  font-size: 0.76rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.work-pool-admin__baja-badge {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.35);
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fca5a5;
 }
 
 .work-pool-admin__freelancer-grid--full {
@@ -2183,13 +2269,81 @@
   color: transparent;
 }
 
-/* â€”â€” Entregas compactas â€”â€” */
+/* —— Entregas compactas —— */
 .work-pool-admin__review-card--compact {
-  flex-wrap: nowrap;
-  align-items: center;
-  padding: 12px 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  padding: 14px 16px;
   border-radius: 14px;
-  gap: 12px;
+  gap: 12px 16px;
+}
+
+.work-pool-admin__review-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.work-pool-admin__review-card-head h4 {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.work-pool-admin__drive-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  background: rgba(6, 78, 59, 0.35);
+  color: #bbf7d0;
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.work-pool-admin__drive-chip:hover {
+  border-color: rgba(74, 222, 128, 0.65);
+  transform: translateY(-1px);
+}
+
+.work-pool-admin__drive-chip-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #86efac;
+}
+
+.work-pool-admin__drive-chip-url {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ecfdf5;
+  word-break: break-all;
+}
+
+.work-pool-admin__drive-missing {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px dashed rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.25);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #fca5a5;
+}
+
+.work-pool--plot-design .work-pool-admin__drive-chip {
+  border-color: rgba(74, 222, 128, 0.5);
+  background: rgba(20, 83, 45, 0.45);
 }
 
 .work-pool-admin__review-card--publicado {
@@ -2215,14 +2369,6 @@
 .work-pool-admin__review-card-main {
   flex: 1;
   min-width: 0;
-}
-
-.work-pool-admin__review-card--compact h4 {
-  margin: 0 0 4px;
-  font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .work-pool-admin__review-card-meta {
@@ -2259,6 +2405,9 @@
 }
 
 .work-pool-admin__review-card-actions .work-pool-module__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 6px 10px;
   font-size: 0.72rem;
 }
@@ -2266,6 +2415,15 @@
 /* —— Freelancers: grid base definido arriba (compacta expandible) —— */
 .work-pool-admin__pay-box--approve {
   margin-top: 16px;
+}
+
+.work-pool-admin__pay-box--approve .work-pool-module__form-row {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.work-pool-admin__pay-box--approve .work-pool-module__form-row > label {
+  min-width: 0;
 }
 
 .work-pool-admin__approve-hint {
@@ -2286,11 +2444,16 @@
   display: flex;
   gap: 8px;
   align-items: stretch;
+  width: 100%;
 }
 
 .work-pool-admin__approve-pass-row input {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 200px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
 }
 
 .work-pool-admin__approve-pass-row .work-pool-module__btn {

@@ -6,6 +6,8 @@ import {
   Briefcase,
   CheckCircle2,
   ClipboardCheck,
+  ExternalLink,
+  FileSearch,
   Cog,
   GitBranch,
   Layers,
@@ -22,6 +24,7 @@ import {
 import { useAuth } from '../../hooks/useAuth'
 import type {
   WorkPoolAdminDashboard,
+  WorkPoolBajaRegistro,
   WorkPoolFreelancerResumen,
   WorkPoolJob,
   WorkPoolProduct,
@@ -48,7 +51,10 @@ import WorkPoolAvancesPanel from './WorkPoolAvancesPanel'
 import WorkPoolContabilidadPanel from './WorkPoolContabilidadPanel'
 import WorkPoolFuentesEntrada from './WorkPoolFuentesEntrada'
 import WorkPoolFreelancerFicha from './WorkPoolFreelancerFicha'
-import { jobEntregaDriveUrl } from './workPoolEntrega'
+import WorkPoolJobDetalleModal from './WorkPoolJobDetalleModal'
+import { jobEntregaDriveUrl, shortDriveUrl } from './workPoolEntrega'
+import { etiquetaTipoDesvinculacion } from '../../utils/rrhhBajaCatalog'
+import { fallbackNombreSinEmail } from '../../utils/usuarioDisplayName'
 import './WorkPoolModule.css'
 import './WorkPoolAdminPanel.css'
 
@@ -196,6 +202,14 @@ export default function WorkPoolAdminPanel({ product }: Props) {
     if (sectorFilter === 'todos') return list
     return list.filter((j) => j.sector === sectorFilter)
   }, [dashboard, sectorFilter])
+
+  const nombreOperario = useCallback(
+    (id: number | null | undefined) => {
+      if (!id || !dashboard) return null
+      return dashboard.freelancers.find((f) => f.id_usuario === id)?.nombre ?? null
+    },
+    [dashboard]
+  )
 
   const runAction = async (fn: () => Promise<{ success: boolean; error?: string }>) => {
     setError('')
@@ -705,6 +719,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
                     key={job.id}
                     job={job}
                     usuarioId={usuario?.id}
+                    asignadoNombre={nombreOperario(job.id_usuario_asignado)}
                     onAction={runAction}
                     onNavigateOp={(op) => navigate(`/op/${op}`)}
                   />
@@ -730,6 +745,19 @@ export default function WorkPoolAdminPanel({ product }: Props) {
               )}
             </div>
           </section>
+
+          {(dashboard.dados_de_baja?.length ?? 0) > 0 ? (
+            <section className="work-pool-admin__section work-pool-admin__section--bajas">
+              <div className="work-pool-admin__section-head">
+                <h2>Dados de baja</h2>
+                <span className="work-pool-admin__pill">{dashboard.dados_de_baja.length}</span>
+              </div>
+              <p className="work-pool-admin__section-lead">
+                No aparecen en listas activas ni pueden operar. Historial conservado desde RRHH.
+              </p>
+              <DadosDeBajaList items={dashboard.dados_de_baja} />
+            </section>
+          ) : null}
         </div>
       ) : null}
 
@@ -752,6 +780,18 @@ export default function WorkPoolAdminPanel({ product }: Props) {
               />
             ))}
           </div>
+          {(dashboard.dados_de_baja?.length ?? 0) > 0 ? (
+            <section className="work-pool-admin__section work-pool-admin__section--bajas">
+              <div className="work-pool-admin__section-head">
+                <h2>Trazado · Dados de baja</h2>
+                <span className="work-pool-admin__pill">{dashboard.dados_de_baja.length}</span>
+              </div>
+              <p className="work-pool-admin__section-lead">
+                No figuran en afines ni en saldo. Solo consulta histórica.
+              </p>
+              <DadosDeBajaList items={dashboard.dados_de_baja} />
+            </section>
+          ) : null}
           {payUserId != null && tab === 'freelancers' && (
             <div className="work-pool-admin__pay-box">
               <h3>Registrar pago</h3>
@@ -963,45 +1003,68 @@ export default function WorkPoolAdminPanel({ product }: Props) {
 function ReviewJobCard({
   job,
   usuarioId,
+  asignadoNombre,
   onAction,
   onNavigateOp
 }: {
   job: WorkPoolJob
   usuarioId?: number
+  asignadoNombre?: string | null
   onAction: (fn: () => Promise<{ success: boolean; error?: string }>) => Promise<void>
   onNavigateOp: (op: string) => void
 }) {
+  const [fichaOpen, setFichaOpen] = useState(false)
   const driveUrl = jobEntregaDriveUrl(job)
+  const tituloCard = job.numero_op ? `OP ${job.numero_op}` : job.titulo
+
   return (
+    <>
     <article className="work-pool-admin__review-card work-pool-admin__review-card--compact">
       <div className="work-pool-admin__review-card-main">
-        <h4>{job.titulo}</h4>
+        <div className="work-pool-admin__review-card-head">
+          <h4>{tituloCard}</h4>
+          <span className={`work-pool-module__badge work-pool-module__badge--${job.estado}`}>
+            {WORK_POOL_ESTADO_LABELS[job.estado]}
+          </span>
+        </div>
         <div className="work-pool-module__job-meta work-pool-admin__review-card-meta">
           <span>{WORK_POOL_SECTOR_LABELS[job.sector]}</span>
-          {job.numero_op && <span>OP {job.numero_op}</span>}
+          {asignadoNombre ? <span>{asignadoNombre}</span> : null}
+          {job.entregado_at ? (
+            <span>Entregado {formatDate(job.entregado_at)}</span>
+          ) : null}
           <span>{formatArs(job.monto_presupuestado)}</span>
         </div>
-        {(job.descripcion || job.notas_entrega || driveUrl) && (
-          <div className="work-pool-admin__review-card-snippet">
-            {driveUrl ? (
-              <p>
-                <a
-                  href={driveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="work-pool-admin__drive-link"
-                >
-                  Abrir entrega en Drive
-                </a>
-              </p>
-            ) : null}
-            {(job.notas_entrega || (!driveUrl && job.descripcion)) && (
-              <p>{job.notas_entrega || job.descripcion}</p>
-            )}
-          </div>
+        {driveUrl ? (
+          <a
+            href={driveUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="work-pool-admin__drive-chip"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink size={14} aria-hidden />
+            <span className="work-pool-admin__drive-chip-label">Trabajo en Drive</span>
+            <span className="work-pool-admin__drive-chip-url">{shortDriveUrl(driveUrl)}</span>
+          </a>
+        ) : (
+          <p className="work-pool-admin__drive-missing">Sin link de Drive en la entrega</p>
         )}
+        {job.notas_entrega && !driveUrl ? (
+          <div className="work-pool-admin__review-card-snippet">
+            <p>{job.notas_entrega}</p>
+          </div>
+        ) : null}
       </div>
       <div className="work-pool-module__job-actions work-pool-admin__review-card-actions">
+        <button
+          type="button"
+          className="work-pool-module__btn work-pool-module__btn--ghost"
+          onClick={() => setFichaOpen(true)}
+        >
+          <FileSearch size={14} aria-hidden />
+          Ver ficha
+        </button>
         {usuarioId && (
           <>
             <button
@@ -1030,6 +1093,61 @@ function ReviewJobCard({
         )}
       </div>
     </article>
+
+    {usuarioId ? (
+      <WorkPoolJobDetalleModal
+        job={job}
+        idUsuario={usuarioId}
+        open={fichaOpen}
+        onClose={() => setFichaOpen(false)}
+        adminReview={{
+          asignadoNombre,
+          onNavigateOp,
+          onAprobar: () => void onAction(() => aprobarWorkPoolJob(job.id, usuarioId)),
+          onPedirCambios: () => {
+            const motivo = window.prompt('Motivo de cambios') ?? ''
+            void onAction(() => solicitarCambiosWorkPoolJob(job.id, usuarioId, motivo || undefined))
+          }
+        }}
+      />
+    ) : null}
+    </>
+  )
+}
+
+function displayBajaNombre(nombre: string) {
+  const t = nombre.trim()
+  if (!t) return '—'
+  return fallbackNombreSinEmail(t) || t
+}
+
+function DadosDeBajaList({ items }: { items: WorkPoolBajaRegistro[] }) {
+  return (
+    <ul className="work-pool-admin__bajas-list">
+      {items.map((b) => (
+        <li key={b.id} className="work-pool-admin__baja-card">
+          <div className="work-pool-admin__baja-main">
+            <strong title={b.nombre}>{displayBajaNombre(b.nombre)}</strong>
+            <div className="work-pool-admin__baja-meta">
+              {b.fecha_desvinculacion ? (
+                <span>{formatDate(b.fecha_desvinculacion)}</span>
+              ) : (
+                <span>{formatDate(b.created_at)}</span>
+              )}
+              {b.tipo_desvinculacion ? (
+                <span>{etiquetaTipoDesvinculacion(b.tipo_desvinculacion)}</span>
+              ) : null}
+              {b.rol ? <span>{b.rol}</span> : null}
+            </div>
+            {b.motivo ? <p className="work-pool-admin__baja-motivo">{b.motivo}</p> : null}
+            {b.observaciones ? (
+              <p className="work-pool-admin__baja-obs">{b.observaciones}</p>
+            ) : null}
+          </div>
+          <span className="work-pool-admin__baja-badge">Baja</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 

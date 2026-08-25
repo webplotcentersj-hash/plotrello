@@ -328,3 +328,66 @@
   transform: translate(-1px, -1px);
   box-shadow: 5px 5px 0 0 #16a34a;
 }
+
+.wp-job-detalle__subtitle {
+  margin: 6px 0 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.wp-job-detalle__section--drive h3 {
+  margin-bottom: 10px;
+}
+
+.wp-job-detalle__drive-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 2px solid #0b0b0b;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ecfdf5, #fff);
+  color: #0b0b0b;
+  text-decoration: none;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.wp-job-detalle__drive-box:hover {
+  transform: translateY(-1px);
+  box-shadow: 4px 4px 0 0 #0b0b0b;
+}
+
+.wp-job-detalle__drive-label {
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wp-job-detalle__drive-url {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #047857;
+  word-break: break-all;
+}
+
+.wp-job-detalle__section--drive-missing {
+  padding-top: 0;
+}
+
+.wp-job-detalle__error--inline {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px dashed #f87171;
+  background: #fef2f2;
+  font-size: 0.84rem;
+}
+
+.wp-job-detalle__btn--warn {
+  background: #fff7ed !important;
+  color: #9a3412 !important;
+  border-color: #ea580c !important;
+  box-shadow: 4px 4px 0 0 #fdba74;
+}

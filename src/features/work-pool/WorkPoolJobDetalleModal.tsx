@@ -8,7 +8,15 @@ import {
   loadWorkPoolJobDetalleOperario,
   type WorkPoolJobDetalleOperario
 } from './workPoolRepository'
+import { shortDriveUrl } from './workPoolEntrega'
 import './WorkPoolJobDetalleModal.css'
+
+type AdminReviewActions = {
+  onAprobar: () => void
+  onPedirCambios: () => void
+  onNavigateOp?: (op: string) => void
+  asignadoNombre?: string | null
+}
 
 type Props = {
   job: WorkPoolJob | null
@@ -17,6 +25,7 @@ type Props = {
   onClose: () => void
   onTomar?: (jobId: number) => void
   onEntregar?: (jobId: number) => void
+  adminReview?: AdminReviewActions
 }
 
 function formatArs(n: number) {
@@ -75,7 +84,8 @@ export default function WorkPoolJobDetalleModal({
   open,
   onClose,
   onTomar,
-  onEntregar
+  onEntregar,
+  adminReview
 }: Props) {
   const titleId = useId()
   const [loading, setLoading] = useState(false)
@@ -167,8 +177,15 @@ export default function WorkPoolJobDetalleModal({
       <div className="wp-job-detalle__panel">
         <header className="wp-job-detalle__head">
           <div>
-            <p className="wp-job-detalle__eyebrow">Detalle del trabajo</p>
-            <h2 id={titleId}>{job.titulo}</h2>
+            <p className="wp-job-detalle__eyebrow">
+              {adminReview ? 'Revisión de entrega' : 'Detalle del trabajo'}
+            </p>
+            <h2 id={titleId}>
+              {job.numero_op ? `OP ${job.numero_op}` : job.titulo}
+            </h2>
+            {job.numero_op && job.titulo !== `Diseño OP ${job.numero_op}` ? (
+              <p className="wp-job-detalle__subtitle">{job.titulo}</p>
+            ) : null}
             <div className="wp-job-detalle__meta-row">
               <span className={`wp-job-detalle__badge wp-job-detalle__badge--${job.estado}`}>
                 {WORK_POOL_ESTADO_LABELS[job.estado]}
@@ -189,29 +206,46 @@ export default function WorkPoolJobDetalleModal({
 
           {!loading && !error && detalle ? (
             <>
+              {driveUrl ? (
+                <section className="wp-job-detalle__section wp-job-detalle__section--drive">
+                  <h3>Entrega del diseñador</h3>
+                  <a
+                    className="wp-job-detalle__drive-box"
+                    href={driveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink size={18} aria-hidden />
+                    <span className="wp-job-detalle__drive-label">Abrir trabajo en Google Drive</span>
+                    <span className="wp-job-detalle__drive-url">{shortDriveUrl(driveUrl, 72)}</span>
+                  </a>
+                </section>
+              ) : adminReview ? (
+                <section className="wp-job-detalle__section wp-job-detalle__section--drive-missing">
+                  <p className="wp-job-detalle__error wp-job-detalle__error--inline">
+                    Este trabajo no tiene link de Drive en la entrega.
+                  </p>
+                </section>
+              ) : null}
+
               <section className="wp-job-detalle__section">
                 <h3>Trabajo en bolsa</h3>
                 <div className="wp-job-detalle__grid">
+                  {adminReview?.asignadoNombre ? (
+                    <Field label="Diseñador / operario" value={adminReview.asignadoNombre} />
+                  ) : null}
+                  <Field label="Estado" value={WORK_POOL_ESTADO_LABELS[job.estado]} />
                   <Field label="Descripción / brief publicado" value={j?.descripcion || job.descripcion} />
                   <Field label="Prioridad" value={j?.prioridad} />
                   <Field
                     label="Pedido portal"
                     value={j?.numero_pedido || (job.metadata?.numero_pedido as string) || null}
                   />
+                  <Field label="Tomado" value={formatDate(j?.tomado_at || job.tomado_at)} />
+                  <Field label="Entregado" value={formatDate(j?.entregado_at || job.entregado_at)} />
                   <Field label="Notas de entrega" value={j?.notas_entrega} />
                   <Field label="Pedidos de cambios" value={j?.motivo_rechazo} />
                 </div>
-                {driveUrl ? (
-                  <a
-                    className="wp-job-detalle__link"
-                    href={driveUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink size={16} aria-hidden />
-                    Entrega en Drive
-                  </a>
-                ) : null}
               </section>
 
               <section className="wp-job-detalle__section">
@@ -301,7 +335,40 @@ export default function WorkPoolJobDetalleModal({
           <button type="button" className="wp-job-detalle__btn wp-job-detalle__btn--ghost" onClick={onClose}>
             Cerrar
           </button>
-          {canTomar ? (
+          {adminReview ? (
+            <>
+              {job.numero_op && adminReview.onNavigateOp ? (
+                <button
+                  type="button"
+                  className="wp-job-detalle__btn wp-job-detalle__btn--ghost"
+                  onClick={() => adminReview.onNavigateOp?.(job.numero_op!)}
+                >
+                  Ver OP
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="wp-job-detalle__btn wp-job-detalle__btn--warn"
+                onClick={() => {
+                  adminReview.onPedirCambios()
+                  onClose()
+                }}
+              >
+                Pedir cambios
+              </button>
+              <button
+                type="button"
+                className="wp-job-detalle__btn wp-job-detalle__btn--primary"
+                onClick={() => {
+                  adminReview.onAprobar()
+                  onClose()
+                }}
+              >
+                Aprobar y acreditar
+              </button>
+            </>
+          ) : null}
+          {!adminReview && canTomar ? (
             <button
               type="button"
               className="wp-job-detalle__btn wp-job-detalle__btn--primary"
@@ -313,7 +380,7 @@ export default function WorkPoolJobDetalleModal({
               Tomar trabajo
             </button>
           ) : null}
-          {canEntregar ? (
+          {!adminReview && canEntregar ? (
             <button
               type="button"
               className="wp-job-detalle__btn wp-job-detalle__btn--primary"

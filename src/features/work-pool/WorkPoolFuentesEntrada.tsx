@@ -1,4 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  ChevronRight,
+  FileText,
+  LayoutGrid,
+  ShoppingBag,
+  Sparkles
+} from 'lucide-react'
 import type { PedidoClienteRecord } from '../../types/api'
 import type { WorkPoolOrdenSugerida, WorkPoolProduct, WorkPoolSector } from '../../types/workPool'
 import { useAuth } from '../../hooks/useAuth'
@@ -92,6 +99,20 @@ export default function WorkPoolFuentesEntrada({
   }, [showBriefsPortal])
 
   const loading = loadingTablero || (showBriefsPortal && loadingExtras)
+  const totalEntradas = tablero.length + (showBriefsPortal ? briefs.length + pedidos.length : 0)
+
+  const tabItems = useMemo(
+    () => [
+      { id: 'tablero' as const, label: colaLabel, count: tablero.length, icon: LayoutGrid },
+      ...(showBriefsPortal
+        ? [
+            { id: 'briefs' as const, label: 'Briefs', count: briefs.length, icon: FileText },
+            { id: 'pedidos' as const, label: 'Portal', count: pedidos.length, icon: ShoppingBag }
+          ]
+        : [])
+    ],
+    [colaLabel, tablero.length, briefs.length, pedidos.length, showBriefsPortal]
+  )
 
   const aplicarDesdeDetalle = (
     detail: WorkPoolFuenteDetail,
@@ -132,54 +153,70 @@ export default function WorkPoolFuentesEntrada({
   return (
     <section className="work-pool-fuentes" aria-label="Fuentes de trabajo">
       <header className="work-pool-fuentes__head">
-        <div>
+        <div className="work-pool-fuentes__head-copy">
+          <p className="work-pool-fuentes__eyebrow">
+            <Sparkles size={14} aria-hidden />
+            Pipeline de publicación
+          </p>
           <h4>Entradas de trabajo</h4>
           <p>
             {showBriefsPortal
-              ? `OPs del tablero (${colaLabel}), briefs pendientes y pedidos del portal de clientes.`
-              : `OPs del tablero de ${colaLabel} — instalaciones o metalúrgica según el sector elegido arriba.`}
+              ? `OPs en ${colaLabel}, briefs sin OP y pedidos del portal — elegí una fuente para publicar o asignar.`
+              : `OPs del tablero ${colaLabel} listas para bolsa o asignación directa.`}
           </p>
         </div>
-        <div className="work-pool-fuentes__tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'tablero'}
-            className={tab === 'tablero' ? 'is-active' : ''}
-            onClick={() => setTab('tablero')}
-          >
-            {colaLabel} <span>{tablero.length}</span>
-          </button>
-          {showBriefsPortal && (
-            <>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'briefs'}
-                className={tab === 'briefs' ? 'is-active' : ''}
-                onClick={() => setTab('briefs')}
-              >
-                Briefs <span>{briefs.length}</span>
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'pedidos'}
-                className={tab === 'pedidos' ? 'is-active' : ''}
-                onClick={() => setTab('pedidos')}
-              >
-                Portal <span>{pedidos.length}</span>
-              </button>
-            </>
-          )}
+        <div className="work-pool-fuentes__total" aria-label={`${totalEntradas} entradas en total`}>
+          <span className="work-pool-fuentes__total-value">{totalEntradas}</span>
+          <span className="work-pool-fuentes__total-label">pendientes</span>
         </div>
       </header>
 
+      <div className="work-pool-fuentes__stats" role="group" aria-label="Resumen por fuente">
+        {tabItems.map((item) => {
+          const Icon = item.icon
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`work-pool-fuentes__stat${tab === item.id ? ' is-active' : ''}`}
+              onClick={() => setTab(item.id)}
+            >
+              <span className="work-pool-fuentes__stat-icon" aria-hidden>
+                <Icon size={18} />
+              </span>
+              <span className="work-pool-fuentes__stat-body">
+                <strong>{item.count}</strong>
+                <span>{item.label}</span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="work-pool-fuentes__tabs" role="tablist" aria-label="Filtrar fuente">
+        {tabItems.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            className={tab === item.id ? 'is-active' : ''}
+            onClick={() => setTab(item.id)}
+          >
+            {item.label} <span>{item.count}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="work-pool-fuentes__body">
       {loading ? (
-        <p className="work-pool-publicar__muted">Cargando fuentes…</p>
+        <div className="work-pool-fuentes__loading">
+          <span className="work-pool-fuentes__loading-dot" aria-hidden />
+          Cargando fuentes…
+        </div>
       ) : tab === 'tablero' ? (
         tablero.length === 0 ? (
-          <p className="work-pool-publicar__muted">
+          <p className="work-pool-fuentes__empty">
             No hay OPs en la columna {colaLabel} del tablero.
           </p>
         ) : (
@@ -191,20 +228,25 @@ export default function WorkPoolFuentesEntrada({
                 className="work-pool-fuentes__card work-pool-fuentes__card--tablero"
                 onClick={() => setFuenteDetail({ kind: 'op', orden: op })}
               >
-                <span className="work-pool-fuentes__card-tag">Tablero</span>
-                <strong>OP {op.numero_op}</strong>
-                <span>{op.cliente}</span>
-                {op.descripcion ? <small>{resumen(op.descripcion)}</small> : null}
-                {(op.brief_publico || op.objetivo_proyecto) && (
-                  <em className="work-pool-fuentes__brief-hint">Incluye brief</em>
-                )}
+                <div className="work-pool-fuentes__card-top">
+                  <span className="work-pool-fuentes__card-tag">Tablero</span>
+                  {(op.brief_publico || op.objetivo_proyecto) && (
+                    <span className="work-pool-fuentes__brief-hint">Brief</span>
+                  )}
+                  <ChevronRight size={16} className="work-pool-fuentes__card-chev" aria-hidden />
+                </div>
+                <strong className="work-pool-fuentes__card-title">OP {op.numero_op}</strong>
+                <span className="work-pool-fuentes__card-client">{op.cliente}</span>
+                {op.descripcion ? (
+                  <small className="work-pool-fuentes__card-desc">{resumen(op.descripcion, 72)}</small>
+                ) : null}
               </button>
             ))}
           </div>
         )
       ) : tab === 'briefs' ? (
         briefs.length === 0 ? (
-          <p className="work-pool-publicar__muted">No hay briefs pendientes sin OP.</p>
+          <p className="work-pool-fuentes__empty">No hay briefs pendientes sin OP.</p>
         ) : (
           <div className="work-pool-fuentes__grid">
             {briefs.map((b) => {
@@ -218,18 +260,23 @@ export default function WorkPoolFuentesEntrada({
                   className="work-pool-fuentes__card work-pool-fuentes__card--brief"
                   onClick={() => setFuenteDetail({ kind: 'brief', brief: b })}
                 >
-                  <span className="work-pool-fuentes__card-tag">Brief</span>
-                  {b.es_urgencia ? <span className="work-pool-fuentes__urgente">Urgente</span> : null}
-                  <strong>{cliente}</strong>
-                  {texto ? <small>{resumen(texto, 90)}</small> : null}
-                  <em>{new Date(b.fecha_creacion).toLocaleDateString('es-AR')}</em>
+                  <div className="work-pool-fuentes__card-top">
+                    <span className="work-pool-fuentes__card-tag">Brief</span>
+                    {b.es_urgencia ? <span className="work-pool-fuentes__urgente">Urgente</span> : null}
+                    <ChevronRight size={16} className="work-pool-fuentes__card-chev" aria-hidden />
+                  </div>
+                  <strong className="work-pool-fuentes__card-title">{cliente}</strong>
+                  {texto ? <small className="work-pool-fuentes__card-desc">{resumen(texto, 90)}</small> : null}
+                  <em className="work-pool-fuentes__card-meta">
+                    {new Date(b.fecha_creacion).toLocaleDateString('es-AR')}
+                  </em>
                 </button>
               )
             })}
           </div>
         )
       ) : pedidos.length === 0 ? (
-        <p className="work-pool-publicar__muted">No hay pedidos del portal pendientes de convertir.</p>
+        <p className="work-pool-fuentes__empty">No hay pedidos del portal pendientes de convertir.</p>
       ) : (
         <div className="work-pool-fuentes__grid">
           {pedidos.map((p) => {
@@ -247,17 +294,23 @@ export default function WorkPoolFuentesEntrada({
                 className="work-pool-fuentes__card work-pool-fuentes__card--pedido"
                 onClick={() => setFuenteDetail({ kind: 'pedido', pedido: p })}
               >
-                <span className="work-pool-fuentes__card-tag">Portal</span>
-                {p.es_urgente ? <span className="work-pool-fuentes__urgente">Urgente</span> : null}
-                <strong>{p.numero_pedido}</strong>
-                <span>{cliente}</span>
-                {texto ? <small>{resumen(texto, 90)}</small> : null}
-                <em>{p.tipo_producto_servicio?.join(', ') || p.estado}</em>
+                <div className="work-pool-fuentes__card-top">
+                  <span className="work-pool-fuentes__card-tag">Portal</span>
+                  {p.es_urgente ? <span className="work-pool-fuentes__urgente">Urgente</span> : null}
+                  <ChevronRight size={16} className="work-pool-fuentes__card-chev" aria-hidden />
+                </div>
+                <strong className="work-pool-fuentes__card-title">{p.numero_pedido}</strong>
+                <span className="work-pool-fuentes__card-client">{cliente}</span>
+                {texto ? <small className="work-pool-fuentes__card-desc">{resumen(texto, 90)}</small> : null}
+                <em className="work-pool-fuentes__card-meta">
+                  {p.tipo_producto_servicio?.join(', ') || p.estado}
+                </em>
               </button>
             )
           })}
         </div>
       )}
+      </div>
 
       {fuenteDetail && (
         <WorkPoolFuenteDetailModal

@@ -202,10 +202,25 @@ export type WorkPoolOrdenSugerida = {
   id_pedido_cliente?: number | null
 }
 
+export type WorkPoolBajaRegistro = {
+  id: number
+  id_usuario: number
+  nombre: string
+  rol: string | null
+  motivo: string
+  tipo_desvinculacion: string | null
+  fecha_desvinculacion: string | null
+  observaciones: string | null
+  registrado_por: number | null
+  created_at: string
+}
+
 export type WorkPoolAdminDashboard = {
   kpis: WorkPoolAdminKpis
   resumen_sectores: WorkPoolResumenSector[]
   freelancers: WorkPoolFreelancerResumen[]
+  /** Historial de diseñadores/operarios dados de baja (no aparecen en listas activas). */
+  dados_de_baja: WorkPoolBajaRegistro[]
   pendientes_revision: WorkPoolJob[]
   /** Trabajos publicados en bolsa (estado disponible). */
   publicados_bolsa: WorkPoolJob[]

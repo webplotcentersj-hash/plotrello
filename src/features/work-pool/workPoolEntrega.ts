@@ -37,3 +37,16 @@ export function jobEntregaDriveUrl(job: WorkPoolJob): string | null {
   if (m && isValidDriveUrl(m[0])) return normalizeDriveUrl(m[0])
   return null
 }
+
+/** URL legible para mostrar en cards (host + path truncado). */
+export function shortDriveUrl(url: string, max = 52): string {
+  try {
+    const u = new URL(url)
+    const host = u.hostname.replace(/^www\./i, '')
+    const path = u.pathname === '/' ? '' : u.pathname
+    const compact = `${host}${path}${u.search}`
+    return compact.length <= max ? compact : `${compact.slice(0, max - 1)}…`
+  } catch {
+    return url.length <= max ? url : `${url.slice(0, max - 1)}…`
+  }
+}

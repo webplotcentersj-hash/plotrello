@@ -2,6 +2,7 @@ import { supabase } from '../../services/supabaseClient'
 import type { MensajePedidoClienteRecord } from '../../types/api'
 import type {
   WorkPoolAdminDashboard,
+  WorkPoolBajaRegistro,
   WorkPoolFreelancerResumen,
   WorkPoolJob,
   WorkPoolJobAvance,
@@ -25,7 +26,7 @@ import {
   fallbackNombreSinEmail,
   nombreCompletoLegajo
 } from '../../utils/usuarioDisplayName'
-import { sectorsForProduct, operarioExternoRolForProduct } from './workPoolConfig'
+import { sectorsForProduct, operarioExternoRolForProduct, operarioRolForProduct } from './workPoolConfig'
 import {
   generarPasswordPlotPhi,
   loginPlotPhiIdentidad
@@ -1145,24 +1146,83 @@ async function applyFotosToFreelancers(
   }
 }
 
-/** Saca del listado de afines a usuarios dados de baja (evita duplicados con login nuevo). */
+/**
+ * Saca del listado operativo a usuarios dados de baja.
+ * Importante: si RLS oculta filas inactivas, esas IDs no vienen en el SELECT —
+ * hay que eliminarlas igual (antes se dejaban y reaparecían en el dashboard).
+ */
 async function pruneInactiveFreelancers(
   freelancerMap: Map<number, WorkPoolFreelancerResumen>
-): Promise<void> {
-  if (!supabase || freelancerMap.size === 0) return
+): Promise<Set<number>> {
+  const pruned = new Set<number>()
+  if (!supabase || freelancerMap.size === 0) return pruned
   const ids = [...freelancerMap.keys()]
-  const { data } = await supabase.from('usuarios').select('id, activo').in('id', ids)
-  if (!data) return
+  const { data, error } = await supabase.from('usuarios').select('id, activo').in('id', ids)
+  if (error) {
+    console.warn('[work-pool] pruneInactiveFreelancers:', error.message)
+    return pruned
+  }
   const activoPorId = new Map<number, boolean>()
-  for (const row of data) {
-    activoPorId.set(Number((row as { id: number }).id), Boolean((row as { activo?: boolean }).activo))
+  for (const row of data ?? []) {
+    activoPorId.set(Number((row as { id: number }).id), (row as { activo?: boolean }).activo !== false)
   }
   for (const id of ids) {
-    // Si no aparece en usuarios, dejarlo; si activo=false, sacar.
-    if (activoPorId.has(id) && activoPorId.get(id) === false) {
-      freelancerMap.delete(id)
-    }
+    // Solo quedan los explícitamente activos. Ausentes o activo=false = baja.
+    if (activoPorId.get(id) === true) continue
+    freelancerMap.delete(id)
+    pruned.add(id)
   }
+  return pruned
+}
+
+/** Última baja formal por usuario, filtrada a roles del producto. */
+async function loadDadosDeBajaForProduct(
+  product?: WorkPoolProduct
+): Promise<WorkPoolBajaRegistro[]> {
+  if (!supabase) return []
+  const roles = product ? operarioRolForProduct(product) : null
+  let query = supabase
+    .from('usuarios_bajas_log')
+    .select(
+      'id, id_usuario, nombre_snapshot, motivo, registrado_por, created_at, fecha_desvinculacion, tipo_desvinculacion, observaciones_finales, rol_snapshot'
+    )
+    .order('created_at', { ascending: false })
+    .limit(80)
+
+  if (roles && roles.length > 0) {
+    query = query.in('rol_snapshot', roles)
+  }
+
+  const { data, error } = await query
+  if (error || !data) return []
+
+  // Una entrada por usuario (la más reciente)
+  const seen = new Set<number>()
+  const out: WorkPoolBajaRegistro[] = []
+  for (const row of data) {
+    const idUsuario = Number((row as { id_usuario: number }).id_usuario)
+    if (!idUsuario || seen.has(idUsuario)) continue
+    seen.add(idUsuario)
+    out.push({
+      id: Number((row as { id: number }).id),
+      id_usuario: idUsuario,
+      nombre: String((row as { nombre_snapshot?: string }).nombre_snapshot ?? `Usuario #${idUsuario}`),
+      rol: (row as { rol_snapshot?: string | null }).rol_snapshot ?? null,
+      motivo: String((row as { motivo?: string }).motivo ?? ''),
+      tipo_desvinculacion: (row as { tipo_desvinculacion?: string | null }).tipo_desvinculacion ?? null,
+      fecha_desvinculacion:
+        (row as { fecha_desvinculacion?: string | null }).fecha_desvinculacion != null
+          ? String((row as { fecha_desvinculacion: string }).fecha_desvinculacion)
+          : null,
+      observaciones: (row as { observaciones_finales?: string | null }).observaciones_finales ?? null,
+      registrado_por:
+        (row as { registrado_por?: number | null }).registrado_por != null
+          ? Number((row as { registrado_por: number }).registrado_por)
+          : null,
+      created_at: String((row as { created_at: string }).created_at)
+    })
+  }
+  return out
 }
 
 /** Promedio de encuesta de entrega (cliente) por OPs asignadas a cada freelancer. */
@@ -1559,7 +1619,7 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
   const nombresFinal = await fetchUsuarioNombres([...freelancerMap.keys()])
   applyNombresToFreelancers(freelancerMap, nombresFinal)
   await applyFotosToFreelancers(freelancerMap)
-  await pruneInactiveFreelancers(freelancerMap)
+  const inactiveIds = await pruneInactiveFreelancers(freelancerMap)
   await applyValoracionesClienteToFreelancers(freelancerMap, jobs)
 
   const saldoResults = await Promise.all(
@@ -1585,22 +1645,31 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
   const nombrePorId = new Map<number, string>()
   for (const f of freelancers) nombrePorId.set(f.id_usuario, f.nombre)
   for (const [id, nom] of nombresFinal) {
+    if (inactiveIds.has(id)) continue
     if (!nombrePorId.has(id) || nombrePorId.get(id)?.startsWith('Operario #')) {
       nombrePorId.set(id, nom)
     }
   }
-  // Assignees de jobs que no estén en freelancers (p. ej. staff)
+  // Assignees de jobs que no estén en freelancers (p. ej. staff) — solo activos
   const assigneeIds = [
     ...new Set(
       jobs
         .map((j) => j.id_usuario_asignado)
-        .filter((id): id is number => id != null && id > 0 && !nombrePorId.has(id))
+        .filter(
+          (id): id is number =>
+            id != null && id > 0 && !nombrePorId.has(id) && !inactiveIds.has(id)
+        )
     )
   ]
   if (assigneeIds.length > 0) {
     const extra = await fetchUsuarioNombres(assigneeIds)
-    for (const [id, nom] of extra) nombrePorId.set(id, nom)
+    for (const [id, nom] of extra) {
+      if (inactiveIds.has(id)) continue
+      nombrePorId.set(id, nom)
+    }
   }
+
+  const dadosDeBaja = await loadDadosDeBajaForProduct(product)
 
   // KPIs operativos desde jobs (misma fuente que la UI); deuda financiera desde ledger/resumen.
   const jobsAbiertos = jobs.filter((j) => j.estado !== 'aprobado' && j.estado !== 'cancelado')
@@ -1657,6 +1726,10 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
     })
     .sort((a, b) => a.sector.localeCompare(b.sector))
 
+  const jobsActivosSolo = jobs.filter(
+    (j) => !j.id_usuario_asignado || !inactiveIds.has(j.id_usuario_asignado)
+  )
+
   return {
     success: true,
     data: {
@@ -1673,12 +1746,15 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
       },
       resumen_sectores: resumenUnificado,
       freelancers,
-      pendientes_revision: jobs.filter((j) => j.estado === 'entregado' || j.estado === 'en_revision'),
+      dados_de_baja: dadosDeBaja,
+      pendientes_revision: jobsActivosSolo.filter(
+        (j) => j.estado === 'entregado' || j.estado === 'en_revision'
+      ),
       publicados_bolsa: jobs
         .filter((j) => j.estado === 'disponible')
         .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at))),
       jobs_recientes: jobs.slice(0, 40),
-      avances_por_operario: buildAvancesPorOperario(jobs, nombrePorId)
+      avances_por_operario: buildAvancesPorOperario(jobsActivosSolo, nombrePorId)
     }
   }
 }
