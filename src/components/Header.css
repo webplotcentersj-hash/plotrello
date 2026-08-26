@@ -499,6 +499,18 @@
   box-sizing: border-box;
 }
 
+a.header-user-chip--link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+a.header-user-chip--link:hover {
+  border-color: rgba(147, 197, 253, 0.45);
+  background: rgba(47, 129, 247, 0.15);
+  transform: translateY(-1px);
+}
+
 .user-avatar {
   width: 32px;
   height: 32px;

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { buildHeaderQuickNavItems } from '../utils/headerQuickNav'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
+import { canVerActividadesOperarios } from '../features/work-pool/workPoolOperarioNotas'
 import { useCampoSectorMode } from '../hooks/useCampoSectorMode'
 import { useDmMensajeriaUnread } from '../hooks/useDmMensajeriaUnread'
 import { useHeaderQuickNavBadges } from '../hooks/useHeaderQuickNavBadges'
@@ -100,6 +101,7 @@ const Header = ({
     dmMensajeriaUnread > 0 && !!onNavigateToMensajeria && location.pathname !== '/mensajeria'
   const isAdmin = isAdminProp || isAdminFromAuth
   const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
+  const canVerPanelActividadesOperarios = canVerActividadesOperarios(usuario)
   const quickNavBadges = useHeaderQuickNavBadges()
   const [actionsOpen, setActionsOpen] = useState(false)
 
@@ -531,15 +533,31 @@ const Header = ({
             </div>
           </div>
           {currentUserName && (
-            <div className="user-chip header-user-chip" title="Usuario conectado">
-              <div className="user-avatar">
-                {currentUserName.slice(0, 1).toUpperCase()}
+            canVerPanelActividadesOperarios ? (
+              <Link
+                to="/actividades-operarios"
+                className="user-chip header-user-chip header-user-chip--link"
+                title="Ver actividades de operarios"
+              >
+                <div className="user-avatar">
+                  {currentUserName.slice(0, 1).toUpperCase()}
+                </div>
+                <div className="user-meta">
+                  <span>Conectado · Actividades</span>
+                  <strong>{currentUserName}</strong>
+                </div>
+              </Link>
+            ) : (
+              <div className="user-chip header-user-chip" title="Usuario conectado">
+                <div className="user-avatar">
+                  {currentUserName.slice(0, 1).toUpperCase()}
+                </div>
+                <div className="user-meta">
+                  <span>Conectado</span>
+                  <strong>{currentUserName}</strong>
+                </div>
               </div>
-              <div className="user-meta">
-                <span>Conectado</span>
-                <strong>{currentUserName}</strong>
-              </div>
-            </div>
+            )
           )}
         </div>
         </div>

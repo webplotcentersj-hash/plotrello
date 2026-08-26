@@ -4,6 +4,7 @@ import {
   CheckSquare,
   ClipboardList,
   NotebookPen,
+  Paperclip,
   Plus,
   Search,
   StickyNote,
@@ -11,10 +12,12 @@ import {
   X
 } from 'lucide-react'
 import type { WorkPoolAsociacionBusqueda, WorkPoolJob, WorkPoolOperarioNota, WorkPoolOperarioNotaTipo } from '../../types/workPool'
+import { uploadAttachmentAndGetUrl } from '../../utils/storage'
 import {
   buscarAsociacionesOperario,
   crearOperarioNota,
   eliminarOperarioNota,
+  formatHorarioNota,
   listarOperarioNotas,
   toggleOperarioChecklist
 } from './workPoolOperarioNotas'
@@ -63,6 +66,10 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
   const [assocQ, setAssocQ] = useState('')
   const [assocHits, setAssocHits] = useState<WorkPoolAsociacionBusqueda[]>([])
   const [assoc, setAssoc] = useState<WorkPoolAsociacionBusqueda | null>(null)
+  const [horaInicio, setHoraInicio] = useState('')
+  const [horaFin, setHoraFin] = useState('')
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
 
   const jobsActivos = useMemo(
     () =>
@@ -120,28 +127,63 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
       setError('Asociá un trabajo, OP o venta')
       return
     }
-    setSaving(true)
-    setError('')
-    const res = await crearOperarioNota({
-      id_usuario: idUsuario,
-      tipo: tab,
-      detalle,
-      titulo: tab === 'checklist' ? detalle.slice(0, 80) : undefined,
-      id_job: jobId === '' ? null : Number(jobId),
-      numero_op: assoc?.kind === 'op' ? assoc.numero_op ?? assoc.label : assoc?.numero_op ?? null,
-      id_venta: assoc?.kind === 'venta' ? assoc.id_venta ?? assoc.id : null,
-      numero_venta: assoc?.kind === 'venta' ? assoc.numero_venta ?? assoc.label : null,
-      id_oportunidad: assoc?.kind === 'oportunidad' ? assoc.id_oportunidad ?? assoc.id : null,
-      numero_oportunidad:
-        assoc?.kind === 'oportunidad' ? assoc.numero_oportunidad ?? assoc.label : null
-    })
-    setSaving(false)
-    if (!res.success) {
-      setError(res.error || 'No se pudo guardar')
+    if (horaFin && !horaInicio) {
+      setError('Indicá hora de inicio')
       return
     }
-    setTexto('')
-    void load()
+    if (horaInicio && horaFin && horaFin <= horaInicio) {
+      setError('La hora de fin debe ser posterior al inicio')
+      return
+    }
+    setSaving(true)
+    setUploading(tab === 'bitacora' && pendingFiles.length > 0)
+    setError('')
+    try {
+      const adjuntos =
+        tab === 'bitacora' && pendingFiles.length > 0
+          ? await Promise.all(
+              pendingFiles.map(async (file) => {
+                const url = await uploadAttachmentAndGetUrl(file, 'work-pool-bitacora')
+                return {
+                  nombre: file.name,
+                  url,
+                  mime: file.type || null,
+                  size: file.size
+                }
+              })
+            )
+          : []
+      const res = await crearOperarioNota({
+        id_usuario: idUsuario,
+        tipo: tab,
+        detalle,
+        titulo: tab === 'checklist' ? detalle.slice(0, 80) : undefined,
+        id_job: jobId === '' ? null : Number(jobId),
+        numero_op: assoc?.kind === 'op' ? assoc.numero_op ?? assoc.label : assoc?.numero_op ?? null,
+        id_venta: assoc?.kind === 'venta' ? assoc.id_venta ?? assoc.id : null,
+        numero_venta: assoc?.kind === 'venta' ? assoc.numero_venta ?? assoc.label : null,
+        id_oportunidad: assoc?.kind === 'oportunidad' ? assoc.id_oportunidad ?? assoc.id : null,
+        numero_oportunidad:
+          assoc?.kind === 'oportunidad' ? assoc.numero_oportunidad ?? assoc.label : null,
+        adjuntos,
+        hora_inicio: horaInicio || null,
+        hora_fin: horaFin || null
+      })
+      if (!res.success) {
+        setError(res.error || 'No se pudo guardar')
+        return
+      }
+      setTexto('')
+      setHoraInicio('')
+      setHoraFin('')
+      setPendingFiles([])
+      void load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al subir archivos')
+    } finally {
+      setSaving(false)
+      setUploading(false)
+    }
   }
 
   const panel = open ? (
@@ -258,6 +300,60 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
           />
         </label>
 
+        <div className="wp-notas-fab__horario-row">
+          <label className="wp-notas-fab__field wp-notas-fab__field--inline">
+            Hora inicio
+            <input
+              type="time"
+              value={horaInicio}
+              onChange={(e) => setHoraInicio(e.target.value)}
+            />
+          </label>
+          <label className="wp-notas-fab__field wp-notas-fab__field--inline">
+            Hora fin
+            <input
+              type="time"
+              value={horaFin}
+              onChange={(e) => setHoraFin(e.target.value)}
+            />
+          </label>
+        </div>
+
+        {tab === 'bitacora' ? (
+          <label className="wp-notas-fab__field">
+            Documentos adjuntos
+            <div className="wp-notas-fab__file-row">
+              <Paperclip size={14} aria-hidden />
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.zip"
+                onChange={(e) => {
+                  const files = e.target.files ? [...e.target.files] : []
+                  if (files.length) setPendingFiles((prev) => [...prev, ...files])
+                  e.target.value = ''
+                }}
+              />
+            </div>
+            {pendingFiles.length > 0 ? (
+              <ul className="wp-notas-fab__pending-files">
+                {pendingFiles.map((f, i) => (
+                  <li key={`${f.name}-${i}`}>
+                    <span>{f.name}</span>
+                    <button
+                      type="button"
+                      aria-label="Quitar archivo"
+                      onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </label>
+        ) : null}
+
         {error ? <p className="wp-notas-fab__error">{error}</p> : null}
 
         <button
@@ -267,7 +363,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
           onClick={() => void handleAdd()}
         >
           <Plus size={16} aria-hidden />
-          {saving ? 'Guardando…' : 'Agregar'}
+          {uploading ? 'Subiendo…' : saving ? 'Guardando…' : 'Agregar'}
         </button>
       </div>
 
@@ -300,10 +396,24 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
                 ) : null}
                 <div className="wp-notas-fab__item-meta">
                   <span>{formatWhen(n.created_at)}</span>
+                  {formatHorarioNota(n.hora_inicio, n.hora_fin) ? (
+                    <span>{formatHorarioNota(n.hora_inicio, n.hora_fin)}</span>
+                  ) : null}
                   {asociacionChips(n).map((c) => (
                     <span key={c}>{c}</span>
                   ))}
                 </div>
+                {n.adjuntos.length > 0 ? (
+                  <ul className="wp-notas-fab__adjuntos">
+                    {n.adjuntos.map((a) => (
+                      <li key={a.url}>
+                        <a href={a.url} target="_blank" rel="noopener noreferrer">
+                          {a.nombre}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
               <button
                 type="button"

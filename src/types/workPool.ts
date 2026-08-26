@@ -204,6 +204,13 @@ export type WorkPoolOrdenSugerida = {
 
 export type WorkPoolOperarioNotaTipo = 'bitacora' | 'anotador' | 'checklist'
 
+export type WorkPoolOperarioNotaAdjunto = {
+  nombre: string
+  url: string
+  mime?: string | null
+  size?: number | null
+}
+
 export type WorkPoolOperarioNota = {
   id: number
   id_usuario: number
@@ -218,9 +225,42 @@ export type WorkPoolOperarioNota = {
   numero_venta: string | null
   id_oportunidad: number | null
   numero_oportunidad: string | null
+  adjuntos: WorkPoolOperarioNotaAdjunto[]
+  hora_inicio: string | null
+  hora_fin: string | null
   created_at: string
   updated_at: string
   usuario_nombre?: string | null
+}
+
+export type WorkPoolOperarioNotasEstadisticas = {
+  periodo_dias: number
+  totales: {
+    total: number
+    bitacora: number
+    checklist: number
+    anotador: number
+    checklist_hechos: number
+    con_adjuntos: number
+    con_horario: number
+    minutos_registrados: number
+  }
+  por_operario: Array<{
+    id_usuario: number
+    nombre: string
+    total: number
+    bitacora: number
+    checklist: number
+    anotador: number
+    checklist_hechos: number
+    minutos_registrados: number
+  }>
+  por_dia: Array<{
+    fecha: string
+    total: number
+    bitacora: number
+    checklist: number
+  }>
 }
 
 export type WorkPoolAsociacionBusqueda = {

@@ -93,6 +93,7 @@ const MenuDiarioPage = lazy(() => import('../pages/MenuDiarioPage'))
 const MenuOnlyPage = lazy(() => import('../pages/MenuOnlyPage'))
 const AdminHomePage = lazy(() => import('../pages/AdminHomePage'))
 const AdminActividadUsuariosPage = lazy(() => import('../pages/AdminActividadUsuariosPage'))
+const ActividadesOperariosPage = lazy(() => import('../pages/ActividadesOperariosPage'))
 const CRMVentasPage = lazy(() => import('../pages/CRMVentasPage'))
 const ReportesVentasPage = lazy(() => import('../pages/ReportesVentasPage'))
 const FlotaPage = lazy(() => import('../pages/FlotaPage'))
@@ -894,6 +895,7 @@ function AppRoutes({
         }
       />
       <Route path="/admin/actividad-usuarios" element={<AdminActividadUsuariosPage />} />
+      <Route path="/actividades-operarios" element={<ActividadesOperariosPage />} />
       <Route
         path="/kanban-etapas/:slug"
         element={

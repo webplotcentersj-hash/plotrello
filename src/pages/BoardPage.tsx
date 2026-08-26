@@ -21,6 +21,7 @@ const TaskCreateModal = lazy(() => import('../components/TaskCreateModal'))
 const SprintOptimizerModal = lazy(() => import('../components/SprintOptimizerModal'))
 const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
 import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
+import WorkPoolOperarioNotasFab from '../features/work-pool/WorkPoolOperarioNotasFab'
 import InsightsToolsMenu from '../components/InsightsToolsMenu'
 import EntregasCobroPanel from '../components/EntregasCobroPanel'
 import EntregasSinRetiroPanel from '../components/EntregasSinRetiroPanel'
@@ -1729,6 +1730,10 @@ const BoardPage = ({
           />
         </Suspense>
       )}
+
+      {usuario?.id ? (
+        <WorkPoolOperarioNotasFab idUsuario={usuario.id} jobs={[]} variant="admin" />
+      ) : null}
     </div>
   )
 }

@@ -8,7 +8,7 @@ import {
   loadWorkPoolJobDetalleOperario,
   type WorkPoolJobDetalleOperario
 } from './workPoolRepository'
-import { listarOperarioNotasJob } from './workPoolOperarioNotas'
+import { listarOperarioNotasJob, formatHorarioNota } from './workPoolOperarioNotas'
 import { shortDriveUrl } from './workPoolEntrega'
 import type { WorkPoolOperarioNota } from '../../types/workPool'
 import './WorkPoolJobDetalleModal.css'
@@ -247,6 +247,9 @@ export default function WorkPoolJobDetalleModal({
                         <div className="wp-job-detalle__bitacora-top">
                           <span className="wp-job-detalle__bitacora-tipo">{n.tipo}</span>
                           <span>{formatDate(n.created_at)}</span>
+                          {formatHorarioNota(n.hora_inicio, n.hora_fin) ? (
+                            <span>{formatHorarioNota(n.hora_inicio, n.hora_fin)}</span>
+                          ) : null}
                           {n.hecho ? <span>Hecho</span> : null}
                         </div>
                         <p>{n.titulo || n.detalle}</p>
@@ -261,6 +264,17 @@ export default function WorkPoolJobDetalleModal({
                               .join(' · ')}
                           </small>
                         )}
+                        {n.adjuntos.length > 0 ? (
+                          <ul className="wp-job-detalle__bitacora-adj">
+                            {n.adjuntos.map((a) => (
+                              <li key={a.url}>
+                                <a href={a.url} target="_blank" rel="noopener noreferrer">
+                                  {a.nombre}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
