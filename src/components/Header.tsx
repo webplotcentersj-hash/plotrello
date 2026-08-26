@@ -543,7 +543,7 @@ const Header = ({
                   {currentUserName.slice(0, 1).toUpperCase()}
                 </div>
                 <div className="user-meta">
-                  <span>Conectado · Actividades</span>
+                  <span>Actividades operarios</span>
                   <strong>{currentUserName}</strong>
                 </div>
               </Link>

@@ -194,6 +194,12 @@ export type WorkPoolNotaSupervision = WorkPoolOperarioNota & {
   usuario_rol?: string | null
   job_titulo?: string | null
   job_estado?: string | null
+  id_legajo?: number | null
+}
+
+export type WorkPoolNotaLegajo = WorkPoolOperarioNota & {
+  job_titulo?: string | null
+  job_estado?: string | null
 }
 
 /** Admin / gerencia / Alejandro Chávez (id 6). */
@@ -214,13 +220,15 @@ export function canVerActividadesOperarios(usuario: {
 export async function listarNotasSupervisionOperarios(opts: {
   id_actor: number
   id_operario?: number | null
+  fecha?: string | null
   limit?: number
 }): Promise<{ success: boolean; data?: WorkPoolNotaSupervision[]; error?: string }> {
   if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
   const { data, error } = await supabase.rpc('work_pool_operario_notas_supervision', {
     p_id_actor: opts.id_actor,
     p_limit: opts.limit ?? 120,
-    p_id_operario: opts.id_operario ?? null
+    p_id_operario: opts.id_operario ?? null,
+    p_fecha: opts.fecha ?? null
   })
   if (error) return { success: false, error: error.message }
   const rows = Array.isArray(data) ? data : []
@@ -231,6 +239,35 @@ export async function listarNotasSupervisionOperarios(opts: {
       return {
         ...mapNota(row),
         usuario_rol: (row.usuario_rol as string) ?? null,
+        job_titulo: (row.job_titulo as string) ?? null,
+        job_estado: (row.job_estado as string) ?? null,
+        id_legajo: row.id_legajo != null ? Number(row.id_legajo) : null
+      }
+    })
+  }
+}
+
+export async function listarNotasLegajoOperario(opts: {
+  id_actor: number
+  id_usuario: number
+  fecha?: string | null
+  limit?: number
+}): Promise<{ success: boolean; data?: WorkPoolNotaLegajo[]; error?: string }> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+  const { data, error } = await supabase.rpc('work_pool_operario_notas_legajo', {
+    p_id_actor: opts.id_actor,
+    p_id_usuario: opts.id_usuario,
+    p_fecha: opts.fecha ?? null,
+    p_limit: opts.limit ?? 80
+  })
+  if (error) return { success: false, error: error.message }
+  const rows = Array.isArray(data) ? data : []
+  return {
+    success: true,
+    data: rows.map((r) => {
+      const row = r as Record<string, unknown>
+      return {
+        ...mapNota(row),
         job_titulo: (row.job_titulo as string) ?? null,
         job_estado: (row.job_estado as string) ?? null
       }

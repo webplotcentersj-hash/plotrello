@@ -1,0 +1,114 @@
+.legajo-act-plot__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.legajo-act-plot__head p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #64748b;
+}
+
+.legajo-act-plot__link {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.legajo-act-plot__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legajo-act-plot__list li {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.legajo-act-plot__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.legajo-act-plot__tipo--bitacora {
+  color: #059669;
+}
+
+.legajo-act-plot__tipo--checklist {
+  color: #2563eb;
+}
+
+.legajo-act-plot__tipo--anotador {
+  color: #d97706;
+}
+
+.legajo-act-plot__hecho {
+  color: #059669;
+}
+
+.legajo-act-plot__list p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.legajo-act-plot__list small {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.legajo-act-plot__refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.legajo-act-plot__adj {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.legajo-act-plot__adj a {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.legajo-act-plot--muted {
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.legajo-act-plot__error {
+  color: #dc2626;
+  font-weight: 700;
+}

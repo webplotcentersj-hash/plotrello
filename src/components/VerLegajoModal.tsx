@@ -24,6 +24,7 @@ import LegajoTimeline from './LegajoTimeline'
 import LegajoCapacitacionesPanel from './LegajoCapacitacionesPanel'
 import LegajoPruebasPanel from './LegajoPruebasPanel'
 import LegajoNovedadesPanel from './LegajoNovedadesPanel'
+import LegajoActividadesPlotPanel from './LegajoActividadesPlotPanel'
 import { construirHojaVidaLaboral, type HojaVidaEvento } from '../utils/hojaVidaLaboral'
 import {
   calcularBenchmarkSectorColaborador,
@@ -39,6 +40,7 @@ type VerLegajoModalProps = {
   isOpen: boolean
   onClose: () => void
   onDarDeBaja?: () => void
+  initialTab?: LegajoTabId
 }
 
 type LegajoTabId =
@@ -51,6 +53,7 @@ type LegajoTabId =
   | 'permisos'
   | 'evaluaciones'
   | 'novedades'
+  | 'actividades_plot'
 
 type PruebaRow = {
   id: string
@@ -65,7 +68,7 @@ type ResultadoPayload = {
   asignaciones: { id_usuario?: number; aprobado?: boolean | null; puntaje_obtenido?: number | null; puntaje_maximo?: number | null; estado?: string }[]
 }
 
-const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModalProps) => {
+const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja, initialTab = 'legajo' }: VerLegajoModalProps) => {
   const { usuario: authUsuario, canManageRecursosHumanos } = useAuth()
   const puedeGestionarHojaVida =
     !!authUsuario && (canManageRecursosHumanos || authUsuario.rol === 'gerencia')
@@ -120,7 +123,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
 
   useEffect(() => {
     if (isOpen && usuario.id) {
-      setTab('legajo')
+      setTab(initialTab)
       setNovedadesRRHH([])
       setNovedadDetail(null)
       setNovBenchmark(null)
@@ -554,7 +557,8 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
     { id: 'pedidos', label: '🧾 Pedidos' },
     { id: 'permisos', label: '🗓️ Permisos' },
     { id: 'evaluaciones', label: '⭐ Evaluaciones' },
-    { id: 'novedades', label: '📌 Novedades RRHH' }
+    { id: 'novedades', label: '📌 Novedades RRHH' },
+    { id: 'actividades_plot', label: '📝 Actividades Plot' }
   ]
 
   return (
@@ -568,7 +572,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
       }}
     >
       <div
-        className={`ver-legajo-modal-content${tab === 'hoja_vida' || tab === 'pruebas' || tab === 'capacitaciones' || tab === 'novedades' ? ' ver-legajo-modal-content--wide' : ''}`}
+        className={`ver-legajo-modal-content${tab === 'hoja_vida' || tab === 'pruebas' || tab === 'capacitaciones' || tab === 'novedades' || tab === 'actividades_plot' ? ' ver-legajo-modal-content--wide' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="ver-legajo-modal-header">
@@ -893,6 +897,19 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja }: VerLegajoModa
                     benchmarkSector={novBenchmark}
                   />
                 )}
+              </div>
+            )}
+
+            {tab === 'actividades_plot' && (
+              <div className="ver-legajo-section">
+                <h3 className="ver-legajo-section-title">📝 Actividades Plot Lab</h3>
+                <p className="ver-legajo-hint">
+                  Bitácora, checklist y anotador del operario en Plot Design / bolsa creativa.{' '}
+                  <Link to="/actividades-operarios" className="ver-legajo-link" onClick={onClose}>
+                    Panel de supervisión
+                  </Link>
+                </p>
+                <LegajoActividadesPlotPanel idUsuario={usuario.id} />
               </div>
             )}
 

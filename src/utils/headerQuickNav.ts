@@ -1,4 +1,5 @@
 import type { Usuario } from '../hooks/useAuth'
+import { canVerActividadesOperarios } from '../features/work-pool/workPoolOperarioNotas'
 import { OPERARIO_EXTERNO_DASHBOARD } from '../features/work-pool/workPoolOperarioExterno'
 
 export type HeaderQuickNavItem = {
@@ -443,6 +444,16 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
       icon: '📞',
       onClick: ctx.onNavigateToAtencionPublico,
       title: 'Atención al público'
+    })
+  }
+
+  if (canVerActividadesOperarios(usuario)) {
+    push({
+      id: 'actividades-operarios',
+      label: 'Actividades',
+      icon: '📝',
+      href: '/actividades-operarios',
+      title: 'Bitácora, checklist y estadísticas de operarios'
     })
   }
 

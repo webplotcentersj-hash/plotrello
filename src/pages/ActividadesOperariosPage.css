@@ -1,7 +1,7 @@
 .act-op-page {
   min-height: 100vh;
   padding: 24px 20px 48px;
-  max-width: 960px;
+  max-width: 1100px;
   margin: 0 auto;
   color: #e2e8f0;
   background:
@@ -40,6 +40,12 @@
   font-size: 0.88rem;
   color: #94a3b8;
   max-width: 48ch;
+}
+
+.act-op-page__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .act-op-page__back {
@@ -257,6 +263,184 @@
 
 .act-op-card__adjuntos a:hover {
   background: rgba(59, 130, 246, 0.15);
+}
+
+.act-op-page__back:hover {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+.act-op-page__layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 280px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.act-op-page__aside {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: sticky;
+  top: 16px;
+}
+
+.act-op-page__today {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(37, 99, 235, 0.18);
+  color: #dbeafe;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.act-op-page__main {
+  min-width: 0;
+}
+
+.act-op-dia {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.act-op-dia__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.act-op-dia__head h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f8fafc;
+  text-transform: capitalize;
+}
+
+.act-op-dia__head p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #94a3b8;
+}
+
+.act-op-dia__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.act-op-dia__chips span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(11, 18, 32, 0.75);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #cbd5e1;
+}
+
+.act-op-stats--compact {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.act-op-stats__kpis--compact {
+  margin-bottom: 10px;
+}
+
+.act-op-stats__chart--compact ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.act-op-stats__day-btn {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 72px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 4px 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.act-op-stats__day-btn.is-active span:first-child {
+  color: #93c5fd;
+}
+
+.act-op-card__head > div h2 {
+  margin: 0;
+}
+
+.act-op-card__legajo {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.act-op-card__head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.act-op-card__legajo-btn {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(37, 99, 235, 0.18);
+  color: #dbeafe;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.act-op-card__item-btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.act-op-card__item-btn:hover p {
+  color: #93c5fd;
+}
+
+.act-op-card__op {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+@media (max-width: 860px) {
+  .act-op-page__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .act-op-page__aside {
+    position: static;
+  }
 }
 
 .act-op-page__filters label {

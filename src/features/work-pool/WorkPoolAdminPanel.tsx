@@ -22,6 +22,7 @@ import {
   Wrench
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { canVerActividadesOperarios } from './workPoolOperarioNotas'
 import type {
   WorkPoolAdminDashboard,
   WorkPoolBajaRegistro,
@@ -110,6 +111,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { usuario, canAccessPlotDesign, canAccessBolsaPlot } = useAuth()
+  const canVerActividades = canVerActividadesOperarios(usuario)
   const cfg = WORK_POOL_PRODUCT_CONFIG[product]
   const SECTORS = sectorsForProduct(product)
   const initialTab = (searchParams.get('tab') as AdminTab | null) || 'dashboard'
@@ -383,6 +385,17 @@ export default function WorkPoolAdminPanel({ product }: Props) {
             <button type="button" className="work-pool-module__back" onClick={() => navigate('/')}>
               ← PlotLab
             </button>
+            {canVerActividades ? (
+              <button
+                type="button"
+                className="work-pool-module__btn work-pool-module__btn--ghost work-pool-admin__product-btn"
+                onClick={() => navigate('/actividades-operarios')}
+                title="Bitácora, checklist y estadísticas de operarios"
+              >
+                <ClipboardCheck size={16} aria-hidden />
+                Actividades operarios
+              </button>
+            ) : null}
             <button type="button" className="work-pool-admin__refresh" onClick={() => void load()} disabled={loading}>
               <RefreshCw size={15} className={loading ? 'work-pool-admin__refresh-spin' : undefined} aria-hidden />
               {loading ? 'Actualizando…' : 'Actualizar'}

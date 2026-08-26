@@ -21,6 +21,7 @@ import {
   listarOperarioNotas,
   toggleOperarioChecklist
 } from './workPoolOperarioNotas'
+import { getArgentinaDateString, isoToArgentinaDateKey } from '../../utils/dateUtils'
 import './WorkPoolOperarioNotasFab.css'
 
 type Tab = WorkPoolOperarioNotaTipo
@@ -45,12 +46,22 @@ function formatWhen(iso: string) {
   }
 }
 
-function asociacionChips(n: WorkPoolOperarioNota) {
+function jobTitulo(j: WorkPoolJob) {
+  if (j.titulo?.trim()) return j.titulo.trim()
+  if (j.numero_op) return `OP ${j.numero_op}`
+  return `Trabajo #${j.id}`
+}
+
+function asociacionChips(n: WorkPoolOperarioNota, jobs: WorkPoolJob[]) {
   const chips: string[] = []
+  if (n.titulo?.trim()) chips.push(n.titulo.trim())
+  else if (n.id_job) {
+    const j = jobs.find((x) => x.id === n.id_job)
+    if (j) chips.push(jobTitulo(j))
+  }
   if (n.numero_op) chips.push(`OP ${n.numero_op}`)
   if (n.numero_venta) chips.push(`Venta ${n.numero_venta}`)
   if (n.numero_oportunidad) chips.push(`Opp ${n.numero_oportunidad}`)
-  if (n.id_job) chips.push(`Job #${n.id_job}`)
   return chips
 }
 
@@ -62,6 +73,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [texto, setTexto] = useState('')
+  const [tituloTarea, setTituloTarea] = useState('')
   const [jobId, setJobId] = useState<number | ''>('')
   const [assocQ, setAssocQ] = useState('')
   const [assocHits, setAssocHits] = useState<WorkPoolAsociacionBusqueda[]>([])
@@ -78,6 +90,23 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
       ),
     [jobs]
   )
+
+  const jobSeleccionado = useMemo(
+    () => (jobId === '' ? null : jobsActivos.find((j) => j.id === jobId) ?? jobs.find((j) => j.id === jobId) ?? null),
+    [jobId, jobsActivos, jobs]
+  )
+
+  const hoy = getArgentinaDateString()
+
+  const itemsDelDia = useMemo(
+    () => items.filter((n) => isoToArgentinaDateKey(n.created_at) === hoy),
+    [items, hoy]
+  )
+
+  useEffect(() => {
+    if (!jobSeleccionado) return
+    setTituloTarea(jobTitulo(jobSeleccionado))
+  }, [jobSeleccionado])
 
   const load = async () => {
     setLoading(true)
@@ -153,11 +182,15 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
               })
             )
           : []
+      const tituloGuardar =
+        tab === 'checklist'
+          ? detalle.slice(0, 80)
+          : tituloTarea.trim() || (jobSeleccionado ? jobTitulo(jobSeleccionado) : '')
       const res = await crearOperarioNota({
         id_usuario: idUsuario,
         tipo: tab,
         detalle,
-        titulo: tab === 'checklist' ? detalle.slice(0, 80) : undefined,
+        titulo: tituloGuardar || undefined,
         id_job: jobId === '' ? null : Number(jobId),
         numero_op: assoc?.kind === 'op' ? assoc.numero_op ?? assoc.label : assoc?.numero_op ?? null,
         id_venta: assoc?.kind === 'venta' ? assoc.id_venta ?? assoc.id : null,
@@ -234,7 +267,8 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
               <option value="">Elegí un trabajo…</option>
               {jobsActivos.map((j) => (
                 <option key={j.id} value={j.id}>
-                  {j.numero_op ? `OP ${j.numero_op}` : j.titulo}
+                  {j.numero_op ? `OP ${j.numero_op} · ` : ''}
+                  {jobTitulo(j)}
                 </option>
               ))}
             </select>
@@ -242,7 +276,28 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
         ) : null}
 
         <label className="wp-notas-fab__field">
+          Título de la tarea
+          <input
+            type="text"
+            value={tituloTarea}
+            onChange={(e) => setTituloTarea(e.target.value)}
+            placeholder={
+              jobSeleccionado
+                ? jobTitulo(jobSeleccionado)
+                : 'Ej. Ajuste de logo principal'
+            }
+            autoComplete="off"
+          />
+        </label>
+
+        <label className="wp-notas-fab__field">
           Asociar OP / venta / oportunidad
+          {jobSeleccionado ? (
+            <span className="wp-notas-fab__field-hint">
+              Trabajo: {jobTitulo(jobSeleccionado)}
+              {jobSeleccionado.numero_op ? ` · OP ${jobSeleccionado.numero_op}` : ''}
+            </span>
+          ) : null}
           <div className="wp-notas-fab__assoc-row">
             <Search size={14} aria-hidden />
             <input
@@ -368,12 +423,15 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
       </div>
 
       <div className="wp-notas-fab__list">
+        <p className="wp-notas-fab__list-head">
+          Hoy · {itemsDelDia.length} {itemsDelDia.length === 1 ? 'entrada' : 'entradas'}
+        </p>
         {loading ? <p className="wp-notas-fab__muted">Cargando…</p> : null}
-        {!loading && items.length === 0 ? (
-          <p className="wp-notas-fab__muted">Todavía no hay entradas en esta sección.</p>
+        {!loading && itemsDelDia.length === 0 ? (
+          <p className="wp-notas-fab__muted">No hay entradas de hoy en esta sección.</p>
         ) : null}
         <ul>
-          {items.map((n) => (
+          {itemsDelDia.map((n) => (
             <li key={n.id} className={`wp-notas-fab__item${n.hecho ? ' is-done' : ''}`}>
               {tab === 'checklist' ? (
                 <button
@@ -399,7 +457,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
                   {formatHorarioNota(n.hora_inicio, n.hora_fin) ? (
                     <span>{formatHorarioNota(n.hora_inicio, n.hora_fin)}</span>
                   ) : null}
-                  {asociacionChips(n).map((c) => (
+                  {asociacionChips(n, jobs).map((c) => (
                     <span key={c}>{c}</span>
                   ))}
                 </div>

@@ -1,0 +1,101 @@
+.act-op-cal {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(11, 18, 32, 0.75);
+}
+
+.act-op-cal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.act-op-cal__head h3 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-transform: capitalize;
+  color: #f8fafc;
+}
+
+.act-op-cal__nav {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.act-op-cal__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.act-op-cal__weekdays span {
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.act-op-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.act-op-cal__day {
+  position: relative;
+  min-height: 42px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: rgba(15, 23, 42, 0.55);
+  color: #cbd5e1;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.act-op-cal__day--empty {
+  background: transparent;
+  border: none;
+  cursor: default;
+}
+
+.act-op-cal__day.has-activity {
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.act-op-cal__day.is-selected {
+  border-color: #3b82f6;
+  background: rgba(37, 99, 235, 0.22);
+  color: #f8fafc;
+}
+
+.act-op-cal__day em {
+  font-style: normal;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+}
