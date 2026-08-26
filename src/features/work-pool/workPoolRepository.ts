@@ -1148,8 +1148,9 @@ async function applyFotosToFreelancers(
 
 /**
  * Saca del listado operativo a usuarios dados de baja.
- * Importante: si RLS oculta filas inactivas, esas IDs no vienen en el SELECT —
- * hay que eliminarlas igual (antes se dejaban y reaparecían en el dashboard).
+ * 1) Log RRHH (usuarios_bajas_log) — legible aunque RLS oculte `usuarios.activo`.
+ * 2) RPC SECURITY DEFINER si existe.
+ * 3) SELECT directo como último recurso (solo activo === true).
  */
 async function pruneInactiveFreelancers(
   freelancerMap: Map<number, WorkPoolFreelancerResumen>
@@ -1157,18 +1158,46 @@ async function pruneInactiveFreelancers(
   const pruned = new Set<number>()
   if (!supabase || freelancerMap.size === 0) return pruned
   const ids = [...freelancerMap.keys()]
-  const { data, error } = await supabase.from('usuarios').select('id, activo').in('id', ids)
-  if (error) {
-    console.warn('[work-pool] pruneInactiveFreelancers:', error.message)
-    return pruned
+
+  // Siempre: si hay baja formal registrada, fuera de listas activas.
+  const { data: bajas } = await supabase
+    .from('usuarios_bajas_log')
+    .select('id_usuario')
+    .in('id_usuario', ids)
+  const bajaIds = new Set<number>()
+  for (const row of bajas ?? []) {
+    const id = Number((row as { id_usuario: number }).id_usuario)
+    if (id > 0) bajaIds.add(id)
   }
-  const activoPorId = new Map<number, boolean>()
-  for (const row of data ?? []) {
-    activoPorId.set(Number((row as { id: number }).id), (row as { activo?: boolean }).activo !== false)
+
+  const activeIds = new Set<number>()
+  const { data: rpcData, error: rpcError } = await supabase.rpc('work_pool_filter_usuarios_activos', {
+    p_ids: ids
+  })
+  if (!rpcError && Array.isArray(rpcData)) {
+    for (const id of rpcData) {
+      const n = Number(id)
+      if (Number.isFinite(n) && n > 0 && !bajaIds.has(n)) activeIds.add(n)
+    }
+  } else {
+    if (rpcError) console.warn('[work-pool] filter_usuarios_activos:', rpcError.message)
+    const { data } = await supabase.from('usuarios').select('id, activo').in('id', ids)
+    for (const row of data ?? []) {
+      const id = Number((row as { id: number }).id)
+      if ((row as { activo?: boolean }).activo === true && !bajaIds.has(id)) {
+        activeIds.add(id)
+      }
+    }
+    // Si el SELECT no devolvió nada (RLS), conservar solo los que NO están en bajas.
+    if ((data ?? []).length === 0) {
+      for (const id of ids) {
+        if (!bajaIds.has(id)) activeIds.add(id)
+      }
+    }
   }
+
   for (const id of ids) {
-    // Solo quedan los explícitamente activos. Ausentes o activo=false = baja.
-    if (activoPorId.get(id) === true) continue
+    if (activeIds.has(id) && !bajaIds.has(id)) continue
     freelancerMap.delete(id)
     pruned.add(id)
   }
@@ -1670,12 +1699,18 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
   }
 
   const dadosDeBaja = await loadDadosDeBajaForProduct(product)
+  for (const b of dadosDeBaja) {
+    if (!freelancerMap.has(b.id_usuario)) continue
+    freelancerMap.delete(b.id_usuario)
+    inactiveIds.add(b.id_usuario)
+  }
+  const freelancersSinBaja = freelancers.filter((f) => !inactiveIds.has(f.id_usuario))
 
   // KPIs operativos desde jobs (misma fuente que la UI); deuda financiera desde ledger/resumen.
   const jobsAbiertos = jobs.filter((j) => j.estado !== 'aprobado' && j.estado !== 'cancelado')
   const deudaTotal = resumen.reduce((s, r) => s + Number(r.deuda_operarios ?? 0), 0)
   const trabajosAbiertos = jobsAbiertos.length
-  const operariosActivos = freelancers.filter(
+  const operariosActivos = freelancersSinBaja.filter(
     (f) => f.trabajos_activos > 0 || (f.perfil_activo && f.perfil_aprobado)
   ).length
 
@@ -1740,12 +1775,12 @@ export async function loadWorkPoolAdminDashboard(product?: WorkPoolProduct): Pro
         operarios_activos: operariosActivos,
         disponibles_bolsa: disponiblesBolsa,
         aprobados_mes: aprobadosMes,
-        acreditado_total: freelancers.reduce((s, f) => s + f.acreditado, 0),
-        pagado_total: freelancers.reduce((s, f) => s + f.pagado, 0),
+        acreditado_total: freelancersSinBaja.reduce((s, f) => s + f.acreditado, 0),
+        pagado_total: freelancersSinBaja.reduce((s, f) => s + f.pagado, 0),
         trabajos_entrantes: trabajosEntrantes
       },
       resumen_sectores: resumenUnificado,
-      freelancers,
+      freelancers: freelancersSinBaja,
       dados_de_baja: dadosDeBaja,
       pendientes_revision: jobsActivosSolo.filter(
         (j) => j.estado === 'entregado' || j.estado === 'en_revision'

@@ -202,6 +202,40 @@ export type WorkPoolOrdenSugerida = {
   id_pedido_cliente?: number | null
 }
 
+export type WorkPoolOperarioNotaTipo = 'bitacora' | 'anotador' | 'checklist'
+
+export type WorkPoolOperarioNota = {
+  id: number
+  id_usuario: number
+  tipo: WorkPoolOperarioNotaTipo
+  titulo: string | null
+  detalle: string
+  hecho: boolean
+  id_job: number | null
+  numero_op: string | null
+  id_orden: number | null
+  id_venta: number | null
+  numero_venta: string | null
+  id_oportunidad: number | null
+  numero_oportunidad: string | null
+  created_at: string
+  updated_at: string
+  usuario_nombre?: string | null
+}
+
+export type WorkPoolAsociacionBusqueda = {
+  kind: 'op' | 'venta' | 'oportunidad'
+  id: number
+  label: string
+  sublabel: string | null
+  numero_op?: string | null
+  id_orden?: number
+  id_venta?: number
+  numero_venta?: string | null
+  id_oportunidad?: number
+  numero_oportunidad?: string | null
+}
+
 export type WorkPoolBajaRegistro = {
   id: number
   id_usuario: number

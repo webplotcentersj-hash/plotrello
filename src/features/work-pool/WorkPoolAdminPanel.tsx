@@ -166,9 +166,19 @@ export default function WorkPoolAdminPanel({ product }: Props) {
     }
   }, [searchParams, tab])
 
+  const bajaUsuarioIds = useMemo(() => {
+    const set = new Set<number>()
+    for (const b of dashboard?.dados_de_baja ?? []) {
+      if (b.id_usuario > 0) set.add(b.id_usuario)
+    }
+    return set
+  }, [dashboard])
+
   const filteredFreelancers = useMemo(() => {
     if (!dashboard) return []
-    const afines = dashboard.freelancers.filter((f) => f.sectores.some((s) => SECTORS.includes(s)))
+    const afines = dashboard.freelancers.filter(
+      (f) => f.sectores.some((s) => SECTORS.includes(s)) && !bajaUsuarioIds.has(f.id_usuario)
+    )
     const list = sectorFilter === 'todos' ? afines : afines.filter((f) => f.sectores.includes(sectorFilter))
     return [...list].sort((a, b) => {
       const ra = a.valoracion_promedio
@@ -183,7 +193,7 @@ export default function WorkPoolAdminPanel({ product }: Props) {
       if (rb == null) return -1
       return rb - ra || b.valoracion_count - a.valoracion_count || a.nombre.localeCompare(b.nombre, 'es')
     })
-  }, [dashboard, sectorFilter, SECTORS])
+  }, [dashboard, sectorFilter, SECTORS, bajaUsuarioIds])
 
   const aprobadosFreelancers = useMemo(
     () => filteredFreelancers.filter((f) => f.perfil_aprobado),
@@ -747,16 +757,11 @@ export default function WorkPoolAdminPanel({ product }: Props) {
           </section>
 
           {(dashboard.dados_de_baja?.length ?? 0) > 0 ? (
-            <section className="work-pool-admin__section work-pool-admin__section--bajas">
-              <div className="work-pool-admin__section-head">
-                <h2>Dados de baja</h2>
-                <span className="work-pool-admin__pill">{dashboard.dados_de_baja.length}</span>
-              </div>
-              <p className="work-pool-admin__section-lead">
-                No aparecen en listas activas ni pueden operar. Historial conservado desde RRHH.
-              </p>
-              <DadosDeBajaList items={dashboard.dados_de_baja} />
-            </section>
+            <DadosDeBajaSection
+              title="Dados de baja"
+              lead="No aparecen en listas activas ni pueden operar. Historial conservado desde RRHH."
+              items={dashboard.dados_de_baja}
+            />
           ) : null}
         </div>
       ) : null}
@@ -781,16 +786,11 @@ export default function WorkPoolAdminPanel({ product }: Props) {
             ))}
           </div>
           {(dashboard.dados_de_baja?.length ?? 0) > 0 ? (
-            <section className="work-pool-admin__section work-pool-admin__section--bajas">
-              <div className="work-pool-admin__section-head">
-                <h2>Trazado · Dados de baja</h2>
-                <span className="work-pool-admin__pill">{dashboard.dados_de_baja.length}</span>
-              </div>
-              <p className="work-pool-admin__section-lead">
-                No figuran en afines ni en saldo. Solo consulta histórica.
-              </p>
-              <DadosDeBajaList items={dashboard.dados_de_baja} />
-            </section>
+            <DadosDeBajaSection
+              title="Trazado · Dados de baja"
+              lead="No figuran en afines ni en saldo. Solo consulta histórica."
+              items={dashboard.dados_de_baja}
+            />
           ) : null}
           {payUserId != null && tab === 'freelancers' && (
             <div className="work-pool-admin__pay-box">
@@ -1121,33 +1121,67 @@ function displayBajaNombre(nombre: string) {
   return fallbackNombreSinEmail(t) || t
 }
 
-function DadosDeBajaList({ items }: { items: WorkPoolBajaRegistro[] }) {
+function DadosDeBajaSection({
+  title,
+  lead,
+  items
+}: {
+  title: string
+  lead: string
+  items: WorkPoolBajaRegistro[]
+}) {
+  const [open, setOpen] = useState(false)
   return (
-    <ul className="work-pool-admin__bajas-list">
-      {items.map((b) => (
-        <li key={b.id} className="work-pool-admin__baja-card">
-          <div className="work-pool-admin__baja-main">
-            <strong title={b.nombre}>{displayBajaNombre(b.nombre)}</strong>
-            <div className="work-pool-admin__baja-meta">
-              {b.fecha_desvinculacion ? (
-                <span>{formatDate(b.fecha_desvinculacion)}</span>
-              ) : (
-                <span>{formatDate(b.created_at)}</span>
-              )}
-              {b.tipo_desvinculacion ? (
-                <span>{etiquetaTipoDesvinculacion(b.tipo_desvinculacion)}</span>
-              ) : null}
-              {b.rol ? <span>{b.rol}</span> : null}
-            </div>
-            {b.motivo ? <p className="work-pool-admin__baja-motivo">{b.motivo}</p> : null}
-            {b.observaciones ? (
-              <p className="work-pool-admin__baja-obs">{b.observaciones}</p>
-            ) : null}
-          </div>
-          <span className="work-pool-admin__baja-badge">Baja</span>
-        </li>
-      ))}
-    </ul>
+    <section className={`work-pool-admin__section work-pool-admin__section--bajas${open ? ' is-open' : ''}`}>
+      <button
+        type="button"
+        className="work-pool-admin__bajas-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="work-pool-admin__section-head work-pool-admin__bajas-toggle-head">
+          <h2>{title}</h2>
+          <span className="work-pool-admin__pill">{items.length}</span>
+        </span>
+        <span className="work-pool-admin__bajas-chev" aria-hidden>
+          {open ? '▲' : '▼'}
+        </span>
+      </button>
+      {open ? (
+        <>
+          <p className="work-pool-admin__section-lead">{lead}</p>
+          <ul className="work-pool-admin__bajas-list">
+            {items.map((b) => (
+              <li key={b.id} className="work-pool-admin__baja-card">
+                <div className="work-pool-admin__baja-main">
+                  <strong title={b.nombre}>{displayBajaNombre(b.nombre)}</strong>
+                  <div className="work-pool-admin__baja-meta">
+                    {b.fecha_desvinculacion ? (
+                      <span>{formatDate(b.fecha_desvinculacion)}</span>
+                    ) : (
+                      <span>{formatDate(b.created_at)}</span>
+                    )}
+                    {b.tipo_desvinculacion ? (
+                      <span>{etiquetaTipoDesvinculacion(b.tipo_desvinculacion)}</span>
+                    ) : null}
+                    {b.rol ? <span>{b.rol}</span> : null}
+                  </div>
+                  {b.motivo ? <p className="work-pool-admin__baja-motivo">{b.motivo}</p> : null}
+                  {b.observaciones ? (
+                    <p className="work-pool-admin__baja-obs">{b.observaciones}</p>
+                  ) : null}
+                </div>
+                <span className="work-pool-admin__baja-badge">Baja</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="work-pool-admin__bajas-collapsed-hint">
+          Tocá para ver el historial · no figuran en listas activas
+        </p>
+      )}
+    </section>
   )
 }
 

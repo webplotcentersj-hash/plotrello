@@ -1,0 +1,2 @@
+﻿-- Bitácora / checklist / anotador operario + asociaciones OP/venta/oportunidad
+-- Applied remotely via MCP apply_migration work_pool_operario_notas_modulo

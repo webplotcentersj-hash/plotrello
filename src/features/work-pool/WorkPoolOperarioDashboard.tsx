@@ -11,6 +11,7 @@ import { filtrarNotificacionesOperarioExterno } from './operarioExternoNotificac
 import { jobPedidoLabel, maskJobForOperarioExterno } from './workPoolOperarioExterno'
 import WorkPoolOperarioMensajes from './WorkPoolOperarioMensajes'
 import WorkPoolJobDetalleModal from './WorkPoolJobDetalleModal'
+import WorkPoolOperarioNotasFab from './WorkPoolOperarioNotasFab'
 import '../phi/phi-landing.css'
 import './WorkPoolOperarioDashboard.css'
 
@@ -764,6 +765,7 @@ export default function WorkPoolOperarioDashboard({
       onTomar={onTomar}
       onEntregar={onEntregar}
     />
+    <WorkPoolOperarioNotasFab idUsuario={usuario.id} jobs={jobs} variant="phi" />
     </>
   )
 }

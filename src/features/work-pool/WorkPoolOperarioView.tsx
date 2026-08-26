@@ -28,6 +28,7 @@ import {
 import WorkPoolOperarioMensajes from './WorkPoolOperarioMensajes'
 import WorkPoolOperarioDashboard from './WorkPoolOperarioDashboard'
 import WorkPoolEntregaModal from './WorkPoolEntregaModal'
+import WorkPoolOperarioNotasFab from './WorkPoolOperarioNotasFab'
 import './WorkPoolModule.css'
 import './WorkPoolEntregaModal.css'
 
@@ -408,6 +409,7 @@ export default function WorkPoolOperarioView({ product }: Props) {
         }}
         onConfirm={(payload) => void confirmEntrega(payload)}
       />
+      {usuario ? <WorkPoolOperarioNotasFab idUsuario={usuario.id} jobs={jobs} variant="admin" /> : null}
     </div>
   )
 }

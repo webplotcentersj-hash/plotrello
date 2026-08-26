@@ -8,7 +8,9 @@ import {
   loadWorkPoolJobDetalleOperario,
   type WorkPoolJobDetalleOperario
 } from './workPoolRepository'
+import { listarOperarioNotasJob } from './workPoolOperarioNotas'
 import { shortDriveUrl } from './workPoolEntrega'
+import type { WorkPoolOperarioNota } from '../../types/workPool'
 import './WorkPoolJobDetalleModal.css'
 
 type AdminReviewActions = {
@@ -91,25 +93,31 @@ export default function WorkPoolJobDetalleModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [detalle, setDetalle] = useState<WorkPoolJobDetalleOperario | null>(null)
+  const [bitacora, setBitacora] = useState<WorkPoolOperarioNota[]>([])
 
   useEffect(() => {
     if (!open || !job) {
       setDetalle(null)
       setError('')
+      setBitacora([])
       return
     }
     let cancelled = false
     setLoading(true)
     setError('')
-    void loadWorkPoolJobDetalleOperario(job.id, idUsuario).then((res) => {
+    void Promise.all([
+      loadWorkPoolJobDetalleOperario(job.id, idUsuario),
+      listarOperarioNotasJob(job.id, 40)
+    ]).then(([res, notesRes]) => {
       if (cancelled) return
       setLoading(false)
       if (!res.success || !res.data) {
         setError(res.error || 'No se pudo cargar el detalle')
         setDetalle(null)
-        return
+      } else {
+        setDetalle(res.data)
       }
-      setDetalle(res.data)
+      setBitacora(notesRes.success ? notesRes.data ?? [] : [])
     })
     return () => {
       cancelled = true
@@ -227,6 +235,37 @@ export default function WorkPoolJobDetalleModal({
                   </p>
                 </section>
               ) : null}
+
+              <section className="wp-job-detalle__section">
+                <h3>Bitácora del operario</h3>
+                {bitacora.length === 0 ? (
+                  <p className="wp-job-detalle__muted">Todavía no hay notas ni checklist en este trabajo.</p>
+                ) : (
+                  <ul className="wp-job-detalle__bitacora">
+                    {bitacora.map((n) => (
+                      <li key={n.id}>
+                        <div className="wp-job-detalle__bitacora-top">
+                          <span className="wp-job-detalle__bitacora-tipo">{n.tipo}</span>
+                          <span>{formatDate(n.created_at)}</span>
+                          {n.hecho ? <span>Hecho</span> : null}
+                        </div>
+                        <p>{n.titulo || n.detalle}</p>
+                        {(n.numero_op || n.numero_venta || n.numero_oportunidad) && (
+                          <small>
+                            {[
+                              n.numero_op ? `OP ${n.numero_op}` : null,
+                              n.numero_venta ? `Venta ${n.numero_venta}` : null,
+                              n.numero_oportunidad ? `Opp ${n.numero_oportunidad}` : null
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </small>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
 
               <section className="wp-job-detalle__section">
                 <h3>Trabajo en bolsa</h3>
