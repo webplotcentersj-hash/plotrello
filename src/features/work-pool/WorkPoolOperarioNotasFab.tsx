@@ -22,8 +22,11 @@ import {
   formatHorarioNota,
   listarOperarioNotas,
   listarOperarioNotasTodas,
+  mergeOpsDelDiaConJobs,
+  parseNumeroOpLibre,
   toggleOperarioChecklist
 } from './workPoolOperarioNotas'
+import { listWorkPoolJobs } from './workPoolRepository'
 import { getArgentinaDateString, isoToArgentinaDateKey } from '../../utils/dateUtils'
 import './WorkPoolOperarioNotasFab.css'
 
@@ -104,6 +107,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
   const [horaFin, setHoraFin] = useState('')
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
+  const [jobsLocal, setJobsLocal] = useState<WorkPoolJob[]>([])
 
   useEffect(() => {
     if (!capture?.prefill) return
@@ -115,17 +119,38 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
     if (p.jobId != null) setJobId(p.jobId)
   }, [capture?.prefill])
 
+  useEffect(() => {
+    if (capture?.staticJobs) return
+    if (jobs.length > 0) {
+      setJobsLocal([])
+      return
+    }
+    let cancelled = false
+    void listWorkPoolJobs({ idUsuario, limit: 80 }).then((res) => {
+      if (cancelled || !res.success) return
+      setJobsLocal(res.data ?? [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [idUsuario, jobs.length, capture?.staticJobs])
+
+  const jobsFuente = capture?.staticJobs ?? (jobs.length > 0 ? jobs : jobsLocal)
+
   const jobsActivos = useMemo(
     () =>
-      (capture?.staticJobs ?? jobs).filter((j) =>
+      jobsFuente.filter((j) =>
         ['asignado', 'en_curso', 'cambios', 'entregado', 'en_revision'].includes(j.estado)
       ),
-    [jobs, capture?.staticJobs]
+    [jobsFuente]
   )
 
   const jobSeleccionado = useMemo(
-    () => (jobId === '' ? null : jobsActivos.find((j) => j.id === jobId) ?? jobs.find((j) => j.id === jobId) ?? null),
-    [jobId, jobsActivos, jobs]
+    () =>
+      jobId === ''
+        ? null
+        : jobsActivos.find((j) => j.id === jobId) ?? jobsFuente.find((j) => j.id === jobId) ?? null,
+    [jobId, jobsActivos, jobsFuente]
   )
 
   const hoy = getArgentinaDateString()
@@ -135,19 +160,16 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
     [items, hoy]
   )
 
-  const allJobs = useMemo(() => capture?.staticJobs ?? jobs, [capture?.staticJobs, jobs])
-
-  const opsDelDia = useMemo(
-    () =>
-      buildOpsDelDia(itemsHoyAll, {
-        fechaKey: hoy,
-        jobLabelById: (idJob) => {
-          const j = allJobs.find((x) => x.id === idJob)
-          return j ? jobTitulo(j) : null
-        }
-      }),
-    [itemsHoyAll, allJobs, hoy]
-  )
+  const opsDelDia = useMemo(() => {
+    const fromNotas = buildOpsDelDia(itemsHoyAll, {
+      fechaKey: hoy,
+      jobLabelById: (idJob) => {
+        const j = jobsFuente.find((x) => x.id === idJob)
+        return j ? jobTitulo(j) : null
+      }
+    })
+    return mergeOpsDelDiaConJobs(fromNotas, jobsFuente, hoy)
+  }, [itemsHoyAll, jobsFuente, hoy])
 
   useEffect(() => {
     if (!jobSeleccionado) return
@@ -246,8 +268,15 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
       setError('Escribí algo para guardar')
       return
     }
-    if (tab === 'bitacora' && !jobId && !assoc) {
-      setError('Asociá un trabajo, OP o venta')
+    const numeroOpGuardar =
+      (assoc?.kind === 'op' ? assoc.numero_op ?? parseNumeroOpLibre(assoc.label) : null) ||
+      assoc?.numero_op ||
+      jobSeleccionado?.numero_op ||
+      parseNumeroOpLibre(assocQ) ||
+      parseNumeroOpLibre(tituloTarea) ||
+      null
+    if (tab === 'bitacora' && !jobId && !assoc && !numeroOpGuardar) {
+      setError('Elegí un trabajo, buscá y seleccioná una OP, o escribí el número de OP')
       return
     }
     if (horaFin && !horaInicio) {
@@ -280,10 +309,6 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
         tab === 'checklist'
           ? detalle.slice(0, 80)
           : tituloTarea.trim() || (jobSeleccionado ? jobTitulo(jobSeleccionado) : '')
-      const numeroOpGuardar =
-        (assoc?.kind === 'op' ? assoc.numero_op ?? assoc.label : assoc?.numero_op) ||
-        jobSeleccionado?.numero_op ||
-        null
       const res = await crearOperarioNota({
         id_usuario: idUsuario,
         tipo,
@@ -561,8 +586,8 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
             {loadingOps ? <p className="wp-notas-fab__muted">Cargando…</p> : null}
             {!loadingOps && opsDelDia.length === 0 ? (
               <p className="wp-notas-fab__muted">
-                Todavía no hay OPs de hoy. En Bitácora elegí un trabajo o asociá una OP y guardá la
-                entrada.
+                No hay trabajos activos ni bitácora de hoy. Tomá un trabajo o cargá una entrada en
+                Bitácora con el número de OP.
               </p>
             ) : null}
             <ul className="wp-notas-fab__ops-dia">
@@ -572,8 +597,11 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
                   <div className="wp-notas-fab__op-dia-body">
                     <p>{op.label}</p>
                     <div className="wp-notas-fab__item-meta">
+                      {op.estado ? <span>{op.estado.replace('_', ' ')}</span> : null}
                       <span>
-                        {op.entradas} {op.entradas === 1 ? 'entrada' : 'entradas'}
+                        {op.entradas > 0
+                          ? `${op.entradas} ${op.entradas === 1 ? 'entrada' : 'entradas'}`
+                          : 'Sin bitácora aún'}
                       </span>
                       {op.horario ? <span>{op.horario}</span> : null}
                       <span>{formatWhen(op.ultimaActividad)}</span>

@@ -82,7 +82,12 @@ export async function crearOperarioNota(input: {
     p_hora_fin: input.hora_fin ?? null
   })
   if (error) return { success: false, error: error.message }
-  const id = Number((data as { id?: number } | null)?.id)
+  const raw = data as unknown
+  const parsed =
+    typeof raw === 'string'
+      ? (JSON.parse(raw) as { id?: number })
+      : ((raw ?? {}) as { id?: number })
+  const id = Number(parsed?.id)
   return { success: true, id: Number.isFinite(id) ? id : undefined }
 }
 
@@ -401,7 +406,84 @@ export type OpDelDia = {
   entradas: number
   horario: string | null
   ultimaActividad: string
+  estado?: string | null
   operarios?: Array<{ id: number; nombre: string }>
+}
+
+/** Extrae un número de OP de texto libre (ej. "OP 105642", "105642"). */
+export function parseNumeroOpLibre(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const m = String(raw).trim().match(/(?:^|\b)(?:OP[\s#:-]*)?(\d{4,})\b/i)
+  return m?.[1] ?? null
+}
+
+type JobParaOpsDelDia = {
+  id: number
+  titulo?: string | null
+  numero_op?: string | null
+  estado?: string | null
+  tomado_at?: string | null
+  updated_at?: string | null
+  entregado_at?: string | null
+}
+
+/**
+ * Une OPs derivadas de notas con trabajos activos del operario (en curso / del día).
+ */
+export function mergeOpsDelDiaConJobs(
+  opsFromNotas: OpDelDia[],
+  jobs: JobParaOpsDelDia[],
+  fechaKey: string
+): OpDelDia[] {
+  const map = new Map<string, OpDelDia>()
+  for (const op of opsFromNotas) map.set(op.key, { ...op })
+
+  const activos = new Set(['asignado', 'en_curso', 'cambios', 'entregado', 'en_revision'])
+  for (const j of jobs) {
+    if (!activos.has(String(j.estado ?? ''))) continue
+    const activityDates = [j.tomado_at, j.updated_at, j.entregado_at].filter(Boolean) as string[]
+    const activityHoy = activityDates.some((d) => isoToArgentinaDateKey(d) === fechaKey)
+    const enCurso = ['asignado', 'en_curso', 'cambios'].includes(String(j.estado ?? ''))
+    if (!activityHoy && !enCurso) continue
+
+    const numero_op = j.numero_op ?? null
+    const key = numero_op ? `op-${numero_op}` : `job-${j.id}`
+    const label = numero_op
+      ? j.titulo?.trim()
+        ? `OP ${numero_op} · ${j.titulo.trim()}`
+        : `OP ${numero_op}`
+      : j.titulo?.trim() || `Trabajo #${j.id}`
+    const ultima =
+      activityDates.sort((a, b) => b.localeCompare(a))[0] ||
+      j.updated_at ||
+      new Date().toISOString()
+
+    const existing = map.get(key)
+    if (existing) {
+      map.set(key, {
+        ...existing,
+        id_job: existing.id_job ?? j.id,
+        numero_op: existing.numero_op ?? numero_op,
+        label: existing.label || label,
+        estado: j.estado ?? existing.estado,
+        ultimaActividad:
+          ultima > existing.ultimaActividad ? ultima : existing.ultimaActividad
+      })
+    } else {
+      map.set(key, {
+        key,
+        label,
+        numero_op,
+        id_job: j.id,
+        entradas: 0,
+        horario: null,
+        ultimaActividad: ultima,
+        estado: j.estado ?? null
+      })
+    }
+  }
+
+  return [...map.values()].sort((a, b) => b.ultimaActividad.localeCompare(a.ultimaActividad))
 }
 
 function mergeHorariosNotas(notas: NotaParaOpsDelDia[]): string | null {
