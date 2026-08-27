@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
+  Briefcase,
   CheckSquare,
   ClipboardList,
   NotebookPen,
@@ -15,6 +16,7 @@ import type { WorkPoolAsociacionBusqueda, WorkPoolJob, WorkPoolOperarioNota, Wor
 import { uploadAttachmentAndGetUrl } from '../../utils/storage'
 import {
   buscarAsociacionesOperario,
+  buildOpsDelDia,
   crearOperarioNota,
   eliminarOperarioNota,
   formatHorarioNota,
@@ -24,7 +26,7 @@ import {
 import { getArgentinaDateString, isoToArgentinaDateKey } from '../../utils/dateUtils'
 import './WorkPoolOperarioNotasFab.css'
 
-type Tab = WorkPoolOperarioNotaTipo
+type Tab = WorkPoolOperarioNotaTipo | 'ops-dia'
 
 type Props = {
   idUsuario: number
@@ -86,7 +88,9 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
   const [open, setOpen] = useState(capture?.forceOpen ?? false)
   const [tab, setTab] = useState<Tab>(capture?.forceTab ?? 'bitacora')
   const [items, setItems] = useState<WorkPoolOperarioNota[]>([])
+  const [itemsHoyAll, setItemsHoyAll] = useState<WorkPoolOperarioNota[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingOps, setLoadingOps] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [texto, setTexto] = useState('')
@@ -130,14 +134,48 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
     [items, hoy]
   )
 
+  const allJobs = useMemo(() => capture?.staticJobs ?? jobs, [capture?.staticJobs, jobs])
+
+  const opsDelDia = useMemo(
+    () =>
+      buildOpsDelDia(itemsHoyAll, {
+        fechaKey: hoy,
+        jobLabelById: (idJob) => {
+          const j = allJobs.find((x) => x.id === idJob)
+          return j ? jobTitulo(j) : null
+        }
+      }),
+    [itemsHoyAll, allJobs, hoy]
+  )
+
   useEffect(() => {
     if (!jobSeleccionado) return
     setTituloTarea(jobTitulo(jobSeleccionado))
   }, [jobSeleccionado])
 
+  const loadHoyAll = async () => {
+    if (capture?.staticItems) {
+      setItemsHoyAll(capture.staticItems.filter((n) => isoToArgentinaDateKey(n.created_at) === hoy))
+      setLoadingOps(false)
+      return
+    }
+    setLoadingOps(true)
+    const res = await listarOperarioNotas({ id_usuario: idUsuario, tipo: null, limit: 120 })
+    setLoadingOps(false)
+    if (!res.success) {
+      setItemsHoyAll([])
+      return
+    }
+    setItemsHoyAll((res.data ?? []).filter((n) => isoToArgentinaDateKey(n.created_at) === hoy))
+  }
+
   const load = async () => {
     if (capture?.staticItems) {
       setItems(capture.staticItems)
+      setLoading(false)
+      return
+    }
+    if (tab === 'ops-dia') {
       setLoading(false)
       return
     }
@@ -153,6 +191,11 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
     setItems(res.data ?? [])
   }
 
+  const refreshAll = () => {
+    void load()
+    void loadHoyAll()
+  }
+
   useEffect(() => {
     if (capture?.forceOpen) setOpen(true)
   }, [capture?.forceOpen])
@@ -165,12 +208,15 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
     if (!open && !capture?.staticItems) return
     if (capture?.staticItems) {
       setItems(capture.staticItems)
+      setItemsHoyAll(capture.staticItems.filter((n) => isoToArgentinaDateKey(n.created_at) === hoy))
       setLoading(false)
+      setLoadingOps(false)
       return
     }
     void load()
+    void loadHoyAll()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tab, idUsuario, capture?.staticItems])
+  }, [open, tab, idUsuario, capture?.staticItems, hoy])
 
   useEffect(() => {
     if (!open) return
@@ -192,6 +238,8 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
   }, [assocQ, open])
 
   const handleAdd = async () => {
+    if (tab === 'ops-dia') return
+    const tipo: WorkPoolOperarioNotaTipo = tab
     const detalle = texto.trim()
     if (!detalle) {
       setError('Escribí algo para guardar')
@@ -233,7 +281,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
           : tituloTarea.trim() || (jobSeleccionado ? jobTitulo(jobSeleccionado) : '')
       const res = await crearOperarioNota({
         id_usuario: idUsuario,
-        tipo: tab,
+        tipo,
         detalle,
         titulo: tituloGuardar || undefined,
         id_job: jobId === '' ? null : Number(jobId),
@@ -255,7 +303,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
       setHoraInicio('')
       setHoraFin('')
       setPendingFiles([])
-      void load()
+      refreshAll()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al subir archivos')
     } finally {
@@ -281,7 +329,8 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
           [
             { id: 'bitacora' as const, label: 'Bitácora', icon: ClipboardList },
             { id: 'checklist' as const, label: 'Checklist', icon: CheckSquare },
-            { id: 'anotador' as const, label: 'Anotador', icon: NotebookPen }
+            { id: 'anotador' as const, label: 'Anotador', icon: NotebookPen },
+            { id: 'ops-dia' as const, label: 'OPs hoy', icon: Briefcase }
           ] as const
         ).map((t) => {
           const Icon = t.icon
@@ -301,6 +350,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
         })}
       </div>
 
+      {tab !== 'ops-dia' ? (
       <div className="wp-notas-fab__composer">
         {tab === 'bitacora' && jobsActivos.length > 0 ? (
           <label className="wp-notas-fab__field">
@@ -466,8 +516,40 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
           {uploading ? 'Subiendo…' : saving ? 'Guardando…' : 'Agregar'}
         </button>
       </div>
+      ) : null}
 
       <div className="wp-notas-fab__list">
+        {tab === 'ops-dia' ? (
+          <>
+            <p className="wp-notas-fab__list-head">
+              Hoy · {opsDelDia.length} {opsDelDia.length === 1 ? 'OP' : 'OPs'}
+            </p>
+            {loadingOps ? <p className="wp-notas-fab__muted">Cargando…</p> : null}
+            {!loadingOps && opsDelDia.length === 0 ? (
+              <p className="wp-notas-fab__muted">
+                Todavía no registraste trabajo en ninguna OP hoy. Usá Bitácora para anotar lo que hiciste.
+              </p>
+            ) : null}
+            <ul className="wp-notas-fab__ops-dia">
+              {opsDelDia.map((op) => (
+                <li key={op.key} className="wp-notas-fab__op-dia">
+                  <Briefcase size={16} className="wp-notas-fab__op-dia-icon" aria-hidden />
+                  <div className="wp-notas-fab__op-dia-body">
+                    <p>{op.label}</p>
+                    <div className="wp-notas-fab__item-meta">
+                      <span>
+                        {op.entradas} {op.entradas === 1 ? 'entrada' : 'entradas'}
+                      </span>
+                      {op.horario ? <span>{op.horario}</span> : null}
+                      <span>{formatWhen(op.ultimaActividad)}</span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <>
         <p className="wp-notas-fab__list-head">
           Hoy · {itemsDelDia.length} {itemsDelDia.length === 1 ? 'entrada' : 'entradas'}
         </p>
@@ -484,7 +566,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
                   className="wp-notas-fab__check"
                   aria-pressed={n.hecho}
                   onClick={() =>
-                    void toggleOperarioChecklist(n.id, idUsuario, !n.hecho).then(() => load())
+                    void toggleOperarioChecklist(n.id, idUsuario, !n.hecho).then(() => refreshAll())
                   }
                 >
                   <CheckSquare size={16} aria-hidden />
@@ -522,13 +604,15 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
                 type="button"
                 className="wp-notas-fab__icon-btn"
                 aria-label="Eliminar"
-                onClick={() => void eliminarOperarioNota(n.id, idUsuario).then(() => load())}
+                onClick={() => void eliminarOperarioNota(n.id, idUsuario).then(() => refreshAll())}
               >
                 <Trash2 size={14} aria-hidden />
               </button>
             </li>
           ))}
         </ul>
+          </>
+        )}
       </div>
     </div>
   ) : null

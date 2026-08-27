@@ -367,7 +367,9 @@ export default function WorkPoolPublicarForm({
       id_usuario_asignado: modoEfectivo === 'asignado' ? Number(empleadoId) : undefined,
       modo: modoEfectivo,
       id_pedido_cliente: pedidoPortalSeleccionado?.id,
-      numero_pedido: pedidoPortalSeleccionado?.numero_pedido
+      numero_pedido: pedidoPortalSeleccionado?.numero_pedido,
+      brief_token: briefSeleccionado?.token || undefined,
+      id_brief: briefSeleccionado?.id || undefined
     })
     setCreating(false)
 

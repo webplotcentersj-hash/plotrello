@@ -108,7 +108,7 @@
   border: 2px solid transparent;
   border-radius: 10px;
   background: transparent;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 800;
   cursor: pointer;
   color: #475569;
@@ -431,6 +431,43 @@
 
 .wp-notas-fab__adjuntos a:hover {
   background: #ecfdf5;
+}
+
+.wp-notas-fab__ops-dia {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wp-notas-fab__op-dia {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border: 2px solid #0b0b0b;
+  border-radius: 12px;
+  background: #ecfdf5;
+}
+
+.wp-notas-fab__op-dia-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #065f46;
+}
+
+.wp-notas-fab__op-dia-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.wp-notas-fab__op-dia-body p {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1.3;
 }
 
 @media (max-width: 640px) {

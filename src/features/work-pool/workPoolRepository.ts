@@ -159,6 +159,29 @@ async function patchWorkPoolJobPedidoPortal(
   return { ok: true }
 }
 
+async function mergeWorkPoolJobMetadata(
+  jobId: number,
+  extra: Record<string, unknown>
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: 'Sin conexión a Supabase' }
+  const { data, error: readErr } = await supabase
+    .from('work_pool_jobs')
+    .select('metadata')
+    .eq('id', jobId)
+    .maybeSingle()
+  if (readErr) return { ok: false, error: readErr.message }
+  const prev =
+    data?.metadata && typeof data.metadata === 'object' && !Array.isArray(data.metadata)
+      ? (data.metadata as Record<string, unknown>)
+      : {}
+  const { error } = await supabase
+    .from('work_pool_jobs')
+    .update({ metadata: { ...prev, ...extra } })
+    .eq('id', jobId)
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
 function activasOrdenesFilter<T extends { or: (filters: string) => T }>(query: T): T {
   return query.or('eliminada.eq.false,eliminada.is.null')
 }
@@ -687,6 +710,9 @@ export async function crearWorkPoolJob(input: {
   prioridad?: string
   id_pedido_cliente?: number
   numero_pedido?: string
+  /** Brief público sin OP: se guarda en metadata del job */
+  brief_token?: string
+  id_brief?: number
 }): Promise<{ success: boolean; data?: WorkPoolJob; error?: string }> {
   if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
 
@@ -751,6 +777,19 @@ export async function crearWorkPoolJob(input: {
     }
   }
 
+  if (input.brief_token || input.id_brief != null) {
+    const metaPatch: Record<string, unknown> = { origen: 'brief' }
+    if (input.brief_token) metaPatch.brief_token = input.brief_token
+    if (input.id_brief != null) metaPatch.id_brief = input.id_brief
+    const linked = await mergeWorkPoolJobMetadata(jobId, metaPatch)
+    if (!linked.ok) {
+      return {
+        success: false,
+        error: linked.error || 'El trabajo se creó pero no se pudo vincular el brief'
+      }
+    }
+  }
+
   const { data: fresh } = await supabase
     .from('work_pool_jobs')
     .select('*')
@@ -789,6 +828,37 @@ export async function entregarWorkPoolJob(
     p_drive_url: drive
   })
   return error ? { success: false, error: error.message } : { success: true }
+}
+
+export type WorkPoolJobDetalleBrief = {
+  id: number
+  token: string
+  cliente_nombre_completo: string | null
+  cliente_empresa: string | null
+  telefono_cliente: string | null
+  email_cliente: string | null
+  tipo_producto_servicio: string[] | null
+  tipo_producto_otro: string | null
+  objetivo_proyecto: string | null
+  brief_publico: string | null
+  estilo_diseno: string | null
+  referencias: string | null
+  referencias_links: string | null
+  donde_colocados: string | null
+  digital_o_impresion: string | null
+  cantidades: string | null
+  material_logo: string | null
+  material_textos: string | null
+  material_imagenes: string | null
+  fecha_limite_brief: string | null
+  es_urgencia: boolean | null
+  mockup_url: string | null
+  archivos: Array<{
+    id: number
+    nombre_archivo: string | null
+    url: string
+    tipo: string | null
+  }>
 }
 
 export type WorkPoolJobDetalleOperario = {
@@ -833,6 +903,8 @@ export type WorkPoolJobDetalleOperario = {
     id_pedido_cliente: number | null
     brief_token: string | null
   } | null
+  /** Brief público vinculado (sin OP) */
+  brief: WorkPoolJobDetalleBrief | null
   adjuntos: Array<{
     id: number
     titulo: string | null
@@ -850,6 +922,142 @@ export type WorkPoolJobDetalleOperario = {
   entrega_drive_url: string | null
 }
 
+function mapBriefDetalleRow(
+  row: Record<string, unknown>,
+  archivos: WorkPoolJobDetalleBrief['archivos'] = []
+): WorkPoolJobDetalleBrief {
+  const tipos = row.tipo_producto_servicio
+  return {
+    id: Number(row.id),
+    token: String(row.token ?? ''),
+    cliente_nombre_completo: (row.cliente_nombre_completo as string) ?? null,
+    cliente_empresa: (row.cliente_empresa as string) ?? null,
+    telefono_cliente: (row.telefono_cliente as string) ?? null,
+    email_cliente: (row.email_cliente as string) ?? null,
+    tipo_producto_servicio: Array.isArray(tipos) ? (tipos as string[]) : null,
+    tipo_producto_otro: (row.tipo_producto_otro as string) ?? null,
+    objetivo_proyecto: (row.objetivo_proyecto as string) ?? null,
+    brief_publico: (row.brief_publico as string) ?? null,
+    estilo_diseno: (row.estilo_diseno as string) ?? null,
+    referencias: (row.referencias as string) ?? null,
+    referencias_links: (row.referencias_links as string) ?? null,
+    donde_colocados: (row.donde_colocados as string) ?? null,
+    digital_o_impresion: (row.digital_o_impresion as string) ?? null,
+    cantidades: (row.cantidades as string) ?? null,
+    material_logo: (row.material_logo as string) ?? null,
+    material_textos: (row.material_textos as string) ?? null,
+    material_imagenes: (row.material_imagenes as string) ?? null,
+    fecha_limite_brief: (row.fecha_limite_brief as string) ?? null,
+    es_urgencia: row.es_urgencia == null ? null : Boolean(row.es_urgencia),
+    mockup_url: (row.mockup_url as string) ?? null,
+    archivos
+  }
+}
+
+async function loadBriefArchivos(idBrief: number): Promise<WorkPoolJobDetalleBrief['archivos']> {
+  if (!supabase) return []
+  const { data } = await supabase
+    .from('briefs_publicos_archivos')
+    .select('id, nombre_archivo, url, tipo')
+    .eq('id_brief', idBrief)
+    .order('id', { ascending: false })
+  return (data ?? [])
+    .filter((a) => a.url)
+    .map((a) => ({
+      id: Number(a.id),
+      nombre_archivo: (a.nombre_archivo as string) ?? null,
+      url: String(a.url),
+      tipo: (a.tipo as string) ?? null
+    }))
+}
+
+async function resolveBriefForWorkPoolJob(job: WorkPoolJobDetalleOperario['job']): Promise<WorkPoolJobDetalleBrief | null> {
+  if (!supabase) return null
+  if (job.id_orden || job.numero_op) return null
+
+  const meta = job.metadata ?? {}
+  const token =
+    typeof meta.brief_token === 'string' && meta.brief_token.trim()
+      ? meta.brief_token.trim()
+      : null
+  const idBriefMeta =
+    meta.id_brief != null && Number.isFinite(Number(meta.id_brief)) ? Number(meta.id_brief) : null
+
+  if (token) {
+    const { data, error } = await supabase.rpc('obtener_brief_por_token', { p_token: token })
+    if (!error) {
+      const row = Array.isArray(data) ? data[0] : data
+      if (row && typeof row === 'object') {
+        const r = row as Record<string, unknown>
+        const id = Number(r.id)
+        const archivos = Number.isFinite(id) ? await loadBriefArchivos(id) : []
+        return mapBriefDetalleRow(r, archivos)
+      }
+    }
+  }
+
+  if (idBriefMeta) {
+    const { data } = await supabase.from('briefs_publicos').select('*').eq('id', idBriefMeta).maybeSingle()
+    if (data) {
+      const archivos = await loadBriefArchivos(idBriefMeta)
+      let mockupUrl: string | null =
+        archivos.find((a) => (a.tipo || '').includes('mockup'))?.url ?? archivos[0]?.url ?? null
+      try {
+        const { data: mu } = await supabase.rpc('brief_mockup_url', { p_id_brief: idBriefMeta })
+        if (typeof mu === 'string' && mu.trim()) mockupUrl = mu
+      } catch {
+        /* ignore */
+      }
+      return mapBriefDetalleRow({ ...data, mockup_url: mockupUrl }, archivos)
+    }
+  }
+
+  // Fallback jobs viejos sin metadata: matchear por cliente del título ("Empresa · tipo")
+  const clienteHint = String(job.titulo || '')
+    .split('·')[0]
+    ?.trim()
+  if (!clienteHint || clienteHint.length < 3) return null
+
+  const safeHint = clienteHint.replace(/[%_,]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!safeHint) return null
+
+  const { data: candidates } = await supabase
+    .from('briefs_publicos')
+    .select('*')
+    .or(`cliente_empresa.ilike.%${safeHint}%,cliente_nombre_completo.ilike.%${safeHint}%`)
+    .order('id', { ascending: false })
+    .limit(8)
+
+  if (!candidates?.length) return null
+
+  // Preferir brief con mockup reciente
+  let pick = candidates[0]
+  for (const c of candidates) {
+    const id = Number(c.id)
+    try {
+      const { data: mu } = await supabase.rpc('brief_mockup_url', { p_id_brief: id })
+      if (typeof mu === 'string' && mu.trim()) {
+        pick = c
+        const archivos = await loadBriefArchivos(id)
+        return mapBriefDetalleRow({ ...c, token: c.token, mockup_url: mu }, archivos)
+      }
+    } catch {
+      /* try next */
+    }
+  }
+
+  const id = Number(pick.id)
+  const archivos = await loadBriefArchivos(id)
+  return mapBriefDetalleRow(
+    {
+      ...pick,
+      token: pick.token,
+      mockup_url: archivos.find((a) => (a.tipo || '').includes('mockup'))?.url ?? archivos[0]?.url ?? null
+    },
+    archivos
+  )
+}
+
 export async function loadWorkPoolJobDetalleOperario(
   idJob: number,
   idUsuario: number
@@ -864,11 +1072,28 @@ export async function loadWorkPoolJobDetalleOperario(
     return { success: false, error: 'Sin detalle del trabajo' }
   }
   const raw = data as Record<string, unknown>
+  const job = (raw.job ?? {}) as WorkPoolJobDetalleOperario['job']
+  if (!job.metadata || typeof job.metadata !== 'object') {
+    job.metadata = {}
+  }
+
+  let brief: WorkPoolJobDetalleBrief | null = null
+  if (raw.brief && typeof raw.brief === 'object') {
+    const b = raw.brief as Record<string, unknown>
+    const archivos = Array.isArray(b.archivos)
+      ? (b.archivos as WorkPoolJobDetalleBrief['archivos'])
+      : await loadBriefArchivos(Number(b.id))
+    brief = mapBriefDetalleRow(b, archivos)
+  } else {
+    brief = await resolveBriefForWorkPoolJob(job)
+  }
+
   return {
     success: true,
     data: {
-      job: (raw.job ?? {}) as WorkPoolJobDetalleOperario['job'],
+      job,
       orden: (raw.orden as WorkPoolJobDetalleOperario['orden']) ?? null,
+      brief,
       adjuntos: Array.isArray(raw.adjuntos)
         ? (raw.adjuntos as WorkPoolJobDetalleOperario['adjuntos'])
         : [],

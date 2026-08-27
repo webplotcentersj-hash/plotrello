@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import {
+  buildOpsDelDia,
   formatHorarioNota,
   listarNotasLegajoOperario
 } from '../features/work-pool/workPoolOperarioNotas'
 import type { WorkPoolNotaLegajo } from '../features/work-pool/workPoolOperarioNotas'
+import { getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
 import './LegajoActividadesPlotPanel.css'
 
 const TIPO_LABEL: Record<string, string> = {
@@ -59,6 +61,15 @@ export default function LegajoActividadesPlotPanel({ idUsuario }: Props) {
     }
   }, [usuario?.id, idUsuario])
 
+  const hoy = getArgentinaDateString()
+  const opsHoy = useMemo(
+    () =>
+      buildOpsDelDia(
+        items.filter((n) => isoToArgentinaDateKey(n.created_at) === hoy)
+      ),
+    [items, hoy]
+  )
+
   if (loading) return <p className="legajo-act-plot--muted">Cargando actividades Plot…</p>
   if (error) return <p className="legajo-act-plot__error">{error}</p>
   if (items.length === 0) {
@@ -77,6 +88,22 @@ export default function LegajoActividadesPlotPanel({ idUsuario }: Props) {
           Panel de supervisión →
         </Link>
       </div>
+      {opsHoy.length > 0 ? (
+        <div className="legajo-act-plot__ops-hoy">
+          <p className="legajo-act-plot__ops-title">OPs de hoy</p>
+          <ul>
+            {opsHoy.map((op) => (
+              <li key={op.key}>
+                <strong>{op.label}</strong>
+                <span>
+                  {op.entradas} {op.entradas === 1 ? 'entrada' : 'entradas'}
+                  {op.horario ? ` · ${op.horario}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <ul className="legajo-act-plot__list">
         {items.map((n) => (
           <li key={n.id}>

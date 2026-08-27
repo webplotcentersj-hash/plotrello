@@ -158,10 +158,10 @@ export default function WorkPoolOperarioDashboard({
   useEffect(() => {
     void apiService.getUserNotifications(usuario.id, 20).then((res) => {
       if (res.success && res.data) {
-        setNotifications(filtrarNotificacionesOperarioExterno(res.data).slice(0, 8))
+        setNotifications(filtrarNotificacionesOperarioExterno(res.data, product).slice(0, 8))
       }
     })
-  }, [usuario.id, view, lastUpdated])
+  }, [usuario.id, view, lastUpdated, product])
 
   const maskedJobs = useMemo(() => jobs.map((j) => maskJobForOperarioExterno(j)), [jobs])
 

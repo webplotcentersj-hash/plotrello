@@ -220,7 +220,7 @@ export default function WorkPoolOperarioView({ product }: Props) {
           <p>{cfg.tagline}</p>
         </div>
         <div className="work-pool-module__head-actions">
-          {externo && <NotificationsDropdown />}
+          {externo && <NotificationsDropdown workPoolScope={product} />}
           {externo ? (
             <button type="button" className="work-pool-module__back" onClick={handleLogout}>
               Cerrar sesión

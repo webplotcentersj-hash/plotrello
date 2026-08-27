@@ -23,6 +23,8 @@ import {
   notificationIsBriefPublico,
   parseBriefIdFromNotification
 } from '../utils/briefsPendientesNuevos'
+import { filtrarNotificacionesOperarioExterno } from '../features/work-pool/operarioExternoNotificaciones'
+import type { WorkPoolProduct } from '../types/workPool'
 
 function notificationIsWorkPoolBolsa(n: Pick<Notification, 'title' | 'origen'>): boolean {
   if (n.origen === 'work_pool_postulacion') return false
@@ -41,17 +43,21 @@ function notificationTargetsMenuDiario(n: Pick<Notification, 'title' | 'descript
   const title = (n.title ?? '').toLowerCase()
   const desc = (n.description ?? '').toLowerCase()
   if (title.includes('intercambio de turno')) return true
+  if (title.includes('menú diario') || title.includes('menu diario')) return true
   if (desc.includes('menú diario') || desc.includes('menu diario')) return true
   if (desc.includes('menú del día') || desc.includes('menu del dia')) return true
   if (desc.includes('menú de hoy') || desc.includes('menu de hoy')) return true
+  if (desc.includes('/menu-diario')) return true
   return false
 }
 
 type NotificationsDropdownProps = {
   onNotificationClick?: (notification: Notification) => void
+  /** En panel operario externo: solo notificaciones de Plot Design o Bolsa Plot */
+  workPoolScope?: WorkPoolProduct
 }
 
-const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownProps) => {
+const NotificationsDropdown = ({ onNotificationClick, workPoolScope }: NotificationsDropdownProps) => {
   const { usuario, canManageRecursosHumanos, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -99,7 +105,10 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
       console.log('🔔 Respuesta de getUserNotifications:', response)
       if (response.success && response.data) {
         console.log('🔔 Notificaciones cargadas:', response.data.length)
-        setNotifications(response.data)
+        const list = workPoolScope
+          ? filtrarNotificacionesOperarioExterno(response.data, workPoolScope)
+          : response.data
+        setNotifications(list)
       } else {
         console.warn('🔔 Error en respuesta:', response.error)
       }
@@ -141,11 +150,11 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
   // Cargar notificaciones al montar y cuando cambia el usuario
   useEffect(() => {
     loadNotifications()
-  }, [usuario?.id])
+  }, [usuario?.id, workPoolScope])
 
   // Una vez por día: generar alertas de vencimiento CC (idempotente en DB)
   useEffect(() => {
-    if (!usuario?.id) return
+    if (!usuario?.id || workPoolScope) return
     const rol = (usuario.rol || '').toLowerCase().trim()
     const puedeCc =
       ['administracion', 'gerencia', 'caja', 'mostrador', 'admin'].includes(rol) ||
@@ -163,7 +172,7 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         void loadNotifications()
       }
     })
-  }, [usuario?.id, usuario?.rol, isAdmin])
+  }, [usuario?.id, usuario?.rol, isAdmin, workPoolScope])
 
   // Suscripción a Realtime para nuevas notificaciones
   useEffect(() => {
@@ -187,6 +196,12 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
         (payload: any) => {
           console.log('🔔 Nueva notificación recibida vía Realtime:', payload)
           const newNotification = payload.new as Notification
+          if (
+            workPoolScope &&
+            filtrarNotificacionesOperarioExterno([newNotification], workPoolScope).length === 0
+          ) {
+            return
+          }
           setNotifications((prev) => {
             // Evitar duplicados
             const exists = prev.some((n) => n.id === newNotification.id)
@@ -200,12 +215,13 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
           
           // Mostrar notificación del navegador si está permitido
           if ('Notification' in window && Notification.permission === 'granted') {
+            if (workPoolScope && notificationTargetsMenuDiario(newNotification)) return
             const bn = new Notification(newNotification.title, {
               body: newNotification.description || '',
               icon: '/vite.svg',
               tag: `notification-${newNotification.id}`
             })
-            if (notificationTargetsMenuDiario(newNotification)) {
+            if (!workPoolScope && notificationTargetsMenuDiario(newNotification)) {
               bn.onclick = () => {
                 window.focus()
                 navigate('/menu-diario')
@@ -248,7 +264,7 @@ const NotificationsDropdown = ({ onNotificationClick }: NotificationsDropdownPro
       console.log('🧹 Limpiando suscripción Realtime de notificaciones')
       void channel.unsubscribe()
     }
-  }, [usuario?.id])
+  }, [usuario?.id, workPoolScope, navigate])
 
   // Cerrar al clic fuera (panel en portal: incluir panelRef)
   useEffect(() => {

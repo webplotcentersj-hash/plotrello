@@ -20,6 +20,49 @@
   text-decoration: none;
 }
 
+.legajo-act-plot__ops-hoy {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #a7f3d0;
+  background: #ecfdf5;
+}
+
+.legajo-act-plot__ops-title {
+  margin: 0 0 8px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #065f46;
+}
+
+.legajo-act-plot__ops-hoy ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legajo-act-plot__ops-hoy li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.legajo-act-plot__ops-hoy strong {
+  font-size: 0.84rem;
+  color: #064e3b;
+}
+
+.legajo-act-plot__ops-hoy span {
+  font-size: 0.75rem;
+  color: #047857;
+}
+
 .legajo-act-plot__list {
   list-style: none;
   margin: 0;

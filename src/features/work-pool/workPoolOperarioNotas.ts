@@ -6,6 +6,7 @@ import type {
   WorkPoolOperarioNotaTipo,
   WorkPoolOperarioNotasEstadisticas
 } from '../../types/workPool'
+import { isoToArgentinaDateKey } from '../../utils/dateUtils'
 
 function mapAdjuntos(raw: unknown): WorkPoolOperarioNotaAdjunto[] {
   if (!Array.isArray(raw)) return []
@@ -347,4 +348,139 @@ export function formatMinutos(minutos: number): string {
   if (h <= 0) return `${m} min`
   if (m <= 0) return `${h} h`
   return `${h} h ${m} min`
+}
+
+/** Nota mínima para agrupar OPs / trabajos del día (FAB operario o supervisión admin). */
+export type NotaParaOpsDelDia = {
+  tipo: WorkPoolOperarioNotaTipo
+  titulo: string | null
+  id_job: number | null
+  numero_op: string | null
+  numero_venta: string | null
+  numero_oportunidad: string | null
+  hora_inicio: string | null
+  hora_fin: string | null
+  created_at: string
+  job_titulo?: string | null
+  id_usuario?: number
+  usuario_nombre?: string | null
+}
+
+export type OpDelDia = {
+  key: string
+  label: string
+  numero_op: string | null
+  id_job: number | null
+  entradas: number
+  horario: string | null
+  ultimaActividad: string
+  operarios?: Array<{ id: number; nombre: string }>
+}
+
+function mergeHorariosNotas(notas: NotaParaOpsDelDia[]): string | null {
+  const inicios = notas.map((n) => n.hora_inicio).filter(Boolean) as string[]
+  const fines = notas.map((n) => n.hora_fin).filter(Boolean) as string[]
+  if (inicios.length === 0 && fines.length === 0) return null
+  const minInicio = inicios.length ? [...inicios].sort()[0] : null
+  const maxFin = fines.length ? [...fines].sort().reverse()[0] : null
+  return formatHorarioNota(minInicio, maxFin)
+}
+
+/**
+ * Agrupa entradas del día por OP / trabajo / venta / oportunidad.
+ * `fechaKey` en formato YYYY-MM-DD (Argentina). Si es null/omitido, usa todas las notas.
+ */
+export function buildOpsDelDia(
+  notas: NotaParaOpsDelDia[],
+  opts?: {
+    fechaKey?: string | null
+    jobLabelById?: (idJob: number) => string | null
+  }
+): OpDelDia[] {
+  const fechaKey = opts?.fechaKey
+  const dayNotas = fechaKey
+    ? notas.filter((n) => isoToArgentinaDateKey(n.created_at) === fechaKey)
+    : notas
+
+  const relevant = dayNotas.filter(
+    (n) =>
+      n.numero_op ||
+      n.id_job ||
+      n.numero_venta ||
+      n.numero_oportunidad ||
+      (n.tipo === 'bitacora' && n.titulo?.trim())
+  )
+
+  type Acc = { row: OpDelDia; notas: NotaParaOpsDelDia[]; opsMap: Map<number, string> }
+  const map = new Map<string, Acc>()
+
+  for (const n of relevant) {
+    let key: string
+    let label: string
+    const numero_op = n.numero_op
+    const id_job = n.id_job
+
+    if (n.numero_op) {
+      key = `op-${n.numero_op}`
+      label = n.job_titulo?.trim() ? `OP ${n.numero_op} · ${n.job_titulo.trim()}` : `OP ${n.numero_op}`
+    } else if (n.id_job) {
+      key = `job-${n.id_job}`
+      const fromJobs = opts?.jobLabelById?.(n.id_job)
+      label =
+        fromJobs ||
+        n.job_titulo?.trim() ||
+        (n.titulo?.trim() ? n.titulo.trim() : `Trabajo #${n.id_job}`)
+      if (numero_op) label = `OP ${numero_op} · ${label}`
+    } else if (n.numero_venta) {
+      key = `venta-${n.numero_venta}`
+      label = `Venta ${n.numero_venta}`
+    } else if (n.numero_oportunidad) {
+      key = `opp-${n.numero_oportunidad}`
+      label = `Opp ${n.numero_oportunidad}`
+    } else {
+      key = `titulo-${n.titulo?.trim()}`
+      label = n.titulo?.trim() || 'Sin título'
+    }
+
+    const existing = map.get(key)
+    if (existing) {
+      existing.notas.push(n)
+      existing.row.entradas += 1
+      if (n.created_at > existing.row.ultimaActividad) {
+        existing.row.ultimaActividad = n.created_at
+      }
+      existing.row.horario = mergeHorariosNotas(existing.notas)
+      if (n.id_usuario != null) {
+        existing.opsMap.set(n.id_usuario, n.usuario_nombre || `Usuario #${n.id_usuario}`)
+      }
+    } else {
+      const opsMap = new Map<number, string>()
+      if (n.id_usuario != null) {
+        opsMap.set(n.id_usuario, n.usuario_nombre || `Usuario #${n.id_usuario}`)
+      }
+      map.set(key, {
+        row: {
+          key,
+          label,
+          numero_op,
+          id_job,
+          entradas: 1,
+          horario: formatHorarioNota(n.hora_inicio, n.hora_fin),
+          ultimaActividad: n.created_at
+        },
+        notas: [n],
+        opsMap
+      })
+    }
+  }
+
+  return [...map.values()]
+    .map(({ row, notas: grupo, opsMap }) => ({
+      ...row,
+      horario: mergeHorariosNotas(grupo) ?? row.horario,
+      operarios: [...opsMap.entries()]
+        .map(([id, nombre]) => ({ id, nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    }))
+    .sort((a, b) => b.ultimaActividad.localeCompare(a.ultimaActividad))
 }

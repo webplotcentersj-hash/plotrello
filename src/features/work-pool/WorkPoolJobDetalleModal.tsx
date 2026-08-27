@@ -137,6 +137,7 @@ export default function WorkPoolJobDetalleModal({
 
   const j = detalle?.job
   const orden = detalle?.orden
+  const brief = detalle?.brief
   const adjuntos = detalle?.adjuntos ?? []
   const pedidoArchivos = detalle?.pedido_archivos ?? []
   const driveUrl = detalle?.entrega_drive_url
@@ -145,7 +146,21 @@ export default function WorkPoolJobDetalleModal({
   const canEntregar =
     onEntregar && ['en_curso', 'asignado', 'cambios'].includes(job.estado)
 
+  const briefFotos = [
+    ...(brief?.mockup_url
+      ? [{ key: 'brief-mockup', url: brief.mockup_url, title: 'Mockup del brief' }]
+      : []),
+    ...(brief?.archivos ?? [])
+      .filter((a) => a.url && a.url !== brief.mockup_url && isImageUrl(a.url, a.nombre_archivo))
+      .map((a) => ({
+        key: `brief-arch-${a.id}`,
+        url: a.url,
+        title: a.nombre_archivo || a.tipo || 'Archivo brief'
+      }))
+  ]
+
   const fotos = [
+    ...briefFotos,
     ...(orden?.foto_url
       ? [{ key: 'op-foto', url: orden.foto_url, title: 'Foto OP' }]
       : []),
@@ -162,6 +177,11 @@ export default function WorkPoolJobDetalleModal({
   ]
 
   const archivosDescarga = [
+    ...(brief?.archivos ?? []).map((a) => ({
+      key: `d-brief-${a.id}`,
+      url: a.url,
+      name: a.nombre_archivo || `Brief ${a.id}`
+    })),
     ...adjuntos.map((a) => ({
       key: `d-adj-${a.id}`,
       url: a.url,
@@ -193,6 +213,9 @@ export default function WorkPoolJobDetalleModal({
             </h2>
             {job.numero_op && job.titulo !== `Diseño OP ${job.numero_op}` ? (
               <p className="wp-job-detalle__subtitle">{job.titulo}</p>
+            ) : null}
+            {!job.numero_op && brief ? (
+              <p className="wp-job-detalle__subtitle">Origen: brief público (sin OP)</p>
             ) : null}
             <div className="wp-job-detalle__meta-row">
               <span className={`wp-job-detalle__badge wp-job-detalle__badge--${job.estado}`}>
@@ -302,8 +325,33 @@ export default function WorkPoolJobDetalleModal({
               </section>
 
               <section className="wp-job-detalle__section">
-                <h3>Datos de la OP</h3>
-                {orden ? (
+                <h3>{brief && !orden ? 'Datos del brief' : 'Datos de la OP'}</h3>
+                {brief && !orden ? (
+                  <div className="wp-job-detalle__grid">
+                    <Field
+                      label="Cliente / empresa"
+                      value={brief.cliente_empresa || brief.cliente_nombre_completo}
+                    />
+                    <Field label="Contacto" value={brief.cliente_nombre_completo} />
+                    <Field label="Teléfono" value={brief.telefono_cliente} />
+                    <Field label="Email" value={brief.email_cliente} />
+                    <Field label="Tipo de producto" value={brief.tipo_producto_servicio} />
+                    <Field label="Otro tipo" value={brief.tipo_producto_otro} />
+                    <Field label="Objetivo" value={brief.objetivo_proyecto} />
+                    <Field label="Brief público" value={brief.brief_publico} />
+                    <Field label="Estilo de diseño" value={brief.estilo_diseno} />
+                    <Field label="Dónde se coloca" value={brief.donde_colocados} />
+                    <Field label="Digital / impresión" value={brief.digital_o_impresion} />
+                    <Field label="Cantidades" value={brief.cantidades} />
+                    <Field label="Material logo" value={brief.material_logo} />
+                    <Field label="Material textos" value={brief.material_textos} />
+                    <Field label="Material imágenes" value={brief.material_imagenes} />
+                    <Field label="Referencias" value={brief.referencias} />
+                    <Field label="Links de referencia" value={brief.referencias_links} />
+                    <Field label="Fecha límite" value={formatDate(brief.fecha_limite_brief)} />
+                    <Field label="Urgencia" value={brief.es_urgencia ? 'Sí' : null} />
+                  </div>
+                ) : orden ? (
                   <div className="wp-job-detalle__grid">
                     <Field label="Número OP" value={orden.numero_op} />
                     <Field
@@ -326,7 +374,7 @@ export default function WorkPoolJobDetalleModal({
                   </div>
                 ) : (
                   <p className="wp-job-detalle__muted">
-                    Este trabajo no tiene OP vinculada. Usá el brief del trabajo en bolsa.
+                    Este trabajo no tiene OP ni brief vinculado. Usá la descripción del trabajo en bolsa.
                   </p>
                 )}
               </section>
@@ -334,7 +382,11 @@ export default function WorkPoolJobDetalleModal({
               <section className="wp-job-detalle__section">
                 <h3>Fotos y previews</h3>
                 {fotos.length === 0 ? (
-                  <p className="wp-job-detalle__muted">No hay imágenes cargadas en la OP ni en el pedido.</p>
+                  <p className="wp-job-detalle__muted">
+                    {brief
+                      ? 'El brief no tiene mockup ni imágenes cargadas.'
+                      : 'No hay imágenes cargadas en la OP, el brief ni el pedido.'}
+                  </p>
                 ) : (
                   <div className="wp-job-detalle__gallery">
                     {fotos.map((f) => (
