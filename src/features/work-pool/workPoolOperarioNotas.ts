@@ -100,8 +100,35 @@ export async function listarOperarioNotas(opts: {
     p_limit: opts.limit ?? 80
   })
   if (error) return { success: false, error: error.message }
-  const rows = Array.isArray(data) ? data : []
+  const raw = data as unknown
+  const rows = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string'
+      ? (JSON.parse(raw) as unknown[])
+      : []
   return { success: true, data: rows.map((r) => mapNota(r as Record<string, unknown>)) }
+}
+
+/** Todas las notas del usuario (bitácora + checklist + anotador), sin filtrar por tipo. */
+export async function listarOperarioNotasTodas(opts: {
+  id_usuario: number
+  limitPerTipo?: number
+}): Promise<{ success: boolean; data?: WorkPoolOperarioNota[]; error?: string }> {
+  const limit = opts.limitPerTipo ?? 60
+  const tipos: WorkPoolOperarioNotaTipo[] = ['bitacora', 'checklist', 'anotador']
+  const results = await Promise.all(
+    tipos.map((tipo) => listarOperarioNotas({ id_usuario: opts.id_usuario, tipo, limit }))
+  )
+  const failed = results.find((r) => !r.success)
+  if (failed) return { success: false, error: failed.error || 'No se pudo cargar' }
+  const byId = new Map<number, WorkPoolOperarioNota>()
+  for (const r of results) {
+    for (const n of r.data ?? []) byId.set(n.id, n)
+  }
+  return {
+    success: true,
+    data: [...byId.values()].sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }
 }
 
 export async function listarOperarioNotasJob(
@@ -408,7 +435,7 @@ export function buildOpsDelDia(
       n.id_job ||
       n.numero_venta ||
       n.numero_oportunidad ||
-      (n.tipo === 'bitacora' && n.titulo?.trim())
+      Boolean(n.titulo?.trim())
   )
 
   type Acc = { row: OpDelDia; notas: NotaParaOpsDelDia[]; opsMap: Map<number, string> }

@@ -21,6 +21,7 @@ import {
   eliminarOperarioNota,
   formatHorarioNota,
   listarOperarioNotas,
+  listarOperarioNotasTodas,
   toggleOperarioChecklist
 } from './workPoolOperarioNotas'
 import { getArgentinaDateString, isoToArgentinaDateKey } from '../../utils/dateUtils'
@@ -160,7 +161,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
       return
     }
     setLoadingOps(true)
-    const res = await listarOperarioNotas({ id_usuario: idUsuario, tipo: null, limit: 120 })
+    const res = await listarOperarioNotasTodas({ id_usuario: idUsuario, limitPerTipo: 80 })
     setLoadingOps(false)
     if (!res.success) {
       setItemsHoyAll([])
@@ -279,13 +280,17 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
         tab === 'checklist'
           ? detalle.slice(0, 80)
           : tituloTarea.trim() || (jobSeleccionado ? jobTitulo(jobSeleccionado) : '')
+      const numeroOpGuardar =
+        (assoc?.kind === 'op' ? assoc.numero_op ?? assoc.label : assoc?.numero_op) ||
+        jobSeleccionado?.numero_op ||
+        null
       const res = await crearOperarioNota({
         id_usuario: idUsuario,
         tipo,
         detalle,
         titulo: tituloGuardar || undefined,
         id_job: jobId === '' ? null : Number(jobId),
-        numero_op: assoc?.kind === 'op' ? assoc.numero_op ?? assoc.label : assoc?.numero_op ?? null,
+        numero_op: numeroOpGuardar,
         id_venta: assoc?.kind === 'venta' ? assoc.id_venta ?? assoc.id : null,
         numero_venta: assoc?.kind === 'venta' ? assoc.numero_venta ?? assoc.label : null,
         id_oportunidad: assoc?.kind === 'oportunidad' ? assoc.id_oportunidad ?? assoc.id : null,
@@ -298,6 +303,35 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
       if (!res.success) {
         setError(res.error || 'No se pudo guardar')
         return
+      }
+      // Actualización inmediata para que "OPs hoy" no quede vacío hasta el refetch
+      if (res.id) {
+        const ahora = new Date().toISOString()
+        const notaLocal: WorkPoolOperarioNota = {
+          id: res.id,
+          id_usuario: idUsuario,
+          tipo,
+          titulo: tituloGuardar || null,
+          detalle,
+          hecho: false,
+          id_job: jobId === '' ? null : Number(jobId),
+          numero_op: numeroOpGuardar,
+          id_orden: null,
+          id_venta: assoc?.kind === 'venta' ? assoc.id_venta ?? assoc.id : null,
+          numero_venta: assoc?.kind === 'venta' ? assoc.numero_venta ?? assoc.label : null,
+          id_oportunidad: assoc?.kind === 'oportunidad' ? assoc.id_oportunidad ?? assoc.id : null,
+          numero_oportunidad:
+            assoc?.kind === 'oportunidad' ? assoc.numero_oportunidad ?? assoc.label : null,
+          adjuntos,
+          hora_inicio: horaInicio || null,
+          hora_fin: horaFin || null,
+          created_at: ahora,
+          updated_at: ahora
+        }
+        setItems((prev) => [notaLocal, ...prev.filter((n) => n.id !== notaLocal.id)])
+        if (isoToArgentinaDateKey(ahora) === hoy) {
+          setItemsHoyAll((prev) => [notaLocal, ...prev.filter((n) => n.id !== notaLocal.id)])
+        }
       }
       setTexto('')
       setHoraInicio('')
@@ -527,7 +561,8 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
             {loadingOps ? <p className="wp-notas-fab__muted">Cargando…</p> : null}
             {!loadingOps && opsDelDia.length === 0 ? (
               <p className="wp-notas-fab__muted">
-                Todavía no registraste trabajo en ninguna OP hoy. Usá Bitácora para anotar lo que hiciste.
+                Todavía no hay OPs de hoy. En Bitácora elegí un trabajo o asociá una OP y guardá la
+                entrada.
               </p>
             ) : null}
             <ul className="wp-notas-fab__ops-dia">
