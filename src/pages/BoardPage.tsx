@@ -382,6 +382,8 @@ const BoardPage = ({
               if (orden.id == null) continue
               if (orden.visible_en_tablero === false) continue
               if (orden.eliminada === true) continue
+              if (orden.entregado === true) continue
+              if (orden.estado === 'Entregado o Instalado') continue
               const id = String(orden.id)
               if (byId.has(id)) continue
               byId.set(id, ordenToTask(orden))
@@ -1115,22 +1117,27 @@ const BoardPage = ({
       if (response.success) {
         console.log(`✅ Orden ${ordenId} marcada como entregado: ${delivered}`)
         
-        // Actualizar el estado local: entregado y estado
-        // Cuando se marca como entregado, el estado en BD cambia a "Entregado o Instalado"
-        // La ficha sigue visible en el tablero (columna Almacén) con marca de entregada.
-        setTasks((prev) =>
-          prev.map((task) =>
-            task.id === taskId 
-              ? { 
-                  ...task, 
-                  entregado: delivered,
-                  // Si se desmarca, restaurar el estado a almacen-entrega
-                  status: delivered ? task.status : 'almacen-entrega'
-                } 
+        // Entregada: sale del kanban (biblioteca). Desarchivar: vuelve a Almacén.
+        setTasks((prev) => {
+          if (delivered) {
+            return prev.filter((task) => task.id !== taskId)
+          }
+          return prev.map((task) =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  entregado: false,
+                  visibleEnTablero: true,
+                  status: 'almacen-entrega'
+                }
               : task
           )
+        })
+        setActionSuccess(
+          delivered
+            ? 'Entrega procesada: la OP pasó a la biblioteca y salió del tablero'
+            : 'Ficha desarchivada y restaurada al tablero'
         )
-        setActionSuccess(delivered ? 'Ficha marcada como entregada y archivada' : 'Ficha desarchivada')
       } else {
         console.error('❌ Error marcando como entregado:', response.error)
         setActionError(response.error || 'No se pudo marcar como entregado')

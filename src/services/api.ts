@@ -3211,7 +3211,9 @@ class ApiService {
         .update({ 
           entregado,
           estado: nuevoEstado,
-          sector: sectorFinal // Mantener sector válido según el check constraint
+          sector: sectorFinal, // Mantener sector válido según el check constraint
+          // Entregada → sale del kanban (queda en biblioteca). Desarchivar → vuelve.
+          visible_en_tablero: !entregado
         })
         .eq('id', id)
 
@@ -3223,7 +3225,7 @@ class ApiService {
           id,
           estadoAnterior,
           nuevoEstado,
-          'Ficha marcada como entregada y archivada',
+          'Ficha marcada como entregada: sale del tablero y queda en biblioteca',
           'cambio_estado',
           {
             estado: { anterior: estadoAnterior, nuevo: nuevoEstado },
@@ -3271,6 +3273,7 @@ class ApiService {
         .update({
           entregado: true,
           estado: 'Entregado o Instalado',
+          visible_en_tablero: false,
           firma_data_url: datosEntrega.firmaDataUrl,
           entregado_a: datosEntrega.entregadoA,
           dni_retira: datosEntrega.dniRetira || null,

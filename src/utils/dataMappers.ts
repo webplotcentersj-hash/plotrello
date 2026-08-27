@@ -155,9 +155,17 @@ export function isOrdenMarcadaEliminada(
 }
 
 export function isOrdenVisibleOnTablero(
-  orden: Partial<Pick<OrdenTrabajo, 'eliminada' | 'visible_en_tablero' | 'estado' | 'motivo_eliminacion' | 'fecha_eliminacion'>>
+  orden: Partial<
+    Pick<
+      OrdenTrabajo,
+      'eliminada' | 'visible_en_tablero' | 'estado' | 'motivo_eliminacion' | 'fecha_eliminacion' | 'entregado'
+    >
+  >
 ): boolean {
   if (isOrdenMarcadaEliminada(orden)) return false
+  // Entregadas viven en biblioteca, no en el kanban
+  if (orden.entregado === true) return false
+  if (orden.estado === 'Entregado o Instalado') return false
   return orden.visible_en_tablero !== false
 }
 
@@ -165,6 +173,8 @@ export function isOrdenVisibleOnTablero(
 export function isTaskHiddenFromKanban(task: Task): boolean {
   if (task.ordenEliminada === true) return true
   if (task.visibleEnTablero === false) return true
+  // Procesar entrega / archivadas: solo biblioteca
+  if (task.entregado === true) return true
   return false
 }
 
