@@ -146,12 +146,13 @@ export default function WorkPoolJobDetalleModal({
   const canEntregar =
     onEntregar && ['en_curso', 'asignado', 'cambios'].includes(job.estado)
 
+  const briefMockupUrl = brief?.mockup_url ?? null
   const briefFotos = [
-    ...(brief?.mockup_url
-      ? [{ key: 'brief-mockup', url: brief.mockup_url, title: 'Mockup del brief' }]
+    ...(briefMockupUrl
+      ? [{ key: 'brief-mockup', url: briefMockupUrl, title: 'Mockup del brief' }]
       : []),
     ...(brief?.archivos ?? [])
-      .filter((a) => a.url && a.url !== brief.mockup_url && isImageUrl(a.url, a.nombre_archivo))
+      .filter((a) => a.url && a.url !== briefMockupUrl && isImageUrl(a.url, a.nombre_archivo))
       .map((a) => ({
         key: `brief-arch-${a.id}`,
         url: a.url,
