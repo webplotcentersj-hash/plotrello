@@ -61,6 +61,7 @@ const OperarioExternoStaffShell = lazy(
   () => import('./features/work-pool/OperarioExternoStaffShell')
 )
 const PhiPublicRedirect = lazy(() => import('./pages/PhiPublicRedirect'))
+const BitacoraDocsCapturePage = lazy(() => import('./pages/dev/BitacoraDocsCapturePage'))
 
 const operarioExternoFallback = (
   <div
@@ -539,6 +540,16 @@ function AppInner() {
               </Suspense>
             }
           />
+          {import.meta.env.DEV ? (
+            <Route
+              path="/__docs/bitacora-capturas"
+              element={
+                <Suspense fallback={<div style={{ padding: 20 }}>Preparando captura…</div>}>
+                  <BitacoraDocsCapturePage />
+                </Suspense>
+              }
+            />
+          ) : null}
           <Route
             path="/login"
             element={

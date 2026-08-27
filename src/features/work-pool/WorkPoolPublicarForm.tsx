@@ -20,6 +20,7 @@ import {
 import { parseWorkPoolOpQuery } from './workPoolOpSearch'
 import WorkPoolOperarioRecommender from './WorkPoolOperarioRecommender'
 import WorkPoolFuentesEntrada from './WorkPoolFuentesEntrada'
+import type { BriefFuenteResumen } from './WorkPoolFuenteDetailModal'
 import type { PedidoClienteRecord } from '../../types/api'
 import { TABLERO_COLA_SHORT } from './workPoolTablero'
 import './WorkPoolModule.css'
@@ -92,6 +93,7 @@ export default function WorkPoolPublicarForm({
   const [pedidoPortalSeleccionado, setPedidoPortalSeleccionado] = useState<PedidoClienteRecord | null>(
     null
   )
+  const [briefSeleccionado, setBriefSeleccionado] = useState<BriefFuenteResumen | null>(null)
 
   const opSearchRef = useRef<HTMLDivElement>(null)
 
@@ -215,17 +217,35 @@ export default function WorkPoolPublicarForm({
     setCreateOp(orden.numero_op)
     setOpQuery(orden.numero_op)
     setOpDropdownOpen(false)
+    setBriefSeleccionado(null)
+    setPedidoPortalSeleccionado(null)
     if (!createDesc.trim()) aplicarTextoBrief(orden)
     else if (orden.objetivo_proyecto || orden.brief_publico) aplicarTextoBrief(orden)
   }
 
-  const aplicarBriefPendiente = (texto: string, cliente?: string) => {
+  const aplicarBriefPendiente = (texto: string, cliente?: string, brief?: BriefFuenteResumen) => {
     if (texto) setCreateDesc(texto)
-    if (cliente && !opQuery.trim()) setOpQuery(cliente)
+    setBriefSeleccionado(
+      brief ?? {
+        id: 0,
+        token: '',
+        cliente_nombre_completo: cliente ?? null,
+        cliente_empresa: null,
+        tipo_producto_servicio: null,
+        objetivo_proyecto: texto || null,
+        fecha_creacion: new Date().toISOString()
+      }
+    )
+    setPedidoPortalSeleccionado(null)
+    setOpSeleccionada(null)
+    setCreateOp('')
+    setOpQuery(cliente?.trim() || 'Brief sin OP')
+    setOpDropdownOpen(false)
   }
 
   const aplicarPedidoPortal = (pedido: PedidoClienteRecord) => {
     setPedidoPortalSeleccionado(pedido)
+    setBriefSeleccionado(null)
     setModo('asignado')
     const texto = [pedido.brief_publico, pedido.objetivo_proyecto, pedido.observaciones_cliente]
       .filter(Boolean)
@@ -237,6 +257,8 @@ export default function WorkPoolPublicarForm({
       setOpSeleccionada(null)
       setOpDropdownOpen(true)
     } else {
+      setCreateOp('')
+      setOpSeleccionada(null)
       const cliente =
         (pedido as PedidoClienteRecord & { cliente?: { nombre?: string; empresa?: string } }).cliente?.empresa ||
         (pedido as PedidoClienteRecord & { cliente?: { nombre?: string } }).cliente?.nombre
@@ -254,7 +276,7 @@ export default function WorkPoolPublicarForm({
 
   const stepsMeta = useMemo(
     () => [
-      { id: 1 as const, label: 'Origen', hint: 'OP o pedido' },
+      { id: 1 as const, label: 'Origen', hint: 'OP, brief o pedido' },
       { id: 2 as const, label: 'Destino', hint: 'Bolsa o persona' },
       { id: 3 as const, label: 'Precio', hint: 'Tarifa / monto' },
       { id: 4 as const, label: 'Publicar', hint: 'Brief y listo' }
@@ -263,7 +285,7 @@ export default function WorkPoolPublicarForm({
   )
 
   const canGoNext = (from: PublishStep): boolean => {
-    if (from === 1) return Boolean(createOp.trim() || pedidoPortalSeleccionado)
+    if (from === 1) return Boolean(createOp.trim() || pedidoPortalSeleccionado || briefSeleccionado)
     if (from === 2) {
       if (pedidoPortalSeleccionado && !empleadoId) return false
       if (modo === 'asignado' && !empleadoId) return false
@@ -276,7 +298,7 @@ export default function WorkPoolPublicarForm({
     setLocalError('')
     if (!canGoNext(step)) {
       if (step === 1) {
-        setLocalError('Elegí una OP o un pedido del portal para seguir')
+        setLocalError('Elegí una OP, un brief o un pedido del portal para seguir')
         return
       }
       if (step === 2) {
@@ -303,8 +325,8 @@ export default function WorkPoolPublicarForm({
       : 0
 
   const handleSubmit = async () => {
-    if (!createOp.trim() && !pedidoPortalSeleccionado) {
-      const msg = 'Indicá el número de OP o elegí un pedido del portal'
+    if (!createOp.trim() && !pedidoPortalSeleccionado && !briefSeleccionado) {
+      const msg = 'Indicá el número de OP, o elegí un brief / pedido del portal'
       setLocalError(msg)
       onError?.(msg)
       return
@@ -322,6 +344,12 @@ export default function WorkPoolPublicarForm({
       return
     }
 
+    const briefCliente =
+      briefSeleccionado?.cliente_empresa ||
+      briefSeleccionado?.cliente_nombre_completo ||
+      null
+    const briefTipos = briefSeleccionado?.tipo_producto_servicio?.filter(Boolean).join(', ')
+
     setCreating(true)
     setLocalError('')
     const res = await crearWorkPoolJob({
@@ -329,7 +357,9 @@ export default function WorkPoolPublicarForm({
       numero_op: createOp.trim() || undefined,
       titulo: pedidoPortalSeleccionado
         ? `Pedido ${pedidoPortalSeleccionado.numero_pedido}`
-        : undefined,
+        : briefSeleccionado
+          ? [briefCliente, briefTipos].filter(Boolean).join(' · ') || 'Brief sin OP'
+          : undefined,
       descripcion: createDesc.trim() || undefined,
       codigo_tarifa: createTarifa || undefined,
       monto: createMonto ? Number(createMonto) : undefined,
@@ -352,6 +382,7 @@ export default function WorkPoolPublicarForm({
     setOpQuery(numeroOp)
     setOpSeleccionada(null)
     setPedidoPortalSeleccionado(null)
+    setBriefSeleccionado(null)
     setCreateDesc('')
     setCreateTarifa('')
     setCreateMonto('')
@@ -388,6 +419,7 @@ export default function WorkPoolPublicarForm({
             setOpQuery(e.target.value)
             setCreateOp(e.target.value)
             setOpSeleccionada(null)
+            if (e.target.value.trim()) setBriefSeleccionado(null)
           }}
           onFocus={() => {
             if (opSugerencias.length > 0 || opSearchParsed.canSearch) setOpDropdownOpen(true)
@@ -649,7 +681,7 @@ export default function WorkPoolPublicarForm({
           <>
             <div className="work-pool-publicar__stage-head">
               <h4>1 · Origen del trabajo</h4>
-              <p>Buscá la OP del tablero o tomá una entrada (brief / pedido portal).</p>
+              <p>Buscá la OP del tablero, o tomá un brief pendiente / pedido del portal.</p>
             </div>
 
             <section className="work-pool-publicar__disponibles work-pool-publicar__disponibles--compact work-pool-publicar__disponibles--live">
@@ -686,6 +718,36 @@ export default function WorkPoolPublicarForm({
                 Pedido portal <strong>{pedidoPortalSeleccionado.numero_pedido}</strong> seleccionado.
               </div>
             )}
+            {briefSeleccionado && !pedidoPortalSeleccionado && (
+              <div className="work-pool-module__alert work-pool-module__alert--info">
+                Brief seleccionado
+                {briefSeleccionado.cliente_empresa || briefSeleccionado.cliente_nombre_completo
+                  ? (
+                      <>
+                        {' '}
+                        ·{' '}
+                        <strong>
+                          {briefSeleccionado.cliente_empresa ||
+                            briefSeleccionado.cliente_nombre_completo}
+                        </strong>
+                      </>
+                    )
+                  : null}
+                . Podés publicarlo sin OP (título y descripción del brief).
+                <button
+                  type="button"
+                  className="work-pool-module__btn work-pool-module__btn--ghost"
+                  style={{ marginLeft: 8 }}
+                  onClick={() => {
+                    setBriefSeleccionado(null)
+                    setOpQuery('')
+                    if (!createOp.trim()) setCreateDesc('')
+                  }}
+                >
+                  Quitar
+                </button>
+              </div>
+            )}
 
             <WorkPoolFuentesEntrada
               product={product}
@@ -696,6 +758,12 @@ export default function WorkPoolPublicarForm({
               onAplicarPedido={aplicarPedidoPortal}
             />
             {opBlock}
+            {briefSeleccionado && !createOp.trim() ? (
+              <p className="work-pool-publicar__muted">
+                Origen = brief sin OP. Si más adelante tenés número de OP, cargalo arriba; si no, seguí con
+                Siguiente.
+              </p>
+            ) : null}
           </>
         )}
 
@@ -736,9 +804,15 @@ export default function WorkPoolPublicarForm({
                 <strong>
                   {pedidoPortalSeleccionado
                     ? `Pedido ${pedidoPortalSeleccionado.numero_pedido}`
-                    : createOp.trim()
-                      ? `OP ${createOp.trim()}`
-                      : '—'}
+                    : briefSeleccionado
+                      ? `Brief · ${
+                          briefSeleccionado.cliente_empresa ||
+                          briefSeleccionado.cliente_nombre_completo ||
+                          'sin OP'
+                        }`
+                      : createOp.trim()
+                        ? `OP ${createOp.trim()}`
+                        : '—'}
                 </strong>
               </div>
               <div>

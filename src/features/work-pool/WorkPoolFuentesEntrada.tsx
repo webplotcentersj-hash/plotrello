@@ -23,7 +23,7 @@ type Props = {
   sector: WorkPoolSector
   idUsuarioCreador: number
   onSeleccionarOp: (orden: WorkPoolOrdenSugerida) => void
-  onAplicarBrief: (texto: string, cliente?: string) => void
+  onAplicarBrief: (texto: string, cliente?: string, brief?: BriefFuenteResumen) => void
   onAplicarPedido: (pedido: PedidoClienteRecord) => void
 }
 
@@ -128,7 +128,7 @@ export default function WorkPoolFuentesEntrada({
       const tipos = b.tipo_producto_servicio?.join(', ') ?? ''
       const texto =
         opts?.textoBrief || [b.objetivo_proyecto, tipos].filter(Boolean).join(' · ')
-      onAplicarBrief(texto, cliente)
+      onAplicarBrief(texto, cliente, b)
       return
     }
     onAplicarPedido(detail.pedido)

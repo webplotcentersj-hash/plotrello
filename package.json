@@ -22,6 +22,7 @@
     "manual:pdf": "node scripts/build-manual-pdf.mjs",
     "manual:pdf:op-sectores": "node scripts/build-manual-pdf.mjs MANUAL_OP_SECTORES_MULTIPLES.md",
     "pdf:mejoras-usuarios": "node scripts/build-manual-pdf.mjs docs/MEJORAS_USUARIOS.md docs/MEJORAS_USUARIOS.pdf",
+    "docs:bitacora-capturas": "node scripts/capture-bitacora-screenshots.mjs",
     "migrate:postulantes": "node scripts/migrar-postulantes-legacy.mjs",
     "import:lista-precios": "node scripts/import-lista-precios-flexxus.mjs",
     "migrate:postulantes:db": "node scripts/importar-postulantes-anon.mjs",
@@ -38,6 +39,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "playwright": "^1.51.1",
     "typescript": "~5.9.3",
     "vite": "^7.2.2",
     "vite-plugin-pwa": "^1.2.0"

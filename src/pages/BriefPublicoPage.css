@@ -526,41 +526,127 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-/* Portal cliente: brief con mockup + IA */
-.brief-publico-page--cliente .brief-form .form-section h2 {
-  color: var(--cliente-text, #111827) !important;
-  border-bottom-color: color-mix(in srgb, var(--cliente-brand, #eb671b) 45%, transparent);
+/* Portal cliente: anula el tema oscuro del brief público y sigue día/noche del portal */
+.cliente-portal-root .brief-publico-page--cliente,
+.cliente-portal-root .brief-publico-page--cliente .brief-container--cliente {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--cliente-text) !important;
 }
 
-.brief-publico-page--cliente .section-description,
-.brief-publico-page--cliente .form-group label {
-  color: var(--cliente-text, #374151) !important;
+.cliente-portal-root .brief-publico-page--cliente .brief-form .form-section h2,
+.cliente-portal-root .brief-publico-page--cliente .brief-form .form-section h3,
+.cliente-portal-root .brief-publico-page--cliente .brief-form .form-section-head h2,
+.cliente-portal-root .brief-publico-page--cliente .bases-condiciones h2,
+.cliente-portal-root .brief-publico-page--cliente .base-item h4 {
+  color: var(--cliente-text) !important;
+  border-bottom-color: color-mix(in srgb, var(--cliente-brand) 45%, transparent);
 }
 
-.brief-publico-page--cliente .form-group input,
-.brief-publico-page--cliente .form-group textarea,
-.brief-publico-page--cliente .form-group select {
-  background: var(--cliente-surface, #fff) !important;
-  color: var(--cliente-text, #1f2937) !important;
-  border-color: var(--cliente-border, #e5e7eb);
+.cliente-portal-root .brief-publico-page--cliente .section-description,
+.cliente-portal-root .brief-publico-page--cliente .form-group small,
+.cliente-portal-root .brief-publico-page--cliente .base-item p {
+  color: var(--cliente-muted) !important;
 }
 
-.brief-publico-page--cliente .checkbox-label {
-  background: var(--cliente-surface-2, #f9fafb);
-  border-color: var(--cliente-border, #e5e7eb);
+.cliente-portal-root .brief-publico-page--cliente .form-group label {
+  color: var(--cliente-text) !important;
 }
 
-.brief-publico-page--cliente .checkbox-label span {
-  color: var(--cliente-text, #374151) !important;
+.cliente-portal-root .brief-publico-page--cliente .form-group input,
+.cliente-portal-root .brief-publico-page--cliente .form-group textarea,
+.cliente-portal-root .brief-publico-page--cliente .form-group select {
+  background: var(--cliente-bg-elevated) !important;
+  color: var(--cliente-text) !important;
+  border-color: var(--cliente-border) !important;
+  color-scheme: light dark;
 }
 
-.brief-publico-page--cliente .checkbox-label input[type='checkbox']:checked + span {
-  color: var(--cliente-brand, #eb671b) !important;
+.cliente-portal-root .brief-publico-page--cliente .form-group input::placeholder,
+.cliente-portal-root .brief-publico-page--cliente .form-group textarea::placeholder {
+  color: var(--cliente-muted) !important;
+  opacity: 1;
 }
 
-.brief-publico-page--cliente .btn-submit {
-  background: linear-gradient(135deg, var(--cliente-brand, #eb671b), color-mix(in srgb, var(--cliente-brand, #eb671b) 80%, #c2410c));
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--cliente-brand, #eb671b) 35%, transparent);
+.cliente-portal-root .brief-publico-page--cliente .checkbox-label {
+  background: var(--cliente-surface-hover) !important;
+  border-color: var(--cliente-border) !important;
+}
+
+.cliente-portal-root .brief-publico-page--cliente .checkbox-label:hover {
+  background: var(--cliente-brand-soft) !important;
+  border-color: color-mix(in srgb, var(--cliente-brand) 45%, var(--cliente-border)) !important;
+}
+
+.cliente-portal-root .brief-publico-page--cliente .checkbox-label span,
+.cliente-portal-root .brief-publico-page--cliente .urgent-label span {
+  color: var(--cliente-text) !important;
+}
+
+.cliente-portal-root .brief-publico-page--cliente .checkbox-label input[type='checkbox']:checked + span {
+  color: var(--cliente-brand) !important;
+}
+
+.cliente-portal-root .brief-publico-page--cliente .urgent-label {
+  background: var(--cliente-error-bg) !important;
+  border-color: var(--cliente-error-border) !important;
+}
+
+.cliente-portal-root .brief-publico-page--cliente .urgent-warning {
+  background: var(--cliente-error-bg) !important;
+  color: var(--cliente-error-text) !important;
+  border-color: var(--cliente-error-border) !important;
+}
+
+.cliente-portal-root .brief-publico-page--cliente .bases-condiciones {
+  background: var(--cliente-surface-hover) !important;
+  border: 1px solid var(--cliente-border) !important;
+  border-radius: var(--cliente-radius, 12px);
+}
+
+.cliente-portal-root .brief-publico-page--cliente .btn-submit {
+  background: linear-gradient(
+    135deg,
+    var(--cliente-brand),
+    color-mix(in srgb, var(--cliente-brand) 80%, var(--cliente-brand-dark, #c2410c))
+  ) !important;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--cliente-brand) 35%, transparent);
+  color: #fff !important;
+}
+
+.cliente-portal-root .brief-publico-page--cliente .brief-ia-btn {
+  border-color: color-mix(in srgb, var(--cliente-brand) 40%, var(--cliente-border));
+  background: var(--cliente-brand-soft);
+  color: var(--cliente-brand);
+}
+
+.cliente-portal-root .brief-publico-page--cliente .brief-file-input {
+  color: var(--cliente-text);
+}
+
+.cliente-portal-root .brief-publico-page--cliente .error-message,
+.cliente-portal-root .brief-publico-page--cliente .success-message {
+  color: var(--cliente-text) !important;
+}
+
+/* Tema oscuro del portal: inputs y superficies más legibles */
+.cliente-portal-root[data-cliente-theme='dark'] .brief-publico-page--cliente .form-group input,
+.cliente-portal-root[data-cliente-theme='dark'] .brief-publico-page--cliente .form-group textarea,
+.cliente-portal-root[data-cliente-theme='dark'] .brief-publico-page--cliente .form-group select,
+.cliente-portal-root [data-cliente-theme='dark'] .brief-publico-page--cliente .form-group input,
+.cliente-portal-root [data-cliente-theme='dark'] .brief-publico-page--cliente .form-group textarea,
+.cliente-portal-root [data-cliente-theme='dark'] .brief-publico-page--cliente .form-group select {
+  background: var(--cliente-surface) !important;
+  border-color: var(--cliente-border-strong) !important;
+  color-scheme: dark;
+}
+
+.cliente-portal-root[data-cliente-theme='dark'] .brief-publico-page--cliente .checkbox-label,
+.cliente-portal-root [data-cliente-theme='dark'] .brief-publico-page--cliente .checkbox-label,
+.cliente-portal-root[data-cliente-theme='dark'] .brief-publico-page--cliente .bases-condiciones,
+.cliente-portal-root [data-cliente-theme='dark'] .brief-publico-page--cliente .bases-condiciones {
+  background: var(--cliente-surface) !important;
 }
 
 .brief-orden-compact {

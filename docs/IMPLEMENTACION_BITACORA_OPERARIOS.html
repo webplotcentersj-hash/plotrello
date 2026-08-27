@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Implementación — Bitácora, tareas y supervisión de operarios</title>
+<style>
+  @page { size: A4; margin: 14mm 13mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a;
+    line-height: 1.55;
+    font-size: 10.5pt;
+    margin: 0;
+    background: #f1f5f9;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 48px; background: #fff; }
+  h1 {
+    font-size: 22pt;
+    letter-spacing: -0.03em;
+    margin: 0 0 4px;
+    color: #0b1220;
+    border-bottom: 3px solid #2563eb;
+    padding-bottom: 8px;
+  }
+  .lead { color: #334155; margin: 0 0 8px; font-size: 11.5pt; }
+  .meta { color: #64748b; font-size: 8.5pt; margin: 0 0 20px; }
+  h2 {
+    font-size: 14pt;
+    margin: 28px 0 10px;
+    color: #1d4ed8;
+    page-break-after: avoid;
+    border-left: 4px solid #2563eb;
+    padding-left: 10px;
+  }
+  h3 {
+    font-size: 11pt;
+    margin: 18px 0 8px;
+    color: #0f172a;
+    page-break-after: avoid;
+  }
+  p { margin: 0 0 10px; }
+  ul, ol { margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  code, .path {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 9pt;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: #1e293b;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 16px;
+    font-size: 9pt;
+  }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #dbeafe; color: #1e3a8a; font-weight: 700; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .recuadro {
+    page-break-inside: avoid;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid #bfdbfe;
+    border-left: 5px solid #2563eb;
+    background: #eff6ff;
+  }
+  .recuadro.verde {
+    border-color: #bbf7d0;
+    border-left-color: #16a34a;
+    background: #f0fdf4;
+  }
+  .recuadro.ambar {
+    border-color: #fde68a;
+    border-left-color: #d97706;
+    background: #fffbeb;
+  }
+  .recuadro .etiqueta {
+    display: block;
+    font-size: 7.5pt;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #1d4ed8;
+    margin: 0 0 4px;
+  }
+  .recuadro.verde .etiqueta { color: #15803d; }
+  .recuadro.ambar .etiqueta { color: #b45309; }
+  .figura {
+    page-break-inside: avoid;
+    margin: 16px 0 24px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0b1220;
+  }
+  .figura__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #1e293b;
+    color: #e2e8f0;
+    font-size: 8.5pt;
+    font-weight: 700;
+  }
+  .figura__num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 9pt;
+    margin-right: 6px;
+  }
+  .figura__img-wrap {
+    position: relative;
+    min-height: 200px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .figura__img-wrap img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 520px;
+    object-fit: contain;
+  }
+  .figura__placeholder {
+    padding: 32px 24px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 9pt;
+    max-width: 420px;
+  }
+  .figura__placeholder strong { color: #cbd5e1; display: block; margin-bottom: 6px; font-size: 10pt; }
+  .figura__pie {
+    padding: 12px 14px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    font-size: 9.5pt;
+  }
+  .figura__pie ol {
+    margin: 8px 0 0;
+    padding-left: 18px;
+  }
+  .figura__pie li { margin-bottom: 6px; }
+  .callout {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: #fef08a;
+    color: #713f12;
+    font-weight: 800;
+    font-size: 8pt;
+  }
+  .toc { margin: 0 0 20px; padding: 14px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+  .toc a { color: #1d4ed8; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 3px; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+  @media print {
+    body { background: #fff; }
+    .wrap { padding: 0; max-width: none; }
+    .figura { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Bitácora, tareas y supervisión de operarios</h1>
+<p class="lead">Guía de implementación Plot Lab — lado operario (anotador flotante) y lado admin/gerencia (panel de actividades + legajo RRHH).</p>
+<p class="meta">Actualizado 26 ago 2026 · Commits df0c241 + 496df23 · Producción: <a href="https://www.plotcenterlab.com.ar/">plotcenterlab.com.ar</a></p>
+
+<div class="recuadro">
+  <span class="etiqueta">Resumen</span>
+  <p>Cada operario registra en un <strong>botón flotante</strong> (bitácora, checklist, anotador) lo que hace en el día, con título de tarea, horario y adjuntos. Admin y gerencia ven todo en <strong>/actividades-operarios</strong> con calendario, estadísticas, modal de detalle y enlace al <strong>legajo</strong> del empleado.</p>
+</div>
+
+<nav class="toc">
+  <strong>Índice</strong>
+  <ol>
+    <li><a href="#operario">Lado operario — Anotador flotante (FAB)</a></li>
+    <li><a href="#admin">Lado admin / gerencia — Supervisión</a></li>
+    <li><a href="#legajo">Legajo RRHH — Actividades Plot</a></li>
+    <li><a href="#tecnico">Referencia técnica</a></li>
+    <li><a href="#capturas">Cómo completar las capturas</a></li>
+  </ol>
+</nav>
+
+<hr/>
+
+<h2 id="operario">1. Lado operario — Anotador flotante (FAB)</h2>
+
+<div class="recuadro verde">
+  <span class="etiqueta">Dónde aparece</span>
+  <p>Panel externo Plot Design (<span class="path">/operario-externo/diseno</span>), vista operario interna, tablero principal (<span class="path">BoardPage</span>) y admin Plot Design cuando el usuario es operario asignado.</p>
+</div>
+
+<h3>1.1 Botón flotante</h3>
+<p>Esquina inferior derecha. Icono de cuaderno; al abrirlo muestra el panel «Tareas y anotador».</p>
+
+<figure class="figura">
+  <div class="figura__head"><span><span class="figura__num">1</span>Botón FAB cerrado</span><span class="path">WorkPoolOperarioNotasFab</span></div>
+  <div class="figura__img-wrap">
+    <img src="img/bitacora-operarios/01-fab-boton.png" alt="Botón flotante anotador"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+    <div class="figura__placeholder" style="display:none">
+      <strong>Captura 01 — Botón flotante</strong>
+      Pantalla del operario con el círculo blanco/negro abajo a la derecha (icono cuaderno). Incluir un trabajo activo en la bolsa si es posible.
+    </div>
+  </div>
+  <figcaption class="figura__pie">
+    <strong>Qué explica esta captura</strong>
+    <ol>
+      <li><span class="callout">①</span> <strong>Botón FAB</strong> — Siempre visible mientras el operario navega; no tapa acciones críticas en móvil (sube un poco en pantallas chicas).</li>
+      <li><span class="callout">②</span> Al hacer clic se abre el panel; el botón pasa a icono ✕ para cerrar.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>1.2 Tres pestañas</h3>
+<table>
+  <tr><th>Pestaña</th><th>Uso</th><th>Datos que guarda</th></tr>
+  <tr><td><strong>Bitácora</strong></td><td>Registro de trabajo hecho en un job/OP</td><td>Detalle, título, job, OP/venta, horario, adjuntos (PDF, imágenes, etc.)</td></tr>
+  <tr><td><strong>Checklist</strong></td><td>Tareas pendientes del día</td><td>Título (= texto de la tarea), marcable como hecho, horario opcional</td></tr>
+  <tr><td><strong>Anotador</strong></td><td>Notas libres</td><td>Texto + horario opcional, sin obligación de OP</td></tr>
+</table>
+
+<figure class="figura">
+  <div class="figura__head"><span><span class="figura__num">2</span>Pestañas Bitácora · Checklist · Anotador</span></div>
+  <div class="figura__img-wrap">
+    <img src="img/bitacora-operarios/02-fab-tabs.png" alt="Pestañas del anotador"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+    <div class="figura__placeholder" style="display:none">
+      <strong>Captura 02 — Panel con pestañas</strong>
+      Panel abierto mostrando las tres pestañas; una activa (recomendado Bitácora).
+    </div>
+  </div>
+  <figcaption class="figura__pie">
+    <ol>
+      <li><span class="callout">①</span> <strong>Bitácora</strong> — Requiere asociar un trabajo en curso <em>o</em> buscar OP/venta/oportunidad.</li>
+      <li><span class="callout">②</span> <strong>Checklist</strong> — Lista de tareas del día; checkbox integrado en cada ítem.</li>
+      <li><span class="callout">③</span> <strong>Anotador</strong> — Notas rápidas sin amarrar a un job.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>1.3 Formulario de alta (composer)</h3>
+
+<figure class="figura">
+  <div class="figura__head"><span><span class="figura__num">3</span>Formulario completo — Bitácora</span></div>
+  <div class="figura__img-wrap">
+    <img src="img/bitacora-operarios/03-fab-composer.png" alt="Formulario bitácora"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+    <div class="figura__placeholder" style="display:none">
+      <strong>Captura 03 — Composer</strong>
+      Mostrar: selector «Trabajo en curso», campo «Título de la tarea», búsqueda OP, textarea, hora inicio/fin, adjuntos y botón Agregar.
+    </div>
+  </div>
+  <figcaption class="figura__pie">
+    <ol>
+      <li><span class="callout">①</span> <strong>Trabajo en curso</strong> — Lista de jobs activos (asignado, en curso, cambios, entregado, en revisión). Muestra <em>OP · título del trabajo</em>.</li>
+      <li><span class="callout">②</span> <strong>Título de la tarea</strong> — Se autocompleta al elegir un job; el operario puede editarlo. Queda guardado en la base como <code>titulo</code>.</li>
+      <li><span class="callout">③</span> <strong>Asociar OP / venta / oportunidad</strong> — Búsqueda opcional si no hay job; debajo aparece hint con el trabajo seleccionado.</li>
+      <li><span class="callout">④</span> <strong>Qué hiciste</strong> — Texto principal de la bitácora (<code>detalle</code>).</li>
+      <li><span class="callout">⑤</span> <strong>Hora inicio / fin</strong> — Registro de horario del día (validación: fin &gt; inicio).</li>
+      <li><span class="callout">⑥</span> <strong>Documentos adjuntos</strong> — Solo en bitácora; sube a Storage <code>archivos/work-pool-bitacora/</code>.</li>
+      <li><span class="callout">⑦</span> <strong>Agregar</strong> — Crea la nota vía RPC <code>work_pool_operario_nota_crear</code>.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>1.4 Lista del día</h3>
+<p>Debajo del formulario solo se listan entradas de <strong>hoy</strong> (zona horaria Argentina), con contador «Hoy · N entradas».</p>
+
+<figure class="figura">
+  <div class="figura__head"><span><span class="figura__num">4</span>Lista filtrada por hoy</span></div>
+  <div class="figura__img-wrap">
+    <img src="img/bitacora-operarios/04-fab-lista-hoy.png" alt="Lista del día"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+    <div class="figura__placeholder" style="display:none">
+      <strong>Captura 04 — Lista hoy</strong>
+      Al menos una entrada con título, hora, chips (OP / título) y botón eliminar.
+    </div>
+  </div>
+  <figcaption class="figura__pie">
+    <ol>
+      <li><span class="callout">①</span> Encabezado <strong>Hoy · N entradas</strong> — Filtro local con <code>isoToArgentinaDateKey</code>.</li>
+      <li><span class="callout">②</span> Cada ítem muestra título, detalle, hora registrada y chips de asociación.</li>
+      <li><span class="callout">③</span> En checklist: icono checkbox para marcar hecho (toggle en servidor).</li>
+      <li><span class="callout">④</span> Adjuntos aparecen como links descargables bajo el texto.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="recuadro ambar">
+  <span class="etiqueta">Permisos operario</span>
+  <p>Solo puede anotar en un job si es el asignado (o el job está disponible para tomarlo). Los adjuntos solo se permiten en entradas tipo <code>bitacora</code>.</p>
+</div>
+
+<hr/>
+
+<h2 id="admin">2. Lado admin / gerencia — Supervisión</h2>
+
+<div class="recuadro verde">
+  <span class="etiqueta">Quién puede entrar</span>
+  <p>Roles: administración, admin, gerencia, y supervisión designada (Alejandro Chávez, usuario id 6). Ruta: <span class="path">/actividades-operarios</span></p>
+</div>
+
+<h3>2.1 Cómo llegar al panel</h3>
+<table>
+  <tr><th>Acceso</th><th>Ubicación en UI</th></tr>
+  <tr><td>Header tablero</td><td>Chip usuario «Actividades operarios» (arriba derecha) o botón rápido <strong>Actividades</strong> en la barra de navegación</td></tr>
+  <tr><td>Plot Design admin</td><td><span class="path">/plot-design</span> → botón <strong>Actividades operarios</strong> junto a «← PlotLab»</td></tr>
+  <tr><td>URL directa</td><td><span class="path">https://www.plotcenterlab.com.ar/actividades-operarios</span></td></tr>
+</table>
+
+<figure class="figura">
+  <div class="figura__head"><span><span class="figura__num">5</span>Acceso desde el tablero</span></div>
+  <div class="figura__img-wrap">
+    <img src="img/bitacora-operarios/05-admin-acceso-header.png" alt="Acceso header"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+    <div class="figura__placeholder" style="display:none">
+      <strong>Captura 05 — Header</strong>
+      Tablero principal con chip «Actividades operarios» y/o quick nav «Actividades» visible.
+    </div>
+  </div>
+  <figcaption class="figura__pie">
+    <ol>
+      <li><span class="callout">①</span> Chip de usuario clickeable — Lleva al panel de supervisión.</li>
+      <li><span class="callout">②</span> Botón <strong>Actividades</strong> en accesos rápidos (admin/gerencia).</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<figure class="figura">
+  <div class="figura__head"><span><span class="figura__num">6</span>Acceso desde Plot Design admin</span></div>
+  <div class="figura__img-wrap">
+    <img src="img/bitacora-operarios/06-admin-plot-design-btn.png" alt="Botón en plot design"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+    <div class="figura__placeholder" style="display:none">
+      <strong>Captura 06 — /plot-design</strong>
+      Hero del admin con botón «Actividades operarios» resaltado.
+    </div>
+  </div>
+  <figcaption class="figura__pie">
+    <ol>
+      <li><span class="callout">①</span> Atajo desde administración de bolsa creativa sin volver al tablero.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>2.2 Panel principal — Calendario y día seleccionado</h3>
+
+<figure class="figura">
+  <div class="figura__head"><span><span class="figura__num">7</span>Vista general con calendario</span></div>
+  <div class="figura__img-wrap">
+    <img src="img/bitacora-operarios/07-supervision-calendario.png" alt="Calendario supervisión"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+    <div class="figura__placeholder" style="display:none">
+      <strong>Captura 07 — Calendario</strong>
+      Panel completo: calendario a la izquierda con días marcados, estadísticas, filtros.
+    </div>
+  </div>
+  <figcaption class="figura__pie">
+    <ol>
+      <li><span class="callout">①</span> <strong>Calendario mensual</strong> — Días con actividad muestran badge numérico; clic cambia el día filtrado.</li>
+      <li><span class="callout">②</span> <strong>Ir a hoy</strong> — Vuelve al día actual (Argentina).</li>
+      <li><span class="callout">③</span> <strong>Estadísticas</strong> — KPIs 7/30/90 días: totales, checklist %, tiempo registrado, gráfico por día.</li>
+      <li><span class="callout">④</span> <strong>Filtros</strong> — Operario, tipo (bitácora/checklist/anotador), búsqueda texto.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<figure class="figura">
+  <div class="figura__head"><span><span class="figura__num">8</span>Actividades del día por operario</span></div>
+  <div class="figura__img-wrap">
+    <img src="img/bitacora-operarios/08-supervision-dia.png" alt="Tarjetas por operario"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+    <div class="figura__placeholder" style="display:none">
+      <strong>Captura 08 — Tarjetas</strong>
+      Encabezado con fecha del día, tarjeta de operario con Legajo #, lista de entradas clickeables.
+    </div>
+  </div>
+  <figcaption class="figura__pie">
+    <ol>
+      <li><span class="callout">①</span> Encabezado del día — «miércoles, 26 de agosto…» + chips bitácora/checklist/anotador.</li>
+      <li><span class="callout">②</span> Tarjeta por operario — Nombre, <strong>Legajo #id</strong>, botón <strong>Ver legajo</strong>.</li>
+      <li><span class="callout">③</span> Cada fila es clickeable → abre modal de detalle.</li>
+      <li><span class="callout">④</span> Datos cargados vía RPC <code>work_pool_operario_notas_supervision</code> con filtro <code>p_fecha</code>.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>2.3 Modal de detalle</h3>
+
+<figure class="figura">
+  <div class="figura__head"><span><span class="figura__num">9</span>Modal — Detalle de una entrada</span></div>
+  <div class="figura__img-wrap">
+    <img src="img/bitacora-operarios/09-supervision-modal.png" alt="Modal detalle"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+    <div class="figura__placeholder" style="display:none">
+      <strong>Captura 09 — Modal</strong>
+      Modal con tipo, operario, fecha, horario, OP, adjuntos, botones Ver legajo y Cerrar.
+    </div>
+  </div>
+  <figcaption class="figura__pie">
+    <ol>
+      <li><span class="callout">①</span> Muestra todos los campos: operario, fecha/hora, horario registrado, job, OP, venta, legajo.</li>
+      <li><span class="callout">②</span> Lista de adjuntos con link directo al archivo en Storage.</li>
+      <li><span class="callout">③</span> <strong>Ver legajo</strong> — Abre modal RRHH en pestaña Actividades Plot.</li>
+      <li><span class="callout">④</span> Link a <span class="path">/rrhh/usuarios</span> para gestión de legajos.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="recuadro">
+  <span class="etiqueta">Bitácora en detalle de job (admin)</span>
+  <p>En la ficha de un trabajo (<span class="path">WorkPoolJobDetalleModal</span>), sección <strong>Bitácora del operario</strong>: muestra notas del job con horario y adjuntos — útil al revisar entregas.</p>
+</div>
+
+<hr/>
+
+<h2 id="legajo">3. Legajo RRHH — Actividades Plot</h2>
+
+<p>Las actividades del operario quedan vinculadas por <code>id_usuario</code> y se consultan desde el legajo del empleado.</p>
+
+<figure class="figura">
+  <div class="figura__head"><span><span class="figura__num">10</span>Pestaña Actividades Plot en Ver legajo</span></div>
+  <div class="figura__img-wrap">
+    <img src="img/bitacora-operarios/10-legajo-tab.png" alt="Pestaña legajo"
+         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+    <div class="figura__placeholder" style="display:none">
+      <strong>Captura 10 — Legajo</strong>
+      Modal Ver legajo → pestaña «Actividades Plot» con historial y link al panel de supervisión.
+    </div>
+  </div>
+  <figcaption class="figura__pie">
+    <ol>
+      <li><span class="callout">①</span> Acceso: RRHH → Usuarios → Ver legajo, o desde supervisión → Ver legajo.</li>
+      <li><span class="callout">②</span> Pestaña <strong>📝 Actividades Plot</strong> — Lista bitácora/checklist/anotador del empleado.</li>
+      <li><span class="callout">③</span> RPC <code>work_pool_operario_notas_legajo</code> (permiso RRHH, gerencia o supervisión Plot).</li>
+      <li><span class="callout">④</span> Link «Panel de supervisión» para volver a <span class="path">/actividades-operarios</span>.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<hr/>
+
+<h2 id="tecnico">4. Referencia técnica</h2>
+
+<h3>4.1 Rutas y archivos principales</h3>
+<table>
+  <tr><th>Área</th><th>Ruta / archivo</th></tr>
+  <tr><td>Panel supervisión</td><td><span class="path">src/pages/ActividadesOperariosPage.tsx</span></td></tr>
+  <tr><td>Calendario</td><td><span class="path">src/features/work-pool/ActividadesOperariosCalendario.tsx</span></td></tr>
+  <tr><td>Modal detalle admin</td><td><span class="path">src/features/work-pool/ActividadOperarioDetalleModal.tsx</span></td></tr>
+  <tr><td>FAB operario</td><td><span class="path">src/features/work-pool/WorkPoolOperarioNotasFab.tsx</span></td></tr>
+  <tr><td>API / RPC cliente</td><td><span class="path">src/features/work-pool/workPoolOperarioNotas.ts</span></td></tr>
+  <tr><td>Legajo — tab Plot</td><td><span class="path">src/components/LegajoActividadesPlotPanel.tsx</span> + <span class="path">VerLegajoModal.tsx</span></td></tr>
+  <tr><td>Accesos admin</td><td><span class="path">Header.tsx</span>, <span class="path">headerQuickNav.ts</span>, <span class="path">WorkPoolAdminPanel.tsx</span></td></tr>
+</table>
+
+<h3>4.2 Base de datos (Supabase)</h3>
+<table>
+  <tr><th>Elemento</th><th>Descripción</th></tr>
+  <tr><td>Tabla <code>work_pool_operario_notas</code></td><td>Campos: tipo, titulo, detalle, hecho, id_job, OP/venta/opp, <code>adjuntos</code> (jsonb), <code>hora_inicio</code>, <code>hora_fin</code>, timestamps</td></tr>
+  <tr><td><code>work_pool_operario_nota_crear</code></td><td>Alta con validación de job asignado y adjuntos solo en bitácora</td></tr>
+  <tr><td><code>work_pool_operario_nota_listar</code></td><td>Listado del operario (por tipo / job)</td></tr>
+  <tr><td><code>work_pool_operario_notas_supervision</code></td><td>Listado admin con <code>p_fecha</code>, <code>id_legajo</code></td></tr>
+  <tr><td><code>work_pool_operario_notas_estadisticas</code></td><td>KPIs por período, operario y día</td></tr>
+  <tr><td><code>work_pool_operario_notas_legajo</code></td><td>Historial para pestaña RRHH</td></tr>
+</table>
+
+<p>Patches SQL en <span class="path">supabase/patches/2026-08-26_work_pool_operario_notas_*.sql</span></p>
+
+<h3>4.3 Flujo de datos (resumen)</h3>
+<ol>
+  <li>Operario completa FAB → Storage (adjuntos) + RPC crear → fila en <code>work_pool_operario_notas</code>.</li>
+  <li>Si es bitácora con job → evento en <code>work_pool_job_events</code> tipo <code>nota</code>.</li>
+  <li>Admin abre supervisión → RPC con fecha del calendario → tarjetas + stats.</li>
+  <li>Clic en entrada → modal; «Ver legajo» → <code>VerLegajoModal</code> pestaña Actividades Plot.</li>
+</ol>
+
+<hr/>
+
+<h2 id="capturas">5. Capturas incluidas y cómo regenerarlas</h2>
+
+<div class="recuadro verde">
+  <span class="etiqueta">Listo</span>
+  <p>Las 10 capturas (<code>01-fab-boton.png</code> … <code>10-legajo-tab.png</code>) están en <span class="path">docs/img/bitacora-operarios/</span> y se muestran arriba en este documento.</p>
+</div>
+
+<div class="recuadro ambar">
+  <span class="etiqueta">Regenerar</span>
+  <ol>
+    <li><code>npm run dev</code> y en otra terminal <code>npm run docs:bitacora-capturas</code> (UI real de la app en local).</li>
+    <li>Producción con datos vivos: <code>DOC_STAFF_USER</code>, <code>DOC_STAFF_PASS</code>, <code>BASE_URL=https://www.plotcenterlab.com.ar</code> y <code>node scripts/capture-bitacora-screenshots.mjs --live</code>.</li>
+    <li>PDF: Imprimir → Guardar como PDF (gráficos de fondo activados).</li>
+  </ol>
+</div>
+
+<p class="meta">Plot Lab · Plot Center · Documento generado para capacitación interna. No incluye credenciales ni datos sensibles de producción.</p>
+
+</div>
+</body>
+</html>

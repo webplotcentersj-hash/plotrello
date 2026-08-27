@@ -31,6 +31,22 @@ type Props = {
   jobs?: WorkPoolJob[]
   /** Compact phi/externo look */
   variant?: 'phi' | 'admin'
+  /** Modo captura documentación (sin API, datos estáticos) */
+  docsCapture?: {
+    forceOpen?: boolean
+    forceTab?: Tab
+    staticItems?: WorkPoolOperarioNota[]
+    staticJobs?: WorkPoolJob[]
+    panelOnly?: boolean
+    fabOnly?: boolean
+    prefill?: {
+      tituloTarea?: string
+      texto?: string
+      horaInicio?: string
+      horaFin?: string
+      jobId?: number
+    }
+  }
 }
 
 function formatWhen(iso: string) {
@@ -65,9 +81,10 @@ function asociacionChips(n: WorkPoolOperarioNota, jobs: WorkPoolJob[]) {
   return chips
 }
 
-export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant = 'phi' }: Props) {
-  const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState<Tab>('bitacora')
+export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant = 'phi', docsCapture }: Props) {
+  const capture = docsCapture
+  const [open, setOpen] = useState(capture?.forceOpen ?? false)
+  const [tab, setTab] = useState<Tab>(capture?.forceTab ?? 'bitacora')
   const [items, setItems] = useState<WorkPoolOperarioNota[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -83,12 +100,22 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
 
+  useEffect(() => {
+    if (!capture?.prefill) return
+    const p = capture.prefill
+    if (p.tituloTarea != null) setTituloTarea(p.tituloTarea)
+    if (p.texto != null) setTexto(p.texto)
+    if (p.horaInicio != null) setHoraInicio(p.horaInicio)
+    if (p.horaFin != null) setHoraFin(p.horaFin)
+    if (p.jobId != null) setJobId(p.jobId)
+  }, [capture?.prefill])
+
   const jobsActivos = useMemo(
     () =>
-      jobs.filter((j) =>
+      (capture?.staticJobs ?? jobs).filter((j) =>
         ['asignado', 'en_curso', 'cambios', 'entregado', 'en_revision'].includes(j.estado)
       ),
-    [jobs]
+    [jobs, capture?.staticJobs]
   )
 
   const jobSeleccionado = useMemo(
@@ -109,6 +136,11 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
   }, [jobSeleccionado])
 
   const load = async () => {
+    if (capture?.staticItems) {
+      setItems(capture.staticItems)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError('')
     const res = await listarOperarioNotas({ id_usuario: idUsuario, tipo: tab, limit: 60 })
@@ -122,10 +154,23 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
   }
 
   useEffect(() => {
-    if (!open) return
+    if (capture?.forceOpen) setOpen(true)
+  }, [capture?.forceOpen])
+
+  useEffect(() => {
+    if (capture?.forceTab) setTab(capture.forceTab)
+  }, [capture?.forceTab])
+
+  useEffect(() => {
+    if (!open && !capture?.staticItems) return
+    if (capture?.staticItems) {
+      setItems(capture.staticItems)
+      setLoading(false)
+      return
+    }
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tab, idUsuario])
+  }, [open, tab, idUsuario, capture?.staticItems])
 
   useEffect(() => {
     if (!open) return
@@ -489,18 +534,20 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
   ) : null
 
   return createPortal(
-    <div className={`wp-notas-fab wp-notas-fab--${variant}`}>
-      {panel}
-      <button
-        type="button"
-        className={`wp-notas-fab__btn${open ? ' is-open' : ''}`}
-        aria-expanded={open}
-        aria-label={open ? 'Cerrar anotador' : 'Abrir anotador de tareas'}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {open ? <X size={22} aria-hidden /> : <NotebookPen size={22} aria-hidden />}
-      </button>
+    <div className={`wp-notas-fab wp-notas-fab--${variant}${capture?.panelOnly ? ' wp-notas-fab--capture-panel' : ''}`}>
+      {!capture?.fabOnly ? panel : null}
+      {!capture?.panelOnly ? (
+        <button
+          type="button"
+          className={`wp-notas-fab__btn${open ? ' is-open' : ''}`}
+          aria-expanded={open}
+          aria-label={open ? 'Cerrar anotador' : 'Abrir anotador de tareas'}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? <X size={22} aria-hidden /> : <NotebookPen size={22} aria-hidden />}
+        </button>
+      ) : null}
     </div>,
-    document.body
+    capture?.panelOnly ? (document.getElementById('capture-fab-root') ?? document.body) : document.body
   )
 }

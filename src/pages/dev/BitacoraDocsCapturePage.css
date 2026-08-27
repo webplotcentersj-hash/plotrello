@@ -1,0 +1,71 @@
+.bdcapture {
+  min-height: 100vh;
+  background: #f1f5f9;
+}
+
+.bdcapture--fab {
+  position: relative;
+  min-height: 520px;
+  background: linear-gradient(160deg, #ecfdf5 0%, #f8fafc 45%, #fff 100%);
+}
+
+.bdcapture__fake-board {
+  position: absolute;
+  inset: 24px;
+  border-radius: 12px;
+  border: 2px dashed #cbd5e1;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.bdcapture--fab .wp-notas-fab--capture-panel {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  pointer-events: auto;
+}
+
+.bdcapture--header {
+  background: #0b1220;
+}
+
+.bdcapture--plot-admin {
+  padding: 24px;
+  background: #fff;
+}
+
+.bdcapture--plot-admin .work-pool-admin__hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 3px solid #0b0b0b;
+  border-radius: 16px;
+  box-shadow: 6px 6px 0 0 #0b0b0b;
+}
+
+.bdcapture--supervision {
+  padding: 20px;
+}
+
+.bdcapture--supervision .act-op-page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.bdcapture--legajo .bdcapture__legajo-overlay {
+  position: relative;
+  min-height: 560px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.bdcapture--legajo .ver-legajo-modal-content {
+  position: relative;
+  margin-top: 12px;
+}
