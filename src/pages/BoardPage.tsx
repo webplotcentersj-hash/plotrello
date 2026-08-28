@@ -22,6 +22,7 @@ const SprintOptimizerModal = lazy(() => import('../components/SprintOptimizerMod
 const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
 import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
 import WorkPoolOperarioNotasFab from '../features/work-pool/WorkPoolOperarioNotasFab'
+import { registrarActividadTableroAutomatica } from '../features/work-pool/workPoolOperarioNotas'
 import InsightsToolsMenu from '../components/InsightsToolsMenu'
 import EntregasCobroPanel from '../components/EntregasCobroPanel'
 import EntregasSinRetiroPanel from '../components/EntregasSinRetiroPanel'
@@ -257,6 +258,27 @@ const BoardPage = ({
       return false
     },
     [usuario?.id, usuario?.nombre]
+  )
+
+  const isWorkingOnMyTask = useCallback(
+    (task: Task) => {
+      const me = normalizePersonNameKey(nombreVisible || usuario?.nombre)
+      return Boolean(me && task.workingUser && normalizePersonNameKey(task.workingUser) === me)
+    },
+    [nombreVisible, usuario?.nombre]
+  )
+
+  const registrarOpTablero = useCallback(
+    (task: Task, detalle: string) => {
+      if (!usuario?.id || !task.opNumber?.trim()) return
+      void registrarActividadTableroAutomatica({
+        id_usuario: usuario.id,
+        numero_op: task.opNumber.trim(),
+        id_orden: parseTaskIdToOrdenId(task.id),
+        detalle
+      })
+    },
+    [usuario?.id]
   )
 
   const resolveCurrentUserName = () => {
@@ -647,11 +669,19 @@ const BoardPage = ({
             startTransition(() => {
               setActionSuccess('Fichas unificadas en el sector destino (la otra queda oculta del tablero, no eliminada).')
             })
+            registrarOpTablero(
+              taskSnapshot,
+              `Movió a ${destinationColumn?.label ?? destination}`
+            )
           }
           requestAnimationFrame(() => {
             requestAnimationFrame(applyFusionState)
           })
         } else {
+          registrarOpTablero(
+            taskSnapshot,
+            `Movió a ${destinationColumn?.label ?? destination}`
+          )
           startTransition(() => {
             setActionSuccess('Orden actualizada en Supabase.')
           })
@@ -681,7 +711,7 @@ const BoardPage = ({
         })
       )
     }
-  }, [setTasks, setActivity, setActionError, setActionSuccess, isAdmin, sessionActor])
+  }, [setTasks, setActivity, setActionError, setActionSuccess, isAdmin, sessionActor, registrarOpTablero])
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -832,8 +862,9 @@ const BoardPage = ({
   const handleEditTask = useCallback((task: Task) => {
     const editingUserName = resolveCurrentUserName()
     void persistWorkingUser(task.id, editingUserName)
+    registrarOpTablero(task, 'Abrió la ficha para trabajar')
     setTaskToEdit({ ...task, workingUser: editingUserName })
-  }, [usuario, persistWorkingUser])
+  }, [usuario, persistWorkingUser, registrarOpTablero])
 
   const handleCloseEditModal = (taskId?: string) => {
     if (taskId) {
@@ -1739,7 +1770,15 @@ const BoardPage = ({
       )}
 
       {usuario?.id ? (
-        <WorkPoolOperarioNotasFab idUsuario={usuario.id} jobs={[]} variant="admin" />
+        <WorkPoolOperarioNotasFab
+          idUsuario={usuario.id}
+          context="tablero"
+          tableroTasks={tasks}
+          tableroActivity={activity}
+          tableroIsMyTask={isTaskAssignedToMe}
+          tableroIsWorkingOn={isWorkingOnMyTask}
+          variant="admin"
+        />
       ) : null}
     </div>
   )

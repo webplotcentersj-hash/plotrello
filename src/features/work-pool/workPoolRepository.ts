@@ -807,7 +807,15 @@ export async function tomarWorkPoolJob(
     p_id_job: idJob,
     p_id_usuario: idUsuario
   })
-  return error ? { success: false, error: error.message } : { success: true }
+  if (error) return { success: false, error: error.message }
+  const { registrarActividadOperarioAutomatica } = await import('./workPoolOperarioNotas')
+  void registrarActividadOperarioAutomatica({
+    id_usuario: idUsuario,
+    id_job: idJob,
+    detalle: 'Tomó el trabajo',
+    titulo: 'Inicio de trabajo'
+  })
+  return { success: true }
 }
 
 export async function entregarWorkPoolJob(
@@ -827,7 +835,15 @@ export async function entregarWorkPoolJob(
     p_notas: notas ?? null,
     p_drive_url: drive
   })
-  return error ? { success: false, error: error.message } : { success: true }
+  if (error) return { success: false, error: error.message }
+  const { registrarActividadOperarioAutomatica } = await import('./workPoolOperarioNotas')
+  void registrarActividadOperarioAutomatica({
+    id_usuario: idUsuario,
+    id_job: idJob,
+    detalle: notas?.trim() || 'Entregó el trabajo',
+    titulo: 'Entrega'
+  })
+  return { success: true }
 }
 
 export type WorkPoolJobDetalleBrief = {

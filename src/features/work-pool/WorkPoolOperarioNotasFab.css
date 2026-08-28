@@ -72,6 +72,17 @@
   color: #065f46;
 }
 
+.wp-notas-fab__composer-hint {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #374151;
+}
+
+.wp-notas-fab__composer--ops-dia {
+  background: linear-gradient(180deg, #f0fdf4 0%, #fff 48%);
+}
+
 .wp-notas-fab__head h3 {
   margin: 2px 0 0;
   font-size: 1rem;

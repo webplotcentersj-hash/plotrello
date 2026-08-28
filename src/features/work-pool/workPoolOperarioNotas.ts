@@ -176,6 +176,77 @@ export async function eliminarOperarioNota(
   return error ? { success: false, error: error.message } : { success: true }
 }
 
+export const OPERARIO_ACTIVIDAD_EVENT = 'work-pool-operario-actividad'
+
+export function emitOperarioActividad() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(OPERARIO_ACTIVIDAD_EVENT))
+}
+
+/** Registro silencioso en bitácora (tomar/entregar trabajo bolsa, tablero, etc.) para alimentar OPs hoy. */
+export async function registrarActividadOperarioAutomatica(input: {
+  id_usuario: number
+  id_job?: number | null
+  id_orden?: number | null
+  numero_op?: string | null
+  detalle: string
+  titulo?: string
+}): Promise<void> {
+  if (!supabase) return
+  try {
+    let numero_op = input.numero_op?.trim() || null
+    let tituloJob = input.titulo?.trim() || null
+    let id_job = input.id_job ?? null
+    const id_orden = input.id_orden ?? null
+
+    if (input.id_job != null) {
+      const { data: job } = await supabase
+        .from('work_pool_jobs')
+        .select('id, numero_op, titulo')
+        .eq('id', input.id_job)
+        .maybeSingle()
+      if (job) {
+        numero_op = numero_op || (job.numero_op as string | null) || null
+        tituloJob = tituloJob || (job.titulo as string | null)?.trim() || null
+        id_job = Number(job.id)
+      }
+    }
+
+    if (!numero_op && id_orden == null && id_job == null) return
+
+    const res = await crearOperarioNota({
+      id_usuario: input.id_usuario,
+      tipo: 'bitacora',
+      detalle: input.detalle,
+      titulo: tituloJob ?? (numero_op ? `OP ${numero_op}` : 'Trabajo tablero'),
+      id_job,
+      numero_op
+    })
+    if (res.success) emitOperarioActividad()
+  } catch {
+    /* no bloquear flujo principal */
+  }
+}
+
+/** Tablero Plot Lab: movimiento / ficha abierta → bitácora automática. */
+export async function registrarActividadTableroAutomatica(input: {
+  id_usuario: number
+  numero_op: string
+  id_orden?: number | null
+  detalle: string
+  titulo?: string
+}): Promise<void> {
+  const op = input.numero_op.trim()
+  if (!op) return
+  await registrarActividadOperarioAutomatica({
+    id_usuario: input.id_usuario,
+    id_orden: input.id_orden ?? null,
+    numero_op: op,
+    detalle: input.detalle,
+    titulo: input.titulo ?? `OP ${op}`
+  })
+}
+
 export async function buscarAsociacionesOperario(
   q: string,
   limit = 12
@@ -425,6 +496,7 @@ type JobParaOpsDelDia = {
   tomado_at?: string | null
   updated_at?: string | null
   entregado_at?: string | null
+  aprobado_at?: string | null
 }
 
 /**
@@ -438,10 +510,19 @@ export function mergeOpsDelDiaConJobs(
   const map = new Map<string, OpDelDia>()
   for (const op of opsFromNotas) map.set(op.key, { ...op })
 
-  const activos = new Set(['asignado', 'en_curso', 'cambios', 'entregado', 'en_revision'])
+  const activos = new Set([
+    'asignado',
+    'en_curso',
+    'cambios',
+    'entregado',
+    'en_revision',
+    'aprobado'
+  ])
   for (const j of jobs) {
     if (!activos.has(String(j.estado ?? ''))) continue
-    const activityDates = [j.tomado_at, j.updated_at, j.entregado_at].filter(Boolean) as string[]
+    const activityDates = [j.tomado_at, j.updated_at, j.entregado_at, j.aprobado_at].filter(
+      Boolean
+    ) as string[]
     const activityHoy = activityDates.some((d) => isoToArgentinaDateKey(d) === fechaKey)
     const enCurso = ['asignado', 'en_curso', 'cambios'].includes(String(j.estado ?? ''))
     if (!activityHoy && !enCurso) continue
@@ -481,6 +562,123 @@ export function mergeOpsDelDiaConJobs(
         estado: j.estado ?? null
       })
     }
+  }
+
+  return [...map.values()].sort((a, b) => b.ultimaActividad.localeCompare(a.ultimaActividad))
+}
+
+/** OP / ficha del tablero Plot Lab (kanban), no bolsa work-pool. */
+export type TableroTaskParaOpsDelDia = {
+  id: string
+  opNumber: string
+  title: string
+  ownerId: string
+  workingUser?: string
+  status: string
+  assignedSector?: string
+  updatedAt: string
+}
+
+export type TableroActivityParaOpsDelDia = {
+  taskId: string
+  actorId: string
+  timestamp: string
+  note?: string
+}
+
+function upsertOpDelDia(map: Map<string, OpDelDia>, row: OpDelDia, entradasDelta = 0) {
+  const existing = map.get(row.key)
+  if (!existing) {
+    map.set(row.key, { ...row, entradas: row.entradas || entradasDelta })
+    return
+  }
+  map.set(row.key, {
+    ...existing,
+    label: existing.label || row.label,
+    numero_op: existing.numero_op ?? row.numero_op,
+    entradas: existing.entradas + entradasDelta,
+    ultimaActividad:
+      row.ultimaActividad > existing.ultimaActividad ? row.ultimaActividad : existing.ultimaActividad,
+    estado: row.estado ?? existing.estado
+  })
+}
+
+/** Une varias listas de OPs del día (notas + tablero + bolsa). */
+export function mergeOpsDelDiaList(...lists: OpDelDia[][]): OpDelDia[] {
+  const map = new Map<string, OpDelDia>()
+  for (const list of lists) {
+    for (const op of list) upsertOpDelDia(map, op, op.entradas)
+  }
+  return [...map.values()].sort((a, b) => b.ultimaActividad.localeCompare(a.ultimaActividad))
+}
+
+/**
+ * OPs trabajadas hoy en el tablero: movimientos del operario + fichas asignadas / en curso.
+ */
+export function buildOpsDelDiaFromTablero(
+  tasks: TableroTaskParaOpsDelDia[],
+  activity: TableroActivityParaOpsDelDia[],
+  opts: {
+    fechaKey: string
+    idUsuario: number
+    isMyTask: (task: TableroTaskParaOpsDelDia) => boolean
+    isWorkingOnTask?: (task: TableroTaskParaOpsDelDia) => boolean
+  }
+): OpDelDia[] {
+  const map = new Map<string, OpDelDia>()
+  const myId = String(opts.idUsuario)
+  const taskByKey = new Map<string, TableroTaskParaOpsDelDia>()
+  for (const t of tasks) {
+    taskByKey.set(t.id, t)
+    const ordenId = t.id.match(/^\d+$/) ? t.id : t.id.replace(/\D/g, '')
+    if (ordenId) taskByKey.set(ordenId, t)
+  }
+
+  const resolveTask = (taskId: string) => taskByKey.get(taskId) ?? taskByKey.get(taskId.replace(/\D/g, ''))
+
+  for (const ev of activity) {
+    if (String(ev.actorId) !== myId) continue
+    if (isoToArgentinaDateKey(ev.timestamp) !== opts.fechaKey) continue
+    const task = resolveTask(ev.taskId)
+    const op = task?.opNumber?.trim()
+    if (!op) continue
+    upsertOpDelDia(
+      map,
+      {
+        key: `op-${op}`,
+        label: task.title?.trim() ? `OP ${op} · ${task.title.trim()}` : `OP ${op}`,
+        numero_op: op,
+        id_job: null,
+        entradas: 1,
+        horario: null,
+        ultimaActividad: ev.timestamp,
+        estado: task.assignedSector ?? task.status ?? null
+      },
+      1
+    )
+  }
+
+  for (const task of tasks) {
+    if (!opts.isMyTask(task)) continue
+    const op = task.opNumber?.trim()
+    if (!op) continue
+    const updatedHoy = isoToArgentinaDateKey(task.updatedAt) === opts.fechaKey
+    const working = opts.isWorkingOnTask?.(task) ?? false
+    if (!updatedHoy && !working) continue
+    upsertOpDelDia(
+      map,
+      {
+        key: `op-${op}`,
+        label: task.title?.trim() ? `OP ${op} · ${task.title.trim()}` : `OP ${op}`,
+        numero_op: op,
+        id_job: null,
+        entradas: working ? 1 : 0,
+        horario: null,
+        ultimaActividad: task.updatedAt,
+        estado: task.assignedSector ?? task.status ?? null
+      },
+      working ? 1 : 0
+    )
   }
 
   return [...map.values()].sort((a, b) => b.ultimaActividad.localeCompare(a.ultimaActividad))

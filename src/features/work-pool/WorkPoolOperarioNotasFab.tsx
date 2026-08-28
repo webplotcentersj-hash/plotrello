@@ -13,16 +13,21 @@ import {
   X
 } from 'lucide-react'
 import type { WorkPoolAsociacionBusqueda, WorkPoolJob, WorkPoolOperarioNota, WorkPoolOperarioNotaTipo } from '../../types/workPool'
+import type { ActivityEvent, Task } from '../../types/board'
 import { uploadAttachmentAndGetUrl } from '../../utils/storage'
 import {
   buscarAsociacionesOperario,
   buildOpsDelDia,
+  buildOpsDelDiaFromTablero,
   crearOperarioNota,
   eliminarOperarioNota,
   formatHorarioNota,
   listarOperarioNotas,
   listarOperarioNotasTodas,
   mergeOpsDelDiaConJobs,
+  mergeOpsDelDiaList,
+  OPERARIO_ACTIVIDAD_EVENT,
+  emitOperarioActividad,
   parseNumeroOpLibre,
   toggleOperarioChecklist
 } from './workPoolOperarioNotas'
@@ -35,6 +40,12 @@ type Tab = WorkPoolOperarioNotaTipo | 'ops-dia'
 type Props = {
   idUsuario: number
   jobs?: WorkPoolJob[]
+  /** tablero = kanban Plot Lab; bolsa = work-pool / operario externo */
+  context?: 'tablero' | 'bolsa'
+  tableroTasks?: Task[]
+  tableroActivity?: ActivityEvent[]
+  tableroIsMyTask?: (task: Task) => boolean
+  tableroIsWorkingOn?: (task: Task) => boolean
   /** Compact phi/externo look */
   variant?: 'phi' | 'admin'
   /** Modo captura documentación (sin API, datos estáticos) */
@@ -87,7 +98,17 @@ function asociacionChips(n: WorkPoolOperarioNota, jobs: WorkPoolJob[]) {
   return chips
 }
 
-export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant = 'phi', docsCapture }: Props) {
+export default function WorkPoolOperarioNotasFab({
+  idUsuario,
+  jobs = [],
+  context = 'bolsa',
+  tableroTasks = [],
+  tableroActivity = [],
+  tableroIsMyTask,
+  tableroIsWorkingOn,
+  variant = 'phi',
+  docsCapture
+}: Props) {
   const capture = docsCapture
   const [open, setOpen] = useState(capture?.forceOpen ?? false)
   const [tab, setTab] = useState<Tab>(capture?.forceTab ?? 'bitacora')
@@ -120,7 +141,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
   }, [capture?.prefill])
 
   useEffect(() => {
-    if (capture?.staticJobs) return
+    if (capture?.staticJobs || context === 'tablero') return
     if (jobs.length > 0) {
       setJobsLocal([])
       return
@@ -133,9 +154,9 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
     return () => {
       cancelled = true
     }
-  }, [idUsuario, jobs.length, capture?.staticJobs])
+  }, [idUsuario, jobs.length, capture?.staticJobs, context])
 
-  const jobsFuente = capture?.staticJobs ?? (jobs.length > 0 ? jobs : jobsLocal)
+  const jobsFuente = capture?.staticJobs ?? (context === 'tablero' ? [] : jobs.length > 0 ? jobs : jobsLocal)
 
   const jobsActivos = useMemo(
     () =>
@@ -168,8 +189,56 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
         return j ? jobTitulo(j) : null
       }
     })
+
+    if (context === 'tablero') {
+      const tableroInput = tableroTasks
+        .filter((t) => t.opNumber?.trim() && !t.esFichaNoOP)
+        .map((t) => ({
+          id: t.id,
+          opNumber: t.opNumber,
+          title: t.title,
+          ownerId: t.ownerId,
+          workingUser: t.workingUser,
+          status: t.status,
+          assignedSector: t.assignedSector,
+          updatedAt: t.updatedAt
+        }))
+      const fromTablero = buildOpsDelDiaFromTablero(
+        tableroInput,
+        tableroActivity.map((ev) => ({
+          taskId: ev.taskId,
+          actorId: ev.actorId,
+          timestamp: ev.timestamp,
+          note: ev.note
+        })),
+        {
+          fechaKey: hoy,
+          idUsuario,
+          isMyTask: (task) => {
+            const full = tableroTasks.find((t) => t.id === task.id)
+            return full ? (tableroIsMyTask?.(full) ?? false) : false
+          },
+          isWorkingOnTask: (task) => {
+            const full = tableroTasks.find((t) => t.id === task.id)
+            return full ? (tableroIsWorkingOn?.(full) ?? false) : false
+          }
+        }
+      )
+      return mergeOpsDelDiaList(fromNotas, fromTablero)
+    }
+
     return mergeOpsDelDiaConJobs(fromNotas, jobsFuente, hoy)
-  }, [itemsHoyAll, jobsFuente, hoy])
+  }, [
+    itemsHoyAll,
+    jobsFuente,
+    hoy,
+    context,
+    tableroTasks,
+    tableroActivity,
+    tableroIsMyTask,
+    tableroIsWorkingOn,
+    idUsuario
+  ])
 
   useEffect(() => {
     if (!jobSeleccionado) return
@@ -240,6 +309,20 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
     void loadHoyAll()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tab, idUsuario, capture?.staticItems, hoy])
+
+  useEffect(() => {
+    if (!open) return
+    const onActividad = () => refreshAll()
+    window.addEventListener(OPERARIO_ACTIVIDAD_EVENT, onActividad)
+    return () => window.removeEventListener(OPERARIO_ACTIVIDAD_EVENT, onActividad)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, idUsuario])
+
+  useEffect(() => {
+    if (!open || capture?.staticItems) return
+    void loadHoyAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, jobsFuente, hoy])
 
   useEffect(() => {
     if (!open) return
@@ -362,6 +445,7 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
       setHoraInicio('')
       setHoraFin('')
       setPendingFiles([])
+      emitOperarioActividad()
       refreshAll()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al subir archivos')
@@ -586,8 +670,9 @@ export default function WorkPoolOperarioNotasFab({ idUsuario, jobs = [], variant
             {loadingOps ? <p className="wp-notas-fab__muted">Cargando…</p> : null}
             {!loadingOps && opsDelDia.length === 0 ? (
               <p className="wp-notas-fab__muted">
-                No hay trabajos activos ni bitácora de hoy. Tomá un trabajo o cargá una entrada en
-                Bitácora con el número de OP.
+                {context === 'tablero'
+                  ? 'Se completa solo al mover OPs en el tablero, abrir una ficha para trabajar o cargar bitácora.'
+                  : 'Se completa al tomar o entregar trabajos de la bolsa, o al cargar bitácora hoy.'}
               </p>
             ) : null}
             <ul className="wp-notas-fab__ops-dia">
