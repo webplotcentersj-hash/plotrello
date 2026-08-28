@@ -32,6 +32,7 @@ import {
   toggleOperarioChecklist
 } from './workPoolOperarioNotas'
 import { listWorkPoolJobs } from './workPoolRepository'
+import { useAuth } from '../../hooks/useAuth'
 import { getArgentinaDateString, isoToArgentinaDateKey } from '../../utils/dateUtils'
 import './WorkPoolOperarioNotasFab.css'
 
@@ -42,6 +43,8 @@ type Props = {
   jobs?: WorkPoolJob[]
   /** tablero = kanban Plot Lab; bolsa = work-pool / operario externo */
   context?: 'tablero' | 'bolsa'
+  /** Override del nombre en el encabezado (si no, se usa sesión). */
+  usuarioNombre?: string | null
   tableroTasks?: Task[]
   tableroActivity?: ActivityEvent[]
   tableroIsMyTask?: (task: Task) => boolean
@@ -107,9 +110,21 @@ export default function WorkPoolOperarioNotasFab({
   tableroIsMyTask,
   tableroIsWorkingOn,
   variant = 'phi',
+  usuarioNombre,
   docsCapture
 }: Props) {
+  const { nombreVisible } = useAuth()
   const capture = docsCapture
+  const nombreEnHead = (usuarioNombre ?? nombreVisible)?.trim() || null
+  const headEyebrow =
+    context === 'tablero' ? 'Tablero Plot Lab' : variant === 'phi' ? 'Operario externo' : 'Plot Lab'
+  const headTitle = nombreEnHead ?? 'Tareas y anotador'
+  const headSubtitle =
+    nombreEnHead != null
+      ? context === 'tablero'
+        ? 'Bitácora · OPs hoy se completan solas'
+        : 'Tareas y anotador'
+      : null
   const [open, setOpen] = useState(capture?.forceOpen ?? false)
   const [tab, setTab] = useState<Tab>(capture?.forceTab ?? 'bitacora')
   const [items, setItems] = useState<WorkPoolOperarioNota[]>([])
@@ -458,9 +473,10 @@ export default function WorkPoolOperarioNotasFab({
   const panel = open ? (
     <div className={`wp-notas-fab__panel wp-notas-fab__panel--${variant}`} role="dialog" aria-label="Mis notas y tareas">
       <header className="wp-notas-fab__head">
-        <div>
-          <p className="wp-notas-fab__eyebrow">Operario</p>
-          <h3>Tareas y anotador</h3>
+        <div className="wp-notas-fab__head-copy">
+          <p className="wp-notas-fab__eyebrow">{headEyebrow}</p>
+          <h3>{headTitle}</h3>
+          {headSubtitle ? <p className="wp-notas-fab__head-sub">{headSubtitle}</p> : null}
         </div>
         <button type="button" className="wp-notas-fab__icon-btn" onClick={() => setOpen(false)} aria-label="Cerrar">
           <X size={18} aria-hidden />
@@ -766,7 +782,9 @@ export default function WorkPoolOperarioNotasFab({
   ) : null
 
   return createPortal(
-    <div className={`wp-notas-fab wp-notas-fab--${variant}${capture?.panelOnly ? ' wp-notas-fab--capture-panel' : ''}`}>
+    <div
+      className={`wp-notas-fab wp-notas-fab--${variant}${context === 'tablero' ? ' wp-notas-fab--tablero' : ''}${open ? ' is-open' : ''}${capture?.panelOnly ? ' wp-notas-fab--capture-panel' : ''}`}
+    >
       {!capture?.fabOnly ? panel : null}
       {!capture?.panelOnly ? (
         <button

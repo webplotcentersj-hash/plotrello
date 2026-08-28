@@ -61,6 +61,12 @@
   padding: 12px 14px;
   border-bottom: 2px solid #0b0b0b;
   background: linear-gradient(135deg, #ecfdf5, #fff 60%);
+  flex-shrink: 0;
+}
+
+.wp-notas-fab__head-copy {
+  min-width: 0;
+  flex: 1;
 }
 
 .wp-notas-fab__eyebrow {
@@ -87,6 +93,15 @@
   margin: 2px 0 0;
   font-size: 1rem;
   font-weight: 800;
+  line-height: 1.2;
+}
+
+.wp-notas-fab__head-sub {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #475569;
 }
 
 .wp-notas-fab__icon-btn {
@@ -107,6 +122,7 @@
   padding: 8px;
   border-bottom: 1px solid rgba(11, 11, 11, 0.12);
   background: #f8fafc;
+  flex-shrink: 0;
 }
 
 .wp-notas-fab__tabs button {
@@ -488,15 +504,19 @@
   }
 }
 
-/* En tablero Plot Lab: un poco más arriba para no tapar chips del footer */
-.trello-plot-app .wp-notas-fab {
+/* Tablero: el FAB va en portal a body, no dentro de .trello-plot-app */
+.wp-notas-fab.wp-notas-fab--tablero {
   bottom: 24px;
   right: 20px;
   z-index: 100100;
 }
 
+.wp-notas-fab.wp-notas-fab--tablero.is-open {
+  z-index: 100250;
+}
+
 @media (max-width: 640px) {
-  .trello-plot-app .wp-notas-fab {
+  .wp-notas-fab.wp-notas-fab--tablero {
     bottom: 88px;
     right: 12px;
   }
