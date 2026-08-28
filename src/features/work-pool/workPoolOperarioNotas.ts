@@ -640,7 +640,8 @@ export function buildOpsDelDiaFromTablero(
     if (String(ev.actorId) !== myId) continue
     if (isoToArgentinaDateKey(ev.timestamp) !== opts.fechaKey) continue
     const task = resolveTask(ev.taskId)
-    const op = task?.opNumber?.trim()
+    if (!task) continue
+    const op = task.opNumber?.trim()
     if (!op) continue
     upsertOpDelDia(
       map,
