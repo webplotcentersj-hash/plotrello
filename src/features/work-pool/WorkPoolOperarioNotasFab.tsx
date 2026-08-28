@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Briefcase,
@@ -37,6 +37,8 @@ import { getArgentinaDateString, isoToArgentinaDateKey } from '../../utils/dateU
 import './WorkPoolOperarioNotasFab.css'
 
 type Tab = WorkPoolOperarioNotaTipo | 'ops-dia'
+
+const EMPTY_JOBS: WorkPoolJob[] = []
 
 type Props = {
   idUsuario: number
@@ -144,6 +146,8 @@ export default function WorkPoolOperarioNotasFab({
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [jobsLocal, setJobsLocal] = useState<WorkPoolJob[]>([])
+  const hoyLoadedRef = useRef(false)
+  const refreshDebounceRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!capture?.prefill) return
@@ -171,7 +175,12 @@ export default function WorkPoolOperarioNotasFab({
     }
   }, [idUsuario, jobs.length, capture?.staticJobs, context])
 
-  const jobsFuente = capture?.staticJobs ?? (context === 'tablero' ? [] : jobs.length > 0 ? jobs : jobsLocal)
+  const jobsFuente = useMemo((): WorkPoolJob[] => {
+    if (capture?.staticJobs) return capture.staticJobs
+    if (context === 'tablero') return EMPTY_JOBS
+    if (jobs.length > 0) return jobs
+    return jobsLocal
+  }, [capture?.staticJobs, context, jobs, jobsLocal])
 
   const jobsActivos = useMemo(
     () =>
@@ -260,23 +269,32 @@ export default function WorkPoolOperarioNotasFab({
     setTituloTarea(jobTitulo(jobSeleccionado))
   }, [jobSeleccionado])
 
-  const loadHoyAll = async () => {
-    if (capture?.staticItems) {
-      setItemsHoyAll(capture.staticItems.filter((n) => isoToArgentinaDateKey(n.created_at) === hoy))
-      setLoadingOps(false)
-      return
-    }
-    setLoadingOps(true)
-    const res = await listarOperarioNotasTodas({ id_usuario: idUsuario, limitPerTipo: 80 })
-    setLoadingOps(false)
-    if (!res.success) {
-      setItemsHoyAll([])
-      return
-    }
-    setItemsHoyAll((res.data ?? []).filter((n) => isoToArgentinaDateKey(n.created_at) === hoy))
-  }
+  const loadHoyAll = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent ?? false
+      if (capture?.staticItems) {
+        setItemsHoyAll(capture.staticItems.filter((n) => isoToArgentinaDateKey(n.created_at) === hoy))
+        setLoadingOps(false)
+        hoyLoadedRef.current = true
+        return
+      }
+      if (!silent) setLoadingOps(true)
+      try {
+        const res = await listarOperarioNotasTodas({ id_usuario: idUsuario, limitPerTipo: 80 })
+        if (!res.success) {
+          setItemsHoyAll([])
+          return
+        }
+        setItemsHoyAll((res.data ?? []).filter((n) => isoToArgentinaDateKey(n.created_at) === hoy))
+      } finally {
+        if (!silent) setLoadingOps(false)
+        hoyLoadedRef.current = true
+      }
+    },
+    [capture?.staticItems, hoy, idUsuario]
+  )
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (capture?.staticItems) {
       setItems(capture.staticItems)
       setLoading(false)
@@ -296,12 +314,15 @@ export default function WorkPoolOperarioNotasFab({
       return
     }
     setItems(res.data ?? [])
-  }
+  }, [capture?.staticItems, tab, idUsuario])
 
-  const refreshAll = () => {
-    void load()
-    void loadHoyAll()
-  }
+  const refreshAll = useCallback(
+    (opts?: { silent?: boolean }) => {
+      void load()
+      void loadHoyAll({ silent: opts?.silent ?? hoyLoadedRef.current })
+    },
+    [load, loadHoyAll]
+  )
 
   useEffect(() => {
     if (capture?.forceOpen) setOpen(true)
@@ -312,32 +333,46 @@ export default function WorkPoolOperarioNotasFab({
   }, [capture?.forceTab])
 
   useEffect(() => {
+    if (!open) {
+      hoyLoadedRef.current = false
+      setLoadingOps(false)
+    }
+  }, [open])
+
+  useEffect(() => {
     if (!open && !capture?.staticItems) return
     if (capture?.staticItems) {
       setItems(capture.staticItems)
       setItemsHoyAll(capture.staticItems.filter((n) => isoToArgentinaDateKey(n.created_at) === hoy))
       setLoading(false)
       setLoadingOps(false)
+      hoyLoadedRef.current = true
       return
     }
     void load()
-    void loadHoyAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tab, idUsuario, capture?.staticItems, hoy])
+    void loadHoyAll({ silent: false })
+  }, [open, tab, idUsuario, capture?.staticItems, hoy, load, loadHoyAll])
 
   useEffect(() => {
     if (!open) return
-    const onActividad = () => refreshAll()
+    const onActividad = () => {
+      if (refreshDebounceRef.current) window.clearTimeout(refreshDebounceRef.current)
+      refreshDebounceRef.current = window.setTimeout(() => {
+        refreshAll({ silent: true })
+      }, 400)
+    }
     window.addEventListener(OPERARIO_ACTIVIDAD_EVENT, onActividad)
-    return () => window.removeEventListener(OPERARIO_ACTIVIDAD_EVENT, onActividad)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, idUsuario])
+    return () => {
+      window.removeEventListener(OPERARIO_ACTIVIDAD_EVENT, onActividad)
+      if (refreshDebounceRef.current) window.clearTimeout(refreshDebounceRef.current)
+    }
+  }, [open, refreshAll])
 
   useEffect(() => {
-    if (!open || capture?.staticItems) return
-    void loadHoyAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, jobsFuente, hoy])
+    if (!open || capture?.staticItems || context === 'tablero') return
+    if (!hoyLoadedRef.current) return
+    void loadHoyAll({ silent: true })
+  }, [open, context, jobs.length, jobsLocal.length, capture?.staticItems, hoy, loadHoyAll])
 
   useEffect(() => {
     if (!open) return
@@ -469,6 +504,8 @@ export default function WorkPoolOperarioNotasFab({
       setUploading(false)
     }
   }
+
+  const showOpsLoading = loadingOps && context !== 'tablero'
 
   const panel = open ? (
     <div className={`wp-notas-fab__panel wp-notas-fab__panel--${variant}`} role="dialog" aria-label="Mis notas y tareas">
@@ -683,8 +720,8 @@ export default function WorkPoolOperarioNotasFab({
             <p className="wp-notas-fab__list-head">
               Hoy · {opsDelDia.length} {opsDelDia.length === 1 ? 'OP' : 'OPs'}
             </p>
-            {loadingOps ? <p className="wp-notas-fab__muted">Cargando…</p> : null}
-            {!loadingOps && opsDelDia.length === 0 ? (
+            {showOpsLoading ? <p className="wp-notas-fab__muted">Cargando…</p> : null}
+            {!showOpsLoading && opsDelDia.length === 0 ? (
               <p className="wp-notas-fab__muted">
                 {context === 'tablero'
                   ? 'Se completa solo al mover OPs en el tablero, abrir una ficha para trabajar o cargar bitácora.'
