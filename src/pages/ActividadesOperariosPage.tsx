@@ -5,11 +5,17 @@ import ActividadOperarioDetalleModal from '../features/work-pool/ActividadOperar
 import ActividadesOperariosCalendario from '../features/work-pool/ActividadesOperariosCalendario'
 import {
   buildOpsDelDia,
+  buildOpsDelDiaFromHistorialTablero,
+  buildOpsDelDiaPorOperarioFromHistorialTablero,
   canVerActividadesOperarios,
+  cargarOpsTableroSupervisionDia,
   formatHorarioNota,
   formatMinutos,
   listarNotasSupervisionOperarios,
+  mergeOpsDelDiaList,
   obtenerEstadisticasOperarioNotas,
+  type HistorialTableroMovimiento,
+  type OrdenResumenParaOps,
   type WorkPoolNotaSupervision
 } from '../features/work-pool/workPoolOperarioNotas'
 import VerLegajoModal from '../components/VerLegajoModal'
@@ -90,6 +96,9 @@ export default function ActividadesOperariosPage() {
   const [periodoDias, setPeriodoDias] = useState(30)
   const [detalle, setDetalle] = useState<WorkPoolNotaSupervision | null>(null)
   const [legajoUsuario, setLegajoUsuario] = useState<UsuarioRecord | null>(null)
+  const [historialTablero, setHistorialTablero] = useState<HistorialTableroMovimiento[]>([])
+  const [ordenTableroById, setOrdenTableroById] = useState<Map<number, OrdenResumenParaOps>>(new Map())
+  const [loadingTableroOps, setLoadingTableroOps] = useState(false)
 
   useEffect(() => {
     if (!usuario?.id || !allowed) return
@@ -132,6 +141,26 @@ export default function ActividadesOperariosPage() {
     }
   }, [usuario?.id, allowed, calendarMonth])
 
+  useEffect(() => {
+    if (!allowed) return
+    let cancelled = false
+    setLoadingTableroOps(true)
+    void cargarOpsTableroSupervisionDia(selectedDate).then((res) => {
+      if (cancelled) return
+      setLoadingTableroOps(false)
+      if (!res.success) {
+        setHistorialTablero([])
+        setOrdenTableroById(new Map())
+        return
+      }
+      setHistorialTablero(res.movimientos ?? [])
+      setOrdenTableroById(res.ordenById ?? new Map())
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [allowed, selectedDate])
+
   const operarios = useMemo(() => {
     const map = new Map<number, string>()
     for (const n of [...items, ...monthItems]) {
@@ -139,10 +168,15 @@ export default function ActividadesOperariosPage() {
         map.set(n.id_usuario, n.usuario_nombre || `Usuario #${n.id_usuario}`)
       }
     }
+    for (const h of historialTablero) {
+      if (!map.has(h.id_usuario)) {
+        map.set(h.id_usuario, h.nombre_usuario?.trim() || `Usuario #${h.id_usuario}`)
+      }
+    }
     return [...map.entries()]
       .map(([id, nombre]) => ({ id, nombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-  }, [items, monthItems])
+  }, [items, monthItems, historialTablero])
 
   const countsByDay = useMemo(() => {
     const map: Record<string, number> = {}
@@ -209,15 +243,47 @@ export default function ActividadesOperariosPage() {
     return { total: filtered.length, bitacora, checklist, anotador }
   }, [filtered])
 
-  const opsDelDia = useMemo(() => buildOpsDelDia(filtered), [filtered])
+  const opsDelDia = useMemo(() => {
+    const fromNotas = buildOpsDelDia(filtered, { fechaKey: selectedDate })
+    const fromTablero = buildOpsDelDiaFromHistorialTablero(
+      historialTablero,
+      ordenTableroById,
+      selectedDate,
+      filtroOp === 'todos' ? undefined : { idUsuario: filtroOp }
+    )
+    return mergeOpsDelDiaList(fromNotas, fromTablero)
+  }, [filtered, selectedDate, historialTablero, ordenTableroById, filtroOp])
+
+  const opsPorOperarioHistorial = useMemo(
+    () => buildOpsDelDiaPorOperarioFromHistorialTablero(historialTablero, ordenTableroById, selectedDate),
+    [historialTablero, ordenTableroById, selectedDate]
+  )
 
   const opsPorOperario = useMemo(() => {
     const map = new Map<number, ReturnType<typeof buildOpsDelDia>>()
     for (const g of grouped) {
-      map.set(g.id, buildOpsDelDia(g.notas))
+      map.set(g.id, buildOpsDelDia(g.notas, { fechaKey: selectedDate }))
+    }
+    for (const [userId, ops] of opsPorOperarioHistorial) {
+      const fromNotas = map.get(userId) ?? []
+      map.set(userId, mergeOpsDelDiaList(fromNotas, ops))
     }
     return map
-  }, [grouped])
+  }, [grouped, opsPorOperarioHistorial, selectedDate])
+
+  const groupedConTablero = useMemo(() => {
+    const byId = new Map(grouped.map((g) => [g.id, g]))
+    for (const userId of opsPorOperarioHistorial.keys()) {
+      if (byId.has(userId)) continue
+      const nombre =
+        historialTablero.find((h) => h.id_usuario === userId)?.nombre_usuario?.trim() ||
+        `Usuario #${userId}`
+      byId.set(userId, { id: userId, nombre, idLegajo: null, notas: [] })
+    }
+    return [...byId.values()]
+      .filter((g) => (filtroOp === 'todos' ? true : g.id === filtroOp))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+  }, [grouped, opsPorOperarioHistorial, historialTablero, filtroOp])
 
   const checklistPct = useMemo(() => {
     if (!stats?.totales.checklist) return 0
@@ -304,6 +370,9 @@ export default function ActividadesOperariosPage() {
             {opsDelDia.length > 0 ? (
               <div className="act-op-ops">
                 <p className="act-op-ops__title">OPs trabajadas este día</p>
+                <p className="act-op-ops__hint">
+                  Se completan solas al mover fichas en el tablero y al cargar bitácora.
+                </p>
                 <ul className="act-op-ops__list">
                   {opsDelDia.map((op) => (
                     <li key={op.key} className="act-op-ops__item">
@@ -313,6 +382,7 @@ export default function ActividadesOperariosPage() {
                           <span>
                             {op.entradas} {op.entradas === 1 ? 'entrada' : 'entradas'}
                           </span>
+                          {op.estado ? <span>{op.estado.replace(/_/g, ' ')}</span> : null}
                           {op.horario ? <span>{op.horario}</span> : null}
                           {op.operarios && op.operarios.length > 0 ? (
                             <span>
@@ -325,7 +395,13 @@ export default function ActividadesOperariosPage() {
                   ))}
                 </ul>
               </div>
-            ) : null}
+            ) : loadingTableroOps ? (
+              <p className="act-op-page--muted">Cargando OPs del tablero…</p>
+            ) : (
+              <p className="act-op-page--muted act-op-ops__empty">
+                Sin OPs registradas: aparecen al mover fichas en el tablero o cargar bitácora hoy.
+              </p>
+            )}
           </section>
 
           {stats ? (
@@ -431,12 +507,12 @@ export default function ActividadesOperariosPage() {
 
           {loading ? <p className="act-op-page--muted">Cargando actividades…</p> : null}
           {error ? <p className="act-op-page__error">{error}</p> : null}
-          {!loading && !error && grouped.length === 0 ? (
+          {!loading && !error && groupedConTablero.length === 0 ? (
             <p className="act-op-page--muted">No hay actividades registradas para este día.</p>
           ) : null}
 
           <div className="act-op-page__groups">
-            {grouped.map((g) => (
+            {groupedConTablero.map((g) => (
               <section key={g.id} className="act-op-card">
                 <header className="act-op-card__head">
                   <div>
@@ -444,11 +520,39 @@ export default function ActividadesOperariosPage() {
                     {g.idLegajo ? <small className="act-op-card__legajo">Legajo #{g.idLegajo}</small> : null}
                   </div>
                   <div className="act-op-card__head-actions">
-                    <span>{g.notas.length} del día</span>
+                    <span>
+                      {g.notas.length > 0
+                        ? `${g.notas.length} del día`
+                        : `${(opsPorOperario.get(g.id) ?? []).length} OPs tablero`}
+                    </span>
                     <button
                       type="button"
                       className="act-op-card__legajo-btn"
-                      onClick={() => abrirLegajo(g.notas[0]!)}
+                      onClick={() =>
+                        abrirLegajo(
+                          g.notas[0] ?? {
+                            id: 0,
+                            id_usuario: g.id,
+                            tipo: 'bitacora',
+                            titulo: null,
+                            detalle: '',
+                            hecho: false,
+                            id_job: null,
+                            numero_op: null,
+                            id_orden: null,
+                            id_venta: null,
+                            numero_venta: null,
+                            id_oportunidad: null,
+                            numero_oportunidad: null,
+                            adjuntos: [],
+                            hora_inicio: null,
+                            hora_fin: null,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                            usuario_nombre: g.nombre
+                          }
+                        )
+                      }
                     >
                       Ver legajo
                     </button>

@@ -361,6 +361,14 @@
   color: #93c5fd;
 }
 
+.act-op-ops__hint,
+.act-op-ops__empty {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #94a3b8;
+}
+
 .act-op-ops__list {
   list-style: none;
   margin: 0;

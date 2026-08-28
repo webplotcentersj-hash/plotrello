@@ -6,7 +6,7 @@ import type {
   WorkPoolOperarioNotaTipo,
   WorkPoolOperarioNotasEstadisticas
 } from '../../types/workPool'
-import { isoToArgentinaDateKey } from '../../utils/dateUtils'
+import { argentinaDateKeyToIsoRange, isoToArgentinaDateKey } from '../../utils/dateUtils'
 
 function mapAdjuntos(raw: unknown): WorkPoolOperarioNotaAdjunto[] {
   if (!Array.isArray(raw)) return []
@@ -603,11 +603,42 @@ function upsertOpDelDia(map: Map<string, OpDelDia>, row: OpDelDia, entradasDelta
   })
 }
 
+function mergeOperariosLists(
+  a?: OpDelDia['operarios'],
+  b?: OpDelDia['operarios']
+): OpDelDia['operarios'] {
+  const map = new Map<number, string>()
+  for (const o of a ?? []) map.set(o.id, o.nombre)
+  for (const o of b ?? []) map.set(o.id, o.nombre)
+  if (map.size === 0) return undefined
+  return [...map.entries()]
+    .map(([id, nombre]) => ({ id, nombre }))
+    .sort((x, y) => x.nombre.localeCompare(y.nombre, 'es'))
+}
+
 /** Une varias listas de OPs del día (notas + tablero + bolsa). */
 export function mergeOpsDelDiaList(...lists: OpDelDia[][]): OpDelDia[] {
   const map = new Map<string, OpDelDia>()
   for (const list of lists) {
-    for (const op of list) upsertOpDelDia(map, op, op.entradas)
+    for (const op of list) {
+      const existing = map.get(op.key)
+      if (!existing) {
+        map.set(op.key, { ...op })
+        continue
+      }
+      map.set(op.key, {
+        ...existing,
+        label: existing.label || op.label,
+        numero_op: existing.numero_op ?? op.numero_op,
+        id_job: existing.id_job ?? op.id_job,
+        entradas: existing.entradas + op.entradas,
+        horario: existing.horario ?? op.horario,
+        ultimaActividad:
+          op.ultimaActividad > existing.ultimaActividad ? op.ultimaActividad : existing.ultimaActividad,
+        estado: op.estado ?? existing.estado,
+        operarios: mergeOperariosLists(existing.operarios, op.operarios)
+      })
+    }
   }
   return [...map.values()].sort((a, b) => b.ultimaActividad.localeCompare(a.ultimaActividad))
 }
@@ -791,4 +822,170 @@ export function buildOpsDelDia(
         .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
     }))
     .sort((a, b) => b.ultimaActividad.localeCompare(a.ultimaActividad))
+}
+
+export type HistorialTableroMovimiento = {
+  id_orden: number
+  id_usuario: number
+  nombre_usuario: string | null
+  timestamp: string
+  estado_nuevo: string | null
+}
+
+export type OrdenResumenParaOps = {
+  id: number
+  numero_op: string
+  titulo: string | null
+  estado: string | null
+}
+
+function esNumeroOpTablero(numeroOp: string | null | undefined): boolean {
+  const op = numeroOp?.trim()
+  if (!op) return false
+  if (/^FICHA-/i.test(op)) return false
+  return /^\d{4,}$/.test(op.replace(/\D/g, '')) || /\d{4,}/.test(op)
+}
+
+function numeroOpDesdeOrden(numeroOp: string | null | undefined): string | null {
+  if (!esNumeroOpTablero(numeroOp)) return null
+  const m = String(numeroOp).trim().match(/(\d{4,})/)
+  return m?.[1] ?? null
+}
+
+/** OPs del día desde movimientos del kanban (supervisión, todos los operarios). */
+export function buildOpsDelDiaFromHistorialTablero(
+  movimientos: HistorialTableroMovimiento[],
+  ordenById: Map<number, OrdenResumenParaOps>,
+  fechaKey: string,
+  opts?: { idUsuario?: number | null }
+): OpDelDia[] {
+  const map = new Map<string, OpDelDia>()
+  const operariosByOp = new Map<string, Map<number, string>>()
+
+  for (const mov of movimientos) {
+    if (opts?.idUsuario != null && mov.id_usuario !== opts.idUsuario) continue
+    if (isoToArgentinaDateKey(mov.timestamp) !== fechaKey) continue
+    const orden = ordenById.get(mov.id_orden)
+    if (!orden) continue
+    const op = numeroOpDesdeOrden(orden.numero_op)
+    if (!op) continue
+
+    const key = `op-${op}`
+    const titulo = orden.titulo?.trim()
+    const label = titulo ? `OP ${op} · ${titulo}` : `OP ${op}`
+
+    upsertOpDelDia(
+      map,
+      {
+        key,
+        label,
+        numero_op: op,
+        id_job: null,
+        entradas: 1,
+        horario: null,
+        ultimaActividad: mov.timestamp,
+        estado: mov.estado_nuevo ?? orden.estado ?? null
+      },
+      1
+    )
+
+    const opsMap = operariosByOp.get(key) ?? new Map<number, string>()
+    opsMap.set(mov.id_usuario, mov.nombre_usuario?.trim() || `Usuario #${mov.id_usuario}`)
+    operariosByOp.set(key, opsMap)
+  }
+
+  return [...map.values()]
+    .map((row) => ({
+      ...row,
+      operarios: [...(operariosByOp.get(row.key)?.entries() ?? [])]
+        .map(([id, nombre]) => ({ id, nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+    }))
+    .sort((a, b) => b.ultimaActividad.localeCompare(a.ultimaActividad))
+}
+
+/** OPs del tablero agrupadas por operario (tarjetas de supervisión). */
+export function buildOpsDelDiaPorOperarioFromHistorialTablero(
+  movimientos: HistorialTableroMovimiento[],
+  ordenById: Map<number, OrdenResumenParaOps>,
+  fechaKey: string
+): Map<number, OpDelDia[]> {
+  const byUser = new Map<number, HistorialTableroMovimiento[]>()
+  for (const mov of movimientos) {
+    if (isoToArgentinaDateKey(mov.timestamp) !== fechaKey) continue
+    const list = byUser.get(mov.id_usuario) ?? []
+    list.push(mov)
+    byUser.set(mov.id_usuario, list)
+  }
+
+  const result = new Map<number, OpDelDia[]>()
+  for (const [userId, movs] of byUser) {
+    result.set(userId, buildOpsDelDiaFromHistorialTablero(movs, ordenById, fechaKey, { idUsuario: userId }))
+  }
+  return result
+}
+
+async function fetchOrdenesResumenPorIds(ids: number[]): Promise<Map<number, OrdenResumenParaOps>> {
+  const map = new Map<number, OrdenResumenParaOps>()
+  if (!supabase || ids.length === 0) return map
+
+  const unique = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))]
+  for (let i = 0; i < unique.length; i += 120) {
+    const chunk = unique.slice(i, i + 120)
+    const { data, error } = await supabase
+      .from('ordenes_trabajo')
+      .select('id, numero_op, descripcion, estado')
+      .in('id', chunk)
+    if (error || !data) continue
+    for (const row of data as Array<Record<string, unknown>>) {
+      const id = Number(row.id)
+      if (!Number.isInteger(id)) continue
+      map.set(id, {
+        id,
+        numero_op: String(row.numero_op ?? ''),
+        titulo: (row.descripcion as string | null)?.trim() || null,
+        estado: (row.estado as string | null) ?? null
+      })
+    }
+  }
+  return map
+}
+
+/** Movimientos del tablero + resumen de órdenes para armar OPs del día en supervisión. */
+export async function cargarOpsTableroSupervisionDia(fechaKey: string): Promise<{
+  success: boolean
+  movimientos?: HistorialTableroMovimiento[]
+  ordenById?: Map<number, OrdenResumenParaOps>
+  error?: string
+}> {
+  if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
+
+  const { desde, hasta } = argentinaDateKeyToIsoRange(fechaKey)
+  const { data, error } = await supabase
+    .from('historial_movimientos')
+    .select('id_orden, id_usuario, nombre_usuario, timestamp, estado_nuevo')
+    .gte('timestamp', desde)
+    .lte('timestamp', hasta)
+    .order('timestamp', { ascending: false })
+    .limit(4000)
+
+  if (error) return { success: false, error: error.message }
+
+  const movimientos: HistorialTableroMovimiento[] = (data ?? [])
+    .map((row) => {
+      const r = row as Record<string, unknown>
+      return {
+        id_orden: Number(r.id_orden),
+        id_usuario: Number(r.id_usuario),
+        nombre_usuario: (r.nombre_usuario as string | null) ?? null,
+        timestamp: String(r.timestamp ?? ''),
+        estado_nuevo: (r.estado_nuevo as string | null) ?? null
+      }
+    })
+    .filter((m) => Number.isInteger(m.id_orden) && m.id_orden > 0 && Number.isInteger(m.id_usuario))
+
+  const ordenIds = [...new Set(movimientos.map((m) => m.id_orden))]
+  const ordenById = await fetchOrdenesResumenPorIds(ordenIds)
+
+  return { success: true, movimientos, ordenById }
 }

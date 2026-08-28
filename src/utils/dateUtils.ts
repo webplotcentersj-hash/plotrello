@@ -369,3 +369,11 @@ export function isTodayArgentina(date: Date | string): boolean {
   return today === dateStr && dateStr.length >= 10
 }
 
+/** Inicio y fin del día calendario Argentina (YYYY-MM-DD) como ISO con offset -03:00. */
+export function argentinaDateKeyToIsoRange(fechaKey: string): { desde: string; hasta: string } {
+  return {
+    desde: `${fechaKey}T00:00:00-03:00`,
+    hasta: `${fechaKey}T23:59:59.999-03:00`
+  }
+}
+
