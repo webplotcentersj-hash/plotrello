@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { ChevronDown, ClipboardList, Users } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import ActividadOperarioDetalleModal from '../features/work-pool/ActividadOperarioDetalleModal'
 import ActividadesOperariosCalendario from '../features/work-pool/ActividadesOperariosCalendario'
 import {
+  attachActividadesToOps,
+  buildActividadesPorOpDelDia,
   buildOpsDelDia,
   buildOpsDelDiaFromHistorialTablero,
   buildOpsDelDiaPorOperarioFromHistorialTablero,
@@ -15,6 +18,8 @@ import {
   mergeOpsDelDiaList,
   obtenerEstadisticasOperarioNotas,
   type HistorialTableroMovimiento,
+  type OpDelDia,
+  type OpDelDiaActividad,
   type OrdenResumenParaOps,
   type WorkPoolNotaSupervision
 } from '../features/work-pool/workPoolOperarioNotas'
@@ -68,6 +73,123 @@ const TIPO_LABEL: Record<string, string> = {
   anotador: 'Anotador'
 }
 
+const FUENTE_LABEL: Record<OpDelDiaActividad['fuente'], string> = {
+  tablero: 'Tablero',
+  bitacora: 'Bitácora',
+  checklist: 'Checklist',
+  anotador: 'Anotador'
+}
+
+function inicialesOperario(nombre: string): string {
+  const parts = nombre.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+}
+
+function parseOpLabel(label: string): { numero: string | null; titulo: string } {
+  const m = label.match(/^OP\s+(\d+)\s*[·•-]?\s*(.*)$/i)
+  if (!m) return { numero: null, titulo: label }
+  return { numero: m[1], titulo: m[2]?.trim() || label }
+}
+
+function avatarHue(id: number): number {
+  return (id * 47) % 360
+}
+
+function esNombreOperarioValido(raw: string | null | undefined): boolean {
+  const v = raw?.trim()
+  if (!v) return false
+  if (/^\d+$/.test(v)) return false
+  return true
+}
+
+function resolveNombreOperario(
+  id: number,
+  nombresById: Map<number, string>,
+  fallback?: string | null
+): string {
+  const fromLegajo = nombresById.get(id)
+  if (fromLegajo) return fromLegajo
+  if (esNombreOperarioValido(fallback)) return fallback!.trim()
+  return `Operario #${id}`
+}
+
+function OpActividadesList({
+  actividades,
+  compact = false
+}: {
+  actividades: OpDelDiaActividad[]
+  compact?: boolean
+}) {
+  if (actividades.length === 0) return null
+  return (
+    <ul className={`act-op-actividades${compact ? ' act-op-actividades--compact' : ''}`}>
+      {actividades.map((a, i) => (
+        <li key={`${a.timestamp}-${i}`} className={`act-op-actividades__item act-op-actividades__item--${a.fuente}`}>
+          <span className="act-op-actividades__dot" aria-hidden />
+          <div className="act-op-actividades__body">
+            <div className="act-op-actividades__head">
+              <span className={`act-op-actividades__fuente act-op-actividades__fuente--${a.fuente}`}>
+                {FUENTE_LABEL[a.fuente]}
+              </span>
+              <span className="act-op-actividades__hora">{formatWhen(a.timestamp)}</span>
+            </div>
+            <p>{a.texto}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function OpDelDiaRow({
+  op,
+  expanded,
+  onToggle
+}: {
+  op: OpDelDia
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const tieneDetalle = (op.actividades?.length ?? 0) > 0
+  const parsed = parseOpLabel(op.label)
+  return (
+    <li className={`act-op-ops__item${expanded ? ' is-expanded' : ''}`}>
+      <button
+        type="button"
+        className="act-op-ops__item-toggle"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        disabled={!tieneDetalle}
+      >
+        <ChevronDown size={16} className={`act-op-chevron${expanded ? ' is-open' : ''}`} aria-hidden />
+        <div className="act-op-ops__main">
+          <div className="act-op-ops__title-row">
+            {parsed.numero ? <span className="act-op-ops__op-num">OP {parsed.numero}</span> : null}
+            <strong>{parsed.titulo}</strong>
+          </div>
+          <div className="act-op-ops__meta">
+            <span className="act-op-pill act-op-pill--entries">
+              {op.entradas} {op.entradas === 1 ? 'entrada' : 'entradas'}
+            </span>
+            {op.estado ? (
+              <span className="act-op-pill act-op-pill--estado">{op.estado.replace(/_/g, ' ')}</span>
+            ) : null}
+            {op.horario ? <span className="act-op-pill act-op-pill--hora">{op.horario}</span> : null}
+            {op.operarios && op.operarios.length > 0 ? (
+              <span className="act-op-pill act-op-pill--user">
+                {op.operarios.map((o) => o.nombre).join(', ')}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </button>
+      {expanded && tieneDetalle ? <OpActividadesList actividades={op.actividades!} /> : null}
+    </li>
+  )
+}
+
 function toUsuarioRecord(nota: WorkPoolNotaSupervision): UsuarioRecord {
   return {
     id: nota.id_usuario,
@@ -98,7 +220,11 @@ export default function ActividadesOperariosPage() {
   const [legajoUsuario, setLegajoUsuario] = useState<UsuarioRecord | null>(null)
   const [historialTablero, setHistorialTablero] = useState<HistorialTableroMovimiento[]>([])
   const [ordenTableroById, setOrdenTableroById] = useState<Map<number, OrdenResumenParaOps>>(new Map())
+  const [nombresById, setNombresById] = useState<Map<number, string>>(new Map())
   const [loadingTableroOps, setLoadingTableroOps] = useState(false)
+  const [opsDiaExpanded, setOpsDiaExpanded] = useState(false)
+  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set())
+  const [expandedOps, setExpandedOps] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!usuario?.id || !allowed) return
@@ -151,10 +277,12 @@ export default function ActividadesOperariosPage() {
       if (!res.success) {
         setHistorialTablero([])
         setOrdenTableroById(new Map())
+        setNombresById(new Map())
         return
       }
       setHistorialTablero(res.movimientos ?? [])
       setOrdenTableroById(res.ordenById ?? new Map())
+      setNombresById(res.nombresById ?? new Map())
     })
     return () => {
       cancelled = true
@@ -170,13 +298,16 @@ export default function ActividadesOperariosPage() {
     }
     for (const h of historialTablero) {
       if (!map.has(h.id_usuario)) {
-        map.set(h.id_usuario, h.nombre_usuario?.trim() || `Usuario #${h.id_usuario}`)
+        map.set(
+          h.id_usuario,
+          resolveNombreOperario(h.id_usuario, nombresById, h.nombre_usuario)
+        )
       }
     }
     return [...map.entries()]
       .map(([id, nombre]) => ({ id, nombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-  }, [items, monthItems, historialTablero])
+  }, [items, monthItems, historialTablero, nombresById])
 
   const countsByDay = useMemo(() => {
     const map: Record<string, number> = {}
@@ -229,12 +360,12 @@ export default function ActividadesOperariosPage() {
     return [...by.entries()]
       .map(([id, notas]) => ({
         id,
-        nombre: notas[0]?.usuario_nombre || `Usuario #${id}`,
+        nombre: resolveNombreOperario(id, nombresById, notas[0]?.usuario_nombre),
         idLegajo: notas[0]?.id_legajo ?? null,
         notas
       }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-  }, [filtered])
+  }, [filtered, nombresById])
 
   const delDiaStats = useMemo(() => {
     const bitacora = filtered.filter((n) => n.tipo === 'bitacora').length
@@ -242,6 +373,14 @@ export default function ActividadesOperariosPage() {
     const anotador = filtered.filter((n) => n.tipo === 'anotador').length
     return { total: filtered.length, bitacora, checklist, anotador }
   }, [filtered])
+
+  const actividadesGlobal = useMemo(
+    () =>
+      buildActividadesPorOpDelDia(selectedDate, historialTablero, ordenTableroById, filtered, {
+        idUsuario: filtroOp === 'todos' ? null : filtroOp
+      }),
+    [selectedDate, historialTablero, ordenTableroById, filtered, filtroOp]
+  )
 
   const opsDelDia = useMemo(() => {
     const fromNotas = buildOpsDelDia(filtered, { fechaKey: selectedDate })
@@ -251,8 +390,8 @@ export default function ActividadesOperariosPage() {
       selectedDate,
       filtroOp === 'todos' ? undefined : { idUsuario: filtroOp }
     )
-    return mergeOpsDelDiaList(fromNotas, fromTablero)
-  }, [filtered, selectedDate, historialTablero, ordenTableroById, filtroOp])
+    return attachActividadesToOps(mergeOpsDelDiaList(fromNotas, fromTablero), actividadesGlobal)
+  }, [filtered, selectedDate, historialTablero, ordenTableroById, filtroOp, actividadesGlobal])
 
   const opsPorOperarioHistorial = useMemo(
     () => buildOpsDelDiaPorOperarioFromHistorialTablero(historialTablero, ordenTableroById, selectedDate),
@@ -260,30 +399,50 @@ export default function ActividadesOperariosPage() {
   )
 
   const opsPorOperario = useMemo(() => {
-    const map = new Map<number, ReturnType<typeof buildOpsDelDia>>()
+    const map = new Map<number, OpDelDia[]>()
     for (const g of grouped) {
-      map.set(g.id, buildOpsDelDia(g.notas, { fechaKey: selectedDate }))
+      const acts = buildActividadesPorOpDelDia(
+        selectedDate,
+        historialTablero,
+        ordenTableroById,
+        g.notas,
+        { idUsuario: g.id }
+      )
+      const ops = attachActividadesToOps(
+        buildOpsDelDia(g.notas, { fechaKey: selectedDate }),
+        acts
+      )
+      map.set(g.id, ops)
     }
     for (const [userId, ops] of opsPorOperarioHistorial) {
+      const acts = buildActividadesPorOpDelDia(
+        selectedDate,
+        historialTablero,
+        ordenTableroById,
+        filtered,
+        { idUsuario: userId }
+      )
       const fromNotas = map.get(userId) ?? []
-      map.set(userId, mergeOpsDelDiaList(fromNotas, ops))
+      map.set(userId, attachActividadesToOps(mergeOpsDelDiaList(fromNotas, ops), acts))
     }
     return map
-  }, [grouped, opsPorOperarioHistorial, selectedDate])
+  }, [grouped, opsPorOperarioHistorial, selectedDate, historialTablero, ordenTableroById, filtered])
 
   const groupedConTablero = useMemo(() => {
     const byId = new Map(grouped.map((g) => [g.id, g]))
     for (const userId of opsPorOperarioHistorial.keys()) {
       if (byId.has(userId)) continue
-      const nombre =
-        historialTablero.find((h) => h.id_usuario === userId)?.nombre_usuario?.trim() ||
-        `Usuario #${userId}`
+      const nombre = resolveNombreOperario(
+        userId,
+        nombresById,
+        historialTablero.find((h) => h.id_usuario === userId)?.nombre_usuario
+      )
       byId.set(userId, { id: userId, nombre, idLegajo: null, notas: [] })
     }
     return [...byId.values()]
       .filter((g) => (filtroOp === 'todos' ? true : g.id === filtroOp))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-  }, [grouped, opsPorOperarioHistorial, historialTablero, filtroOp])
+  }, [grouped, opsPorOperarioHistorial, historialTablero, filtroOp, nombresById])
 
   const checklistPct = useMemo(() => {
     if (!stats?.totales.checklist) return 0
@@ -294,6 +453,24 @@ export default function ActividadesOperariosPage() {
     if (!stats?.por_dia.length) return 1
     return Math.max(...stats.por_dia.map((d) => d.total), 1)
   }, [stats])
+
+  const toggleCard = (id: number) => {
+    setExpandedCards((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleOp = (scopeKey: string) => {
+    setExpandedOps((prev) => {
+      const next = new Set(prev)
+      if (next.has(scopeKey)) next.delete(scopeKey)
+      else next.add(scopeKey)
+      return next
+    })
+  }
 
   const abrirLegajo = (nota: WorkPoolNotaSupervision) => {
     setDetalle(null)
@@ -356,44 +533,54 @@ export default function ActividadesOperariosPage() {
         <div className="act-op-page__main">
           <section className="act-op-dia">
             <header className="act-op-dia__head">
-              <div>
+              <div className="act-op-dia__intro">
+                <span className="act-op-dia__badge">Resumen del día</span>
                 <h2>{formatDiaLabel(selectedDate)}</h2>
-                <p>{delDiaStats.total} actividades del día</p>
+                <p>{delDiaStats.total} actividades registradas</p>
               </div>
               <div className="act-op-dia__chips">
-                <span>{delDiaStats.bitacora} bitácora</span>
-                <span>{delDiaStats.checklist} checklist</span>
-                <span>{delDiaStats.anotador} anotador</span>
-                <span>{opsDelDia.length} OPs</span>
+                <span className="act-op-dia__chip act-op-dia__chip--bitacora">{delDiaStats.bitacora} bitácora</span>
+                <span className="act-op-dia__chip act-op-dia__chip--checklist">{delDiaStats.checklist} checklist</span>
+                <span className="act-op-dia__chip act-op-dia__chip--anotador">{delDiaStats.anotador} anotador</span>
+                <span className="act-op-dia__chip act-op-dia__chip--ops">{opsDelDia.length} OPs</span>
               </div>
             </header>
             {opsDelDia.length > 0 ? (
-              <div className="act-op-ops">
-                <p className="act-op-ops__title">OPs trabajadas este día</p>
-                <p className="act-op-ops__hint">
-                  Se completan solas al mover fichas en el tablero y al cargar bitácora.
-                </p>
-                <ul className="act-op-ops__list">
-                  {opsDelDia.map((op) => (
-                    <li key={op.key} className="act-op-ops__item">
-                      <div className="act-op-ops__main">
-                        <strong>{op.label}</strong>
-                        <div className="act-op-ops__meta">
-                          <span>
-                            {op.entradas} {op.entradas === 1 ? 'entrada' : 'entradas'}
-                          </span>
-                          {op.estado ? <span>{op.estado.replace(/_/g, ' ')}</span> : null}
-                          {op.horario ? <span>{op.horario}</span> : null}
-                          {op.operarios && op.operarios.length > 0 ? (
-                            <span>
-                              {op.operarios.map((o) => o.nombre).join(', ')}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+              <div className={`act-op-ops${opsDiaExpanded ? ' is-expanded' : ''}`}>
+                <button
+                  type="button"
+                  className="act-op-ops__toggle"
+                  onClick={() => setOpsDiaExpanded((v) => !v)}
+                  aria-expanded={opsDiaExpanded}
+                >
+                  <span className="act-op-ops__icon" aria-hidden>
+                    <ClipboardList size={20} strokeWidth={2.2} />
+                  </span>
+                  <div className="act-op-ops__toggle-text">
+                    <p className="act-op-ops__title">OPs trabajadas este día</p>
+                    <p className="act-op-ops__hint">
+                      {opsDelDia.length} OP{opsDelDia.length === 1 ? '' : 's'} · tablero y bitácora
+                    </p>
+                  </div>
+                  <span className="act-op-ops__count">{opsDelDia.length}</span>
+                  <ChevronDown
+                    size={18}
+                    className={`act-op-chevron act-op-chevron--end${opsDiaExpanded ? ' is-open' : ''}`}
+                    aria-hidden
+                  />
+                </button>
+                {opsDiaExpanded ? (
+                  <ul className="act-op-ops__list">
+                    {opsDelDia.map((op) => (
+                      <OpDelDiaRow
+                        key={op.key}
+                        op={op}
+                        expanded={expandedOps.has(`global:${op.key}`)}
+                        onToggle={() => toggleOp(`global:${op.key}`)}
+                      />
+                    ))}
+                  </ul>
+                ) : null}
               </div>
             ) : loadingTableroOps ? (
               <p className="act-op-page--muted">Cargando OPs del tablero…</p>
@@ -511,20 +698,51 @@ export default function ActividadesOperariosPage() {
             <p className="act-op-page--muted">No hay actividades registradas para este día.</p>
           ) : null}
 
+          {groupedConTablero.length > 0 ? (
           <div className="act-op-page__groups">
-            {groupedConTablero.map((g) => (
-              <section key={g.id} className="act-op-card">
+            <header className="act-op-page__groups-head">
+              <Users size={18} strokeWidth={2.2} aria-hidden />
+              <div>
+                <h2>Operarios del día</h2>
+                <p>{groupedConTablero.length} operario{groupedConTablero.length === 1 ? '' : 's'} con actividad</p>
+              </div>
+            </header>
+            {groupedConTablero.map((g) => {
+              const ops = opsPorOperario.get(g.id) ?? []
+              const cardOpen = expandedCards.has(g.id)
+              const opsOpen = expandedOps.has(`card-ops:${g.id}`)
+              const countLabel =
+                g.notas.length > 0 ? `${g.notas.length} del día` : `${ops.length} OPs tablero`
+              return (
+              <section
+                key={g.id}
+                className={`act-op-card${cardOpen ? ' is-expanded' : ''}`}
+                style={{ '--act-op-accent': avatarHue(g.id) } as CSSProperties}
+              >
                 <header className="act-op-card__head">
-                  <div>
-                    <h2>{g.nombre}</h2>
-                    {g.idLegajo ? <small className="act-op-card__legajo">Legajo #{g.idLegajo}</small> : null}
-                  </div>
-                  <div className="act-op-card__head-actions">
-                    <span>
-                      {g.notas.length > 0
-                        ? `${g.notas.length} del día`
-                        : `${(opsPorOperario.get(g.id) ?? []).length} OPs tablero`}
+                  <button
+                    type="button"
+                    className="act-op-card__head-toggle"
+                    onClick={() => toggleCard(g.id)}
+                    aria-expanded={cardOpen}
+                  >
+                    <span className="act-op-card__avatar" aria-hidden>
+                      {inicialesOperario(g.nombre)}
                     </span>
+                    <ChevronDown
+                      size={18}
+                      className={`act-op-chevron${cardOpen ? ' is-open' : ''}`}
+                      aria-hidden
+                    />
+                    <div className="act-op-card__identity">
+                      <h2>{g.nombre}</h2>
+                      {g.idLegajo ? (
+                        <small className="act-op-card__legajo">Legajo #{g.idLegajo}</small>
+                      ) : null}
+                    </div>
+                  </button>
+                  <div className="act-op-card__head-actions">
+                    <span className="act-op-card__count-badge">{countLabel}</span>
                     <button
                       type="button"
                       className="act-op-card__legajo-btn"
@@ -558,18 +776,69 @@ export default function ActividadesOperariosPage() {
                     </button>
                   </div>
                 </header>
-                {(opsPorOperario.get(g.id) ?? []).length > 0 ? (
-                  <ul className="act-op-card__ops">
-                    {(opsPorOperario.get(g.id) ?? []).map((op) => (
-                      <li key={op.key}>
-                        <span className="act-op-card__op-chip">{op.label}</span>
-                        {op.horario ? <span className="act-op-card__op-hora">{op.horario}</span> : null}
-                        <span className="act-op-card__op-count">
-                          {op.entradas} {op.entradas === 1 ? 'entrada' : 'entradas'}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                {cardOpen ? (
+                  <>
+                {ops.length > 0 ? (
+                  <div className={`act-op-card__ops-wrap${opsOpen ? ' is-expanded' : ''}`}>
+                    <button
+                      type="button"
+                      className="act-op-card__ops-toggle"
+                      onClick={() => toggleOp(`card-ops:${g.id}`)}
+                      aria-expanded={opsOpen}
+                    >
+                      <ChevronDown
+                        size={16}
+                        className={`act-op-chevron${opsOpen ? ' is-open' : ''}`}
+                        aria-hidden
+                      />
+                      <span>
+                        {ops.length} OP{ops.length === 1 ? '' : 's'} del día
+                      </span>
+                    </button>
+                    {opsOpen ? (
+                      <ul className="act-op-card__ops">
+                        {ops.map((op) => {
+                          const opKey = `card:${g.id}:${op.key}`
+                          const opDetailOpen = expandedOps.has(opKey)
+                          const tieneDetalle = (op.actividades?.length ?? 0) > 0
+                          const parsed = parseOpLabel(op.label)
+                          return (
+                            <li
+                              key={op.key}
+                              className={`act-op-card__op-item${opDetailOpen ? ' is-expanded' : ''}`}
+                            >
+                              <button
+                                type="button"
+                                className="act-op-card__op-toggle"
+                                onClick={() => toggleOp(opKey)}
+                                aria-expanded={opDetailOpen}
+                                disabled={!tieneDetalle}
+                              >
+                                <ChevronDown
+                                  size={14}
+                                  className={`act-op-chevron${opDetailOpen ? ' is-open' : ''}`}
+                                  aria-hidden
+                                />
+                                {parsed.numero ? (
+                                  <span className="act-op-card__op-num">OP {parsed.numero}</span>
+                                ) : null}
+                                <span className="act-op-card__op-chip">{parsed.titulo}</span>
+                                {op.horario ? (
+                                  <span className="act-op-card__op-hora">{op.horario}</span>
+                                ) : null}
+                                <span className="act-op-card__op-count">
+                                  {op.entradas} {op.entradas === 1 ? 'entrada' : 'entradas'}
+                                </span>
+                              </button>
+                              {opDetailOpen && tieneDetalle ? (
+                                <OpActividadesList actividades={op.actividades!} compact />
+                              ) : null}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    ) : null}
+                  </div>
                 ) : null}
                 <ul className="act-op-card__list">
                   {g.notas.map((n) => (
@@ -591,9 +860,12 @@ export default function ActividadesOperariosPage() {
                     </li>
                   ))}
                 </ul>
+                  </>
+                ) : null}
               </section>
-            ))}
+            )})}
           </div>
+          ) : null}
         </div>
       </div>
 

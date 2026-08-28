@@ -7,6 +7,7 @@ import type {
   WorkPoolOperarioNotasEstadisticas
 } from '../../types/workPool'
 import { argentinaDateKeyToIsoRange, isoToArgentinaDateKey } from '../../utils/dateUtils'
+import { fallbackNombreSinEmail, nombreCompletoLegajo } from '../../utils/usuarioDisplayName'
 
 function mapAdjuntos(raw: unknown): WorkPoolOperarioNotaAdjunto[] {
   if (!Array.isArray(raw)) return []
@@ -457,6 +458,7 @@ export function formatMinutos(minutos: number): string {
 export type NotaParaOpsDelDia = {
   tipo: WorkPoolOperarioNotaTipo
   titulo: string | null
+  detalle?: string | null
   id_job: number | null
   numero_op: string | null
   numero_venta: string | null
@@ -479,6 +481,13 @@ export type OpDelDia = {
   ultimaActividad: string
   estado?: string | null
   operarios?: Array<{ id: number; nombre: string }>
+  actividades?: OpDelDiaActividad[]
+}
+
+export type OpDelDiaActividad = {
+  timestamp: string
+  texto: string
+  fuente: 'tablero' | 'bitacora' | 'checklist' | 'anotador'
 }
 
 /** Extrae un número de OP de texto libre (ej. "OP 105642", "105642"). */
@@ -829,7 +838,9 @@ export type HistorialTableroMovimiento = {
   id_usuario: number
   nombre_usuario: string | null
   timestamp: string
+  estado_anterior: string | null
   estado_nuevo: string | null
+  comentario: string | null
 }
 
 export type OrdenResumenParaOps = {
@@ -844,6 +855,81 @@ function esNumeroOpTablero(numeroOp: string | null | undefined): boolean {
   if (!op) return false
   if (/^FICHA-/i.test(op)) return false
   return /^\d{4,}$/.test(op.replace(/\D/g, '')) || /\d{4,}/.test(op)
+}
+
+function textoActividadHistorial(mov: HistorialTableroMovimiento): string {
+  const comentario = mov.comentario?.trim()
+  if (comentario) {
+    if (/abrió la ficha|plotai|movió a/i.test(comentario)) return comentario
+  }
+  const destino = mov.estado_nuevo?.trim()
+  const origen = mov.estado_anterior?.trim()
+  if (destino && origen && origen !== destino) {
+    return `Movió la ficha de «${origen}» a «${destino}»`
+  }
+  if (destino) return `Movió la ficha a «${destino}»`
+  return comentario || 'Actividad en el tablero'
+}
+
+/** Líneas de qué hizo el operario en cada OP (tablero + bitácora). */
+export function buildActividadesPorOpDelDia(
+  fechaKey: string,
+  historial: HistorialTableroMovimiento[],
+  ordenById: Map<number, OrdenResumenParaOps>,
+  notas: NotaParaOpsDelDia[],
+  opts?: { idUsuario?: number | null }
+): Map<string, OpDelDiaActividad[]> {
+  const map = new Map<string, OpDelDiaActividad[]>()
+  const push = (key: string, row: OpDelDiaActividad) => {
+    const list = map.get(key) ?? []
+    list.push(row)
+    map.set(key, list)
+  }
+
+  for (const mov of historial) {
+    if (opts?.idUsuario != null && mov.id_usuario !== opts.idUsuario) continue
+    if (isoToArgentinaDateKey(mov.timestamp) !== fechaKey) continue
+    const orden = ordenById.get(mov.id_orden)
+    const op = numeroOpDesdeOrden(orden?.numero_op)
+    if (!op) continue
+    push(`op-${op}`, {
+      timestamp: mov.timestamp,
+      texto: textoActividadHistorial(mov),
+      fuente: 'tablero'
+    })
+  }
+
+  for (const n of notas) {
+    if (opts?.idUsuario != null && n.id_usuario != null && n.id_usuario !== opts.idUsuario) continue
+    if (isoToArgentinaDateKey(n.created_at) !== fechaKey) continue
+    const op = n.numero_op?.trim()
+    if (!op) continue
+    const fuente =
+      n.tipo === 'checklist' ? 'checklist' : n.tipo === 'anotador' ? 'anotador' : 'bitacora'
+    const detalle = n.detalle?.trim()
+    const titulo = n.titulo?.trim()
+    let texto = detalle || titulo || 'Registro en bitácora'
+    if (titulo && detalle && titulo !== detalle) texto = `${titulo} — ${detalle}`
+    push(`op-${op}`, { timestamp: n.created_at, texto, fuente })
+  }
+
+  for (const [key, list] of map) {
+    map.set(
+      key,
+      [...list].sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    )
+  }
+  return map
+}
+
+export function attachActividadesToOps(
+  ops: OpDelDia[],
+  actividades: Map<string, OpDelDiaActividad[]>
+): OpDelDia[] {
+  return ops.map((op) => ({
+    ...op,
+    actividades: actividades.get(op.key) ?? op.actividades
+  }))
 }
 
 function numeroOpDesdeOrden(numeroOp: string | null | undefined): string | null {
@@ -951,11 +1037,53 @@ async function fetchOrdenesResumenPorIds(ids: number[]): Promise<Map<number, Ord
   return map
 }
 
+async function fetchNombresUsuarios(ids: number[]): Promise<Map<number, string>> {
+  const map = new Map<number, string>()
+  if (!supabase || ids.length === 0) return map
+
+  const unique = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))]
+  for (let i = 0; i < unique.length; i += 120) {
+    const chunk = unique.slice(i, i + 120)
+    const { data: legajos } = await supabase
+      .from('legajos_empleados')
+      .select('id_usuario, nombre, apellido')
+      .in('id_usuario', chunk)
+    for (const row of legajos ?? []) {
+      const id = Number((row as Record<string, unknown>).id_usuario)
+      const nombre = nombreCompletoLegajo(row as { nombre?: string | null; apellido?: string | null })
+      if (Number.isInteger(id) && nombre) map.set(id, nombre)
+    }
+  }
+
+  const missing = unique.filter((id) => !map.has(id))
+  if (missing.length > 0) {
+    for (let i = 0; i < missing.length; i += 120) {
+      const chunk = missing.slice(i, i + 120)
+      const { data: users } = await supabase.from('usuarios').select('id, nombre').in('id', chunk)
+      for (const row of users ?? []) {
+        const id = Number((row as Record<string, unknown>).id)
+        const nombre = String((row as Record<string, unknown>).nombre ?? '').trim()
+        if (Number.isInteger(id) && nombre) map.set(id, fallbackNombreSinEmail(nombre))
+      }
+    }
+  }
+
+  return map
+}
+
+function esNombreOperarioValido(raw: string | null | undefined): boolean {
+  const v = raw?.trim()
+  if (!v) return false
+  if (/^\d+$/.test(v)) return false
+  return true
+}
+
 /** Movimientos del tablero + resumen de órdenes para armar OPs del día en supervisión. */
 export async function cargarOpsTableroSupervisionDia(fechaKey: string): Promise<{
   success: boolean
   movimientos?: HistorialTableroMovimiento[]
   ordenById?: Map<number, OrdenResumenParaOps>
+  nombresById?: Map<number, string>
   error?: string
 }> {
   if (!supabase) return { success: false, error: 'Sin conexión a Supabase' }
@@ -963,7 +1091,7 @@ export async function cargarOpsTableroSupervisionDia(fechaKey: string): Promise<
   const { desde, hasta } = argentinaDateKeyToIsoRange(fechaKey)
   const { data, error } = await supabase
     .from('historial_movimientos')
-    .select('id_orden, id_usuario, nombre_usuario, timestamp, estado_nuevo')
+    .select('id_orden, id_usuario, nombre_usuario, timestamp, estado_anterior, estado_nuevo, comentario')
     .gte('timestamp', desde)
     .lte('timestamp', hasta)
     .order('timestamp', { ascending: false })
@@ -971,7 +1099,7 @@ export async function cargarOpsTableroSupervisionDia(fechaKey: string): Promise<
 
   if (error) return { success: false, error: error.message }
 
-  const movimientos: HistorialTableroMovimiento[] = (data ?? [])
+  const movimientosRaw: HistorialTableroMovimiento[] = (data ?? [])
     .map((row) => {
       const r = row as Record<string, unknown>
       return {
@@ -979,13 +1107,25 @@ export async function cargarOpsTableroSupervisionDia(fechaKey: string): Promise<
         id_usuario: Number(r.id_usuario),
         nombre_usuario: (r.nombre_usuario as string | null) ?? null,
         timestamp: String(r.timestamp ?? ''),
-        estado_nuevo: (r.estado_nuevo as string | null) ?? null
+        estado_anterior: (r.estado_anterior as string | null) ?? null,
+        estado_nuevo: (r.estado_nuevo as string | null) ?? null,
+        comentario: (r.comentario as string | null) ?? null
       }
     })
     .filter((m) => Number.isInteger(m.id_orden) && m.id_orden > 0 && Number.isInteger(m.id_usuario))
 
+  const userIds = [...new Set(movimientosRaw.map((m) => m.id_usuario))]
+  const nombresById = await fetchNombresUsuarios(userIds)
+
+  const movimientos = movimientosRaw.map((m) => ({
+    ...m,
+    nombre_usuario:
+      nombresById.get(m.id_usuario) ||
+      (esNombreOperarioValido(m.nombre_usuario) ? m.nombre_usuario!.trim() : null)
+  }))
+
   const ordenIds = [...new Set(movimientos.map((m) => m.id_orden))]
   const ordenById = await fetchOrdenesResumenPorIds(ordenIds)
 
-  return { success: true, movimientos, ordenById }
+  return { success: true, movimientos, ordenById, nombresById }
 }
