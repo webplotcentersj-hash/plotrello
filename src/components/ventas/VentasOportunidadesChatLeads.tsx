@@ -27,6 +27,7 @@ type FiltroChat = 'todas' | 'sin_leer' | 'con_contacto' | 'hoy' | 'chat_web' | '
 
 type Props = {
   onCrearOportunidad: (lead: {
+    id?: number
     cliente_nombre: string
     cliente_telefono?: string
     cliente_email?: string
@@ -294,6 +295,7 @@ export default function VentasOportunidadesChatLeads({ onCrearOportunidad, onSta
                     className="crm-chat-leads-btn crm-chat-leads-btn--primary"
                     onClick={() =>
                       onCrearOportunidad({
+                        id: c.id,
                         cliente_nombre: nombre,
                         cliente_telefono: telefono || undefined,
                         cliente_email: c.cliente_email || undefined,

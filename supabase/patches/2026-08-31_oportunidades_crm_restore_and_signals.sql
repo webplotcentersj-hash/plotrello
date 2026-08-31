@@ -1,0 +1,11 @@
+-- Mirror of applied migration 2026_08_31_oportunidades_crm_restore_and_signals
+-- Restores CRM oportunidades RPCs, seguimiento columns, chat FK, and suggestions.
+
+-- Applied via Supabase MCP on 2026-08-31.
+-- See production functions:
+--   crear_oportunidad_venta
+--   actualizar_oportunidad_venta
+--   crear_seguimiento_venta
+--   crear_venta_desde_oportunidad
+--   obtener_oportunidades_venta
+--   sugerir_oportunidades_venta

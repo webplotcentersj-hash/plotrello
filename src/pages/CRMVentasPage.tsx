@@ -6,6 +6,7 @@ import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import type {
   OportunidadVenta,
+  OportunidadSugerida,
   Venta,
   OrdenTrabajo,
   VentaItem,
@@ -49,6 +50,7 @@ import VentaRapidaModal from '../components/VentaRapidaModal'
 import VentaComprobantePagoDetalle from '../components/ventas/VentaComprobantePagoDetalle'
 import VentasListaPreciosPanel from '../components/ventas/VentasListaPreciosPanel'
 import VentasOportunidadesChatLeads from '../components/ventas/VentasOportunidadesChatLeads'
+import VentasOportunidadesSugeridas from '../components/ventas/VentasOportunidadesSugeridas'
 import { labelListaPrecio } from '../constants/ventasListasPrecio'
 import {
   descargarPresupuestoVentaPDF,
@@ -146,6 +148,8 @@ type OportunidadFormCRM = {
   fecha_cierre_estimada: string
   observaciones: string
   id_cliente: number | null
+  id_atencion_conversacion: number | null
+  origen: string
 }
 
 function aplicarClienteAOportunidadForm(
@@ -321,7 +325,9 @@ const CRMVentasPage = () => {
     etapa: 'Prospecto' as 'Prospecto' | 'Calificación' | 'Propuesta' | 'Negociación' | 'Cerrado' | 'Perdido',
     fecha_cierre_estimada: '',
     observaciones: '',
-    id_cliente: null as number | null
+    id_cliente: null as number | null,
+    id_atencion_conversacion: null as number | null,
+    origen: 'manual' as string
   })
   
   const [mostrarModalSeguimiento, setMostrarModalSeguimiento] = useState(false)
@@ -1223,13 +1229,16 @@ const CRMVentasPage = () => {
       etapa: 'Prospecto',
       fecha_cierre_estimada: '',
       observaciones: '',
-      id_cliente: null
+      id_cliente: null,
+      id_atencion_conversacion: null,
+      origen: 'manual'
     })
     setMostrarModalOportunidad(true)
   }
 
   const handleCrearOportunidadDesdeChat = useCallback(
     (lead: {
+      id?: number
       cliente_nombre: string
       cliente_telefono?: string
       cliente_email?: string
@@ -1247,16 +1256,51 @@ const CRMVentasPage = () => {
         cliente_direccion: '',
         descripcion: lead.descripcion || '',
         valor_estimado: '',
-        probabilidad_cierre: 50,
+        probabilidad_cierre: 55,
         etapa: 'Prospecto',
         fecha_cierre_estimada: '',
-        observaciones: 'Generado desde chat web (Atención al público).',
-        id_cliente: null
+        observaciones: 'Generado desde chat (Atención al público).',
+        id_cliente: null,
+        id_atencion_conversacion: lead.id ?? null,
+        origen: 'chat'
       })
       setMostrarModalOportunidad(true)
     },
     []
   )
+
+  const handleAceptarSugerida = useCallback((sugerida: OportunidadSugerida) => {
+    setOportunidadEditando(null)
+    setClienteSeleccionado(null)
+    setBusquedaCliente(sugerida.cliente_nombre)
+    const cierre = new Date()
+    cierre.setDate(cierre.getDate() + 30)
+    const cierreKey = cierre.toISOString().slice(0, 10)
+    setFormOportunidad({
+      cliente_nombre: sugerida.cliente_nombre,
+      cliente_telefono: sugerida.cliente_telefono || '',
+      cliente_email: sugerida.cliente_email || '',
+      cliente_dni_cuit: sugerida.cliente_dni_cuit || '',
+      cliente_empresa: sugerida.cliente_empresa || '',
+      cliente_direccion: '',
+      descripcion: sugerida.motivo,
+      valor_estimado:
+        sugerida.valor_sugerido != null && Number(sugerida.valor_sugerido) > 0
+          ? String(sugerida.valor_sugerido)
+          : '',
+      probabilidad_cierre: sugerida.probabilidad_sugerida ?? 55,
+      etapa: sugerida.tipo === 'chat' ? 'Calificación' : 'Prospecto',
+      fecha_cierre_estimada: cierreKey,
+      observaciones:
+        sugerida.tipo === 'recompra'
+          ? `Sugerida por recompra${sugerida.ultima_op_numero ? ` · última OP ${sugerida.ultima_op_numero}` : ''}.`
+          : 'Sugerida desde lead de chat.',
+      id_cliente: sugerida.id_cliente ?? null,
+      id_atencion_conversacion: sugerida.id_atencion_conversacion ?? null,
+      origen: sugerida.tipo === 'chat' ? 'chat' : 'sugerida_recompra'
+    })
+    setMostrarModalOportunidad(true)
+  }, [])
 
   const handleEditarOportunidad = (oportunidad: OportunidadVenta) => {
     setOportunidadEditando(oportunidad)
@@ -1275,7 +1319,9 @@ const CRMVentasPage = () => {
       etapa: oportunidad.etapa,
       fecha_cierre_estimada: oportunidad.fecha_cierre_estimada || '',
       observaciones: oportunidad.observaciones || '',
-      id_cliente: null // Se puede buscar y asociar después
+      id_cliente: oportunidad.id_cliente ?? null,
+      id_atencion_conversacion: oportunidad.id_atencion_conversacion ?? null,
+      origen: oportunidad.origen || 'manual'
     })
     setMostrarModalOportunidad(true)
   }
@@ -1297,7 +1343,9 @@ const CRMVentasPage = () => {
       etapa: 'Prospecto',
       fecha_cierre_estimada: '',
       observaciones: o.observaciones || '',
-      id_cliente: null
+      id_cliente: o.id_cliente ?? null,
+      id_atencion_conversacion: null,
+      origen: 'manual'
     })
     setMostrarModalOportunidad(true)
   }
@@ -1325,7 +1373,8 @@ const CRMVentasPage = () => {
           probabilidad_cierre: formOportunidad.probabilidad_cierre,
           etapa: formOportunidad.etapa,
           fecha_cierre_estimada: formOportunidad.fecha_cierre_estimada || undefined,
-          observaciones: formOportunidad.observaciones || undefined
+          observaciones: formOportunidad.observaciones || undefined,
+          id_cliente: formOportunidad.id_cliente || undefined
         })
         
         if (response.success) {
@@ -1366,7 +1415,9 @@ const CRMVentasPage = () => {
           id_vendedor: usuario.id,
           nombre_vendedor: nombreOperador,
           observaciones: formOportunidad.observaciones || undefined,
-          id_cliente: idClienteFinal || undefined
+          id_cliente: idClienteFinal || undefined,
+          id_atencion_conversacion: formOportunidad.id_atencion_conversacion || undefined,
+          origen: formOportunidad.origen || 'manual'
         })
         
         if (response.success) {
@@ -2489,6 +2540,8 @@ const CRMVentasPage = () => {
             onStatsChange={(s) => setChatLeadsSinLeer(s.sinLeer)}
           />
 
+          <VentasOportunidadesSugeridas onAceptar={handleAceptarSugerida} />
+
           <h3 className="crm-oportunidades-pipeline-title">Pipeline de oportunidades</h3>
 
           {/* Filtros */}
@@ -2587,6 +2640,33 @@ const CRMVentasPage = () => {
                 {oportunidad.descripcion && (
                   <p className="descripcion">{oportunidad.descripcion}</p>
                 )}
+
+                <div className="crm-opp-signals">
+                  {oportunidad.id_cliente ? (
+                    <span className="crm-opp-signal">Cliente #{oportunidad.id_cliente}</span>
+                  ) : null}
+                  {oportunidad.origen && oportunidad.origen !== 'manual' ? (
+                    <span className="crm-opp-signal crm-opp-signal--origen">{oportunidad.origen}</span>
+                  ) : null}
+                  {oportunidad.dias_sin_compra != null ? (
+                    <span className="crm-opp-signal crm-opp-signal--warn">
+                      {oportunidad.dias_sin_compra}d sin compra
+                    </span>
+                  ) : null}
+                  {oportunidad.ultima_venta_fecha ? (
+                    <span className="crm-opp-signal">
+                      Últ. venta {formatArgentinaDate(String(oportunidad.ultima_venta_fecha).slice(0, 10))}
+                      {oportunidad.ultima_venta_monto != null
+                        ? ` · $${Number(oportunidad.ultima_venta_monto).toLocaleString('es-AR')}`
+                        : ''}
+                    </span>
+                  ) : null}
+                  {oportunidad.ultima_op_numero ? (
+                    <span className="crm-opp-signal crm-opp-signal--op">
+                      Últ. OP {oportunidad.ultima_op_numero}
+                    </span>
+                  ) : null}
+                </div>
                 
                 <div className="card-info">
                   {oportunidad.valor_estimado != null && oportunidad.valor_estimado > 0 && (

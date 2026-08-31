@@ -692,10 +692,46 @@
 }
 
 .descripcion {
-  margin: 16px 0;
-  color: rgba(255, 255, 255, 0.9);
-  line-height: 1.7;
-  font-size: 0.95rem;
+  margin: 0 0 10px;
+  color: #cbd5e1;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.crm-opp-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.crm-opp-signal {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.crm-opp-signal--origen {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.28);
+}
+
+.crm-opp-signal--warn {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+.crm-opp-signal--op {
+  background: rgba(16, 185, 129, 0.14);
+  color: #a7f3d0;
+  border-color: rgba(52, 211, 153, 0.28);
 }
 
 .card-info {

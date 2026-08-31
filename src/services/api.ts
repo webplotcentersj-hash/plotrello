@@ -19965,6 +19965,8 @@ class ApiService {
     nombre_vendedor: string
     observaciones?: string
     id_cliente?: number
+    id_atencion_conversacion?: number
+    origen?: string
   }): Promise<ApiResponse<{ id: number; numero_oportunidad: string }>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
@@ -19986,7 +19988,9 @@ class ApiService {
         p_etapa: oportunidad.etapa || 'Prospecto',
         p_fecha_cierre_estimada: oportunidad.fecha_cierre_estimada || null,
         p_observaciones: oportunidad.observaciones || null,
-        p_id_cliente: (oportunidad as any).id_cliente || null
+        p_id_cliente: oportunidad.id_cliente || null,
+        p_id_atencion_conversacion: oportunidad.id_atencion_conversacion || null,
+        p_origen: oportunidad.origen || (oportunidad.id_atencion_conversacion ? 'chat' : 'manual')
       })
 
       if (error) throw error
@@ -20022,6 +20026,7 @@ class ApiService {
       numero_op?: string
       observaciones?: string
       activo?: boolean
+      id_cliente?: number
     }
   ): Promise<ApiResponse<boolean>> {
     if (!supabase) {
@@ -20045,7 +20050,8 @@ class ApiService {
         p_id_op: datos.id_op || null,
         p_numero_op: datos.numero_op || null,
         p_observaciones: datos.observaciones || null,
-        p_activo: datos.activo !== undefined ? datos.activo : null
+        p_activo: datos.activo !== undefined ? datos.activo : null,
+        p_id_cliente: datos.id_cliente || null
       })
 
       if (error) throw error
@@ -20090,6 +20096,35 @@ class ApiService {
       return {
         success: false,
         error: error.message || 'Error al obtener oportunidades de venta'
+      }
+    }
+  }
+
+  async sugerirOportunidadesVenta(opts?: {
+    diasDormido?: number
+    limit?: number
+  }): Promise<ApiResponse<Array<import('../types/api').OportunidadSugerida>>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('sugerir_oportunidades_venta', {
+        p_dias_dormido: opts?.diasDormido ?? 90,
+        p_limit: opts?.limit ?? 25
+      })
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: (data || []) as Array<import('../types/api').OportunidadSugerida>
+      }
+    } catch (error: any) {
+      console.error('Error al sugerir oportunidades de venta:', error)
+      return {
+        success: false,
+        error: error.message || 'Error al sugerir oportunidades'
       }
     }
   }

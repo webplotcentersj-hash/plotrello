@@ -2027,6 +2027,8 @@ export interface OportunidadVenta {
   cliente_dni_cuit?: string | null
   cliente_empresa?: string | null
   cliente_direccion?: string | null
+  /** Cliente del catálogo CRM */
+  id_cliente?: number | null
   descripcion?: string | null
   valor_estimado?: number | null
   probabilidad_cierre: number
@@ -2038,9 +2040,36 @@ export interface OportunidadVenta {
   numero_op?: string | null
   observaciones?: string | null
   activo: boolean
+  origen?: string | null
+  id_atencion_conversacion?: number | null
   created_at: string
   updated_at: string
+  /** Señales enriquecidas desde ventas/OPs */
+  ultima_venta_fecha?: string | null
+  ultima_venta_monto?: number | null
+  ultima_venta_numero?: string | null
+  ultima_op_numero?: string | null
+  ultima_op_fecha?: string | null
+  dias_sin_compra?: number | null
   seguimientos?: SeguimientoVenta[]
+}
+
+export interface OportunidadSugerida {
+  tipo: 'recompra' | 'chat' | string
+  id_cliente?: number | null
+  cliente_nombre: string
+  cliente_telefono?: string | null
+  cliente_email?: string | null
+  cliente_dni_cuit?: string | null
+  cliente_empresa?: string | null
+  ultima_venta_fecha?: string | null
+  ultima_venta_monto?: number | null
+  ultima_op_numero?: string | null
+  dias_sin_compra?: number | null
+  id_atencion_conversacion?: number | null
+  motivo: string
+  valor_sugerido?: number | null
+  probabilidad_sugerida?: number | null
 }
 
 export interface SeguimientoVenta {
