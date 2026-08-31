@@ -976,7 +976,11 @@ export function buildOpsDelDiaFromHistorialTablero(
     )
 
     const opsMap = operariosByOp.get(key) ?? new Map<number, string>()
-    opsMap.set(mov.id_usuario, mov.nombre_usuario?.trim() || `Usuario #${mov.id_usuario}`)
+    const opId = mov.id_usuario
+    const opNombre = esNombreOperarioValido(mov.nombre_usuario)
+      ? mov.nombre_usuario!.trim()
+      : `Operario #${opId}`
+    opsMap.set(opId, opNombre)
     operariosByOp.set(key, opsMap)
   }
 
@@ -1063,7 +1067,9 @@ async function fetchNombresUsuarios(ids: number[]): Promise<Map<number, string>>
       for (const row of users ?? []) {
         const id = Number((row as Record<string, unknown>).id)
         const nombre = String((row as Record<string, unknown>).nombre ?? '').trim()
-        if (Number.isInteger(id) && nombre) map.set(id, fallbackNombreSinEmail(nombre))
+        if (Number.isInteger(id) && nombre) {
+          map.set(id, fallbackNombreSinEmail(nombre))
+        }
       }
     }
   }
@@ -1075,7 +1081,46 @@ function esNombreOperarioValido(raw: string | null | undefined): boolean {
   const v = raw?.trim()
   if (!v) return false
   if (/^\d+$/.test(v)) return false
+  if (/^(usuario|operario|admin)\s*#?\s*\d+$/i.test(v)) return false
   return true
+}
+
+/** Admin/sistema a veces graba el id real del operario en nombre_usuario (ej. "32"). */
+export function idOperarioEfectivoHistorial(mov: HistorialTableroMovimiento): number {
+  const raw = mov.nombre_usuario?.trim()
+  if (raw && /^\d+$/.test(raw)) {
+    const refId = Number(raw)
+    if (Number.isInteger(refId) && refId > 0) return refId
+  }
+  return mov.id_usuario
+}
+
+function nombreOperarioDesdeMap(
+  id: number,
+  nombresById: Map<number, string>,
+  fallback?: string | null
+): string | null {
+  const fromMap = nombresById.get(id)
+  if (fromMap) return fromMap
+  if (esNombreOperarioValido(fallback)) return fallback!.trim()
+  return null
+}
+
+function normalizarMovimientosHistorialTablero(
+  movimientos: HistorialTableroMovimiento[],
+  nombresById: Map<number, string>
+): HistorialTableroMovimiento[] {
+  return movimientos.map((mov) => {
+    const idEfectivo = idOperarioEfectivoHistorial(mov)
+    const nombre =
+      nombreOperarioDesdeMap(idEfectivo, nombresById, mov.nombre_usuario) ||
+      nombreOperarioDesdeMap(mov.id_usuario, nombresById, mov.nombre_usuario)
+    return {
+      ...mov,
+      id_usuario: idEfectivo,
+      nombre_usuario: nombre
+    }
+  })
 }
 
 /** Movimientos del tablero + resumen de órdenes para armar OPs del día en supervisión. */
@@ -1114,15 +1159,14 @@ export async function cargarOpsTableroSupervisionDia(fechaKey: string): Promise<
     })
     .filter((m) => Number.isInteger(m.id_orden) && m.id_orden > 0 && Number.isInteger(m.id_usuario))
 
-  const userIds = [...new Set(movimientosRaw.map((m) => m.id_usuario))]
-  const nombresById = await fetchNombresUsuarios(userIds)
+  const userIds = new Set<number>()
+  for (const m of movimientosRaw) {
+    userIds.add(m.id_usuario)
+    userIds.add(idOperarioEfectivoHistorial(m))
+  }
+  const nombresById = await fetchNombresUsuarios([...userIds])
 
-  const movimientos = movimientosRaw.map((m) => ({
-    ...m,
-    nombre_usuario:
-      nombresById.get(m.id_usuario) ||
-      (esNombreOperarioValido(m.nombre_usuario) ? m.nombre_usuario!.trim() : null)
-  }))
+  const movimientos = normalizarMovimientosHistorialTablero(movimientosRaw, nombresById)
 
   const ordenIds = [...new Set(movimientos.map((m) => m.id_orden))]
   const ordenById = await fetchOrdenesResumenPorIds(ordenIds)

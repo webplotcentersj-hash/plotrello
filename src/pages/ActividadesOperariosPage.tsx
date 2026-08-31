@@ -87,10 +87,11 @@ function inicialesOperario(nombre: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
 }
 
-function parseOpLabel(label: string): { numero: string | null; titulo: string } {
+function parseOpLabel(label: string): { numero: string | null; titulo: string | null } {
   const m = label.match(/^OP\s+(\d+)\s*[·•-]?\s*(.*)$/i)
   if (!m) return { numero: null, titulo: label }
-  return { numero: m[1], titulo: m[2]?.trim() || label }
+  const titulo = m[2]?.trim() || null
+  return { numero: m[1], titulo }
 }
 
 function avatarHue(id: number): number {
@@ -101,6 +102,7 @@ function esNombreOperarioValido(raw: string | null | undefined): boolean {
   const v = raw?.trim()
   if (!v) return false
   if (/^\d+$/.test(v)) return false
+  if (/^(usuario|operario)\s*#?\s*\d+$/i.test(v)) return false
   return true
 }
 
@@ -154,6 +156,7 @@ function OpDelDiaRow({
 }) {
   const tieneDetalle = (op.actividades?.length ?? 0) > 0
   const parsed = parseOpLabel(op.label)
+  const operarios = (op.operarios ?? []).filter((o) => esNombreOperarioValido(o.nombre))
   return (
     <li className={`act-op-ops__item${expanded ? ' is-expanded' : ''}`}>
       <button
@@ -163,11 +166,13 @@ function OpDelDiaRow({
         aria-expanded={expanded}
         disabled={!tieneDetalle}
       >
-        <ChevronDown size={16} className={`act-op-chevron${expanded ? ' is-open' : ''}`} aria-hidden />
+        <span className="act-op-ops__chevron-wrap" aria-hidden>
+          <ChevronDown size={18} className={`act-op-chevron${expanded ? ' is-open' : ''}`} />
+        </span>
         <div className="act-op-ops__main">
           <div className="act-op-ops__title-row">
             {parsed.numero ? <span className="act-op-ops__op-num">OP {parsed.numero}</span> : null}
-            <strong>{parsed.titulo}</strong>
+            {parsed.titulo ? <strong>{parsed.titulo}</strong> : null}
           </div>
           <div className="act-op-ops__meta">
             <span className="act-op-pill act-op-pill--entries">
@@ -177,12 +182,16 @@ function OpDelDiaRow({
               <span className="act-op-pill act-op-pill--estado">{op.estado.replace(/_/g, ' ')}</span>
             ) : null}
             {op.horario ? <span className="act-op-pill act-op-pill--hora">{op.horario}</span> : null}
-            {op.operarios && op.operarios.length > 0 ? (
-              <span className="act-op-pill act-op-pill--user">
-                {op.operarios.map((o) => o.nombre).join(', ')}
-              </span>
-            ) : null}
           </div>
+          {operarios.length > 0 ? (
+            <div className="act-op-ops__people">
+              {operarios.map((o) => (
+                <span key={o.id} className="act-op-ops__person">
+                  {o.nombre}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </button>
       {expanded && tieneDetalle ? <OpActividadesList actividades={op.actividades!} /> : null}
@@ -289,25 +298,43 @@ export default function ActividadesOperariosPage() {
     }
   }, [allowed, selectedDate])
 
+  const nombresCompletos = useMemo(() => {
+    const map = new Map(nombresById)
+    for (const n of [...items, ...monthItems]) {
+      if (esNombreOperarioValido(n.usuario_nombre)) {
+        map.set(n.id_usuario, n.usuario_nombre!.trim())
+      }
+    }
+    for (const h of historialTablero) {
+      if (esNombreOperarioValido(h.nombre_usuario)) {
+        map.set(h.id_usuario, h.nombre_usuario!.trim())
+      }
+    }
+    return map
+  }, [nombresById, items, monthItems, historialTablero])
+
   const operarios = useMemo(() => {
     const map = new Map<number, string>()
     for (const n of [...items, ...monthItems]) {
       if (!map.has(n.id_usuario)) {
-        map.set(n.id_usuario, n.usuario_nombre || `Usuario #${n.id_usuario}`)
+        map.set(
+          n.id_usuario,
+          resolveNombreOperario(n.id_usuario, nombresCompletos, n.usuario_nombre)
+        )
       }
     }
     for (const h of historialTablero) {
       if (!map.has(h.id_usuario)) {
         map.set(
           h.id_usuario,
-          resolveNombreOperario(h.id_usuario, nombresById, h.nombre_usuario)
+          resolveNombreOperario(h.id_usuario, nombresCompletos, h.nombre_usuario)
         )
       }
     }
     return [...map.entries()]
       .map(([id, nombre]) => ({ id, nombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-  }, [items, monthItems, historialTablero, nombresById])
+  }, [items, monthItems, historialTablero, nombresCompletos])
 
   const countsByDay = useMemo(() => {
     const map: Record<string, number> = {}
@@ -360,12 +387,12 @@ export default function ActividadesOperariosPage() {
     return [...by.entries()]
       .map(([id, notas]) => ({
         id,
-        nombre: resolveNombreOperario(id, nombresById, notas[0]?.usuario_nombre),
+        nombre: resolveNombreOperario(id, nombresCompletos, notas[0]?.usuario_nombre),
         idLegajo: notas[0]?.id_legajo ?? null,
         notas
       }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-  }, [filtered, nombresById])
+  }, [filtered, nombresCompletos])
 
   const delDiaStats = useMemo(() => {
     const bitacora = filtered.filter((n) => n.tipo === 'bitacora').length
@@ -434,7 +461,7 @@ export default function ActividadesOperariosPage() {
       if (byId.has(userId)) continue
       const nombre = resolveNombreOperario(
         userId,
-        nombresById,
+        nombresCompletos,
         historialTablero.find((h) => h.id_usuario === userId)?.nombre_usuario
       )
       byId.set(userId, { id: userId, nombre, idLegajo: null, notas: [] })
@@ -442,7 +469,7 @@ export default function ActividadesOperariosPage() {
     return [...byId.values()]
       .filter((g) => (filtroOp === 'todos' ? true : g.id === filtroOp))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
-  }, [grouped, opsPorOperarioHistorial, historialTablero, filtroOp, nombresById])
+  }, [grouped, opsPorOperarioHistorial, historialTablero, filtroOp, nombresCompletos])
 
   const checklistPct = useMemo(() => {
     if (!stats?.totales.checklist) return 0
@@ -822,7 +849,9 @@ export default function ActividadesOperariosPage() {
                                 {parsed.numero ? (
                                   <span className="act-op-card__op-num">OP {parsed.numero}</span>
                                 ) : null}
-                                <span className="act-op-card__op-chip">{parsed.titulo}</span>
+                                {parsed.titulo ? (
+                                  <span className="act-op-card__op-chip">{parsed.titulo}</span>
+                                ) : null}
                                 {op.horario ? (
                                   <span className="act-op-card__op-hora">{op.horario}</span>
                                 ) : null}
