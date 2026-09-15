@@ -450,4 +450,25 @@ Tabla por tabla, sin romper zona pública.
 2. Anon: `TRUNCATE ventas` → falla
 3. Anon grants = solo DELETE, INSERT, SELECT, UPDATE
 
-**Siguiente (Paso 21):** RPC DEFINER + actor gate para escrituras de `ventas`/`pagos` (y luego REVOKE DML), o un origen canónico (Fase 2).
+**Siguiente:** Paso 21 (RPC + REVOKE DML en ventas/pagos).
+
+---
+
+## Paso 21 — Ventas/pagos: RPC + sin DML anon ✅ (2026-09-15)
+
+**Problema:** tras Paso 20, `ventas` / `ventas_items` / `pagos` seguían con INSERT/UPDATE/DELETE anon (varias sin RLS). Front escribía directo desde `api.ts` y CRM.
+
+**Qué hicimos:**
+- Columna `ventas.detalle_pago` (jsonb) si faltaba
+- `actor_puede_escribir_comercial` + `ventas_upsert` / `pagos_upsert` (DEFINER, actor activo)
+- RLS SELECT-only + `REVOKE` INSERT/UPDATE/DELETE anon/authenticated
+- Front: escrituras vía RPC; CRM estado de pago usa `actualizarVenta`
+
+**Patch:** `supabase/patches/2026-09-15_ventas_pagos_rpcs_actor_revoke.sql` (aplicado en prod)
+
+**Verificar (después de deploy):**
+1. Venta rápida + comprobante + cambiar estado en CRM
+2. Conciliación bancaria / crear pago proveedor
+3. Anon: `UPDATE ventas SET estado_pago='x'` → falla; RPC sin actor → falla
+
+**Siguiente:** blindar `pagos_cobros` / `cuentas_por_cobrar` / `facturas_venta` (mismo patrón), o un origen canónico (Fase 2).

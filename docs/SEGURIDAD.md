@@ -1,6 +1,6 @@
 # Seguridad Plotrello — resumen operativo
 
-> Última actualización: 2026-09-15 · Paso 20 ventas/pagos sin TRUNCATE anon.
+> Última actualización: 2026-09-15 · Paso 21 ventas/pagos sin DML anon.
 
 ---
 
@@ -57,6 +57,7 @@
 | `supabase/patches/2026-09-15_control_caja_revoke_dml.sql` | Caja: REVOKE DML; solo SELECT + RPC (Paso 18) |
 | `supabase/patches/2026-09-15_control_caja_paso19_aux_revoke.sql` | Caja resto: upsert_aux + REVOKE (Paso 19) |
 | `supabase/patches/2026-09-15_ventas_pagos_revoke_truncate.sql` | Comercial: sin TRUNCATE/REFERENCES/TRIGGER (Paso 20) |
+| `supabase/patches/2026-09-15_ventas_pagos_rpcs_actor_revoke.sql` | Comercial: RPC+actor + REVOKE DML ventas/pagos (Paso 21) |
 
 ### Variables nuevas en Vercel (configurar ya)
 

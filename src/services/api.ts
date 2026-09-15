@@ -413,9 +413,12 @@ class ApiService {
     try {
       const raw = localStorage.getItem('usuario')
       if (raw) {
-        const p = JSON.parse(raw) as { nombre?: unknown }
+        const p = JSON.parse(raw) as { nombre?: unknown; id?: unknown }
         if (typeof p?.nombre === 'string' && p.nombre.trim()) {
           nombreUsuario = p.nombre.trim()
+        }
+        if (!usuarioId && p?.id != null && Number(p.id) > 0) {
+          return { id: Number(p.id), nombre: nombreUsuario }
         }
       }
     } catch {
@@ -423,6 +426,42 @@ class ApiService {
     }
     // Nunca devolver 0 para evitar FK en historial_movimientos
     return { id: usuarioId || 1, nombre: nombreUsuario }
+  }
+
+  /** Paso 21: actor real para RPCs comerciales (sin fallback a id=1). */
+  private requireComercialActorId(): number {
+    const fromLs = Number(localStorage.getItem('usuario_id')) || 0
+    if (fromLs > 0) return fromLs
+    try {
+      const raw = localStorage.getItem('usuario')
+      if (raw) {
+        const id = Number(JSON.parse(raw)?.id)
+        if (id > 0) return id
+      }
+    } catch {
+      /* ignore */
+    }
+    throw new Error('Sesión requerida para escribir ventas/pagos')
+  }
+
+  private async rpcVentasUpsert(row: Record<string, unknown>): Promise<Record<string, unknown>> {
+    if (!supabase) throw new Error('Supabase no inicializado')
+    const { data, error } = await supabase.rpc('ventas_upsert', {
+      p_actor_id: this.requireComercialActorId(),
+      p_row: row
+    })
+    if (error) throw new Error(error.message || 'Error en ventas_upsert')
+    return (data || {}) as Record<string, unknown>
+  }
+
+  private async rpcPagosUpsert(row: Record<string, unknown>): Promise<Record<string, unknown>> {
+    if (!supabase) throw new Error('Supabase no inicializado')
+    const { data, error } = await supabase.rpc('pagos_upsert', {
+      p_actor_id: this.requireComercialActorId(),
+      p_row: row
+    })
+    if (error) throw new Error(error.message || 'Error en pagos_upsert')
+    return (data || {}) as Record<string, unknown>
   }
 
   private getCurrentUserWithRol(): { id: number; nombre: string; rol: string | null } {
@@ -12970,29 +13009,32 @@ class ApiService {
           numeroPago = `PAG-${String(ultimoNumero + 1).padStart(4, '0')}`
         }
 
+        const inserted = await this.rpcPagosUpsert({
+          numero_pago: numeroPago,
+          id_pedido_compra: pago.id_pedido_compra || null,
+          id_proveedor: pago.id_proveedor || null,
+          monto_total: pago.monto_total,
+          monto_pagado: 0,
+          moneda: pago.moneda,
+          fecha_vencimiento: pago.fecha_vencimiento || null,
+          metodo_pago: pago.metodo_pago || null,
+          banco: pago.banco || null,
+          cuenta_bancaria: pago.cuenta_bancaria || null,
+          estado: 'Pendiente',
+          observaciones: pago.observaciones || null,
+          id_usuario_registro: usuario?.id || null,
+          nombre_usuario_registro: usuario?.nombre || null
+        })
+
+        const idInserted = Number(inserted.id)
         const { data, error } = await supabase
           .from('pagos')
-          .insert({
-            numero_pago: numeroPago,
-            id_pedido_compra: pago.id_pedido_compra || null,
-            id_proveedor: pago.id_proveedor || null,
-            monto_total: pago.monto_total,
-            monto_pagado: 0,
-            moneda: pago.moneda,
-            fecha_vencimiento: pago.fecha_vencimiento || null,
-            metodo_pago: pago.metodo_pago || null,
-            banco: pago.banco || null,
-            cuenta_bancaria: pago.cuenta_bancaria || null,
-            estado: 'Pendiente',
-            observaciones: pago.observaciones || null,
-            id_usuario_registro: usuario?.id || null,
-            nombre_usuario_registro: usuario?.nombre || null
-          })
           .select(`
             *,
             pedido:pedidos_compras(*),
             proveedor:proveedores(*)
           `)
+          .eq('id', idInserted)
           .single()
 
         if (error) return { success: false, error: error.message }
@@ -13061,20 +13103,21 @@ class ApiService {
         const usuarioStr = localStorage.getItem('usuario')
         const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
 
-        const updateData: any = { ...updates }
+        const updateData: Record<string, unknown> = { id, ...updates }
         if (updates.fecha_conciliacion && usuario) {
           updateData.id_usuario_conciliacion = usuario.id
         }
 
+        await this.rpcPagosUpsert(updateData)
+
         const { data, error } = await supabase
           .from('pagos')
-          .update(updateData)
-          .eq('id', id)
           .select(`
             *,
             pedido:pedidos_compras(*),
             proveedor:proveedores(*)
           `)
+          .eq('id', id)
           .single()
 
         if (error) return { success: false, error: error.message }
@@ -13204,16 +13247,14 @@ class ApiService {
           const nuevoMontoPagado = (pagoData.monto_pagado || 0) + data.monto
           const nuevoEstado: EstadoPago = nuevoMontoPagado >= pagoData.monto_total ? 'Completado' : nuevoMontoPagado > 0 ? 'Parcial' : 'Pendiente'
 
-          await supabase
-            .from('pagos')
-            .update({
-              monto_pagado: nuevoMontoPagado,
-              estado: nuevoEstado,
-              fecha_pago: nuevoEstado === 'Completado' ? new Date().toISOString() : null,
-              fecha_conciliacion: new Date().toISOString(),
-              id_usuario_conciliacion: usuario?.id || null
-            })
-            .eq('id', idPago)
+          await this.rpcPagosUpsert({
+            id: idPago,
+            monto_pagado: nuevoMontoPagado,
+            estado: nuevoEstado,
+            fecha_pago: nuevoEstado === 'Completado' ? new Date().toISOString() : null,
+            fecha_conciliacion: new Date().toISOString(),
+            id_usuario_conciliacion: usuario?.id || null
+          })
         }
 
         return { success: true, data: data as MovimientoBancario }
@@ -20254,10 +20295,11 @@ class ApiService {
       if (!ventaCreada) throw new Error('Formato de respuesta inesperado')
 
       if (venta.detalle_pago && Object.keys(venta.detalle_pago).length > 0) {
-        await supabase
-          .from('ventas')
-          .update({ detalle_pago: venta.detalle_pago, updated_at: new Date().toISOString() })
-          .eq('id', ventaCreada.id)
+        await this.rpcVentasUpsert({
+          id: ventaCreada.id,
+          detalle_pago: venta.detalle_pago,
+          updated_at: new Date().toISOString()
+        })
       }
 
       void syncCajaDesdeVentaApi({
@@ -20333,13 +20375,18 @@ class ApiService {
         return { success: false, error: 'No se pudo obtener la URL pública del archivo' }
       }
 
-      const { error: dbError } = await supabase
-        .from('ventas')
-        .update({
-          comprobante_pago_url: publicUrl,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', idVenta)
+      const { error: dbError } = await (async () => {
+        try {
+          await this.rpcVentasUpsert({
+            id: idVenta,
+            comprobante_pago_url: publicUrl,
+            updated_at: new Date().toISOString()
+          })
+          return { error: null as Error | null }
+        } catch (e) {
+          return { error: e instanceof Error ? e : new Error(String(e)) }
+        }
+      })()
 
       if (dbError) {
         return { success: false, error: dbError.message }
@@ -20352,14 +20399,12 @@ class ApiService {
         )
         if (isComprobanteAiAvailable()) {
           const { parsed, texto } = await extraerComprobantePagoDesdeArchivo(file)
-          await supabase
-            .from('ventas')
-            .update({
-              comprobante_pago_ia: parsed as unknown as Record<string, unknown>,
-              comprobante_pago_texto: texto,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', idVenta)
+          await this.rpcVentasUpsert({
+            id: idVenta,
+            comprobante_pago_ia: parsed as unknown as Record<string, unknown>,
+            comprobante_pago_texto: texto,
+            updated_at: new Date().toISOString()
+          })
         }
       } catch (iaErr) {
         console.warn('Lectura PlotAI del comprobante omitida:', iaErr)
@@ -20383,15 +20428,12 @@ class ApiService {
       return { success: false, error: 'Supabase no inicializado' }
     }
     try {
-      const { error } = await supabase
-        .from('ventas')
-        .update({
-          comprobante_pago_ia: ia as unknown as Record<string, unknown>,
-          comprobante_pago_texto: texto,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', idVenta)
-      if (error) return { success: false, error: error.message }
+      await this.rpcVentasUpsert({
+        id: idVenta,
+        comprobante_pago_ia: ia as unknown as Record<string, unknown>,
+        comprobante_pago_texto: texto,
+        updated_at: new Date().toISOString()
+      })
       return { success: true }
     } catch (error: unknown) {
       return {
@@ -20768,13 +20810,9 @@ class ApiService {
         updateData.mp_preference_id = venta.mp_preference_id
       }
       updateData.updated_at = new Date().toISOString()
+      updateData.id = id
 
-      const { error } = await supabase
-        .from('ventas')
-        .update(updateData)
-        .eq('id', id)
-
-      if (error) throw error
+      await this.rpcVentasUpsert(updateData)
 
       const ventaRes = await this.getVenta(id)
       if (ventaRes.success && ventaRes.data) {

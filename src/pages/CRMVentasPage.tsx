@@ -1690,14 +1690,8 @@ const CRMVentasPage = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('ventas')
-        .update({ estado_pago: nuevoEstado, updated_at: new Date().toISOString() })
-        .eq('id', venta.id)
-        .select()
-        .single()
-
-      if (error) throw error
+      const response = await apiService.actualizarVenta(venta.id, { estado_pago: nuevoEstado })
+      if (!response.success) throw new Error(response.error || 'Error al actualizar estado')
 
       const { dispararSyncCajaVenta } = await import('../features/control-cajas/plotlabVentaCajaSync')
       dispararSyncCajaVenta(
