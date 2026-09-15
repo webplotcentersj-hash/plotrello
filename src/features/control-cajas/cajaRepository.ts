@@ -789,11 +789,11 @@ export async function saveMovimientosBulk(
 
   if (await checkRemote()) {
     try {
+      const actorId = requireActorId(opts?.actor)
       const cajas = opts?.cajas ?? (await listCajas())
       await ensureCajaSlugsForMovimientos(records, cajas, {
         actor: opts?.actor ?? { id: actorId }
       })
-      const actorId = requireActorId(opts?.actor)
       for (let i = 0; i < records.length; i += MOVIMIENTOS_BULK_CHUNK) {
         const chunk = records.slice(i, i + MOVIMIENTOS_BULK_CHUNK)
         const payload = chunk.map((r) => movRowFromRecord(r, r.id))

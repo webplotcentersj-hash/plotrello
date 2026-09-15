@@ -464,6 +464,31 @@ class ApiService {
     return (data || {}) as Record<string, unknown>
   }
 
+  /** Paso 22: ERP cobros / CxC / facturas. */
+  private async rpcComercialUpsert(
+    kind: 'pago_cobro' | 'cxc' | 'factura' | 'factura_item' | 'factura_items',
+    row: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    if (!supabase) throw new Error('Supabase no inicializado')
+    const { data, error } = await supabase.rpc('comercial_upsert', {
+      p_actor_id: this.requireComercialActorId(),
+      p_kind: kind,
+      p_row: row
+    })
+    if (error) throw new Error(error.message || `Error en comercial_upsert (${kind})`)
+    return (data || {}) as Record<string, unknown>
+  }
+
+  private async rpcComercialDelete(kind: 'factura' | 'pago_cobro' | 'cxc', id: number): Promise<void> {
+    if (!supabase) throw new Error('Supabase no inicializado')
+    const { error } = await supabase.rpc('comercial_delete', {
+      p_actor_id: this.requireComercialActorId(),
+      p_kind: kind,
+      p_id: id
+    })
+    if (error) throw new Error(error.message || `Error en comercial_delete (${kind})`)
+  }
+
   private getCurrentUserWithRol(): { id: number; nombre: string; rol: string | null } {
     const base = this.getCurrentUser()
     let rol: string | null = null
@@ -22259,27 +22284,25 @@ class ApiService {
           observaciones: factura.observaciones || null
         }
 
-        const { data: facturaData, error: errorFactura } = await supabase
-          .from('facturas_venta')
-          .insert(insertPayload)
-          .select()
-          .single()
+        const facturaData = await this.rpcComercialUpsert('factura', insertPayload)
 
-        if (errorFactura) return { success: false, error: errorFactura.message }
+        const facturaId = Number(facturaData.id)
+        if (!facturaId) return { success: false, error: 'No se pudo crear la factura' }
 
         // Crear items
         const itemsData = itemsCalculados.map(item => ({
-          id_factura: facturaData.id,
+          id_factura: facturaId,
           ...item
         }))
 
-        const { error: errorItems } = await supabase
-          .from('facturas_items')
-          .insert(itemsData)
-
-        if (errorItems) {
-          await supabase.from('facturas_venta').delete().eq('id', facturaData.id)
-          return { success: false, error: errorItems.message }
+        try {
+          await this.rpcComercialUpsert('factura_items', { id_factura: facturaId, items: itemsData })
+        } catch (errorItems) {
+          await this.rpcComercialDelete('factura', facturaId)
+          return {
+            success: false,
+            error: errorItems instanceof Error ? errorItems.message : 'Error al crear items'
+          }
         }
 
         // Obtener factura completa
@@ -22289,7 +22312,7 @@ class ApiService {
             *,
             items:facturas_items(*)
           `)
-          .eq('id', facturaData.id)
+          .eq('id', facturaId)
           .single()
 
         if (errorCompleto) return { success: false, error: errorCompleto.message }
@@ -23605,23 +23628,26 @@ class ApiService {
         const usuarioData = localStorage.getItem('usuario')
         const usuario = usuarioData ? JSON.parse(usuarioData) : null
 
-        const { data, error } = await supabase
-          .from('pagos_cobros')
-          .insert({
-            tipo: 'Cobro',
-            id_cuenta_por_cobrar: cobro.id_cuenta_por_cobrar,
-            monto: cobro.monto,
-            fecha_pago: cobro.fecha_pago,
-            metodo_pago: cobro.metodo_pago,
-            numero_comprobante: cobro.numero_comprobante || null,
-            id_cuenta_bancaria: cobro.id_cuenta_bancaria || null,
-            observaciones: cobro.observaciones || null,
-            id_usuario: usuario?.id || null
-          })
-          .select()
-          .single()
+        const { data, error } = await (async () => {
+          try {
+            const inserted = await this.rpcComercialUpsert('pago_cobro', {
+              tipo: 'Cobro',
+              id_cuenta_por_cobrar: cobro.id_cuenta_por_cobrar,
+              monto: cobro.monto,
+              fecha_pago: cobro.fecha_pago,
+              metodo_pago: cobro.metodo_pago,
+              numero_comprobante: cobro.numero_comprobante || null,
+              id_cuenta_bancaria: cobro.id_cuenta_bancaria || null,
+              observaciones: cobro.observaciones || null,
+              id_usuario: usuario?.id || null
+            })
+            return { data: inserted, error: null as Error | null }
+          } catch (e) {
+            return { data: null, error: e instanceof Error ? e : new Error(String(e)) }
+          }
+        })()
 
-        if (error) return { success: false, error: error.message }
+        if (error || !data) return { success: false, error: error?.message || 'Error al registrar cobro' }
 
         // Asiento contable automático (si existe RPC)
         try {
@@ -23652,21 +23678,19 @@ class ApiService {
             else if (pagadoNuevo > 0) estadoNuevo = 'Parcial'
             if (estadoNuevo !== 'Pagado' && fv && fv < now) estadoNuevo = 'Vencido'
 
-            await supabase
-              .from('cuentas_por_cobrar')
-              .update({
-                monto_pagado: pagadoNuevo,
-                monto_pendiente: pendienteNuevo,
-                estado: estadoNuevo,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', cobro.id_cuenta_por_cobrar)
+            await this.rpcComercialUpsert('cxc', {
+              id: cobro.id_cuenta_por_cobrar,
+              monto_pagado: pagadoNuevo,
+              monto_pendiente: pendienteNuevo,
+              estado: estadoNuevo,
+              updated_at: new Date().toISOString()
+            })
           }
         } catch (e) {
           console.warn('No se pudo actualizar CxC luego del cobro:', e)
         }
 
-        return { success: true, data: data as import('../types/api').PagoCobroRecord }
+        return { success: true, data: data as unknown as import('../types/api').PagoCobroRecord }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
@@ -23688,23 +23712,26 @@ class ApiService {
         const usuarioData = localStorage.getItem('usuario')
         const usuario = usuarioData ? JSON.parse(usuarioData) : null
 
-        const { data, error } = await supabase
-          .from('pagos_cobros')
-          .insert({
-            tipo: 'Pago',
-            id_cuenta_por_pagar: pago.id_cuenta_por_pagar,
-            monto: pago.monto,
-            fecha_pago: pago.fecha_pago,
-            metodo_pago: pago.metodo_pago,
-            numero_comprobante: pago.numero_comprobante || null,
-            id_cuenta_bancaria: pago.id_cuenta_bancaria || null,
-            observaciones: pago.observaciones || null,
-            id_usuario: usuario?.id || null
-          })
-          .select()
-          .single()
+        const { data, error } = await (async () => {
+          try {
+            const inserted = await this.rpcComercialUpsert('pago_cobro', {
+              tipo: 'Pago',
+              id_cuenta_por_pagar: pago.id_cuenta_por_pagar,
+              monto: pago.monto,
+              fecha_pago: pago.fecha_pago,
+              metodo_pago: pago.metodo_pago,
+              numero_comprobante: pago.numero_comprobante || null,
+              id_cuenta_bancaria: pago.id_cuenta_bancaria || null,
+              observaciones: pago.observaciones || null,
+              id_usuario: usuario?.id || null
+            })
+            return { data: inserted, error: null as Error | null }
+          } catch (e) {
+            return { data: null, error: e instanceof Error ? e : new Error(String(e)) }
+          }
+        })()
 
-        if (error) return { success: false, error: error.message }
+        if (error || !data) return { success: false, error: error?.message || 'Error al registrar pago' }
 
         // Asiento contable automático (si existe RPC)
         try {
@@ -23749,7 +23776,7 @@ class ApiService {
           console.warn('No se pudo actualizar CxP luego del pago:', e)
         }
 
-        const pagoRecord = data as import('../types/api').PagoCobroRecord
+        const pagoRecord = data as unknown as import('../types/api').PagoCobroRecord
         void (async () => {
           try {
             const { syncEgresoDesdePagoPlotLab } = await import('../features/control-cajas/plotlabEgresosSync')
@@ -23816,14 +23843,19 @@ class ApiService {
   ): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {
     if (supabase) {
       try {
+        await this.rpcComercialUpsert('factura', {
+          ...(updates as Record<string, unknown>),
+          id,
+          updated_at: new Date().toISOString()
+        })
+
         const { data, error } = await supabase
           .from('facturas_venta')
-          .update({ ...updates, updated_at: new Date().toISOString() })
-          .eq('id', id)
           .select(`
             *,
             items:facturas_items(*)
           `)
+          .eq('id', id)
           .single()
 
         if (error) return { success: false, error: error.message }
@@ -23853,18 +23885,20 @@ class ApiService {
         }
 
         // Actualizar estado
+        await this.rpcComercialUpsert('factura', {
+          id,
+          estado: 'Emitida',
+          estado_afip: 'Pendiente',
+          updated_at: new Date().toISOString()
+        })
+
         const { data, error } = await supabase
           .from('facturas_venta')
-          .update({
-            estado: 'Emitida',
-            estado_afip: 'Pendiente',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', id)
           .select(`
             *,
             items:facturas_items(*)
           `)
+          .eq('id', id)
           .single()
 
         if (error) return { success: false, error: error.message }
@@ -23874,19 +23908,17 @@ class ApiService {
 
         // Crear cuenta por cobrar automáticamente (solo facturas y notas débito; las notas crédito ajustan deuda y no generan CxC)
         if (!esNotaCredito) {
-          await supabase
-            .from('cuentas_por_cobrar')
-            .insert({
-              id_factura: id,
-              id_cliente: factura.id_cliente || null,
-              cliente_nombre: factura.cliente_nombre,
-              monto_total: factura.total,
-              monto_pagado: 0,
-              monto_pendiente: factura.total,
-              fecha_emision: factura.fecha_emision,
-              fecha_vencimiento: factura.fecha_vencimiento || null,
-              estado: 'Pendiente'
-            })
+          await this.rpcComercialUpsert('cxc', {
+            id_factura: id,
+            id_cliente: factura.id_cliente || null,
+            cliente_nombre: factura.cliente_nombre,
+            monto_total: factura.total,
+            monto_pagado: 0,
+            monto_pendiente: factura.total,
+            fecha_emision: factura.fecha_emision,
+            fecha_vencimiento: factura.fecha_vencimiento || null,
+            estado: 'Pendiente'
+          })
         }
 
         // Crear asiento contable automático si está configurado

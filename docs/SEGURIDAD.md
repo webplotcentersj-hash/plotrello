@@ -1,6 +1,6 @@
 # Seguridad Plotrello — resumen operativo
 
-> Última actualización: 2026-09-15 · Paso 21 ventas/pagos sin DML anon.
+> Última actualización: 2026-09-15 · Paso 22 ERP cobros/CxC/facturas sin DML anon.
 
 ---
 
@@ -58,6 +58,7 @@
 | `supabase/patches/2026-09-15_control_caja_paso19_aux_revoke.sql` | Caja resto: upsert_aux + REVOKE (Paso 19) |
 | `supabase/patches/2026-09-15_ventas_pagos_revoke_truncate.sql` | Comercial: sin TRUNCATE/REFERENCES/TRIGGER (Paso 20) |
 | `supabase/patches/2026-09-15_ventas_pagos_rpcs_actor_revoke.sql` | Comercial: RPC+actor + REVOKE DML ventas/pagos (Paso 21) |
+| `supabase/patches/2026-09-15_comercial_erp_rpc_revoke.sql` | ERP: RPC+actor + REVOKE cobros/CxC/facturas (Paso 22) |
 
 ### Variables nuevas en Vercel (configurar ya)
 

@@ -471,4 +471,25 @@ Tabla por tabla, sin romper zona pública.
 2. Conciliación bancaria / crear pago proveedor
 3. Anon: `UPDATE ventas SET estado_pago='x'` → falla; RPC sin actor → falla
 
-**Siguiente:** blindar `pagos_cobros` / `cuentas_por_cobrar` / `facturas_venta` (mismo patrón), o un origen canónico (Fase 2).
+**Siguiente:** Paso 22 (`pagos_cobros` / CxC / facturas).
+
+---
+
+## Paso 22 — ERP cobros/CxC/facturas: RPC + sin DML anon ✅ (2026-09-15)
+
+**Problema:** `pagos_cobros`, `cuentas_por_cobrar`, `facturas_venta`, `facturas_items` tenían policy ALL `USING (true)` + DML anon.
+
+**Qué hicimos:**
+- `comercial_upsert(actor, kind, row)` — kinds: `pago_cobro` | `cxc` | `factura` | `factura_item` | `factura_items`
+- `comercial_delete(actor, kind, id)` — rollback factura / borrados
+- Policies SELECT-only + REVOKE DML/TRUNCATE
+- Front (`api.ts`): crear/emitir/actualizar factura, registrar cobro/pago vía RPC
+
+**Patch:** `supabase/patches/2026-09-15_comercial_erp_rpc_revoke.sql` (aplicado en prod)
+
+**Verificar (después de deploy):**
+1. Crear factura borrador + emitir (genera CxC)
+2. Registrar cobro sobre CxC
+3. Anon: `INSERT INTO facturas_venta` → falla
+
+**Siguiente:** `cuentas_por_pagar` (update en registrarPago) u origen canónico (Fase 2).
