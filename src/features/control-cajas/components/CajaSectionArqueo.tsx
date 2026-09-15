@@ -497,7 +497,11 @@ export default function CajaSectionArqueo({
         usuarioId != null ? { actor: { id: usuarioId, esAdmin: !fijarCajaUsuario } } : undefined
       )
       if (fondoDestinoSlug) {
-        await updateCajaFondoFijo(fondoDestinoSlug, fondoOtraCaja)
+        await updateCajaFondoFijo(
+          fondoDestinoSlug,
+          fondoOtraCaja,
+          usuarioId != null ? { actor: { id: usuarioId, esAdmin: !fijarCajaUsuario } } : undefined
+        )
         const cajasAct = await listCajas()
         setCajas(
           soloCajasOperativas
@@ -561,7 +565,11 @@ export default function CajaSectionArqueo({
         usuarioId != null ? { actor: { id: usuarioId, esAdmin: !fijarCajaUsuario } } : undefined
       )
       if (dest) {
-        await updateCajaFondoFijo(dest, fondoOtraCaja)
+        await updateCajaFondoFijo(
+          dest,
+          fondoOtraCaja,
+          usuarioId != null ? { actor: { id: usuarioId, esAdmin: !fijarCajaUsuario } } : undefined
+        )
         const cajasAct = await listCajas()
         setCajas(
           soloCajasOperativas

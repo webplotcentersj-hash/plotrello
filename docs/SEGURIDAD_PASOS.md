@@ -411,3 +411,24 @@ Tabla por tabla, sin romper zona pública.
 4. Cobro venta → caja (con vendedor) → OK; sin usuario → omitido (trigger DB puede cubrir)
 
 **Siguiente:** REVOKE DML en traspasos/planillas/egresos; o un origen canónico (Fase 2).
+
+---
+
+## Paso 19 — Caja resto: RPC aux + sin DML anon ✅ (2026-09-15)
+
+**Problema:** tras 16–18, 8 tablas `control_caja_*` seguían con INSERT/UPDATE/DELETE + policy abierta.
+
+**Qué hicimos:**
+- RPC `caja_upsert_aux(p_actor_id, p_kind, p_row)` para: caja, traspaso, egreso, lote, planilla, concil_mp/banco, diferencia
+- Policies solo SELECT + `REVOKE` DML en esas 8 tablas
+- Front: escrituras por `rpcCajaUpsertAux` con actor
+
+**Patch:** `supabase/patches/2026-09-15_control_caja_paso19_aux_revoke.sql` (aplicado en prod)
+
+**Verificar (después de deploy):**
+1. Ensure caja operativa al entrar mostrador
+2. Cierre de turno / lote / egreso / planilla PDF
+3. Config fondo + concil MP/banco (admin)
+4. Anon: `INSERT INTO control_caja_traspasos` → falla
+
+**Siguiente:** un origen canónico (Fase 2) o blindar `ventas`/`pagos` (PII/plata fuera de control_caja).

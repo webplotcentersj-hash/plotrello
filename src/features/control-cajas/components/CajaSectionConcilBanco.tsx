@@ -15,7 +15,7 @@ import CajaMiniPlotAI from './CajaMiniPlotAI'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 import type { CajaCierreEstado } from '../types'
 
-export default function CajaSectionConcilBanco() {
+export default function CajaSectionConcilBanco({ usuarioId }: { usuarioId?: number }) {
   const [historial, setHistorial] = useState<Awaited<ReturnType<typeof listConcilBanco>>>([])
   const [cierres, setCierres] = useState<Awaited<ReturnType<typeof listCierres>>>([])
   const [planillas, setPlanillas] = useState<Awaited<ReturnType<typeof listPlanillas>>>([])
@@ -65,14 +65,17 @@ export default function CajaSectionConcilBanco() {
     setSaving(true)
     setMsg(null)
     try {
-      await saveConcilBanco({
-        fecha,
-        sistema: sistemaInfo.valor,
-        extracto: extNum,
-        diferencia: dif,
-        estado,
-        observacion: observacion.trim() || undefined
-      })
+      await saveConcilBanco(
+        {
+          fecha,
+          sistema: sistemaInfo.valor,
+          extracto: extNum,
+          diferencia: dif,
+          estado,
+          observacion: observacion.trim() || undefined
+        },
+        usuarioId != null ? { actor: { id: usuarioId, esAdmin: true } } : undefined
+      )
       setExtracto('')
       setObservacion('')
       setMsg('Conciliación bancaria guardada.')

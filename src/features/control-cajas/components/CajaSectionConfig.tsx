@@ -13,7 +13,7 @@ const CAJAS_SISTEMA = new Set(['admin', 'vuelto'])
 
 type CajaOperativaRow = CajaRegistro & { ultimoArqueo?: string | null }
 
-export default function CajaSectionConfig() {
+export default function CajaSectionConfig({ usuarioId }: { usuarioId?: number }) {
   const [cajasSistema, setCajasSistema] = useState<CajaRegistro[]>([])
   const [cajasOperativas, setCajasOperativas] = useState<CajaOperativaRow[]>([])
   const [tolerancia, setTolerancia] = useState(0)
@@ -52,14 +52,21 @@ export default function CajaSectionConfig() {
     const otrasOperativas = todas.filter(
       (c) => !CAJAS_SISTEMA.has(c.slug) && !cajasOperativas.some((o) => o.slug === c.slug)
     )
-    await saveCajasMaestro([...otrasOperativas, ...cajasOperativas, ...cajasSistema])
+    await saveCajasMaestro(
+      [...otrasOperativas, ...cajasOperativas, ...cajasSistema],
+      usuarioId != null ? { actor: { id: usuarioId, esAdmin: true } } : undefined
+    )
     await saveParams({ tolerancia })
     setMsg('Configuración guardada')
     reload()
   }
 
   const onFondoOperativa = async (slug: string, fondo: number) => {
-    await updateCajaFondoFijo(slug, fondo)
+    await updateCajaFondoFijo(
+      slug,
+      fondo,
+      usuarioId != null ? { actor: { id: usuarioId, esAdmin: true } } : undefined
+    )
     setCajasOperativas((prev) =>
       prev.map((c) => (c.slug === slug ? { ...c, fondo_fijo: fondo } : c))
     )

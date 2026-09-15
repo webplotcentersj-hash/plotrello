@@ -1,6 +1,6 @@
 # Seguridad Plotrello — resumen operativo
 
-> Última actualización: 2026-09-15 · Paso 18 caja sin DML anon (solo SELECT + RPC).
+> Última actualización: 2026-09-15 · Paso 19 caja completa sin DML anon.
 
 ---
 
@@ -55,6 +55,7 @@
 | `supabase/patches/2026-09-15_control_caja_revoke_truncate.sql` | Caja: sin TRUNCATE/REFERENCES/TRIGGER para anon (Paso 16) |
 | `supabase/patches/2026-09-15_control_caja_rpcs_actor_gate.sql` | Caja: RPCs upsert/delete con actor gate (Paso 17) |
 | `supabase/patches/2026-09-15_control_caja_revoke_dml.sql` | Caja: REVOKE DML; solo SELECT + RPC (Paso 18) |
+| `supabase/patches/2026-09-15_control_caja_paso19_aux_revoke.sql` | Caja resto: upsert_aux + REVOKE (Paso 19) |
 
 ### Variables nuevas en Vercel (configurar ya)
 

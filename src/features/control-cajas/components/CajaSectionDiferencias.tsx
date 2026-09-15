@@ -17,7 +17,7 @@ import CajaMiniPlotAI from './CajaMiniPlotAI'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 import type { CajaRegistro } from '../types'
 
-export default function CajaSectionDiferencias() {
+export default function CajaSectionDiferencias({ usuarioId }: { usuarioId?: number }) {
   const [cierres, setCierres] = useState<Awaited<ReturnType<typeof listCierres>>>([])
   const [manual, setManual] = useState<Awaited<ReturnType<typeof listDiferencias>>>([])
   const [arqueos, setArqueos] = useState<Awaited<ReturnType<typeof listArqueos>>>([])
@@ -73,7 +73,10 @@ export default function CajaSectionDiferencias() {
       return
     }
     try {
-      await saveDiferencia({ ...d, estado: 'Resuelto' })
+      await saveDiferencia(
+        { ...d, estado: 'Resuelto' },
+        usuarioId != null ? { actor: { id: usuarioId, esAdmin: true } } : undefined
+      )
       setMsg('Marcada como resuelta.')
       reload()
     } catch (e) {

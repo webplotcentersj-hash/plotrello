@@ -500,11 +500,15 @@ export default function ControlCajasModule() {
             </>
           )}
 
-          {section === 'concil_mp' && enVistaAdmin && <CajaSectionConcilMP />}
-          {section === 'concil_banco' && enVistaAdmin && <CajaSectionConcilBanco />}
-          {section === 'diferencias' && enVistaAdmin && <CajaSectionDiferencias />}
+          {section === 'concil_mp' && enVistaAdmin && <CajaSectionConcilMP usuarioId={usuarioId} />}
+          {section === 'concil_banco' && enVistaAdmin && (
+            <CajaSectionConcilBanco usuarioId={usuarioId} />
+          )}
+          {section === 'diferencias' && enVistaAdmin && (
+            <CajaSectionDiferencias usuarioId={usuarioId} />
+          )}
           {section === 'ventas' && enVistaAdmin && <CajaSectionVentasDiarias />}
-          {section === 'config' && enVistaAdmin && <CajaSectionConfig />}
+          {section === 'config' && enVistaAdmin && <CajaSectionConfig usuarioId={usuarioId} />}
           {section === 'asistente' && (
             <CajaPlotAI isAdmin={isAdmin} usuarioNombre={usuarioEtiqueta} usuarioId={usuarioId} />
           )}

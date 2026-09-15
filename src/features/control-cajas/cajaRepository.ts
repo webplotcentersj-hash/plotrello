@@ -88,6 +88,30 @@ async function rpcCajaWrite(
   if (error) throw new Error(error.message || `Error en ${fn}`)
 }
 
+type CajaUpsertAuxKind =
+  | 'caja'
+  | 'traspaso'
+  | 'egreso'
+  | 'lote'
+  | 'planilla'
+  | 'concil_mp'
+  | 'concil_banco'
+  | 'diferencia'
+
+/** Paso 19: resto de tablas caja vía RPC auxiliar. */
+async function rpcCajaUpsertAux(
+  kind: CajaUpsertAuxKind,
+  actorId: number,
+  row: Record<string, unknown>
+): Promise<void> {
+  const { error } = await supabase!.rpc('caja_upsert_aux', {
+    p_actor_id: actorId,
+    p_kind: kind,
+    p_row: row
+  })
+  if (error) throw new Error(error.message || `Error en caja_upsert_aux (${kind})`)
+}
+
 async function rpcCajaDelete(
   fn: 'caja_delete_movimiento' | 'caja_delete_arqueo' | 'caja_delete_cierre',
   actorId: number,
@@ -163,7 +187,8 @@ function mergeMovimientosLists(remote: CajaMovimiento[], local: CajaMovimiento[]
 /** Asegura que existan en Supabase las cajas referenciadas (FK origen_slug / destino_slug). */
 export async function ensureCajaSlugsForMovimientos(
   rows: Pick<CajaMovimiento, 'origen_slug' | 'destino_slug'>[],
-  cajas: CajaRegistro[]
+  cajas: CajaRegistro[],
+  opts?: { actor?: CajaActor }
 ): Promise<void> {
   if (!(await checkRemote()) || !supabase) return
   const needed = new Set<string>()
@@ -173,12 +198,13 @@ export async function ensureCajaSlugsForMovimientos(
   }
   const { data } = await supabase.from('control_caja_cajas').select('slug')
   const existing = new Set((data ?? []).map((r) => String(r.slug)))
+  const actorId = requireActorId(opts?.actor)
   for (const slug of needed) {
     if (existing.has(slug)) continue
     const def =
       cajas.find((c) => c.slug === slug) ?? DEFAULT_CAJAS.find((c) => c.slug === slug)
     if (!def) continue
-    await supabase.from('control_caja_cajas').upsert({
+    await rpcCajaUpsertAux('caja', actorId, {
       slug: def.slug,
       nombre: def.nombre,
       fondo_fijo: def.fondo_fijo,
@@ -472,7 +498,8 @@ export async function listTraspasos(opts?: {
 }
 
 export async function saveTraspaso(
-  traspaso: Omit<CajaTraspaso, 'created_at' | 'updated_at'> & { id?: string }
+  traspaso: Omit<CajaTraspaso, 'created_at' | 'updated_at'> & { id?: string },
+  opts?: { actor?: CajaActor }
 ): Promise<CajaTraspaso> {
   const id = traspaso.id ?? newId()
   const record: CajaTraspaso = {
@@ -482,7 +509,7 @@ export async function saveTraspaso(
   }
 
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_traspasos').upsert({
+    await rpcCajaUpsertAux('traspaso', requireActorId(opts?.actor), {
       id,
       fecha: traspaso.fecha,
       caja_origen_slug: traspaso.caja_origen_slug,
@@ -501,7 +528,7 @@ export async function saveTraspaso(
       observacion: traspaso.observacion ?? null,
       updated_at: record.updated_at
     })
-    if (!error) return record
+    return record
   }
 
   const store = readLocal()
@@ -521,7 +548,7 @@ export async function setTraspasoEstado(
   const t = list.find((x) => x.id === id)
   if (!t) throw new Error('Traspaso no encontrado')
 
-  const updated = await saveTraspaso({ ...t, estado })
+  const updated = await saveTraspaso({ ...t, estado }, opts)
 
   const movs = await listMovimientos()
   const linked = movs.filter((m) => m.traspaso_id === id)
@@ -763,7 +790,9 @@ export async function saveMovimientosBulk(
   if (await checkRemote()) {
     try {
       const cajas = opts?.cajas ?? (await listCajas())
-      await ensureCajaSlugsForMovimientos(records, cajas)
+      await ensureCajaSlugsForMovimientos(records, cajas, {
+        actor: opts?.actor ?? { id: actorId }
+      })
       const actorId = requireActorId(opts?.actor)
       for (let i = 0; i < records.length; i += MOVIMIENTOS_BULK_CHUNK) {
         const chunk = records.slice(i, i + MOVIMIENTOS_BULK_CHUNK)
@@ -867,7 +896,8 @@ export async function saveEgresoSolicitudImportado(
   input: Omit<
     CajaEgresoSolicitud,
     'id' | 'estado' | 'created_at' | 'updated_at' | 'aprobador_id' | 'motivo_rechazo'
-  > & { id?: string; aprobador_nombre?: string | null }
+  > & { id?: string; aprobador_nombre?: string | null },
+  opts?: { actor?: CajaActor }
 ): Promise<CajaEgresoSolicitud> {
   const id = input.id ?? newId()
   const now = new Date().toISOString()
@@ -884,7 +914,12 @@ export async function saveEgresoSolicitudImportado(
   }
 
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_egreso_solicitudes').insert({
+    const actorId =
+      requireActorId(
+        opts?.actor ??
+          (input.solicitante_id != null ? { id: input.solicitante_id } : undefined)
+      )
+    await rpcCajaUpsertAux('egreso', actorId, {
       id,
       fecha: input.fecha,
       caja_slug: input.caja_slug,
@@ -897,9 +932,10 @@ export async function saveEgresoSolicitudImportado(
       observacion: input.observacion ?? null,
       aprobador_nombre: aprobadorNombre,
       id_movimiento: input.id_movimiento ?? null,
-      url_ticket: input.url_ticket ?? null
+      url_ticket: input.url_ticket ?? null,
+      updated_at: now
     })
-    if (!error) return record
+    return record
   }
 
   const store = readLocal()
@@ -932,20 +968,28 @@ export async function createEgresoSolicitud(
   }
 
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_egreso_solicitudes').insert({
-      id,
-      fecha: input.fecha,
-      caja_slug: input.caja_slug,
-      concepto: input.concepto,
-      monto_efectivo: input.monto_efectivo,
-      monto_otros: input.monto_otros ?? 0,
-      estado: 'pendiente',
-      solicitante_id: input.solicitante_id ?? null,
-      solicitante_nombre: input.solicitante_nombre ?? null,
-      observacion: input.observacion ?? null,
-      url_ticket: input.url_ticket ?? null
-    })
-    if (!error) return record
+    await rpcCajaUpsertAux(
+      'egreso',
+      requireActorId(
+        opts?.actor ??
+          (input.solicitante_id != null ? { id: input.solicitante_id } : undefined)
+      ),
+      {
+        id,
+        fecha: input.fecha,
+        caja_slug: input.caja_slug,
+        concepto: input.concepto,
+        monto_efectivo: input.monto_efectivo,
+        monto_otros: input.monto_otros ?? 0,
+        estado: 'pendiente',
+        solicitante_id: input.solicitante_id ?? null,
+        solicitante_nombre: input.solicitante_nombre ?? null,
+        observacion: input.observacion ?? null,
+        url_ticket: input.url_ticket ?? null,
+        updated_at: now
+      }
+    )
+    return record
   }
 
   const store = readLocal()
@@ -979,18 +1023,25 @@ export async function resolverEgresoSolicitud(
   }
 
   if (await checkRemote()) {
-    const { error } = await supabase!
-      .from('control_caja_egreso_solicitudes')
-      .update({
-        estado: accion,
-        aprobador_id: aprobador.id,
-        aprobador_nombre: aprobador.nombre,
-        motivo_rechazo: updated.motivo_rechazo,
-        id_movimiento: null,
-        updated_at: now
-      })
-      .eq('id', id)
-    if (!error) return updated
+    await rpcCajaUpsertAux('egreso', requireActorId({ id: aprobador.id, esAdmin: true }), {
+      id,
+      fecha: sol.fecha,
+      caja_slug: sol.caja_slug,
+      concepto: sol.concepto,
+      monto_efectivo: sol.monto_efectivo,
+      monto_otros: sol.monto_otros,
+      estado: accion,
+      solicitante_id: sol.solicitante_id,
+      solicitante_nombre: sol.solicitante_nombre,
+      aprobador_id: aprobador.id,
+      aprobador_nombre: aprobador.nombre,
+      motivo_rechazo: updated.motivo_rechazo,
+      id_movimiento: null,
+      url_ticket: sol.url_ticket ?? null,
+      observacion: sol.observacion,
+      updated_at: now
+    })
+    return updated
   }
 
   const store = readLocal()
@@ -1068,15 +1119,32 @@ export async function adjuntarTicketEgresoSolicitud(
   }
 
   if (await checkRemote()) {
-    const { error } = await supabase!
-      .from('control_caja_egreso_solicitudes')
-      .update({
+    await rpcCajaUpsertAux(
+      'egreso',
+      requireActorId(
+        opts?.actor ??
+          (sol.solicitante_id != null ? { id: sol.solicitante_id } : undefined)
+      ),
+      {
+        id,
+        fecha: sol.fecha,
+        caja_slug: sol.caja_slug,
+        concepto: sol.concepto,
+        monto_efectivo: sol.monto_efectivo,
+        monto_otros: sol.monto_otros,
+        estado: sol.estado,
+        solicitante_id: sol.solicitante_id,
+        solicitante_nombre: sol.solicitante_nombre,
+        aprobador_id: sol.aprobador_id,
+        aprobador_nombre: sol.aprobador_nombre,
+        observacion: sol.observacion,
+        motivo_rechazo: sol.motivo_rechazo,
         url_ticket: url,
         id_movimiento: mov.id,
         updated_at: now
-      })
-      .eq('id', id)
-    if (!error) return updated
+      }
+    )
+    return updated
   }
 
   const store = readLocal()
@@ -1137,31 +1205,38 @@ export async function listTransferenciaLotes(limit = 30): Promise<CajaTransferen
 }
 
 export async function saveTransferenciaLote(
-  lote: Omit<CajaTransferenciaLote, 'created_at'> & { id?: string }
+  lote: Omit<CajaTransferenciaLote, 'created_at'> & { id?: string },
+  opts?: { actor?: CajaActor }
 ): Promise<CajaTransferenciaLote> {
   const id = lote.id ?? newId()
   const record: CajaTransferenciaLote = { ...lote, id }
 
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_transferencia_lotes').upsert({
-      id,
-      fecha: lote.fecha,
-      hora: lote.hora || null,
-      origen_slug: lote.origen_slug,
-      caja_fondo_destino_slug: lote.caja_fondo_destino_slug,
-      arqueo_efectivo: lote.arqueo_efectivo,
-      arqueo_otros: lote.arqueo_otros,
-      fondo_monto: lote.fondo_monto,
-      resto_efectivo: lote.resto_efectivo,
-      resto_otros: lote.resto_otros,
-      egresos_aprobados_ef: lote.egresos_aprobados_ef,
-      id_planilla: lote.id_planilla ?? null,
-      id_usuario: lote.id_usuario ?? null,
-      usuario_nombre: lote.usuario_nombre ?? null,
-      observacion: lote.observacion ?? null,
-      detalle: lote.detalle ?? null
-    })
-    if (!error) return record
+    await rpcCajaUpsertAux(
+      'lote',
+      requireActorId(
+        opts?.actor ?? (lote.id_usuario != null ? { id: lote.id_usuario } : undefined)
+      ),
+      {
+        id,
+        fecha: lote.fecha,
+        hora: lote.hora || null,
+        origen_slug: lote.origen_slug,
+        caja_fondo_destino_slug: lote.caja_fondo_destino_slug,
+        arqueo_efectivo: lote.arqueo_efectivo,
+        arqueo_otros: lote.arqueo_otros,
+        fondo_monto: lote.fondo_monto,
+        resto_efectivo: lote.resto_efectivo,
+        resto_otros: lote.resto_otros,
+        egresos_aprobados_ef: lote.egresos_aprobados_ef,
+        id_planilla: lote.id_planilla ?? null,
+        id_usuario: lote.id_usuario ?? null,
+        usuario_nombre: lote.usuario_nombre ?? null,
+        observacion: lote.observacion ?? null,
+        detalle: lote.detalle ?? null
+      }
+    )
+    return record
   }
 
   const store = readLocal()
@@ -1216,10 +1291,14 @@ export async function ensureCajaOperativaUsuario(
 
     if (!activo) {
       if (await checkRemote()) {
-        await supabase!
-          .from('control_caja_cajas')
-          .update({ activa: false, updated_at: new Date().toISOString() })
-          .eq('slug', reg.slug)
+        await rpcCajaUpsertAux('caja', usuarioId, {
+          slug: reg.slug,
+          nombre: reg.nombre,
+          fondo_fijo: reg.fondo_fijo,
+          activa: false,
+          id_usuario: usuarioId,
+          updated_at: new Date().toISOString()
+        })
       } else {
         const storeOff = readLocal()
         const idxOff = storeOff.cajas.findIndex((c) => c.slug === reg.slug)
@@ -1239,20 +1318,23 @@ export async function ensureCajaOperativaUsuario(
         .maybeSingle()
       if (existing) {
         const mapped = mapCajaRegistro(existing)
-        const updates: Record<string, unknown> = { activa: true, id_usuario: usuarioId }
-        if (mapped.nombre !== reg.nombre) updates.nombre = reg.nombre
-        if (Object.keys(updates).length > 1) {
-          updates.updated_at = new Date().toISOString()
-          await supabase!.from('control_caja_cajas').update(updates).eq('slug', reg.slug)
-        }
+        const nombre = mapped.nombre !== reg.nombre ? reg.nombre : mapped.nombre
+        await rpcCajaUpsertAux('caja', usuarioId, {
+          slug: reg.slug,
+          nombre,
+          fondo_fijo: mapped.fondo_fijo,
+          activa: true,
+          id_usuario: usuarioId,
+          updated_at: new Date().toISOString()
+        })
         return {
           ...mapped,
-          nombre: (updates.nombre as string) ?? mapped.nombre,
+          nombre,
           activa: true,
           id_usuario: usuarioId
         }
       }
-      const { error } = await supabase!.from('control_caja_cajas').upsert({
+      await rpcCajaUpsertAux('caja', usuarioId, {
         slug: reg.slug,
         nombre: reg.nombre,
         fondo_fijo: reg.fondo_fijo,
@@ -1260,7 +1342,6 @@ export async function ensureCajaOperativaUsuario(
         id_usuario: usuarioId,
         updated_at: new Date().toISOString()
       })
-      if (error) throw new Error(error.message)
       return reg
     }
     const store = readLocal()
@@ -1371,9 +1452,12 @@ export async function savePlanillaImport(
       id_usuario: usuarioId ?? null,
       usuario_nombre: usuarioNombre
     }
-    const { error } = await supabase!.from('control_caja_planillas').insert(row)
-    remoteOkPlanilla = !error
-    if (error) console.warn('Planilla remota no guardada:', error.message)
+    try {
+      await rpcCajaUpsertAux('planilla', requireActorId(usuarioId != null ? { id: usuarioId } : undefined), row)
+      remoteOkPlanilla = true
+    } catch (e) {
+      console.warn('Planilla remota no guardada:', e instanceof Error ? e.message : e)
+    }
   }
 
   const store = readLocal()
@@ -1530,14 +1614,23 @@ export async function listCajasAll(): Promise<CajaRegistro[]> {
 }
 
 /** Actualiza el fondo fijo de una caja (p. ej. desde cierre de turno por la cajera). */
-export async function updateCajaFondoFijo(slug: string, fondo_fijo: number): Promise<void> {
+export async function updateCajaFondoFijo(
+  slug: string,
+  fondo_fijo: number,
+  opts?: { actor?: CajaActor }
+): Promise<void> {
   const monto = Math.max(0, fondo_fijo)
   if (await checkRemote()) {
-    const { error } = await supabase!
-      .from('control_caja_cajas')
-      .update({ fondo_fijo: monto, updated_at: new Date().toISOString() })
-      .eq('slug', slug)
-    if (error) throw new Error(error.message)
+    const list = await listCajas()
+    const cur = list.find((c) => c.slug === slug)
+    await rpcCajaUpsertAux('caja', requireActorId(opts?.actor), {
+      slug,
+      nombre: cur?.nombre ?? slug,
+      fondo_fijo: monto,
+      activa: cur?.activa ?? true,
+      id_usuario: cur?.id_usuario ?? null,
+      updated_at: new Date().toISOString()
+    })
     return
   }
   const store = readLocal()
@@ -1548,10 +1641,14 @@ export async function updateCajaFondoFijo(slug: string, fondo_fijo: number): Pro
   }
 }
 
-export async function saveCajasMaestro(cajas: CajaRegistro[]): Promise<void> {
+export async function saveCajasMaestro(
+  cajas: CajaRegistro[],
+  opts?: { actor?: CajaActor }
+): Promise<void> {
   if (await checkRemote()) {
+    const actorId = requireActorId(opts?.actor)
     for (const c of cajas) {
-      await supabase!.from('control_caja_cajas').upsert({
+      await rpcCajaUpsertAux('caja', actorId, {
         slug: c.slug,
         nombre: c.nombre,
         fondo_fijo: c.fondo_fijo,
@@ -1854,13 +1951,22 @@ export async function listConcilMP(): Promise<CajaConcilMP[]> {
 }
 
 export async function saveConcilMP(
-  row: Omit<CajaConcilMP, 'id' | 'created_at'> & { id?: string }
+  row: Omit<CajaConcilMP, 'id' | 'created_at'> & { id?: string },
+  opts?: { actor?: CajaActor }
 ): Promise<CajaConcilMP> {
   const id = row.id ?? newId()
   const record: CajaConcilMP = { ...row, id }
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_concil_mp').upsert(record)
-    if (!error) return record
+    await rpcCajaUpsertAux('concil_mp', requireActorId(opts?.actor), {
+      id,
+      fecha: record.fecha,
+      sistema: record.sistema,
+      dashboard: record.dashboard,
+      diferencia: record.diferencia,
+      estado: record.estado,
+      observacion: record.observacion ?? null
+    })
+    return record
   }
   const store = readLocal()
   const idx = store.concil_mp.findIndex((c) => c.id === id)
@@ -1893,13 +1999,22 @@ export async function listConcilBanco(): Promise<CajaConcilBanco[]> {
 }
 
 export async function saveConcilBanco(
-  row: Omit<CajaConcilBanco, 'id' | 'created_at'> & { id?: string }
+  row: Omit<CajaConcilBanco, 'id' | 'created_at'> & { id?: string },
+  opts?: { actor?: CajaActor }
 ): Promise<CajaConcilBanco> {
   const id = row.id ?? newId()
   const record: CajaConcilBanco = { ...row, id }
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_concil_banco').upsert(record)
-    if (!error) return record
+    await rpcCajaUpsertAux('concil_banco', requireActorId(opts?.actor), {
+      id,
+      fecha: record.fecha,
+      sistema: record.sistema,
+      extracto: record.extracto,
+      diferencia: record.diferencia,
+      estado: record.estado,
+      observacion: record.observacion ?? null
+    })
+    return record
   }
   const store = readLocal()
   const idx = store.concil_banco.findIndex((c) => c.id === id)
@@ -1935,23 +2050,24 @@ export async function listDiferencias(): Promise<CajaDiferencia[]> {
 }
 
 export async function saveDiferencia(
-  row: Omit<CajaDiferencia, 'created_at' | 'auto_desde_cierre'> & { id?: string }
+  row: Omit<CajaDiferencia, 'created_at' | 'auto_desde_cierre'> & { id?: string },
+  opts?: { actor?: CajaActor }
 ): Promise<CajaDiferencia> {
   const id = row.id ?? newId()
   const record: CajaDiferencia = { ...row, id }
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_diferencias').upsert({
+    await rpcCajaUpsertAux('diferencia', requireActorId(opts?.actor), {
       id: record.id,
       fecha: record.fecha,
-      caja_slug: record.caja_slug,
+      caja_slug: record.caja_slug ?? null,
       tipo: record.tipo,
       monto: record.monto,
-      motivo: record.motivo,
-      responsable: record.responsable,
+      motivo: record.motivo ?? null,
+      responsable: record.responsable ?? null,
       estado: record.estado,
-      id_cierre: record.id_cierre
+      id_cierre: record.id_cierre ?? null
     })
-    if (!error) return record
+    return record
   }
   const store = readLocal()
   const idx = store.diferencias.findIndex((d) => d.id === id)

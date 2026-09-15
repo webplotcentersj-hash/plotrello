@@ -255,7 +255,11 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
     setSaving(true)
     try {
       if (cajaDestinoFondo) {
-        await updateCajaFondoFijo(cajaDestinoFondo.slug, fondoMonto)
+        await updateCajaFondoFijo(
+          cajaDestinoFondo.slug,
+          fondoMonto,
+          usuarioId != null ? { actor: { id: usuarioId, esAdmin: Boolean(isAdmin) } } : undefined
+        )
       }
       const loteId = newId()
 
@@ -295,7 +299,10 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
         detalle: detalleInicial
       }
 
-      await saveTransferenciaLote(lote)
+      await saveTransferenciaLote(
+        lote,
+        usuarioId != null ? { actor: { id: usuarioId, esAdmin: Boolean(isAdmin) } } : undefined
+      )
 
       const movIds: string[] = []
 
@@ -317,10 +324,13 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
       }
 
       if (movIds.length) {
-        await saveTransferenciaLote({
-          ...lote,
-          detalle: { ...detalleInicial, movimientos_ids: movIds }
-        })
+        await saveTransferenciaLote(
+          {
+            ...lote,
+            detalle: { ...detalleInicial, movimientos_ids: movIds }
+          },
+          usuarioId != null ? { actor: { id: usuarioId, esAdmin: Boolean(isAdmin) } } : undefined
+        )
       }
 
       void notifyAdminsCaja({

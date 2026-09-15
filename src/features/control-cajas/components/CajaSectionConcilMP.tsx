@@ -15,7 +15,7 @@ import CajaMiniPlotAI from './CajaMiniPlotAI'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 import type { CajaCierreEstado } from '../types'
 
-export default function CajaSectionConcilMP() {
+export default function CajaSectionConcilMP({ usuarioId }: { usuarioId?: number }) {
   const [historial, setHistorial] = useState<Awaited<ReturnType<typeof listConcilMP>>>([])
   const [cierres, setCierres] = useState<Awaited<ReturnType<typeof listCierres>>>([])
   const [planillas, setPlanillas] = useState<Awaited<ReturnType<typeof listPlanillas>>>([])
@@ -65,14 +65,17 @@ export default function CajaSectionConcilMP() {
     setSaving(true)
     setMsg(null)
     try {
-      await saveConcilMP({
-        fecha,
-        sistema: sistemaInfo.valor,
-        dashboard: dashNum,
-        diferencia: dif,
-        estado,
-        observacion: observacion.trim() || undefined
-      })
+      await saveConcilMP(
+        {
+          fecha,
+          sistema: sistemaInfo.valor,
+          dashboard: dashNum,
+          diferencia: dif,
+          estado,
+          observacion: observacion.trim() || undefined
+        },
+        usuarioId != null ? { actor: { id: usuarioId, esAdmin: true } } : undefined
+      )
       setDashboard('')
       setObservacion('')
       setMsg('Conciliación MP guardada.')
