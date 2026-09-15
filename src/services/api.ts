@@ -489,6 +489,21 @@ class ApiService {
     if (error) throw new Error(error.message || `Error en comercial_delete (${kind})`)
   }
 
+  /** Paso 23: CxP / pagos proveedores / movimientos bancarios. */
+  private async rpcTesoreriaUpsert(
+    kind: 'cxp' | 'pago_proveedor' | 'pagos_proveedores' | 'mov_bancario',
+    row: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    if (!supabase) throw new Error('Supabase no inicializado')
+    const { data, error } = await supabase.rpc('tesoreria_upsert', {
+      p_actor_id: this.requireComercialActorId(),
+      p_kind: kind,
+      p_row: row
+    })
+    if (error) throw new Error(error.message || `Error en tesoreria_upsert (${kind})`)
+    return (data || {}) as Record<string, unknown>
+  }
+
   private getCurrentUserWithRol(): { id: number; nombre: string; rol: string | null } {
     const base = this.getCurrentUser()
     let rol: string | null = null
@@ -13170,16 +13185,18 @@ class ApiService {
   }): Promise<ApiResponse<MovimientoBancario>> {
     if (supabase) {
       try {
+        const inserted = await this.rpcTesoreriaUpsert('mov_bancario', {
+          ...movimiento,
+          conciliado: false
+        })
+        const idInserted = Number(inserted.id)
         const { data, error } = await supabase
           .from('movimientos_bancarios')
-          .insert({
-            ...movimiento,
-            conciliado: false
-          })
           .select(`
             *,
             pago:pagos(*)
           `)
+          .eq('id', idInserted)
           .single()
 
         if (error) return { success: false, error: error.message }
@@ -13244,19 +13261,21 @@ class ApiService {
         const usuarioStr = localStorage.getItem('usuario')
         const usuario = usuarioStr ? JSON.parse(usuarioStr) : null
 
+        await this.rpcTesoreriaUpsert('mov_bancario', {
+          id: idMovimiento,
+          id_pago_asociado: idPago,
+          conciliado: true,
+          fecha_conciliacion: new Date().toISOString(),
+          id_usuario_conciliacion: usuario?.id || null
+        })
+
         const { data, error } = await supabase
           .from('movimientos_bancarios')
-          .update({
-            id_pago_asociado: idPago,
-            conciliado: true,
-            fecha_conciliacion: new Date().toISOString(),
-            id_usuario_conciliacion: usuario?.id || null
-          })
-          .eq('id', idMovimiento)
           .select(`
             *,
             pago:pagos(*)
           `)
+          .eq('id', idMovimiento)
           .single()
 
         if (error) return { success: false, error: error.message }
@@ -22853,25 +22872,20 @@ class ApiService {
         if (!nombre) {
           return { success: false, error: 'Indicá el nombre del proveedor.' }
         }
-        const { data, error } = await supabase
-          .from('cuentas_por_pagar')
-          .insert({
-            proveedor_nombre: nombre,
-            monto_total: monto,
-            monto_pagado: 0,
-            monto_pendiente: monto,
-            fecha_emision: input.fecha_emision,
-            fecha_vencimiento: input.fecha_vencimiento || null,
-            numero_documento: input.numero_documento?.trim() || null,
-            observaciones: input.observaciones?.trim() || null,
-            id_pedido_compra: input.id_pedido_compra ?? null,
-            id_proveedor: input.id_proveedor ?? null,
-            estado: 'Pendiente'
-          })
-          .select('*')
-          .single()
-        if (error) return { success: false, error: error.message }
-        return { success: true, data: data as import('../types/api').CuentaPorPagarRecord }
+        const data = await this.rpcTesoreriaUpsert('cxp', {
+          proveedor_nombre: nombre,
+          monto_total: monto,
+          monto_pagado: 0,
+          monto_pendiente: monto,
+          fecha_emision: input.fecha_emision,
+          fecha_vencimiento: input.fecha_vencimiento || null,
+          numero_documento: input.numero_documento?.trim() || null,
+          observaciones: input.observaciones?.trim() || null,
+          id_pedido_compra: input.id_pedido_compra ?? null,
+          id_proveedor: input.id_proveedor ?? null,
+          estado: 'Pendiente'
+        })
+        return { success: true, data: data as unknown as import('../types/api').CuentaPorPagarRecord }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
@@ -23060,10 +23074,7 @@ class ApiService {
         fecha_desde: seed.fecha_desde,
         fecha_hasta: seed.fecha_hasta
       }))
-      const { error } = await supabase.from('pagos_proveedores').upsert(payload, {
-        onConflict: 'numero_pago,numero_recibo'
-      })
-      if (error) return { success: false, error: error.message }
+      await this.rpcTesoreriaUpsert('pagos_proveedores', { items: payload })
       await supabase.rpc('vincular_pagos_proveedores')
       return { success: true, data: { importados: payload.length } }
     } catch (error) {
@@ -23762,15 +23773,13 @@ class ApiService {
             else if (pagadoNuevo > 0) estadoNuevo = 'Parcial'
             if (estadoNuevo !== 'Pagado' && fv && fv < now) estadoNuevo = 'Vencido'
 
-            await supabase
-              .from('cuentas_por_pagar')
-              .update({
-                monto_pagado: pagadoNuevo,
-                monto_pendiente: pendienteNuevo,
-                estado: estadoNuevo,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', pago.id_cuenta_por_pagar)
+            await this.rpcTesoreriaUpsert('cxp', {
+              id: pago.id_cuenta_por_pagar,
+              monto_pagado: pagadoNuevo,
+              monto_pendiente: pendienteNuevo,
+              estado: estadoNuevo,
+              updated_at: new Date().toISOString()
+            })
           }
         } catch (e) {
           console.warn('No se pudo actualizar CxP luego del pago:', e)

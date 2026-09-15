@@ -492,4 +492,24 @@ Tabla por tabla, sin romper zona pública.
 2. Registrar cobro sobre CxC
 3. Anon: `INSERT INTO facturas_venta` → falla
 
-**Siguiente:** `cuentas_por_pagar` (update en registrarPago) u origen canónico (Fase 2).
+**Siguiente:** Paso 23 (CxP / pagos proveedores / movimientos bancarios).
+
+---
+
+## Paso 23 — Tesorería: RPC + sin DML anon ✅ (2026-09-15)
+
+**Problema:** `cuentas_por_pagar`, `pagos_proveedores`, `movimientos_bancarios` seguían con DML anon (CxP con policy ALL).
+
+**Qué hicimos:**
+- `tesoreria_upsert(actor, kind, row)` — kinds: `cxp` | `pago_proveedor` | `pagos_proveedores` | `mov_bancario`
+- Policies SELECT-only + REVOKE DML/TRUNCATE
+- Front: alta CxP, update post-pago, import seed proveedores, crear/conciliar movimiento bancario vía RPC
+
+**Patch:** `supabase/patches/2026-09-15_tesoreria_rpc_revoke.sql` (aplicado en prod)
+
+**Verificar (después de deploy):**
+1. Alta CxP + registrar pago (actualiza montos)
+2. Conciliación bancaria (movimiento + pago)
+3. Anon: `INSERT INTO cuentas_por_pagar` → falla
+
+**Siguiente:** un origen canónico (Fase 2) u otro perímetro abierto (oportunidades CRM sin RLS, etc.).

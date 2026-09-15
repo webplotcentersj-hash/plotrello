@@ -1,6 +1,6 @@
 # Seguridad Plotrello — resumen operativo
 
-> Última actualización: 2026-09-15 · Paso 22 ERP cobros/CxC/facturas sin DML anon.
+> Última actualización: 2026-09-15 · Paso 23 tesorería CxP/bancos sin DML anon.
 
 ---
 
@@ -59,6 +59,7 @@
 | `supabase/patches/2026-09-15_ventas_pagos_revoke_truncate.sql` | Comercial: sin TRUNCATE/REFERENCES/TRIGGER (Paso 20) |
 | `supabase/patches/2026-09-15_ventas_pagos_rpcs_actor_revoke.sql` | Comercial: RPC+actor + REVOKE DML ventas/pagos (Paso 21) |
 | `supabase/patches/2026-09-15_comercial_erp_rpc_revoke.sql` | ERP: RPC+actor + REVOKE cobros/CxC/facturas (Paso 22) |
+| `supabase/patches/2026-09-15_tesoreria_rpc_revoke.sql` | Tesorería: RPC+actor + REVOKE CxP/bancos (Paso 23) |
 
 ### Variables nuevas en Vercel (configurar ya)
 
