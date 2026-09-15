@@ -2351,6 +2351,11 @@ thead .rrhh-asis-sticky {
   outline-offset: -2px;
 }
 
+.rrhh-asis-celda.celda-editable-vacia:hover .celda-sm {
+  color: #93c5fd;
+  font-weight: 800;
+}
+
 /* Bot?n eliminar en la lista de asistencia */
 .rrhh-asis-del-btn {
   border: 1px solid rgba(220, 38, 38, 0.35);

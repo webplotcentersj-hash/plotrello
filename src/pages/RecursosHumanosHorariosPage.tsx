@@ -1329,10 +1329,6 @@ const AsistenciaTab = ({
 
   const guardarEdicionAsistencia = async () => {
     if (!asistenciaDetalle || !isAdmin) return
-    if (asistenciaDetalle.id <= 0) {
-      setEditError('Este día no tiene un registro guardado para editar.')
-      return
-    }
     setEditSaving(true)
     setEditError(null)
     setEditOk(false)
@@ -1341,30 +1337,36 @@ const AsistenciaTab = ({
       const horaSalida = argentinaHoraToTs(asistenciaDetalle.fecha, editSalida)
       if (editEntrada.trim() && !horaEntrada) {
         setEditError('Entrada inválida. Usá formato HH:MM.')
+        setEditSaving(false)
         return
       }
       if (editSalida.trim() && !horaSalida) {
         setEditError('Salida inválida. Usá formato HH:MM.')
+        setEditSaving(false)
         return
       }
       if (editTipo !== 'ausente' && editTipo !== 'justificado' && !horaEntrada) {
         setEditError('La hora de entrada es obligatoria.')
+        setEditSaving(false)
         return
       }
       const horasTrabajadas = calcHorasTrabajadas(horaEntrada, horaSalida)
       const res = await apiService.actualizarAsistencia({
         id: asistenciaDetalle.id,
+        idUsuario: asistenciaDetalle.id_usuario,
+        fecha: asistenciaDetalle.fecha,
         horaEntrada,
         horaSalida,
         horasTrabajadas,
         tipoRegistro: editTipo
       })
-      if (!res.success) {
+      if (!res.success || !res.data) {
         setEditError(res.error || 'No se pudo guardar el registro.')
         return
       }
       setAsistenciaDetalle({
         ...asistenciaDetalle,
+        id: res.data.id,
         hora_entrada: horaEntrada,
         hora_salida: horaSalida,
         horas_trabajadas: horasTrabajadas,
@@ -1464,18 +1466,38 @@ const AsistenciaTab = ({
     })
     const det = ev.extraDet
 
-    const abrirDetalle = (reg: Asistencia) => {
+    const abrirDetalle = (reg: Asistencia, prefEntrada = '', prefSalida = '') => {
       setAsistenciaDetalle(reg)
       setAsistenciaDetalleExtra(det.total)
       setAsistenciaDetalleAcum(extraAcumulado.get(empId)?.get(f) ?? det.total)
       setAclaracionDraft(parseAsistenciaObservaciones(reg.observaciones).aclaracion)
       setAclaracionError(null)
       setAclaracionOk(false)
-      setEditEntrada(asistenciaHoraCorta(reg.hora_entrada))
-      setEditSalida(asistenciaHoraCorta(reg.hora_salida))
+      setEditEntrada(asistenciaHoraCorta(reg.hora_entrada) || prefEntrada)
+      setEditSalida(asistenciaHoraCorta(reg.hora_salida) || prefSalida)
       setEditTipo(reg.tipo_registro)
       setEditError(null)
       setEditOk(false)
+    }
+
+    const abrirNuevoRegistro = () => {
+      if (!isAdmin) return
+      const draft: Asistencia = {
+        id: 0,
+        id_usuario: empId,
+        nombre_usuario: nombres.get(empId),
+        fecha: f,
+        hora_entrada: null,
+        hora_salida: null,
+        horas_trabajadas: null,
+        tipo_registro: 'normal',
+        observaciones: null,
+        created_at: '',
+        updated_at: ''
+      }
+      const prefE = horario?.entrada?.slice(0, 5) || ''
+      const prefS = horario?.salida?.slice(0, 5) || ''
+      abrirDetalle(draft, prefE, prefS)
     }
 
     const acum = extraAcumulado.get(empId)?.get(f) ?? 0
@@ -1585,7 +1607,24 @@ const AsistenciaTab = ({
     }
 
     if (finde) {
+      if (isAdmin) {
+        return {
+          cls: 'celda-vacia finde celda-editable-vacia',
+          contenido: <span title="Clic para cargar asistencia">—</span>,
+          title: 'Fin de semana · clic para cargar o corregir asistencia',
+          onClick: abrirNuevoRegistro
+        }
+      }
       return { cls: 'celda-vacia finde', contenido: <span>—</span>, title: 'Fin de semana' }
+    }
+
+    if (isAdmin) {
+      return {
+        cls: 'celda-sin-marca celda-editable-vacia',
+        contenido: <span className="celda-sm">S/M</span>,
+        title: 'Sin marca · clic para cargar asistencia de este día',
+        onClick: abrirNuevoRegistro
+      }
     }
 
     return {
@@ -1623,7 +1662,10 @@ const AsistenciaTab = ({
             <strong className="leyenda-extra">verde</strong> (<strong>Σ</strong> = acumulado del mes). Tardanzas en amarillo, ausencias en rojo.
             Tardanzas y faltas se detectan automáticamente desde marcaciones y se sincronizan con novedades del legajo.
             Las horas extra de novedades manuales se suman al acumulado.{' '}
-            <strong>S/M</strong> = sin marca en día hábil. Clic en celda para ver detalle y dejar una aclaración.
+            <strong>S/M</strong> = sin marca en día hábil. Clic en una marca para ver detalle.
+            {isAdmin
+              ? ' Como admin/gerencia también podés clic en S/M (o fin de semana) para cargar o corregir asistencias de días anteriores.'
+              : ' Podés dejar una aclaración en el detalle.'}
           </p>
           <div className="rrhh-asis-leyenda">
             <span className="leyenda-entrada">▲ Entrada</span>
@@ -1770,7 +1812,11 @@ const AsistenciaTab = ({
                   void guardarEdicionAsistencia()
                 }}
               >
-                <p className="rrhh-asis-edicion-hint">Admin / gerencia: podés corregir o borrar este registro.</p>
+                <p className="rrhh-asis-edicion-hint">
+                  {asistenciaDetalle.id > 0
+                    ? 'Admin / gerencia: podés corregir o borrar este registro (también de días anteriores).'
+                    : 'Admin / gerencia: cargá entrada/salida para este día. Se crea el registro al guardar.'}
+                </p>
                 <div className="rrhh-asis-edicion-grid">
                   <label>
                     Entrada
@@ -1825,21 +1871,23 @@ const AsistenciaTab = ({
                   </div>
                 </div>
                 <div className="rrhh-asis-edicion-actions">
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={editSaving || deletingAsistencia || asistenciaDetalle.id <= 0}
-                  >
-                    {editSaving ? 'Guardando…' : 'Guardar cambios'}
+                  <button type="submit" className="btn-primary" disabled={editSaving || deletingAsistencia}>
+                    {editSaving
+                      ? 'Guardando…'
+                      : asistenciaDetalle.id > 0
+                        ? 'Guardar cambios'
+                        : 'Crear registro'}
                   </button>
-                  <button
-                    type="button"
-                    className="rrhh-asis-btn-eliminar"
-                    disabled={editSaving || deletingAsistencia || asistenciaDetalle.id <= 0}
-                    onClick={() => void eliminarRegistroAsistencia()}
-                  >
-                    {deletingAsistencia ? 'Eliminando…' : 'Eliminar registro'}
-                  </button>
+                  {asistenciaDetalle.id > 0 ? (
+                    <button
+                      type="button"
+                      className="rrhh-asis-btn-eliminar"
+                      disabled={editSaving || deletingAsistencia}
+                      onClick={() => void eliminarRegistroAsistencia()}
+                    >
+                      {deletingAsistencia ? 'Eliminando…' : 'Eliminar registro'}
+                    </button>
+                  ) : null}
                   {editOk ? <span className="rrhh-asis-aclaracion-ok">Guardado</span> : null}
                 </div>
                 {editError ? <p className="rrhh-asis-aclaracion-error">{editError}</p> : null}

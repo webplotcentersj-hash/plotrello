@@ -17310,35 +17310,65 @@ class ApiService {
     }
   }
 
-  /** Actualiza entrada/salida/horas/tipo de un registro de asistencia (admin/gerencia). */
+  /** Crea o actualiza entrada/salida/horas/tipo de asistencia (admin/gerencia). */
   async actualizarAsistencia(params: {
     id: number
+    idUsuario?: number
+    fecha?: string
     horaEntrada?: string | null
     horaSalida?: string | null
     horasTrabajadas?: number | null
     tipoRegistro?: 'normal' | 'tarde' | 'ausente' | 'justificado'
     observaciones?: string | null
-  }): Promise<ApiResponse<boolean>> {
+  }): Promise<ApiResponse<{ id: number }>> {
     if (!supabase) {
       return { success: false, error: 'No hay conexión a Supabase' }
     }
-    if (!params.id || params.id <= 0) {
-      return { success: false, error: 'Id de asistencia inválido' }
-    }
 
     try {
-      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-      if (params.horaEntrada !== undefined) patch.hora_entrada = params.horaEntrada
-      if (params.horaSalida !== undefined) patch.hora_salida = params.horaSalida
-      if (params.horasTrabajadas !== undefined) patch.horas_trabajadas = params.horasTrabajadas
-      if (params.tipoRegistro !== undefined) patch.tipo_registro = params.tipoRegistro
+      const tipo = params.tipoRegistro || 'normal'
+      const patch: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+        hora_entrada: params.horaEntrada ?? null,
+        hora_salida: params.horaSalida ?? null,
+        horas_trabajadas: params.horasTrabajadas ?? null,
+        tipo_registro: tipo
+      }
       if (params.observaciones !== undefined) {
         patch.observaciones = params.observaciones?.trim() || null
       }
 
-      const { error } = await supabase.from('asistencia').update(patch).eq('id', params.id)
+      if (params.id > 0) {
+        const { error } = await supabase.from('asistencia').update(patch).eq('id', params.id)
+        if (error) return { success: false, error: error.message }
+        return { success: true, data: { id: params.id } }
+      }
+
+      const idUsuario = Number(params.idUsuario)
+      const fecha = params.fecha?.slice(0, 10)
+      if (!Number.isInteger(idUsuario) || idUsuario <= 0 || !fecha) {
+        return { success: false, error: 'Para crear asistencia hace falta empleado y fecha' }
+      }
+
+      const { data, error } = await supabase
+        .from('asistencia')
+        .upsert(
+          {
+            id_usuario: idUsuario,
+            fecha,
+            ...patch
+          },
+          { onConflict: 'id_usuario,fecha' }
+        )
+        .select('id')
+        .single()
+
       if (error) return { success: false, error: error.message }
-      return { success: true, data: true }
+      const id = Number(data?.id)
+      if (!Number.isFinite(id) || id <= 0) {
+        return { success: false, error: 'No se obtuvo el id de asistencia' }
+      }
+      return { success: true, data: { id } }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
     }
