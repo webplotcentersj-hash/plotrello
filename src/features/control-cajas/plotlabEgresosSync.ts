@@ -39,6 +39,8 @@ export async function syncEgresoDesdePagoPlotLab(input: PagoPlotLabEgresoInput):
     linea.c_contab +
     linea.otros
 
+  if (input.usuarioId == null || input.usuarioId <= 0) return false
+
   const mov = await saveMovimiento(
     movimientoDesdeMedios(
       {
@@ -56,7 +58,8 @@ export async function syncEgresoDesdePagoPlotLab(input: PagoPlotLabEgresoInput):
         origen_importacion: 'plotlab_venta'
       },
       { origen_slug: input.cajaSlug, destino_slug: 'admin' }
-    )
+    ),
+    { actor: { id: input.usuarioId } }
   )
 
   await saveEgresoSolicitudImportado({

@@ -57,6 +57,8 @@ const emptyForm = (): CierreFormInput => ({
 
 export default function CajaSectionCierreForm({
   editId,
+  usuarioNombre: _usuarioNombre,
+  usuarioId,
   planillaActiva = null,
   onSaved,
   onCancel,
@@ -349,12 +351,15 @@ export default function CajaSectionCierreForm({
         },
         calc
       )
-      await saveCierre({
-        ...payload,
-        id: editId ?? undefined,
-        estado_cierre: (editId ? estadoCierre : 'abierto') as CajaCierreEstadoCierre,
-        fecha_hasta: fecha
-      })
+      await saveCierre(
+        {
+          ...payload,
+          id: editId ?? undefined,
+          estado_cierre: (editId ? estadoCierre : 'abierto') as CajaCierreEstadoCierre,
+          fecha_hasta: fecha
+        },
+        usuarioId != null ? { actor: { id: usuarioId, esAdmin: true } } : undefined
+      )
       onSaved()
     } catch (err) {
       setMsg(err instanceof Error ? err.message : 'Error al guardar')
@@ -375,7 +380,11 @@ export default function CajaSectionCierreForm({
     setMsg(null)
     try {
       const observado = calc.estado === 'REVISAR'
-      const cerrado = await cerrarCierreDefinitivo(editId, movimientos, { observado, tolerancia })
+      const cerrado = await cerrarCierreDefinitivo(editId, movimientos, {
+        observado,
+        tolerancia,
+        actor: usuarioId != null ? { id: usuarioId, esAdmin: true } : undefined
+      })
       setEstadoCierre(observado ? 'observado' : 'cerrado')
       setSnapshot(cerrado.snapshot_totales ?? null)
       void Promise.all([listMovimientos(), listMovimientosPorCierre(editId)]).then(([m, v]) => {

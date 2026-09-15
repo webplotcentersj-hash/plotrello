@@ -9,12 +9,14 @@ type Props = {
   onNuevo: () => void
   onEditar: (id: string) => void
   filtroCajaSlug?: string | null
+  usuarioId?: number
 }
 
 export default function CajaSectionCierresList({
   onNuevo,
   onEditar,
-  filtroCajaSlug = null
+  filtroCajaSlug = null,
+  usuarioId
 }: Props) {
   const [cierres, setCierres] = useState<CajaCierre[]>([])
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
@@ -100,7 +102,16 @@ export default function CajaSectionCierresList({
                         className="btn-small danger"
                         onClick={() => {
                           if (confirm('¿Eliminar este cierre? Se desvincularán los movimientos.')) {
-                            void deleteCierre(c.id).then(reload)
+                            void deleteCierre(c.id, {
+                              actor:
+                                usuarioId != null
+                                  ? { id: usuarioId, esAdmin: true }
+                                  : undefined
+                            })
+                              .then(reload)
+                              .catch((e) =>
+                                alert(e instanceof Error ? e.message : 'No se pudo eliminar')
+                              )
                           }
                         }}
                       >

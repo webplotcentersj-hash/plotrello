@@ -37,19 +37,18 @@ Email “listo para retirar”: PlotLab llama desde el mismo origen (sin exponer
 
 ---
 
-## Paso 3 — Rotación de keys (manual) ⏳ Siguiente
+## Paso 3 — Rotación de keys (manual) ⏳
 
-**Tiempo:** ~15 min · **Sin deploy de código** — solo paneles.
+**Tiempo:** ~15 min · **Solo paneles** (el código del Paso 13 ya no usa `VITE_` en Production).
 
 ### 3.1 Gemini (prioridad alta)
 
-1. [Google AI Studio](https://aistudio.google.com/apikey) → **Create API key** (nueva)
-2. Vercel → **Add New** `GEMINI_API_KEY` (sin prefijo `VITE_`, Sensitive ON, Production + Preview)
-3. **Eliminar** `VITE_GEMINI_API_KEY` de **Production** — seguro desde 2026-06-03: PlotAI staff, caja, tótem, portal y chat público usan `/api/plotai/generate-content`
-4. Dejar `VITE_GEMINI_API_KEY` solo en **Development** (local con `vite` sin `vercel dev`)
-5. **Redeploy** Production
+1. Confirmar `GEMINI_API_KEY` (sin `VITE_`) en Vercel Production + Preview
+2. **Eliminar** `VITE_GEMINI_API_KEY` de **Production** (y Preview si está)
+3. Dejar `VITE_GEMINI_API_KEY` solo en local (`.env.local`, sin `vercel dev`)
+4. **Redeploy** Production
 
-**Verificar:** PlotAI tablero, caja (planilla PDF + comprobantes), tótem, `/embed/chat`, portal `/cliente/chat`.
+**Verificar:** PlotAI tablero, caja, tótem voz, `/embed/chat`, portal `/cliente/chat`.
 
 ### 3.2 Supabase anon key (si sospechás filtración)
 
@@ -146,3 +145,269 @@ Revocar `SELECT` directo de `anon` y usar RPC `list_ordenes_trabajo_tablero` + A
 ### 6.3+ — ERP, caja, RRHH, clientes
 
 Tabla por tabla, sin romper zona pública.
+
+---
+
+## Paso 7 — Gate actor en RPCs de usuarios ✅ (2026-08-13)
+
+**Problema:** `crear_usuario`, `actualizar_usuario` y `dar_de_baja_usuario` eran SECURITY DEFINER ejecutables por anon **sin chequear quién llama**. Con la anon key cualquiera podía crear un admin o dar de baja gente.
+
+**Qué hicimos (sin revocar EXECUTE ni tocar RLS):**
+- Helpers internos `actor_puede_gestionar_usuarios` / `actor_puede_asignar_rol` (admin, gerencia, RRHH activos)
+- RRHH no asigna gerencia/admin; gerencia no asigna admin
+- Baja: `p_registrado_por` debe ser gestor y distinto del dado de baja
+- Front: `createUsuario` / `updateUsuario` envían `actorId`
+- Telegram: si `TELEGRAM_WEBHOOK_SECRET` está seteado, exige el header de Telegram
+
+**Verificar (después de deploy del front):**
+1. RRHH / admin crea un usuario mostrador → OK
+2. RRHH intenta crear rol `administracion` → error no autorizado
+3. Usuario inactivo o rol taller no puede crear (aunque mande su id)
+4. Bot Telegram sigue andando; si configurás secret en setWebhook, los POST sin header se ignoran
+
+**Rollback:** reaplicar firmas viejas de `2025-01-17_add_funciones_gestion_usuarios.sql` / `2026-06-12_fix_dar_de_baja_sin_updated_at.sql` (solo emergencia)
+
+**Siguiente:** no ENABLE RLS en notificaciones todavía. Después: `clientes` (PII) con el mismo patrón RPC-first, o quitar `VITE_GEMINI_API_KEY` de Production (manual Vercel).
+
+---
+
+## Paso 8 — `clientes` sin `password_hash` ✅ (2026-08-13)
+
+**Problema:** `clientes` sin RLS, anon con GRANT ALL (incluía TRUNCATE) y el front hacía `select('*')` → filtraba hashes + DNI/email.
+
+**Qué hicimos (sin RLS, sin revocar SELECT/UPDATE de la tabla todavía):**
+- Vista `clientes_publico` (todos los campos salvo `password_hash`)
+- GRANT solo SELECT en la vista
+- Revocados TRUNCATE / REFERENCES / TRIGGER en `clientes`
+- Lecturas en `api.ts`, PlotAI y chat público → `clientes_publico`
+- Escrituras (fusión / update ficha) siguen en `clientes`
+
+**Verificar (después de deploy del front):**
+1. Buscador de clientes / duplicados
+2. Login portal cliente
+3. Alta ficha sin portal + habilitar acceso
+4. Fusión de duplicados
+
+**No hacer todavía:** `REVOKE SELECT` en `clientes` (rompe fusión/update directo) ni ENABLE RLS.
+
+**Siguiente:** gate actor en `crear_cliente` / `habilitar_acceso_cliente`, o recortar SELECT de `clientes` cuando esas escrituras pasen a RPC.
+
+---
+
+## Paso 9 — Gate actor en RPCs de portal cliente ✅ (2026-08-13)
+
+**Problema:** `crear_cliente`, `habilitar_acceso_cliente`, `quitar_acceso_cliente` y `actualizar_cliente` eran DEFINER sin actor → cualquiera con anon key podía crear logins de portal.
+
+**Qué hicimos (sin RLS, sin tocar tótem/OP):**
+- Helper `actor_puede_gestionar_clientes` (admin, gerencia, mostrador, caja, presupuestos activos = `canAccessMostradorViews`)
+- Esas RPCs + `crear_cliente_sin_acceso` exigen `p_actor_id`
+- **No** se tocó `buscar_o_crear_cliente` (tótem, venta rápida, crear OP)
+- Front: gestión web + agregar ficha envían `actorId`
+
+**Verificar (después de deploy del front):**
+1. Mostrador/admin crea ficha y habilita portal → OK
+2. Usuario taller (u otro rol) aunque mande un id, la RPC rechaza
+3. Tótem checkout / crear OP con cliente nuevo → sigue igual
+
+**Queda:** `actualizarClienteDatos` y fusión siguen con UPDATE directo a `clientes` (por eso no hay `REVOKE SELECT/UPDATE` todavía).
+
+**Siguiente:** RPC para ficha/fusión y recortar UPDATE/SELECT de la tabla, o Gemini `VITE_` en Production (manual).
+
+---
+
+## Paso 10 — Ficha y fusión vía RPC ✅ (2026-08-13)
+
+**Problema:** `actualizarClienteDatos` y `fusionarClientes` hacían `UPDATE` directo a `clientes` (anon aún tiene UPDATE).
+
+**Qué hicimos (sin RLS, sin recortar SELECT/UPDATE todavía):**
+- RPC `actualizar_cliente_ficha` + `fusionar_clientes` con `actor_puede_gestionar_clientes`
+- Front (gestión web + duplicados) manda `actorId`
+- Fallback a tabla **solo** si la función no existe (no si “No autorizado”)
+- `buscar_o_crear_cliente` intacto (tótem / OP)
+
+**Verificar (después de deploy):**
+1. Editar ficha sin portal
+2. Unificar duplicados (historial pasa al principal, secundaria inactiva)
+3. Crear OP / tótem sin cambios
+
+**Hecho después:** Paso 11 recortó SELECT/DML de la tabla.
+
+---
+
+## Paso 11 — REVOKE `clientes` (anon) ✅ (2026-08-13)
+
+**Problema:** con la anon key se podía `SELECT *` / `UPDATE` / `DELETE` directo a `clientes` (PII + `password_hash`).
+
+**Qué hicimos (sin RLS):**
+- `REVOKE SELECT, INSERT, UPDATE, DELETE` en `public.clientes` para `anon` y `authenticated`
+- Lecturas: `clientes_publico` (SELECT only; vista owner, no invoker)
+- Escrituras: RPCs DEFINER (`crear_cliente`, `actualizar_cliente_ficha`, `fusionar_clientes`, `buscar_o_crear_cliente`, portal)
+- Front: sin fallback a la tabla
+- Higiene: `usuarios_publico` también queda solo SELECT (antes heredaba ALL)
+
+**Smoke SQL:** anon no tiene SELECT/UPDATE en `clientes`; sí SELECT en `clientes_publico`; RPCs siguen con EXECUTE.
+
+**Verificar en Plot Lab (después de deploy del front):**
+1. Buscador / listado de clientes
+2. Editar ficha + unificar duplicados (mostrador/admin)
+3. Alta OP / tótem con cliente nuevo (`buscar_o_crear_cliente`)
+4. Login portal cliente
+
+**Rollback (solo emergencia):**
+`GRANT SELECT, INSERT, UPDATE, DELETE ON public.clientes TO anon, authenticated;`
+
+**Siguiente:** recortar fallback de tabla en notificaciones (campanita) **sin** ENABLE RLS, o quitar `VITE_GEMINI_API_KEY` de Production (manual Vercel).
+
+---
+
+## Paso 12 — Campanita: fallback solo si falta la RPC ✅ (2026-08-13)
+
+**Problema:** si `listar_notificaciones_usuario` / marcar / crear fallaba por cualquier motivo, el front iba directo a `user_notifications` (anon sigue con SELECT/UPDATE/INSERT). Eso eludía el recorte futuro y permitía marcar por `id` sin `user_id`.
+
+**Qué hicimos (sin RLS, sin REVOKE, Realtime igual):**
+- Listar / crear / marcar / marcar todas / `notif_existe_reciente`: fallback a tabla **solo** si la función no existe (`PGRST202`)
+- `markNotificationAsRead` exige `userId` (ya no UPDATE suelto por `id`)
+- `postgres_changes` en campanita / chat / badges **sin cambios**
+
+**No hacer todavía:** `REVOKE SELECT/INSERT/UPDATE` ni `ENABLE RLS` en `user_notifications` (vaciaría la campanita: policies viejas usan `auth.uid()`).
+
+**Verificar (después de deploy):**
+1. Campanita lista y marca leídas
+2. “Marcar todas”
+3. Llega una nueva (realtime / poll)
+4. Comunicados RRHH masivos
+
+**Siguiente:** Gemini sin `VITE_` en el bundle de Production (Paso 13 + borrar la var en Vercel).
+
+---
+
+## Paso 13 — Gemini: `VITE_` solo en vite dev ✅ (2026-08-13)
+
+**Problema:** `VITE_GEMINI_API_KEY` en Vercel Production se embebe en el JS. Chat ya iba a `/api/plotai/generate-content`, pero Live (tótem / staff) leía la key del bundle.
+
+**Qué hicimos (código; falta el recorte manual en Vercel):**
+- `fetchGeminiLiveApiKey`: prod → `/api/plotai/live-voice`; `VITE_` solo si `import.meta.env.DEV`
+- `callGeminiGenerateContent`: no cae a Gemini directo en prod (ni en 404)
+- `PlotAILiveVoice` pide la key al iniciar la llamada
+- `.env.example`: `GEMINI_API_KEY` servidor; `VITE_` comentada como local
+
+**Vos en Vercel (Paso 3.1):**
+1. `GEMINI_API_KEY` presente en Production
+2. Borrar `VITE_GEMINI_API_KEY` de Production (+ Preview)
+3. Redeploy
+
+**Verificar después del deploy + recorte de env:**
+1. PlotAI texto (tablero / caja / portal)
+2. Tótem voz + `/embed/chat`
+3. DevTools → Sources: el bundle **no** debe contener la key de Gemini
+
+**Siguiente:** Telegram webhook fail-closed (Paso 14), o campanita sin fallback de tabla.
+
+---
+
+## Paso 14 — Telegram webhook fail-closed ✅ (2026-08-13)
+
+**Problema:** sin `TELEGRAM_WEBHOOK_SECRET`, cualquier POST a `/api/telegram/webhook` llegaba al bot (PlotAI + agenda DT).
+
+**Qué hicimos:**
+- En **Production**, si falta el secret → no procesa updates (sigue respondiendo 200 a Telegram)
+- Si el secret está, exige header `x-telegram-bot-api-secret-token`
+- Preview/dev sin secret: sigue (como backup token)
+- `TELEGRAM_ALLOWED_USERS` sigue opcional (allowlist extra)
+
+**Vos en Vercel + Telegram:**
+1. `TELEGRAM_WEBHOOK_SECRET` en Production (string aleatorio)
+2. `setWebhook` con el mismo `secret_token`:
+   `https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://trello.plotcenter.com.ar/api/telegram/webhook&secret_token=<MISMO_SECRET>`
+
+**Verificar:** `/start` y `/agenda` en el bot; un POST sin header no dispara PlotAI.
+
+**Siguiente:** campanita sin fallback de tabla (aún sin RLS), o storage signed URLs, o `ordenes_trabajo` SELECT (6.2).
+
+---
+
+## Paso 15 — Campanita solo RPC ✅ (2026-08-13)
+
+**Problema:** el fallback a `user_notifications` (aunque recortado a “función faltante”) seguía permitiendo DML/SELECT directo con la anon key.
+
+**Qué hicimos (sin RLS, sin REVOKE, Realtime igual):**
+- Listar / crear / marcar / marcar todas / `notif_existe_reciente`: **solo** RPCs DEFINER
+- `postgres_changes` en campanita / chat / badges **sin cambios** (anon aún tiene SELECT en la tabla para Realtime)
+
+**No hacer todavía:** `REVOKE SELECT/INSERT/UPDATE` ni `ENABLE RLS` (policies viejas con `auth.uid()` vaciarían la campanita; Realtime necesita SELECT).
+
+**Verificar (después de deploy):**
+1. Campanita lista y marca leídas
+2. “Marcar todas”
+3. Llega una nueva (realtime)
+4. Comunicados RRHH masivos
+
+**Siguiente:** storage signed URLs, o Paso 6.2 (`ordenes_trabajo` SELECT vía RPC), o recortar TRUNCATE residual en `usuarios` (anon).
+
+---
+
+## Paso 16 — Caja: sin TRUNCATE (anon) ✅ (2026-09-15)
+
+**Problema:** las 11 tablas `control_caja_*` tenían RLS ON pero policy `USING (true)` + `GRANT ALL` (incluía **TRUNCATE**). Cualquiera con la anon key podía vaciar plata.
+
+**Qué hicimos (sin romper el módulo):**
+- `REVOKE TRUNCATE, REFERENCES, TRIGGER` en las 11 tablas para `anon` y `authenticated`
+- **No** se tocó SELECT/INSERT/UPDATE/DELETE (el front aún escribe directo vía `cajaRepository`)
+- **No** se cambió la policy abierta (viene en Paso 17)
+
+**Patch:** `supabase/patches/2026-09-15_control_caja_revoke_truncate.sql` (aplicado en prod)
+
+**Verificar:**
+1. Abrir Control de cajas → listar cajas, movimientos, arqueos
+2. Registrar un movimiento / egreso de prueba
+3. En SQL Editor como rol `anon`: `TRUNCATE control_caja_movimientos` → debe fallar
+4. `SELECT * FROM control_caja_movimientos LIMIT 1` → aún funciona (esperado hasta Paso 17)
+
+**Siguiente (Paso 17):** RPC DEFINER para escrituras de movimientos/arqueos/cierres + actor gate; después REVOKE DML y policy real (caja = usuario).
+
+---
+
+## Paso 17 — Caja: RPCs con actor gate ✅ (2026-09-15)
+
+**Problema:** cualquiera con la anon key podía INSERT/UPDATE/DELETE en `control_caja_*` (policy `USING true`). El front validaba dueño solo en cliente.
+
+**Qué hicimos (sin REVOKE DML todavía):**
+- Helpers DEFINER: `actor_es_admin_caja`, `actor_puede_operar_caja_slug`, `actor_puede_grabar_movimiento_caja`
+- RPCs: `caja_upsert_movimiento`, `caja_delete_movimiento`, `caja_insert_movimientos`, `caja_upsert_arqueo`, `caja_upsert_cierre`
+- `cajaRepository`: si hay `actor.id`, escribe por RPC; sin actor (sync legacy) sigue por tabla
+- Admin/gerencia en DB; titular `u-{id}` / `id_usuario`
+
+**Patches:** `2026-09-15_control_caja_rpcs_actor_gate.sql` (+ migraciones aplicadas en prod)
+
+**Verificar (después de deploy front):**
+1. Mostrador: movimiento / arqueo / cierre en su caja → OK
+2. Mostrador intenta operar caja ajena → error “No autorizado…”
+3. Admin/gerencia opera cualquier caja → OK
+4. Sync venta→caja sin actor (si aplica) → no rompe
+
+**Siguiente (Paso 18):** REVOKE INSERT/UPDATE/DELETE anon en movimientos/arqueos/cierres cuando todos los caminos pasen actor; luego policy real.
+
+---
+
+## Paso 18 — Caja: sin DML directo (anon) ✅ (2026-09-15)
+
+**Problema:** tras el Paso 17 el front prefería RPC, pero anon seguía con INSERT/UPDATE/DELETE + policy `USING true`.
+
+**Qué hicimos:**
+- RPCs `caja_delete_arqueo` / `caja_delete_cierre`
+- Policies solo `SELECT` en movimientos / arqueos / cierres
+- `REVOKE INSERT, UPDATE, DELETE` para `anon` y `authenticated`
+- `cajaRepository`: escrituras remotas **solo** RPC + `actor` obligatorio
+- Sync venta/CC/egreso/planilla: pasan `actorId`
+
+**Triggers PlotLab** (DEFINER) siguen escribiendo en servidor; no usan grants de anon.
+
+**Patches:** `2026-09-15_control_caja_revoke_dml.sql` (aplicado en prod)
+
+**Verificar (después de deploy front):**
+1. Movimiento / arqueo / cierre con usuario logueado → OK
+2. SQL como anon: `INSERT INTO control_caja_movimientos ...` → falla
+3. `SELECT` de movimientos → OK
+4. Cobro venta → caja (con vendedor) → OK; sin usuario → omitido (trigger DB puede cubrir)
+
+**Siguiente:** REVOKE DML en traspasos/planillas/egresos; o un origen canónico (Fase 2).

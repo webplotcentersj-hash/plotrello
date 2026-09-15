@@ -480,7 +480,10 @@ export default function ControlCajasModule() {
           )}
 
           {section === 'arqueos_admin' && enVistaAdmin && (
-            <CajaSectionArqueosAdmin initialCajaSlug={cajaSeleccionadaSlug} />
+            <CajaSectionArqueosAdmin
+              initialCajaSlug={cajaSeleccionadaSlug}
+              usuarioId={usuarioId}
+            />
           )}
 
           {section === 'movimientos_admin' && enVistaAdmin && (

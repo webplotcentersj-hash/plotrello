@@ -107,7 +107,8 @@ export default function CajaImportComprobantesMedios({
       setProgress(`Importando 0 / ${movs.length}…`)
       const bulk = await saveMovimientosBulk(movs, {
         cajas,
-        onProgress: (done, total) => setProgress(`Importando ${done} / ${total}…`)
+        onProgress: (done, total) => setProgress(`Importando ${done} / ${total}…`),
+        actor: usuarioId != null ? { id: usuarioId, esAdmin: false } : undefined
       })
 
       const r = resumenImportComprobantes(movs)

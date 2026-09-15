@@ -304,7 +304,17 @@ export async function syncDesdeVentaRecord(
   if (!ventaDebeSincronizarCaja(venta)) {
     if (existente) {
       try {
-        const anulado = await saveMovimiento({ ...existente, anulado: true })
+        const actorId = opts?.actorId ?? titularId ?? existente.id_usuario ?? undefined
+        if (actorId == null) {
+          return {
+            ok: false,
+            error: 'Sin usuario para anular movimiento de caja'
+          }
+        }
+        const anulado = await saveMovimiento(
+          { ...existente, anulado: true },
+          { actor: { id: actorId, esAdmin: opts?.esAdmin } }
+        )
         notificarCajaActualizada()
         return {
           ok: true,
@@ -458,12 +468,24 @@ export async function syncVentaPlotLabACaja(
       ? { ...(linea as unknown as Record<string, number>), mercado_pago: monto }
       : (linea as unknown as Record<string, number>)
 
-    const mov = await saveMovimiento({
-      ...movBase,
-      id: existente?.id,
-      medios: mediosGuardar,
-      cierre_id: existente?.cierre_id ?? null
-    })
+    const actorId = input.usuarioId
+    if (actorId == null || actorId <= 0) {
+      return {
+        ok: false,
+        error: 'Sin usuario para registrar en caja (requiere vendedor/cobrador).',
+        omitido: true
+      }
+    }
+
+    const mov = await saveMovimiento(
+      {
+        ...movBase,
+        id: existente?.id,
+        medios: mediosGuardar,
+        cierre_id: existente?.cierre_id ?? null
+      },
+      { actor: { id: actorId } }
+    )
 
     notificarCajaActualizada()
 

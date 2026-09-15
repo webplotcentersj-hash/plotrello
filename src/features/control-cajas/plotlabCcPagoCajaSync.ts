@@ -162,10 +162,17 @@ export async function syncPagoCuentaCorrienteACajaAdmin(
         }
       : (linea as unknown as Record<string, number>)
 
-    const mov = await saveMovimiento({
-      ...movBase,
-      medios: mediosGuardar
-    })
+    if (input.usuarioId == null || input.usuarioId <= 0) {
+      return { ok: false, error: 'Sin usuario para registrar pago CC en caja' }
+    }
+
+    const mov = await saveMovimiento(
+      {
+        ...movBase,
+        medios: mediosGuardar
+      },
+      { actor: { id: input.usuarioId } }
+    )
 
     notificarCajaActualizada()
     notifyCajaSync({

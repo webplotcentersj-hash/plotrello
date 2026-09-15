@@ -121,7 +121,13 @@ export async function importarPlanillaAlSistema(input: {
 
   if (movs.length) {
     onProgress?.(`Importando ${movs.length} movimiento(s)…`)
-    const bulk = await saveMovimientosBulk(movs, { cajas })
+    const bulk = await saveMovimientosBulk(movs, {
+      cajas,
+      actor:
+        usuarioId != null
+          ? { id: usuarioId, esAdmin: Boolean(esAdmin) }
+          : undefined
+    })
     await syncEgresosSolicitudesDesdePlanilla({
       planilla,
       cajaSlug,

@@ -1,6 +1,6 @@
 # Seguridad Plotrello — resumen operativo
 
-> Última actualización: 2026-06-02 · Cambios iniciales en código + plan por sensibilidad.
+> Última actualización: 2026-09-15 · Paso 18 caja sin DML anon (solo SELECT + RPC).
 
 ---
 
@@ -13,9 +13,9 @@
 | **Supabase PostgREST** | `443` → `*.supabase.co` | Anon key en bundle | **Riesgo principal** — RLS debe acotar |
 | **Supabase Storage** | `443` | Anon (hoy público) | Migrar a signed URLs |
 | **Supabase Realtime** | `443` wss | Anon | Revisar canales |
-| **Gemini API** | `443` Google | Server + cliente (legacy) | Quitar `VITE_GEMINI_API_KEY` prod |
+| **Gemini API** | `443` Google | Solo servidor (`GEMINI_API_KEY`) | Borrar `VITE_GEMINI` de Production |
 | **Resend** | `443` | Solo server | OK |
-| **Telegram** | `443` | Webhook `/api/telegram/webhook` | Configurar secret |
+| **Telegram** | `443` | Webhook `/api/telegram/webhook` | Secret obligatorio en prod |
 | **Dev Vite** | `5173` localhost | Solo dev | `host` solo con `VITE_DEV_LAN=1` |
 | **n8n** | externo | Credenciales vault | No service role en JSON |
 
@@ -33,6 +33,7 @@
 | `api/notify-orden-lista.ts` | `NOTIFY_ORDEN_WEBHOOK_SECRET` obligatorio en prod |
 | `api/plotai/generate-image.ts` | `GEMINI_API_KEY` server-only en prod |
 | `api/plotai/generate-content.ts` | PlotAI staff/caja vía servidor (sin `VITE_GEMINI`) |
+| `src/services/geminiLiveKey.ts` | Live: key vía `/api/plotai/live-voice`; `VITE_` solo en vite dev |
 | `api/auth/staff-login.ts` | JWT staff post-login (`PLOT_LAB_STAFF_JWT_SECRET`) |
 | `api/auth/staff-session.ts` | Verificación de sesión staff |
 | `src/hooks/useAuth.ts` | Mock admin solo con `VITE_DEV_MOCK_AUTH=1` |
@@ -44,6 +45,16 @@
 | `OpPublicPage` / `FirmaClientePage` | Usan RPC acotada (fallback legacy) |
 | `src/utils/sanitizeHtml.ts` | Anti-XSS en salidas IA |
 | Componentes IA | `sanitizeHtml` en markdown renderizado |
+| `supabase/patches/2026-08-13_user_notifications_rpcs_paso1.sql` | RPCs campanita; sin RLS |
+| `supabase/patches/2026-08-13_usuarios_rpc_actor_gate.sql` | Gate actor en crear/actualizar/baja |
+| `api/telegram/webhook.ts` | `TELEGRAM_WEBHOOK_SECRET` obligatorio en Production |
+| `supabase/patches/2026-08-13_clientes_publico_sin_hash.sql` | Vista sin hash + recortar TRUNCATE |
+| `supabase/patches/2026-08-13_clientes_rpc_actor_gate.sql` | Gate actor en crear/habilitar/quitar/actualizar portal |
+| `supabase/patches/2026-08-13_clientes_ficha_fusion_rpc.sql` | Ficha + fusión con actor |
+| `supabase/patches/2026-08-13_clientes_revoke_dml.sql` | REVOKE SELECT/DML anon en `clientes`; vistas solo SELECT |
+| `supabase/patches/2026-09-15_control_caja_revoke_truncate.sql` | Caja: sin TRUNCATE/REFERENCES/TRIGGER para anon (Paso 16) |
+| `supabase/patches/2026-09-15_control_caja_rpcs_actor_gate.sql` | Caja: RPCs upsert/delete con actor gate (Paso 17) |
+| `supabase/patches/2026-09-15_control_caja_revoke_dml.sql` | Caja: REVOKE DML; solo SELECT + RPC (Paso 18) |
 
 ### Variables nuevas en Vercel (configurar ya)
 
@@ -53,6 +64,7 @@ NOTIFY_ORDEN_WEBHOOK_SECRET=<aleatorio 32+ chars>
 PLOT_LAB_ALLOWED_ORIGINS=https://trello.plotcenter.com.ar,https://plotrello.vercel.app
 GEMINI_API_KEY=<sin VITE_ en producción>
 PLOT_LAB_STAFF_JWT_SECRET=<aleatorio 32+ chars>
+TELEGRAM_WEBHOOK_SECRET=<aleatorio; mismo valor en setWebhook secret_token>
 ```
 
 ---
@@ -87,19 +99,31 @@ Lo público **sigue funcionando** (QR, WhatsApp). Solo expone: estado, descripci
 |---|---------|--------|
 | 6 | Sesión JWT staff + cliente | Emitir token post-login | ✅ Staff (Paso 5) |
 | 7 | RLS `ordenes_trabajo` staff | Por rol, no `USING (true)` |
-| 8 | Gemini 100% server | Quitar cliente, proxy `/api/plotai/*` |
+| 8 | Gemini 100% server | Proxy `/api/plotai/*`; `VITE_` solo dev. ✅ Paso 13 · falta borrar env Vercel |
 | 9 | Storage `archivos` | Bucket privado + signed URL |
-| 10 | Telegram webhook | Secret + allowlist obligatoria |
+| 10 | Telegram webhook | Secret obligatorio en prod. ✅ Paso 14 · allowlist opcional |
 
 ### 🟡 P2 — Medio (semanas 4–6)
 
 | # | Proceso | Acción |
 |---|---------|--------|
 | 11 | ERP / caja / RRHH RLS | Por dominio incremental |
-| 12 | RPC admin | Revocar `anon` en `eliminar_usuario`, etc. |
-| 13 | Portal cliente RLS | Solo sus pedidos |
+| 11b | `user_notifications` | RPCs DEFINER, sin fallback de tabla. **No ENABLE RLS** hasta JWT. ✅ Pasos 1 + 12 + 15 |
+| 12 | RPC admin usuarios | Gate actor admin/gerencia/RRHH en crear/actualizar/baja. **No** revocar EXECUTE anon. ✅ 2026-08-13 |
+| 13 | Portal / ficha `clientes` | Vista sin hash + gate actor + REVOKE tabla. **No RLS.** ✅ Pasos 8–11 |
 | 14 | DOMPurify npm | Reemplazar fallback strip-tags |
 | 15 | Secret scanning CI | gitleaks en PR |
+
+### Notificaciones — paso 1 (hecho) / paso 2 (no hacer todavía)
+
+Staff usa `usuarios.id` entero + anon key. Las 3 policies existentes de `user_notifications` filtran con `auth.uid()` (UUID). Activarlas vaciaría la campanita.
+
+| Hecho | Pendiente (después de verificar campanita) |
+|-------|--------------------------------------------|
+| RPCs `listar_notificaciones_usuario`, `marcar_notificacion_leida`, `marcar_todas_notificaciones_leidas`, `crear_notificacion_usuario`, `notif_existe_reciente` | JWT staff en el claim → entonces RLS deny-all + drop policies viejas |
+| Revocados TRUNCATE / REFERENCES / TRIGGER a anon+authenticated | Revocar SELECT/INSERT/UPDATE/DELETE directos (después de Realtime/JWT) |
+| `api.ts` solo RPC ✅ Paso 15 | Realtime sigue `postgres_changes` (SELECT en tabla) |
+| Patch: `supabase/patches/2026-08-13_user_notifications_rpcs_paso1.sql` | IDOR residual: el cliente aún manda `p_user_id` |
 
 ### 🟢 P3 — Mantenimiento continuo
 
@@ -168,8 +192,9 @@ Lo público **sigue funcionando** (QR, WhatsApp). Solo expone: estado, descripci
 
 - [x] `PLOT_LAB_BACKUP_TOKEN` en Vercel Production
 - [x] `NOTIFY_ORDEN_WEBHOOK_SECRET` en Vercel Production
-- [ ] `GEMINI_API_KEY` (sin `VITE_`) en Vercel — Paso 3
-- [ ] Eliminar `VITE_GEMINI_API_KEY` de Production — Paso 3
+- [ ] `GEMINI_API_KEY` (sin `VITE_`) en Vercel — Paso 3.1 (manual)
+- [ ] Eliminar `VITE_GEMINI_API_KEY` de Production — Paso 3.1 (manual; código Paso 13 listo)
+- [ ] `TELEGRAM_WEBHOOK_SECRET` + `setWebhook` con el mismo `secret_token` — Paso 14
 - [ ] Aplicar patch `2026-06-02_seguimiento_publico_seguro.sql` en Supabase
 - [ ] Probar QR `/op-public/{numero_op}` sigue mostrando estado
 - [ ] Probar backup con `Authorization: Bearer <token>`

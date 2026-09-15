@@ -65,6 +65,49 @@ async function checkRemote(): Promise<boolean> {
   return remoteOk
 }
 
+function actorIdOrNull(actor?: CajaActor | null): number | null {
+  const id = actor?.id
+  return id != null && id > 0 ? id : null
+}
+
+function requireActorId(actor?: CajaActor | null): number {
+  const id = actorIdOrNull(actor)
+  if (id == null) {
+    throw new Error('Tenés que estar identificado para grabar en caja.')
+  }
+  return id
+}
+
+/** Paso 17–18: escrituras solo por RPC DEFINER (anon sin DML en tablas). */
+async function rpcCajaWrite(
+  fn: 'caja_upsert_movimiento' | 'caja_upsert_arqueo' | 'caja_upsert_cierre',
+  actorId: number,
+  row: Record<string, unknown>
+): Promise<void> {
+  const { error } = await supabase!.rpc(fn, { p_actor_id: actorId, p_row: row })
+  if (error) throw new Error(error.message || `Error en ${fn}`)
+}
+
+async function rpcCajaDelete(
+  fn: 'caja_delete_movimiento' | 'caja_delete_arqueo' | 'caja_delete_cierre',
+  actorId: number,
+  id: string
+): Promise<void> {
+  const { error } = await supabase!.rpc(fn, { p_actor_id: actorId, p_id: id })
+  if (error) throw new Error(error.message || `Error en ${fn}`)
+}
+
+async function rpcCajaInsertMovimientos(
+  actorId: number,
+  rows: Record<string, unknown>[]
+): Promise<void> {
+  const { error } = await supabase!.rpc('caja_insert_movimientos', {
+    p_actor_id: actorId,
+    p_rows: rows
+  })
+  if (error) throw new Error(error.message || 'Error al importar movimientos')
+}
+
 function sortMovimientos(list: CajaMovimiento[]): CajaMovimiento[] {
   return [...list].sort((a, b) => {
     const ka = `${b.fecha}${b.hora ?? ''}`
@@ -360,8 +403,9 @@ export async function saveArqueo(
       saldos: arqueo.saldos ?? null,
       firma_data_url: arqueo.firma_data_url ?? null
     }
-    const { error } = await supabase!.from('control_caja_arqueos').upsert(row)
-    if (!error) return record
+    const actorId = requireActorId(opts?.actor)
+    await rpcCajaWrite('caja_upsert_arqueo', actorId, row)
+    return record
   }
 
   const store = readLocal()
@@ -470,7 +514,8 @@ export async function saveTraspaso(
 
 export async function setTraspasoEstado(
   id: string,
-  estado: CajaTraspasoEstado
+  estado: CajaTraspasoEstado,
+  opts?: { actor?: CajaActor }
 ): Promise<CajaTraspaso> {
   const list = await listTraspasos()
   const t = list.find((x) => x.id === id)
@@ -481,16 +526,22 @@ export async function setTraspasoEstado(
   const movs = await listMovimientos()
   const linked = movs.filter((m) => m.traspaso_id === id)
   for (const m of linked) {
-    await saveMovimiento({ ...m, anulado: estado === 'anulado' })
+    await saveMovimiento(
+      { ...m, anulado: estado === 'anulado' },
+      opts?.actor ? { actor: opts.actor } : undefined
+    )
   }
 
   return updated
 }
 
-export async function deleteArqueo(id: string): Promise<void> {
+export async function deleteArqueo(
+  id: string,
+  opts?: { actor?: CajaActor }
+): Promise<void> {
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_arqueos').delete().eq('id', id)
-    if (!error) return
+    await rpcCajaDelete('caja_delete_arqueo', requireActorId(opts?.actor), id)
+    return
   }
   const store = readLocal()
   store.arqueos = store.arqueos.filter((a) => a.id !== id)
@@ -650,8 +701,8 @@ export async function saveMovimiento(
 
   if (await checkRemote()) {
     const row = movRowFromRecord(record, id)
-    const { error } = await supabase!.from('control_caja_movimientos').upsert(row)
-    if (!error) return record
+    await rpcCajaWrite('caja_upsert_movimiento', requireActorId(opts?.actor), row)
+    return record
   }
 
   const store = readLocal()
@@ -713,13 +764,11 @@ export async function saveMovimientosBulk(
     try {
       const cajas = opts?.cajas ?? (await listCajas())
       await ensureCajaSlugsForMovimientos(records, cajas)
+      const actorId = requireActorId(opts?.actor)
       for (let i = 0; i < records.length; i += MOVIMIENTOS_BULK_CHUNK) {
         const chunk = records.slice(i, i + MOVIMIENTOS_BULK_CHUNK)
         const payload = chunk.map((r) => movRowFromRecord(r, r.id))
-        const { error } = await supabase!.from('control_caja_movimientos').insert(payload)
-        if (error) {
-          throw new Error(error.message || 'Error al importar movimientos en el servidor')
-        }
+        await rpcCajaInsertMovimientos(actorId, payload)
         opts?.onProgress?.(Math.min(i + chunk.length, total), total)
       }
       persistedRemote = true
@@ -980,29 +1029,36 @@ export async function adjuntarTicketEgresoSolicitud(
     (await listCajas()).find((c) => c.slug === 'admin')?.slug ??
     'admin'
 
-  const mov = await saveMovimiento({
-    fecha: sol.fecha,
-    hora: new Date().toTimeString().slice(0, 5),
-    concepto: sol.concepto || 'Egreso',
-    subtipo_pase: null,
-    tipo_movimiento: 'egreso',
-    categoria: 'gasto_vario',
-    origen_slug: sol.caja_slug,
-    destino_slug: adminSlug,
-    efectivo: sol.monto_efectivo,
-    otros: sol.monto_otros || 0,
-    observacion: [
-      sol.aprobador_nombre ? `Egreso autorizado por ${sol.aprobador_nombre}.` : 'Egreso autorizado.',
-      sol.observacion?.trim() || '',
-      `Ticket: ${url}`
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .trim(),
-    id_usuario: sol.solicitante_id ?? null,
-    usuario_nombre: sol.solicitante_nombre ?? null,
-    origen_importacion: 'manual'
-  })
+  const mov = await saveMovimiento(
+    {
+      fecha: sol.fecha,
+      hora: new Date().toTimeString().slice(0, 5),
+      concepto: sol.concepto || 'Egreso',
+      subtipo_pase: null,
+      tipo_movimiento: 'egreso',
+      categoria: 'gasto_vario',
+      origen_slug: sol.caja_slug,
+      destino_slug: adminSlug,
+      efectivo: sol.monto_efectivo,
+      otros: sol.monto_otros || 0,
+      observacion: [
+        sol.aprobador_nombre ? `Egreso autorizado por ${sol.aprobador_nombre}.` : 'Egreso autorizado.',
+        sol.observacion?.trim() || '',
+        `Ticket: ${url}`
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim(),
+      id_usuario: sol.solicitante_id ?? null,
+      usuario_nombre: sol.solicitante_nombre ?? null,
+      origen_importacion: 'manual'
+    },
+    {
+      actor:
+        opts?.actor ??
+        (sol.solicitante_id != null ? { id: sol.solicitante_id } : undefined)
+    }
+  )
 
   const updated: CajaEgresoSolicitud = {
     ...sol,
@@ -1116,10 +1172,13 @@ export async function saveTransferenciaLote(
   return record
 }
 
-export async function deleteMovimiento(id: string): Promise<void> {
+export async function deleteMovimiento(
+  id: string,
+  opts?: { actor?: CajaActor }
+): Promise<void> {
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_movimientos').delete().eq('id', id)
-    if (!error) return
+    await rpcCajaDelete('caja_delete_movimiento', requireActorId(opts?.actor), id)
+    return
   }
   const store = readLocal()
   store.movimientos = store.movimientos.filter((m) => m.id !== id)
@@ -1595,7 +1654,7 @@ export async function saveCierre(
   const record: CajaCierre = { ...cierre, id }
 
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_cierres').upsert({
+    const row = {
       id,
       fecha: cierre.fecha,
       caja_slug: cierre.caja_slug,
@@ -1623,8 +1682,10 @@ export async function saveCierre(
       observacion: cierre.observacion,
       id_planilla: cierre.id_planilla,
       updated_at: new Date().toISOString()
-    })
-    if (!error) return record
+    }
+    const actorId = requireActorId(opts?.actor)
+    await rpcCajaWrite('caja_upsert_cierre', actorId, row)
+    return record
   }
 
   const store = readLocal()
@@ -1640,7 +1701,8 @@ export async function vincularMovimientosAlCierre(
   cajaSlug: string,
   fechaDesde: string,
   fechaHasta: string,
-  movimientos: CajaMovimiento[]
+  movimientos: CajaMovimiento[],
+  opts?: { actor?: CajaActor }
 ): Promise<number> {
   const delPeriodo = movimientosEnPeriodoCaja(movimientos, cajaSlug, fechaDesde, fechaHasta)
   let vinculados = 0
@@ -1654,16 +1716,22 @@ export async function vincularMovimientosAlCierre(
         )
       }
     }
-    await saveMovimiento({ ...m, cierre_id: cierreId })
+    await saveMovimiento({ ...m, cierre_id: cierreId }, opts?.actor ? { actor: opts.actor } : undefined)
     vinculados++
   }
   return vinculados
 }
 
-export async function desvincularMovimientosCierre(cierreId: string): Promise<void> {
+export async function desvincularMovimientosCierre(
+  cierreId: string,
+  opts?: { actor?: CajaActor }
+): Promise<void> {
   const movs = await listMovimientos()
   for (const m of movs.filter((x) => x.cierre_id === cierreId)) {
-    await saveMovimiento({ ...m, cierre_id: null })
+    await saveMovimiento(
+      { ...m, cierre_id: null },
+      opts?.actor ? { actor: opts.actor } : undefined
+    )
   }
 }
 
@@ -1687,7 +1755,7 @@ export async function listMovimientosPorLote(loteId: string): Promise<CajaMovimi
 export async function cerrarCierreDefinitivo(
   cierreId: string,
   movimientos: CajaMovimiento[],
-  opts?: { observado?: boolean; tolerancia?: number }
+  opts?: { observado?: boolean; tolerancia?: number; actor?: CajaActor }
 ): Promise<CajaCierre> {
   const c = await getCierre(cierreId)
   if (!c) throw new Error('Cierre no encontrado')
@@ -1711,7 +1779,14 @@ export async function cerrarCierreDefinitivo(
     opts?.tolerancia ?? 0
   )
 
-  const vinculados = await vincularMovimientosAlCierre(cierreId, c.caja_slug, c.fecha, hasta, movimientos)
+  const vinculados = await vincularMovimientosAlCierre(
+    cierreId,
+    c.caja_slug,
+    c.fecha,
+    hasta,
+    movimientos,
+    opts?.actor ? { actor: opts.actor } : undefined
+  )
 
   const payload = cierreFromCalculado(
     {
@@ -1726,23 +1801,29 @@ export async function cerrarCierreDefinitivo(
     calc
   )
 
-  return saveCierre({
-    ...payload,
-    id: cierreId,
-    fecha_hasta: hasta,
-    estado_cierre: opts?.observado ? 'observado' : 'cerrado',
-    snapshot_totales: snapshotTotalesCierre(c.caja_slug, c.fecha, hasta, movimientos, {
-      movimientos_vinculados: vinculados
-    })
-  })
+  return saveCierre(
+    {
+      ...payload,
+      id: cierreId,
+      fecha_hasta: hasta,
+      estado_cierre: opts?.observado ? 'observado' : 'cerrado',
+      snapshot_totales: snapshotTotalesCierre(c.caja_slug, c.fecha, hasta, movimientos, {
+        movimientos_vinculados: vinculados
+      })
+    },
+    opts?.actor ? { actor: opts.actor } : undefined
+  )
 }
 
-export async function deleteCierre(id: string): Promise<void> {
-  await desvincularMovimientosCierre(id)
+export async function deleteCierre(
+  id: string,
+  opts?: { actor?: CajaActor }
+): Promise<void> {
   if (await checkRemote()) {
-    const { error } = await supabase!.from('control_caja_cierres').delete().eq('id', id)
-    if (!error) return
+    await rpcCajaDelete('caja_delete_cierre', requireActorId(opts?.actor), id)
+    return
   }
+  await desvincularMovimientosCierre(id, opts)
   const store = readLocal()
   store.cierres = store.cierres.filter((c) => c.id !== id)
   writeLocal(store)

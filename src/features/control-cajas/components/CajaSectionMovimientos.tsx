@@ -125,7 +125,10 @@ export default function CajaSectionMovimientos({
         ...r,
         id_usuario: usuarioId ?? null,
         usuario_nombre: r.usuario_nombre ?? usuarioNombre
-      }))
+      })),
+      usuarioId != null
+        ? { actor: { id: usuarioId, esAdmin: true }, cajas }
+        : undefined
     )
     setImportMsg(
       `Importados ${rows.length} movimiento(s).${skipped ? ` Omitidas ${skipped}.` : ''}${errors.length ? ` Avisos: ${errors.slice(0, 3).join(' ')}` : ''}`
@@ -135,7 +138,10 @@ export default function CajaSectionMovimientos({
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este movimiento?')) return
-    await deleteMovimiento(id)
+    await deleteMovimiento(
+      id,
+      usuarioId != null ? { actor: { id: usuarioId, esAdmin: true } } : undefined
+    )
     await reload()
   }
 

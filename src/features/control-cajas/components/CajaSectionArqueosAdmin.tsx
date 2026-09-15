@@ -11,9 +11,11 @@ import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 
 export default function CajaSectionArqueosAdmin({
-  initialCajaSlug = null
+  initialCajaSlug = null,
+  usuarioId
 }: {
   initialCajaSlug?: string | null
+  usuarioId?: number
 }) {
   const [arqueos, setArqueos] = useState<CajaArqueo[]>([])
   const [cajas, setCajas] = useState<CajaRegistro[]>([])
@@ -263,10 +265,19 @@ export default function CajaSectionArqueosAdmin({
                           className="btn-small danger"
                           onClick={() => {
                             if (confirm('¿Eliminar arqueo?')) {
-                              void deleteArqueo(a.id).then(() => {
-                                if (detalle?.id === a.id) setDetalle(null)
-                                reload()
+                              void deleteArqueo(a.id, {
+                                actor:
+                                  usuarioId != null
+                                    ? { id: usuarioId, esAdmin: true }
+                                    : undefined
                               })
+                                .then(() => {
+                                  if (detalle?.id === a.id) setDetalle(null)
+                                  reload()
+                                })
+                                .catch((e) =>
+                                  alert(e instanceof Error ? e.message : 'No se pudo eliminar')
+                                )
                             }
                           }}
                         >
@@ -298,10 +309,14 @@ export default function CajaSectionArqueosAdmin({
           cajeraNombre={operadorLabel(detalle)}
           onClose={() => setDetalle(null)}
           onDelete={() => {
-            void deleteArqueo(detalle.id).then(() => {
-              setDetalle(null)
-              reload()
+            void deleteArqueo(detalle.id, {
+              actor: usuarioId != null ? { id: usuarioId, esAdmin: true } : undefined
             })
+              .then(() => {
+                setDetalle(null)
+                reload()
+              })
+              .catch((e) => alert(e instanceof Error ? e.message : 'No se pudo eliminar'))
           }}
         />
       )}
