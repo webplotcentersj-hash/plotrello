@@ -431,4 +431,23 @@ Tabla por tabla, sin romper zona pública.
 3. Config fondo + concil MP/banco (admin)
 4. Anon: `INSERT INTO control_caja_traspasos` → falla
 
-**Siguiente:** un origen canónico (Fase 2) o blindar `ventas`/`pagos` (PII/plata fuera de control_caja).
+**Siguiente:** Paso 20 (TRUNCATE en ventas/pagos) o un origen canónico (Fase 2).
+
+---
+
+## Paso 20 — Ventas/pagos: sin TRUNCATE anon ✅ (2026-09-15)
+
+**Problema:** tablas comerciales (`ventas`, `ventas_items`, `pagos`, CxC, facturas, CRM oportunidades/seguimientos, presupuestos, `pagos_cobros`/`pagos_proveedores`) tenían TRUNCATE/REFERENCES/TRIGGER para anon. Varias sin RLS. `api.ts` aún escribe DML directo → no REVOKE INSERT/UPDATE/DELETE todavía.
+
+**Qué hicimos:**
+- `REVOKE TRUNCATE, REFERENCES, TRIGGER` en esas 11 tablas (mismo patrón Paso 16 caja)
+- Front sin cambios (SELECT/DML siguen)
+
+**Patch:** `supabase/patches/2026-09-15_ventas_pagos_revoke_truncate.sql` (aplicado en prod)
+
+**Verificar:**
+1. Venta rápida / CRM ventas / cobros siguen OK
+2. Anon: `TRUNCATE ventas` → falla
+3. Anon grants = solo DELETE, INSERT, SELECT, UPDATE
+
+**Siguiente (Paso 21):** RPC DEFINER + actor gate para escrituras de `ventas`/`pagos` (y luego REVOKE DML), o un origen canónico (Fase 2).
