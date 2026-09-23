@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenAI } from '@google/genai'
+import { isProduction } from '../_lib/security'
 
 // Crear cliente de Supabase para Vercel (usa process.env en lugar de import.meta.env)
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
@@ -129,7 +130,14 @@ async function loadAgendaTextoParaAsesor(asesorId: number): Promise<string> {
 
 // Configuración del bot
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || ''
+const TELEGRAM_WEBHOOK_SECRET = (process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()
 const TELEGRAM_ALLOWED_USERS = (process.env.TELEGRAM_ALLOWED_USERS || '').split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+
+function telegramWebhookSecretOk(req: VercelRequest): boolean {
+  if (!TELEGRAM_WEBHOOK_SECRET) return !isProduction()
+  const got = String(req.headers['x-telegram-bot-api-secret-token'] || '')
+  return got.length > 0 && got === TELEGRAM_WEBHOOK_SECRET
+}
 
 // URL base de la API de Telegram
 const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`
@@ -294,7 +302,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('[Telegram Webhook] Método no permitido:', req.method)
     return
   }
-  
+
+  if (!telegramWebhookSecretOk(req)) {
+    console.error(
+      TELEGRAM_WEBHOOK_SECRET
+        ? '[Telegram Webhook] secret token inválido o ausente'
+        : '[Telegram Webhook] TELEGRAM_WEBHOOK_SECRET obligatorio en producción'
+    )
+    return
+  }
+
   // Verificar token del bot
   if (!TELEGRAM_BOT_TOKEN) {
     console.error('[Telegram Webhook] ERROR: TELEGRAM_BOT_TOKEN no configurado')

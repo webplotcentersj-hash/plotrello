@@ -42,10 +42,16 @@ export async function probarConexionAFIP(): Promise<{
   }
 }
 
+/**
+ * Autoriza en AFIP y, con CAE, emite el comprobante (CxC, nota de crédito y asiento se generan en el servidor).
+ * También sirve para reintentar una autorización fallida o completar efectos pendientes.
+ */
 export async function autorizarFacturaAFIP(idFactura: number): Promise<{
   success: boolean
   data?: FacturaVentaRecord
   error?: string
+  /** Autorizada, pero algo posterior (CxC / asiento) quedó pendiente. */
+  warning?: string
 }> {
   try {
     const res = await plotLabFetch('/api/erp/afip-autorizar', {
@@ -57,11 +63,12 @@ export async function autorizarFacturaAFIP(idFactura: number): Promise<{
       success?: boolean
       data?: FacturaVentaRecord
       error?: string
+      warning?: string
     } | null
     if (!res.ok || !json?.success) {
       return { success: false, error: json?.error || `HTTP ${res.status}` }
     }
-    return { success: true, data: json.data }
+    return { success: true, data: json.data, warning: json.warning }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Error de red' }
   }

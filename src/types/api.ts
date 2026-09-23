@@ -1014,6 +1014,10 @@ export interface FacturaVentaRecord {
   numero_op?: string | null
   id_venta?: number | null
   id_factura_referencia?: number | null
+  /** Concepto AFIP: 1 Productos · 2 Servicios · 3 Productos y Servicios. */
+  concepto?: 1 | 2 | 3 | null
+  fecha_servicio_desde?: string | null
+  fecha_servicio_hasta?: string | null
   subtotal: number
   descuento: number
   iva: number
@@ -1026,6 +1030,10 @@ export interface FacturaVentaRecord {
   resultado_afip?: string | null
   codigo_resultado_afip?: string | null
   fecha_autorizacion_afip?: string | null
+  /** Número enviado a AFIP en el último intento (para recuperar el CAE si se cortó la respuesta). */
+  afip_numero_intento?: number | null
+  /** Cuándo se generaron CxC / ajuste de nota de crédito / asiento. Null = pendiente. */
+  efectos_aplicados_at?: string | null
   id_asiento_contable?: number | null
   id_usuario?: number | null
   observaciones?: string | null

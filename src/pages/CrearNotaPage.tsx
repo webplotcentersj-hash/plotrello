@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
 import type { FacturaItemRecord, FacturaVentaRecord } from '../types/api'
+import { calcularTotalesFactura, hoyISO, normalizarAlicuota } from '../utils/afipFacturaUi'
 import './CrearFacturaPage.css'
 
 type NotaTipo = 'credito' | 'debito'
@@ -18,11 +19,13 @@ export default function CrearNotaPage() {
   const [searchParams] = useSearchParams()
 
   const notaTipo = (searchParams.get('tipo') as NotaTipo) || 'credito'
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const todayStr = useMemo(() => hoyISO(), [])
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [facturaOrigen, setFacturaOrigen] = useState<(FacturaVentaRecord & { items?: FacturaItemRecord[] }) | null>(null)
+  /** Los ítems se precargan con el total de cada línea original (IVA incluido) para que una nota total cancele exacto. */
+  const [preciosConIva, setPreciosConIva] = useState(true)
   const [formData, setFormData] = useState({
     fecha_emision: todayStr,
     fecha_vencimiento: '',
@@ -47,13 +50,20 @@ export default function CrearNotaPage() {
           setFacturaOrigen(f)
           const baseItems = Array.isArray(f.items) ? (f.items as FacturaItemRecord[]) : []
           setItems(
-            baseItems.map((it) => ({
-              descripcion: it.descripcion,
-              cantidad: Number(it.cantidad || 0) || 1,
-              precio_unitario: Math.abs(Number(it.precio_unitario || 0)),
-              descuento: Math.abs(Number(it.descuento || 0)),
-              iva_porcentaje: Number(it.iva_porcentaje || 21)
-            }))
+            baseItems.map((it) => {
+              const cantidad = Number(it.cantidad || 0) || 1
+              // Total de la línea (ya neto de descuento), con IVA incluido
+              const totalLinea = Math.abs(Number(it.total || 0))
+              const unitario = Math.round((totalLinea / cantidad) * 100) / 100
+              const divisible = Math.abs(unitario * cantidad - totalLinea) < 0.005
+              return {
+                descripcion: divisible || cantidad === 1 ? it.descripcion : `${it.descripcion} (x${cantidad})`,
+                cantidad: divisible ? cantidad : 1,
+                precio_unitario: divisible ? unitario : totalLinea,
+                descuento: 0,
+                iva_porcentaje: normalizarAlicuota(it.iva_porcentaje)
+              }
+            })
           )
         } else {
           alert('No se pudo cargar la factura origen: ' + (r.error || 'desconocido'))
@@ -86,24 +96,11 @@ export default function CrearNotaPage() {
     setItems(items.filter((_, i) => i !== index))
   }
 
-  const totales = useMemo(() => {
-    let subtotal = 0
-    let descuentoTotal = 0
-    let ivaTotal = 0
-    items.forEach((item) => {
-      const sub = item.cantidad * item.precio_unitario - item.descuento
-      const iva = sub * (item.iva_porcentaje / 100)
-      subtotal += sub
-      descuentoTotal += item.descuento
-      ivaTotal += iva
-    })
-    return {
-      subtotal,
-      descuento: descuentoTotal,
-      iva: ivaTotal,
-      total: subtotal + ivaTotal
-    }
-  }, [items])
+  const esC = String(facturaOrigen?.tipo_comprobante || '').endsWith(' C')
+  const totales = useMemo(
+    () => calcularTotalesFactura(items, { preciosConIva: preciosConIva && !esC, sinIva: esC }),
+    [items, preciosConIva, esC]
+  )
 
   const handleGuardar = async () => {
     if (!facturaOrigen) return
@@ -113,6 +110,15 @@ export default function CrearNotaPage() {
     }
     if (items.some((item) => !item.descripcion || item.precio_unitario <= 0 || item.cantidad <= 0)) {
       alert('Todos los items deben tener descripción y valores válidos')
+      return
+    }
+    if (facturaOrigen.estado_afip !== 'Autorizada') {
+      alert('El comprobante original todavía no está autorizado en AFIP.')
+      return
+    }
+    // Tope básico; el servidor además descuenta las notas de crédito anteriores
+    if (notaTipo === 'credito' && totales.total > Math.abs(Number(facturaOrigen.total || 0)) + 0.005) {
+      alert('La nota de crédito no puede superar el total del comprobante original.')
       return
     }
 
@@ -134,13 +140,18 @@ export default function CrearNotaPage() {
         id_venta: facturaOrigen.id_venta || null,
         id_factura_referencia: facturaOrigen.id,
         items,
+        precios_con_iva: preciosConIva && !esC,
+        // Mismo concepto y período que el comprobante original
+        concepto: facturaOrigen.concepto || 1,
+        fecha_servicio_desde: facturaOrigen.fecha_servicio_desde || null,
+        fecha_servicio_hasta: facturaOrigen.fecha_servicio_hasta || null,
         observaciones:
           (formData.observaciones?.trim() ? formData.observaciones.trim() + '\n\n' : '') +
           `Ref: ${facturaOrigen.tipo_comprobante} ${facturaOrigen.numero_factura}`
       })
 
       if (response.success && response.data) {
-        alert('Nota creada en borrador. Emitila para impactar contabilidad/IVA.')
+        alert('Nota creada en borrador. Emitila desde el detalle para autorizarla en AFIP (ajusta la cuenta del cliente y la contabilidad).')
         navigate(`/erp/facturas/${(response.data as any).id}`)
       } else {
         alert('Error al crear nota: ' + response.error)
@@ -243,6 +254,12 @@ export default function CrearNotaPage() {
               + Agregar Item
             </button>
           </div>
+          {!esC && (
+            <label className="crear-factura-check">
+              <input type="checkbox" checked={preciosConIva} onChange={(e) => setPreciosConIva(e.target.checked)} />
+              Precios con IVA incluido
+            </label>
+          )}
 
           {items.length === 0 ? (
             <div className="empty-items">
@@ -297,13 +314,21 @@ export default function CrearNotaPage() {
                   <div className="item-field">
                     <label>IVA %</label>
                     <select
-                      value={item.iva_porcentaje}
+                      value={esC ? 0 : item.iva_porcentaje}
+                      disabled={esC}
                       onChange={(e) => handleUpdateItem(index, 'iva_porcentaje', parseFloat(e.target.value) || 0)}
                       className="form-input"
                     >
-                      <option value={21}>21%</option>
-                      <option value={10.5}>10.5%</option>
-                      <option value={0}>0%</option>
+                      {esC ? (
+                        <option value={0}>Sin IVA</option>
+                      ) : (
+                        <>
+                          <option value={21}>21%</option>
+                          <option value={10.5}>10.5%</option>
+                          <option value={27}>27%</option>
+                          <option value={0}>0%</option>
+                        </>
+                      )}
                     </select>
                   </div>
                   <div className="item-field item-actions">

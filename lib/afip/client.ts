@@ -14,11 +14,16 @@ function readPemEnv(value: string | undefined): string | undefined {
   return raw.includes('\\n') ? raw.replace(/\\n/g, '\n') : raw
 }
 
-function parseCuit(value: string | number | undefined | null): number {
+function parseCuit(value: string | number | undefined | null, production: boolean): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   const digits = String(value || '').replace(/\D/g, '')
   const n = Number(digits)
-  return Number.isFinite(n) && n > 0 ? n : AFIP_DEV_CUIT
+  if (digits.length === 11 && Number.isFinite(n)) return n
+  if (production) {
+    // En producción nunca caer al CUIT de prueba: se facturaría con otro contribuyente
+    throw new Error('CUIT del emisor inválido o vacío. Revisá AFIP_CUIT o Contable → Configuración AFIP.')
+  }
+  return AFIP_DEV_CUIT
 }
 
 function isProductionAmbiente(ambiente?: AfipAmbiente | string | null): boolean {
@@ -38,10 +43,10 @@ export function createAfipClient(options: CreateAfipClientOptions = {}) {
   }
 
   const config = options.config
-  const envCuit = process.env.AFIP_CUIT
-  const cuit = envCuit ? parseCuit(envCuit) : parseCuit(config?.cuit)
   const production =
     process.env.AFIP_PRODUCTION === 'true' || isProductionAmbiente(config?.ambiente)
+  const envCuit = process.env.AFIP_CUIT
+  const cuit = parseCuit(envCuit || config?.cuit, production)
 
   const cert = readPemEnv(process.env.AFIP_CERT)
   const key = readPemEnv(process.env.AFIP_KEY)

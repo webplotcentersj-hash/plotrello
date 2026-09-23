@@ -111,6 +111,7 @@ const ErpContabilidadPage = lazy(() => import('../pages/ErpContabilidadPage.tsx'
 const ErpContabilidadReportesPage = lazy(() => import('../pages/ErpContabilidadReportesPage.tsx'))
 const ErpImpuestosPage = lazy(() => import('../pages/ErpImpuestosPage.tsx'))
 const ErpCuentasPorCobrarPage = lazy(() => import('../pages/ErpCuentasPorCobrarPage.tsx'))
+const ErpComisionesPage = lazy(() => import('../pages/ErpComisionesPage.tsx'))
 const ErpCuentasPorPagarPage = lazy(() => import('../pages/ErpCuentasPorPagarPage.tsx'))
 const ErpPlanCuentasPage = lazy(() => import('../pages/ErpPlanCuentasPage.tsx'))
 const ErpCostosPage = lazy(() => import('../pages/ErpCostosPage.tsx'))
@@ -1407,6 +1408,10 @@ function AppRoutes({
       <Route
         path="/erp/asientos"
         element={<AsientosContablesPage />}
+      />
+      <Route
+        path="/erp/comisiones"
+        element={<ErpComisionesPage />}
       />
       <Route
         path="/erp/tesoreria"

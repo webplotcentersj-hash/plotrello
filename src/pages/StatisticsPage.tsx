@@ -18,6 +18,7 @@ import {
 import { BOARD_COLUMNS } from '../data/mockData'
 import type { ActivityEvent, Task, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
+import KpisClasificacion from '../components/estadisticas/KpisClasificacion'
 import './StatisticsPage.css'
 import jsPDF from 'jspdf'
 import { apiService } from '../services/api'
@@ -1480,6 +1481,9 @@ const StatisticsPage = ({ tasks, activity, teamMembers, onBack }: StatisticsPage
             )}
           </div>
         </div>
+
+        {/* Ventas por rubro · Motivos de falla en entregas (clasificados por catálogo / IA) */}
+        {dateFrom && dateTo && <KpisClasificacion desde={dateFrom} hasta={dateTo} />}
 
         {/* Pedidos web · Compras · Stock */}
         <div className="stats-row">

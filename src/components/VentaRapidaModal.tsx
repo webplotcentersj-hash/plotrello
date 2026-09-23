@@ -509,22 +509,34 @@ const VentaRapidaModal = ({
       const estadoPagoInicial =
         esCuentaCorriente || esMercadoPagoCondicion ? 'Pendiente' : 'Pagado'
 
-      const ventaResponse = await apiService.crearVentaDirecta({
-        cliente_nombre: clienteFinal.nombre,
-        cliente_telefono: clienteFinal.telefono || undefined,
-        cliente_email: clienteFinal.email || undefined,
-        cliente_dni_cuit: clienteFinal.dni_cuit || undefined,
-        cliente_empresa: clienteFinal.empresa || undefined,
-        cliente_direccion: clienteFinal.direccion || undefined,
-        valor_total: valorTotal,
-        metodo_pago: condicionVenta,
-        estado_pago: estadoPagoInicial,
-        fecha_venta: fechaVenta,
-        id_vendedor: usuarioId,
-        nombre_vendedor: usuarioNombre,
-        id_cliente: clienteFinal.id || undefined,
-        observaciones: observacionesFinal,
-        detalle_pago: Object.keys(detallePagoFinal).length ? detallePagoFinal : null
+      // Venta e ítems juntos: si algo falla, no queda una venta a medias con el total cambiado
+      const ventaResponse = await apiService.crearVentaConItems({
+        venta: {
+          cliente_nombre: clienteFinal.nombre,
+          cliente_telefono: clienteFinal.telefono || undefined,
+          cliente_email: clienteFinal.email || undefined,
+          cliente_dni_cuit: clienteFinal.dni_cuit || undefined,
+          cliente_empresa: clienteFinal.empresa || undefined,
+          cliente_direccion: clienteFinal.direccion || undefined,
+          valor_total: valorTotal,
+          metodo_pago: condicionVenta,
+          estado_pago: estadoPagoInicial,
+          fecha_venta: fechaVenta,
+          id_vendedor: usuarioId,
+          nombre_vendedor: usuarioNombre,
+          id_cliente: clienteFinal.id || undefined,
+          observaciones: observacionesFinal,
+          detalle_pago: Object.keys(detallePagoFinal).length ? detallePagoFinal : null
+        },
+        items: itemsVenta.map((item) => ({
+          id_articulo_stock: item.id_articulo_stock ?? null,
+          codigo_articulo: item.codigo_articulo ?? null,
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario,
+          descuento: item.descuento ?? 0,
+          observaciones: item.observaciones ?? null
+        }))
       })
 
       if (!ventaResponse.success || !ventaResponse.data) {
@@ -568,29 +580,7 @@ const VentaRapidaModal = ({
         }))
       }
 
-      // Agregar items a la venta (el stock se descuenta automáticamente en agregarItemVenta)
-      for (const item of itemsVenta) {
-        try {
-          const itemResponse = await apiService.agregarItemVenta({
-            id_venta: ventaData.id,
-            id_articulo_stock: item.id_articulo_stock,
-            codigo_articulo: item.codigo_articulo,
-            descripcion: item.descripcion,
-            cantidad: item.cantidad,
-            precio_unitario: item.precio_unitario,
-            descuento: item.descuento,
-            observaciones: item.observaciones
-          })
-
-          if (!itemResponse.success) {
-            console.error('Error agregando item:', itemResponse.error)
-            throw new Error(`Error agregando item: ${itemResponse.error}`)
-          }
-        } catch (itemError) {
-          console.error('Error procesando item:', itemError)
-          throw itemError // Re-lanzar para que se muestre el error al usuario
-        }
-      }
+      // Los ítems ya se guardaron junto con la venta, y el stock se descontó por ítem
 
       if (esMercadoPagoCondicion) {
         setMpVentaId(ventaData.id)

@@ -46,6 +46,31 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
+}
+
+.act-op-page__download {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  background: rgba(6, 78, 59, 0.35);
+  color: #d1fae5;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.act-op-page__download:hover:not(:disabled) {
+  background: rgba(6, 95, 70, 0.5);
+}
+
+.act-op-page__download:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .act-op-page__back {
@@ -358,6 +383,38 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.act-op-dia__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.act-op-dia__pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(147, 197, 253, 0.35);
+  background: rgba(37, 99, 235, 0.22);
+  color: #dbeafe;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.act-op-dia__pdf:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.35);
+}
+
+.act-op-dia__pdf:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .act-op-dia__chip {
@@ -837,11 +894,11 @@
 .act-op-card__ops {
   list-style: none;
   margin: 0;
-  padding: 10px 14px 12px;
+  padding: 12px 14px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: min(50vh, 420px);
+  gap: 10px;
+  max-height: min(55vh, 520px);
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(52, 211, 153, 0.35) transparent;
@@ -849,40 +906,99 @@
 
 .act-op-card__op-item {
   border-radius: 12px;
-  border: 1px solid rgba(52, 211, 153, 0.22);
-  background: rgba(6, 78, 59, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(11, 18, 32, 0.88);
   overflow: hidden;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.act-op-card__op-item:hover {
+  border-color: rgba(110, 231, 183, 0.3);
 }
 
 .act-op-card__op-item.is-expanded {
-  border-color: rgba(110, 231, 183, 0.35);
+  border-color: rgba(110, 231, 183, 0.4);
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.28);
 }
 
 .act-op-card__op-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  align-items: start;
+  gap: 10px;
   width: 100%;
   border: none;
   background: transparent;
   color: inherit;
   text-align: left;
-  padding: 10px 12px;
+  padding: 12px;
   cursor: pointer;
   font: inherit;
 }
 
+.act-op-card__op-toggle:disabled {
+  cursor: default;
+}
+
+.act-op-card__op-toggle:disabled .act-op-card__op-chevron {
+  opacity: 0.3;
+}
+
+.act-op-card__op-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+}
+
+.act-op-card__op-item.is-expanded .act-op-card__op-chevron {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(110, 231, 183, 0.3);
+  color: #6ee7b7;
+}
+
+.act-op-card__op-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.act-op-card__op-title-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.act-op-card__op-title-row strong {
+  font-size: 0.9rem;
+  font-weight: 750;
+  color: #f8fafc;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
 .act-op-card__op-num {
   display: inline-flex;
-  padding: 2px 7px;
-  border-radius: 7px;
-  background: rgba(16, 185, 129, 0.22);
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.18);
   border: 1px solid rgba(110, 231, 183, 0.3);
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 800;
   color: #6ee7b7;
+}
+
+.act-op-card__op-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .act-op-card__op-chip {

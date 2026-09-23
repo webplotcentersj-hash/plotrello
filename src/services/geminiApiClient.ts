@@ -16,7 +16,8 @@ export type GeminiContents = string | GeminiContentMessage[]
 let devAiClient: GoogleGenAI | null = null
 
 function getDevAiClient(): GoogleGenAI | null {
-  const key = import.meta.env.VITE_GEMINI_API_KEY || ''
+  if (!import.meta.env.DEV) return null
+  const key = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim() || ''
   if (!key) return null
   if (!devAiClient) {
     try {
@@ -60,7 +61,8 @@ export async function callGeminiGenerateContent(opts: {
     })
 
     if (resp.status === 404) {
-      return callGeminiDev(model, contents)
+      if (import.meta.env.DEV) return callGeminiDev(model, contents)
+      throw new Error('PlotAI no disponible (generate-content).')
     }
 
     const raw = await resp.text()

@@ -1,8 +1,8 @@
 import { GoogleGenAI, Modality } from '@google/genai'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
+import { fetchGeminiLiveApiKey } from './geminiLiveKey'
 
 const LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025'
-const LIVE_CONFIG_PATH = '/api/plotai/live-voice'
 const TOTEM_CONTEXT_PATH = '/api/plotai/totem-live-context'
 
 export type TotemLiveContextPayload = {
@@ -108,18 +108,7 @@ export interface TotemLiveCallbacks {
 }
 
 export async function fetchTotemGeminiApiKey(): Promise<string> {
-  const fromEnv = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim()
-  if (fromEnv) return fromEnv
-
-  const res = await fetch(plotLabApiUrl(LIVE_CONFIG_PATH))
-  const data = (await res.json().catch(() => ({}))) as { apiKey?: string; error?: string }
-  if (!res.ok || !data.apiKey) {
-    throw new Error(
-      data.error ||
-        'Gemini Live no configurado. Agregá GEMINI_API_KEY en Vercel o VITE_GEMINI_API_KEY en local.'
-    )
-  }
-  return data.apiKey
+  return fetchGeminiLiveApiKey()
 }
 
 export type TotemLiveStartOptions = {

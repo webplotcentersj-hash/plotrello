@@ -957,7 +957,9 @@ export function buildOpsDelDiaFromHistorialTablero(
     if (!op) continue
 
     const key = `op-${op}`
-    const titulo = orden.titulo?.trim()
+    const tituloRaw = orden.titulo?.trim() || null
+    const titulo =
+      tituloRaw && !new RegExp(`^OP\\s*${op}$`, 'i').test(tituloRaw) ? tituloRaw : null
     const label = titulo ? `OP ${op} · ${titulo}` : `OP ${op}`
 
     upsertOpDelDia(

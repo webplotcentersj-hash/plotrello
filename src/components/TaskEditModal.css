@@ -1207,6 +1207,132 @@
   color: rgba(253, 230, 138, 0.45);
 }
 
+.create-origen {
+  margin: 0 0 18px;
+  padding: 14px 14px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(11, 18, 32, 0.65);
+}
+
+.create-origen-kicker {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.create-origen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.create-origen-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.create-origen-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+
+.create-origen-btn {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+
+.create-origen-btn.is-brief {
+  background: rgba(99, 102, 241, 0.12);
+  color: #a5b4fc;
+  border: 1px dashed rgba(129, 140, 248, 0.45);
+}
+
+.create-origen-btn.is-web {
+  background: rgba(234, 88, 12, 0.12);
+  color: #fdba74;
+  border: 1px dashed rgba(251, 146, 60, 0.45);
+}
+
+.create-origen-btn.is-open {
+  border-style: solid;
+}
+
+.create-origen-selected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.create-origen-selected.is-brief {
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(129, 140, 248, 0.35);
+}
+
+.create-origen-selected.is-web {
+  background: rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(251, 146, 60, 0.35);
+}
+
+.create-origen-selected-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.create-origen-selected-copy strong {
+  color: #f8fafc;
+  font-size: 0.9rem;
+}
+
+.create-origen-selected-copy small {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.create-origen-quitar {
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: transparent;
+  color: #fca5a5;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.create-origen-search {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: #0b1220;
+  color: #f8fafc;
+  font: inherit;
+}
+
+.brief-picker-item--urgent {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
 /* Selector de briefs pendientes (columna angosta del modal de alta) */
 .brief-picker-panel {
   display: flex;

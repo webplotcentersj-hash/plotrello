@@ -178,6 +178,8 @@ import {
 } from '../constants/totemSolicitudDisenador'
 
 import { formatSupabaseStatementTimeoutError } from '../utils/supabaseErrors'
+import { calcularLineaItem, normalizarAlicuota, redondear2 } from '../utils/afipFacturaUi'
+import { autorizarFacturaAFIP } from './afipApi'
 import { isTransientSupabaseError, withSupabaseRetry } from '../utils/supabaseRetry'
 import { filtrarUsuariosRrhhOperarios } from '../utils/rrhhUsuariosExcluidos'
 
@@ -15266,7 +15268,8 @@ class ApiService {
   ): Promise<ApiResponse<{ id: number; numero_venta: string; ya_existia?: boolean }>> {
     if (supabase) {
       try {
-        const { data, error } = await supabase.rpc('crear_venta_desde_pedido_cliente', {
+        // Wrapper del portal: no acepta vendedor (lo elige la base), para no poder asignarse comisiones
+        const { data, error } = await supabase.rpc('pedidos_crear_venta_portal', {
           p_id_pedido: idPedido
         })
         if (error) return { success: false, error: error.message }
@@ -20088,7 +20091,8 @@ class ApiService {
     }
 
     try {
-      const { data, error } = await supabase.rpc('crear_oportunidad_venta', {
+      const { data, error } = await supabase.rpc('ventas_crear_oportunidad', {
+        p_actor_id: this.requireComercialActorId(),
         p_cliente_nombre: oportunidad.cliente_nombre,
         p_id_vendedor: oportunidad.id_vendedor,
         p_nombre_vendedor: oportunidad.nombre_vendedor,
@@ -20149,7 +20153,8 @@ class ApiService {
     }
 
     try {
-      const { error } = await supabase.rpc('actualizar_oportunidad_venta', {
+      const { error } = await supabase.rpc('ventas_actualizar_oportunidad', {
+        p_actor_id: this.requireComercialActorId(),
         p_id: id,
         p_cliente_nombre: datos.cliente_nombre || null,
         p_cliente_telefono: datos.cliente_telefono || null,
@@ -20258,7 +20263,8 @@ class ApiService {
     }
 
     try {
-      const { data, error } = await supabase.rpc('crear_seguimiento_venta', {
+      const { data, error } = await supabase.rpc('ventas_crear_seguimiento', {
+        p_actor_id: this.requireComercialActorId(),
         p_id_oportunidad: seguimiento.id_oportunidad,
         p_tipo_seguimiento: seguimiento.tipo_seguimiento,
         p_descripcion: seguimiento.descripcion,
@@ -20305,7 +20311,8 @@ class ApiService {
     }
 
     try {
-      const { data, error } = await supabase.rpc('crear_venta_directa', {
+      const { data, error } = await supabase.rpc('ventas_crear_directa', {
+        p_actor_id: this.requireComercialActorId(),
         p_cliente_nombre: venta.cliente_nombre,
         p_valor_total: venta.valor_total,
         p_id_vendedor: venta.id_vendedor,
@@ -20371,6 +20378,105 @@ class ApiService {
         success: false,
         error: error.message || 'Error al crear venta directa'
       }
+    }
+  }
+
+  /**
+   * Crea la venta con sus ítems en una sola transacción: o se guarda todo, o nada.
+   * Evita que una venta quede con menos total del que se cobró si falla un ítem.
+   * Con ítems, el total lo define la suma de los ítems.
+   */
+  async crearVentaConItems(input: {
+    venta: Parameters<ApiService['crearVentaDirecta']>[0]
+    items: Array<{
+      id_articulo_stock?: number | null
+      codigo_articulo?: string | null
+      descripcion: string
+      cantidad: number
+      precio_unitario: number
+      descuento?: number | null
+      observaciones?: string | null
+    }>
+  }): Promise<ApiResponse<{ id: number; numero_venta: string; items: Array<{ id: number }> }>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+
+    const { venta, items } = input
+    try {
+      const { data, error } = await supabase.rpc('ventas_crear_con_items', {
+        p_actor_id: this.requireComercialActorId(),
+        p_venta: {
+          cliente_nombre: venta.cliente_nombre,
+          valor_total: venta.valor_total,
+          id_vendedor: venta.id_vendedor,
+          nombre_vendedor: venta.nombre_vendedor,
+          cliente_telefono: venta.cliente_telefono || null,
+          cliente_email: venta.cliente_email || null,
+          cliente_dni_cuit: venta.cliente_dni_cuit || null,
+          cliente_empresa: venta.cliente_empresa || null,
+          cliente_direccion: venta.cliente_direccion || null,
+          metodo_pago: venta.metodo_pago || null,
+          estado_pago: venta.estado_pago || 'Pendiente',
+          fecha_venta: venta.fecha_venta || null,
+          observaciones: venta.observaciones || null,
+          id_cliente: venta.id_cliente || null
+        },
+        p_items: items
+      })
+      if (error) throw error
+
+      const result = data as {
+        success?: boolean
+        error?: string
+        data?: {
+          id: number
+          numero_venta: string
+          items: Array<{ id: number; id_articulo_stock: number | null; cantidad: number }>
+        }
+      } | null
+      if (!result?.success || !result.data?.id) {
+        return { success: false, error: result?.error || 'No se pudo registrar la venta' }
+      }
+      const ventaCreada = result.data
+
+      if (venta.detalle_pago && Object.keys(venta.detalle_pago).length > 0) {
+        await this.rpcVentasUpsert({
+          id: ventaCreada.id,
+          detalle_pago: venta.detalle_pago,
+          updated_at: new Date().toISOString()
+        })
+      }
+
+      // El stock se descuenta por ítem ya creado: si se reintenta, no descuenta dos veces
+      for (const item of ventaCreada.items || []) {
+        if (item.id_articulo_stock && Number(item.cantidad) > 0) {
+          await this.descontarStockDeVenta(
+            ventaCreada.id,
+            Number(item.id_articulo_stock),
+            Number(item.cantidad),
+            Number(item.id)
+          )
+        }
+      }
+
+      void syncCajaDesdeVentaApi({
+        id: ventaCreada.id,
+        numero_venta: ventaCreada.numero_venta,
+        cliente_nombre: venta.cliente_nombre,
+        valor_total: venta.valor_total,
+        metodo_pago: venta.metodo_pago ?? null,
+        estado_pago: venta.estado_pago ?? null,
+        fecha_venta: venta.fecha_venta ?? null,
+        id_vendedor: venta.id_vendedor,
+        nombre_vendedor: venta.nombre_vendedor,
+        detalle_pago: venta.detalle_pago
+          ? { monto_recibido: venta.detalle_pago.monto_recibido, vuelto: venta.detalle_pago.vuelto }
+          : null
+      })
+
+      return { success: true, data: ventaCreada }
+    } catch (error: any) {
+      console.error('Error al crear venta con items:', error)
+      return { success: false, error: error.message || 'Error al crear la venta' }
     }
   }
 
@@ -20504,7 +20610,8 @@ class ApiService {
     }
 
     try {
-      const { data, error } = await supabase.rpc('crear_venta_desde_oportunidad', {
+      const { data, error } = await supabase.rpc('ventas_crear_desde_oportunidad', {
+        p_actor_id: this.requireComercialActorId(),
         p_id_oportunidad: venta.id_oportunidad,
         p_id_op: venta.id_op,
         p_numero_op: venta.numero_op,
@@ -20693,7 +20800,8 @@ class ApiService {
     }
 
     try {
-      const { data, error } = await supabase.rpc('agregar_item_venta', {
+      const { data, error } = await supabase.rpc('ventas_agregar_item', {
+        p_actor_id: this.requireComercialActorId(),
         p_id_venta: item.id_venta,
         p_descripcion: item.descripcion,
         p_precio_unitario: item.precio_unitario,
@@ -20706,14 +20814,16 @@ class ApiService {
 
       if (error) throw error
 
-      // Descontar stock si el item tiene id_articulo_stock
-      if (item.id_articulo_stock && item.cantidad > 0) {
-        await this.descontarStockDeVenta(item.id_venta, item.id_articulo_stock, item.cantidad)
+      const creado = data?.data as { id: number } | undefined
+
+      // Descontar stock si el item tiene id_articulo_stock (atado al ítem: no descuenta dos veces)
+      if (item.id_articulo_stock && item.cantidad > 0 && creado?.id) {
+        await this.descontarStockDeVenta(item.id_venta, item.id_articulo_stock, item.cantidad, creado.id)
       }
 
       return {
         success: true,
-        data: data.data as { id: number }
+        data: creado as { id: number }
       }
     } catch (error: any) {
       console.error('Error al agregar item a venta:', error)
@@ -20724,83 +20834,179 @@ class ApiService {
     }
   }
 
-  // Función privada para descontar stock de una venta
+  private usuarioActualParaMovimiento(): { id: number; nombre: string } {
+    const id = Number(localStorage.getItem('usuario_id')) || 0
+    let nombre = 'Sistema'
+    try {
+      const usuarioData = localStorage.getItem('usuario')
+      if (usuarioData) {
+        const p = JSON.parse(usuarioData) as { nombre?: unknown }
+        if (typeof p?.nombre === 'string' && p.nombre.trim()) nombre = p.nombre.trim()
+      }
+    } catch {
+      /* ignore */
+    }
+    return { id, nombre }
+  }
+
+  /**
+   * Suma o resta stock con control de concurrencia: si otro usuario cambió el valor entre
+   * la lectura y la escritura, reintenta. Devuelve null si no se pudo aplicar.
+   */
+  private async ajustarStockArticulo(
+    idArticuloStock: number,
+    delta: number
+  ): Promise<{ articulo: any; anterior: number; nueva: number } | null> {
+    if (!stockSupabase) return null
+
+    for (let intento = 0; intento < 3; intento++) {
+      const { data: articulo } = await stockSupabase
+        .from('articulos')
+        .select('*')
+        .eq('id', idArticuloStock)
+        .single()
+      if (!articulo) return null
+
+      const anterior = Number(articulo.stock)
+      const nueva = Math.max(0, (Number.isFinite(anterior) ? anterior : 0) + delta)
+
+      let query = stockSupabase.from('articulos').update({ stock: nueva }).eq('id', idArticuloStock)
+      // Solo escribe si el stock sigue siendo el que leímos
+      query = articulo.stock === null ? query.is('stock', null) : query.eq('stock', articulo.stock)
+
+      const { data: actualizado } = await query.select('id')
+      if (actualizado && actualizado.length > 0) {
+        return { articulo, anterior: Number.isFinite(anterior) ? anterior : 0, nueva }
+      }
+    }
+    console.warn(`⚠️ No se pudo ajustar el stock del artículo ${idArticuloStock} (cambió mientras se guardaba)`)
+    return null
+  }
+
+  /** Descuenta stock por un ítem de venta. El movimiento queda atado al ítem: nunca descuenta dos veces. */
   private async descontarStockDeVenta(
     idVenta: number,
     idArticuloStock: number,
-    cantidad: number
+    cantidad: number,
+    idItemVenta: number
   ): Promise<void> {
     if (!supabase || !stockSupabase) return
 
     try {
-      // Obtener información de la venta
       const { data: venta } = await supabase
         .from('ventas')
         .select('numero_venta, numero_op')
         .eq('id', idVenta)
         .single()
-
       if (!venta) return
 
-      // Obtener artículo de stock
-      const { data: articuloStock } = await stockSupabase
-        .from('articulos')
-        .select('*')
-        .eq('id', idArticuloStock)
+      const usuario = this.usuarioActualParaMovimiento()
+
+      // Reserva: si ya existe el movimiento de este ítem, el índice único lo rechaza y no se descuenta de nuevo
+      const { data: movimiento, error: errorMovimiento } = await supabase
+        .from('stock_movimientos')
+        .insert({
+          id_articulo_stock: idArticuloStock,
+          tipo_movimiento: 'Venta',
+          descripcion: 'Venta',
+          cantidad,
+          motivo: `Venta ${venta.numero_venta}${venta.numero_op ? ` - OP ${venta.numero_op}` : ''}`,
+          id_venta: idVenta,
+          id_venta_item: idItemVenta,
+          id_usuario: usuario.id,
+          nombre_usuario: usuario.nombre
+        })
+        .select('id')
         .single()
 
-      if (!articuloStock || articuloStock.stock === null || articuloStock.stock <= 0) {
-        console.warn(`⚠️ No se puede descontar stock: artículo ${idArticuloStock} no tiene stock disponible`)
+      if (errorMovimiento || !movimiento) {
+        if (errorMovimiento?.code !== '23505') {
+          console.warn('No se pudo registrar el movimiento de stock:', errorMovimiento?.message)
+        }
         return
       }
 
-      const cantidadAnterior = articuloStock.stock
-      const cantidadADescontar = cantidad
-      const cantidadNueva = Math.max(0, cantidadAnterior - cantidadADescontar)
-
-      // Actualizar stock en la base de stock
-      await stockSupabase
-        .from('articulos')
-        .update({ stock: cantidadNueva })
-        .eq('id', idArticuloStock)
-
-      // Obtener información del usuario
-      const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
-      let nombreUsuario = 'Sistema'
-      try {
-        const usuarioData = localStorage.getItem('usuario')
-        if (usuarioData) {
-          const p = JSON.parse(usuarioData) as { nombre?: unknown }
-          if (typeof p?.nombre === 'string' && p.nombre.trim()) nombreUsuario = p.nombre.trim()
+      const ajuste = await this.ajustarStockArticulo(idArticuloStock, -Math.abs(cantidad))
+      if (!ajuste) {
+        // Sin descuento no queda movimiento: así se puede reintentar
+        const { error: errorLimpieza } = await supabase.from('stock_movimientos').delete().eq('id', movimiento.id)
+        if (errorLimpieza) {
+          // Si no se pudo borrar, el índice único impediría reintentar: queda marcado para revisión manual
+          await supabase
+            .from('stock_movimientos')
+            .update({
+              cantidad: 0,
+              motivo: `SIN DESCONTAR (revisar): no se pudo actualizar el stock del artículo ${idArticuloStock}`
+            })
+            .eq('id', movimiento.id)
+          console.error(
+            `No se descontó stock del artículo ${idArticuloStock} (ítem ${idItemVenta}) y quedó el movimiento ${movimiento.id} para revisar:`,
+            errorLimpieza.message
+          )
         }
-      } catch {
-        /* ignore */
+        return
       }
 
-      // Registrar movimiento de stock
-      await supabase.from('stock_movimientos').insert({
-        id_articulo_stock: idArticuloStock,
-        codigo_articulo: articuloStock.codigo || null,
-        descripcion: articuloStock.descripcion,
-        tipo_movimiento: 'Venta',
-        cantidad: cantidadADescontar,
-        cantidad_anterior: cantidadAnterior,
-        cantidad_nueva: cantidadNueva,
-        motivo: `Venta ${venta.numero_venta}${venta.numero_op ? ` - OP ${venta.numero_op}` : ''}`,
-        id_venta: idVenta,
-        id_usuario: usuarioId,
-        nombre_usuario: nombreUsuario
-      })
+      await supabase
+        .from('stock_movimientos')
+        .update({
+          codigo_articulo: ajuste.articulo.codigo || null,
+          descripcion: ajuste.articulo.descripcion || 'Venta',
+          cantidad_anterior: ajuste.anterior,
+          cantidad_nueva: ajuste.nueva
+        })
+        .eq('id', movimiento.id)
 
-      // Verificar si el stock quedó bajo y crear alerta si es necesario
-      if (cantidadNueva <= 10 && cantidadNueva > 0) {
-        await this.crearAlertaStockBajo(articuloStock as ArticuloStock, cantidadNueva)
-      } else if (cantidadNueva === 0) {
-        await this.crearAlertaStockAgotado(articuloStock as ArticuloStock)
+      if (ajuste.nueva === 0) {
+        await this.crearAlertaStockAgotado(ajuste.articulo as ArticuloStock)
+      } else if (ajuste.nueva <= 10) {
+        await this.crearAlertaStockBajo(ajuste.articulo as ArticuloStock, ajuste.nueva)
       }
     } catch (error) {
       console.error('Error descontando stock de venta:', error)
       // No lanzar error para no interrumpir la creación del item
+    }
+  }
+
+  /** Devuelve al stock lo descontado por un ítem de venta que se elimina. */
+  private async devolverStockDeItemVenta(item: {
+    id: number
+    id_venta: number
+    id_articulo_stock: number
+    cantidad: number
+  }): Promise<void> {
+    if (!supabase || !stockSupabase) return
+
+    try {
+      // Si nunca se descontó por este ítem, no hay nada que devolver
+      const { data: movimiento } = await supabase
+        .from('stock_movimientos')
+        .select('id')
+        .eq('id_venta_item', item.id)
+        .eq('tipo_movimiento', 'Venta')
+        .maybeSingle()
+      if (!movimiento) return
+
+      const ajuste = await this.ajustarStockArticulo(item.id_articulo_stock, Math.abs(item.cantidad))
+      if (!ajuste) return
+
+      const usuario = this.usuarioActualParaMovimiento()
+      await supabase.from('stock_movimientos').insert({
+        id_articulo_stock: item.id_articulo_stock,
+        codigo_articulo: ajuste.articulo.codigo || null,
+        descripcion: ajuste.articulo.descripcion || 'Devolución',
+        tipo_movimiento: 'Devolución',
+        cantidad: Math.abs(item.cantidad),
+        cantidad_anterior: ajuste.anterior,
+        cantidad_nueva: ajuste.nueva,
+        motivo: `Ítem eliminado de la venta #${item.id_venta}`,
+        id_venta: item.id_venta,
+        id_venta_item: item.id,
+        id_usuario: usuario.id,
+        nombre_usuario: usuario.nombre
+      })
+    } catch (error) {
+      console.error('Error devolviendo stock del ítem de venta:', error)
     }
   }
 
@@ -20879,11 +21085,28 @@ class ApiService {
     }
 
     try {
-      const { error } = await supabase.rpc('eliminar_item_venta', {
+      // Se lee antes de borrar para poder devolver el stock
+      const { data: item } = await supabase
+        .from('ventas_items')
+        .select('id, id_venta, id_articulo_stock, cantidad')
+        .eq('id', idItem)
+        .maybeSingle()
+
+      const { error } = await supabase.rpc('ventas_eliminar_item', {
+        p_actor_id: this.requireComercialActorId(),
         p_id_item: idItem
       })
 
       if (error) throw error
+
+      if (item?.id_articulo_stock && Number(item.cantidad) > 0) {
+        await this.devolverStockDeItemVenta({
+          id: Number(item.id),
+          id_venta: Number(item.id_venta),
+          id_articulo_stock: Number(item.id_articulo_stock),
+          cantidad: Number(item.cantidad)
+        })
+      }
 
       return {
         success: true,
@@ -21846,7 +22069,10 @@ class ApiService {
       const errores: string[] = []
 
       for (const f of pend.data.facturas) {
-        const { error } = await supabase.rpc('crear_asiento_desde_factura', { p_id_factura: f.id })
+        const { error } = await supabase.rpc('erp_crear_asiento_factura', {
+          p_actor_id: this.requireComercialActorId(),
+          p_id_factura: f.id
+        })
         if (error) errores.push(`Factura ${f.numero_factura}: ${error.message}`)
         else facturas_generadas += 1
       }
@@ -22213,6 +22439,12 @@ class ApiService {
       descuento?: number
       iva_porcentaje?: number
     }>
+    /** Los precios unitarios ya incluyen IVA (ventas de mostrador / CRM). */
+    precios_con_iva?: boolean
+    /** Concepto AFIP: 1 Productos · 2 Servicios · 3 Productos y Servicios. */
+    concepto?: 1 | 2 | 3
+    fecha_servicio_desde?: string | null
+    fecha_servicio_hasta?: string | null
     observaciones?: string | null
   }): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {
     if (supabase) {
@@ -22237,43 +22469,51 @@ class ApiService {
 
         if (errorNumero) return { success: false, error: errorNumero.message }
 
-        // Calcular totales
+        // Calcular totales: redondeo por línea para que la suma de alícuotas cierre exacto con AFIP
         let subtotal = 0
         let descuentoTotal = 0
         let ivaTotal = 0
 
         const isNotaCredito = String(factura.tipo_comprobante || '').startsWith('Nota de Crédito')
         const sign = isNotaCredito ? -1 : 1
+        const sinIva = String(factura.tipo_comprobante || '').endsWith(' C')
+        const preciosConIva = Boolean(factura.precios_con_iva) && !sinIva
+        const factorNeto = (alicuota: number) => (preciosConIva ? 1 + alicuota / 100 : 1)
 
         const itemsCalculados = factura.items.map((item, index) => {
           const cantidad = item.cantidad || 1
-          const precioUnitario = item.precio_unitario || 0
           const descuento = item.descuento || 0
-          const ivaPorcentaje = item.iva_porcentaje || 21
-          
-          const subtotalItem = cantidad * precioUnitario - descuento
-          const ivaMonto = subtotalItem * (ivaPorcentaje / 100)
-          const totalItem = subtotalItem + ivaMonto
+          const ivaPorcentaje = sinIva ? 0 : normalizarAlicuota(item.iva_porcentaje)
+          const linea = calcularLineaItem(
+            { cantidad, precio_unitario: item.precio_unitario || 0, descuento, iva_porcentaje: ivaPorcentaje },
+            { preciosConIva, sinIva }
+          )
+          // Precio y descuento se guardan netos de IVA (así se muestran en la Factura A)
+          const precioUnitarioNeto = redondear2((item.precio_unitario || 0) / factorNeto(ivaPorcentaje))
+          const descuentoNeto = redondear2(descuento / factorNeto(ivaPorcentaje))
 
-          subtotal += subtotalItem * sign
-          descuentoTotal += descuento * sign
-          ivaTotal += ivaMonto * sign
+          subtotal = redondear2(subtotal + linea.neto)
+          descuentoTotal = redondear2(descuentoTotal + descuentoNeto)
+          ivaTotal = redondear2(ivaTotal + linea.iva)
 
           return {
             item_numero: index + 1,
             descripcion: item.descripcion,
             cantidad,
             unidad_medida: item.unidad_medida || 'UN',
-            precio_unitario: precioUnitario,
-            descuento: descuento * sign,
+            precio_unitario: precioUnitarioNeto,
+            descuento: descuentoNeto * sign,
             iva_porcentaje: ivaPorcentaje,
-            iva_monto: ivaMonto * sign,
-            subtotal: subtotalItem * sign,
-            total: totalItem * sign
+            iva_monto: linea.iva * sign,
+            subtotal: linea.neto * sign,
+            total: linea.total * sign
           }
         })
 
-        const total = subtotal + ivaTotal
+        subtotal *= sign
+        descuentoTotal *= sign
+        ivaTotal *= sign
+        const total = redondear2(subtotal + ivaTotal)
 
         // Crear factura
         const numeroFactura = `${configAFIP.punto_venta.toString().padStart(4, '0')}-${numeroComprobante.toString().padStart(8, '0')}`
@@ -22294,6 +22534,9 @@ class ApiService {
           numero_op: factura.numero_op || null,
           id_venta: factura.id_venta || null,
           id_factura_referencia: factura.id_factura_referencia || null,
+          concepto: factura.concepto || 1,
+          fecha_servicio_desde: factura.concepto && factura.concepto !== 1 ? factura.fecha_servicio_desde || null : null,
+          fecha_servicio_hasta: factura.concepto && factura.concepto !== 1 ? factura.fecha_servicio_hasta || null : null,
           subtotal,
           descuento: descuentoTotal,
           iva: ivaTotal,
@@ -23876,74 +24119,14 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
-  async emitirFactura(id: number): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {
-    if (supabase) {
-      try {
-        // Obtener factura
-        const { data: factura, error: errorFactura } = await supabase
-          .from('facturas_venta')
-          .select('*')
-          .eq('id', id)
-          .single()
-
-        if (errorFactura) return { success: false, error: errorFactura.message }
-        if (!factura) return { success: false, error: 'Factura no encontrada' }
-
-        if (factura.estado !== 'Borrador') {
-          return { success: false, error: 'Solo se pueden emitir facturas en estado Borrador' }
-        }
-
-        // Actualizar estado
-        await this.rpcComercialUpsert('factura', {
-          id,
-          estado: 'Emitida',
-          estado_afip: 'Pendiente',
-          updated_at: new Date().toISOString()
-        })
-
-        const { data, error } = await supabase
-          .from('facturas_venta')
-          .select(`
-            *,
-            items:facturas_items(*)
-          `)
-          .eq('id', id)
-          .single()
-
-        if (error) return { success: false, error: error.message }
-
-        const tipo = String(factura.tipo_comprobante || '')
-        const esNotaCredito = tipo.startsWith('Nota de Crédito')
-
-        // Crear cuenta por cobrar automáticamente (solo facturas y notas débito; las notas crédito ajustan deuda y no generan CxC)
-        if (!esNotaCredito) {
-          await this.rpcComercialUpsert('cxc', {
-            id_factura: id,
-            id_cliente: factura.id_cliente || null,
-            cliente_nombre: factura.cliente_nombre,
-            monto_total: factura.total,
-            monto_pagado: 0,
-            monto_pendiente: factura.total,
-            fecha_emision: factura.fecha_emision,
-            fecha_vencimiento: factura.fecha_vencimiento || null,
-            estado: 'Pendiente'
-          })
-        }
-
-        // Crear asiento contable automático si está configurado
-        const { error: errorAsiento } = await supabase.rpc('crear_asiento_desde_factura', {
-          p_id_factura: id
-        })
-        if (errorAsiento) {
-          console.warn('No se pudo crear asiento contable automático:', errorAsiento.message)
-        }
-
-        return { success: true, data: data as any }
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
-      }
-    }
-    return { success: false, error: 'Supabase no configurado' }
+  /**
+   * Emite el comprobante: lo autoriza en AFIP (servidor) y, solo con CAE, lo pasa a Emitida
+   * y genera CxC / ajuste por nota de crédito / asiento. Si AFIP rechaza, queda en Borrador.
+   */
+  async emitirFactura(id: number): Promise<ApiResponse<import('../types/api').FacturaVentaRecord> & { warning?: string }> {
+    const res = await autorizarFacturaAFIP(id)
+    if (!res.success) return { success: false, error: res.error }
+    return { success: true, data: res.data, warning: res.warning }
   }
 
   async getFactura(id: number): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {

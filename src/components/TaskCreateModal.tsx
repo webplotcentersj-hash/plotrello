@@ -62,10 +62,12 @@ const TaskCreateModal = ({
   const [briefsPendientes, setBriefsPendientes] = useState<any[]>([])
   const [loadingBriefs, setLoadingBriefs] = useState(false)
   const [mostrarSelectorBrief, setMostrarSelectorBrief] = useState(false)
+  const [briefSearch, setBriefSearch] = useState('')
   const [pedidoWebSeleccionado, setPedidoWebSeleccionado] = useState<PedidoClienteRecord | null>(null)
   const [pedidosWebPendientes, setPedidosWebPendientes] = useState<PedidoClienteRecord[]>([])
   const [loadingPedidosWeb, setLoadingPedidosWeb] = useState(false)
   const [mostrarSelectorPedidoWeb, setMostrarSelectorPedidoWeb] = useState(false)
+  const [pedidoSearch, setPedidoSearch] = useState('')
   
   // Sectores válidos que coinciden con las columnas del Kanban
   const sectoresKanban = [
@@ -355,19 +357,12 @@ const TaskCreateModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hidratar una sola vez al abrir
   }, [])
 
-  // Cargar briefs pendientes si es diseño gráfico o admin
   useEffect(() => {
-    if ((isAdmin || isDiseno) && mostrarSelectorBrief) {
-      cargarBriefsPendientes()
-    }
-  }, [isAdmin, isDiseno, mostrarSelectorBrief])
-
-  // Cargar pedidos web pendientes si se muestra el selector
-  useEffect(() => {
-    if (mostrarSelectorPedidoWeb) {
-      cargarPedidosWebPendientes()
-    }
-  }, [mostrarSelectorPedidoWeb])
+    if (!draftReady) return
+    if (isAdmin || isDiseno) void cargarBriefsPendientes()
+    void cargarPedidosWebPendientes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftReady, isAdmin, isDiseno])
 
   const cargarBriefsPendientes = async () => {
     setLoadingBriefs(true)
@@ -424,9 +419,12 @@ const TaskCreateModal = ({
   }
 
   const handleSeleccionarBrief = async (brief: any) => {
+    const nombre = String(brief.cliente_nombre_completo || '').trim()
+    if (nombre) clienteElegidoRef.current = nombre.toLowerCase()
     setBriefTokenSeleccionado(brief.token)
     await cargarBriefDesdeToken(brief.token)
     setMostrarSelectorBrief(false)
+    setBriefSearch('')
   }
 
   const cargarPedidosWebPendientes = async () => {
@@ -499,9 +497,40 @@ const TaskCreateModal = ({
     setPedidoWebSeleccionado(pedido)
     await cargarPedidoWebCompleto(pedido.id)
     setMostrarSelectorPedidoWeb(false)
+    setPedidoSearch('')
   }
 
   const hasPendingUploads = attachments.some((attachment) => attachment.uploading)
+
+  const briefsFiltrados = useMemo(() => {
+    const q = briefSearch.trim().toLowerCase()
+    if (!q) return briefsPendientes
+    return briefsPendientes.filter((b: any) => {
+      const blob = [
+        b.cliente_nombre_completo,
+        b.cliente_empresa,
+        b.objetivo_proyecto,
+        b.token
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return blob.includes(q)
+    })
+  }, [briefsPendientes, briefSearch])
+
+  const pedidosWebFiltrados = useMemo(() => {
+    const q = pedidoSearch.trim().toLowerCase()
+    if (!q) return pedidosWebPendientes
+    return pedidosWebPendientes.filter((p) => {
+      const cli = (p as PedidoClienteRecord & { cliente?: { nombre?: string; apellido?: string; empresa?: string } }).cliente
+      const nombre = cli
+        ? `${cli.nombre || ''} ${cli.apellido || ''} ${cli.empresa || ''}`
+        : ''
+      const blob = `${p.numero_pedido || ''} ${nombre} ${p.estado || ''}`.toLowerCase()
+      return blob.includes(q)
+    })
+  }, [pedidosWebPendientes, pedidoSearch])
 
   const requiereFotosLugar = useMemo(() => opSectoresRequierenFotosLugar(selectedSectores), [selectedSectores])
 
@@ -1269,6 +1298,213 @@ const TaskCreateModal = ({
               </button>
             </div>
           ) : null}
+
+          <div className="create-origen">
+            <p className="create-origen-kicker">Origen (opcional)</p>
+            <div className="create-origen-grid">
+              {(isAdmin || isDiseno) && (
+                <div className="create-origen-col">
+                  <span className="create-origen-label">Brief</span>
+                  {briefTokenSeleccionado ? (
+                    <div className="create-origen-selected is-brief">
+                      {briefMockupUrl ? (
+                        <BriefMockupCard mockupUrl={briefMockupUrl} compact alt="Mockup del brief" />
+                      ) : null}
+                      <div className="create-origen-selected-copy">
+                        <strong>Brief vinculado</strong>
+                        <small>{cliente.trim() || briefTokenSeleccionado.slice(0, 12)}</small>
+                      </div>
+                      <button
+                        type="button"
+                        className="create-origen-quitar"
+                        onClick={() => {
+                          setBriefTokenSeleccionado(null)
+                          setBriefMockupUrl(null)
+                          setBriefPublico('')
+                          setObjetivoProyecto('')
+                          setEstiloDiseno('')
+                          setReferencias('')
+                          setDeadlineBrief('')
+                          if (!pedidoWebSeleccionado) {
+                            setCliente('')
+                            setTelefonoCliente('')
+                            setEmailCliente('')
+                          }
+                        }}
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className={`create-origen-btn is-brief${mostrarSelectorBrief ? ' is-open' : ''}`}
+                      onClick={() => {
+                        setMostrarSelectorBrief((v) => !v)
+                        setMostrarSelectorPedidoWeb(false)
+                      }}
+                    >
+                      {mostrarSelectorBrief
+                        ? 'Cerrar'
+                        : briefsPendientes.length > 0
+                          ? `Elegir brief · ${briefsPendientes.length}`
+                          : 'Elegir brief pendiente'}
+                    </button>
+                  )}
+                  {mostrarSelectorBrief && !briefTokenSeleccionado ? (
+                    <div className="brief-picker-panel">
+                      <input
+                        type="search"
+                        className="create-origen-search"
+                        value={briefSearch}
+                        onChange={(e) => setBriefSearch(e.target.value)}
+                        placeholder="Buscar cliente u objetivo…"
+                        autoFocus
+                      />
+                      {loadingBriefs ? (
+                        <div className="brief-picker-empty">Cargando briefs…</div>
+                      ) : briefsFiltrados.length === 0 ? (
+                        <div className="brief-picker-empty">
+                          {briefsPendientes.length === 0 ? 'No hay briefs pendientes' : 'Sin coincidencias'}
+                        </div>
+                      ) : (
+                        briefsFiltrados.map((brief: any) => (
+                          <button
+                            key={brief.id}
+                            type="button"
+                            onClick={() => void handleSeleccionarBrief(brief)}
+                            className={`brief-picker-item ${
+                              brief.completado ? 'brief-picker-item--done' : 'brief-picker-item--pending'
+                            }`}
+                          >
+                            {brief.mockup_url ? (
+                              <span className="brief-picker-thumb">
+                                <img src={brief.mockup_url} alt="" loading="lazy" />
+                              </span>
+                            ) : null}
+                            <span className="brief-picker-body">
+                              <span className="brief-picker-name">
+                                {brief.cliente_nombre_completo || 'Cliente sin nombre'}
+                                {brief.cliente_empresa ? ` — ${brief.cliente_empresa}` : ''}
+                              </span>
+                              {brief.objetivo_proyecto ? (
+                                <span className="brief-picker-goal">{brief.objetivo_proyecto}</span>
+                              ) : null}
+                              <span className="brief-picker-meta">
+                                <span>{brief.completado ? 'Completado' : 'Pendiente'}</span>
+                                {brief.es_urgencia ? <span>Urgencia</span> : null}
+                              </span>
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              <div className="create-origen-col">
+                <span className="create-origen-label">Web</span>
+                {pedidoWebSeleccionado ? (
+                  <div className="create-origen-selected is-web">
+                    <div className="create-origen-selected-copy">
+                      <strong>{pedidoWebSeleccionado.numero_pedido}</strong>
+                      <small>
+                        {pedidoWebSeleccionado.estado} · $
+                        {Number(pedidoWebSeleccionado.precio_total || 0).toLocaleString('es-AR')}
+                        {pedidoWebSeleccionado.es_urgente ? ' · urgente' : ''}
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      className="create-origen-quitar"
+                      onClick={() => setPedidoWebSeleccionado(null)}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={`create-origen-btn is-web${mostrarSelectorPedidoWeb ? ' is-open' : ''}`}
+                    onClick={() => {
+                      setMostrarSelectorPedidoWeb((v) => !v)
+                      setMostrarSelectorBrief(false)
+                    }}
+                  >
+                    {mostrarSelectorPedidoWeb
+                      ? 'Cerrar'
+                      : pedidosWebPendientes.length > 0
+                        ? `Elegir pedido · ${pedidosWebPendientes.length}`
+                        : 'Elegir pedido web'}
+                  </button>
+                )}
+                {mostrarSelectorPedidoWeb && !pedidoWebSeleccionado ? (
+                  <div className="brief-picker-panel">
+                    <input
+                      type="search"
+                      className="create-origen-search"
+                      value={pedidoSearch}
+                      onChange={(e) => setPedidoSearch(e.target.value)}
+                      placeholder="Buscar N° o cliente…"
+                      autoFocus
+                    />
+                    {loadingPedidosWeb ? (
+                      <div className="brief-picker-empty">Cargando pedidos…</div>
+                    ) : pedidosWebFiltrados.length === 0 ? (
+                      <div className="brief-picker-empty">
+                        {pedidosWebPendientes.length === 0
+                          ? 'No hay pedidos web pendientes'
+                          : 'Sin coincidencias'}
+                      </div>
+                    ) : (
+                      pedidosWebFiltrados.map((pedido) => {
+                        const cli = (pedido as PedidoClienteRecord & {
+                          cliente?: { nombre?: string; apellido?: string; empresa?: string }
+                        }).cliente
+                        const nombreCliente = cli
+                          ? cli.apellido
+                            ? `${cli.nombre} ${cli.apellido}`
+                            : cli.nombre
+                          : 'Cliente desconocido'
+                        return (
+                          <button
+                            key={pedido.id}
+                            type="button"
+                            onClick={() => void handleSeleccionarPedidoWeb(pedido)}
+                            className={`brief-picker-item ${
+                              pedido.es_urgente
+                                ? 'brief-picker-item--urgent'
+                                : pedido.estado === 'aprobado'
+                                  ? 'brief-picker-item--done'
+                                  : 'brief-picker-item--pending'
+                            }`}
+                          >
+                            <span className="brief-picker-body">
+                              <span className="brief-picker-name">
+                                {pedido.numero_pedido} · {nombreCliente}
+                                {cli?.empresa ? ` (${cli.empresa})` : ''}
+                              </span>
+                              <span className="brief-picker-meta">
+                                <span>${Number(pedido.precio_total || 0).toLocaleString('es-AR')}</span>
+                                <span>{pedido.estado}</span>
+                                {pedido.fecha_limite_deseada ? (
+                                  <span>
+                                    {new Date(pedido.fecha_limite_deseada).toLocaleDateString('es-AR')}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </span>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
           <div className="form-row">
             <div className="form-group">
               <label>N° OP</label>
@@ -1359,255 +1595,6 @@ const TaskCreateModal = ({
                   fontStyle: 'italic'
                 }}>
                   💡 Cliente no encontrado. Se creará uno nuevo al guardar.
-                </div>
-              )}
-            </div>
-
-            {/* Selector de Brief Pendiente - Solo para Diseño Gráfico y Admin */}
-            {(isAdmin || isDiseno) && (
-              <div className="form-group">
-                <label>📋 Brief Público (Opcional)</label>
-                {briefTokenSeleccionado ? (
-                  <div style={{ 
-                    padding: '12px', 
-                    background: 'rgba(102, 126, 234, 0.1)', 
-                    borderRadius: '8px',
-                    border: '1px solid rgba(102, 126, 234, 0.3)',
-                    marginBottom: '8px'
-                  }}>
-                    {briefMockupUrl && (
-                      <div style={{ marginBottom: '10px' }}>
-                        <BriefMockupCard mockupUrl={briefMockupUrl} compact alt="Mockup del brief" />
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: '#667eea', fontWeight: 600 }}>
-                        ✓ Brief seleccionado
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBriefTokenSeleccionado(null)
-                          setBriefMockupUrl(null)
-                          setCliente('')
-                          setTelefonoCliente('')
-                          setEmailCliente('')
-                          setBriefPublico('')
-                          setObjetivoProyecto('')
-                          setEstiloDiseno('')
-                          setReferencias('')
-                          setDeadlineBrief('')
-                        }}
-                        style={{
-                          padding: '4px 12px',
-                          background: 'rgba(239, 68, 68, 0.2)',
-                          color: '#ef4444',
-                          border: '1px solid rgba(239, 68, 68, 0.4)',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '0.8rem'
-                        }}
-                      >
-                        ✕ Quitar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setMostrarSelectorBrief(!mostrarSelectorBrief)}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      background: 'rgba(102, 126, 234, 0.1)',
-                      color: '#667eea',
-                      border: '1px dashed rgba(102, 126, 234, 0.4)',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontWeight: 600
-                    }}
-                  >
-                    {mostrarSelectorBrief ? '✕ Cerrar selector' : '📋 Seleccionar Brief Pendiente'}
-                  </button>
-                )}
-                
-                {mostrarSelectorBrief && !briefTokenSeleccionado && (
-                  <div className="brief-picker-panel">
-                    {loadingBriefs ? (
-                      <div className="brief-picker-empty">Cargando briefs...</div>
-                    ) : briefsPendientes.length === 0 ? (
-                      <div className="brief-picker-empty">No hay briefs pendientes</div>
-                    ) : (
-                      briefsPendientes.map((brief) => (
-                        <button
-                          key={brief.id}
-                          type="button"
-                          onClick={() => handleSeleccionarBrief(brief)}
-                          className={`brief-picker-item ${
-                            brief.completado ? 'brief-picker-item--done' : 'brief-picker-item--pending'
-                          }`}
-                        >
-                          {brief.mockup_url && (
-                            <span className="brief-picker-thumb">
-                              <img src={brief.mockup_url} alt="" loading="lazy" />
-                            </span>
-                          )}
-                          <span className="brief-picker-body">
-                            <span className="brief-picker-name">
-                              {brief.cliente_nombre_completo || 'Cliente sin nombre'}
-                              {brief.cliente_empresa && ` — ${brief.cliente_empresa}`}
-                            </span>
-                            {brief.objetivo_proyecto && (
-                              <span className="brief-picker-goal">{brief.objetivo_proyecto}</span>
-                            )}
-                            <span className="brief-picker-meta">
-                              <span>{brief.completado ? '✓ Completado' : '⏳ Pendiente'}</span>
-                              {brief.es_urgencia && <span>⚠️ Urgencia</span>}
-                              {brief.mockup_url && <span>🖼 Mockup</span>}
-                            </span>
-                          </span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Selector de Pedido Web - Para todos los usuarios */}
-            <div className="form-group">
-              <label>🛒 Pedido Web (Opcional)</label>
-              {pedidoWebSeleccionado ? (
-                <div style={{ 
-                  padding: '12px', 
-                  background: 'rgba(235, 103, 27, 0.1)', 
-                  borderRadius: '8px',
-                  border: '1px solid rgba(235, 103, 27, 0.3)',
-                  marginBottom: '8px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ color: '#eb671b', fontWeight: 600 }}>
-                        ✓ Pedido seleccionado: {pedidoWebSeleccionado.numero_pedido}
-                      </span>
-                      <div style={{ fontSize: '0.75rem', color: '#d1d5db', marginTop: '4px' }}>
-                        Estado: {pedidoWebSeleccionado.estado} • Precio: ${pedidoWebSeleccionado.precio_total}
-                        {pedidoWebSeleccionado.es_urgente && ' • ⚠️ Urgente'}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPedidoWebSeleccionado(null)
-                      }}
-                      style={{
-                        padding: '4px 12px',
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        color: '#ef4444',
-                        border: '1px solid rgba(239, 68, 68, 0.4)',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem'
-                      }}
-                    >
-                      ✕ Quitar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setMostrarSelectorPedidoWeb(!mostrarSelectorPedidoWeb)}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    background: 'rgba(235, 103, 27, 0.1)',
-                    color: '#eb671b',
-                    border: '1px dashed rgba(235, 103, 27, 0.4)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: 600
-                  }}
-                >
-                  {mostrarSelectorPedidoWeb ? '✕ Cerrar selector' : '🛒 Seleccionar Pedido Web Pendiente'}
-                </button>
-              )}
-              
-              {mostrarSelectorPedidoWeb && !pedidoWebSeleccionado && (
-                <div style={{
-                  marginTop: '8px',
-                  padding: '12px',
-                  background: 'var(--surface-card)',
-                  border: '1px solid var(--surface-border)',
-                  borderRadius: '8px',
-                  maxHeight: '300px',
-                  overflowY: 'auto'
-                }}>
-                  {loadingPedidosWeb ? (
-                    <div style={{ textAlign: 'center', padding: '20px', color: '#d1d5db' }}>
-                      Cargando pedidos...
-                    </div>
-                  ) : pedidosWebPendientes.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '20px', color: '#d1d5db' }}>
-                      No hay pedidos web pendientes
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {pedidosWebPendientes.map((pedido) => {
-                        const cliente = (pedido as any).cliente
-                        const nombreCliente = cliente 
-                          ? (cliente.apellido ? `${cliente.nombre} ${cliente.apellido}` : cliente.nombre)
-                          : 'Cliente desconocido'
-                        return (
-                          <button
-                            key={pedido.id}
-                            type="button"
-                            onClick={() => handleSeleccionarPedidoWeb(pedido)}
-                            style={{
-                              padding: '12px',
-                              background: pedido.es_urgente 
-                                ? 'rgba(239, 68, 68, 0.1)' 
-                                : pedido.estado === 'aprobado' 
-                                  ? 'rgba(16, 185, 129, 0.1)' 
-                                  : 'rgba(251, 191, 36, 0.1)',
-                              border: `1px solid ${
-                                pedido.es_urgente 
-                                  ? 'rgba(239, 68, 68, 0.3)' 
-                                  : pedido.estado === 'aprobado' 
-                                    ? 'rgba(16, 185, 129, 0.3)' 
-                                    : 'rgba(251, 191, 36, 0.3)'
-                              }`,
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = 'translateY(-2px)'
-                              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)'
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = 'translateY(0)'
-                              e.currentTarget.style.boxShadow = 'none'
-                            }}
-                          >
-                            <div style={{ fontWeight: 700, color: '#e5e7eb', marginBottom: '4px' }}>
-                              {pedido.numero_pedido} - {nombreCliente}
-                              {cliente?.empresa && ` (${cliente.empresa})`}
-                            </div>
-                            <div style={{ fontSize: '0.85rem', color: '#d1d5db', marginTop: '4px' }}>
-                              Precio: ${pedido.precio_total} • Estado: {pedido.estado}
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: '#d1d5db', marginTop: '4px' }}>
-                              {pedido.es_urgente && '⚠️ Urgente • '}
-                              {pedido.requiere_delivery && '🚚 Delivery • '}
-                              {pedido.fecha_limite_deseada && `📅 ${new Date(pedido.fecha_limite_deseada).toLocaleDateString('es-AR')}`}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
                 </div>
               )}
             </div>

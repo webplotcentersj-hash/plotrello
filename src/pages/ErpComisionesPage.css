@@ -1,0 +1,52 @@
+.comisiones-config {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.comisiones-ayuda {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+}
+
+.comisiones-simulador {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.9rem;
+}
+
+.erp-field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.erp-field--inline input {
+  width: 140px;
+}
+
+.comisiones-input-pct {
+  width: 80px;
+}
+
+/* El detalle puede ser largo: se scrollea dentro del panel */
+.comisiones-detalle {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.comisiones-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+}

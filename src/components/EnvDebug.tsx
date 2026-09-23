@@ -8,7 +8,9 @@ const EnvDebug = () => {
   }
 
   const apiUrl = import.meta.env.VITE_API_BASE_URL || 'NO CONFIGURADA'
-  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY ? '✅ Configurada' : '❌ NO CONFIGURADA'
+  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY
+    ? '✅ local (VITE_)'
+    : '❌ sin VITE_ (usar vercel dev / GEMINI_API_KEY)'
 
   return (
     <div

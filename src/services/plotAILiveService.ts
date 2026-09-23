@@ -2,8 +2,7 @@ import { GoogleGenAI, Modality } from '@google/genai'
 import type { Task, TeamMember, ActivityEvent } from '../types/board'
 import { getSystemContext } from './plotAIService'
 import { formatKanbanDetailedContext } from './plotAIKanbanContext'
-
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
+import { fetchGeminiLiveApiKey } from './geminiLiveKey'
 
 export interface LiveVoiceCallbacks {
   onOpen?: () => void
@@ -31,16 +30,13 @@ export class PlotAILiveVoice {
   private callbacks: LiveVoiceCallbacks = {}
 
   constructor() {
-    if (GEMINI_API_KEY) {
-      this.ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
-    } else {
-      console.warn('VITE_GEMINI_API_KEY no configurada')
-    }
+    /* la clave se pide al iniciar (servidor en prod; VITE_ solo en vite dev) */
   }
 
   async startCall(options: LiveVoiceOptions, callbacks: LiveVoiceCallbacks): Promise<void> {
     if (!this.ai) {
-      throw new Error('GoogleGenAI no inicializado. Verifica VITE_GEMINI_API_KEY')
+      const apiKey = await fetchGeminiLiveApiKey()
+      this.ai = new GoogleGenAI({ apiKey })
     }
 
     this.callbacks = callbacks

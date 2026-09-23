@@ -1410,7 +1410,7 @@ async function getContextByClienteId(
   }
 
   const { data: clientRow, error: clientErr } = await supabase
-    .from('clientes')
+    .from('clientes_publico')
     .select('id, nombre, apellido, empresa, dni_cuit, telefono, email, activo, es_cliente_web')
     .eq('id', clienteId)
     .maybeSingle()
@@ -1625,7 +1625,7 @@ async function findClientAndOrders(
     const num = digitsOnly(doc)
     if (num.length >= 6) {
       const { data: byDoc } = await supabase
-        .from('clientes')
+        .from('clientes_publico')
         .select('*')
         .ilike('dni_cuit', `%${num}%`)
         .limit(10)
@@ -1636,7 +1636,7 @@ async function findClientAndOrders(
     if (!clientRow && doc.replace(/\D/g, '').length >= 4) {
       const safe = doc.replace(/%/g, '')
       const { data: byDoc2 } = await supabase
-        .from('clientes')
+        .from('clientes_publico')
         .select('*')
         .ilike('dni_cuit', `%${safe}%`)
         .limit(5)
@@ -1650,7 +1650,7 @@ async function findClientAndOrders(
   if (!clientRow && e && e.length >= 2) {
     const empresaSafe = e.replace(/%/g, '')
     const { data: byEmpresa } = await supabase
-      .from('clientes')
+      .from('clientes_publico')
       .select('*')
       .ilike('empresa', `%${empresaSafe}%`)
       .limit(15)
@@ -1665,7 +1665,7 @@ async function findClientAndOrders(
     const firstPart = (parts[0] || n).replace(/%/g, '')
     const allPartsSafe = n.replace(/%/g, ' ')
     const { data: byName } = await supabase
-      .from('clientes')
+      .from('clientes_publico')
       .select('*')
       .or(`nombre.ilike.%${firstPart}%,apellido.ilike.%${firstPart}%,empresa.ilike.%${allPartsSafe}%`)
       .limit(20)
@@ -2026,14 +2026,24 @@ SALIDA:
 
         if (usuariosRol && usuariosRol.length > 0) {
           for (const u of usuariosRol) {
-            await supabase.from('user_notifications').insert({
-              user_id: u.id,
-              title: tituloEspecial,
-              description: descripcionEspecial,
-              type: 'mention',
-              is_read: false,
-              solicitud_chat_id: solicitudRow.id
+            const { error: rpcNotifErr } = await supabase.rpc('crear_notificacion_usuario', {
+              p_user_id: u.id,
+              p_title: tituloEspecial,
+              p_description: descripcionEspecial,
+              p_type: 'mention',
+              p_origen: 'sistema',
+              p_solicitud_chat_id: solicitudRow.id
             })
+            if (rpcNotifErr) {
+              await supabase.from('user_notifications').insert({
+                user_id: u.id,
+                title: tituloEspecial,
+                description: descripcionEspecial,
+                type: 'mention',
+                is_read: false,
+                solicitud_chat_id: solicitudRow.id
+              })
+            }
           }
           notificacionEnviada = true
           solicitudChatId = solicitudRow.id

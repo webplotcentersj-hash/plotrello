@@ -1,10 +1,13 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import apiService from '../services/api'
-import { autorizarFacturaAFIP } from '../services/afipApi'
 import { syncVentaPlotLabACaja } from '../features/control-cajas/plotlabVentaCajaSync'
 import type { CuentaPorCobrarRecord, FacturaVentaRecord, FacturaItemRecord } from '../types/api'
+import { conceptoLabel, formatFechaAr, hoyISO } from '../utils/afipFacturaUi'
 import './FacturaDetallePage.css'
+
+/** Mismo umbral que el servidor: un "Enviando" más viejo se considera colgado y se puede reintentar. */
+const ENVIO_AFIP_VENCIDO_MS = 3 * 60 * 1000
 
 export default function FacturaDetallePage() {
   const navigate = useNavigate()
@@ -17,7 +20,7 @@ export default function FacturaDetallePage() {
   const [showCobro, setShowCobro] = useState(false)
   const [cuentas, setCuentas] = useState<any[]>([])
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const todayStr = useMemo(() => hoyISO(), [])
   type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
   const [cobroForm, setCobroForm] = useState({
     monto: '',
@@ -83,50 +86,31 @@ export default function FacturaDetallePage() {
     }
   }
 
-  const handleAutorizarAfip = async () => {
+  /** Emitir = autorizar en AFIP; con CAE el servidor genera CxC / ajuste de nota de crédito / asiento. */
+  const handleEmitirAfip = async () => {
     if (!factura) return
-    if (
-      !confirm(
-        '¿Autorizar este comprobante en AFIP (homologación)?\n\nRequiere AFIP_ACCESS_TOKEN en el servidor y usa wsfev1 para pruebas.'
-      )
-    ) {
-      return
-    }
+    const soloEfectos = factura.estado_afip === 'Autorizada'
+    const mensaje = soloEfectos
+      ? '¿Generar la cuenta por cobrar y el asiento que quedaron pendientes?'
+      : '¿Emitir este comprobante? Se autoriza en AFIP y, con el CAE, se genera la cuenta por cobrar y el asiento contable.'
+    if (!confirm(mensaje)) return
 
     setLoadingAfip(true)
     try {
-      const response = await autorizarFacturaAFIP(factura.id)
-      if (response.success) {
-        alert(`Factura autorizada. CAE: ${response.data?.cae || '—'}`)
-        if (id) await loadFactura(parseInt(id))
-      } else {
-        alert('Error AFIP: ' + (response.error || 'desconocido'))
-        if (id) await loadFactura(parseInt(id))
-      }
-    } catch (error) {
-      console.error('Error autorizando AFIP:', error)
-      alert('Error al autorizar en AFIP')
-    } finally {
-      setLoadingAfip(false)
-    }
-  }
-
-  const handleEmitir = async () => {
-    if (!factura || !confirm('¿Estás seguro de emitir esta factura? Se creará la cuenta por cobrar y el asiento contable.')) {
-      return
-    }
-
-    try {
       const response = await apiService.emitirFactura(factura.id)
       if (response.success) {
-        alert('Factura emitida correctamente')
-        if (id) await loadFactura(parseInt(id))
+        const cae = response.data?.cae ? ` CAE: ${response.data.cae}` : ''
+        alert(soloEfectos ? 'Pendientes generados.' : `Comprobante autorizado en AFIP.${cae}`)
+        if (response.warning) alert(`Atención:\n\n${response.warning}`)
       } else {
-        alert('Error al emitir factura: ' + response.error)
+        alert('No se pudo emitir: ' + (response.error || 'desconocido'))
       }
+      if (id) await loadFactura(parseInt(id))
     } catch (error) {
-      console.error('Error emitiendo factura:', error)
-      alert('Error al emitir factura')
+      console.error('Error emitiendo en AFIP:', error)
+      alert('Error al emitir en AFIP')
+    } finally {
+      setLoadingAfip(false)
     }
   }
 
@@ -212,12 +196,15 @@ export default function FacturaDetallePage() {
 
   const tipo = String(factura.tipo_comprobante || '')
   const esNotaCredito = tipo.startsWith('Nota de Crédito')
-  const puedeCrearNotas = factura.estado === 'Emitida' && tipo.startsWith('Factura')
+  const autorizada = factura.estado_afip === 'Autorizada'
+  const puedeCrearNotas = factura.estado === 'Emitida' && autorizada && tipo.startsWith('Factura')
   const esCobrable = factura.estado === 'Emitida' && !esNotaCredito && Number(factura.total || 0) > 0
-  const puedeAutorizarAfip =
-    factura.estado === 'Emitida' &&
-    factura.estado_afip !== 'Autorizada' &&
-    factura.estado_afip !== 'Enviando'
+  const envioEnCurso =
+    factura.estado_afip === 'Enviando' &&
+    Date.now() - new Date(factura.updated_at || 0).getTime() < ENVIO_AFIP_VENCIDO_MS
+  // Borrador o comprobante viejo emitido sin CAE
+  const puedeEmitirAfip = (factura.estado === 'Borrador' || factura.estado === 'Emitida') && !autorizada && !envioEnCurso
+  const efectosPendientes = factura.estado === 'Emitida' && autorizada && !factura.efectos_aplicados_at
 
   return (
     <div className="factura-detalle-page">
@@ -242,14 +229,25 @@ export default function FacturaDetallePage() {
           <button className="btn-secondary" onClick={() => navigate('/erp/facturas')}>
             ← Volver
           </button>
-          {factura.estado === 'Borrador' && (
-            <button className="btn-primary" onClick={handleEmitir}>
-              Emitir Factura
+          {puedeEmitirAfip && (
+            <button className="btn-primary" onClick={handleEmitirAfip} disabled={loadingAfip}>
+              {loadingAfip
+                ? 'Autorizando en AFIP…'
+                : factura.estado === 'Borrador'
+                  ? factura.estado_afip === 'Error' || factura.estado_afip === 'Enviando'
+                    ? 'Reintentar emisión (AFIP)'
+                    : 'Emitir (autorizar AFIP)'
+                  : 'Autorizar AFIP'}
             </button>
           )}
-          {puedeAutorizarAfip && (
-            <button className="btn-primary" onClick={handleAutorizarAfip} disabled={loadingAfip}>
-              {loadingAfip ? 'Autorizando AFIP…' : 'Autorizar AFIP'}
+          {envioEnCurso && (
+            <button className="btn-primary" disabled>
+              Enviando a AFIP…
+            </button>
+          )}
+          {efectosPendientes && (
+            <button className="btn-primary" onClick={handleEmitirAfip} disabled={loadingAfip}>
+              {loadingAfip ? 'Generando…' : 'Generar CxC y asiento pendientes'}
             </button>
           )}
           {puedeCrearNotas && (
@@ -273,6 +271,19 @@ export default function FacturaDetallePage() {
               <label>Tipo de Comprobante</label>
               <div>{factura.tipo_comprobante}</div>
             </div>
+            <div className="info-item">
+              <label>Concepto</label>
+              <div>{conceptoLabel(factura.concepto)}</div>
+            </div>
+            {factura.fecha_servicio_desde && (
+              <div className="info-item">
+                <label>Período del servicio</label>
+                <div>
+                  {formatFechaAr(factura.fecha_servicio_desde)} al{' '}
+                  {formatFechaAr(factura.fecha_servicio_hasta || factura.fecha_servicio_desde)}
+                </div>
+              </div>
+            )}
             {(factura as any).id_factura_referencia && (
               <div className="info-item">
                 <label>Referencia</label>
@@ -297,18 +308,24 @@ export default function FacturaDetallePage() {
             </div>
             <div className="info-item">
               <label>Fecha de Emisión</label>
-              <div>{new Date(factura.fecha_emision).toLocaleDateString('es-AR')}</div>
+              <div>{formatFechaAr(factura.fecha_emision)}</div>
             </div>
             {factura.fecha_vencimiento && (
               <div className="info-item">
                 <label>Fecha de Vencimiento</label>
-                <div>{new Date(factura.fecha_vencimiento).toLocaleDateString('es-AR')}</div>
+                <div>{formatFechaAr(factura.fecha_vencimiento)}</div>
               </div>
             )}
             {factura.cae && (
               <div className="info-item">
                 <label>CAE</label>
                 <div>{factura.cae}</div>
+              </div>
+            )}
+            {factura.resultado_afip && (
+              <div className="info-item" style={{ gridColumn: '1 / -1' }}>
+                <label>{factura.estado_afip === 'Error' ? 'Error AFIP' : 'Observaciones AFIP'}</label>
+                <div>{factura.resultado_afip}</div>
               </div>
             )}
             {factura.numero_cae && (
@@ -320,7 +337,7 @@ export default function FacturaDetallePage() {
             {factura.fecha_vencimiento_cae && (
               <div className="info-item">
                 <label>Vencimiento CAE</label>
-                <div>{new Date(factura.fecha_vencimiento_cae).toLocaleDateString('es-AR')}</div>
+                <div>{formatFechaAr(factura.fecha_vencimiento_cae)}</div>
               </div>
             )}
           </div>
@@ -353,7 +370,7 @@ export default function FacturaDetallePage() {
                   {cxc.fecha_vencimiento && (
                     <div className="info-item">
                       <label>Vencimiento</label>
-                      <div>{new Date(cxc.fecha_vencimiento).toLocaleDateString('es-AR')}</div>
+                      <div>{formatFechaAr(cxc.fecha_vencimiento)}</div>
                     </div>
                   )}
                 </div>

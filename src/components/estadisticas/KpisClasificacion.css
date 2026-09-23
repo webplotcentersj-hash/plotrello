@@ -1,0 +1,82 @@
+.kpi-ia-total {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #e5ecf5;
+  margin-bottom: 12px;
+}
+
+.kpi-ia-barras {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.kpi-ia-barras__texto {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.82rem;
+  color: #c7d0dd;
+  margin-bottom: 4px;
+}
+
+.kpi-ia-barras__texto span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpi-ia-barras__texto strong {
+  color: #e5ecf5;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kpi-ia-barras__pista {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.kpi-ia-barras__relleno {
+  height: 100%;
+  border-radius: 999px;
+  background: #22c55e;
+}
+
+/* Pendientes / sin clasificar: se muestran, pero apagados */
+.kpi-ia-barras__fila--apagada .kpi-ia-barras__relleno {
+  background: rgba(156, 163, 175, 0.45);
+}
+
+.kpi-ia-barras__fila--apagada .kpi-ia-barras__texto span {
+  font-style: italic;
+  color: #9ca3af;
+}
+
+.kpi-ia-nota {
+  margin: 12px 0 0;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.kpi-ia-pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: #c7d0dd;
+}
+
+.kpi-ia-pie .kpi-ia-nota {
+  margin: 0;
+  flex-basis: 100%;
+}

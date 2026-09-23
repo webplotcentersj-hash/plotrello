@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
 import type { FacturaVentaRecord } from '../types/api'
+import { formatFechaAr } from '../utils/afipFacturaUi'
 import './FacturasPage.css'
 
 export default function FacturasPage() {
@@ -41,17 +42,23 @@ export default function FacturasPage() {
   }
 
   const handleEmitirFactura = async (id: number) => {
-    if (!confirm('¿Estás seguro de emitir esta factura? Se creará la cuenta por cobrar y el asiento contable.')) {
+    if (
+      !confirm(
+        '¿Emitir este comprobante? Se autoriza en AFIP y, con el CAE, se genera la cuenta por cobrar y el asiento contable.'
+      )
+    ) {
       return
     }
 
     try {
       const response = await apiService.emitirFactura(id)
       if (response.success) {
-        alert('Factura emitida correctamente')
+        alert('Comprobante autorizado en AFIP y emitido.')
+        if (response.warning) alert(`Atención:\n\n${response.warning}`)
         loadFacturas()
       } else {
-        alert('Error al emitir factura: ' + response.error)
+        alert('No se pudo emitir: ' + response.error)
+        loadFacturas()
       }
     } catch (error) {
       console.error('Error emitiendo factura:', error)
@@ -148,7 +155,7 @@ export default function FacturasPage() {
                 <tr key={factura.id}>
                   <td>{factura.numero_factura}</td>
                   <td>{factura.cliente_nombre}</td>
-                  <td>{new Date(factura.fecha_emision).toLocaleDateString('es-AR')}</td>
+                  <td>{formatFechaAr(factura.fecha_emision)}</td>
                   <td>{factura.tipo_comprobante}</td>
                   <td>${factura.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                   <td>

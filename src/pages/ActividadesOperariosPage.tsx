@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ChevronDown, ClipboardList, Users } from 'lucide-react'
+import { ChevronDown, ClipboardList, Download, Users } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import ActividadOperarioDetalleModal from '../features/work-pool/ActividadOperarioDetalleModal'
 import ActividadesOperariosCalendario from '../features/work-pool/ActividadesOperariosCalendario'
+import { exportInformeActividadesDiaPdf } from '../features/work-pool/exportActividadesOperariosPdf'
 import {
   attachActividadesToOps,
   buildActividadesPorOpDelDia,
@@ -89,9 +90,29 @@ function inicialesOperario(nombre: string): string {
 
 function parseOpLabel(label: string): { numero: string | null; titulo: string | null } {
   const m = label.match(/^OP\s+(\d+)\s*[·•-]?\s*(.*)$/i)
-  if (!m) return { numero: null, titulo: label }
-  const titulo = m[2]?.trim() || null
-  return { numero: m[1], titulo }
+  if (!m) return { numero: null, titulo: label.trim() || null }
+  const numero = m[1]
+  let titulo = m[2]?.trim() || null
+  if (titulo) {
+    if (new RegExp(`^OP\\s*${numero}$`, 'i').test(titulo)) titulo = null
+    else {
+      titulo =
+        titulo.replace(new RegExp(`^OP\\s*${numero}\\s*[·•-]?\\s*`, 'i'), '').trim() || null
+    }
+  }
+  return { numero, titulo }
+}
+
+function enrichOpNombres(ops: OpDelDia[], nombres: Map<number, string>): OpDelDia[] {
+  return ops.map((op) => ({
+    ...op,
+    operarios: (op.operarios ?? [])
+      .map((o) => ({
+        id: o.id,
+        nombre: resolveNombreOperario(o.id, nombres, o.nombre)
+      }))
+      .filter((o) => esNombreOperarioValido(o.nombre))
+  }))
 }
 
 function avatarHue(id: number): number {
@@ -148,33 +169,40 @@ function OpActividadesList({
 function OpDelDiaRow({
   op,
   expanded,
-  onToggle
+  onToggle,
+  compact = false
 }: {
   op: OpDelDia
   expanded: boolean
   onToggle: () => void
+  compact?: boolean
 }) {
   const tieneDetalle = (op.actividades?.length ?? 0) > 0
   const parsed = parseOpLabel(op.label)
   const operarios = (op.operarios ?? []).filter((o) => esNombreOperarioValido(o.nombre))
+  const rootClass = compact ? 'act-op-card__op-item' : 'act-op-ops__item'
   return (
-    <li className={`act-op-ops__item${expanded ? ' is-expanded' : ''}`}>
+    <li className={`${rootClass}${expanded ? ' is-expanded' : ''}`}>
       <button
         type="button"
-        className="act-op-ops__item-toggle"
+        className={compact ? 'act-op-card__op-toggle' : 'act-op-ops__item-toggle'}
         onClick={onToggle}
         aria-expanded={expanded}
         disabled={!tieneDetalle}
       >
-        <span className="act-op-ops__chevron-wrap" aria-hidden>
-          <ChevronDown size={18} className={`act-op-chevron${expanded ? ' is-open' : ''}`} />
+        <span className={compact ? 'act-op-card__op-chevron' : 'act-op-ops__chevron-wrap'} aria-hidden>
+          <ChevronDown size={compact ? 16 : 18} className={`act-op-chevron${expanded ? ' is-open' : ''}`} />
         </span>
-        <div className="act-op-ops__main">
-          <div className="act-op-ops__title-row">
-            {parsed.numero ? <span className="act-op-ops__op-num">OP {parsed.numero}</span> : null}
+        <div className={compact ? 'act-op-card__op-main' : 'act-op-ops__main'}>
+          <div className={compact ? 'act-op-card__op-title-row' : 'act-op-ops__title-row'}>
+            {parsed.numero ? (
+              <span className={compact ? 'act-op-card__op-num' : 'act-op-ops__op-num'}>
+                OP {parsed.numero}
+              </span>
+            ) : null}
             {parsed.titulo ? <strong>{parsed.titulo}</strong> : null}
           </div>
-          <div className="act-op-ops__meta">
+          <div className={compact ? 'act-op-card__op-meta' : 'act-op-ops__meta'}>
             <span className="act-op-pill act-op-pill--entries">
               {op.entradas} {op.entradas === 1 ? 'entrada' : 'entradas'}
             </span>
@@ -183,7 +211,7 @@ function OpDelDiaRow({
             ) : null}
             {op.horario ? <span className="act-op-pill act-op-pill--hora">{op.horario}</span> : null}
           </div>
-          {operarios.length > 0 ? (
+          {!compact && operarios.length > 0 ? (
             <div className="act-op-ops__people">
               {operarios.map((o) => (
                 <span key={o.id} className="act-op-ops__person">
@@ -194,7 +222,9 @@ function OpDelDiaRow({
           ) : null}
         </div>
       </button>
-      {expanded && tieneDetalle ? <OpActividadesList actividades={op.actividades!} /> : null}
+      {expanded && tieneDetalle ? (
+        <OpActividadesList actividades={op.actividades!} compact={compact} />
+      ) : null}
     </li>
   )
 }
@@ -417,8 +447,19 @@ export default function ActividadesOperariosPage() {
       selectedDate,
       filtroOp === 'todos' ? undefined : { idUsuario: filtroOp }
     )
-    return attachActividadesToOps(mergeOpsDelDiaList(fromNotas, fromTablero), actividadesGlobal)
-  }, [filtered, selectedDate, historialTablero, ordenTableroById, filtroOp, actividadesGlobal])
+    return enrichOpNombres(
+      attachActividadesToOps(mergeOpsDelDiaList(fromNotas, fromTablero), actividadesGlobal),
+      nombresCompletos
+    )
+  }, [
+    filtered,
+    selectedDate,
+    historialTablero,
+    ordenTableroById,
+    filtroOp,
+    actividadesGlobal,
+    nombresCompletos
+  ])
 
   const opsPorOperarioHistorial = useMemo(
     () => buildOpsDelDiaPorOperarioFromHistorialTablero(historialTablero, ordenTableroById, selectedDate),
@@ -439,7 +480,7 @@ export default function ActividadesOperariosPage() {
         buildOpsDelDia(g.notas, { fechaKey: selectedDate }),
         acts
       )
-      map.set(g.id, ops)
+      map.set(g.id, enrichOpNombres(ops, nombresCompletos))
     }
     for (const [userId, ops] of opsPorOperarioHistorial) {
       const acts = buildActividadesPorOpDelDia(
@@ -450,10 +491,24 @@ export default function ActividadesOperariosPage() {
         { idUsuario: userId }
       )
       const fromNotas = map.get(userId) ?? []
-      map.set(userId, attachActividadesToOps(mergeOpsDelDiaList(fromNotas, ops), acts))
+      map.set(
+        userId,
+        enrichOpNombres(
+          attachActividadesToOps(mergeOpsDelDiaList(fromNotas, ops), acts),
+          nombresCompletos
+        )
+      )
     }
     return map
-  }, [grouped, opsPorOperarioHistorial, selectedDate, historialTablero, ordenTableroById, filtered])
+  }, [
+    grouped,
+    opsPorOperarioHistorial,
+    selectedDate,
+    historialTablero,
+    ordenTableroById,
+    filtered,
+    nombresCompletos
+  ])
 
   const groupedConTablero = useMemo(() => {
     const byId = new Map(grouped.map((g) => [g.id, g]))
@@ -464,10 +519,15 @@ export default function ActividadesOperariosPage() {
         nombresCompletos,
         historialTablero.find((h) => h.id_usuario === userId)?.nombre_usuario
       )
+      // Evitar tarjeta fantasma "Operario #1" sin nombre real
+      if (!esNombreOperarioValido(nombre) && (opsPorOperarioHistorial.get(userId)?.length ?? 0) === 0) {
+        continue
+      }
       byId.set(userId, { id: userId, nombre, idLegajo: null, notas: [] })
     }
     return [...byId.values()]
       .filter((g) => (filtroOp === 'todos' ? true : g.id === filtroOp))
+      .filter((g) => esNombreOperarioValido(g.nombre) || g.notas.length > 0)
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
   }, [grouped, opsPorOperarioHistorial, historialTablero, filtroOp, nombresCompletos])
 
@@ -504,6 +564,27 @@ export default function ActividadesOperariosPage() {
     setLegajoUsuario(toUsuarioRecord(nota))
   }
 
+  const descargarInformePdf = () => {
+    exportInformeActividadesDiaPdf({
+      fechaKey: selectedDate,
+      fechaLabel: formatDiaLabel(selectedDate),
+      stats: {
+        total: delDiaStats.total,
+        bitacora: delDiaStats.bitacora,
+        checklist: delDiaStats.checklist,
+        anotador: delDiaStats.anotador,
+        ops: opsDelDia.length
+      },
+      opsDelDia,
+      grupos: groupedConTablero.map((g) => ({
+        id: g.id,
+        nombre: g.nombre,
+        ops: opsPorOperario.get(g.id) ?? [],
+        notas: g.notas
+      }))
+    })
+  }
+
   if (authLoading) {
     return <div className="act-op-page act-op-page--muted">Cargando…</div>
   }
@@ -521,6 +602,15 @@ export default function ActividadesOperariosPage() {
           </p>
         </div>
         <div className="act-op-page__nav">
+          <button
+            type="button"
+            className="act-op-page__download"
+            onClick={descargarInformePdf}
+            disabled={loading || (opsDelDia.length === 0 && groupedConTablero.length === 0)}
+          >
+            <Download size={16} aria-hidden />
+            Descargar informe PDF
+          </button>
           <Link to="/" className="act-op-page__back">
             ← Tablero
           </Link>
@@ -565,11 +655,22 @@ export default function ActividadesOperariosPage() {
                 <h2>{formatDiaLabel(selectedDate)}</h2>
                 <p>{delDiaStats.total} actividades registradas</p>
               </div>
-              <div className="act-op-dia__chips">
-                <span className="act-op-dia__chip act-op-dia__chip--bitacora">{delDiaStats.bitacora} bitácora</span>
-                <span className="act-op-dia__chip act-op-dia__chip--checklist">{delDiaStats.checklist} checklist</span>
-                <span className="act-op-dia__chip act-op-dia__chip--anotador">{delDiaStats.anotador} anotador</span>
-                <span className="act-op-dia__chip act-op-dia__chip--ops">{opsDelDia.length} OPs</span>
+              <div className="act-op-dia__actions">
+                <div className="act-op-dia__chips">
+                  <span className="act-op-dia__chip act-op-dia__chip--bitacora">{delDiaStats.bitacora} bitácora</span>
+                  <span className="act-op-dia__chip act-op-dia__chip--checklist">{delDiaStats.checklist} checklist</span>
+                  <span className="act-op-dia__chip act-op-dia__chip--anotador">{delDiaStats.anotador} anotador</span>
+                  <span className="act-op-dia__chip act-op-dia__chip--ops">{opsDelDia.length} OPs</span>
+                </div>
+                <button
+                  type="button"
+                  className="act-op-dia__pdf"
+                  onClick={descargarInformePdf}
+                  disabled={loading || (opsDelDia.length === 0 && groupedConTablero.length === 0)}
+                >
+                  <Download size={15} aria-hidden />
+                  Informe PDF
+                </button>
               </div>
             </header>
             {opsDelDia.length > 0 ? (
@@ -824,47 +925,15 @@ export default function ActividadesOperariosPage() {
                     </button>
                     {opsOpen ? (
                       <ul className="act-op-card__ops">
-                        {ops.map((op) => {
-                          const opKey = `card:${g.id}:${op.key}`
-                          const opDetailOpen = expandedOps.has(opKey)
-                          const tieneDetalle = (op.actividades?.length ?? 0) > 0
-                          const parsed = parseOpLabel(op.label)
-                          return (
-                            <li
-                              key={op.key}
-                              className={`act-op-card__op-item${opDetailOpen ? ' is-expanded' : ''}`}
-                            >
-                              <button
-                                type="button"
-                                className="act-op-card__op-toggle"
-                                onClick={() => toggleOp(opKey)}
-                                aria-expanded={opDetailOpen}
-                                disabled={!tieneDetalle}
-                              >
-                                <ChevronDown
-                                  size={14}
-                                  className={`act-op-chevron${opDetailOpen ? ' is-open' : ''}`}
-                                  aria-hidden
-                                />
-                                {parsed.numero ? (
-                                  <span className="act-op-card__op-num">OP {parsed.numero}</span>
-                                ) : null}
-                                {parsed.titulo ? (
-                                  <span className="act-op-card__op-chip">{parsed.titulo}</span>
-                                ) : null}
-                                {op.horario ? (
-                                  <span className="act-op-card__op-hora">{op.horario}</span>
-                                ) : null}
-                                <span className="act-op-card__op-count">
-                                  {op.entradas} {op.entradas === 1 ? 'entrada' : 'entradas'}
-                                </span>
-                              </button>
-                              {opDetailOpen && tieneDetalle ? (
-                                <OpActividadesList actividades={op.actividades!} compact />
-                              ) : null}
-                            </li>
-                          )
-                        })}
+                        {ops.map((op) => (
+                          <OpDelDiaRow
+                            key={op.key}
+                            op={op}
+                            compact
+                            expanded={expandedOps.has(`card:${g.id}:${op.key}`)}
+                            onToggle={() => toggleOp(`card:${g.id}:${op.key}`)}
+                          />
+                        ))}
                       </ul>
                     ) : null}
                   </div>

@@ -3,14 +3,19 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
 import type { ConfiguracionAFIPRecord, OrdenTrabajo, Venta } from '../types/api'
 import {
+  CONCEPTOS_AFIP,
   calcularLineaItem,
   calcularTotalesFactura,
   codigoComprobanteAfip,
   formatFechaAr,
   formatPvNumero,
+  hoyISO,
   inferirCondicionIva,
   inferirTipoFactura,
   letraComprobante,
+  tiposFacturaPermitidos,
+  validarReceptorComprobante,
+  type ConceptoAfip,
   type CondicionIvaCliente,
   type TipoFactura
 } from '../utils/afipFacturaUi'
@@ -39,13 +44,21 @@ export default function CrearFacturaPage() {
   const [venta, setVenta] = useState<Venta | null>(null)
   const [emitirAlGuardar, setEmitirAlGuardar] = useState(true)
   const [errorConfig, setErrorConfig] = useState<string | null>(null)
+  /** Los precios de ventas / mostrador ya incluyen IVA; los ítems manuales se cargan netos por defecto. */
+  const [preciosConIva, setPreciosConIva] = useState(false)
 
   const [formData, setFormData] = useState({
     tipo_comprobante: 'Factura B' as TipoFactura,
-    fecha_emision: new Date().toISOString().split('T')[0],
+    concepto: 1 as ConceptoAfip,
+    fecha_emision: hoyISO(),
     fecha_vencimiento: '',
+    fecha_servicio_desde: '',
+    fecha_servicio_hasta: '',
     observaciones: ''
   })
+  const esServicio = formData.concepto !== 1
+
+  const condicionEmisor = afipConfig?.condicion_iva
 
   const [cliente, setCliente] = useState({
     nombre: '',
@@ -76,10 +89,10 @@ export default function CrearFacturaPage() {
       })
       setFormData((prev) => ({
         ...prev,
-        tipo_comprobante: inferirTipoFactura(cuit, cond)
+        tipo_comprobante: inferirTipoFactura(cuit, cond, condicionEmisor)
       }))
     },
-    []
+    [condicionEmisor]
   )
 
   const aplicarVenta = useCallback(
@@ -95,9 +108,9 @@ export default function CrearFacturaPage() {
         direccion: v.cliente_direccion,
         id_cliente: v.id_cliente ?? null
       })
-      if (v.fecha_venta) {
-        setFormData((prev) => ({ ...prev, fecha_emision: String(v.fecha_venta).split('T')[0] }))
-      }
+      // No se copia la fecha de la venta: AFIP rechaza comprobantes con más de 5 días de diferencia.
+      // Los precios de la venta son finales (lo que pagó el cliente): IVA incluido.
+      setPreciosConIva(true)
       const itemsResponse = await apiService.getItemsVenta(ventaId)
       if (itemsResponse.success && itemsResponse.data?.length) {
         setItems(
@@ -114,7 +127,7 @@ export default function CrearFacturaPage() {
           {
             descripcion: `Venta ${v.numero_venta}${v.numero_op ? ` · OP ${v.numero_op}` : ''}`,
             cantidad: 1,
-            precio_unitario: Math.round((v.valor_total / 1.21) * 100) / 100,
+            precio_unitario: Number(v.valor_total),
             descuento: 0,
             iva_porcentaje: 21
           }
@@ -228,7 +241,19 @@ export default function CrearFacturaPage() {
     setItems((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const totales = useMemo(() => calcularTotalesFactura(items), [items])
+  const tiposPermitidos = useMemo(() => tiposFacturaPermitidos(condicionEmisor), [condicionEmisor])
+  const esFacturaC = formData.tipo_comprobante === 'Factura C'
+  const opcionesCalculo = useMemo(
+    () => ({ preciosConIva: preciosConIva && !esFacturaC, sinIva: esFacturaC }),
+    [preciosConIva, esFacturaC]
+  )
+  const totales = useMemo(() => calcularTotalesFactura(items, opcionesCalculo), [items, opcionesCalculo])
+
+  // Si la configuración del emisor no admite la letra elegida, pasar a la que corresponde
+  useEffect(() => {
+    if (!afipConfig || tiposPermitidos.includes(formData.tipo_comprobante)) return
+    setFormData((p) => ({ ...p, tipo_comprobante: inferirTipoFactura(cliente.dni_cuit, cliente.condicion_iva, condicionEmisor) }))
+  }, [afipConfig, tiposPermitidos, formData.tipo_comprobante, cliente.dni_cuit, cliente.condicion_iva, condicionEmisor])
 
   const proximoNumero = useMemo(() => {
     if (!afipConfig) return 1
@@ -263,6 +288,30 @@ export default function CrearFacturaPage() {
       alert('Todos los ítems deben tener descripción, cantidad y precio válidos.')
       return
     }
+    if (!tiposPermitidos.includes(formData.tipo_comprobante)) {
+      alert(`Con condición de emisor "${condicionEmisor}" solo podés emitir: ${tiposPermitidos.join(', ')}.`)
+      return
+    }
+    const errorReceptor = validarReceptorComprobante(formData.tipo_comprobante, cliente.condicion_iva, cliente.dni_cuit)
+    if (errorReceptor) {
+      alert(errorReceptor)
+      return
+    }
+    if (totales.total <= 0) {
+      alert('El total de la factura debe ser mayor a cero.')
+      return
+    }
+    // Servicios: sin período cargado se toma la fecha de emisión (lo mismo hace el servidor)
+    const servicioDesde = esServicio ? formData.fecha_servicio_desde || formData.fecha_emision : null
+    const servicioHasta = esServicio ? formData.fecha_servicio_hasta || servicioDesde : null
+    if (servicioDesde && servicioHasta && servicioDesde > servicioHasta) {
+      alert('El período del servicio es inválido: "desde" es posterior a "hasta".')
+      return
+    }
+    if (esServicio && formData.fecha_vencimiento && formData.fecha_vencimiento < formData.fecha_emision) {
+      alert('El vencimiento del pago no puede ser anterior a la fecha de emisión.')
+      return
+    }
 
     setLoading(true)
     try {
@@ -279,6 +328,10 @@ export default function CrearFacturaPage() {
         numero_op: op?.numero_op || venta?.numero_op || null,
         id_venta: venta?.id || null,
         items,
+        precios_con_iva: opcionesCalculo.preciosConIva,
+        concepto: formData.concepto,
+        fecha_servicio_desde: servicioDesde,
+        fecha_servicio_hasta: servicioHasta,
         observaciones: formData.observaciones?.trim() || null
       })
 
@@ -287,17 +340,18 @@ export default function CrearFacturaPage() {
         return
       }
 
-      let facturaId = response.data.id
+      const facturaId = response.data.id
       if (emitirAlGuardar) {
         const emit = await apiService.emitirFactura(facturaId)
         if (!emit.success) {
-          alert('Factura creada en borrador, pero no se pudo emitir: ' + (emit.error || 'desconocido'))
+          alert('La factura quedó en borrador: AFIP no la autorizó.\n\n' + (emit.error || 'desconocido'))
           navigate(`/erp/facturas/${facturaId}`)
           return
         }
+        if (emit.warning) alert(`Factura autorizada en AFIP, con un pendiente:\n\n${emit.warning}`)
       }
 
-      alert(emitirAlGuardar ? 'Factura creada y emitida correctamente.' : 'Factura creada en borrador.')
+      alert(emitirAlGuardar ? 'Factura autorizada en AFIP y emitida.' : 'Factura creada en borrador.')
       navigate(`/erp/facturas/${facturaId}`)
     } catch (error) {
       console.error('Error creando factura:', error)
@@ -379,9 +433,28 @@ export default function CrearFacturaPage() {
                 value={formData.tipo_comprobante}
                 onChange={(e) => setFormData((p) => ({ ...p, tipo_comprobante: e.target.value as TipoFactura }))}
               >
-                <option value="Factura A">Factura A (RI → RI)</option>
-                <option value="Factura B">Factura B</option>
-                <option value="Factura C">Factura C (Monotributo)</option>
+                {tiposPermitidos.includes('Factura A') && (
+                  <option value="Factura A">Factura A (a Resp. Inscripto / Monotributista)</option>
+                )}
+                {tiposPermitidos.includes('Factura B') && (
+                  <option value="Factura B">Factura B (a Consumidor Final / Exento)</option>
+                )}
+                {tiposPermitidos.includes('Factura C') && (
+                  <option value="Factura C">Factura C (emisor Monotributista / Exento)</option>
+                )}
+              </select>
+            </label>
+            <label className="crear-factura-field">
+              <span>Concepto</span>
+              <select
+                value={formData.concepto}
+                onChange={(e) => setFormData((p) => ({ ...p, concepto: Number(e.target.value) as ConceptoAfip }))}
+              >
+                {CONCEPTOS_AFIP.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="crear-factura-field">
@@ -392,17 +465,47 @@ export default function CrearFacturaPage() {
                 onChange={(e) => setFormData((p) => ({ ...p, fecha_emision: e.target.value }))}
               />
             </label>
+            {esServicio && (
+              <>
+                <label className="crear-factura-field">
+                  <span>Servicio desde</span>
+                  <input
+                    type="date"
+                    value={formData.fecha_servicio_desde || formData.fecha_emision}
+                    onChange={(e) => setFormData((p) => ({ ...p, fecha_servicio_desde: e.target.value }))}
+                  />
+                </label>
+                <label className="crear-factura-field">
+                  <span>Servicio hasta</span>
+                  <input
+                    type="date"
+                    value={formData.fecha_servicio_hasta || formData.fecha_servicio_desde || formData.fecha_emision}
+                    onChange={(e) => setFormData((p) => ({ ...p, fecha_servicio_hasta: e.target.value }))}
+                  />
+                </label>
+              </>
+            )}
             <label className="crear-factura-field">
-              <span>Fecha vencimiento</span>
+              <span>{esServicio ? 'Vencimiento del pago (vacío = fecha de emisión)' : 'Fecha vencimiento'}</span>
               <input
                 type="date"
                 value={formData.fecha_vencimiento}
+                min={esServicio ? formData.fecha_emision : undefined}
                 onChange={(e) => setFormData((p) => ({ ...p, fecha_vencimiento: e.target.value }))}
               />
             </label>
             <label className="crear-factura-check">
               <input type="checkbox" checked={emitirAlGuardar} onChange={(e) => setEmitirAlGuardar(e.target.checked)} />
-              Emitir al guardar (genera CxC y asiento)
+              Autorizar en AFIP al guardar (con CAE genera CxC y asiento)
+            </label>
+            <label className="crear-factura-check">
+              <input
+                type="checkbox"
+                checked={preciosConIva && !esFacturaC}
+                disabled={esFacturaC}
+                onChange={(e) => setPreciosConIva(e.target.checked)}
+              />
+              Precios con IVA incluido
             </label>
           </section>
 
@@ -425,7 +528,7 @@ export default function CrearFacturaPage() {
                   const cuit = e.target.value
                   const cond = cliente.condicion_iva || inferirCondicionIva(cuit)
                   setCliente((p) => ({ ...p, dni_cuit: cuit, condicion_iva: cond }))
-                  setFormData((p) => ({ ...p, tipo_comprobante: inferirTipoFactura(cuit, cond) }))
+                  setFormData((p) => ({ ...p, tipo_comprobante: inferirTipoFactura(cuit, cond, condicionEmisor) }))
                 }}
               />
             </label>
@@ -436,7 +539,7 @@ export default function CrearFacturaPage() {
                 onChange={(e) => {
                   const cond = e.target.value as CondicionIvaCliente
                   setCliente((p) => ({ ...p, condicion_iva: cond }))
-                  setFormData((p) => ({ ...p, tipo_comprobante: inferirTipoFactura(cliente.dni_cuit, cond) }))
+                  setFormData((p) => ({ ...p, tipo_comprobante: inferirTipoFactura(cliente.dni_cuit, cond, condicionEmisor) }))
                 }}
               >
                 <option value="Consumidor Final">Consumidor Final</option>
@@ -493,12 +596,21 @@ export default function CrearFacturaPage() {
                         onChange={(e) => handleUpdateItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
                       />
                       <select
-                        value={item.iva_porcentaje}
+                        value={esFacturaC ? 0 : item.iva_porcentaje}
+                        disabled={esFacturaC}
+                        title={esFacturaC ? 'La Factura C no discrimina IVA' : 'Alícuota IVA'}
                         onChange={(e) => handleUpdateItem(index, 'iva_porcentaje', parseFloat(e.target.value) || 0)}
                       >
-                        <option value={21}>IVA 21%</option>
-                        <option value={10.5}>IVA 10,5%</option>
-                        <option value={0}>IVA 0%</option>
+                        {esFacturaC ? (
+                          <option value={0}>Sin IVA</option>
+                        ) : (
+                          <>
+                            <option value={21}>IVA 21%</option>
+                            <option value={10.5}>IVA 10,5%</option>
+                            <option value={27}>IVA 27%</option>
+                            <option value={0}>IVA 0%</option>
+                          </>
+                        )}
                       </select>
                       <button type="button" className="btn-remove-item" onClick={() => handleRemoveItem(index)} aria-label="Quitar">
                         ✕
@@ -591,9 +703,17 @@ export default function CrearFacturaPage() {
               <div>
                 <strong>Condición de venta:</strong> {venta?.metodo_pago || 'Contado'}
               </div>
-              {formData.fecha_vencimiento && (
+              {esServicio && (
                 <div>
-                  <strong>Fecha de Vto. para el pago:</strong> {formatFechaAr(formData.fecha_vencimiento)}
+                  <strong>Período facturado desde:</strong>{' '}
+                  {formatFechaAr(formData.fecha_servicio_desde || formData.fecha_emision)} <strong>hasta:</strong>{' '}
+                  {formatFechaAr(formData.fecha_servicio_hasta || formData.fecha_servicio_desde || formData.fecha_emision)}
+                </div>
+              )}
+              {(formData.fecha_vencimiento || esServicio) && (
+                <div>
+                  <strong>Fecha de Vto. para el pago:</strong>{' '}
+                  {formatFechaAr(formData.fecha_vencimiento || formData.fecha_emision)}
                 </div>
               )}
             </div>
@@ -619,7 +739,14 @@ export default function CrearFacturaPage() {
                   </tr>
                 ) : (
                   items.map((item, idx) => {
-                    const linea = calcularLineaItem(item)
+                    const linea = calcularLineaItem(item, opcionesCalculo)
+                    // La A discrimina IVA (subtotal neto); en B y C el subtotal es el precio final
+                    const subtotalLinea = letra === 'A' ? linea.neto : linea.total
+                    const factorIva = 1 + linea.alicuota / 100
+                    const precioMostrado =
+                      letra === 'A'
+                        ? opcionesCalculo.preciosConIva ? item.precio_unitario / factorIva : item.precio_unitario
+                        : opcionesCalculo.preciosConIva || esFacturaC ? item.precio_unitario : item.precio_unitario * factorIva
                     const bonifPct =
                       item.cantidad * item.precio_unitario > 0
                         ? ((item.descuento / (item.cantidad * item.precio_unitario)) * 100).toFixed(1)
@@ -630,9 +757,9 @@ export default function CrearFacturaPage() {
                         <td>{item.descripcion || '—'}</td>
                         <td>{item.cantidad.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                         <td>unidades</td>
-                        <td>${item.precio_unitario.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                        <td>${precioMostrado.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td>{bonifPct}%</td>
-                        <td>${linea.neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                        <td>${subtotalLinea.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                       </tr>
                     )
                   })

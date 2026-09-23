@@ -52,6 +52,15 @@ const CONTABLE_MODULES: ErpModuleDef[] = [
     keywords: ['factura', 'facturacion', 'comprobante', 'cae', 'venta']
   },
   {
+    id: 'comisiones',
+    title: 'Comisiones',
+    description: 'Comisiones por ventas y liquidaciones mensuales',
+    icon: '🤝',
+    path: '/erp/comisiones',
+    accent: '#ec4899',
+    keywords: ['comisiones', 'vendedores', 'liquidacion', 'ventas', 'premios']
+  },
+  {
     id: 'asientos',
     title: 'Asientos contables',
     description: 'Gestión con partida doble',

@@ -1617,6 +1617,19 @@ const CRMVentasPage = () => {
       return
     }
 
+    // Con ítems, el total pasa a ser la suma de los ítems: avisar si había un total cargado a mano
+    if (itemsVentaEditando.length === 0 && Number(ventaEditando.valor_total) > 0) {
+      const totalActual = Number(ventaEditando.valor_total).toLocaleString('es-AR', { minimumFractionDigits: 2 })
+      if (
+        !confirm(
+          `Esta venta tiene un total cargado a mano de $${totalActual} y todavía no tiene ítems.\n\n` +
+            'Al agregar el primer ítem, el total pasa a ser la suma de los ítems. ¿Continuar?'
+        )
+      ) {
+        return
+      }
+    }
+
     try {
       const response = await apiService.agregarItemVenta({
         id_venta: ventaEditando.id,
@@ -1906,10 +1919,12 @@ const CRMVentasPage = () => {
       })
       
       if (response.success && response.data) {
-        // Agregar items si hay
+        // Agregar items si hay. Con ítems el total queda como la suma de los ítems,
+        // así que un ítem que falla dejaría la venta con menos total: se avisa.
+        const itemsFallados: string[] = []
         if (itemsVenta.length > 0) {
           for (const item of itemsVenta) {
-            await apiService.agregarItemVenta({
+            const itemRes = await apiService.agregarItemVenta({
               id_venta: response.data.id,
               id_articulo_stock: item.id_articulo_stock,
               codigo_articulo: item.codigo_articulo,
@@ -1919,9 +1934,16 @@ const CRMVentasPage = () => {
               descuento: item.descuento,
               observaciones: item.observaciones
             })
+            if (!itemRes.success) itemsFallados.push(`${item.descripcion}: ${itemRes.error || 'error'}`)
+          }
+          if (itemsFallados.length > 0) {
+            alert(
+              `La venta se creó, pero no se pudieron agregar estos ítems:\n\n${itemsFallados.join('\n')}\n\n` +
+                'Revisá el total de la venta antes de facturarla.'
+            )
           }
         }
-        
+
         await loadData()
         setMostrarModalConvertir(false)
         setActiveTab('ventas')

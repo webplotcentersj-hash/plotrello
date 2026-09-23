@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Informe de trabajo — martes 25 de agosto 2026</title>
+<style>
+  @page { size: A4; margin: 14mm 13mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a;
+    line-height: 1.5;
+    font-size: 10pt;
+    margin: 0;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  h1 {
+    font-size: 20pt;
+    letter-spacing: -0.03em;
+    margin: 0 0 2mm;
+    color: #0b1220;
+    border-bottom: 3px solid #0ea5e9;
+    padding-bottom: 2.5mm;
+  }
+  .lead { color: #334155; margin: 0 0 3mm; font-size: 11pt; }
+  .meta { color: #64748b; font-size: 8.5pt; margin: 0 0 4mm; }
+  h2 {
+    font-size: 13pt;
+    margin: 6mm 0 2.5mm;
+    color: #0369a1;
+    page-break-after: avoid;
+    border-left: 4px solid #0ea5e9;
+    padding-left: 2.5mm;
+  }
+  h3 {
+    font-size: 10.5pt;
+    margin: 3.5mm 0 1.5mm;
+    color: #0f172a;
+    page-break-after: avoid;
+  }
+  p { margin: 0 0 2.2mm; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 3mm;
+    font-size: 8.7pt;
+  }
+  tr { page-break-inside: avoid; }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 1.7mm 2.2mm;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #e0f2fe; color: #0c4a6e; font-weight: 700; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .kpis {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3mm;
+    margin: 0 0 4mm;
+  }
+  .kpi {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 2.5mm 3mm;
+    background: #f8fafc;
+    page-break-inside: avoid;
+  }
+  .kpi strong { display: block; font-size: 11pt; color: #0b1220; }
+  .kpi span { font-size: 8.2pt; color: #64748b; }
+  .recuadro {
+    page-break-inside: avoid;
+    margin: 0 0 4mm;
+    padding: 3mm 3.5mm 3mm 4mm;
+    border-radius: 6px;
+    border: 1px solid #bae6fd;
+    border-left: 5px solid #0284c7;
+    background: #f0f9ff;
+  }
+  .recuadro.aviso {
+    border-color: #fde68a;
+    border-left-color: #d97706;
+    background: #fffbeb;
+  }
+  .recuadro.info {
+    border-color: #bbf7d0;
+    border-left-color: #16a34a;
+    background: #f0fdf4;
+  }
+  .recuadro .etiqueta {
+    display: block;
+    font-size: 7.6pt;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #0369a1;
+    margin: 0 0 1mm;
+  }
+  .recuadro.aviso .etiqueta { color: #b45309; }
+  .recuadro.info .etiqueta { color: #15803d; }
+  .recuadro p { margin: 0; font-size: 10.2pt; color: #0f172a; }
+  .local { color: #b45309; font-weight: 700; }
+  .prod { color: #15803d; font-weight: 700; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 4mm 0; }
+</style>
+</head>
+<body>
+
+<h1>Informe de trabajo — martes 25 de agosto 2026</h1>
+<p class="lead">Tres frentes el mismo día: bolsa Plot Lab, mesa de aire Plotmedia, y el deploy de CAME.</p>
+<p class="meta">Horas en UTC−3 · Plot Lab commit d0f36db · CAME came-lake.vercel.app</p>
+
+<div class="kpis">
+  <div class="kpi"><strong>Plot Lab</strong><span>Admin bolsa · 1 push + lote local</span></div>
+  <div class="kpi"><strong>Plotmedia</strong><span>Mesa de aire + logo web</span></div>
+  <div class="kpi"><strong>CAME</strong><span>Home 200 en Vercel</span></div>
+</div>
+
+<div class="recuadro">
+  <span class="etiqueta">En criollo</span>
+  <p>El martes se tocó tres productos a la vez. Plot Lab para que Diseño publique y revise trabajos. Plotmedia para que el canal tenga una mesa de control. CAME para que el premio tenga una web que se pueda abrir.</p>
+</div>
+
+<div class="recuadro aviso">
+  <span class="etiqueta">Pendiente al cierre del día</span>
+  <p>Plot Lab: el filtro de bajas (ale123 / AXEL) y la tabla oscura no se subieron. Plotmedia: la mesa de aire quedó en la PC, sin commit. CAME: la home ya abre; el panel espera Turso para guardar postulaciones.</p>
+</div>
+
+<hr/>
+
+<h2>Plot Lab — bolsa Plot Design</h2>
+<p class="meta">trello.plotcenter.com.ar · commit d0f36db 15:15</p>
+
+<table>
+  <tr><th>Hora</th><th>Qué se hizo</th><th>Estado</th></tr>
+  <tr>
+    <td>07:55–08:04</td>
+    <td>Dados de baja fuera de listas + trazado; inputs de aprobación más anchos</td>
+    <td class="prod">En prod (d0f36db)</td>
+  </tr>
+  <tr>
+    <td>15:14</td>
+    <td>Push: entradas de trabajo, chip Drive + ficha, primer filtro de bajas</td>
+    <td class="prod">En prod</td>
+  </tr>
+  <tr>
+    <td>15:19–15:22</td>
+    <td>ale123/AXEL seguían saliendo (RLS); accordion de bajas; contabilidad oscura</td>
+    <td class="local">Solo local</td>
+  </tr>
+</table>
+<p class="meta">El rediseño de entradas y la ficha Drive se armó el lunes 13:57 y se subió el martes.</p>
+
+<div class="recuadro">
+  <span class="etiqueta">En criollo</span>
+  <p>El admin de bolsa ya no es un listado plano: se ve de dónde viene cada trabajo, se abre el Drive de la entrega y se revisa la ficha completa. Lo que todavía no subió: ale123 y AXEL, dados de baja, seguían apareciendo como si estuvieran activos. Eso está corregido en la máquina, no en el sitio público.</p>
+</div>
+
+<h3>Qué quedó en producción</h3>
+<table>
+  <tr><th>Área</th><th>Qué quedó</th></tr>
+  <tr><td>Entradas de trabajo</td><td>Pipeline con total, stats clickeables y cards con borde por tipo (tablero / brief / portal)</td></tr>
+  <tr><td>Entregas pendientes</td><td>Chip con URL de Drive + Ver ficha (brief, fotos, archivos, aprobar / cambios / Ver OP)</td></tr>
+  <tr><td>Dados de baja</td><td>Primer filtro para sacarlos de listas activas y sección de historial</td></tr>
+  <tr><td>Aprobar solicitud</td><td>Casilleros de usuario y contraseña más anchos</td></tr>
+</table>
+
+<hr/>
+
+<h2>Plotmedia — mesa de aire</h2>
+<p>App Next.js de piso (sitio + panel + overlays OBS). El martes se pasó de “demo de grilla” a mesa de control pensada para el aire, no pública.</p>
+
+<div class="recuadro">
+  <span class="etiqueta">En criollo</span>
+  <p>El panel dejó de ser una demo de programación y pasó a ser la mesa del control: llegan titulares, se mandan al aire de un clic, se mira a la competencia en pantallitas y hay un botón de último momento que pinta el zócalo en OBS. Todavía corre en la PC local: no está publicado.</p>
+</div>
+
+<table>
+  <tr><th>Hora</th><th>Pedido</th><th>Resultado</th></tr>
+  <tr>
+    <td>08:15–08:31</td>
+    <td>Correr dev, más lógica, informe técnico</td>
+    <td>Leads→campaña, huecos/overlap, rundown vs slot, cue de aire</td>
+  </tr>
+  <tr>
+    <td>09:27–09:40</td>
+    <td>Noticias SJ / Argentina / mundo con Gemini; carrusel 10 min; tendencia parpadea; modal al clic</td>
+    <td>NewsDesk interno</td>
+  </tr>
+  <tr>
+    <td>09:41–10:04</td>
+    <td>Cómo enganchar OBS; muro de YouTube de la competencia; pantalla grande</td>
+    <td>Overlays + CompetitorWall</td>
+  </tr>
+  <tr>
+    <td>10:14</td>
+    <td>Página aparte de titulares, carrusel grande con foto</td>
+    <td>/admin/titulares</td>
+  </tr>
+  <tr>
+    <td>11:32</td>
+    <td>Hacelo: último momento, placa SJ, reloj, bitácora, invitado, WhatsApp</td>
+    <td>Armado en el panel</td>
+  </tr>
+</table>
+
+<h3>Lo que quedó en la mesa</h3>
+<table>
+  <tr><th>Pieza</th><th>Qué hace</th></tr>
+  <tr><td>Último momento</td><td>Botón / tecla B: congela carrusel, zócalo urgente, cinta, prompter y banner OBS</td></tr>
+  <tr><td>Placa de San Juan</td><td>Clima, dólar, oro, rutas por viento, fútbol local; “Clima al aire”</td></tr>
+  <tr><td>Reloj de aire</td><td>Hora, programa al aire y cuánto falta (mesa, titulares, competencia)</td></tr>
+  <tr><td>Muro</td><td>Plotmedia como pantallita “Nosotros” (HLS) junto a canales de competencia</td></tr>
+  <tr><td>Invitado / WhatsApp / bitácora</td><td>Zócalo de entrevista; corte copiable; log de lo que salió al aire</td></tr>
+</table>
+
+<h2>Plot Media — web institucional</h2>
+<p>Landing sobre el template de cine. A las 16:13 se reemplazó el logo Marvel por el cubo Plot Media: fondo blanco sacado, huecos de letras transparentes, cara blanca de la P conservada. Sirve en webp (sin AVIF, para no perder el alfa). Local en localhost:4321. El lunes se había tocado la fecha 31.08.26 y cómo reemplazar el video del hero.</p>
+
+<div class="recuadro">
+  <span class="etiqueta">En criollo</span>
+  <p>La landing ya no lleva el logo de Marvel. Quedó el cubo de Plot Media con fondo transparente, para que se lea sobre el negro.</p>
+</div>
+
+<hr/>
+
+<h2>CAME — Premio Joven Empresario 2026</h2>
+<p class="meta">came-lake.vercel.app · repo webplotcentersj-hash/came</p>
+
+<table>
+  <tr><th>Hora</th><th>Commit</th><th>Qué</th></tr>
+  <tr><td>12:26</td><td>23facb6</td><td>Landing: formulario, panel, bases, paleta oficial</td></tr>
+  <tr><td>12:36</td><td>d88965c</td><td>Preparar deploy en Vercel</td></tr>
+  <tr><td>12:52</td><td>—</td><td>El link …8lnbdbrsd… pedía login de Vercel (URL de preview protegida)</td></tr>
+  <tr><td>13:02</td><td>437ea71</td><td>Home 500: prerender / y /bases; env vacío no tira el proceso</td></tr>
+  <tr><td>13:04</td><td>a275b00</td><td>site URL de producción para Open Graph (no localhost)</td></tr>
+</table>
+
+<div class="recuadro info">
+  <span class="etiqueta">Cómo quedó</span>
+  <p>La home pública responde 200. El panel carga, pero sin Turso (DATABASE_URL, DATABASE_AUTH_TOKEN, SESSION_SECRET y PUBLIC_FECHA_CIERRE) no guarda postulaciones. Eso no se hizo ayer.</p>
+</div>
+
+<div class="recuadro">
+  <span class="etiqueta">En criollo</span>
+  <p>El link largo de Vercel pedía usuario de Vercel: no era que el premio estuviera caído, era una URL de preview protegida. La web pública sí se caía. Ahora la home abre. El formulario y el panel van a guardar postulaciones cuando se conecte Turso, la base en la nube.</p>
+</div>
+
+</body>
+</html>
