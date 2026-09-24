@@ -12,7 +12,7 @@ import {
 import type { CcScoreNivel } from '../constants/cuentaCorrienteScoring'
 import CuentaCorrienteScoreBadge from './CuentaCorrienteScoreBadge'
 import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
-import { descargarArchivoUrl } from '../utils/cuentaCorrienteExport'
+import { abrirDocumentoCc, descargarDocumentoCc } from '../utils/ccDocumentos'
 import './CuentaCorrienteRegistry.css'
 
 export type CuentaCorrienteRegistryRow = ClienteCuentaCorrienteRecord & {
@@ -45,21 +45,22 @@ function CcRegistryDoc({ label, url }: { label: string; url?: string | null }) {
     <div>
       <dt>{label}</dt>
       <dd className="cc-registry-doc-actions">
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="cc-registry-link"
-          onClick={(e) => e.stopPropagation()}
-        >
-          Ver
-        </a>
         <button
           type="button"
           className="cc-registry-link cc-registry-link--btn"
           onClick={(e) => {
             e.stopPropagation()
-            descargarArchivoUrl(url, label)
+            void abrirDocumentoCc(url)
+          }}
+        >
+          Ver
+        </button>
+        <button
+          type="button"
+          className="cc-registry-link cc-registry-link--btn"
+          onClick={(e) => {
+            e.stopPropagation()
+            void descargarDocumentoCc(url, label)
           }}
         >
           Descargar

@@ -8,7 +8,49 @@ import {
 } from '../constants/cuentaCorrienteScoring'
 import './CuentaCorrienteScoringPanel.css'
 
-type Factor = { id?: string; label?: string; puntos?: number; max?: number }
+type Factor = {
+  id?: string
+  label?: string
+  puntos?: number
+  max?: number
+  meses?: number
+  ventas_cc?: number
+  pagadas?: number
+  deuda_pendiente?: number
+  uso_limite_pct?: number | null
+  puntuales?: number
+  con_fecha_pago?: number
+  vencidas_abiertas?: number
+  dias_gracia?: number
+}
+
+/** Línea explicativa bajo cada factor (qué datos produjeron los puntos) */
+function detalleFactor(f: Factor): string | null {
+  switch (f.id) {
+    case 'antiguedad':
+      return f.meses != null ? `${f.meses} ${f.meses === 1 ? 'mes' : 'meses'}` : null
+    case 'comportamiento_pago': {
+      if (!f.ventas_cc) return 'Sin ventas en cuenta corriente'
+      const partes = [`${f.pagadas ?? 0} de ${f.ventas_cc} ventas pagadas`]
+      if ((f.deuda_pendiente ?? 0) > 0.009) {
+        partes.push(`deuda ${formatLimiteCredito(f.deuda_pendiente)}`)
+        if (f.uso_limite_pct != null) partes.push(`${f.uso_limite_pct}% del límite`)
+      }
+      return partes.join(' · ')
+    }
+    case 'puntualidad': {
+      if (!f.con_fecha_pago) return 'Sin pagos registrados'
+      const partes = [`${f.puntuales ?? 0} de ${f.con_fecha_pago} pagos a tiempo`]
+      if (f.vencidas_abiertas) {
+        partes.push(`${f.vencidas_abiertas} ${f.vencidas_abiertas === 1 ? 'venta vencida' : 'ventas vencidas'}`)
+      }
+      if (f.dias_gracia) partes.push(`${f.dias_gracia} días de gracia`)
+      return partes.join(' · ')
+    }
+    default:
+      return null
+  }
+}
 
 type CuentaCorrienteScoringPanelProps = {
   record: ClienteCuentaCorrienteRecord
@@ -47,14 +89,23 @@ export default function CuentaCorrienteScoringPanel({
     setNotas(record.score_notas_internas ?? '')
   }, [record])
 
-  const nivel = (local.score_nivel ?? 'regular') as CcScoreNivel
+  const calculado = local.score != null
+  const nivel: CcScoreNivel | null =
+    calculado && local.score_nivel && local.score_nivel in CC_SCORE_NIVEL_LABELS
+      ? (local.score_nivel as CcScoreNivel)
+      : null
   const factores = parseFactores(local.score_detalle)
+  const detalle = (local.score_detalle ?? {}) as { total_automatico?: number; ajuste_manual?: number }
 
   const recalcular = async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiService.calcularScoringCuentaCorriente(record.id_cliente, idUsuario)
+      const res = await apiService.calcularScoringCuentaCorriente(
+        record.id_cliente,
+        idUsuario,
+        'manual'
+      )
       if (!res.success || !res.data) throw new Error(res.error || 'Error al calcular')
       setLocal((prev) => ({
         ...prev,
@@ -124,13 +175,20 @@ export default function CuentaCorrienteScoringPanel({
         )}
 
         <div className="cc-scoring-panel__hero">
-          <div className={`cc-scoring-ring cc-scoring-ring--${nivel}`} aria-hidden>
+          <div className={`cc-scoring-ring cc-scoring-ring--${nivel ?? 'sin'}`} aria-hidden>
             <span className="cc-scoring-ring__value">{local.score ?? '—'}</span>
           </div>
           <div>
-            <span className={`cc-scoring-nivel cc-scoring-nivel--${nivel}`}>
-              {CC_SCORE_NIVEL_LABELS[nivel]}
+            <span className={`cc-scoring-nivel cc-scoring-nivel--${nivel ?? 'sin'}`}>
+              {nivel ? CC_SCORE_NIVEL_LABELS[nivel] : 'Sin calcular'}
             </span>
+            {detalle.ajuste_manual ? (
+              <p className="cc-scoring-panel__fecha">
+                Automático {detalle.total_automatico ?? '—'} · ajuste{' '}
+                {detalle.ajuste_manual > 0 ? '+' : ''}
+                {detalle.ajuste_manual}
+              </p>
+            ) : null}
             <p className="cc-scoring-panel__limite">
               Límite sugerido:{' '}
               <strong>{formatLimiteCredito(local.limite_credito_sugerido)}</strong>
@@ -158,7 +216,12 @@ export default function CuentaCorrienteScoringPanel({
             <ul>
               {factores.map((f, i) => (
                 <li key={f.id ?? i}>
-                  <span>{f.label ?? f.id}</span>
+                  <span className="cc-scoring-factor__txt">
+                    {f.label ?? f.id}
+                    {detalleFactor(f) && (
+                      <small className="cc-scoring-factor__det">{detalleFactor(f)}</small>
+                    )}
+                  </span>
                   <span className={((f.puntos ?? 0) < 0 ? ' cc-scoring-neg' : '')}>
                     {(f.puntos ?? 0) > 0 ? '+' : ''}
                     {f.puntos ?? 0}
@@ -232,7 +295,7 @@ export default function CuentaCorrienteScoringPanel({
           </p>
         )}
 
-        {!local.score && !loading && (
+        {!calculado && !loading && (
           <button type="button" className="cc-btn cc-btn--primary" onClick={() => void recalcular()}>
             Calcular scoring
           </button>

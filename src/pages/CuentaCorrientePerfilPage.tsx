@@ -52,6 +52,7 @@ import {
 } from '../utils/cuentaCorrienteExport'
 import CcExportMenu from '../components/CcExportMenu'
 import CuentaCorrienteVencimientoAlertas from '../components/CuentaCorrienteVencimientoAlertas'
+import { abrirDocumentoCc, descargarDocumentoCc } from '../utils/ccDocumentos'
 import './CuentaCorrientePerfilPage.css'
 
 type TabId = 'cuenta' | 'ventas' | 'pago'
@@ -942,13 +943,17 @@ function CcDocDownload({ label, url }: { label: string; url?: string | null }) {
     <li>
       <span>{label}</span>
       <span className="cc-perfil-comprobante-actions">
-        <a href={url} target="_blank" rel="noopener noreferrer" className="cc-perfil-link">
-          Ver
-        </a>
         <button
           type="button"
           className="cc-perfil-link cc-perfil-link--btn"
-          onClick={() => descargarArchivoUrl(url, label)}
+          onClick={() => void abrirDocumentoCc(url)}
+        >
+          Ver
+        </button>
+        <button
+          type="button"
+          className="cc-perfil-link cc-perfil-link--btn"
+          onClick={() => void descargarDocumentoCc(url, label)}
         >
           Descargar
         </button>

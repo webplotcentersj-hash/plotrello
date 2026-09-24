@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { formatArgentinaDate } from './dateUtils'
-import { uploadAttachmentAndGetUrl } from './storage'
+import { subirDocumentoCc } from './ccDocumentos'
 
 export type TipoClienteCuentaCorriente = 'empresa' | 'persona_fisica'
 
@@ -158,7 +158,7 @@ export async function generarYGuardarPagareCuentaCorriente(
   const blob = doc.output('blob') as Blob
   const file = new File([blob], `${fileName}.pdf`, { type: 'application/pdf' })
   const folder = `${storageFolder.replace(/^\//, '').replace(/\/$/, '')}/pagares`
-  const url = await uploadAttachmentAndGetUrl(file, folder)
+  const url = await subirDocumentoCc(file, folder)
   doc.save(`${fileName}.pdf`)
   return url
 }

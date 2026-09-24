@@ -1054,3 +1054,222 @@
 .venta-rapida-modal.venta-rapida-modal--mostrador .lista-precios-more {
   color: #64748b;
 }
+
+.vop h3 {
+  margin: 0 0 6px;
+  color: #fff;
+}
+
+.vop-lead,
+.vop-ok-sub {
+  margin: 0 0 14px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.9rem;
+}
+
+.vop-ok p {
+  margin: 0;
+  color: #10b981;
+}
+
+.vop-portada {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.vop-portada p {
+  margin: 0 0 8px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.vop-portada img {
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.vop-portada-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.vop-file {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.vop-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.vop-row-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.vop label,
+.vop-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.vop input,
+.vop select,
+.vop textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: var(--surface-base);
+  color: #111827;
+  font-size: 0.95rem;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+}
+
+.vop-dropdown {
+  display: flex;
+  flex-direction: column;
+  margin: -6px 0 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.vop-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 0;
+  background: #fff;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vop-dropdown button:hover {
+  background: #f1f5f9;
+}
+
+.vop-dropdown i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.vop-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 12px;
+}
+
+.vop-pills span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.vop-pills button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.vop-tag-row,
+.vop-desc-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.vop-desc-head {
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.vop-desc-head div {
+  display: flex;
+  gap: 8px;
+}
+
+.vop-plotai {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+}
+
+.vop-crear {
+  margin-top: 8px;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop h3,
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop label,
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop-block,
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop-desc-head,
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop-lead,
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop-portada p {
+  color: #334155;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop input,
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop select,
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop textarea {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop-portada {
+  border-color: #cbd5e1;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .vop-file {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+@media (max-width: 720px) {
+  .vop-row,
+  .vop-row-3,
+  .vop-desc-head {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

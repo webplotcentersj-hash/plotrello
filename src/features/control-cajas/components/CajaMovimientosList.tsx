@@ -1,8 +1,16 @@
+import { useEffect, useMemo, useState } from 'react'
+import apiService from '../../../services/api'
+import type { Venta, VentaItem } from '../../../types/api'
 import { fmtArs, fmtDateAr } from '../format'
 import { paseTieneTrazabilidad } from '../paseCaja'
-import { etiquetaRutaCajasMovimiento } from '../movimientoDetalle'
+import { etiquetaRutaCajasMovimiento, parseRefPlotLab, parseVentaIdFromRef } from '../movimientoDetalle'
 import type { CajaMovimiento, CajaRegistro } from '../types'
 import CajaMontoMovimiento from './CajaMontoMovimiento'
+
+type VentaCajaVista = {
+  venta: Venta
+  items: VentaItem[]
+}
 
 type Props = {
   movimientos: CajaMovimiento[]
@@ -11,6 +19,58 @@ type Props = {
   onSelect?: (m: CajaMovimiento) => void
   showUsuario?: boolean
   showPaseTrazabilidad?: boolean
+}
+
+function datosContactoVenta(v: Venta): string {
+  return [v.cliente_dni_cuit, v.cliente_telefono, v.cliente_email, v.cliente_empresa, v.cliente_direccion]
+    .map((x) => (x || '').trim())
+    .filter(Boolean)
+    .join(' · ')
+}
+
+function mpEstadoVenta(v: Venta): string | null {
+  const metodo = String(v.metodo_pago || '')
+  const esMp = /mercado\s*pago/i.test(metodo) || metodo.trim().toLowerCase() === 'mp'
+  if (!esMp) return null
+  const pago = String(v.mp_payment_id || v.detalle_pago?.mp_payment_id || '').trim()
+  return pago ? `Mercado Pago confirmado · pago ${pago}` : 'Mercado Pago sin confirmación de pago'
+}
+
+function VentaEnTimeline({ vista }: { vista: VentaCajaVista | null | undefined }) {
+  if (!vista) return null
+  const { venta: v, items } = vista
+  const contacto = datosContactoVenta(v)
+  const mp = mpEstadoVenta(v)
+  return (
+    <div className="caja-cc-timeline-venta">
+      <div>
+        <strong>{v.numero_venta}</strong>
+        {' · '}
+        {v.cliente_nombre || 'Sin cliente'}
+        {' · $ '}
+        {fmtArs(v.valor_total)}
+      </div>
+      {contacto && <div>{contacto}</div>}
+      <div>
+        {[v.metodo_pago, v.estado_pago, v.nombre_vendedor].filter(Boolean).join(' · ')}
+        {v.monto_pagado != null && v.monto_pagado > 0 ? ` · Cobrado $ ${fmtArs(v.monto_pagado)}` : ''}
+      </div>
+      {mp && <div>{mp}</div>}
+      {v.observaciones?.trim() && <div>{v.observaciones.trim()}</div>}
+      {items.length > 0 ? (
+        <ul className="caja-cc-timeline-venta-items">
+          {items.map((it) => (
+            <li key={it.id}>
+              {it.descripcion}
+              {it.codigo_articulo ? ` (${it.codigo_articulo})` : ''} × {it.cantidad} · $ {fmtArs(it.precio_total)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div>Sin ítems cargados</div>
+      )}
+    </div>
+  )
 }
 
 function filaMontos(label: string, antes: number | null | undefined, despues: number | null | undefined) {
@@ -30,6 +90,48 @@ export default function CajaMovimientosList({
   showUsuario,
   showPaseTrazabilidad = false
 }: Props) {
+  const ventaIdsKey = useMemo(() => {
+    const ids = movimientos
+      .map((m) => parseVentaIdFromRef(parseRefPlotLab(m)))
+      .filter((id): id is number => id != null)
+    return [...new Set(ids)].sort((a, b) => a - b).join(',')
+  }, [movimientos])
+
+  const [ventas, setVentas] = useState<Record<number, VentaCajaVista>>({})
+
+  useEffect(() => {
+    const ids = ventaIdsKey ? ventaIdsKey.split(',').map(Number).filter((n) => n > 0) : []
+    if (!ids.length) {
+      setVentas({})
+      return
+    }
+    let cancelled = false
+    void Promise.all(
+      ids.map(async (id) => {
+        const [ventaRes, itemsRes] = await Promise.all([
+          apiService.getVenta(id),
+          apiService.getItemsVenta(id)
+        ])
+        if (!ventaRes.success || !ventaRes.data) return null
+        return {
+          id,
+          venta: ventaRes.data,
+          items: itemsRes.success && itemsRes.data ? itemsRes.data : []
+        }
+      })
+    ).then((rows) => {
+      if (cancelled) return
+      const next: Record<number, VentaCajaVista> = {}
+      for (const row of rows) {
+        if (row) next[row.id] = { venta: row.venta, items: row.items }
+      }
+      setVentas(next)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [ventaIdsKey])
+
   if (!movimientos.length) {
     return <p className="caja-cc-empty">Sin movimientos cargados.</p>
   }
@@ -89,6 +191,12 @@ export default function CajaMovimientosList({
                 {m.cierre_id ? ' · En cierre cerrado' : ''}
               </div>
               {m.observacion && <div className="caja-cc-meta italic">{m.observacion}</div>}
+              <VentaEnTimeline
+                vista={(() => {
+                  const ventaId = parseVentaIdFromRef(parseRefPlotLab(m))
+                  return ventaId != null ? ventas[ventaId] : undefined
+                })()}
+              />
               {showPaseTrazabilidad && paseTieneTrazabilidad(m) && (
                 <div className="caja-cc-pase-trace">
                   {filaMontos('Origen efectivo', m.origen_efectivo_antes, m.origen_efectivo_despues)}

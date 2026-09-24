@@ -1,3 +1,4 @@
+import { esPaseCierreTurno, esTraspasoEntreCajas } from './movimientoCaja'
 import type { CajaMovimiento } from './types'
 import type { PlanillaCajaParsed } from './parsePlanillaCajaPdf'
 
@@ -218,12 +219,14 @@ export function calcularTotalesCoherentesDia(
 
   for (const m of unicos) {
     const monto = m.monto_total ?? m.efectivo + m.otros
-    if (m.tipo_movimiento === 'traspaso') {
+    // Mismo criterio que calcularTotalesCaja: pases y traspasos no son ingreso ni egreso.
+    if (esPaseCierreTurno(m) || esTraspasoEntreCajas(m)) {
       traspasos += 1
       continue
     }
-    if (m.tipo_movimiento === 'ingreso' && m.destino_slug === cajaSlug) ingresos += monto
-    else if (m.tipo_movimiento === 'egreso' && m.origen_slug === cajaSlug) egresos += monto
+    const tipo = m.tipo_movimiento ?? (m.destino_slug === cajaSlug ? 'ingreso' : 'egreso')
+    if (tipo === 'ingreso' && m.destino_slug === cajaSlug) ingresos += monto
+    else if (tipo === 'egreso' && m.origen_slug === cajaSlug) egresos += monto
   }
 
   return {

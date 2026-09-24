@@ -1347,6 +1347,18 @@
   border-bottom: 1px solid #e2e8f0;
 }
 
+.caja-dashboard-page .caja-cc-timeline-venta {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #334155;
+}
+
+.caja-dashboard-page .caja-cc-timeline-venta-items {
+  margin: 4px 0 0;
+  padding-left: 1.1em;
+}
+
 .caja-dashboard-page .caja-cc-timeline-item-clickable {
   cursor: pointer;
   border-radius: 8px;

@@ -735,7 +735,6 @@ export type AltaCuentaCorrientePayload = {
   url_documento_dni?: string
   url_pagare?: string
   id_cliente?: number | null
-  id_usuario_solicita: number
 }
 
 // ============================================

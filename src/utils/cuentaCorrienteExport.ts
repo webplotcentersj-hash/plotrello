@@ -16,6 +16,12 @@ import {
 import { formatMontoArs, movimientosConSaldoCorrido } from './cuentaCorrienteLedger'
 import type { CcCarteraStats } from './cuentaCorrienteStats'
 
+/** Documentos del alta en bucket privado (Paso 26): no hay URL que exportar, se ven desde el sistema. */
+function docCsv(ref: string | null | undefined): string {
+  if (!ref) return ''
+  return ref.startsWith('cc-doc:') ? 'Cargado (privado, ver en el sistema)' : ref
+}
+
 function esc(s: string): string {
   const t = String(s ?? '')
   if (/[",\r\n]/.test(t)) return `"${t.replace(/"/g, '""')}"`
@@ -99,11 +105,11 @@ export function buildCarteraCsvRows(
       fechaIso(r.ultimo_pago_at ?? undefined),
       r.email ?? '',
       r.whatsapp ?? '',
-      r.url_constancia_afip ?? '',
-      r.url_estatuto ?? '',
-      r.url_comprobante_domicilio ?? '',
-      r.url_documento_dni ?? '',
-      r.url_pagare ?? ''
+      docCsv(r.url_constancia_afip),
+      docCsv(r.url_estatuto),
+      docCsv(r.url_comprobante_domicilio),
+      docCsv(r.url_documento_dni),
+      docCsv(r.url_pagare)
     ])
   }
   if (stats) {
@@ -274,11 +280,11 @@ export function buildFichaResumenCsvRows(
     ['ultimo_pago', fechaIso(resumen.ultimo_pago_at ?? undefined)],
     ['tasa_mora', resumen.tasa_mora_vigente != null ? String(resumen.tasa_mora_vigente) : ''],
     ['intereses_devengados', String(resumen.intereses_devengados?.total_devengado ?? 0)],
-    ['url_constancia_afip', ficha.url_constancia_afip ?? ''],
-    ['url_estatuto', ficha.url_estatuto ?? ''],
-    ['url_comprobante_domicilio', ficha.url_comprobante_domicilio ?? ''],
-    ['url_documento_dni', ficha.url_documento_dni ?? ''],
-    ['url_pagare', ficha.url_pagare ?? '']
+    ['url_constancia_afip', docCsv(ficha.url_constancia_afip)],
+    ['url_estatuto', docCsv(ficha.url_estatuto)],
+    ['url_comprobante_domicilio', docCsv(ficha.url_comprobante_domicilio)],
+    ['url_documento_dni', docCsv(ficha.url_documento_dni)],
+    ['url_pagare', docCsv(ficha.url_pagare)]
   ]
 }
 

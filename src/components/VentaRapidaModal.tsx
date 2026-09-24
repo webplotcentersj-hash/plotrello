@@ -30,6 +30,7 @@ import {
   type VentaDetallePago
 } from '../constants/ventasCondicionesPago'
 import './ventas/VentaCondicionPagoFields.css'
+import VentaOpSimplificada from './ventas/VentaOpSimplificada'
 import {
   ESTADO_CC_LABELS,
   normalizeEstadoCc,
@@ -142,21 +143,8 @@ const VentaRapidaModal = ({
 
   const [guardando, setGuardando] = useState(false)
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
-  const [showCartelVentaRealizada, setShowCartelVentaRealizada] = useState(false)
-  const [cartelAceptarEnabled, setCartelAceptarEnabled] = useState(false)
   const [comprobanteArchivo, setComprobanteArchivo] = useState<File | null>(null)
   const comprobanteInputRef = useRef<HTMLInputElement>(null)
-  const convertirRef = useRef<HTMLDivElement>(null)
-
-  // Habilitar "Aceptar" del cartel después de 2.5 s para que se lea "Venta realizada"
-  useEffect(() => {
-    if (!showCartelVentaRealizada) {
-      setCartelAceptarEnabled(false)
-      return
-    }
-    const t = setTimeout(() => setCartelAceptarEnabled(true), 2500)
-    return () => clearTimeout(t)
-  }, [showCartelVentaRealizada])
 
   // Buscar clientes (desde 1 letra)
   useEffect(() => {
@@ -382,8 +370,6 @@ const VentaRapidaModal = ({
       })
 
       setShowMpCheckout(false)
-      setShowCartelVentaRealizada(true)
-      setCartelAceptarEnabled(false)
 
       try {
         const ventasResponse = await apiService.obtenerVentas()
@@ -401,13 +387,8 @@ const VentaRapidaModal = ({
           detail: { ventaId, numeroVenta: ventaCreada?.numero_venta }
         })
       )
-      try {
-        onSuccess?.()
-      } catch {
-        /* noop */
-      }
     },
-    [detallePago, mpVentaId, ventaCreada, onSuccess]
+    [detallePago, mpVentaId, ventaCreada]
   )
 
   const handleGuardarVenta = async () => {
@@ -591,8 +572,6 @@ const VentaRapidaModal = ({
       }
 
       setVentaCreada(ventaMinima)
-      setShowCartelVentaRealizada(true)
-      setCartelAceptarEnabled(false)
 
       if (comprobanteArchivo) {
         const compResp = await apiService.subirComprobantePagoVenta(ventaData.id, comprobanteArchivo)
@@ -627,13 +606,7 @@ const VentaRapidaModal = ({
         }
       }))
       
-      try {
-        if (onSuccess) onSuccess()
-      } catch (e) {
-        console.error('Error en onSuccess:', e)
-      }
-      
-      // NO cerrar el modal - permitir convertir a OP desde aquí
+      // La venta queda en esta ventana para armar la OP simplificada.
     } catch (error: any) {
       console.error('Error guardando venta:', error)
       alert('Error al guardar venta: ' + error.message)
@@ -642,108 +615,9 @@ const VentaRapidaModal = ({
     }
   }
 
-  const handleConvertirAOP = async () => {
-    if (!ventaCreada) {
-      alert('No hay una venta creada para convertir')
-      return
-    }
-
-    if (!clienteSeleccionado && !crearNuevoCliente) {
-      alert('Debes tener un cliente seleccionado')
-      return
-    }
-
-    let clienteFinal: ClienteRecord | null = clienteSeleccionado
-
-    // Si se creó un nuevo cliente, buscarlo
-    if (crearNuevoCliente && nuevoCliente.nombre) {
-      const clienteResponse = await apiService.buscarOCrearCliente({
-        nombre: nuevoCliente.nombre,
-        dni_cuit: nuevoCliente.dni_cuit || undefined,
-        telefono: nuevoCliente.telefono || undefined,
-        email: nuevoCliente.email || undefined,
-        direccion: nuevoCliente.direccion || undefined
-      })
-
-      if (clienteResponse.success && clienteResponse.data) {
-        clienteFinal = clienteResponse.data
-      }
-    }
-
-    if (!clienteFinal) {
-      alert('Error: No se pudo obtener el cliente')
-      return
-    }
-
-    setGuardando(true)
-    try {
-      // Construir descripción con items de la venta
-      let descripcion = `Venta: ${ventaCreada.numero_venta}\n`
-      descripcion += `Cliente: ${clienteFinal.nombre}\n`
-      descripcion += `Condición: ${condicionVenta}\n`
-      descripcion += `Prioridad: ${prioridad}\n\n`
-      descripcion += 'Items:\n'
-      
-      if (ventaCreada.items) {
-        ventaCreada.items.forEach((item, index) => {
-          descripcion += `${index + 1}. ${item.descripcion} - Cantidad: ${item.cantidad} - Precio: $${item.precio_unitario}\n`
-        })
-      }
-
-      if (observaciones) {
-        descripcion += `\nObservaciones: ${observaciones}`
-      }
-
-      // Crear la OP usando el número de venta como número de OP
-      const ordenResponse = await apiService.createOrden({
-        cliente: clienteFinal.nombre,
-        dni_cuit: clienteFinal.dni_cuit || undefined,
-        descripcion: descripcion,
-        estado: 'Diseño Gráfico',
-        prioridad: prioridad,
-        fecha_entrega: fechaVenta,
-        sector: 'Diseño Gráfico',
-        sector_inicial: 'Diseño Gráfico',
-        nombre_creador: usuarioNombre,
-        telefono_cliente: clienteFinal.telefono || undefined,
-        email_cliente: clienteFinal.email || undefined,
-        direccion_cliente: clienteFinal.direccion || undefined,
-        numero_op: ventaCreada.numero_venta // Usar el número de venta como número de OP
-      })
-
-      if (!ordenResponse.success || !ordenResponse.data) {
-        throw new Error(ordenResponse.error || 'Error al crear OP')
-      }
-
-      // Actualizar la venta con el ID de la OP
-      await apiService.actualizarVenta(ventaCreada.id, {
-        id_op: ordenResponse.data.id,
-        numero_op: ordenResponse.data.numero_op
-      })
-
-      // Actualizar la venta creada con la información de la OP
-      const ventasResponse = await apiService.obtenerVentas()
-      if (ventasResponse.success && ventasResponse.data) {
-        const ventaActualizada = ventasResponse.data.find(v => v.id === ventaCreada.id)
-        if (ventaActualizada) {
-          setVentaCreada(ventaActualizada)
-        }
-      }
-
-      alert(`Venta convertida a OP exitosamente: ${ordenResponse.data.numero_op}`)
-      
-      // Llamar a onSuccess para recargar datos
-      if (onSuccess) {
-        onSuccess()
-      }
-      
-      // NO cerrar el modal - permitir al usuario ver el resultado
-    } catch (error: any) {
-      console.error('Error convirtiendo a OP:', error)
-      alert('Error al convertir a OP: ' + error.message)
-    } finally {
-      setGuardando(false)
-    }
+  const cerrar = () => {
+    if (ventaCreada) onSuccess?.()
+    onClose()
   }
 
   return createPortal(
@@ -762,33 +636,9 @@ const VentaRapidaModal = ({
         className={`venta-rapida-modal${uiVariant === 'mostrador' ? ' venta-rapida-modal--mostrador' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Cartel VENTA REALIZADA al generar la venta */}
-        {showCartelVentaRealizada && (
-          <div className="venta-realizada-cartel">
-            <div className="venta-realizada-cartel-box">
-              <p className="venta-realizada-cartel-texto">VENTA REALIZADA</p>
-              {!cartelAceptarEnabled && (
-                <p className="venta-realizada-cartel-hint">Podés cerrar en unos segundos...</p>
-              )}
-              <button
-                type="button"
-                className="btn-primary venta-realizada-cartel-btn"
-                onClick={() => {
-                  setShowCartelVentaRealizada(false)
-                  setTimeout(() => {
-                    convertirRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                  }, 100)
-                }}
-                disabled={!cartelAceptarEnabled}
-              >
-                Aceptar
-              </button>
-            </div>
-          </div>
-        )}
         <div className="venta-rapida-modal-header">
-          <h2>{ventaCreada && !showMpCheckout ? '✅ Venta realizada' : '💰 Venta Rápida'}</h2>
-          <button className="btn-close" onClick={onClose}>✕</button>
+          <h2>{ventaCreada && !showMpCheckout ? 'Venta realizada' : 'Venta'}</h2>
+          <button className="btn-close" onClick={cerrar}>✕</button>
         </div>
 
         {ventaCreada && !showMpCheckout && (
@@ -798,26 +648,20 @@ const VentaRapidaModal = ({
           </div>
         )}
 
-        {/* En el mismo modal: opción de convertir a OP (visible sin scroll) */}
-        {ventaCreada && !showMpCheckout && (
-          <div className="venta-realizada-convertir" ref={convertirRef}>
-            {ventaCreada.numero_op ? (
-              <p className="venta-realizada-convertir-ok">✓ Convertida a OP: <strong>{ventaCreada.numero_op}</strong></p>
-            ) : (
-              <button
-                type="button"
-                className="btn-primary btn-convertir-op-modal"
-                onClick={handleConvertirAOP}
-                disabled={guardando}
-              >
-                {guardando ? 'Convirtiendo...' : '📋 Convertirla a OP'}
-              </button>
-            )}
-          </div>
-        )}
-
         <div className="venta-rapida-modal-content">
-          {/* Información del vendedor */}
+          {ventaCreada && !showMpCheckout && (
+            <VentaOpSimplificada
+              venta={ventaCreada}
+              creadorNombre={usuarioNombre}
+              observaciones={observaciones}
+              onCreated={(numeroOp, ordenId) => {
+                setVentaCreada((prev) =>
+                  prev ? { ...prev, numero_op: numeroOp, id_op: ordenId } : prev
+                )
+              }}
+            />
+          )}
+          <div hidden={!!(ventaCreada && !showMpCheckout)}>
           <div className="form-group">
             <label>Vendedor</label>
             <input
@@ -1438,11 +1282,12 @@ const VentaRapidaModal = ({
               </div>
             </div>
           )}
+          </div>
         </div>
 
         <div className="venta-rapida-modal-footer">
           <div className="venta-rapida-footer-buttons">
-          <button className="btn-secondary" onClick={onClose}>
+          <button className="btn-secondary" onClick={cerrar}>
             {ventaCreada ? 'Cerrar' : 'Cancelar'}
           </button>
           {!ventaCreada && !showMpCheckout ? (
@@ -1462,16 +1307,6 @@ const VentaRapidaModal = ({
           ) : null}
           {ventaCreada && !showMpCheckout ? (
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-              {!ventaCreada.numero_op && (
-                <button
-                  className="btn-primary"
-                  onClick={handleConvertirAOP}
-                  disabled={guardando}
-                  style={{ minWidth: '160px', padding: '12px 20px' }}
-                >
-                  {guardando ? 'Convirtiendo...' : '📋 Convertirla a OP'}
-                </button>
-              )}
               {ventaCreada.numero_op && (
                 <button
                   className="btn-secondary"

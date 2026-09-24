@@ -6,7 +6,8 @@ import {
   fondosReservaDesdeArqueosDia,
   labelEstadoConciliacion,
   mediosIngresosDia,
-  movimientosDelDia
+  movimientosDelDia,
+  mpPagoConfirmado
 } from './conciliacionDiaCaja'
 import { fondoParaOtraCajaDesdeArqueo } from './cierreTurno'
 import { fmtArs, fmtDateAr, montoCobradoCaja, montoCuentaCorriente, montoVisibleMovimiento } from './format'
@@ -145,13 +146,20 @@ function drawTable(
   return y + 3
 }
 
-function montoMedio(m: CajaMovimiento, key: 'efectivo' | 'tarjeta' | 'transferencia' | 'cc' | 'mp'): number {
+function montoMedio(
+  m: CajaMovimiento,
+  key: 'efectivo' | 'tarjeta' | 'transferencia' | 'cc' | 'mp',
+  ventasMpPagadas?: ReadonlySet<number>
+): number {
   if (key === 'efectivo') return Number(m.efectivo) || 0
   if (key === 'transferencia') return Number(m.transferencia_bancaria) || 0
   if (key === 'cc') return montoCuentaCorriente(m)
   const tarj = Number(m.tarjeta) || 0
-  if (key === 'mp') return esIngresoMercadoPago(m) ? tarj : 0
-  return esIngresoMercadoPago(m) ? 0 : tarj
+  const mpCuenta =
+    esIngresoMercadoPago(m) &&
+    (m.origen_importacion !== 'plotlab_venta' || mpPagoConfirmado(m, ventasMpPagadas))
+  if (key === 'mp') return mpCuenta ? tarj : 0
+  return mpCuenta ? 0 : tarj
 }
 
 export type InformeDiaCajaInput = {
@@ -165,6 +173,7 @@ export type InformeDiaCajaInput = {
   arqueos: CajaArqueo[]
   concilMp?: CajaConcilMP | null
   concilBanco?: CajaConcilBanco | null
+  ventasMpPagadas?: ReadonlySet<number>
 }
 
 /** Planilla PDF del día (apaisada): resumen, fondos, arqueos, cierres, egresos y movimientos detallados. */
@@ -179,7 +188,8 @@ export function downloadInformeDiaCajaPdf(input: InformeDiaCajaInput): void {
     lotes,
     arqueos,
     concilMp,
-    concilBanco
+    concilBanco,
+    ventasMpPagadas
   } = input
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
@@ -193,14 +203,15 @@ export function downloadInformeDiaCajaPdf(input: InformeDiaCajaInput): void {
     if (ha !== hb) return ha.localeCompare(hb)
     return (a.created_at || '').localeCompare(b.created_at || '')
   })
-  const medios = mediosIngresosDia(movimientos, fecha)
+  const medios = mediosIngresosDia(movimientos, fecha, ventasMpPagadas)
   const concil = conciliacionAutomaticaDia({
     fecha,
     movimientos,
     planillas,
     arqueos,
     concilMp,
-    concilBanco
+    concilBanco,
+    ventasMpPagadas
   })
   const fondos = fondosReservaDesdeArqueosDia(arqueos, fecha, cajas)
   const totalFondos = fondos.reduce((s, f) => s + f.monto, 0)
@@ -423,11 +434,11 @@ export function downloadInformeDiaCajaPdf(input: InformeDiaCajaInput): void {
           short(m.tercero_nombre || '—', 20),
           short(caja.replace(/^Caja\s+/i, ''), 16),
           short(m.concepto || labelOrigenImportacion(m.origen_importacion), 22),
-          fmtArs(montoMedio(m, 'efectivo')),
-          fmtArs(montoMedio(m, 'tarjeta')),
-          fmtArs(montoMedio(m, 'mp')),
-          fmtArs(montoMedio(m, 'transferencia')),
-          fmtArs(montoMedio(m, 'cc')),
+          fmtArs(montoMedio(m, 'efectivo', ventasMpPagadas)),
+          fmtArs(montoMedio(m, 'tarjeta', ventasMpPagadas)),
+          fmtArs(montoMedio(m, 'mp', ventasMpPagadas)),
+          fmtArs(montoMedio(m, 'transferencia', ventasMpPagadas)),
+          fmtArs(montoMedio(m, 'cc', ventasMpPagadas)),
           fmtArs(montoVisibleMovimiento(m) || montoCobradoCaja(m)),
           short(m.usuario_nombre || '—', 14)
         ]

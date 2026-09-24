@@ -302,9 +302,8 @@ export default function CajaSectionArqueo({
         .reduce((s, e) => s + (e.monto_efectivo || 0), 0),
     [egresosDia, cajaSlug, fecha]
   )
-  /** RESTO_ADMIN = CONTADO − FONDO − EGRESOS (Semitas etc. se descuentan acá, no del faltante). */
-  const restoAdminPreview =
-    total > 0 ? Math.max(0, total - fondoParaCuadre - egresosEfDia) : null
+  /** RESTO_ADMIN = CONTADO − FONDO. Los egresos ya salieron del cajón (el objetivo es ventas − egresos). */
+  const restoAdminPreview = total > 0 ? Math.max(0, total - fondoParaCuadre) : null
 
   /** Egresos ejecutados del día (aprobados + ticket) para vincular al faltante. */
   const egresosDisponibles = useMemo(() => {
@@ -815,7 +814,7 @@ export default function CajaSectionArqueo({
           Del <strong>contado</strong> se reserva este monto para{' '}
           <strong>{cajaDestinoFondo?.nombre || 'la caja del próximo turno'}</strong>. Sale de lo vendido: no
           se suma al objetivo ni genera faltante/sobrante. Luego:{' '}
-          <code>contado − fondo − egresos = administración</code>.
+          <code>contado − fondo = administración</code>.
         </p>
         <label className="caja-cc-field">
           Caja que recibe el fondo
@@ -862,16 +861,13 @@ export default function CajaSectionArqueo({
               <strong>$ {fmtArs(fondoOtraCaja)}</strong>
             </div>
             <div>
-              <span>− Egresos (van menos a admin)</span>
-              <strong>$ {fmtArs(egresosEfDia)}</strong>
-            </div>
-            <div>
               <span>= A administración</span>
               <strong>$ {fmtArs(restoAdminPreview ?? 0)}</strong>
             </div>
             <p className="caja-cc-field-hint">
-              Ecuación: contado − fondo − egresos = admin. El fondo sale del contado (de lo vendido); el
-              cuadre es contado vs objetivo de ventas, sin sumar ni restar el fondo.
+              Ecuación: contado − fondo = admin. Los egresos del día ($ {fmtArs(egresosEfDia)}) ya salieron
+              del cajón, por eso no se restan de nuevo. El cuadre es contado vs objetivo (ventas − egresos),
+              sin sumar ni restar el fondo.
               {onIrEgresos ? (
                 <>
                   {' '}
@@ -965,7 +961,7 @@ export default function CajaSectionArqueo({
         )}
       </div>
 
-      {requiereJustificacion ? (
+      {requiereJustificacion && total > 0 ? (
         <div
           className={`caja-cc-card caja-cc-arqueo-justif-faltante${esSobrante ? ' caja-cc-arqueo-justif-sobrante' : ''}`}
         >
@@ -981,8 +977,8 @@ export default function CajaSectionArqueo({
             .{' '}
             {esFaltante ? (
               <>
-                Faltan <strong>$ {fmtArs(montoFaltante)}</strong>. Los egresos del día (ej. Semitas ${' '}
-                {fmtArs(egresosEfDia)}) se descuentan de administración; no alcanzan para “cubrir” este
+                Faltan <strong>$ {fmtArs(montoFaltante)}</strong>. Los egresos ya registrados ($ {' '}
+                {fmtArs(egresosEfDia)}) ya están descontados del objetivo; no alcanzan para “cubrir” este
                 faltante. Adjuntá comprobante o vinculá otro egreso si corresponde.
               </>
             ) : (
@@ -996,8 +992,8 @@ export default function CajaSectionArqueo({
             <div className="caja-cc-arqueo-egresos-vincular">
               {egresosEfDia > 0 ? (
                 <p className="caja-cc-help">
-                  Egresos del día $ {fmtArs(egresosEfDia)} → se restan de administración (
-                  {fmtArs(restoAdminPreview ?? 0)} a enviar). No se usan para cerrar este faltante.
+                  Egresos del día $ {fmtArs(egresosEfDia)} → ya descontados del objetivo (
+                  {fmtArs(restoAdminPreview ?? 0)} a enviar a administración). No se usan para cerrar este faltante.
                 </p>
               ) : null}
               <label className="caja-cc-field">

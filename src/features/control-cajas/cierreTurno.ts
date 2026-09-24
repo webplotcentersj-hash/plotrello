@@ -1,10 +1,4 @@
-import {
-  getCierreFechaCaja,
-  listCierres,
-  listEgresoSolicitudes,
-  listMovimientos,
-  mismoCajaSlug
-} from './cajaRepository'
+import { mismoCajaSlug } from './cajaSlug'
 import { calcularPaseTrazabilidad } from './paseCaja'
 import { fondoFijoEfectivo } from './fondoCaja'
 import type { CajaCierre, CajaEgresoSolicitud, CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from './types'
@@ -14,9 +8,12 @@ import type { CajaCierre, CajaEgresoSolicitud, CajaMovimiento, CajaRegistro, Caj
  *
  *   CONTADO          = billetes físicos del arqueo
  *   FONDO_DEJADO     = queda en caja / otro turno  ⊆ CONTADO
- *   EGRESOS          = egresos del día (efectivo)
+ *   EGRESOS          = egresos del día (efectivo), ya pagados con ticket
  *
- *   RESTO_ADMIN      = CONTADO − FONDO_DEJADO − EGRESOS
+ *   RESTO_ADMIN      = CONTADO − FONDO_DEJADO
+ *
+ * Los egresos ya salieron del cajón antes de contar (el objetivo del arqueo
+ * es ventas − egresos), así que NO se vuelven a restar del contado.
  */
 export type CierreTurnoInput = {
   arqueo_efectivo: number
@@ -33,7 +30,7 @@ export type CierreTurnoCalculado = CierreTurnoInput & {
   disponible_tras_fondo: number
 }
 
-/** Rosa deja fondo en otra caja; egresos salen del resto; lo que sobra va a Administración. */
+/** Se reserva el fondo del contado; todo lo demás va a Administración. Egresos: solo informativos. */
 export function calcularCierreTurnoMontos(input: CierreTurnoInput): CierreTurnoCalculado {
   const arqueo_efectivo = input.arqueo_efectivo || 0
   const arqueo_otros = input.arqueo_otros || 0
@@ -41,10 +38,10 @@ export function calcularCierreTurnoMontos(input: CierreTurnoInput): CierreTurnoC
   const egrEf = input.egresos_aprobados_ef || 0
   const egrOt = input.egresos_aprobados_ot || 0
 
-  // 1) Reservar fondo  2) Descontar egresos  3) Resto → admin
+  // 1) Reservar fondo  2) Resto → admin (los egresos ya no están en el contado)
   const disponible_tras_fondo = Math.max(0, arqueo_efectivo - fondo)
-  const resto_efectivo = Math.max(0, disponible_tras_fondo - egrEf)
-  const resto_otros = Math.max(0, arqueo_otros - egrOt)
+  const resto_efectivo = disponible_tras_fondo
+  const resto_otros = arqueo_otros
 
   return {
     ...input,
@@ -56,12 +53,15 @@ export function calcularCierreTurnoMontos(input: CierreTurnoInput): CierreTurnoC
     disponible_tras_fondo,
     resto_efectivo,
     resto_otros,
-    total_sale_origen: fondo + resto_efectivo + egrEf
+    total_sale_origen: fondo + resto_efectivo
   }
 }
 
 /** Diferencia de conteo absorbida (sobrante o faltante chico): no pide justificación. */
 export const DIFERENCIA_CONTEO_MAX = 10_000
+
+/** Redondeo de efectivo (monedas / centavos): misma tolerancia en arqueo, cierre de turno y conciliación. */
+export const TOLERANCIA_EFECTIVO = 1.5
 
 /**
  * Cuadre del arqueo vs objetivo Plot Lab (ventas neto − egresos):
@@ -71,7 +71,7 @@ export const DIFERENCIA_CONTEO_MAX = 10_000
  * El fondo dejado SALE del contado (de lo vendido): es un recorte para el
  * próximo turno. NO se suma al objetivo ni se resta del esperado del cuadre.
  * Solo afecta el reparto a administración:
- *   restoAdmin = contado − fondo − egresos
+ *   restoAdmin = contado − fondo
  *
  * Pseudocódigo:
  *   delta = contado − objetivo
@@ -100,11 +100,12 @@ export function cuadreArqueoConFondo(input: {
   cuadra: boolean
   cubiertoPorFondo: number
 } {
-  const tol = input.tolerancia ?? 1.5
+  const tol = input.tolerancia ?? TOLERANCIA_EFECTIVO
   const diffMax = input.diferenciaConteoMax ?? DIFERENCIA_CONTEO_MAX
   const contado = Math.max(0, input.contado || 0)
   const fondo = Math.max(0, input.fondoDejado || 0)
-  if (input.objetivo == null || contado <= 0) {
+  // Sin objetivo no hay cuadre. Contado 0 con objetivo > 0 sí es faltante (no se ignora).
+  if (input.objetivo == null || (contado <= 0 && input.objetivo <= tol)) {
     return {
       objetivoConteo: null,
       delta: null,
@@ -196,40 +197,40 @@ export function conciliarCierreTurno(input: {
   arqueoTotal?: number | null
   tolerancia?: number
 }): ConciliacionCierreTurno {
-  const { calc, cierre, arqueoTotal, tolerancia = 0 } = input
+  const { calc, cierre, arqueoTotal } = input
+  const tol = Math.max(input.tolerancia ?? 0, TOLERANCIA_EFECTIVO)
   const alertas: string[] = []
   const avisos: string[] = []
   const fmt = (n: number) => n.toLocaleString('es-AR')
 
   const arqueoEsperado = calc.arqueo_efectivo + calc.arqueo_otros
-  if (arqueoTotal != null && Math.abs(arqueoTotal - arqueoEsperado) > tolerancia + 1) {
+  if (arqueoTotal != null && Math.abs(arqueoTotal - arqueoEsperado) > tol) {
     alertas.push(
       `Arqueo registrado ($${fmt(arqueoTotal)}) no coincide con montos del cierre de turno ($${fmt(arqueoEsperado)}).`
     )
   }
 
-  const repartoEf =
-    calc.fondo_monto + calc.resto_efectivo + calc.egresos_aprobados_ef
+  const repartoEf = calc.fondo_monto + calc.resto_efectivo
   const difEf = calc.arqueo_efectivo - repartoEf
-  if (Math.abs(difEf) > tolerancia + 0.02) {
+  if (Math.abs(difEf) > tol) {
     if (difEf < 0) {
       alertas.push(
-        `Efectivo insuficiente: arqueo $${fmt(calc.arqueo_efectivo)} no alcanza para fondo $${fmt(calc.fondo_monto)} + egresos $${fmt(calc.egresos_aprobados_ef)} + resto admin $${fmt(calc.resto_efectivo)}.`
+        `Efectivo insuficiente: arqueo $${fmt(calc.arqueo_efectivo)} no alcanza para fondo $${fmt(calc.fondo_monto)} + resto admin $${fmt(calc.resto_efectivo)}.`
       )
     } else {
       alertas.push(
-        `Efectivo sin asignar: arqueo $${fmt(calc.arqueo_efectivo)} supera fondo + egresos + resto ($${fmt(repartoEf)}).`
+        `Efectivo sin asignar: arqueo $${fmt(calc.arqueo_efectivo)} supera fondo + resto ($${fmt(repartoEf)}).`
       )
     }
   }
 
   if (cierre) {
-    if (Math.abs((cierre.ef_contado || 0) - calc.arqueo_efectivo) > tolerancia + 1) {
+    if (Math.abs((cierre.ef_contado || 0) - calc.arqueo_efectivo) > tol) {
       alertas.push(
         `Cierre del día: efectivo contado ($${fmt(cierre.ef_contado || 0)}) ≠ arqueo ($${fmt(calc.arqueo_efectivo)}).`
       )
     }
-    if (Math.abs((cierre.egr_ef || 0) - calc.egresos_aprobados_ef) > tolerancia + 1) {
+    if (Math.abs((cierre.egr_ef || 0) - calc.egresos_aprobados_ef) > tol) {
       alertas.push(
         `Cierre: egresos efectivo ($${fmt(cierre.egr_ef || 0)}) ≠ egresos aprobados ($${fmt(calc.egresos_aprobados_ef)}).`
       )
@@ -283,6 +284,7 @@ export function buildMovimientosCierreTurno(opts: {
     movs.push({
       ...base,
       concepto: 'Pase de caja',
+      tipo_movimiento: 'traspaso',
       subtipo_pase: 'fondo',
       origen_slug: lote.origen_slug,
       destino_slug: lote.caja_fondo_destino_slug,
@@ -305,6 +307,7 @@ export function buildMovimientosCierreTurno(opts: {
     movs.push({
       ...base,
       concepto: 'Pase de caja',
+      tipo_movimiento: 'traspaso',
       subtipo_pase: 'resto_admin',
       origen_slug: lote.origen_slug,
       destino_slug: adminSlug,
@@ -367,6 +370,8 @@ export async function egresosDelDiaParaCierreTurno(
   fecha: string,
   cajaSlug: string
 ): Promise<EgresosDelDiaResumen> {
+  // Import diferido: el repositorio carga Supabase y así la lógica pura se puede testear en Node.
+  const { getCierreFechaCaja, listCierres, listEgresoSolicitudes, listMovimientos } = await import('./cajaRepository')
   const solicitudes = await listEgresoSolicitudes({ fecha, cajaSlug })
   const fromSol = totalEgresosAprobados(solicitudes)
   const hayAprobados = solicitudes.some((s) => s.estado === 'aprobado' && !!s.url_ticket)
@@ -440,8 +445,6 @@ export function cajaFondoDestinoPorDefecto(
   cajas: CajaRegistro[]
 ): string {
   if (origenSlug && cajas.some((c) => c.slug === origenSlug)) return origenSlug
-  const op = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
-  const federico = op.find((c) => c.slug === 'u-31')
-  if (federico) return federico.slug
+  const op = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto' && c.activa !== false)
   return op[0]?.slug ?? ''
 }

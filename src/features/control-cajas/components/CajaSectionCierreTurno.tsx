@@ -396,7 +396,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
             <span className="caja-cc-hoy-hero-value">
               $ {fmtArs(egresosTot.efectivo + egresosTot.otros)}
             </span>
-            <span className="caja-cc-hoy-hero-hint">Del contado − fondo</span>
+            <span className="caja-cc-hoy-hero-hint">Ya pagados (fuera del contado)</span>
           </div>
         </div>
       )}
@@ -419,15 +419,16 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
             <span className="caja-cc-hoy-hero-value">
               $ {fmtArs(egresosTot.efectivo + egresosTot.otros)}
             </span>
-            <span className="caja-cc-hoy-hero-hint">Del contado − fondo</span>
+            <span className="caja-cc-hoy-hero-hint">Ya pagados (fuera del contado)</span>
           </div>
         </div>
       ) : null}
 
       {(calc.arqueo_efectivo > 0 || calc.fondo_monto > 0) && (
         <p className="caja-cc-help caja-cc-cierre-formula">
-          Contado $ {fmtArs(calc.arqueo_efectivo)} − fondo $ {fmtArs(calc.fondo_monto)} − egresos ${' '}
-          {fmtArs(egresosTot.efectivo)} = administración $ {fmtArs(calc.resto_efectivo)}.
+          Contado $ {fmtArs(calc.arqueo_efectivo)} − fondo $ {fmtArs(calc.fondo_monto)} = administración ${' '}
+          {fmtArs(calc.resto_efectivo)}. Los egresos ($ {fmtArs(egresosTot.efectivo)}) ya salieron del cajón antes
+          del arqueo.
         </p>
       )}
 

@@ -127,7 +127,8 @@ export default function CajaSectionCierreForm({
         tarj_fis: c.tarj_fis,
         mp_qr: c.mp_qr,
         trans: c.trans,
-        cta_cte: c.cta_cte
+        cta_cte: c.cta_cte,
+        traspasos_ef: (c.ef_teorico || 0) - ((c.fondo_fijo || 0) + (c.ing_ef || 0) - (c.egr_ef || 0))
       })
     })
   }, [editId, cajas])
@@ -178,7 +179,8 @@ export default function CajaSectionCierreForm({
           egr_ef: egresosSol.efectivo > 0 ? egresosSol.efectivo : calcEnriched.egr_ef,
           tarj_sist: calcEnriched.tarj_sist,
           trans: calcEnriched.trans,
-          cta_cte: calcEnriched.cta_cte
+          cta_cte: calcEnriched.cta_cte,
+          traspasos_ef: calcEnriched.traspasos_ef ?? 0
         }
       })
       setMsg(
@@ -208,7 +210,8 @@ export default function CajaSectionCierreForm({
       tarj_fis: form.tarj_fis,
       mp_qr: form.mp_qr,
       trans: calc.trans,
-      cta_cte: calc.cta_cte
+      cta_cte: calc.cta_cte,
+      traspasos_ef: calc.traspasos_ef ?? 0
     })
     setMsg(
       `Precargado desde ventas PlotLab: ${totales.detalle.ingresos} ingreso(s) del día.`
@@ -230,7 +233,8 @@ export default function CajaSectionCierreForm({
       tarj_fis: form.tarj_fis,
       mp_qr: form.mp_qr,
       trans: calc.trans,
-      cta_cte: calc.cta_cte
+      cta_cte: calc.cta_cte,
+      traspasos_ef: calc.traspasos_ef ?? 0
     })
     setMsg(
       `Precargado desde ${totales.detalle.ingresos} ingreso(s) y ${totales.detalle.egresos} egreso(s) del día` +
@@ -535,6 +539,11 @@ export default function CajaSectionCierreForm({
           <label className="caja-cc-field">
             Efectivo teórico <span className="caja-cc-tag calc">calc</span>
             <input readOnly value={`$ ${fmtArs(calc.ef_teorico)}`} />
+            {Math.abs(form.traspasos_ef || 0) > 0.02 && (
+              <span className="caja-cc-field-hint">
+                Incluye traspasos entre cajas del día: $ {fmtArs(form.traspasos_ef || 0)} (no cuentan como venta).
+              </span>
+            )}
           </label>
           <label className="caja-cc-field">
             Efectivo contado <span className="caja-cc-tag input">hoja firmada</span>

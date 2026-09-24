@@ -24,6 +24,7 @@ type Props = {
   cajas?: CajaRegistro[]
   concilMp?: CajaConcilMP | null
   concilBanco?: CajaConcilBanco | null
+  ventasMpPagadas?: ReadonlySet<number>
 }
 
 function claseEstado(estado: LineaConciliacionDia['estado']): string {
@@ -40,9 +41,13 @@ export default function CajaDiaConciliacionPanel({
   arqueos = [],
   cajas = [],
   concilMp,
-  concilBanco
+  concilBanco,
+  ventasMpPagadas
 }: Props) {
-  const medios = useMemo(() => mediosIngresosDia(movimientos, fecha), [movimientos, fecha])
+  const medios = useMemo(
+    () => mediosIngresosDia(movimientos, fecha, ventasMpPagadas),
+    [movimientos, fecha, ventasMpPagadas]
+  )
   const lineas = useMemo(
     () =>
       conciliacionAutomaticaDia({
@@ -51,9 +56,10 @@ export default function CajaDiaConciliacionPanel({
         planillas,
         arqueos,
         concilMp,
-        concilBanco
+        concilBanco,
+        ventasMpPagadas
       }),
-    [fecha, movimientos, planillas, arqueos, concilMp, concilBanco]
+    [fecha, movimientos, planillas, arqueos, concilMp, concilBanco, ventasMpPagadas]
   )
   const fondosReserva = useMemo(
     () => fondosReservaDesdeArqueosDia(arqueos, fecha, cajas),

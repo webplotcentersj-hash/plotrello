@@ -1,5 +1,6 @@
 import { planillaEnFecha } from './cajaDashboardData'
-import { fondoParaOtraCajaDesdeArqueo } from './cierreTurno'
+import { fondoParaOtraCajaDesdeArqueo, TOLERANCIA_EFECTIVO } from './cierreTurno'
+import { esPaseCierreTurno, esTraspasoEntreCajas } from './movimientoCaja'
 import type {
   CajaArqueo,
   CajaConcilBanco,
@@ -46,6 +47,25 @@ export type LineaConciliacionDia = {
 
 const TOLERANCIA = 0.02
 
+/** MP devolvió el pago como aprobado (id de pago o marca al sincronizar). */
+export function mpPagoConfirmado(
+  m: CajaMovimiento,
+  ventasMpPagadas?: ReadonlySet<number>
+): boolean {
+  const med = m.medios as Record<string, unknown> | null | undefined
+  if (med && typeof med === 'object') {
+    if (med.mp_aprobado === true || med.mp_aprobado === 1) return true
+    const pagoId = med.mp_payment_id
+    if (typeof pagoId === 'string' && pagoId.trim()) return true
+    if (typeof pagoId === 'number' && pagoId > 0) return true
+  }
+  if (!ventasMpPagadas?.size) return false
+  const ref = `${m.observacion || ''} ${m.nro_comprobante || ''}`
+  const match = ref.match(/PL-VENTA-(\d+)/i)
+  const ventaId = match ? Number(match[1]) : null
+  return ventaId != null && ventasMpPagadas.has(ventaId)
+}
+
 /** Detecta cobros MP (sigue viviendo en columna tarjeta + marca en obs/medios). */
 export function esIngresoMercadoPago(m: CajaMovimiento): boolean {
   const med = m.medios as Record<string, unknown> | null | undefined
@@ -79,12 +99,6 @@ function movimientosPlotLabTarjeta(movimientos: CajaMovimiento[], fecha: string)
   )
 }
 
-function movimientosPlotLabMercadoPago(movimientos: CajaMovimiento[], fecha: string): number {
-  return movimientosPlotLabIngreso(movimientos, fecha, (m) =>
-    esIngresoMercadoPago(m) ? m.tarjeta ?? 0 : 0
-  )
-}
-
 function movimientosPlotLabTransferencia(movimientos: CajaMovimiento[], fecha: string): number {
   return movimientosPlotLabIngreso(movimientos, fecha, (m) => m.transferencia_bancaria ?? 0)
 }
@@ -102,17 +116,24 @@ const LABELS: Record<CanalConciliacion, { label: string; icon: string; esContabl
   otros: { label: 'Cheque', icon: '📄', esContable: false }
 }
 
-function mediosDesdeMovimiento(m: CajaMovimiento): MediosDiaTotales {
+function mediosDesdeMovimiento(
+  m: CajaMovimiento,
+  ventasMpPagadas?: ReadonlySet<number>
+): MediosDiaTotales {
   // Solo cheques: no meter transferencia ni el agregado legacy `otros`.
   const otros = (m.cheque_propio || 0) + (m.cheque_tercero || 0)
   const cc = m.cuenta_corriente || 0
   const efectivo = m.efectivo || 0
   const rawTarjeta = m.tarjeta || 0
   const esMp = rawTarjeta > 0 && esIngresoMercadoPago(m)
+  const esVentaPlotlab = m.origen_importacion === 'plotlab_venta'
+  const mpOk = esMp && (!esVentaPlotlab || mpPagoConfirmado(m, ventasMpPagadas))
+  // Sin confirmación de MP no entra a ningún canal (ni tarjeta ni MP).
   const tarjeta = esMp ? 0 : rawTarjeta
-  const mercado_pago = esMp ? rawTarjeta : 0
+  const mercado_pago = mpOk ? rawTarjeta : 0
   const transferencia = m.transferencia_bancaria || 0
-  const total = m.monto_total ?? efectivo + tarjeta + mercado_pago + transferencia + cc + otros
+  const totalBruto = m.monto_total ?? efectivo + rawTarjeta + transferencia + cc + otros
+  const total = esMp && !mpOk ? Math.max(0, totalBruto - rawTarjeta) : totalBruto
   return {
     efectivo,
     tarjeta,
@@ -153,12 +174,18 @@ const MEDIOS_VACIO: MediosDiaTotales = {
 }
 
 /** Ingresos del día (ventas PlotLab, planilla, comprobantes) agrupados por medio. */
-export function mediosIngresosDia(movimientos: CajaMovimiento[], fecha: string): MediosDiaTotales {
+export function mediosIngresosDia(
+  movimientos: CajaMovimiento[],
+  fecha: string,
+  ventasMpPagadas?: ReadonlySet<number>
+): MediosDiaTotales {
   let acc = MEDIOS_VACIO
   for (const m of movimientos) {
     if (m.fecha !== fecha || m.anulado) continue
     if (m.tipo_movimiento !== 'ingreso') continue
-    const med = mediosDesdeMovimiento(m)
+    // Traspasos / pases entre cajas no son cobros.
+    if (esPaseCierreTurno(m) || esTraspasoEntreCajas(m)) continue
+    const med = mediosDesdeMovimiento(m, ventasMpPagadas)
     acc = sumarMedios(acc, { ...med, countIngresos: 1 })
   }
   return acc
@@ -204,7 +231,8 @@ function estadoLinea(
   mov: number,
   ref: number | null,
   fuente: string | null,
-  esContable: boolean
+  esContable: boolean,
+  tol = TOLERANCIA
 ): Pick<LineaConciliacionDia, 'referencia' | 'referenciaFuente' | 'diferencia' | 'estado'> {
   if (mov <= TOLERANCIA && (!ref || ref <= TOLERANCIA)) {
     return { referencia: ref, referenciaFuente: fuente, diferencia: 0, estado: 'sin_mov' }
@@ -230,7 +258,7 @@ function estadoLinea(
     referencia: ref,
     referenciaFuente: fuente,
     diferencia: dif,
-    estado: Math.abs(dif) <= TOLERANCIA ? 'ok' : 'revisar'
+    estado: Math.abs(dif) <= tol ? 'ok' : 'revisar'
   }
 }
 
@@ -238,6 +266,20 @@ function totalesArqueoEfectivoDia(arqueos: CajaArqueo[], fecha: string): number 
   return arqueos
     .filter((a) => a.fecha === fecha)
     .reduce((s, a) => s + (Number(a.total) || 0), 0)
+}
+
+/** Egresos reales en efectivo del día (ya salieron del cajón antes del arqueo). */
+function egresosEfectivoDia(movimientos: CajaMovimiento[], fecha: string): number {
+  return movimientos
+    .filter(
+      (m) =>
+        m.fecha === fecha &&
+        !m.anulado &&
+        m.tipo_movimiento === 'egreso' &&
+        !esPaseCierreTurno(m) &&
+        !esTraspasoEntreCajas(m)
+    )
+    .reduce((s, m) => s + (m.efectivo || 0), 0)
 }
 
 export type FondoReservaCajaDia = {
@@ -286,6 +328,22 @@ export function fondosReservaDesdeArqueosDia(
   return [...byDestino.values()].sort((a, b) => b.monto - a.monto || a.cajaNombre.localeCompare(b.cajaNombre, 'es'))
 }
 
+/** Ids de ventas cuyo cobro Mercado Pago ya tiene id de pago aprobado. */
+export function ventasMpPagadasIds(
+  ventas: ReadonlyArray<{
+    id: number
+    mp_payment_id?: string | null
+    detalle_pago?: { mp_payment_id?: string | null } | null
+  }>
+): Set<number> {
+  const ids = new Set<number>()
+  for (const v of ventas) {
+    const pago = String(v.mp_payment_id || v.detalle_pago?.mp_payment_id || '').trim()
+    if (pago) ids.add(v.id)
+  }
+  return ids
+}
+
 export function conciliacionAutomaticaDia(input: {
   fecha: string
   movimientos: CajaMovimiento[]
@@ -293,13 +351,17 @@ export function conciliacionAutomaticaDia(input: {
   arqueos?: CajaArqueo[]
   concilMp?: CajaConcilMP | null
   concilBanco?: CajaConcilBanco | null
+  /** Ventas cuyo pago Mercado Pago ya volvió aprobado. */
+  ventasMpPagadas?: ReadonlySet<number>
 }): LineaConciliacionDia[] {
-  const { fecha, movimientos, planillas, arqueos = [], concilMp, concilBanco } = input
-  const mov = mediosIngresosDia(movimientos, fecha)
+  const { fecha, movimientos, planillas, arqueos = [], concilMp, concilBanco, ventasMpPagadas } = input
+  const mov = mediosIngresosDia(movimientos, fecha, ventasMpPagadas)
   const planilla = totalesPlanillaDia(planillas, fecha)
   const comprobantes = totalesComprobantesDia(movimientos, fecha)
 
-  const efArqueo = totalesArqueoEfectivoDia(arqueos, fecha)
+  // Contado = ventas ef − egresos ef → para comparar con ventas se suman los egresos pagados.
+  const efArqueoContado = totalesArqueoEfectivoDia(arqueos, fecha)
+  const efArqueo = efArqueoContado > 0 ? efArqueoContado + egresosEfectivoDia(movimientos, fecha) : 0
   const efPlotlab = movimientosPlotLabEfectivo(movimientos, fecha)
   const refEfectivo =
     efArqueo > 0
@@ -311,31 +373,22 @@ export function conciliacionAutomaticaDia(input: {
           : null
   const refEfectivoFuente =
     efArqueo > 0
-      ? 'Arqueo (contado real)'
+      ? 'Arqueo + egresos pagados'
       : planilla != null && planilla.efectivo > 0
         ? 'Planilla PDF'
         : efPlotlab > 0
           ? 'Ventas PlotLab'
           : null
 
-  const mpPlotlab = movimientosPlotLabMercadoPago(movimientos, fecha)
+  const dashboardMp = concilMp && (concilMp.dashboard ?? 0) > 0 ? (concilMp.dashboard ?? 0) : 0
   const refMp =
-    concilMp != null
-      ? (concilMp.sistema ?? 0) > 0 || (concilMp.dashboard ?? 0) > 0
-        ? concilMp.sistema ?? concilMp.dashboard ?? 0
-        : null
-      : comprobantes.mercado_pago > 0
-        ? comprobantes.mercado_pago
-        : mpPlotlab > 0
-          ? mpPlotlab
-          : null
+    dashboardMp > 0 ? dashboardMp : comprobantes.mercado_pago > 0 ? comprobantes.mercado_pago : null
 
-  const refMpFuente = concilMp
-    ? 'Conciliación MP'
-    : comprobantes.mercado_pago > 0
-      ? 'Comprobantes MP'
-      : mpPlotlab > 0
-        ? 'Ventas PlotLab'
+  const refMpFuente =
+    dashboardMp > 0
+      ? 'Dashboard Mercado Pago'
+      : comprobantes.mercado_pago > 0
+        ? 'Comprobantes MP'
         : null
 
   const tjPlotlab = movimientosPlotLabTarjeta(movimientos, fecha)
@@ -408,7 +461,8 @@ export function conciliacionAutomaticaDia(input: {
       valoresMov[canal],
       refs[canal].valor,
       refs[canal].fuente,
-      meta.esContable
+      meta.esContable,
+      canal === 'efectivo' ? TOLERANCIA_EFECTIVO : TOLERANCIA
     )
     return {
       canal,

@@ -85,7 +85,24 @@ export function mediosPagoMovimiento(m: CajaMovimiento): MedioPagoLinea[] {
     push('Otros', residual)
   }
   if (m.medios && typeof m.medios === 'object') {
+    const meta = new Set([
+      'mp_payment_id',
+      'mp_preference_id',
+      'mp_aprobado',
+      'mercado_pago',
+      'efectivo',
+      'tarjeta',
+      'transferencia',
+      'transferencia_bancaria',
+      'cuenta_corriente',
+      'cheque_propio',
+      'cheque_tercero',
+      'documento',
+      'cuenta_contable',
+      'otros'
+    ])
     for (const [k, v] of Object.entries(m.medios)) {
+      if (meta.has(k)) continue
       const n = Number(v) || 0
       if (n > 0 && !lines.some((l) => l.label === k)) {
         lines.push({ label: k, monto: n })

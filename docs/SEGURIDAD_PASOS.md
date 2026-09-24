@@ -513,3 +513,25 @@ Tabla por tabla, sin romper zona pública.
 3. Anon: `INSERT INTO cuentas_por_pagar` → falla
 
 **Siguiente:** un origen canónico (Fase 2) u otro perímetro abierto (oportunidades CRM sin RLS, etc.).
+
+---
+
+## Paso 26 — Cuenta corriente: RPC con actor + sin DML anon + documentos privados ⏳ (2026-09-24)
+
+**Problema:** `clientes_cuenta_corriente` y `cc_cuenta_movimientos` seguían con escritura anon. Las RPC de alta, aprobación, scoring, límites, intereses y pagos tomaban el usuario del navegador sin controlar el rol (se podía aprobar una CC o subir un límite con la clave anon). `quitar_cliente_cuenta_corriente` borraba el libro completo aunque hubiera deuda. DNI / estatuto / pagaré en bucket público.
+
+**Qué hicimos:**
+- Envoltorios `cc_*` con actor (patrón Paso 25): `cc_registrar_alta`, `cc_calcular_scoring`, `cc_registrar_pago_actor` (usuario activo); `cc_resolver_solicitud`, `cc_actualizar_scoring`, `cc_actualizar_condiciones_credito`, `cc_registrar_intereses`, `cc_recalcular_scoring_todos` (administracion/gerencia)
+- `cc_quitar_cliente`: admin para fichas aprobadas y rechaza si el saldo ≠ 0
+- Originales revocadas de anon; funciones que tocan tablas CC pasan a SECURITY DEFINER
+- Tablas SELECT-only + REVOKE DML/TRUNCATE
+- Bucket privado `cc-documentos` (solo INSERT anon) + `/api/erp/cc-documento-url` (JWT staff → URL firmada 5 min). Las fichas viejas siguen con su URL pública.
+- Front: sin borrado directo de movimientos; panel de cobranzas sin ventana de 120 días; cobrado del mes sin tope de 50
+
+**Patch:** `supabase/patches/2026-09-24_paso26_cuenta_corriente_actor.sql` (aplicar ANTES del deploy)
+
+**Verificar (después de deploy):**
+1. Alta nueva con documentos → "Ver" abre el archivo (URL firmada)
+2. Aprobar / rechazar como admin; como vendedor → error "Solo administración…"
+3. Registrar pago en el perfil CC; quitar una ficha con saldo → rechazado
+4. Anon: `UPDATE clientes_cuenta_corriente SET limite_credito = 1e9` → falla

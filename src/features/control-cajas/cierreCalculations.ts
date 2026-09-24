@@ -10,6 +10,8 @@ export type CierreFormInput = {
   mp_qr: number
   trans: number
   cta_cte: number
+  /** Neto de traspasos entre cajas del día (entrada − salida, efectivo). No es venta. */
+  traspasos_ef?: number
 }
 
 export type CierreCalculado = CierreFormInput & {
@@ -31,8 +33,9 @@ export function calcularCierre(input: CierreFormInput, tolerancia = 0): CierreCa
   const mp = input.mp_qr || 0
   const tr = input.trans || 0
   const cc = input.cta_cte || 0
+  const tr_ef = input.traspasos_ef || 0
 
-  const ef_teorico = fondo + ing - egr
+  const ef_teorico = fondo + ing - egr + tr_ef
   const dif_ef = cont - ef_teorico
   const dif_tarj = tf - ts
   const dif_total = dif_ef + dif_tarj

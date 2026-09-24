@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import apiService from '../../../services/api'
+import type { Venta } from '../../../types/api'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import { buildCalendarioCajasIndex, yearMonthFromDate } from '../calendarioCajasData'
-import { movimientosDelDia, mediosIngresosDia } from '../conciliacionDiaCaja'
+import { movimientosDelDia, mediosIngresosDia, ventasMpPagadasIds } from '../conciliacionDiaCaja'
 import { downloadInformeDiaCajaPdf } from '../exportInformeDiaCajaPdf'
 import { resumenAdminHoy } from '../cajaDashboardData'
 import { sincronizarVentasPlotLabRango } from '../plotlabVentaCajaSync'
@@ -57,6 +59,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
   const [detalleMovimiento, setDetalleMovimiento] = useState<CajaMovimiento | null>(null)
   const [pdfBusy, setPdfBusy] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
+  const [ventasDia, setVentasDia] = useState<Venta[]>([])
 
   useEffect(() => {
     setLoading(true)
@@ -106,14 +109,27 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
     }
   }, [selectedFecha, refreshKey])
 
+  useEffect(() => {
+    let cancelled = false
+    void apiService.obtenerVentas(undefined, selectedFecha, selectedFecha).then((res) => {
+      if (cancelled) return
+      setVentasDia(res.success && res.data ? res.data : [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedFecha, refreshKey, movimientos])
+
+  const ventasMpPagadas = useMemo(() => ventasMpPagadasIds(ventasDia), [ventasDia])
+
   const calendarioIndex = useMemo(
     () => buildCalendarioCajasIndex(lotes, planillas, arqueos, egresos, cajas, movimientos),
     [lotes, planillas, arqueos, egresos, cajas, movimientos]
   )
 
   const mediosDia = useMemo(
-    () => mediosIngresosDia(movimientos, selectedFecha),
-    [movimientos, selectedFecha]
+    () => mediosIngresosDia(movimientos, selectedFecha, ventasMpPagadas),
+    [movimientos, selectedFecha, ventasMpPagadas]
   )
 
   const movsDia = useMemo(
@@ -174,7 +190,8 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
         lotes,
         arqueos,
         concilMp: concilMpDia,
-        concilBanco: concilBancoDia
+        concilBanco: concilBancoDia,
+        ventasMpPagadas
       })
     } finally {
       setPdfBusy(false)
@@ -294,6 +311,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
             cajas={cajas}
             concilMp={concilMpDia}
             concilBanco={concilBancoDia}
+            ventasMpPagadas={ventasMpPagadas}
           />
 
           {movsDia.length > 0 && (

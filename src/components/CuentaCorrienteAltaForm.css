@@ -95,9 +95,24 @@
   color: #6ee7b7;
 }
 
-.cc-alta-pagare__ok a {
+.cc-alta-pagare__ok a,
+.cc-alta-pagare__ok button {
   color: #93c5fd;
   text-decoration: underline;
+}
+
+.cc-alta-pagare__ok button,
+button.cc-alta-doc-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.cc-alta-doc-link {
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .cc-alta-form__cliente {

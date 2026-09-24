@@ -145,6 +145,25 @@
   font-weight: 600;
 }
 
+.cc-scoring-ring--sin { border-color: #64748b; background: rgba(100, 116, 139, 0.12); }
+.cc-scoring-nivel--sin { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; }
+
+.cc-scoring-factor__txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cc-scoring-factores li .cc-scoring-factor__txt {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.cc-scoring-factor__det {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
 .cc-scoring-neg {
   color: #fca5a5 !important;
 }

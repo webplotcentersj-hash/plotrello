@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import apiService from '../../../services/api'
+import type { Venta, VentaItem } from '../../../types/api'
 import { downloadMovimientoCajaPdf } from '../exportMovimientoCajaPdf'
 import { fmtArs, fmtDateAr, montoCobradoCaja, montoCuentaCorriente, montoVisibleMovimiento } from '../format'
 import {
@@ -22,12 +23,8 @@ type Props = {
 }
 
 type VentaDetalle = {
-  numero?: string | null
-  cliente?: string | null
-  total?: number | null
-  metodo?: string | null
-  estado?: string | null
-  vendedor?: string | null
+  venta: Venta
+  items: VentaItem[]
 }
 
 export default function CajaMovimientoDetalleModal({ movimiento: m, cajas, onClose, onDelete }: Props) {
@@ -56,18 +53,12 @@ export default function CajaMovimientoDetalleModal({ movimiento: m, cajas, onClo
     }
     let cancelled = false
     setVentaLoading(true)
-    void apiService
-      .getVenta(ventaId)
-      .then((res) => {
+    void Promise.all([apiService.getVenta(ventaId), apiService.getItemsVenta(ventaId)])
+      .then(([res, itemsRes]) => {
         if (cancelled || !res.success || !res.data) return
-        const v = res.data
         setVenta({
-          numero: v.numero_venta ?? refPlotLab,
-          cliente: v.cliente_nombre ?? m.tercero_nombre ?? null,
-          total: v.valor_total ?? null,
-          metodo: v.metodo_pago ?? null,
-          estado: v.estado_pago ?? null,
-          vendedor: v.nombre_vendedor ?? null
+          venta: res.data,
+          items: itemsRes.success && itemsRes.data ? itemsRes.data : []
         })
       })
       .catch(() => {
@@ -236,32 +227,119 @@ export default function CajaMovimientoDetalleModal({ movimiento: m, cajas, onClo
               {ventaLoading ? (
                 <p className="caja-cc-help">Cargando venta…</p>
               ) : venta ? (
-                <div className="caja-cc-arqueo-meta-grid">
-                  <div>
-                    <span className="caja-cc-meta-label">Número</span>
-                    <strong>{venta.numero ?? refPlotLab}</strong>
-                  </div>
-                  <div>
-                    <span className="caja-cc-meta-label">Cliente</span>
-                    <strong>{venta.cliente ?? '—'}</strong>
-                  </div>
-                  <div>
-                    <span className="caja-cc-meta-label">Total venta</span>
-                    <strong>$ {fmtArs(venta.total ?? 0)}</strong>
-                  </div>
-                  <div>
-                    <span className="caja-cc-meta-label">Método / estado</span>
-                    <span>
-                      {venta.metodo ?? '—'} · {venta.estado ?? '—'}
-                    </span>
-                  </div>
-                  {venta.vendedor && (
+                <>
+                  <div className="caja-cc-arqueo-meta-grid">
                     <div>
-                      <span className="caja-cc-meta-label">Vendedor</span>
-                      <span>{venta.vendedor}</span>
+                      <span className="caja-cc-meta-label">Número</span>
+                      <strong>{venta.venta.numero_venta || refPlotLab}</strong>
+                    </div>
+                    <div>
+                      <span className="caja-cc-meta-label">Cliente</span>
+                      <strong>{venta.venta.cliente_nombre || '—'}</strong>
+                    </div>
+                    {venta.venta.cliente_dni_cuit && (
+                      <div>
+                        <span className="caja-cc-meta-label">DNI / CUIT</span>
+                        <span>{venta.venta.cliente_dni_cuit}</span>
+                      </div>
+                    )}
+                    {venta.venta.cliente_telefono && (
+                      <div>
+                        <span className="caja-cc-meta-label">Teléfono</span>
+                        <span>{venta.venta.cliente_telefono}</span>
+                      </div>
+                    )}
+                    {venta.venta.cliente_email && (
+                      <div>
+                        <span className="caja-cc-meta-label">Email</span>
+                        <span>{venta.venta.cliente_email}</span>
+                      </div>
+                    )}
+                    {venta.venta.cliente_empresa && (
+                      <div>
+                        <span className="caja-cc-meta-label">Empresa</span>
+                        <span>{venta.venta.cliente_empresa}</span>
+                      </div>
+                    )}
+                    {venta.venta.cliente_direccion && (
+                      <div>
+                        <span className="caja-cc-meta-label">Dirección</span>
+                        <span>{venta.venta.cliente_direccion}</span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="caja-cc-meta-label">Total venta</span>
+                      <strong>$ {fmtArs(venta.venta.valor_total ?? 0)}</strong>
+                    </div>
+                    {venta.venta.monto_pagado != null && venta.venta.monto_pagado > 0 && (
+                      <div>
+                        <span className="caja-cc-meta-label">Cobrado</span>
+                        <strong>$ {fmtArs(venta.venta.monto_pagado)}</strong>
+                      </div>
+                    )}
+                    <div>
+                      <span className="caja-cc-meta-label">Método / estado</span>
+                      <span>
+                        {venta.venta.metodo_pago ?? '—'} · {venta.venta.estado_pago ?? '—'}
+                      </span>
+                    </div>
+                    {venta.venta.nombre_vendedor && (
+                      <div>
+                        <span className="caja-cc-meta-label">Vendedor</span>
+                        <span>{venta.venta.nombre_vendedor}</span>
+                      </div>
+                    )}
+                    {(() => {
+                      const pago = String(
+                        venta.venta.mp_payment_id || venta.venta.detalle_pago?.mp_payment_id || ''
+                      ).trim()
+                      const esMp = /mercado\s*pago/i.test(String(venta.venta.metodo_pago || ''))
+                      if (!esMp && !pago) return null
+                      return (
+                        <div>
+                          <span className="caja-cc-meta-label">Mercado Pago</span>
+                          <span>{pago ? `Pago confirmado ${pago}` : 'Sin confirmación de pago'}</span>
+                        </div>
+                      )
+                    })()}
+                    {venta.venta.observaciones?.trim() && (
+                      <div>
+                        <span className="caja-cc-meta-label">Observaciones</span>
+                        <span>{venta.venta.observaciones}</span>
+                      </div>
+                    )}
+                  </div>
+                  <h4>Ítems</h4>
+                  {venta.items.length === 0 ? (
+                    <p className="caja-cc-help">Sin ítems cargados.</p>
+                  ) : (
+                    <div className="caja-cc-table-scroll">
+                      <table className="caja-cc-table">
+                        <thead>
+                          <tr>
+                            <th>Descripción</th>
+                            <th className="num">Cant.</th>
+                            <th className="num">P. unit.</th>
+                            <th className="num">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {venta.items.map((it) => (
+                            <tr key={it.id}>
+                              <td>
+                                {it.descripcion}
+                                {it.codigo_articulo ? ` (${it.codigo_articulo})` : ''}
+                              </td>
+                              <td className="num">{it.cantidad}</td>
+                              <td className="num">$ {fmtArs(it.precio_unitario)}</td>
+                              <td className="num">$ {fmtArs(it.precio_total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
-                </div>
+                </>
               ) : (
                 <p className="caja-cc-help">Referencia {refPlotLab} (sin detalle adicional en CRM).</p>
               )}

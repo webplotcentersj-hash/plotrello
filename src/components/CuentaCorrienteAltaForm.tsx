@@ -7,7 +7,8 @@ import {
   type CondicionIvaCuentaCorriente,
   type TipoClienteCuentaCorriente
 } from '../constants/cuentaCorriente'
-import { uploadAttachmentAndGetUrl } from '../utils/storage'
+import { abrirDocumentoCc, subirDocumentoCc } from '../utils/ccDocumentos'
+import { cuitValido } from '../utils/afipFacturaUi'
 import { generarYGuardarPagareCuentaCorriente } from '../utils/cuentaCorrientePagare'
 import './CuentaCorrienteAltaForm.css'
 
@@ -222,6 +223,14 @@ export default function CuentaCorrienteAltaForm({
 
   const validate = (): string | null => {
     if (!values.cuit.trim()) return esPersona ? 'CUIT/DNI es obligatorio' : 'CUIT es obligatorio'
+    const docDigits = values.cuit.replace(/\D/g, '')
+    if (esPersona) {
+      if (docDigits.length === 11 ? !cuitValido(docDigits) : !/^\d{7,8}$/.test(docDigits)) {
+        return 'CUIT/DNI inválido: ingresá un DNI (7–8 dígitos) o un CUIT de 11 dígitos con verificador correcto'
+      }
+    } else if (!cuitValido(docDigits)) {
+      return 'CUIT inválido: deben ser 11 dígitos con dígito verificador correcto'
+    }
     if (esPersona) {
       if (!values.nombre.trim() && !values.apellido.trim() && !values.razon_social.trim()) {
         return 'Nombre y apellido son obligatorios'
@@ -255,7 +264,7 @@ export default function CuentaCorrienteAltaForm({
 
     setUploading(key)
     try {
-      const url = await uploadAttachmentAndGetUrl(file, storageFolder)
+      const url = await subirDocumentoCc(file, storageFolder)
       setUploadedUrls((prev) => ({ ...prev, [key]: url }))
       setDocLabels((prev) => ({ ...prev, [key]: file.name }))
     } catch (ex) {
@@ -553,9 +562,9 @@ export default function CuentaCorrienteAltaForm({
             {pagareUrl && (
               <span className="cc-alta-pagare__ok">
                 ✓ Pagaré guardado —{' '}
-                <a href={pagareUrl} target="_blank" rel="noopener noreferrer">
+                <button type="button" onClick={() => void abrirDocumentoCc(pagareUrl)}>
                   Ver archivo
-                </a>
+                </button>
               </span>
             )}
           </div>
@@ -605,14 +614,13 @@ export default function CuentaCorrienteAltaForm({
                   </label>
                   {tieneArchivo && (
                     <>
-                      <a
-                        href={uploadedUrls[key]}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
                         className="cc-alta-doc-link"
+                        onClick={() => void abrirDocumentoCc(uploadedUrls[key])}
                       >
                         Ver archivo
-                      </a>
+                      </button>
                       <button
                         type="button"
                         className="cc-alta-doc-quitar"

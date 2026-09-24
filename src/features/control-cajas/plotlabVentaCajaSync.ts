@@ -41,6 +41,8 @@ export type PlotLabVentaCajaSyncInput = {
   /** Efectivo: con cuánto pagó / vuelto (trazabilidad en arqueo). */
   montoRecibido?: number | null
   vuelto?: number | null
+  /** Id que devuelve Mercado Pago cuando el pago quedó aprobado. */
+  mpPaymentId?: string | null
 }
 
 export type PlotLabVentaCajaSyncResult =
@@ -61,9 +63,11 @@ export type VentaCajaSyncRecord = {
   id_pedido_cliente?: number | null
   monto_pagado?: number | null
   caja_slug_cobro?: string | null
+  mp_payment_id?: string | null
   detalle_pago?: {
     monto_recibido?: number
     vuelto?: number
+    mp_payment_id?: string
   } | null
 }
 
@@ -163,7 +167,8 @@ export async function resumenPlotlabVentasDesdeApi(
       nombre_vendedor: v.nombre_vendedor,
       id_pedido_cliente: v.id_pedido_cliente,
       monto_pagado: v.monto_pagado,
-      caja_slug_cobro: v.caja_slug_cobro
+      caja_slug_cobro: v.caja_slug_cobro,
+      mp_payment_id: v.mp_payment_id
     })),
     fecha,
     cajaSlug,
@@ -354,7 +359,8 @@ export async function syncDesdeVentaRecord(
     usuarioId: titularId,
     usuarioNombre: venta.nombre_vendedor || actorNombre,
     montoRecibido: venta.detalle_pago?.monto_recibido ?? null,
-    vuelto: venta.detalle_pago?.vuelto ?? null
+    vuelto: venta.detalle_pago?.vuelto ?? null,
+    mpPaymentId: venta.mp_payment_id || venta.detalle_pago?.mp_payment_id || null
   })
 
   if (!opts?.silencioso) {
@@ -464,8 +470,13 @@ export async function syncVentaPlotLabACaja(
     const esMp =
       /mercado\s*pago/i.test(String(input.metodoPago)) ||
       String(input.metodoPago).trim().toLowerCase() === 'mp'
-    const mediosGuardar = esMp
-      ? { ...(linea as unknown as Record<string, number>), mercado_pago: monto }
+    const mpId = (input.mpPaymentId || '').trim()
+    const mediosGuardar: Record<string, number | string | boolean> = esMp
+      ? {
+          ...(linea as unknown as Record<string, number>),
+          mercado_pago: monto,
+          ...(mpId ? { mp_payment_id: mpId, mp_aprobado: true } : { mp_aprobado: false })
+        }
       : (linea as unknown as Record<string, number>)
 
     const actorId = input.usuarioId
@@ -481,7 +492,7 @@ export async function syncVentaPlotLabACaja(
       {
         ...movBase,
         id: existente?.id,
-        medios: mediosGuardar,
+        medios: mediosGuardar as CajaMovimiento['medios'],
         cierre_id: existente?.cierre_id ?? null
       },
       { actor: { id: actorId } }
@@ -546,9 +557,11 @@ export async function sincronizarVentasPlotLabRango(
         detalle_pago: v.detalle_pago
           ? {
               monto_recibido: v.detalle_pago.monto_recibido,
-              vuelto: v.detalle_pago.vuelto
+              vuelto: v.detalle_pago.vuelto,
+              mp_payment_id: v.detalle_pago.mp_payment_id
             }
-          : null
+          : null,
+        mp_payment_id: v.mp_payment_id
       },
       { silencioso: true }
     )

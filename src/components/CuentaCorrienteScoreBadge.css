@@ -54,6 +54,12 @@ button.cc-score-badge:hover {
   background: rgba(239, 68, 68, 0.12);
 }
 
+.cc-score-badge--sin {
+  border-color: rgba(148, 163, 184, 0.45);
+  color: #cbd5e1;
+  background: rgba(100, 116, 139, 0.12);
+}
+
 .cc-score-badge__lbl {
   text-transform: uppercase;
   letter-spacing: 0.04em;

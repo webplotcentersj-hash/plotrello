@@ -12,6 +12,7 @@ import {
 import { fetchNombreDisplayUsuario, usuarioCajaActivo } from './cajaUsuarioDb'
 import { cierreFromCalculado } from './cierreCalculations'
 import { newId } from './format'
+import { mismoCajaSlug } from './cajaSlug'
 import {
   calcularTotalesCaja,
   cierreCerrado,
@@ -321,13 +322,7 @@ export async function listArqueos(opts?: {
   })
 }
 
-/** Comparación flexible de slug/nombre de caja. */
-export function mismoCajaSlug(a: string, b: string): boolean {
-  if (!a || !b) return false
-  const na = a.toLowerCase().replace(/\s+/g, '')
-  const nb = b.toLowerCase().replace(/\s+/g, '')
-  return na === nb || na.includes(nb) || nb.includes(na)
-}
+export { mismoCajaSlug }
 
 export async function getUltimoArqueoCaja(
   cajaSlug: string,

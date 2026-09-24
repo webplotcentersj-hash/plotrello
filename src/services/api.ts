@@ -5925,7 +5925,9 @@ class ApiService {
   > {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { data, error } = await supabase.rpc('registrar_alta_cuenta_corriente', {
+      // Paso 26: el solicitante es el actor de la sesión
+      const { data, error } = await supabase.rpc('cc_registrar_alta', {
+        p_actor_id: this.requireComercialActorId(),
         p_cuit: payload.cuit,
         p_razon_social: payload.razon_social,
         p_condicion_iva: payload.condicion_iva,
@@ -5940,7 +5942,6 @@ class ApiService {
         p_url_estatuto: payload.url_estatuto ?? '',
         p_url_comprobante_domicilio: payload.url_comprobante_domicilio,
         p_id_cliente: payload.id_cliente ?? null,
-        p_id_usuario_solicita: payload.id_usuario_solicita,
         p_tipo_cliente: payload.tipo_cliente ?? 'empresa',
         p_nombre: payload.nombre ?? null,
         p_apellido: payload.apellido ?? null,
@@ -5979,10 +5980,10 @@ class ApiService {
   > {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { data, error } = await supabase.rpc('resolver_solicitud_cuenta_corriente', {
+      const { data, error } = await supabase.rpc('cc_resolver_solicitud', {
+        p_actor_id: idUsuarioRevisor,
         p_id_cliente: idCliente,
         p_accion: accion,
-        p_id_usuario_revisor: idUsuarioRevisor,
         p_motivo_rechazo: motivoRechazo ?? null
       })
       if (error) return { success: false, error: error.message }
@@ -6026,7 +6027,8 @@ class ApiService {
 
   async calcularScoringCuentaCorriente(
     idCliente: number,
-    idUsuario?: number | null
+    idUsuario?: number | null,
+    origen: 'automatico' | 'manual' = 'automatico'
   ): Promise<
     ApiResponse<{
       id_cliente: number
@@ -6039,10 +6041,10 @@ class ApiService {
   > {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { data, error } = await supabase.rpc('calcular_scoring_cuenta_corriente', {
+      const { data, error } = await supabase.rpc('cc_calcular_scoring', {
+        p_actor_id: idUsuario ?? this.requireComercialActorId(),
         p_id_cliente: idCliente,
-        p_id_usuario: idUsuario ?? null,
-        p_origen: 'automatico'
+        p_origen: origen
       })
       if (error) return { success: false, error: error.message }
       const row = data as Record<string, unknown>
@@ -6080,13 +6082,12 @@ class ApiService {
   > {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { data, error } = await supabase.rpc('actualizar_scoring_cc', {
+      const { data, error } = await supabase.rpc('cc_actualizar_scoring', {
+        p_actor_id: payload.id_usuario,
         p_id_cliente: payload.id_cliente,
-        p_id_usuario: payload.id_usuario,
         p_ajuste_manual: payload.ajuste_manual ?? null,
         p_limite_credito: payload.limite_credito ?? null,
-        p_notas: payload.notas ?? null,
-        p_recalcular: true
+        p_notas: payload.notas ?? null
       })
       if (error) return { success: false, error: error.message }
       const row = data as Record<string, unknown>
@@ -6124,9 +6125,25 @@ class ApiService {
   async getPerfilCuentaCorriente(idCliente: number): Promise<ApiResponse<CcPerfilCliente | null>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      // Imputa pagos FIFO y actualiza estado_pago / monto_pagado antes de armar el perfil
-      await supabase.rpc('cc_sincronizar_estados_ventas_cc', { p_id_cliente: idCliente })
-      await supabase.rpc('cc_actualizar_resumen_saldos', { p_id_cliente: idCliente })
+      // El scoring imputa pagos FIFO y actualiza saldos antes de calcular; recalcularlo acá
+      // evita mostrar un score viejo (vencimientos nuevos, antigüedad).
+      let actorId: number | null = null
+      try {
+        actorId = this.requireComercialActorId()
+      } catch {
+        actorId = null
+      }
+      const { error: scoringError } = actorId
+        ? await supabase.rpc('cc_calcular_scoring', {
+            p_actor_id: actorId,
+            p_id_cliente: idCliente,
+            p_origen: 'apertura'
+          })
+        : { error: { message: 'sin sesión' } }
+      if (scoringError) {
+        await supabase.rpc('cc_sincronizar_estados_ventas_cc', { p_id_cliente: idCliente })
+        await supabase.rpc('cc_actualizar_resumen_saldos', { p_id_cliente: idCliente })
+      }
 
       const { data, error } = await supabase.rpc('cc_obtener_perfil_cliente', {
         p_id_cliente: idCliente
@@ -6250,9 +6267,9 @@ class ApiService {
   > {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { data, error } = await supabase.rpc('actualizar_condiciones_credito_cc', {
+      const { data, error } = await supabase.rpc('cc_actualizar_condiciones_credito', {
+        p_actor_id: payload.id_usuario,
         p_id_cliente: payload.id_cliente,
-        p_id_usuario: payload.id_usuario,
         p_porcentaje_interes_mensual: payload.porcentaje_interes_mensual ?? null,
         p_porcentaje_interes_mora_mensual: payload.porcentaje_interes_mora_mensual ?? null,
         p_dias_gracia: payload.dias_gracia ?? null,
@@ -6281,9 +6298,9 @@ class ApiService {
   ): Promise<ApiResponse<{ registrados: number; monto_total: number; periodo: string }>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { data, error } = await supabase.rpc('cc_registrar_intereses_devengados', {
-        p_id_cliente: idCliente,
-        p_id_usuario: idUsuario
+      const { data, error } = await supabase.rpc('cc_registrar_intereses', {
+        p_actor_id: idUsuario,
+        p_id_cliente: idCliente
       })
       if (error) return { success: false, error: error.message }
       const row = data as { registrados?: number; monto_total?: number; periodo?: string }
@@ -6315,13 +6332,13 @@ class ApiService {
   }): Promise<ApiResponse<{ id_movimiento: number; id_cliente: number }>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { data, error } = await supabase.rpc('cc_registrar_pago', {
+      const { data, error } = await supabase.rpc('cc_registrar_pago_actor', {
+        p_actor_id: payload.id_usuario,
         p_id_cliente: payload.id_cliente,
         p_monto: payload.monto,
         p_fecha_pago: payload.fecha_pago,
         p_metodo_pago: payload.metodo_pago ?? null,
         p_url_comprobante: payload.url_comprobante?.trim() || null,
-        p_id_usuario: payload.id_usuario,
         p_referencia: payload.referencia ?? null,
         p_notas: payload.notas ?? null,
         p_id_venta: payload.id_venta ?? null,
@@ -6344,8 +6361,8 @@ class ApiService {
   ): Promise<ApiResponse<{ recalculados: number }>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const { data, error } = await supabase.rpc('recalcular_scoring_cc_todos', {
-        p_id_usuario: idUsuario
+      const { data, error } = await supabase.rpc('cc_recalcular_scoring_todos', {
+        p_actor_id: idUsuario
       })
       if (error) return { success: false, error: error.message }
       const row = data as { recalculados?: number }
@@ -6385,44 +6402,15 @@ class ApiService {
     }
   }
 
-  /** @deprecated Usar registrarAltaCuentaCorriente con requisitos completos */
-  async agregarClienteCuentaCorriente(idCliente: number): Promise<ApiResponse<void>> {
-    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
-    try {
-      const { error } = await supabase.rpc('agregar_cliente_cuenta_corriente', {
-        p_id_cliente: idCliente
-      })
-      if (error) return { success: false, error: error.message }
-      return { success: true }
-    } catch (e: any) {
-      return { success: false, error: e?.message || 'Error al agregar cliente' }
-    }
-  }
-
+  /** Paso 26: admin para fichas aprobadas; el servidor rechaza si la cuenta tiene saldo. */
   async quitarClienteCuentaCorriente(idCliente: number): Promise<ApiResponse<void>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
     try {
-      const { error } = await supabase.rpc('quitar_cliente_cuenta_corriente', {
+      const { error } = await supabase.rpc('cc_quitar_cliente', {
+        p_actor_id: this.requireComercialActorId(),
         p_id_cliente: idCliente
       })
-      if (!error) return { success: true }
-
-      const msg = error.message || ''
-      const rpcMissing =
-        msg.includes('quitar_cliente_cuenta_corriente') ||
-        msg.includes('Could not find the function') ||
-        error.code === '42883'
-
-      if (!rpcMissing) return { success: false, error: msg }
-
-      await supabase.from('cc_cuenta_movimientos').delete().eq('id_cliente', idCliente)
-      const { error: delErr, count } = await supabase
-        .from('clientes_cuenta_corriente')
-        .delete({ count: 'exact' })
-        .eq('id_cliente', idCliente)
-
-      if (delErr) return { success: false, error: delErr.message }
-      if (!count) return { success: false, error: 'El cliente no está en cuenta corriente' }
+      if (error) return { success: false, error: error.message }
       return { success: true }
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error al quitar cliente' }
@@ -6430,19 +6418,23 @@ class ApiService {
   }
 
   /** Panel cobranzas CC: ventas fiadas abiertas, vendedor, aging. */
-  async listCobranzasCcPanel(diasHistorial = 120): Promise<ApiResponse<CcCobranzasPanelData>> {
+  async listCobranzasCcPanel(): Promise<ApiResponse<CcCobranzasPanelData>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
-      const desde = new Date()
-      desde.setDate(desde.getDate() - diasHistorial)
-      const fechaDesde = desde.toISOString().slice(0, 10)
-
-      const ventasRes = await this.obtenerVentas(undefined, fechaDesde, undefined, 'todos')
-      if (!ventasRes.success) {
-        return { success: false, error: ventasRes.error || 'Error al cargar ventas CC' }
+      // Sin ventana de fechas: una deuda vieja sigue abierta (y es la que más importa en el aging).
+      // Solo se traen las ventas no pagadas, así el volumen no crece con el historial.
+      const [pendRes, parcRes] = await Promise.all([
+        this.obtenerVentas(undefined, undefined, undefined, 'Pendiente'),
+        this.obtenerVentas(undefined, undefined, undefined, 'Parcial')
+      ])
+      if (!pendRes.success || !parcRes.success) {
+        return {
+          success: false,
+          error: pendRes.error || parcRes.error || 'Error al cargar ventas CC'
+        }
       }
 
-      const ventasRaw = ventasCcAbiertasDesdeVentas(ventasRes.data ?? [])
+      const ventasRaw = ventasCcAbiertasDesdeVentas([...(pendRes.data ?? []), ...(parcRes.data ?? [])])
       const clienteIds = [...new Set(ventasRaw.map((v) => v.id_cliente))]
       let ventas_abiertas = ventasRaw
 
@@ -6478,28 +6470,33 @@ class ApiService {
         .reduce((s, v) => s + v.monto_pendiente, 0)
       const clientes_con_deuda = top_clientes.length
 
-      const mesInicio = new Date()
-      mesInicio.setDate(1)
-      const mesKey = mesInicio.toISOString().slice(0, 7)
+      const hoy = new Date()
+      const mesDesde = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`
 
+      // Totales del mes: todos los pagos (antes el .limit(50) cortaba la suma).
+      const { data: pagosMes, error: pagosMesErr } = await supabase
+        .from('cc_cuenta_movimientos')
+        .select('haber')
+        .eq('tipo', 'pago')
+        .gte('fecha', mesDesde)
+        .limit(10000)
+      if (pagosMesErr) console.warn('listCobranzasCcPanel pagos mes:', pagosMesErr.message)
+
+      let cobrado_mes = 0
+      for (const p of pagosMes ?? []) cobrado_mes += Number(p.haber) || 0
+      const pagos_mes_count = pagosMes?.length ?? 0
+
+      // Lista de pagos recientes (solo para mostrar)
       const { data: pagosRaw, error: pagosErr } = await supabase
         .from('cc_cuenta_movimientos')
         .select('id, id_cliente, haber, fecha, tipo, concepto, url_comprobante')
         .eq('tipo', 'pago')
-        .gte('fecha', `${mesKey}-01`)
+        .gte('fecha', mesDesde)
         .order('fecha', { ascending: false })
-        .limit(50)
+        .limit(15)
 
       if (pagosErr) {
         console.warn('listCobranzasCcPanel pagos:', pagosErr.message)
-      }
-
-      let cobrado_mes = 0
-      let pagos_mes_count = 0
-      for (const p of pagosRaw ?? []) {
-        if (p.tipo !== 'pago') continue
-        cobrado_mes += Number(p.haber) || 0
-        pagos_mes_count += 1
       }
 
       const denominador = cobrado_mes + total_por_cobrar

@@ -116,7 +116,9 @@ export function analizarConcordancia(input: {
         tarj_fis: c.tarj_fis,
         mp_qr: c.mp_qr,
         trans: c.trans,
-        cta_cte: c.cta_cte
+        cta_cte: c.cta_cte,
+        // El traspaso neto no se persiste como columna: se deduce del teórico guardado.
+        traspasos_ef: (c.ef_teorico || 0) - ((c.fondo_fijo || 0) + (c.ing_ef || 0) - (c.egr_ef || 0))
       },
       tolerancia
     )

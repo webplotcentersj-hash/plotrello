@@ -28,7 +28,7 @@
     "migrate:postulantes:db": "node scripts/importar-postulantes-anon.mjs",
     "migrate:postulantes:cvs": "node scripts/subir-cvs-legacy.mjs",
     "manual:pdf:espejo": "node scripts/print-manual-espejo-pdf.mjs",
-    "test:caja": "npx tsx --test src/features/control-cajas/cajaOperativa.node.test.ts",
+    "test:caja": "npx tsx --test src/features/control-cajas/cajaOperativa.node.test.ts src/features/control-cajas/cajaLogica.node.test.ts",
     "test:facturacion": "npx tsx --test src/utils/afipFacturaUi.node.test.ts lib/afip/mapFactura.node.test.ts lib/afip/fechas.node.test.ts",
     "test:kpis": "npx tsx --test lib/clasificacion/reglas.node.test.ts lib/clasificacion/clasificar.node.test.ts",
     "test:comisiones": "npx tsx --test src/features/comisiones/calculoComisiones.node.test.ts",

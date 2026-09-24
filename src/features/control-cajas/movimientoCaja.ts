@@ -99,10 +99,40 @@ export function movimientoDesdeMedios(
 }
 
 export type TotalesCajaPeriodo = {
+  /** Ventas / cobros reales (sin traspasos ni pases entre cajas). */
   ingresos: PlanillaMontosLinea
+  /** Gastos reales (sin traspasos ni pases entre cajas). */
   egresos: PlanillaMontosLinea
+  /** Dinero recibido de otra caja durante el período (antes del cierre de turno). */
+  traspasos_entrada: PlanillaMontosLinea
+  /** Dinero enviado a otra caja durante el período (antes del cierre de turno). */
+  traspasos_salida: PlanillaMontosLinea
+  /** Saldo del período: ingresos − egresos + traspasos entrada − salida. */
   neto: PlanillaMontosLinea
-  detalle: { ingresos: number; egresos: number; traspasos: number }
+  detalle: { ingresos: number; egresos: number; traspasos: number; pases_cierre_turno: number }
+}
+
+/**
+ * Pase generado por el cierre de turno (fondo / resto a admin). Ocurre después
+ * del arqueo: no es venta ni egreso y no debe mover el teórico del día.
+ */
+export function esPaseCierreTurno(
+  m: Pick<CajaMovimiento, 'id_lote' | 'subtipo_pase'>
+): boolean {
+  return !!m.id_lote || m.subtipo_pase === 'fondo' || m.subtipo_pase === 'resto_admin'
+}
+
+/** Movimiento de dinero entre cajas (no es venta ni gasto). */
+export function esTraspasoEntreCajas(
+  m: Pick<CajaMovimiento, 'tipo_movimiento' | 'traspaso_id' | 'concepto' | 'subtipo_pase' | 'categoria'>
+): boolean {
+  return (
+    m.tipo_movimiento === 'traspaso' ||
+    !!m.traspaso_id ||
+    !!m.subtipo_pase ||
+    m.concepto === 'Pase de caja' ||
+    m.categoria === 'movimiento_entre_cajas'
+  )
 }
 
 function sumarEn(acum: PlanillaMontosLinea, m: PlanillaMontosLinea, sign: 1 | -1): void {
@@ -192,36 +222,53 @@ export function calcularTotalesCaja(
 ): TotalesCajaPeriodo {
   const ingresos = emptyMontos()
   const egresos = emptyMontos()
+  const traspasos_entrada = emptyMontos()
+  const traspasos_salida = emptyMontos()
   let ni = 0
   let ne = 0
   let nt = 0
+  let npc = 0
 
   for (const m of movimientos) {
     if (m.anulado) continue
     if (m.fecha < fechaDesde || m.fecha > fechaHasta) continue
+    const esOrigen = m.origen_slug === cajaSlug
+    const esDestino = m.destino_slug === cajaSlug
+    if (!esOrigen && !esDestino) continue
+
+    if (esPaseCierreTurno(m)) {
+      npc++
+      continue
+    }
 
     const med = mediosFromMov(m)
-    const tipo = m.tipo_movimiento ?? (m.destino_slug === cajaSlug ? 'ingreso' : 'egreso')
 
-    if (tipo === 'ingreso' && m.destino_slug === cajaSlug) {
+    if (esTraspasoEntreCajas(m)) {
+      // Traspaso manual: vienen 2 filas (egreso = salida, ingreso = entrada) con mismo origen/destino.
+      // Pase simple (tipo traspaso o sin tipo): una fila que afecta a ambas cajas.
+      const tipo = m.tipo_movimiento
+      if (esOrigen && tipo !== 'ingreso') {
+        sumarEn(traspasos_salida, med, 1)
+        nt++
+      }
+      if (esDestino && tipo !== 'egreso') {
+        sumarEn(traspasos_entrada, med, 1)
+        nt++
+      }
+      continue
+    }
+
+    const tipo = m.tipo_movimiento ?? (esDestino ? 'ingreso' : 'egreso')
+    if (tipo === 'ingreso' && esDestino) {
       sumarEn(ingresos, med, 1)
       ni++
-    } else if (tipo === 'egreso' && m.origen_slug === cajaSlug) {
+    } else if (tipo === 'egreso' && esOrigen) {
       sumarEn(egresos, med, 1)
       ne++
-    } else if (tipo === 'traspaso') {
-      if (m.origen_slug === cajaSlug) {
-        sumarEn(egresos, med, 1)
-        nt++
-      }
-      if (m.destino_slug === cajaSlug) {
-        sumarEn(ingresos, med, 1)
-        nt++
-      }
-    } else if (m.origen_slug === cajaSlug) {
+    } else if (esOrigen) {
       sumarEn(egresos, med, 1)
       ne++
-    } else if (m.destino_slug === cajaSlug) {
+    } else if (esDestino) {
       sumarEn(ingresos, med, 1)
       ni++
     }
@@ -230,12 +277,16 @@ export function calcularTotalesCaja(
   const neto = emptyMontos()
   sumarEn(neto, ingresos, 1)
   sumarEn(neto, egresos, -1)
+  sumarEn(neto, traspasos_entrada, 1)
+  sumarEn(neto, traspasos_salida, -1)
 
   return {
     ingresos,
     egresos,
+    traspasos_entrada,
+    traspasos_salida,
     neto,
-    detalle: { ingresos: ni, egresos: ne, traspasos: nt }
+    detalle: { ingresos: ni, egresos: ne, traspasos: nt, pases_cierre_turno: npc }
   }
 }
 
@@ -380,6 +431,8 @@ export function snapshotTotalesCierre(
     caja_slug: cajaSlug,
     ingresos: t.ingresos,
     egresos: t.egresos,
+    traspasos_entrada: t.traspasos_entrada,
+    traspasos_salida: t.traspasos_salida,
     neto: t.neto,
     movimientos_vinculados: extras?.movimientos_vinculados ?? delPeriodo.length,
     generado_en: new Date().toISOString()
@@ -402,7 +455,8 @@ export function enrichCierreFromTotales(
       egr_ef: totales.egresos.efectivo,
       tarj_sist: totales.ingresos.tarjetas,
       trans: totales.ingresos.trans_b,
-      cta_cte: totales.ingresos.cta_cte
+      cta_cte: totales.ingresos.cta_cte,
+      traspasos_ef: totales.traspasos_entrada.efectivo - totales.traspasos_salida.efectivo
     },
     tolerancia
   )

@@ -25,6 +25,9 @@ const MAX_RESULTADOS_VINCULAR = 80
 
 type CuentaCorrienteRow = ClienteCuentaCorrienteRecord & { cliente?: ClienteRecord }
 
+const avisoScoringFallido = (detalle: string) =>
+  `La cuenta quedó aprobada, pero no se pudo calcular el scoring (${detalle}). Queda sin score ni límite sugerido: usá "Scoring" → "Calcular scoring".`
+
 const CuentaCorrientePage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -309,8 +312,7 @@ const CuentaCorrientePage = () => {
       url_comprobante_domicilio: payload.urls.domicilio,
       url_documento_dni: payload.urls.documento_dni,
       url_pagare: payload.urls.pagare || undefined,
-      id_cliente: payload.id_cliente ?? editando?.id_cliente ?? clienteVincular?.id ?? null,
-      id_usuario_solicita: usuario.id
+      id_cliente: payload.id_cliente ?? editando?.id_cliente ?? clienteVincular?.id ?? null
     })
     if (!res.success) {
       throw new Error(res.error || 'No se pudo registrar')
@@ -330,8 +332,10 @@ const CuentaCorrientePage = () => {
       })
     }
 
+    let scoringError: string | null = null
     if (res.data?.estado === 'aprobada') {
-      await apiService.calcularScoringCuentaCorriente(idCc, usuario.id)
+      const sc = await apiService.calcularScoringCuentaCorriente(idCc, usuario.id)
+      if (!sc.success) scoringError = sc.error || 'error desconocido'
       await loadRegistros({ silent: true })
     }
 
@@ -339,6 +343,7 @@ const CuentaCorrientePage = () => {
     cerrarForm()
     if (res.data?.estado === 'aprobada') {
       setMensajeOk(`Alta aprobada: ${res.data.razon_social} ya puede operar en cuenta corriente.`)
+      if (scoringError) setError(avisoScoringFallido(scoringError))
     } else {
       setMensajeOk(
         `Solicitud enviada para ${res.data?.razon_social ?? 'el cliente'}. Administración debe aprobarla.`
@@ -372,8 +377,10 @@ const CuentaCorrientePage = () => {
       )
       if (!res.success) setError(res.error || 'No se pudo resolver')
       else {
+        let scoringError: string | null = null
         if (accion === 'aprobar') {
-          await apiService.calcularScoringCuentaCorriente(idCliente, usuario.id)
+          const sc = await apiService.calcularScoringCuentaCorriente(idCliente, usuario.id)
+          if (!sc.success) scoringError = sc.error || 'error desconocido'
         }
         await loadRegistros()
         setMensajeOk(
@@ -381,6 +388,7 @@ const CuentaCorrientePage = () => {
             ? `Solicitud aprobada: ${res.data?.razon_social ?? 'cliente'}.`
             : `Solicitud rechazada.`
         )
+        if (scoringError) setError(avisoScoringFallido(scoringError))
       }
     } catch {
       setError('Error al resolver solicitud')
