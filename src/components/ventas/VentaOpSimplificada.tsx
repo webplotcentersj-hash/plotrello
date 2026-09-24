@@ -303,13 +303,19 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
 
   return (
     <div className="vop" onPaste={onPastePortada}>
-      <h3>Crear OP</h3>
+      <header className="vop-head">
+        <div>
+          <p className="vop-kicker">Venta guardada</p>
+          <h3>Crear OP</h3>
+        </div>
+        <span className="vop-chip">{venta.numero_venta}</span>
+      </header>
       <p className="vop-lead">
-        Venta {venta.numero_venta} guardada. Completá la ficha o cerrá si no hace falta una OP.
+        {venta.cliente_nombre}. Completá la ficha o cerrá si no hace falta una OP.
       </p>
 
       <div
-        className="vop-portada"
+        className={`vop-portada${portadaPreview ? ' has-image' : ''}`}
         tabIndex={0}
         onPaste={onPastePortada}
         role="group"
@@ -318,7 +324,11 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
         {portadaPreview ? (
           <img src={portadaPreview} alt="Portada de la OP" />
         ) : (
-          <p>Pegá una captura acá (Ctrl+V). Esa imagen queda como portada.</p>
+          <div className="vop-portada-empty">
+            <span className="vop-portada-mark" aria-hidden />
+            <strong>Portada</strong>
+            <p>Pegá una captura (Ctrl+V). Esa imagen queda en la ficha.</p>
+          </div>
         )}
         <div className="vop-portada-actions">
           <label className="vop-file">

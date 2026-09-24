@@ -1055,40 +1055,157 @@
   color: #64748b;
 }
 
-.vop h3 {
-  margin: 0 0 6px;
+.vop,
+.vop-ok {
+  margin: 0 0 8px;
+  padding: 20px 20px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background:
+    radial-gradient(90% 60% at 100% 0%, rgba(99, 102, 241, 0.28), transparent 42%),
+    radial-gradient(80% 70% at 0% 0%, rgba(249, 115, 22, 0.32), transparent 48%),
+    linear-gradient(165deg, #1e293b 0%, #0f172a 55%, #020617 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 22px 50px rgba(0, 0, 0, 0.35);
   color: #fff;
+}
+
+.vop-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.vop-kicker {
+  margin: 0 0 2px;
+  color: #fdba74 !important;
+  -webkit-text-fill-color: #fdba74;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.vop-chip {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.vop h3 {
+  margin: 0;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+  font-size: 1.7rem;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 
 .vop-lead,
 .vop-ok-sub {
-  margin: 0 0 14px;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.9rem;
+  margin: 0 0 16px;
+  color: rgba(255, 255, 255, 0.88) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.88);
+  font-size: 0.95rem;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
 }
 
 .vop-ok p {
   margin: 0;
-  color: #10b981;
+  color: #86efac !important;
 }
 
 .vop-portada {
-  margin-bottom: 14px;
-  padding: 12px;
-  border: 1px dashed rgba(255, 255, 255, 0.35);
-  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 148px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px dashed rgba(253, 186, 116, 0.7);
+  border-radius: 16px;
   text-align: center;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.vop-portada:focus-visible,
+.vop-portada:hover {
+  border-color: #fb923c;
+  background: rgba(249, 115, 22, 0.1);
+}
+
+.vop-portada-empty strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #fff;
+  font-size: 1rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.vop-portada-mark {
+  display: block;
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 8px;
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, #fb923c, #f43f5e);
+  box-shadow: 0 8px 18px rgba(249, 115, 22, 0.4);
+  position: relative;
+}
+
+.vop-portada-mark::before,
+.vop-portada-mark::after {
+  content: '';
+  position: absolute;
+  background: #fff;
+  border-radius: 2px;
+}
+
+.vop-portada-mark::before {
+  width: 16px;
+  height: 2px;
+  left: 15px;
+  top: 22px;
+}
+
+.vop-portada-mark::after {
+  width: 2px;
+  height: 16px;
+  left: 22px;
+  top: 15px;
 }
 
 .vop-portada p {
-  margin: 0 0 8px;
-  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.86);
+  font-size: 0.88rem;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
 }
 
 .vop-portada img {
   max-width: 100%;
   max-height: 220px;
-  border-radius: 8px;
+  border-radius: 10px;
   object-fit: contain;
 }
 
@@ -1102,18 +1219,24 @@
 .vop-file {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
   cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .vop-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
 }
 
 .vop-row-3 {
@@ -1121,57 +1244,84 @@
 }
 
 .vop label,
-.vop-block {
+.vop-block,
+.vop-desc-head {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin-bottom: 12px;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.72);
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
 }
 
 .vop input,
 .vop select,
 .vop textarea {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  background: var(--surface-base);
-  color: #111827;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.55);
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
   font-size: 0.95rem;
   text-transform: none;
   letter-spacing: normal;
   font-weight: 500;
+  color-scheme: dark;
+}
+
+.vop input::placeholder,
+.vop textarea::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.55);
+}
+
+.vop select option {
+  background: #0f172a;
+  color: #fff;
+}
+
+.vop input:focus,
+.vop select:focus,
+.vop textarea:focus {
+  outline: none;
+  border-color: #fb923c;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
 }
 
 .vop-dropdown {
   display: flex;
   flex-direction: column;
   margin: -6px 0 12px;
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
   overflow: hidden;
-  background: #fff;
+  background: #0f172a;
 }
 
 .vop-dropdown button {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border: 0;
-  background: #fff;
-  color: #0f172a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: #fff;
   text-align: left;
   cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
 }
 
 .vop-dropdown button:hover {
-  background: #f1f5f9;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .vop-dropdown i {
@@ -1192,11 +1342,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
   font-size: 0.85rem;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .vop-pills button {
@@ -1214,13 +1367,9 @@
 }
 
 .vop-desc-head {
+  flex-direction: row;
   justify-content: space-between;
   margin-bottom: 6px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .vop-desc-head div {
@@ -1228,40 +1377,28 @@
   gap: 8px;
 }
 
+.vop .btn-secondary,
 .vop-plotai {
-  background: #4f46e5;
-  color: #fff;
-  border-color: #4f46e5;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.1);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.vop-plotai {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  border-color: transparent;
 }
 
 .vop-crear {
   margin-top: 8px;
-}
-
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop h3,
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop label,
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop-block,
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop-desc-head,
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop-lead,
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop-portada p {
-  color: #334155;
-}
-
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop input,
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop select,
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop textarea {
-  background: #f8fafc;
-  color: #0f172a;
-  border-color: #cbd5e1;
-}
-
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop-portada {
-  border-color: #cbd5e1;
-}
-
-.venta-rapida-modal.venta-rapida-modal--mostrador .vop-file {
-  background: #e2e8f0;
-  color: #0f172a;
+  width: 100%;
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
 }
 
 @media (max-width: 720px) {
