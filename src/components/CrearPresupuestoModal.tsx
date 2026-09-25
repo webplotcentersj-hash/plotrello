@@ -15,7 +15,7 @@ import {
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
 import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
-import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
+import { nombreCompletoCliente, nombreSinRepeticion } from '../utils/buscarClienteMatch'
 import {
   etiquetaCantidadUnidad,
   etiquetaUnidadCorta,
@@ -388,7 +388,7 @@ const CrearPresupuestoModal = ({
 
       const presupuestoResponse = await apiService.crearPresupuestoVenta({
         id_cliente: cliente.id,
-        cliente_nombre: nombreCompletoCliente(cliente),
+        cliente_nombre: nombreSinRepeticion(cliente.nombre),
         cliente_telefono: cliente.telefono || undefined,
         cliente_email: cliente.email || undefined,
         cliente_dni_cuit: cliente.dni_cuit || undefined,
