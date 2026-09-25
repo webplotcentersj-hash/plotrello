@@ -1,0 +1,59 @@
+.etiquetas-nube {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: fit-content;
+  max-height: 355px;
+  padding: 14px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.55);
+  overflow: auto;
+}
+
+.etiquetas-nube__eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #fdba74;
+}
+
+.etiquetas-nube__vacio {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.82rem;
+}
+
+.etiquetas-nube__cloud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.etiquetas-nube__cloud button {
+  border: 0;
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+.etiquetas-nube__cloud button.is-activa {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+[data-tema='dia'] .etiquetas-nube {
+  background: #fff;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-tema='dia'] .etiquetas-nube__vacio {
+  color: #64748b;
+}

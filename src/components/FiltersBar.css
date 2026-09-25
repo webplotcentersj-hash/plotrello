@@ -92,96 +92,83 @@
 
 .library-button-container {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 12px;
-  background: linear-gradient(
-    165deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    rgba(255, 255, 255, 0.015) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  gap: 3px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(8, 10, 18, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .library-button-container .brand-button,
 .library-button-container .library-button,
 .library-button-container .brief-link-button,
 .library-button-container .venta-rapida-button {
-  height: 32px;
+  height: 26px;
   min-width: 0;
-  padding: 0 10px;
+  padding: 0 9px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  border-radius: 8px;
+  font-size: 0.68rem;
+  font-weight: 650;
+  border-radius: 999px;
   white-space: nowrap;
-  line-height: 1.2;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  box-shadow: none;
   transition:
     background 0.16s ease,
     border-color 0.16s ease,
-    box-shadow 0.16s ease,
-    transform 0.16s ease,
     color 0.16s ease;
 }
 
 .library-button-container .brand-button {
-  background: linear-gradient(135deg, rgba(255, 143, 63, 0.95), rgba(249, 115, 22, 0.9));
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 2px 8px rgba(235, 103, 27, 0.22);
+  background: rgba(249, 115, 22, 0.16);
+  color: #fed7aa;
+  border: 1px solid rgba(251, 146, 60, 0.35);
 }
 
 .library-button-container .brand-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(235, 103, 27, 0.32);
+  background: rgba(249, 115, 22, 0.28);
+  color: #fff;
 }
 
 .library-button-container .library-button {
-  background: rgba(235, 103, 27, 0.1);
-  color: #fdba74;
-  border: 1px solid rgba(235, 103, 27, 0.28);
-  backdrop-filter: blur(8px);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid transparent;
 }
 
 .library-button-container .library-button:hover {
-  background: rgba(235, 103, 27, 0.18);
-  border-color: rgba(235, 103, 27, 0.45);
-  color: #fed7aa;
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .library-button-container .brief-link-button {
-  background: rgba(16, 185, 129, 0.12);
-  color: #6ee7b7;
-  border: 1px solid rgba(16, 185, 129, 0.28);
-  backdrop-filter: blur(8px);
+  background: transparent;
+  color: #a7f3d0;
+  border: 1px solid transparent;
 }
 
 .library-button-container .brief-link-button:hover:not(:disabled) {
-  background: rgba(16, 185, 129, 0.2);
-  border-color: rgba(16, 185, 129, 0.45);
-  color: #a7f3d0;
-  transform: translateY(-1px);
+  background: rgba(16, 185, 129, 0.16);
+  color: #ecfdf5;
 }
 
 .library-button-container .venta-rapida-button {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.85), rgba(5, 150, 105, 0.9));
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.28);
+  background: linear-gradient(135deg, #34d399, #059669);
+  color: #052e1b;
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .library-button-container .venta-rapida-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.38);
+  filter: brightness(1.06);
 }
 
 .filter-control label {

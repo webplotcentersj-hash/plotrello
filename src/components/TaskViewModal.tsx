@@ -6,10 +6,6 @@ import type { Task, TeamMember } from '../types/board'
 import type {
   ComentarioOrden,
   HistorialMovimiento,
-  OrdenRelevamientoRecord,
-  RegistroTiempo,
-  RelevamientoSubitemRecord,
-  RevisionOrden,
   SectorRecord
 } from '../types/api'
 import apiService from '../services/api'
@@ -21,10 +17,6 @@ import ReclamoTriangleIcon from './ReclamoTriangleIcon'
 import OpCobroPill from './OpCobroPill'
 import OpGaleriaCarousel from './OpGaleriaCarousel'
 import Subtasks from './Subtasks'
-import HistorialEtapasTallerGrafico from './HistorialEtapasTallerGrafico'
-import HistorialEtapasInstalaciones from './HistorialEtapasInstalaciones'
-import HistorialEtapasTallerImprenta from './HistorialEtapasTallerImprenta'
-import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
 import './TaskEditModal.css'
 import './TaskViewModal.css'
 
@@ -75,12 +67,6 @@ function formatSeconds(sec: number) {
   return `${h} h ${m % 60} min`
 }
 
-function YesNo(v: boolean | null | undefined) {
-  if (v === true) return 'Sí'
-  if (v === false) return 'No'
-  return null
-}
-
 function describeHistorialMovimiento(m: HistorialMovimiento): string {
   const c = m.comentario?.trim()
   if (c) return c
@@ -89,7 +75,60 @@ function describeHistorialMovimiento(m: HistorialMovimiento): string {
   const ea = m.estado_anterior?.trim()
   const en = m.estado_nuevo?.trim()
   if (ea || en) return `${ea || '—'} → ${en || '—'}`
-  return at ? `Acción: ${at}` : 'Registro sin detalle'
+  return at ? `Acción: ${etiquetaAccionHistorial(at)}` : 'Registro sin detalle'
+}
+
+function etiquetaAccionHistorial(raw: string): string {
+  const k = raw.trim().toLowerCase()
+  if (k === 'actualizacion' || k === 'actualización') return 'Actualización'
+  if (k === 'restart_tablero') return 'Restart'
+  if (k === 'creacion' || k === 'creación') return 'Creación'
+  return raw.replace(/_/g, ' ')
+}
+
+function nombreEnHistorial(m: HistorialMovimiento, members: TeamMember[]): string {
+  const id = Number(m.id_usuario)
+  const idOk = Number.isFinite(id) && id > 0
+  const member = members.find((t) => t.id.replace(/^user-/, '') === String(id))
+  const raw = m.nombre_usuario?.trim() ?? ''
+  const rawEsId = raw !== '' && /^\d+$/.test(raw)
+  const candidato = !raw || rawEsId || raw === 'Usuario' || raw === 'Sistema' ? member?.name || raw : raw
+  const nombre = etiquetaUsuarioNombre(candidato || null, idOk ? id : null)
+  if (nombre && nombre !== '—' && !/^\d+$/.test(nombre)) return nombre
+  return idOk ? `Usuario #${id}` : '—'
+}
+
+type ParteHistorial =
+  | { kind: 'cambio'; label: string; from: string; to: string }
+  | { kind: 'texto'; text: string }
+
+function partesHistorial(texto: string): ParteHistorial[] {
+  return texto
+    .split(/\s*\|\s*/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .map((chunk) => {
+      const cambio = chunk.match(/^([^:]+):\s*(.+?)\s*(?:→|->)\s*(.+)$/)
+      if (cambio) {
+        return {
+          kind: 'cambio' as const,
+          label: cambio[1].trim(),
+          from: cambio[2].trim(),
+          to: cambio[3].trim()
+        }
+      }
+      return { kind: 'texto' as const, text: chunk }
+    })
+}
+
+function inicialesNombre(nombre: string): string {
+  const parts = nombre.split(/\s+/).filter((p) => p && !/^\d+$/.test(p))
+  if (parts.length === 0) return '?'
+  return parts
+    .slice(0, 2)
+    .map((p) => p.charAt(0))
+    .join('')
+    .toUpperCase()
 }
 
 /** Fila estándar: solo renderiza si hay contenido */
@@ -140,10 +179,6 @@ export default function TaskViewModal({
   const [exhaustiveError, setExhaustiveError] = useState<string | null>(null)
   const [comentariosLib, setComentariosLib] = useState<ComentarioOrden[]>([])
   const [archivosLib, setArchivosLib] = useState<Array<Record<string, unknown>>>([])
-  const [relevamientoLib, setRelevamientoLib] = useState<OrdenRelevamientoRecord | null>(null)
-  const [relevSubLib, setRelevSubLib] = useState<RelevamientoSubitemRecord[]>([])
-  const [revisionesLib, setRevisionesLib] = useState<RevisionOrden[]>([])
-  const [tiempoLib, setTiempoLib] = useState<RegistroTiempo[]>([])
   const [restartBusy, setRestartBusy] = useState(false)
 
   const viewTask = resolvedFromApi ?? task
@@ -267,10 +302,6 @@ export default function TaskViewModal({
     setResolvedFromApi(null)
     setComentariosLib([])
     setArchivosLib([])
-    setRelevamientoLib(null)
-    setRelevSubLib([])
-    setRevisionesLib([])
-    setTiempoLib([])
     setExhaustiveError(null)
     if (!exhaustiveDetail || !ordenIdView) {
       setExhaustiveLoading(false)
@@ -282,23 +313,10 @@ export default function TaskViewModal({
     setHistorialError(null)
     void (async () => {
       try {
-        const [
-          ordResp,
-          comResp,
-          archResp,
-          relResp,
-          relSubResp,
-          revResp,
-          tiempoResp,
-          histResp
-        ] = await Promise.all([
+        const [ordResp, comResp, archResp, histResp] = await Promise.all([
           apiService.getOrden(ordenIdView),
           apiService.getComentariosOrden(ordenIdView),
           apiService.getArchivosOrden(ordenIdView),
-          apiService.getOrdenRelevamiento(ordenIdView),
-          apiService.getRelevamientoSubitems(ordenIdView),
-          apiService.obtenerRevisionesOrden(ordenIdView),
-          apiService.obtenerTiempoTrabajoOrden(ordenIdView),
           apiService.getHistorialMovimientos({ ordenId: ordenIdView, limit: HISTORIAL_LIMIT_BIBLIOTECA })
         ])
         if (cancelled) return
@@ -310,18 +328,6 @@ export default function TaskViewModal({
         }
         if (archResp.success && archResp.data) {
           setArchivosLib((archResp.data as Record<string, unknown>[]) ?? [])
-        }
-        if (relResp.success && relResp.data) {
-          setRelevamientoLib(relResp.data as OrdenRelevamientoRecord)
-        }
-        if (relSubResp.success && relSubResp.data) {
-          setRelevSubLib(relSubResp.data as RelevamientoSubitemRecord[])
-        }
-        if (revResp.success && revResp.data) {
-          setRevisionesLib(revResp.data as RevisionOrden[])
-        }
-        if (tiempoResp.success && tiempoResp.data) {
-          setTiempoLib(tiempoResp.data as RegistroTiempo[])
         }
         if (histResp.success && histResp.data) {
           setHistorial(
@@ -695,17 +701,31 @@ export default function TaskViewModal({
               <dl className="task-view-kv">
                 <Kv label="Nombre completo">{viewTask.clienteNombreCompleto}</Kv>
                 <Kv label="Empresa">{viewTask.clienteEmpresa}</Kv>
-                <Kv label="Teléfono">{viewTask.clientPhone}</Kv>
+                <Kv label="Teléfono">
+                  {viewTask.clientPhone || viewTask.whatsappUrl ? (
+                    <span className="task-view-phone-line">
+                      {viewTask.clientPhone ? <span>{viewTask.clientPhone}</span> : null}
+                      <a
+                        className="contact-pill whatsapp contact-pill--compact task-view-wa"
+                        href={
+                          viewTask.whatsappUrl ||
+                          `https://wa.me/${encodeURIComponent(String(viewTask.clientPhone).replace(/[^0-9]/g, ''))}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Abrir WhatsApp"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                        </svg>
+                        WhatsApp
+                      </a>
+                    </span>
+                  ) : null}
+                </Kv>
                 <Kv label="Email">{viewTask.clientEmail}</Kv>
                 <Kv label="DNI / CUIT">{viewTask.dniCuit}</Kv>
                 <Kv label="Dirección">{viewTask.clientAddress}</Kv>
-                {viewTask.whatsappUrl && (
-                  <Kv label="WhatsApp">
-                    <a href={viewTask.whatsappUrl} target="_blank" rel="noreferrer">
-                      Abrir conversación
-                    </a>
-                  </Kv>
-                )}
                 {viewTask.driveUrl && (
                   <Kv label="Google Drive">
                     <a href={viewTask.driveUrl} target="_blank" rel="noreferrer">
@@ -727,90 +747,6 @@ export default function TaskViewModal({
                     </a>
                   </Kv>
                 )}
-              </dl>
-            </section>
-
-            <section className="task-view-panel">
-              <h3 className="task-view-panel-title">Sectores & recorrido</h3>
-              <dl className="task-view-kv">
-                <Kv label="Sector asignado">{viewTask.assignedSector}</Kv>
-                <Kv label="Sectores requeridos">{viewTask.sectores?.length ? viewTask.sectores.join(' · ') : null}</Kv>
-                <Kv label="Sector inicial">{viewTask.sectorInicial}</Kv>
-                <Kv label="Ubicación en taller (final)">{viewTask.finalLocation}</Kv>
-                <Kv label="Pañol (casillero)">{viewTask.panolSlot}</Kv>
-              </dl>
-            </section>
-
-            <section className="task-view-panel">
-              <h3 className="task-view-panel-title">Checklist & pedido</h3>
-              <dl className="task-view-kv">
-                <Kv label="Planilla preliminar">{YesNo(viewTask.planillaPreliminar)}</Kv>
-                <Kv label="Ficha técnica incompleta (manual)">{YesNo(viewTask.fichaTecnicaIncompleta)}</Kv>
-                <Kv label="Ficha técnica cargada">{YesNo(viewTask.fichaTecnicaCargada)}</Kv>
-                <Kv label="Presupuesto enviado al cliente">{YesNo(viewTask.presupuestoEnviadoCliente)}</Kv>
-                <Kv label="Estado revisión">{viewTask.estadoRevision}</Kv>
-                <Kv label="ID pedido cliente">{viewTask.idPedidoCliente != null ? String(viewTask.idPedidoCliente) : null}</Kv>
-                {viewTask.esDuplicado && <Kv label="ID orden original">{viewTask.idOrdenOriginal != null ? String(viewTask.idOrdenOriginal) : null}</Kv>}
-                {viewTask.esSubTarea && <Kv label="ID ficha principal">{viewTask.idFichaPrincipal}</Kv>}
-              </dl>
-            </section>
-
-            <section className="task-view-panel task-view-panel--wide">
-              <h3 className="task-view-panel-title">Etapas por área</h3>
-              <dl className="task-view-kv task-view-kv--dense">
-                <Kv label="Taller gráfico">
-                  {viewTask.etapaTallerGrafico}
-                  {viewTask.etapaTallerGraficoFechaInicio
-                    ? ` · desde ${formatDisplayDate(viewTask.etapaTallerGraficoFechaInicio)}`
-                    : null}
-                </Kv>
-                <Kv label="Instalaciones">
-                  {viewTask.etapaInstalaciones}
-                  {viewTask.etapaInstalacionesFechaInicio
-                    ? ` · desde ${formatDisplayDate(viewTask.etapaInstalacionesFechaInicio)}`
-                    : null}
-                </Kv>
-                <Kv label="Taller imprenta">
-                  {viewTask.etapaTallerImprenta}
-                  {viewTask.etapaTallerImprentaFechaInicio
-                    ? ` · desde ${formatDisplayDate(viewTask.etapaTallerImprentaFechaInicio)}`
-                    : null}
-                </Kv>
-                <Kv label="Impresión digital">
-                  {viewTask.etapaImpresionDigital}
-                  {viewTask.etapaImpresionDigitalFechaInicio
-                    ? ` · desde ${formatDisplayDate(viewTask.etapaImpresionDigitalFechaInicio)}`
-                    : null}
-                </Kv>
-                <Kv label="Metalúrgica">
-                  {viewTask.etapaMetalurgica}
-                  {viewTask.etapaMetalurgicaFechaInicio
-                    ? ` · desde ${formatDisplayDate(viewTask.etapaMetalurgicaFechaInicio)}`
-                    : null}
-                </Kv>
-              </dl>
-            </section>
-
-            <section className="task-view-panel task-view-panel--wide">
-              <h3 className="task-view-panel-title">Brief público / proyecto</h3>
-              <dl className="task-view-kv">
-                <Kv label="Brief (texto)">{viewTask.briefPublico}</Kv>
-                <Kv label="Objetivo del proyecto">{viewTask.objetivoProyecto}</Kv>
-                <Kv label="Público objetivo">{viewTask.publicoObjetivo}</Kv>
-                <Kv label="Estilo de diseño">{viewTask.estiloDiseno}</Kv>
-                <Kv label="Referencias">{viewTask.referencias}</Kv>
-                <Kv label="Deadline brief">{formatDisplayDate(viewTask.deadlineBrief ?? viewTask.fechaLimiteBrief)}</Kv>
-                <Kv label="Tipo producto / servicio">{viewTask.tipoProductoServicio?.join(', ')}</Kv>
-                <Kv label="Tipo (otro)">{viewTask.tipoProductoOtro}</Kv>
-                <Kv label="Necesita asesoramiento">{YesNo(viewTask.necesitaAsesoramiento)}</Kv>
-                <Kv label="Dónde colocados">{viewTask.dondeColocados}</Kv>
-                <Kv label="Digital o impresión">{viewTask.digitalOImpresion}</Kv>
-                <Kv label="Cantidades">{viewTask.cantidades}</Kv>
-                <Kv label="Material: logo">{viewTask.materialLogo}</Kv>
-                <Kv label="Material: textos">{viewTask.materialTextos}</Kv>
-                <Kv label="Material: imágenes">{viewTask.materialImagenes}</Kv>
-                <Kv label="Tiene referencias">{YesNo(viewTask.tieneReferencias)}</Kv>
-                <Kv label="Links de referencias">{viewTask.referenciasLinks}</Kv>
               </dl>
             </section>
 
@@ -943,116 +879,17 @@ export default function TaskViewModal({
                 )}
               </section>
 
-              <section className="task-view-panel task-view-panel--wide" aria-label="Relevamiento campo">
-                <h3 className="task-view-panel-title">Relevamiento (app campo)</h3>
-                <KvBlock
-                  label="Notas de relevamiento"
-                  value={relevamientoLib?.notas?.trim() || undefined}
-                />
-                {relevamientoLib?.actualizado_por ? (
-                  <p className="task-view-muted">
-                    Última actualización:{' '}
-                    {relevamientoLib.actualizado_en
-                      ? formatDisplayDate(relevamientoLib.actualizado_en) ?? relevamientoLib.actualizado_en
-                      : '—'}{' '}
-                    · {relevamientoLib.actualizado_por}
-                  </p>
-                ) : null}
-                {relevSubLib.length > 0 ? (
-                  <>
-                    <h4 className="task-view-lineas-m2-title">Checklist relevamiento</h4>
-                    <ul className="task-view-relev-sublist">
-                      {relevSubLib.map((r) => (
-                        <li key={r.id}>
-                          {r.done ? '✓' : '○'} {r.titulo}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : null}
-              </section>
-
-              <section className="task-view-panel task-view-panel--wide" aria-label="Revisiones">
-                <h3 className="task-view-panel-title">Revisiones de diseño</h3>
-                {revisionesLib.length === 0 ? (
-                  <p className="task-view-muted">Sin revisiones registradas.</p>
-                ) : (
-                  <ul className="task-view-comentarios-thread">
-                    {revisionesLib.map((r) => (
-                      <li key={r.id} className="task-view-comentario-item">
-                        <div className="task-view-historial-meta">
-                          <time dateTime={r.fecha_revision}>
-                            {formatDisplayDate(r.fecha_revision) ?? r.fecha_revision}
-                          </time>
-                          <span className="task-view-historial-user">{r.usuario_revisor_nombre}</span>
-                          <span className="task-view-historial-accion">{r.estado_revision}</span>
-                        </div>
-                        {r.comentarios?.trim() ? (
-                          <p className="task-view-historial-body">{r.comentarios.trim()}</p>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              <section className="task-view-panel task-view-panel--wide" aria-label="Tiempo de trabajo">
-                <h3 className="task-view-panel-title">Tiempo de trabajo registrado</h3>
-                {tiempoLib.length === 0 ? (
-                  <p className="task-view-muted">Sin registros de tiempo.</p>
-                ) : (
-                  <ul className="task-view-comentarios-thread">
-                    {tiempoLib.map((reg) => (
-                      <li key={reg.id} className="task-view-comentario-item">
-                        <div className="task-view-historial-meta">
-                          <span>{formatDisplayDate(reg.fecha) ?? reg.fecha}</span>
-                          <span className="task-view-historial-user">{reg.usuario_nombre}</span>
-                          <span className="task-view-historial-accion">{reg.tipo_trabajo}</span>
-                        </div>
-                        <p className="task-view-historial-body">
-                          {reg.hora_inicio}
-                          {reg.hora_fin ? ` → ${reg.hora_fin}` : ''}
-                          {reg.tiempo_minutos != null ? ` · ${reg.tiempo_minutos} min` : ''}
-                          {reg.descripcion?.trim() ? ` — ${reg.descripcion.trim()}` : ''}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              <section className="task-view-panel task-view-panel--wide" aria-label="Historial etapas taller gráfico">
-                <h3 className="task-view-panel-title">Trazado de etapas · Taller Gráfico</h3>
-                <HistorialEtapasTallerGrafico ordenId={ordenIdView} />
-              </section>
-              <section className="task-view-panel task-view-panel--wide" aria-label="Historial etapas instalaciones">
-                <h3 className="task-view-panel-title">Trazado de etapas · Instalaciones</h3>
-                <HistorialEtapasInstalaciones ordenId={ordenIdView} />
-              </section>
-              <section className="task-view-panel task-view-panel--wide" aria-label="Historial etapas taller imprenta">
-                <h3 className="task-view-panel-title">Trazado de etapas · Taller Imprenta</h3>
-                <HistorialEtapasTallerImprenta ordenId={ordenIdView} />
-              </section>
-              <section className="task-view-panel task-view-panel--wide" aria-label="Historial etapas metalurgica">
-                <h3 className="task-view-panel-title">Trazado de etapas · Metalúrgica</h3>
-                <HistorialEtapasMetalurgica ordenId={ordenIdView} />
-              </section>
             </>
           )}
 
           {ordenIdView != null && (
             <section className="task-view-panel task-view-panel--wide task-view-historial" aria-label="Historial de cambios">
-              <h3 className="task-view-panel-title">Historial de cambios</h3>
-              {exhaustiveDetail && (
-                <p className="task-view-muted task-view-historial-cap-hint">
-                  Hasta {HISTORIAL_LIMIT_BIBLIOTECA} movimientos recientes (detalle biblioteca).
-                </p>
-              )}
-              {!exhaustiveDetail && (
-                <p className="task-view-muted task-view-historial-cap-hint">
-                  Mostrando hasta los últimos {HISTORIAL_LIMIT_VISTA_RAPIDA} movimientos (vista rápida).
-                </p>
-              )}
+              <h3 className="task-view-panel-title">
+                Historial de cambios
+                {!historialLoading && historial.length > 0 ? (
+                  <span className="task-view-historial-count">{historial.length}</span>
+                ) : null}
+              </h3>
               {historialLoading && <p className="task-view-muted">Cargando historial…</p>}
               {historialError && (
                 <p className="task-view-historial-error" role="alert">
@@ -1064,25 +901,52 @@ export default function TaskViewModal({
               )}
               {!historialLoading && historial.length > 0 && (
                 <ul className="task-view-historial-thread">
-                  {historial.map((m) => (
-                    <li key={m.id} className="task-view-historial-item">
-                      <div className="task-view-historial-meta">
-                        <time className="task-view-historial-time" dateTime={m.timestamp}>
-                          {formatDisplayDate(m.timestamp) ?? m.timestamp}
-                        </time>
-                        <span className="task-view-historial-user">
-                          {m.nombre_usuario?.trim() || `Usuario #${m.id_usuario}`}
-                        </span>
-                        {m.accion_tipo ? (
-                          <span className="task-view-historial-accion">{m.accion_tipo}</span>
+                  {historial.map((m) => {
+                    const quien = nombreEnHistorial(m, teamMembers)
+                    const detalle = describeHistorialMovimiento(m)
+                    const partes = partesHistorial(detalle)
+                    return (
+                      <li key={m.id} className="task-view-historial-item">
+                        <div className="task-view-historial-meta">
+                          <time className="task-view-historial-time" dateTime={m.timestamp}>
+                            {formatDisplayDate(m.timestamp) ?? m.timestamp}
+                          </time>
+                          <span className="task-view-historial-user" title={quien}>
+                            <span className="task-view-historial-avatar" aria-hidden="true">
+                              {inicialesNombre(quien)}
+                            </span>
+                            {quien}
+                          </span>
+                          {m.accion_tipo ? (
+                            <span className="task-view-historial-accion">
+                              {etiquetaAccionHistorial(m.accion_tipo)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="task-view-historial-body">
+                          {partes.map((p, i) =>
+                            p.kind === 'cambio' ? (
+                              <span key={i} className="task-view-historial-cambio">
+                                <span className="task-view-historial-cambio-label">{p.label}</span>
+                                <span className="task-view-historial-from">{p.from}</span>
+                                <span className="task-view-historial-arrow" aria-hidden="true">
+                                  →
+                                </span>
+                                <span className="task-view-historial-to">{p.to}</span>
+                              </span>
+                            ) : (
+                              <span key={i} className="task-view-historial-texto">
+                                {p.text}
+                              </span>
+                            )
+                          )}
+                        </div>
+                        {exhaustiveDetail && m.cambios_detallados ? (
+                          <pre className="task-view-historial-json">{formatCambiosJson(m.cambios_detallados)}</pre>
                         ) : null}
-                      </div>
-                      <p className="task-view-historial-body">{describeHistorialMovimiento(m)}</p>
-                      {exhaustiveDetail && m.cambios_detallados ? (
-                        <pre className="task-view-historial-json">{formatCambiosJson(m.cambios_detallados)}</pre>
-                      ) : null}
-                    </li>
-                  ))}
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </section>

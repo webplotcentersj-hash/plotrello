@@ -45,7 +45,6 @@ type LocalAttachment = {
   file?: File // Referencia al archivo original para descarga
 }
 
-const COMPLEXITY_OPTIONS = ['Baja', 'Media', 'Alta']
 const PRIORITY_OPTIONS = ['Normal', 'Alta', 'Media', 'Baja']
 
 const TaskCreateModal = ({
@@ -1299,8 +1298,13 @@ const TaskCreateModal = ({
             </div>
           ) : null}
 
-          <div className="create-origen">
-            <p className="create-origen-kicker">Origen (opcional)</p>
+          <details className="create-fold">
+            <summary>
+              Origen (opcional)
+              {briefTokenSeleccionado ? ' · brief' : ''}
+              {pedidoWebSeleccionado ? ' · web' : ''}
+            </summary>
+            <div className="create-origen">
             <div className="create-origen-grid">
               {(isAdmin || isDiseno) && (
                 <div className="create-origen-col">
@@ -1504,6 +1508,7 @@ const TaskCreateModal = ({
               </div>
             </div>
           </div>
+          </details>
 
           <div className="form-row">
             <div className="form-group">
@@ -1660,18 +1665,6 @@ const TaskCreateModal = ({
           </div>
         </div>
 
-        <div className="form-row">
-          <div className="form-group">
-            <label>Link de Drive (opcional)</label>
-            <input
-              type="url"
-              value={driveUrl}
-              onChange={(e) => setDriveUrl(e.target.value)}
-              placeholder="https://drive.google.com/..."
-            />
-          </div>
-        </div>
-
           <div className="form-row form-row--entrega">
             <div className="form-group">
               <label>Fecha Entrega</label>
@@ -1783,7 +1776,7 @@ const TaskCreateModal = ({
                   Podés <strong>sumar sectores después</strong> editando la OP (modal Editar) y guardando: se actualiza la lista
                   y se generan las fichas que falten para los sectores nuevos.
                   <br />
-                  ✅ El checklist se habilita al crear la OP. Usa &quot;Crear y abrir checklist&quot; para cargar subtareas al instante.
+                  ✅ El checklist se puede abrir después, desde la ficha.
                 </small>
               </div>
             </div>
@@ -1948,17 +1941,6 @@ const TaskCreateModal = ({
             </div>
 
             <div className="form-group">
-              <label>Complejidad</label>
-              <select value={complejidad} onChange={(e) => setComplejidad(e.target.value)}>
-                {COMPLEXITY_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
               <label>Prioridad</label>
               <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
                 {PRIORITY_OPTIONS.map((opt) => (
@@ -2004,20 +1986,17 @@ const TaskCreateModal = ({
             />
           </div>
 
-          {/* Sección de Brief Público */}
-          <div className="form-section-divider">
-            <h3>📋 Brief del Proyecto (Público)</h3>
-            <p className="section-description">Esta información será visible para todos los usuarios del sistema</p>
-          </div>
+          <details className="create-fold">
+            <summary>Brief del proyecto</summary>
+            <p className="section-description">Visible para el equipo. Opcional.</p>
 
           <div className="form-group">
-            <label>Brief Público *</label>
+            <label>Brief público</label>
             <textarea
               rows={5}
               value={briefPublico}
               onChange={(e) => setBriefPublico(e.target.value)}
               placeholder="Describe el proyecto, objetivos, contexto y cualquier información relevante que deba conocer el equipo..."
-              required
             />
           </div>
 
@@ -2071,6 +2050,7 @@ const TaskCreateModal = ({
               placeholder="Enlaces a referencias visuales, Pinterest, Behance, o descripción de estilos deseados..."
             />
           </div>
+          </details>
 
           <div className="form-group">
             <label>Ítems con metros (opcional)</label>
@@ -2479,19 +2459,6 @@ const TaskCreateModal = ({
             Guardar borrador
           </button>
           <div className="footer-actions">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => void handleCreate(true)}
-              disabled={hasPendingUploads || createBlockedPorFotos}
-              title={
-                createBlockedPorFotos
-                  ? 'Falta la foto real del lugar físico (Instalaciones / Metalúrgica)'
-                  : undefined
-              }
-            >
-              Crear y abrir checklist
-            </button>
             <button
               type="button"
               className="btn-create"

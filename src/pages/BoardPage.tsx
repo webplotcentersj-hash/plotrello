@@ -24,7 +24,7 @@ import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
 import WorkPoolOperarioNotasFab from '../features/work-pool/WorkPoolOperarioNotasFab'
 import { registrarActividadTableroAutomatica } from '../features/work-pool/workPoolOperarioNotas'
 import InsightsToolsMenu from '../components/InsightsToolsMenu'
-import EntregasCobroPanel from '../components/EntregasCobroPanel'
+import EtiquetasNubePanel from '../components/EtiquetasNubePanel'
 import EntregasSinRetiroPanel from '../components/EntregasSinRetiroPanel'
 const TaskLibraryModal = lazy(() => import('../components/TaskLibraryModal'))
 import QRPrintView from '../components/QRPrintView'
@@ -1612,7 +1612,11 @@ const BoardPage = ({
             sidePanel={
               !isPhoneBoard ? (
                 <>
-                  <EntregasCobroPanel tasks={filteredTasks} />
+                  <EtiquetasNubePanel
+                    tasks={tasks}
+                    etiquetaActiva={searchQuery}
+                    onElegir={setSearchQuery}
+                  />
                   <EntregasSinRetiroPanel tasks={filteredTasks} onSelectTask={setSelectedTaskId} />
                 </>
               ) : undefined

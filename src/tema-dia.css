@@ -114,10 +114,6 @@
   color: rgba(19, 24, 41, 0.92);
 }
 
-[data-tema='dia'] .entregas-cobro__destacado strong {
-  color: #b91c1c;
-}
-
 [data-tema='dia'] .insights-toggle-btn {
   color: rgba(19, 24, 41, 0.72);
 }

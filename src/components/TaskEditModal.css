@@ -1207,6 +1207,64 @@
   color: rgba(253, 230, 138, 0.45);
 }
 
+.create-fold {
+  margin: 0 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(11, 18, 32, 0.45);
+}
+
+.create-fold > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 12px 14px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #e2e8f0;
+}
+
+.create-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.create-fold > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 8px;
+  color: #fdba74;
+  transition: transform 0.15s ease;
+}
+
+.create-fold[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.create-fold > summary:hover {
+  color: #fff;
+}
+
+.create-fold > .create-origen,
+.create-fold > .form-group,
+.create-fold > .form-row,
+.create-fold > .section-description {
+  margin-left: 14px;
+  margin-right: 14px;
+}
+
+.create-fold > .create-origen {
+  margin-top: 0;
+  border: 0;
+  background: transparent;
+  padding-top: 0;
+}
+
+.create-fold > .section-description {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
 .create-origen {
   margin: 0 0 18px;
   padding: 14px 14px 12px;

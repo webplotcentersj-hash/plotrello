@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState, type ClipboardEvent } from 'react'
 import apiService from '../../services/api'
 import type { SectorRecord, Venta } from '../../types/api'
-import type { TeamMember } from '../../types/board'
 import OpFichaGuiaModal from '../OpFichaGuiaModal'
 import { improveOpDescriptionWithPlotAI } from '../../utils/improveOpDescriptionPlotAI'
 import { normalizeHoraEstimada } from '../../utils/horaEstimada'
-import { filterOperariosBySector } from '../../utils/dataMappers'
-import { nombreVisibleDesdeRecord } from '../../utils/usuarioDisplayName'
 import { pillColorFromString } from '../../utils/pillColorFromString'
 import { opSectoresRequierenFotosLugar } from '../../utils/sectoresFotosLugar'
+import { cobroDesdeVenta, cobroOpToTaskFields } from '../../utils/opCobroEstado'
 import { uploadAttachmentAndGetUrl } from '../../utils/storage'
 
 const SECTORES_KANBAN = [
@@ -47,7 +45,6 @@ function descripcionInicial(venta: Venta, observaciones?: string): string {
 
 export default function VentaOpSimplificada({ venta, creadorNombre, observaciones, onCreated }: Props) {
   const [sectores, setSectores] = useState<SectorRecord[]>([])
-  const [operarios, setOperarios] = useState<TeamMember[]>([])
   const [etiquetasDisp, setEtiquetasDisp] = useState<Array<{ nombre: string; color: string }>>([])
   const [fechaEntrega, setFechaEntrega] = useState('')
   const [horaEstimada, setHoraEstimada] = useState('')
@@ -58,7 +55,6 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
   const [tagOpen, setTagOpen] = useState(false)
   const [tags, setTags] = useState<string[]>([])
   const [tagColors, setTagColors] = useState<Map<string, string>>(new Map())
-  const [operario, setOperario] = useState('')
   const [complejidad, setComplejidad] = useState('Media')
   const [prioridad, setPrioridad] = useState('Normal')
   const [descripcion, setDescripcion] = useState(() => descripcionInicial(venta, observaciones))
@@ -73,25 +69,11 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
 
   useEffect(() => {
     let cancelled = false
-    void Promise.all([apiService.getSectores(), apiService.getUsuarios(), apiService.getEtiquetasDisponibles()]).then(
-      ([sec, usu, etq]) => {
+    void Promise.all([apiService.getSectores(), apiService.getEtiquetasDisponibles()]).then(
+      ([sec, etq]) => {
         if (cancelled) return
         if (sec.success && sec.data) {
           setSectores(sec.data.filter((s) => s.activo !== false && SECTORES_KANBAN.includes(s.nombre)))
-        }
-        if (usu.success && usu.data) {
-          setOperarios(
-            usu.data.map((u) => {
-              const name = nombreVisibleDesdeRecord(u)
-              return {
-                id: String(u.id),
-                name,
-                role: u.rol,
-                avatar: name.slice(0, 2).toUpperCase(),
-                productivity: 0
-              }
-            })
-          )
         }
         if (etq.success && etq.data) setEtiquetasDisp(etq.data)
       }
@@ -120,11 +102,6 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
       .filter((s) => (q ? s.nombre.toLowerCase().includes(q) : true))
       .slice(0, q ? 12 : 8)
   }, [sectoresLista, sectorSearch])
-
-  const operariosFiltrados = useMemo(
-    () => filterOperariosBySector(operarios, selectedSectores[0]),
-    [operarios, selectedSectores]
-  )
 
   const tagSuggestions = useMemo(() => {
     const q = tagInput.trim().toLowerCase()
@@ -242,6 +219,8 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
 
     const hora = normalizeHoraEstimada(horaEstimada)
     const primer = selectedSectores[0]
+    const cobroVenta = cobroDesdeVenta(venta)
+    const cobro = cobroOpToTaskFields(cobroVenta.estado, cobroVenta.monto)
     setGuardando(true)
     try {
       const ordenResponse = await apiService.createOrden({
@@ -260,11 +239,15 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
         sector: primer,
         sector_inicial: primer,
         sectores: selectedSectores,
-        operario_asignado: operario || null,
+        operario_asignado: null,
         nombre_creador: creadorNombre,
         etiquetas: tags.length ? tags : null,
         metros_cuadrados: metrosNum > 0 ? metrosNum : null,
-        foto_url: portadaUrl || null
+        foto_url: portadaUrl || null,
+        marcada_pagada: cobro.marcadaPagada,
+        sin_pago: cobro.sinPago,
+        pago_cuenta_corriente: cobro.pagoCuentaCorriente,
+        monto_pago_parcial: cobro.montoPagoParcial
       })
       if (!ordenResponse.success || !ordenResponse.data) {
         throw new Error(ordenResponse.error || 'No se pudo crear la OP')
@@ -459,18 +442,7 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
         </div>
       )}
 
-      <div className="vop-row vop-row-3">
-        <label>
-          Operario
-          <select value={operario} onChange={(e) => setOperario(e.target.value)}>
-            <option value="">Seleccionar...</option>
-            {operariosFiltrados.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="vop-row">
         <label>
           Complejidad
           <select value={complejidad} onChange={(e) => setComplejidad(e.target.value)}>

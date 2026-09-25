@@ -286,7 +286,7 @@ const FiltersBar = ({
               onClick={onAddNewOrder}
               title="Agregar Ficha"
             >
-              + Agregar Ficha
+              + Ficha
             </button>
           )}
           {onOpenLibrary && (
@@ -296,7 +296,7 @@ const FiltersBar = ({
               onClick={onOpenLibrary}
               title="Bibliotecas de OPs"
             >
-              🔍 Bibliotecas de OPs
+              🔍 Bibliotecas
             </button>
           )}
           {onOptimizeSprint && (
@@ -306,7 +306,7 @@ const FiltersBar = ({
               onClick={onOptimizeSprint}
               title="Optimizar Sprint"
             >
-              ⚡ Optimizar Sprint
+              ⚡ Sprint
             </button>
           )}
           {(isAdmin || isDiseno) && (
@@ -317,7 +317,7 @@ const FiltersBar = ({
               disabled={copiandoBrief}
               title="Generar y copiar link del brief para enviar a clientes"
             >
-              {copiandoBrief ? '⏳ Generando...' : '📋 Copiar Link Brief'}
+              {copiandoBrief ? '⏳…' : '📋 Brief'}
             </button>
           )}
           </div>

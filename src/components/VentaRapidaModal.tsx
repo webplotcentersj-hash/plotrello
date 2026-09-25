@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { ArticuloEmpresaRecord, ClienteRecord, Venta } from '../types/api'
-import { generarFacturaRemitoPDF, generarPagarePDF } from '../utils/crmExportUtils'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
 import { CLIENTES_CUENTA_CORRIENTE, clientesCcAlta, clientesCcPerfil } from '../utils/clientesRoutes'
 import { getArgentinaDateString } from '../utils/dateUtils'
@@ -30,6 +29,8 @@ import {
   type VentaDetallePago
 } from '../constants/ventasCondicionesPago'
 import './ventas/VentaCondicionPagoFields.css'
+import OpCobroFooterChecks from './OpCobroFooterChecks'
+import { cobroDesdeVenta } from '../utils/opCobroEstado'
 import VentaOpSimplificada from './ventas/VentaOpSimplificada'
 import {
   ESTADO_CC_LABELS,
@@ -82,6 +83,8 @@ const VentaRapidaModal = ({
   const mediosActivos = useMemo(() => mediosPagoActivos(configCondiciones), [configCondiciones])
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
+  const [clienteActivo, setClienteActivo] = useState(0)
+  const clienteItemRefs = useRef<Array<HTMLDivElement | null>>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteRecord | null>(null)
   const [crearNuevoCliente, setCrearNuevoCliente] = useState(false)
@@ -145,6 +148,7 @@ const VentaRapidaModal = ({
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
   const [comprobanteArchivo, setComprobanteArchivo] = useState<File | null>(null)
   const comprobanteInputRef = useRef<HTMLInputElement>(null)
+  const modalContentRef = useRef<HTMLDivElement>(null)
 
   // Buscar clientes (desde 1 letra)
   useEffect(() => {
@@ -249,11 +253,37 @@ const VentaRapidaModal = ({
     setClienteSeleccionado(cliente)
     setBusquedaCliente(nombreCompletoCliente(cliente))
     setClientesEncontrados([])
+    setClienteActivo(0)
     setCrearNuevoCliente(false)
     setClienteCcHabilitado(null)
     setClienteCcScoring(null)
     setClienteCcEstado(null)
   }
+
+  const moverClienteTeclado = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (clienteSeleccionado || clientesEncontrados.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setClienteActivo((i) => Math.min(clientesEncontrados.length - 1, i + 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setClienteActivo((i) => Math.max(0, i - 1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const elegido = clientesEncontrados[clienteActivo] ?? clientesEncontrados[0]
+      if (elegido) seleccionarCliente(elegido)
+    } else if (e.key === 'Escape') {
+      setClientesEncontrados([])
+    }
+  }
+
+  useEffect(() => {
+    setClienteActivo(0)
+  }, [clientesEncontrados])
+
+  useEffect(() => {
+    clienteItemRefs.current[clienteActivo]?.scrollIntoView({ block: 'nearest' })
+  }, [clienteActivo, clientesEncontrados])
 
   const consultarCuentaCorrienteCliente = useCallback(async (idCliente: number) => {
     setValidandoCc(true)
@@ -620,6 +650,17 @@ const VentaRapidaModal = ({
     onClose()
   }
 
+  useEffect(() => {
+    if (!ventaCreada || showMpCheckout) return
+    const el = modalContentRef.current
+    if (!el) return
+    el.scrollTop = 0
+    const frame = window.requestAnimationFrame(() => {
+      el.scrollTop = 0
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [ventaCreada?.id, showMpCheckout])
+
   return createPortal(
     <div
       className="venta-rapida-modal-overlay"
@@ -641,14 +682,14 @@ const VentaRapidaModal = ({
           <button className="btn-close" onClick={cerrar}>✕</button>
         </div>
 
-        {ventaCreada && !showMpCheckout && (
+        {ventaCreada?.numero_op && !showMpCheckout && (
           <div className="venta-realizada-banner">
             Venta realizada — Nº {ventaCreada.numero_venta}
-            {ventaCreada.numero_op && ` • OP: ${ventaCreada.numero_op}`}
+            {` • OP: ${ventaCreada.numero_op}`}
           </div>
         )}
 
-        <div className="venta-rapida-modal-content">
+        <div className="venta-rapida-modal-content" ref={modalContentRef}>
           {ventaCreada && !showMpCheckout && (
             <VentaOpSimplificada
               venta={ventaCreada}
@@ -700,7 +741,9 @@ const VentaRapidaModal = ({
                   onChange={(e) => {
                     setBusquedaCliente(e.target.value)
                     setClienteSeleccionado(null)
+                    setClienteActivo(0)
                   }}
+                  onKeyDown={moverClienteTeclado}
                   readOnly={!!clienteSeleccionado}
                   autoComplete="off"
                   spellCheck={false}
@@ -710,11 +753,17 @@ const VentaRapidaModal = ({
                 )}
 
                 {clientesEncontrados.length > 0 && !clienteSeleccionado && (
-                  <div className="dropdown-results dropdown-results--cliente">
-                    {clientesEncontrados.map((cliente) => (
+                  <div className="dropdown-results dropdown-results--cliente" role="listbox">
+                    {clientesEncontrados.map((cliente, index) => (
                       <div
                         key={cliente.id}
-                        className="dropdown-item"
+                        ref={(node) => {
+                          clienteItemRefs.current[index] = node
+                        }}
+                        role="option"
+                        aria-selected={index === clienteActivo}
+                        className={`dropdown-item${index === clienteActivo ? ' is-active' : ''}`}
+                        onMouseEnter={() => setClienteActivo(index)}
                         onClick={() => seleccionarCliente(cliente)}
                       >
                         <strong>{nombreCompletoCliente(cliente)}</strong>
@@ -841,6 +890,96 @@ const VentaRapidaModal = ({
                 </option>
               ))}
             </select>
+          </div>
+
+
+          {/* Lista de precios / artículos */}
+          <div className="form-group form-group--lista-precios">
+            <div className="form-group-label-row">
+              <label>Lista de precios</label>
+              <span className="venta-rapida-lista-badge venta-rapida-lista-badge--inline">
+                {labelListaPrecio(tipoListaPrecio)}
+              </span>
+            </div>
+            <p className="form-hint-comprobante venta-lista-hint">
+              {tipoListaPrecio === 'lista_1'
+                ? 'Efectivo, transferencia, tarjeta y otros medios usan Lista 1.'
+                : 'Cuenta corriente usa Lista 2.'}{' '}
+              Precios con <strong>{labelAjustesPreciosActivos(ajustesPrecios)}</strong>.
+              {recargoPrioridadLabel ? (
+                <>
+                  {' '}
+                  <strong>{recargoPrioridadLabel}</strong> incluido en los precios mostrados.
+                </>
+              ) : null}
+            </p>
+            <div className="lista-precios-filtros">
+              <input
+                type="text"
+                className="form-input form-input--search"
+                placeholder="Buscar por código, nombre o rubro…"
+                value={busquedaArticulo}
+                onChange={(e) => setBusquedaArticulo(e.target.value)}
+                autoComplete="off"
+              />
+              {categoriasArticulos.length > 0 && (
+                <select
+                  className="form-select lista-precios-categoria"
+                  value={categoriaArticulo}
+                  onChange={(e) => setCategoriaArticulo(e.target.value)}
+                >
+                  <option value="todas">Todos los rubros</option>
+                  {categoriasArticulos.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="lista-precios-panel">
+              {loadingCatalogo ? (
+                <p className="lista-precios-empty">Cargando catálogo…</p>
+              ) : articulosFiltrados.length === 0 ? (
+                <p className="lista-precios-empty">
+                  {busquedaArticulo.trim() || categoriaArticulo !== 'todas'
+                    ? 'Sin resultados. Probá con otras palabras o rubro.'
+                    : 'No hay artículos en la lista de precios.'}
+                </p>
+              ) : (
+                <div className="lista-precios-scroll">
+                  {articulosFiltrados.slice(0, 80).map((articulo) => {
+                    const precio = precioListaConPrioridad(articulo)
+                    const yaAgregado = itemsVenta.some((i) => i.id_articulo_empresa === articulo.id)
+                    return (
+                      <button
+                        key={articulo.id}
+                        type="button"
+                        className={`lista-precios-row${yaAgregado ? ' lista-precios-row--added' : ''}`}
+                        disabled={precio == null || yaAgregado}
+                        onClick={() => agregarArticulo(articulo)}
+                      >
+                        <span className="lista-precios-row__codigo" title={articulo.codigo}>
+                          {articulo.codigo}
+                        </span>
+                        <span className="lista-precios-row__nombre" title={articulo.nombre}>
+                          {articulo.nombre}
+                        </span>
+                        <span className="lista-precios-row__precio">
+                          {precio != null ? `$${formatArs(precio)}` : '—'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  {articulosFiltrados.length > 80 && (
+                    <p className="lista-precios-more">
+                      Mostrando 80 de {articulosFiltrados.length}. Acotá la búsqueda para ver más.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <VentaCondicionPagoFields
@@ -986,94 +1125,6 @@ const VentaRapidaModal = ({
             )}
           </div>
 
-          {/* Lista de precios / artículos */}
-          <div className="form-group form-group--lista-precios">
-            <div className="form-group-label-row">
-              <label>Lista de precios</label>
-              <span className="venta-rapida-lista-badge venta-rapida-lista-badge--inline">
-                {labelListaPrecio(tipoListaPrecio)}
-              </span>
-            </div>
-            <p className="form-hint-comprobante venta-lista-hint">
-              {tipoListaPrecio === 'lista_1'
-                ? 'Efectivo, transferencia, tarjeta y otros medios usan Lista 1.'
-                : 'Cuenta corriente usa Lista 2.'}{' '}
-              Precios con <strong>{labelAjustesPreciosActivos(ajustesPrecios)}</strong>.
-              {recargoPrioridadLabel ? (
-                <>
-                  {' '}
-                  <strong>{recargoPrioridadLabel}</strong> incluido en los precios mostrados.
-                </>
-              ) : null}
-            </p>
-            <div className="lista-precios-filtros">
-              <input
-                type="text"
-                className="form-input form-input--search"
-                placeholder="Buscar por código, nombre o rubro…"
-                value={busquedaArticulo}
-                onChange={(e) => setBusquedaArticulo(e.target.value)}
-                autoComplete="off"
-              />
-              {categoriasArticulos.length > 0 && (
-                <select
-                  className="form-select lista-precios-categoria"
-                  value={categoriaArticulo}
-                  onChange={(e) => setCategoriaArticulo(e.target.value)}
-                >
-                  <option value="todas">Todos los rubros</option>
-                  {categoriasArticulos.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div className="lista-precios-panel">
-              {loadingCatalogo ? (
-                <p className="lista-precios-empty">Cargando catálogo…</p>
-              ) : articulosFiltrados.length === 0 ? (
-                <p className="lista-precios-empty">
-                  {busquedaArticulo.trim() || categoriaArticulo !== 'todas'
-                    ? 'Sin resultados. Probá con otras palabras o rubro.'
-                    : 'No hay artículos en la lista de precios.'}
-                </p>
-              ) : (
-                <div className="lista-precios-scroll">
-                  {articulosFiltrados.slice(0, 80).map((articulo) => {
-                    const precio = precioListaConPrioridad(articulo)
-                    const yaAgregado = itemsVenta.some((i) => i.id_articulo_empresa === articulo.id)
-                    return (
-                      <button
-                        key={articulo.id}
-                        type="button"
-                        className={`lista-precios-row${yaAgregado ? ' lista-precios-row--added' : ''}`}
-                        disabled={precio == null || yaAgregado}
-                        onClick={() => agregarArticulo(articulo)}
-                      >
-                        <span className="lista-precios-row__codigo" title={articulo.codigo}>
-                          {articulo.codigo}
-                        </span>
-                        <span className="lista-precios-row__nombre" title={articulo.nombre}>
-                          {articulo.nombre}
-                        </span>
-                        <span className="lista-precios-row__precio">
-                          {precio != null ? `$${formatArs(precio)}` : '—'}
-                        </span>
-                      </button>
-                    )
-                  })}
-                  {articulosFiltrados.length > 80 && (
-                    <p className="lista-precios-more">
-                      Mostrando 80 de {articulosFiltrados.length}. Acotá la búsqueda para ver más.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
 
           <div className="form-group">
             <label>
@@ -1287,10 +1338,23 @@ const VentaRapidaModal = ({
 
         <div className="venta-rapida-modal-footer">
           <div className="venta-rapida-footer-buttons">
-          <button className="btn-secondary" onClick={cerrar}>
-            {ventaCreada ? 'Cerrar' : 'Cancelar'}
-          </button>
+          {ventaCreada && !showMpCheckout ? (
+            <OpCobroFooterChecks
+              estado={cobroDesdeVenta(ventaCreada).estado}
+              montoParcial={cobroDesdeVenta(ventaCreada).monto}
+              disabled
+              onEstadoChange={() => {}}
+              onMontoChange={() => {}}
+            />
+          ) : (
+            <span />
+          )}
+          <div className="venta-rapida-footer-actions">
           {!ventaCreada && !showMpCheckout ? (
+            <>
+            <button className="btn-secondary" onClick={cerrar}>
+              Cancelar
+            </button>
             <button
               className="btn-primary"
               onClick={handleGuardarVenta}
@@ -1302,11 +1366,11 @@ const VentaRapidaModal = ({
                   ? '💳 Generar QR Mercado Pago'
                   : '💾 Guardar Venta'}
             </button>
+            </>
           ) : showMpCheckout ? (
             <span className="venta-rapida-footer-hint">Esperando confirmación de Mercado Pago…</span>
-          ) : null}
-          {ventaCreada && !showMpCheckout ? (
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+          ) : (
+            <>
               {ventaCreada.numero_op && (
                 <button
                   className="btn-secondary"
@@ -1317,37 +1381,19 @@ const VentaRapidaModal = ({
                 </button>
               )}
               <button
-                className="btn-secondary"
-                onClick={() => generarPagarePDF(ventaCreada)}
-                style={{ 
-                  minWidth: '160px', 
-                  padding: '12px 20px',
-                  background: 'rgba(59, 130, 246, 0.15)', 
-                  borderColor: 'rgba(59, 130, 246, 0.4)',
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  cursor: 'pointer'
+                className="btn-secondary venta-rapida-btn-afip"
+                onClick={() => {
+                  const id = ventaCreada.id
+                  onSuccess?.()
+                  onClose()
+                  navigate(`/erp/facturas/nueva?id_venta=${id}`)
                 }}
               >
-                📄 Generar Pagaré
+                Factura AFIP
               </button>
-              <button
-                className="btn-secondary"
-                onClick={() => generarFacturaRemitoPDF(ventaCreada, 'remito')}
-                style={{ 
-                  minWidth: '160px', 
-                  padding: '12px 20px',
-                  background: 'rgba(16, 185, 129, 0.15)', 
-                  borderColor: 'rgba(16, 185, 129, 0.4)',
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                📋 Generar Remito
-              </button>
-            </div>
-          ) : null}
+            </>
+          )}
+          </div>
           </div>
         </div>
       </div>

@@ -73,3 +73,24 @@ export function cobroOpToTaskFields(
     montoPagoParcial: null
   }
 }
+
+/** Cobro de la OP a partir de cómo se cerró la venta rápida. */
+export function cobroDesdeVenta(venta: {
+  estado_pago?: string | null
+  metodo_pago?: string | null
+  valor_total?: number | null
+}): { estado: CobroOpEstado; monto: string } {
+  const metodo = String(venta.metodo_pago || '')
+    .trim()
+    .toLowerCase()
+  if (metodo === 'cuenta corriente') return { estado: 'cuenta_corriente', monto: '' }
+  if (venta.estado_pago === 'Pagado') return { estado: 'pagado', monto: '' }
+  if (venta.estado_pago === 'Parcial') {
+    const n = Number(venta.valor_total)
+    return {
+      estado: 'parcial',
+      monto: Number.isFinite(n) && n > 0 ? String(Math.round(n)) : ''
+    }
+  }
+  return { estado: 'sin_pago', monto: '' }
+}
