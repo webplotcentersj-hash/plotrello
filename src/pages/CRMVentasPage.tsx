@@ -17,6 +17,7 @@ import type {
 } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate, getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
+import { nombreSinRepeticion } from '../utils/buscarClienteMatch'
 import {
   exportarVentasPDF,
   exportarVentasExcel,
@@ -29,7 +30,6 @@ import {
   fechaProximaAccionMasTemprana,
   oportunidadRequiereAtencionInmediata,
   urgenciaProximaAccion,
-  valorPonderadoPipeline,
   type UrgenciaProximaAccion
 } from '../utils/crmVentasHelpers'
 import { generateContent } from '../services/plotAIService'
@@ -57,7 +57,7 @@ import {
   enviarPresupuestoPorEmail,
   enviarPresupuestoPorWhatsapp
 } from '../utils/presupuestoVentaPdf'
-import { CLIENTES_AGREGAR, CLIENTES_CUENTA_CORRIENTE, clientesPerfil } from '../utils/clientesRoutes'
+import { clientesPerfil } from '../utils/clientesRoutes'
 import { VENTAS_REPORTES } from '../utils/ventasRoutes'
 import { esVistaVentasPropiaVendedor, idVendedorParaConsulta } from '../utils/ventasCajaScope'
 import './CRMVentasPage.css'
@@ -277,33 +277,6 @@ const CRMVentasPage = () => {
   const [fechaDesde, setFechaDesde] = useState(() => getArgentinaDateString())
   const [fechaHasta, setFechaHasta] = useState(() => getArgentinaDateString())
   const [mostrarFiltrosAvanzados, setMostrarFiltrosAvanzados] = useState(false)
-  const [estadisticas, setEstadisticas] = useState({
-    totalVentas: 0,
-    totalIngresos: 0,
-    ventasPagadas: 0,
-    ingresosPagados: 0,
-    ventasPendientes: 0,
-    ingresosPendientes: 0,
-    ticketPromedio: 0,
-    // KPIs avanzados
-    tasaConversion: 0,
-    tiempoPromedioCierre: 0,
-    valorPromedioOportunidad: 0,
-    oportunidadesActivas: 0,
-    oportunidadesCerradas: 0,
-    oportunidadesPerdidas: 0,
-    valorTotalOportunidades: 0,
-    // Presupuestos
-    totalPresupuestos: 0,
-    presupuestosEnviados: 0,
-    presupuestosAceptados: 0,
-    presupuestosRechazados: 0,
-    valorTotalPresupuestos: 0,
-    tasaAceptacionPresupuestos: 0,
-    valorPonderadoPipeline: 0,
-    oportunidadesAlertaCritica: 0,
-    oportunidadesConAlertaProxima: 0
-  })
   
   // Búsqueda de clientes
   const [busquedaCliente, setBusquedaCliente] = useState('')
@@ -405,8 +378,8 @@ const CRMVentasPage = () => {
   const [presupuestosFiltrados, setPresupuestosFiltrados] = useState<PresupuestoVentaRecord[]>([])
   const [filtroEstadoPresupuesto, setFiltroEstadoPresupuesto] = useState<string>('todos')
   const [busquedaPresupuesto, setBusquedaPresupuesto] = useState('')
-  const [fechaDesdePresupuesto, setFechaDesdePresupuesto] = useState('')
-  const [fechaHastaPresupuesto, setFechaHastaPresupuesto] = useState('')
+  const [fechaDesdePresupuesto, setFechaDesdePresupuesto] = useState(() => getArgentinaDateString())
+  const [fechaHastaPresupuesto, setFechaHastaPresupuesto] = useState(() => getArgentinaDateString())
 
   const etiquetaUrgencia = (u: UrgenciaProximaAccion): string | null => {
     if (u === 'vencida') return 'Acción vencida'
@@ -802,14 +775,6 @@ const CRMVentasPage = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Inicializar estadísticas de presupuestos (se actualizarán después de cargar)
-      let totalPresupuestos = 0
-      let presupuestosEnviados = 0
-      let presupuestosAceptados = 0
-      let presupuestosRechazados = 0
-      let valorTotalPresupuestos = 0
-      let tasaAceptacionPresupuestos = 0
-
       // Cargar oportunidades (solo las del vendedor en vista propia)
       const oppResponse = await apiService.obtenerOportunidadesVenta(idVendedorScope)
       if (oppResponse.success && oppResponse.data) {
@@ -823,103 +788,10 @@ const CRMVentasPage = () => {
         console.log('Ventas cargadas en CRM:', ventasResponse.data.length)
         setVentas(ventasResponse.data)
         setVentasFiltradas(ventasResponse.data)
-        
-        // Calcular estadísticas básicas de ventas
-        const totalVentas = ventasResponse.data.length
-        const totalIngresos = ventasResponse.data.reduce((sum, v) => sum + v.valor_total, 0)
-        const ventasPagadas = ventasResponse.data.filter(v => v.estado_pago === 'Pagado')
-        const ingresosPagados = ventasPagadas.reduce((sum, v) => sum + v.valor_total, 0)
-        const ventasPendientes = ventasResponse.data.filter(v => v.estado_pago === 'Pendiente')
-        const ingresosPendientes = ventasPendientes.reduce((sum, v) => sum + v.valor_total, 0)
-        const ticketPromedio = totalVentas > 0 ? totalIngresos / totalVentas : 0
-        
-        // Calcular KPIs avanzados de oportunidades
-        const oportunidadesActivas = oppResponse.data?.filter(o => o.activo && o.etapa !== 'Cerrado' && o.etapa !== 'Perdido').length || 0
-        const oportunidadesCerradas = oppResponse.data?.filter(o => o.etapa === 'Cerrado').length || 0
-        const oportunidadesPerdidas = oppResponse.data?.filter(o => o.etapa === 'Perdido').length || 0
-        const totalOportunidades = oppResponse.data?.length || 0
-        const tasaConversion = totalOportunidades > 0 ? (oportunidadesCerradas / totalOportunidades) * 100 : 0
-        
-        // Calcular tiempo promedio de cierre (días entre creación y cierre)
-        const oportunidadesConFecha = oppResponse.data?.filter(o => o.etapa === 'Cerrado' && o.created_at && o.updated_at) || []
-        let tiempoTotalCierre = 0
-        oportunidadesConFecha.forEach(opp => {
-          const fechaCreacion = new Date(opp.created_at)
-          const fechaCierre = new Date(opp.updated_at)
-          const dias = Math.ceil((fechaCierre.getTime() - fechaCreacion.getTime()) / (1000 * 60 * 60 * 24))
-          tiempoTotalCierre += dias
-        })
-        const tiempoPromedioCierre = oportunidadesConFecha.length > 0 ? tiempoTotalCierre / oportunidadesConFecha.length : 0
-        
-        // Valor promedio de oportunidad
-        const oportunidadesConValor = oppResponse.data?.filter(o => o.valor_estimado && o.valor_estimado > 0) || []
-        const valorTotalOportunidades = oportunidadesConValor.reduce((sum, o) => sum + (o.valor_estimado || 0), 0)
-        const valorPromedioOportunidad = oportunidadesConValor.length > 0 ? valorTotalOportunidades / oportunidadesConValor.length : 0
-
-        const listaOppsAll = oppResponse.data || []
-        const valorPonderadoPipelineVal = valorPonderadoPipeline(listaOppsAll)
-        let oportunidadesAlertaCritica = 0
-        let oportunidadesConAlertaProxima = 0
-        for (const o of listaOppsAll) {
-          if (!o.activo || o.etapa === 'Cerrado' || o.etapa === 'Perdido') continue
-          if (oportunidadRequiereAtencionInmediata(o)) oportunidadesAlertaCritica++
-          if (urgenciaProximaAccion(o) !== null) oportunidadesConAlertaProxima++
-        }
-
-        setEstadisticas({
-          totalVentas,
-          totalIngresos,
-          ventasPagadas: ventasPagadas.length,
-          ingresosPagados,
-          ventasPendientes: ventasPendientes.length,
-          ingresosPendientes,
-          ticketPromedio,
-          tasaConversion,
-          tiempoPromedioCierre,
-          valorPromedioOportunidad,
-          oportunidadesActivas,
-          oportunidadesCerradas,
-          oportunidadesPerdidas,
-          valorTotalOportunidades,
-          totalPresupuestos,
-          presupuestosEnviados,
-          presupuestosAceptados,
-          presupuestosRechazados,
-          valorTotalPresupuestos,
-          tasaAceptacionPresupuestos,
-          valorPonderadoPipeline: valorPonderadoPipelineVal,
-          oportunidadesAlertaCritica,
-          oportunidadesConAlertaProxima
-        })
       } else {
         console.error('Error cargando ventas:', ventasResponse.error)
         setVentas([])
         setVentasFiltradas([])
-        setEstadisticas({
-          totalVentas: 0,
-          totalIngresos: 0,
-          ventasPagadas: 0,
-          ingresosPagados: 0,
-          ventasPendientes: 0,
-          ingresosPendientes: 0,
-          ticketPromedio: 0,
-          tasaConversion: 0,
-          tiempoPromedioCierre: 0,
-          valorPromedioOportunidad: 0,
-          oportunidadesActivas: 0,
-          oportunidadesCerradas: 0,
-          oportunidadesPerdidas: 0,
-          valorTotalOportunidades: 0,
-          totalPresupuestos: 0,
-          presupuestosEnviados: 0,
-          presupuestosAceptados: 0,
-          presupuestosRechazados: 0,
-          valorTotalPresupuestos: 0,
-          tasaAceptacionPresupuestos: 0,
-          valorPonderadoPipeline: 0,
-          oportunidadesAlertaCritica: 0,
-          oportunidadesConAlertaProxima: 0
-        })
       }
       
       // Cargar presupuestos de ventas presenciales
@@ -931,27 +803,6 @@ const CRMVentasPage = () => {
         // Por ahora usamos todos, pero se puede filtrar por algún campo que identifique ventas presenciales
         setPresupuestos(presupuestosResponse.data)
         setPresupuestosFiltrados(presupuestosResponse.data)
-        
-        // Calcular estadísticas de presupuestos
-        totalPresupuestos = presupuestosResponse.data.length
-        presupuestosEnviados = presupuestosResponse.data.filter(p => p.estado === 'enviado').length
-        presupuestosAceptados = presupuestosResponse.data.filter(p => p.estado === 'aceptado').length
-        presupuestosRechazados = presupuestosResponse.data.filter(p => p.estado === 'rechazado').length
-        valorTotalPresupuestos = presupuestosResponse.data.reduce((sum, p) => sum + (p.precio_total || 0), 0)
-        tasaAceptacionPresupuestos = (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados) > 0 
-          ? (presupuestosAceptados / (presupuestosEnviados + presupuestosAceptados + presupuestosRechazados)) * 100 
-          : 0
-        
-        // Actualizar estadísticas con datos de presupuestos
-        setEstadisticas(prev => ({
-          ...prev,
-          totalPresupuestos,
-          presupuestosEnviados,
-          presupuestosAceptados,
-          presupuestosRechazados,
-          valorTotalPresupuestos,
-          tasaAceptacionPresupuestos
-        }))
       } else {
         console.error('Error cargando presupuestos:', presupuestosResponse.error)
         setPresupuestos([])
@@ -1139,7 +990,7 @@ const CRMVentasPage = () => {
     // Filtro por fecha desde
     if (fechaDesdePresupuesto) {
       filtrados = filtrados.filter(p => {
-        const fechaCreacion = p.fecha_creacion?.split('T')[0] || ''
+        const fechaCreacion = isoToArgentinaDateKey(p.fecha_creacion || '')
         return fechaCreacion >= fechaDesdePresupuesto
       })
     }
@@ -1147,7 +998,7 @@ const CRMVentasPage = () => {
     // Filtro por fecha hasta
     if (fechaHastaPresupuesto) {
       filtrados = filtrados.filter(p => {
-        const fechaCreacion = p.fecha_creacion?.split('T')[0] || ''
+        const fechaCreacion = isoToArgentinaDateKey(p.fecha_creacion || '')
         return fechaCreacion <= fechaHastaPresupuesto
       })
     }
@@ -2014,23 +1865,15 @@ const CRMVentasPage = () => {
             </div>
           </div>
           <div className="header-actions">
+            <button type="button" className="btn-primary" onClick={() => setShowVentaRapida(true)}>
+              Venta
+            </button>
             <button className="btn-secondary" onClick={() => navigate('/')}>
               ← Volver al Tablero
             </button>
             {activeTab === 'oportunidades' && (
               <button className="btn-primary" onClick={handleCrearOportunidad}>
                 ➕ Nueva Oportunidad
-              </button>
-            )}
-            {activeTab === 'presupuestos' && (
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  setOportunidadParaPresupuesto(null)
-                  setMostrarModalPresupuesto(true)
-                }}
-              >
-                ➕ Nuevo Presupuesto
               </button>
             )}
             <button
@@ -2092,218 +1935,75 @@ const CRMVentasPage = () => {
           </div>
         </div>
 
-        {/* Estadísticas Rápidas */}
-        <div className="metricas-grid metricas-grid--strip">
-          <div className="metrica-card" style={{ borderLeft: '4px solid #3b82f6' }}>
-            <div className="metrica-icon">💰</div>
-            <div className="metrica-content">
-              <h3>Total Ingresos</h3>
-              <p className="metrica-valor">${estadisticas.totalIngresos.toLocaleString()}</p>
-              <p className="metrica-subtitle">{estadisticas.totalVentas} ventas</p>
-            </div>
-          </div>
-          <div className="metrica-card" style={{ borderLeft: '4px solid #10b981' }}>
-            <div className="metrica-icon">✅</div>
-            <div className="metrica-content">
-              <h3>Ingresos Pagados</h3>
-              <p className="metrica-valor">${estadisticas.ingresosPagados.toLocaleString()}</p>
-              <p className="metrica-subtitle">{estadisticas.ventasPagadas} ventas</p>
-            </div>
-          </div>
-          <div className="metrica-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-            <div className="metrica-icon">⏳</div>
-            <div className="metrica-content">
-              <h3>Ingresos Pendientes</h3>
-              <p className="metrica-valor">${estadisticas.ingresosPendientes.toLocaleString()}</p>
-              <p className="metrica-subtitle">{estadisticas.ventasPendientes} ventas</p>
-            </div>
-          </div>
-          <div className="metrica-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
-            <div className="metrica-icon">📊</div>
-            <div className="metrica-content">
-              <h3>Ticket Promedio</h3>
-              <p className="metrica-valor">${estadisticas.ticketPromedio.toLocaleString('es-AR', { maximumFractionDigits: 2 })}</p>
-              <p className="metrica-subtitle">Por venta</p>
-            </div>
-          </div>
-          {activeTab === 'oportunidades' && (
-            <>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #06b6d4' }}>
-                <div className="metrica-icon">🎯</div>
-                <div className="metrica-content">
-                  <h3>Tasa de Conversión</h3>
-                  <p className="metrica-valor">{estadisticas.tasaConversion.toFixed(1)}%</p>
-                  <p className="metrica-subtitle">{estadisticas.oportunidadesCerradas} cerradas</p>
-                </div>
-              </div>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #ec4899' }}>
-                <div className="metrica-icon">⏱️</div>
-                <div className="metrica-content">
-                  <h3>Tiempo Promedio</h3>
-                  <p className="metrica-valor">{estadisticas.tiempoPromedioCierre.toFixed(0)} días</p>
-                  <p className="metrica-subtitle">Cierre de oportunidades</p>
-                </div>
-              </div>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-                <div className="metrica-icon">💎</div>
-                <div className="metrica-content">
-                  <h3>Valor Promedio</h3>
-                  <p className="metrica-valor">${estadisticas.valorPromedioOportunidad.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  <p className="metrica-subtitle">Por oportunidad</p>
-                </div>
-              </div>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #10b981' }}>
-                <div className="metrica-icon">📈</div>
-                <div className="metrica-content">
-                  <h3>Oportunidades Activas</h3>
-                  <p className="metrica-valor">{estadisticas.oportunidadesActivas}</p>
-                  <p className="metrica-subtitle">En proceso</p>
-                </div>
-              </div>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #c4b5fd' }}>
-                <div className="metrica-icon">⚖️</div>
-                <div className="metrica-content">
-                  <h3>Pipeline ponderado</h3>
-                  <p className="metrica-valor">
-                    $
-                    {estadisticas.valorPonderadoPipeline.toLocaleString('es-AR', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}
-                  </p>
-                  <p className="metrica-subtitle">Activas: probabilidad × valor</p>
-                </div>
-              </div>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #f43f5e' }}>
-                <div className="metrica-icon">🔔</div>
-                <div className="metrica-content">
-                  <h3>Alertas seguimiento</h3>
-                  <p className="metrica-valor">
-                    {estadisticas.oportunidadesAlertaCritica} / {estadisticas.oportunidadesConAlertaProxima}
-                  </p>
-                  <p className="metrica-subtitle">Urgentes / próximos 7 días</p>
-                </div>
-              </div>
-            </>
-          )}
-          {activeTab === 'presupuestos' && (
-            <>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #06b6d4' }}>
-                <div className="metrica-icon">📄</div>
-                <div className="metrica-content">
-                  <h3>Total Presupuestos</h3>
-                  <p className="metrica-valor">{estadisticas.totalPresupuestos}</p>
-                  <p className="metrica-subtitle">Creados</p>
-                </div>
-              </div>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #3b82f6' }}>
-                <div className="metrica-icon">📤</div>
-                <div className="metrica-content">
-                  <h3>Enviados</h3>
-                  <p className="metrica-valor">{estadisticas.presupuestosEnviados}</p>
-                  <p className="metrica-subtitle">A clientes</p>
-                </div>
-              </div>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #10b981' }}>
-                <div className="metrica-icon">✅</div>
-                <div className="metrica-content">
-                  <h3>Aceptados</h3>
-                  <p className="metrica-valor">{estadisticas.presupuestosAceptados}</p>
-                  <p className="metrica-subtitle">Aprobados</p>
-                </div>
-              </div>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
-                <div className="metrica-icon">💰</div>
-                <div className="metrica-content">
-                  <h3>Valor Total</h3>
-                  <p className="metrica-valor">${estadisticas.valorTotalPresupuestos.toLocaleString()}</p>
-                  <p className="metrica-subtitle">En presupuestos</p>
-                </div>
-              </div>
-              <div className="metrica-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-                <div className="metrica-icon">📊</div>
-                <div className="metrica-content">
-                  <h3>Tasa Aceptación</h3>
-                  <p className="metrica-valor">{estadisticas.tasaAceptacionPresupuestos.toFixed(1)}%</p>
-                  <p className="metrica-subtitle">De enviados</p>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </header>
-
-      <section className="ventas-essential-actions" aria-label="Acciones principales">
+      <div className="crm-tabs" role="tablist" aria-label="Secciones de Ventas">
         <button
           type="button"
-          className="ventas-action-btn ventas-action-btn--primary"
-          onClick={() => setShowVentaRapida(true)}
+          role="tab"
+          id="crm-tab-ventas"
+          aria-selected={activeTab === 'ventas'}
+          className={`tab-button ${activeTab === 'ventas' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ventas')}
         >
-          <span className="ventas-action-btn__icon" aria-hidden>
-            💰
-          </span>
-          <span className="ventas-action-btn__text">
-            <strong>Venta</strong>
-            <small>Realizar una venta</small>
-          </span>
+          💰 Ventas ({ventasFiltradas.length})
         </button>
         <button
           type="button"
-          className="ventas-action-btn"
+          role="tab"
+          id="crm-tab-lista-precios"
+          aria-selected={activeTab === 'lista-precios'}
+          className={`tab-button ${activeTab === 'lista-precios' ? 'active' : ''}`}
           onClick={() => setActiveTab('lista-precios')}
         >
-          <span className="ventas-action-btn__icon" aria-hidden>
-            📋
-          </span>
-          <span className="ventas-action-btn__text">
-            <strong>Lista de precios</strong>
-            <small>Listas 1 y 2</small>
-          </span>
+          📋 Lista de precios
         </button>
         <button
           type="button"
-          className="ventas-action-btn"
-          onClick={() => {
-            setActiveTab('presupuestos')
-            setOportunidadParaPresupuesto(null)
-            setMostrarModalPresupuesto(true)
-          }}
+          role="tab"
+          id="crm-tab-presupuestos"
+          aria-selected={activeTab === 'presupuestos'}
+          className={`tab-button ${activeTab === 'presupuestos' ? 'active' : ''}`}
+          onClick={() => setActiveTab('presupuestos')}
         >
-          <span className="ventas-action-btn__icon" aria-hidden>
-            📄
-          </span>
-          <span className="ventas-action-btn__text">
-            <strong>Presupuesto</strong>
-            <small>Nuevo presupuesto</small>
-          </span>
+          📄 Presupuestos ({presupuestosFiltrados.length})
         </button>
         <button
           type="button"
-          className="ventas-action-btn"
-          onClick={() => navigate(CLIENTES_AGREGAR)}
+          role="tab"
+          id="crm-tab-oportunidades"
+          aria-selected={activeTab === 'oportunidades'}
+          className={`tab-button ${activeTab === 'oportunidades' ? 'active' : ''}`}
+          onClick={() => setActiveTab('oportunidades')}
         >
-          <span className="ventas-action-btn__icon" aria-hidden>
-            👤
-          </span>
-          <span className="ventas-action-btn__text">
-            <strong>Crear cuenta</strong>
-            <small>Nuevas cuentas</small>
-          </span>
+          🎯 Oportunidades ({oportunidadesFiltradas.length}
+          {chatLeadsSinLeer > 0 ? ` · ${chatLeadsSinLeer} chat` : ''})
         </button>
-        <button
-          type="button"
-          className="ventas-action-btn"
-          onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
-        >
-          <span className="ventas-action-btn__icon" aria-hidden>
-            📒
-          </span>
-          <span className="ventas-action-btn__text">
-            <strong>Cuenta corriente</strong>
-            <small>Cobranzas y saldos</small>
-          </span>
-        </button>
-      </section>
+        {vistaPropia ? (
+          <>
+            <button
+              type="button"
+              role="tab"
+              id="crm-tab-arqueos"
+              aria-selected={activeTab === 'arqueos'}
+              className={`tab-button ${activeTab === 'arqueos' ? 'active' : ''}`}
+              onClick={() => setActiveTab('arqueos')}
+            >
+              🧮 Mis arqueos
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="crm-tab-egresos"
+              aria-selected={activeTab === 'egresos'}
+              className={`tab-button ${activeTab === 'egresos' ? 'active' : ''}`}
+              onClick={() => setActiveTab('egresos')}
+            >
+              📤 Mis egresos
+            </button>
+          </>
+        ) : null}
+      </div>
+
+      </header>
 
       {activeTab !== 'ventas' &&
         activeTab !== 'lista-precios' &&
@@ -2472,75 +2172,6 @@ const CRMVentasPage = () => {
         )}
       </div>
       )}
-
-      {/* Tabs */}
-      <div className="crm-tabs" role="tablist" aria-label="Secciones de Ventas">
-        <button
-          type="button"
-          role="tab"
-          id="crm-tab-ventas"
-          aria-selected={activeTab === 'ventas'}
-          className={`tab-button ${activeTab === 'ventas' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ventas')}
-        >
-          💰 Ventas ({ventasFiltradas.length})
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="crm-tab-lista-precios"
-          aria-selected={activeTab === 'lista-precios'}
-          className={`tab-button ${activeTab === 'lista-precios' ? 'active' : ''}`}
-          onClick={() => setActiveTab('lista-precios')}
-        >
-          📋 Lista de precios
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="crm-tab-presupuestos"
-          aria-selected={activeTab === 'presupuestos'}
-          className={`tab-button ${activeTab === 'presupuestos' ? 'active' : ''}`}
-          onClick={() => setActiveTab('presupuestos')}
-        >
-          📄 Presupuestos ({presupuestosFiltrados.length})
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="crm-tab-oportunidades"
-          aria-selected={activeTab === 'oportunidades'}
-          className={`tab-button ${activeTab === 'oportunidades' ? 'active' : ''}`}
-          onClick={() => setActiveTab('oportunidades')}
-        >
-          🎯 Oportunidades ({oportunidadesFiltradas.length}
-          {chatLeadsSinLeer > 0 ? ` · ${chatLeadsSinLeer} chat` : ''})
-        </button>
-        {vistaPropia ? (
-          <>
-            <button
-              type="button"
-              role="tab"
-              id="crm-tab-arqueos"
-              aria-selected={activeTab === 'arqueos'}
-              className={`tab-button ${activeTab === 'arqueos' ? 'active' : ''}`}
-              onClick={() => setActiveTab('arqueos')}
-            >
-              🧮 Mis arqueos
-            </button>
-            <button
-              type="button"
-              role="tab"
-              id="crm-tab-egresos"
-              aria-selected={activeTab === 'egresos'}
-              className={`tab-button ${activeTab === 'egresos' ? 'active' : ''}`}
-              onClick={() => setActiveTab('egresos')}
-            >
-              📤 Mis egresos
-            </button>
-          </>
-        ) : null}
-      </div>
 
       {activeTab === 'lista-precios' && (
         <div className="crm-section" role="tabpanel" aria-labelledby="crm-tab-lista-precios">
@@ -3432,7 +3063,7 @@ const CRMVentasPage = () => {
                       >
                         <div className="venta-pipeline-card__top">
                           <span className="venta-pipeline-card__client">
-                            {presupuesto.cliente_nombre || 'Cliente'}
+                            {nombreSinRepeticion(presupuesto.cliente_nombre) || 'Cliente'}
                           </span>
                           <span className="venta-pipeline-card__amount">
                             ${Number(presupuesto.precio_total || 0).toLocaleString()}

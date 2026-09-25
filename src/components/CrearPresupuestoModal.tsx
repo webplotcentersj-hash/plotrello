@@ -17,6 +17,11 @@ import {
 import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
 import {
+  etiquetaCantidadUnidad,
+  etiquetaUnidadCorta,
+  normalizarUnidadPrecio
+} from '../utils/unidadPrecio'
+import {
   leerVentasPresupuestoDraft,
   limpiarVentasPresupuestoDraft
 } from '../utils/ventasPresupuestoDraft'
@@ -44,6 +49,7 @@ interface ItemPresupuesto {
   precio_unitario: number
   descuento: number
   precio_total: number
+  unidad_medida?: string
   observaciones?: string
 }
 
@@ -126,7 +132,8 @@ const CrearPresupuestoModal = ({
         cantidad: item.cantidad,
         precio_unitario: item.precio_unitario,
         descuento: item.descuento,
-        precio_total: item.precio_total
+        precio_total: item.precio_total,
+        unidad_medida: item.unidad_medida
       }))
     )
     setObservacionesInternas((prev) => {
@@ -192,7 +199,7 @@ const CrearPresupuestoModal = ({
     const q = busquedaArticulo.trim().toLowerCase()
     return catalogoArticulos.filter((a) => {
       if (categoriaArticulo !== 'todas' && (a.categoria || '') !== categoriaArticulo) return false
-      if (!q) return false
+      if (!q) return true
       const tokens = q.split(/\s+/).filter(Boolean)
       const haystack = [a.nombre, a.codigo, a.descripcion, a.categoria]
         .filter(Boolean)
@@ -212,7 +219,12 @@ const CrearPresupuestoModal = ({
         const precio = resolvePrecioLista(art, tipoListaPrecio, ajustesPrecios)
         if (precio == null) return item
         const precioTotal = precio * item.cantidad - (item.descuento || 0)
-        return { ...item, precio_unitario: precio, precio_total: precioTotal }
+        return {
+          ...item,
+          precio_unitario: precio,
+          precio_total: precioTotal,
+          unidad_medida: item.unidad_medida || normalizarUnidadPrecio(art.unidad_medida)
+        }
       })
     )
   }, [tipoListaPrecio, catalogoArticulos, ajustesPrecios])
@@ -254,6 +266,7 @@ const CrearPresupuestoModal = ({
       precio_unitario: precio,
       descuento: 0,
       precio_total: precio,
+      unidad_medida: normalizarUnidadPrecio(articulo.unidad_medida),
       observaciones:
         stock != null && stock <= 0 && articulo.controla_stock !== false
           ? 'Stock agotado'
@@ -365,7 +378,7 @@ const CrearPresupuestoModal = ({
       const itemsParaAPI = itemsPresupuesto.map((item) => ({
         id_articulo_stock: item.id_articulo_stock,
         codigo_articulo: item.codigo_articulo,
-        descripcion: item.descripcion,
+        descripcion: `${item.descripcion} (${etiquetaUnidadCorta(item.unidad_medida)})`,
         cantidad: item.cantidad,
         precio_unitario: item.precio_unitario,
         descuento: item.descuento || 0,
@@ -375,7 +388,7 @@ const CrearPresupuestoModal = ({
 
       const presupuestoResponse = await apiService.crearPresupuestoVenta({
         id_cliente: cliente.id,
-        cliente_nombre: cliente.nombre,
+        cliente_nombre: nombreCompletoCliente(cliente),
         cliente_telefono: cliente.telefono || undefined,
         cliente_email: cliente.email || undefined,
         cliente_dni_cuit: cliente.dni_cuit || undefined,
@@ -507,9 +520,10 @@ const CrearPresupuestoModal = ({
           <div className="modal-body">
             <div className="form-section">
               <h3>👤 Cliente</h3>
+              {!clienteSeleccionado && (
               <div className="cliente-toolbar">
                 <label>Buscar cliente</label>
-                {!crearNuevoCliente && !clienteSeleccionado && (
+                {!crearNuevoCliente && (
                   <button
                     type="button"
                     className="btn-link"
@@ -526,27 +540,22 @@ const CrearPresupuestoModal = ({
                   </button>
                 )}
               </div>
+              )}
 
-              {!crearNuevoCliente && (
-                <div
-                  className={`cliente-search-container${clienteSeleccionado ? ' cliente-search-container--selected' : ''}`}
-                >
+              {!crearNuevoCliente && !clienteSeleccionado && (
+                <div className="cliente-search-container">
                   <input
                     type="text"
                     className="form-input form-input--search"
                     placeholder="Nombre, apellido, DNI, teléfono o empresa…"
                     value={busquedaCliente}
-                    onChange={(e) => {
-                      setBusquedaCliente(e.target.value)
-                      setClienteSeleccionado(null)
-                    }}
-                    readOnly={!!clienteSeleccionado}
+                    onChange={(e) => setBusquedaCliente(e.target.value)}
                     autoComplete="off"
                   />
-                  {buscandoClientes && !clienteSeleccionado && (
+                  {buscandoClientes && (
                     <span style={{ position: 'absolute', right: 12, top: 12 }}>⏳</span>
                   )}
-                  {clientesEncontrados.length > 0 && !clienteSeleccionado && (
+                  {clientesEncontrados.length > 0 && (
                     <div className="dropdown-results">
                       {clientesEncontrados.map((cliente) => (
                         <div
@@ -702,41 +711,52 @@ const CrearPresupuestoModal = ({
                 )}
               </div>
 
-              {loadingCatalogo ? (
-                <p className="lista-precios-empty">Cargando catálogo…</p>
-              ) : busquedaArticulo.trim() ? (
-                <div className="lista-precios-panel">
-                  {articulosFiltrados.length === 0 ? (
-                    <p className="lista-precios-empty">Sin resultados para «{busquedaArticulo}»</p>
-                  ) : (
-                    articulosFiltrados.slice(0, 40).map((articulo) => {
+              <div className="lista-precios-panel">
+                {loadingCatalogo ? (
+                  <p className="lista-precios-empty">Cargando catálogo…</p>
+                ) : articulosFiltrados.length === 0 ? (
+                  <p className="lista-precios-empty">
+                    {busquedaArticulo.trim() || categoriaArticulo !== 'todas'
+                      ? 'Sin resultados. Probá con otras palabras o rubro.'
+                      : 'No hay artículos en la lista de precios.'}
+                  </p>
+                ) : (
+                  <div className="lista-precios-scroll">
+                    {articulosFiltrados.slice(0, 80).map((articulo) => {
                       const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+                      const yaAgregado = itemsPresupuesto.some(
+                        (item) => item.id_articulo_empresa === articulo.id
+                      )
                       return (
-                        <div
+                        <button
                           key={articulo.id}
-                          className="lista-precios-row"
+                          type="button"
+                          className={`lista-precios-row${yaAgregado ? ' lista-precios-row--added' : ''}`}
+                          disabled={precio == null || yaAgregado}
                           onClick={() => agregarArticulo(articulo)}
                         >
-                          <div>
-                            <div className="lista-precios-row__nombre">{articulo.nombre}</div>
-                            <div className="lista-precios-row__meta">
-                              {articulo.codigo && `Cód. ${articulo.codigo}`}
-                              {articulo.categoria && ` · ${articulo.categoria}`}
-                            </div>
-                          </div>
+                          <span className="lista-precios-row__codigo" title={articulo.codigo || ''}>
+                            {articulo.codigo || '—'}
+                          </span>
+                          <span className="lista-precios-row__nombre" title={articulo.nombre}>
+                            {articulo.nombre}
+                          </span>
                           <span className="lista-precios-row__precio">
                             {precio != null
-                              ? `$${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                              ? `$${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })} / ${etiquetaUnidadCorta(articulo.unidad_medida)}`
                               : '—'}
                           </span>
-                        </div>
+                        </button>
                       )
-                    })
-                  )}
-                </div>
-              ) : (
-                <p className="lista-precios-empty">Escribí para buscar en la lista de precios</p>
-              )}
+                    })}
+                    {articulosFiltrados.length > 80 && (
+                      <p className="lista-precios-more">
+                        Mostrando 80 de {articulosFiltrados.length}. Acotá la búsqueda para ver más.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {itemsPresupuesto.length > 0 && (
                 <div className="items-list presupuesto-items-list">
@@ -760,7 +780,7 @@ const CrearPresupuestoModal = ({
                       </div>
                       <div className="item-controls">
                         <div className="item-control">
-                          <label>Cantidad</label>
+                          <label>{etiquetaCantidadUnidad(item.unidad_medida)}</label>
                           <input
                             type="number"
                             className="form-input-small"
@@ -773,7 +793,7 @@ const CrearPresupuestoModal = ({
                           />
                         </div>
                         <div className="item-control">
-                          <label>Precio unit.</label>
+                          <label>Precio / {etiquetaUnidadCorta(item.unidad_medida)}</label>
                           <input
                             type="number"
                             className="form-input-small"

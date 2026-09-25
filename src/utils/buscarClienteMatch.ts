@@ -20,9 +20,32 @@ export function normalizarTexto(value: string | null | undefined): string {
     .trim()
 }
 
+/** Quita un apellido pegado dos veces: "Alejandro Chavez Chavez" → "Alejandro Chavez". */
+export function nombreSinRepeticion(texto: string | null | undefined): string {
+  const parts = String(texto || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  while (
+    parts.length >= 2 &&
+    normalizarTexto(parts[parts.length - 1]) === normalizarTexto(parts[parts.length - 2])
+  ) {
+    parts.pop()
+  }
+  return parts.join(' ')
+}
+
 export function nombreCompletoCliente(c: ClienteRecord): string {
-  const n = [c.nombre, c.apellido].filter(Boolean).join(' ').trim()
-  return n || c.nombre || '—'
+  const nombre = (c.nombre || '').trim()
+  const apellido = (c.apellido || '').trim()
+  if (!nombre && !apellido) return '—'
+  const nombreNorm = normalizarTexto(nombre)
+  const apellidoNorm = normalizarTexto(apellido)
+  const completo =
+    !apellido || nombreNorm === apellidoNorm || nombreNorm.endsWith(` ${apellidoNorm}`)
+      ? nombre
+      : `${nombre} ${apellido}`.trim()
+  return nombreSinRepeticion(completo) || '—'
 }
 
 export function tokensNombre(texto: string): string[] {

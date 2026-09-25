@@ -207,31 +207,60 @@
 }
 
 .presupuesto-venta-modal .lista-precios-panel {
-  max-height: 200px;
-  overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.5);
+  overflow: hidden;
+}
+
+.presupuesto-venta-modal .lista-precios-scroll {
+  max-height: 280px;
+  overflow-y: auto;
 }
 
 .presupuesto-venta-modal .lista-precios-row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(72px, 96px) minmax(0, 1fr) auto;
+  justify-content: initial;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 8px 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: inherit;
+  text-align: left;
   cursor: pointer;
-  color: #e2e8f0;
 }
 
-.presupuesto-venta-modal .lista-precios-row:hover {
+.presupuesto-venta-modal .lista-precios-row:hover:not(:disabled) {
   background: rgba(59, 130, 246, 0.12);
+}
+
+.presupuesto-venta-modal .lista-precios-row:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.presupuesto-venta-modal .lista-precios-row--added {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.presupuesto-venta-modal .lista-precios-row__codigo {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .presupuesto-venta-modal .lista-precios-row__nombre {
   font-weight: 600;
   color: #f8fafc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .presupuesto-venta-modal .lista-precios-row__meta {
@@ -243,6 +272,13 @@
   font-weight: 700;
   color: #34d399;
   white-space: nowrap;
+}
+
+.presupuesto-venta-modal .lista-precios-more {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  color: #94a3b8;
 }
 
 .presupuesto-venta-modal .lista-precios-empty {

@@ -201,14 +201,43 @@ const ReportesVentasPage = () => {
       return acc
     }, {} as Record<string, { cantidad: number; ingresos: number }>)
 
-    const topItems = Object.entries(itemsVendidos)
+    const topItemsAll = Object.entries(itemsVendidos)
       .map(([nombre, datos]) => ({
         nombre,
         cantidad: Number(datos.cantidad),
         ingresos: Number(datos.ingresos)
       }))
       .sort((a, b) => b.ingresos - a.ingresos)
-      .slice(0, 10)
+
+    const topItems = topItemsAll.slice(0, 10)
+    const ingresosArticulos = topItemsAll.reduce((sum, item) => sum + item.ingresos, 0)
+    const unidadesVendidas = topItemsAll.reduce((sum, item) => sum + item.cantidad, 0)
+
+    const porOperario = ventas.reduce((acc, v) => {
+      const nombre = v.nombre_vendedor?.trim() || 'Sin vendedor'
+      if (!acc[nombre]) {
+        acc[nombre] = { unidades: 0, ingresos: 0, ventas: 0, articulos: new Set<string>() }
+      }
+      acc[nombre].ventas += 1
+      for (const item of v.items ?? []) {
+        const qty = Number(item.cantidad) || 0
+        acc[nombre].unidades += qty
+        acc[nombre].ingresos += Number(item.precio_total) || 0
+        const key = (item.descripcion || item.codigo_articulo || '').trim()
+        if (key) acc[nombre].articulos.add(key)
+      }
+      return acc
+    }, {} as Record<string, { unidades: number; ingresos: number; ventas: number; articulos: Set<string> }>)
+
+    const articulosPorOperario = Object.entries(porOperario)
+      .map(([nombre, datos]) => ({
+        nombre,
+        unidades: datos.unidades,
+        ingresos: datos.ingresos,
+        ventas: datos.ventas,
+        articulos: datos.articulos.size
+      }))
+      .sort((a, b) => b.unidades - a.unidades || b.ingresos - a.ingresos)
 
     return {
       totalVentas,
@@ -227,7 +256,11 @@ const ReportesVentasPage = () => {
       topVendedores,
       datosPorSemana,
       topClientes,
-      topItems
+      topItems,
+      articulosDistintos: topItemsAll.length,
+      ingresosArticulos,
+      unidadesVendidas,
+      articulosPorOperario
     }
   }
 
@@ -420,19 +453,126 @@ const ReportesVentasPage = () => {
           </ResponsiveContainer>
         </div>
 
-        <div className="grafico-card">
-          <h3>Top 10 Artículos Más Vendidos</h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={estadisticas.topItems} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" />
-              <YAxis dataKey="nombre" type="category" width={150} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="ingresos" fill="#f59e0b" name="Ingresos ($)" />
-              <Bar dataKey="cantidad" fill="#ef4444" name="Cantidad" />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="grafico-card grafico-card--articulos">
+          <div className="articulos-rank__head">
+            <div>
+              <h3>Artículos por operario</h3>
+              <p>Unidades vendidas por quien registró la venta, en el período</p>
+            </div>
+          </div>
+          {estadisticas.articulosPorOperario.length === 0 ? (
+            <p className="articulos-rank__empty">No hay ventas en este período.</p>
+          ) : (
+            <ol className="articulos-rank">
+              {estadisticas.articulosPorOperario.map((op) => {
+                const maxUnidades = estadisticas.articulosPorOperario[0]?.unidades || 1
+                return (
+                  <li key={op.nombre} className="articulos-rank__row articulos-rank__row--operario">
+                    <div className="articulos-rank__main">
+                      <div className="articulos-rank__name" title={op.nombre}>{op.nombre}</div>
+                      <div className="articulos-rank__bar" aria-hidden>
+                        <span style={{ width: `${Math.max(4, (op.unidades / maxUnidades) * 100)}%` }} />
+                      </div>
+                    </div>
+                    <div className="articulos-rank__stat">
+                      <span>Ventas</span>
+                      <strong>{op.ventas}</strong>
+                    </div>
+                    <div className="articulos-rank__stat">
+                      <span>Artículos distintos</span>
+                      <strong>{op.articulos}</strong>
+                    </div>
+                    <div className="articulos-rank__stat articulos-rank__stat--money">
+                      <span>Unidades</span>
+                      <strong>{op.unidades.toLocaleString('es-AR', { maximumFractionDigits: 2 })}</strong>
+                    </div>
+                    <div className="articulos-rank__stat">
+                      <span>Ingresos</span>
+                      <strong>
+                        ${op.ingresos.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                      </strong>
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+        </div>
+
+        <div className="grafico-card grafico-card--articulos">
+          <div className="articulos-rank__head">
+            <div>
+              <h3>Artículos más vendidos</h3>
+              <p>Top 10 por ingresos en el período</p>
+            </div>
+          </div>
+          <div className="articulos-kpis">
+            <div className="articulos-kpi">
+              <span>Artículos distintos</span>
+              <strong>{estadisticas.articulosDistintos}</strong>
+            </div>
+            <div className="articulos-kpi">
+              <span>Unidades</span>
+              <strong>
+                {estadisticas.unidadesVendidas.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+              </strong>
+            </div>
+            <div className="articulos-kpi">
+              <span>Ingresos en artículos</span>
+              <strong>
+                ${estadisticas.ingresosArticulos.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </strong>
+            </div>
+            <div className="articulos-kpi">
+              <span>Líder del período</span>
+              <strong>
+                {estadisticas.ingresosArticulos > 0 && estadisticas.topItems[0]
+                  ? `${((estadisticas.topItems[0].ingresos / estadisticas.ingresosArticulos) * 100).toFixed(1)}%`
+                  : '—'}
+              </strong>
+            </div>
+          </div>
+          {estadisticas.topItems.length === 0 ? (
+            <p className="articulos-rank__empty">No hay artículos vendidos en este período.</p>
+          ) : (
+            <ol className="articulos-rank">
+              {estadisticas.topItems.map((item, index) => {
+                const maxIngresos = estadisticas.topItems[0]?.ingresos || 1
+                const share = estadisticas.ingresosArticulos > 0
+                  ? (item.ingresos / estadisticas.ingresosArticulos) * 100
+                  : 0
+                const promedio = item.cantidad > 0 ? item.ingresos / item.cantidad : 0
+                return (
+                  <li key={item.nombre} className="articulos-rank__row">
+                    <span className="articulos-rank__pos">{index + 1}</span>
+                    <div className="articulos-rank__main">
+                      <div className="articulos-rank__name" title={item.nombre}>{item.nombre}</div>
+                      <div className="articulos-rank__bar" aria-hidden>
+                        <span style={{ width: `${Math.max(4, (item.ingresos / maxIngresos) * 100)}%` }} />
+                      </div>
+                    </div>
+                    <div className="articulos-rank__stat">
+                      <span>Cantidad</span>
+                      <strong>{item.cantidad.toLocaleString('es-AR', { maximumFractionDigits: 2 })}</strong>
+                    </div>
+                    <div className="articulos-rank__stat">
+                      <span>Precio prom.</span>
+                      <strong>
+                        ${promedio.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                      </strong>
+                    </div>
+                    <div className="articulos-rank__stat articulos-rank__stat--money">
+                      <span>Ingresos</span>
+                      <strong>
+                        ${item.ingresos.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+                    <div className="articulos-rank__share">{share.toFixed(1)}%</div>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
         </div>
       </div>
     </div>

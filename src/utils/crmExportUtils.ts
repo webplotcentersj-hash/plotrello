@@ -15,14 +15,6 @@ export function exportarVentasPDF(ventas: Venta[], _filtros?: { fechaDesde?: str
   const lineHeight = 7
   let yPos = margin
 
-  // Función para agregar nueva página si es necesario
-  const checkNewPage = (requiredSpace: number): void => {
-    if (yPos + requiredSpace > pageHeight - margin) {
-      doc.addPage()
-      yPos = margin
-    }
-  }
-
   // Título
   doc.setFontSize(18)
   doc.setTextColor(59, 130, 246) // Azul
@@ -82,71 +74,93 @@ export function exportarVentasPDF(ventas: Venta[], _filtros?: { fechaDesde?: str
   doc.text(`Ingresos Pendientes: $${ingresosPendientes.toLocaleString('es-AR', { minimumFractionDigits: 2 })} (${ventasPendientes.length} ventas)`, margin, yPos)
   yPos += lineHeight * 2
 
-  // Tabla de ventas
+  // Tabla de ventas. El número (VENT-20260925-0004) no entra en 25 mm y se montaba sobre la fecha.
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0, 0, 0)
   doc.text('Detalle de Ventas', margin, yPos)
   yPos += lineHeight * 1.5
 
-  // Encabezados de tabla
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  const colWidths = [25, 35, 50, 25, 30, 25, 30]
-  const headers = ['N° Venta', 'Fecha', 'Cliente', 'Total', 'Método Pago', 'Estado', 'Vendedor']
-  let xPos = margin
-  headers.forEach((header, index) => {
-    doc.text(header, xPos, yPos)
-    xPos += colWidths[index]
-  })
-  yPos += lineHeight
-  doc.setDrawColor(200, 200, 200)
-  doc.line(margin, yPos, pageWidth - margin, yPos)
-  yPos += lineHeight * 0.5
+  const usable = pageWidth - margin * 2
+  const colWidths = [52, 26, 58, 32, 34, 24, 0]
+  colWidths[6] = usable - colWidths.slice(0, 6).reduce((sum, w) => sum + w, 0)
+  const headers = ['N° Venta', 'Fecha', 'Cliente', 'Total', 'Método de pago', 'Estado', 'Vendedor']
+  const rowHeight = 7
 
-  // Filas de datos
+  const textoEnColumna = (text: string, width: number): string => {
+    const limit = Math.max(6, width - 2)
+    if (doc.getTextWidth(text) <= limit) return text
+    const ellipsis = '…'
+    let cut = text
+    while (cut.length > 1 && doc.getTextWidth(`${cut}${ellipsis}`) > limit) {
+      cut = cut.slice(0, -1)
+    }
+    return `${cut}${ellipsis}`
+  }
+
+  const drawTableHeader = (): void => {
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setFillColor(241, 245, 249)
+    doc.setDrawColor(203, 213, 225)
+    doc.rect(margin, yPos - 4.5, usable, rowHeight, 'FD')
+    let x = margin
+    headers.forEach((header, index) => {
+      doc.setTextColor(15, 23, 42)
+      const label = textoEnColumna(header, colWidths[index])
+      if (index === 3) {
+        doc.text(label, x + colWidths[index] - 1.5, yPos, { align: 'right' })
+      } else {
+        doc.text(label, x + 1.5, yPos)
+      }
+      x += colWidths[index]
+    })
+    yPos += rowHeight
+  }
+
+  drawTableHeader()
+
   doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
   ventas.forEach((venta, index) => {
-    checkNewPage(lineHeight * 2)
-
-    if (index > 0 && yPos > pageHeight - margin - lineHeight * 3) {
+    if (yPos + rowHeight > pageHeight - margin) {
       doc.addPage()
       yPos = margin
-      // Redibujar encabezados
-      doc.setFont('helvetica', 'bold')
-      xPos = margin
-      headers.forEach((header, idx) => {
-        doc.text(header, xPos, yPos)
-        xPos += colWidths[idx]
-      })
-      yPos += lineHeight
-      doc.line(margin, yPos, pageWidth - margin, yPos)
-      yPos += lineHeight * 0.5
+      drawTableHeader()
       doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
     }
 
-    const fecha = venta.fecha_venta ? formatArgentinaDate(venta.fecha_venta) : '-'
-    const cliente = venta.cliente_nombre.length > 20 ? venta.cliente_nombre.substring(0, 17) + '...' : venta.cliente_nombre
-    const total = `$${venta.valor_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
-    const metodoPago = venta.metodo_pago || '-'
-    const estado = venta.estado_pago || '-'
-    const vendedor = venta.nombre_vendedor?.length > 15 ? venta.nombre_vendedor.substring(0, 12) + '...' : (venta.nombre_vendedor || '-')
+    if (index % 2 === 1) {
+      doc.setFillColor(248, 250, 252)
+      doc.rect(margin, yPos - 4.5, usable, rowHeight, 'F')
+    }
 
-    xPos = margin
-    doc.text(venta.numero_venta || '-', xPos, yPos)
-    xPos += colWidths[0]
-    doc.text(fecha, xPos, yPos)
-    xPos += colWidths[1]
-    doc.text(cliente, xPos, yPos)
-    xPos += colWidths[2]
-    doc.text(total, xPos, yPos)
-    xPos += colWidths[3]
-    doc.text(metodoPago, xPos, yPos)
-    xPos += colWidths[4]
-    doc.text(estado, xPos, yPos)
-    xPos += colWidths[5]
-    doc.text(vendedor, xPos, yPos)
+    const cells = [
+      venta.numero_venta || '-',
+      venta.fecha_venta ? formatArgentinaDate(venta.fecha_venta) : '-',
+      venta.cliente_nombre || '-',
+      `$${venta.valor_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`,
+      venta.metodo_pago || '-',
+      venta.estado_pago || '-',
+      venta.nombre_vendedor || '-'
+    ]
 
-    yPos += lineHeight * 1.2
+    doc.setTextColor(15, 23, 42)
+    let x = margin
+    cells.forEach((cell, col) => {
+      const label = textoEnColumna(String(cell), colWidths[col])
+      if (col === 3) {
+        doc.text(label, x + colWidths[col] - 1.5, yPos, { align: 'right' })
+      } else {
+        doc.text(label, x + 1.5, yPos)
+      }
+      x += colWidths[col]
+    })
+
+    doc.setDrawColor(226, 232, 240)
+    doc.line(margin, yPos + 2.2, margin + usable, yPos + 2.2)
+    yPos += rowHeight
   })
 
   // Pie de página
@@ -196,7 +210,7 @@ export function exportarVentasExcel(ventas: Venta[], _filtros?: { fechaDesde?: s
 
   // Ajustar ancho de columnas
   const colWidths = [
-    { wch: 15 }, // N° Venta
+    { wch: 22 }, // N° Venta
     { wch: 12 }, // Fecha
     { wch: 30 }, // Cliente
     { wch: 15 }, // Teléfono
