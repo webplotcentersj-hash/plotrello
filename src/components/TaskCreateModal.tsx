@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
-import type { Task, TeamMember, TaskStatus } from '../types/board'
+import type { Task, TaskStatus } from '../types/board'
 import type { ClienteRecord, MaterialRecord, SectorRecord, PedidoClienteRecord } from '../types/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { useAuth } from '../hooks/useAuth'
@@ -27,7 +27,6 @@ import {
 import './TaskEditModal.css'
 
 type TaskCreateModalProps = {
-  teamMembers: TeamMember[]
   sectores: SectorRecord[]
   materiales: MaterialRecord[]
   onClose: () => void
@@ -47,7 +46,6 @@ type LocalAttachment = {
 const PRIORITY_OPTIONS = ['Normal', 'Alta', 'Media', 'Baja']
 
 const TaskCreateModal = ({
-  teamMembers,
   sectores,
   materiales,
   onClose,

@@ -1671,7 +1671,6 @@ const BoardPage = ({
       {isCreateModalOpen && (
         <Suspense fallback={null}>
           <TaskCreateModal
-            teamMembers={teamMembers}
             sectores={sectores}
             materiales={materialesCatalog}
             onClose={() => setIsCreateModalOpen(false)}
