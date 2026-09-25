@@ -14940,6 +14940,7 @@ class ApiService {
       precio_lista_3?: number | null
       precio_lista_4?: number | null
       precio_lista_5?: number | null
+      unidad_medida?: string | null
     }
   ): Promise<ApiResponse<ArticuloEmpresaRecord>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
@@ -14947,6 +14948,7 @@ class ApiService {
       const payload: Record<string, string | number | null> = {}
       if (datos.nombre !== undefined) payload.nombre = datos.nombre?.trim() || null
       if (datos.categoria !== undefined) payload.categoria = datos.categoria?.trim() || null
+      if (datos.unidad_medida !== undefined) payload.unidad_medida = datos.unidad_medida?.trim() || 'm2'
       for (const key of [
         'precio_lista_1',
         'precio_lista_2',

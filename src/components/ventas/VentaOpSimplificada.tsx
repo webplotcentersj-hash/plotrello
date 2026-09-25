@@ -7,6 +7,7 @@ import { normalizeHoraEstimada } from '../../utils/horaEstimada'
 import { pillColorFromString } from '../../utils/pillColorFromString'
 import { opSectoresRequierenFotosLugar } from '../../utils/sectoresFotosLugar'
 import { cobroDesdeVenta, cobroOpToTaskFields } from '../../utils/opCobroEstado'
+import { metrosDesdeItemsVenta } from '../../utils/unidadPrecio'
 import { uploadAttachmentAndGetUrl } from '../../utils/storage'
 
 const SECTORES_KANBAN = [
@@ -58,7 +59,9 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
   const [complejidad, setComplejidad] = useState('Media')
   const [prioridad, setPrioridad] = useState('Normal')
   const [descripcion, setDescripcion] = useState(() => descripcionInicial(venta, observaciones))
-  const [metros, setMetros] = useState('')
+  const metrosAuto = useMemo(() => metrosDesdeItemsVenta(venta.items), [venta.items])
+  const [metrosTocados, setMetrosTocados] = useState(false)
+  const [metros, setMetros] = useState(metrosAuto)
   const [plotAi, setPlotAi] = useState(false)
   const [guiaOpen, setGuiaOpen] = useState(false)
   const [portadaPreview, setPortadaPreview] = useState('')
@@ -66,6 +69,10 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
   const [portadaNombre, setPortadaNombre] = useState('')
   const [subiendoPortada, setSubiendoPortada] = useState(false)
   const [guardando, setGuardando] = useState(false)
+
+  useEffect(() => {
+    if (!metrosTocados) setMetros(metrosAuto)
+  }, [metrosAuto, metrosTocados])
 
   useEffect(() => {
     let cancelled = false
@@ -489,8 +496,11 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
           type="text"
           inputMode="decimal"
           value={metros}
-          onChange={(e) => setMetros(e.target.value)}
-          placeholder="Obligatorio si incluye Taller Gráfico"
+          onChange={(e) => {
+            setMetrosTocados(true)
+            setMetros(e.target.value)
+          }}
+          placeholder="Sale de los metros cargados en la venta"
         />
       </label>
 

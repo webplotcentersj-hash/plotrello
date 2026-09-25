@@ -1612,12 +1612,12 @@ const BoardPage = ({
             sidePanel={
               !isPhoneBoard ? (
                 <>
+                  <EntregasSinRetiroPanel tasks={filteredTasks} onSelectTask={setSelectedTaskId} />
                   <EtiquetasNubePanel
                     tasks={tasks}
                     etiquetaActiva={searchQuery}
                     onElegir={setSearchQuery}
                   />
-                  <EntregasSinRetiroPanel tasks={filteredTasks} onSelectTask={setSelectedTaskId} />
                 </>
               ) : undefined
             }

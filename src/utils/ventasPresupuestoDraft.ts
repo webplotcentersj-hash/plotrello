@@ -11,6 +11,7 @@ export type VentasPresupuestoDraftItem = {
   precio_unitario: number
   descuento: number
   precio_total: number
+  unidad_medida?: string
 }
 
 export type VentasPresupuestoDraft = {

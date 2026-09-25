@@ -35,13 +35,16 @@ const EtiquetasNubePanel = ({ tasks, etiquetaActiva, onElegir }: Props) => {
 
   return (
     <section className="etiquetas-nube" aria-label="Etiquetas más usadas">
-      <p className="etiquetas-nube__eyebrow">Etiquetas</p>
+      <header className="etiquetas-nube__head">
+        <p className="etiquetas-nube__eyebrow">Etiquetas</p>
+        {etiquetas.length > 0 ? <span className="etiquetas-nube__count">{etiquetas.length}</span> : null}
+      </header>
       {etiquetas.length === 0 ? (
         <p className="etiquetas-nube__vacio">Todavía no hay etiquetas en el tablero.</p>
       ) : (
         <div className="etiquetas-nube__cloud">
           {etiquetas.map((e) => {
-            const peso = 0.72 + (e.n / max) * 0.48
+            const peso = 0.74 + (e.n / max) * 0.28
             const catalogo = getTagColor(e.label)
             const color = catalogo && catalogo !== '#6B7280' ? catalogo : pillColorFromString(e.label)
             const activa = activaKey === e.label.toLowerCase()
@@ -50,7 +53,7 @@ const EtiquetasNubePanel = ({ tasks, etiquetaActiva, onElegir }: Props) => {
                 key={e.label.toLowerCase()}
                 type="button"
                 className={activa ? 'is-activa' : undefined}
-                style={{ fontSize: `${peso}rem`, background: color }}
+                style={{ fontSize: `${peso}rem`, ['--tag' as string]: color }}
                 title={`${e.n} ${e.n === 1 ? 'ficha' : 'fichas'}`}
                 onClick={() => onElegir?.(activa ? '' : e.label)}
               >

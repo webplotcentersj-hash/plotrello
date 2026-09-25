@@ -31,6 +31,7 @@ import {
 import './ventas/VentaCondicionPagoFields.css'
 import OpCobroFooterChecks from './OpCobroFooterChecks'
 import { cobroDesdeVenta } from '../utils/opCobroEstado'
+import { etiquetaCantidadUnidad, etiquetaUnidadCorta, normalizarUnidadPrecio } from '../utils/unidadPrecio'
 import VentaOpSimplificada from './ventas/VentaOpSimplificada'
 import {
   ESTADO_CC_LABELS,
@@ -63,6 +64,7 @@ interface ItemVenta {
   precio_unitario: number
   descuento: number
   precio_lista?: TipoListaPrecioVentas
+  unidad_medida?: string
   observaciones?: string
 }
 
@@ -343,6 +345,7 @@ const VentaRapidaModal = ({
       cantidad: 1,
       precio_unitario: precio,
       precio_lista: tipoListaPrecio,
+      unidad_medida: normalizarUnidadPrecio(articulo.unidad_medida),
       descuento: 0,
       observaciones:
         stock != null && stock <= 0 && articulo.controla_stock !== false
@@ -542,7 +545,7 @@ const VentaRapidaModal = ({
         items: itemsVenta.map((item) => ({
           id_articulo_stock: item.id_articulo_stock ?? null,
           codigo_articulo: item.codigo_articulo ?? null,
-          descripcion: item.descripcion,
+          descripcion: `${item.descripcion} (${etiquetaUnidadCorta(item.unidad_medida)})`,
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
           descuento: item.descuento ?? 0,
@@ -581,7 +584,7 @@ const VentaRapidaModal = ({
           id_venta: ventaData.id,
           id_articulo_stock: item.id_articulo_stock ?? undefined,
           codigo_articulo: item.codigo_articulo ?? undefined,
-          descripcion: item.descripcion,
+          descripcion: `${item.descripcion} (${etiquetaUnidadCorta(item.unidad_medida)})`,
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
           precio_total: item.cantidad * item.precio_unitario - (item.descuento || 0),
@@ -967,7 +970,9 @@ const VentaRapidaModal = ({
                           {articulo.nombre}
                         </span>
                         <span className="lista-precios-row__precio">
-                          {precio != null ? `$${formatArs(precio)}` : '—'}
+                          {precio != null
+                            ? `$${formatArs(precio)} / ${etiquetaUnidadCorta(articulo.unidad_medida)}`
+                            : '—'}
                         </span>
                       </button>
                     )
@@ -1225,19 +1230,19 @@ const VentaRapidaModal = ({
                     )}
                     <div className="item-controls">
                       <div className="item-control">
-                        <label>Cantidad</label>
+                        <label>{etiquetaCantidadUnidad(item.unidad_medida)}</label>
                         <input
                           type="number"
                           min="0.001"
-                          step="0.001"
+                          step="0.01"
                           className="form-input-small"
                           value={item.cantidad}
-                          onChange={(e) => actualizarItem(index, 'cantidad', parseFloat(e.target.value) || 1)}
+                          onChange={(e) => actualizarItem(index, 'cantidad', parseFloat(e.target.value) || 0)}
                         />
                       </div>
                       <div className="item-control item-control--precio">
                         <label>
-                          Precio unit.{' '}
+                          Precio / {etiquetaUnidadCorta(item.unidad_medida)}{' '}
                           {item.precio_lista && (
                             <span className="item-precio-lista-tag">
                               {item.precio_lista === 'lista_1' ? 'L1' : 'L2'}
@@ -1260,7 +1265,11 @@ const VentaRapidaModal = ({
                         />
                       </div>
                       <div className="item-subtotal">
-                        <strong>Subtotal: ${formatArs(item.precio_unitario * item.cantidad - item.descuento)}</strong>
+                        <strong>
+                          Subtotal: ${formatArs(item.precio_unitario * item.cantidad - item.descuento)}
+                          {' '}
+                          ({item.cantidad} {etiquetaUnidadCorta(item.unidad_medida)})
+                        </strong>
                       </div>
                     </div>
                     {item.observaciones && (

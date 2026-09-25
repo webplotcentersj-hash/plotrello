@@ -15,6 +15,11 @@ import {
   guardarVentasPresupuestoDraft,
   type VentasPresupuestoDraftItem
 } from '../../utils/ventasPresupuestoDraft'
+import {
+  UNIDADES_PRECIO,
+  etiquetaUnidadCorta,
+  normalizarUnidadPrecio
+} from '../../utils/unidadPrecio'
 import './VentasListaPreciosPanel.css'
 
 type CarritoLinea = VentasPresupuestoDraftItem & {
@@ -65,6 +70,7 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
   const [editPrecio3, setEditPrecio3] = useState('')
   const [editPrecio4, setEditPrecio4] = useState('')
   const [editPrecio5, setEditPrecio5] = useState('')
+  const [editUnidad, setEditUnidad] = useState('m2')
   const [guardandoPrecio, setGuardandoPrecio] = useState(false)
 
   const cargar = useCallback(async () => {
@@ -143,7 +149,8 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
           cantidad: 1,
           precio_unitario: precio,
           descuento: 0,
-          precio_total: precio
+          precio_total: precio,
+          unidad_medida: normalizarUnidadPrecio(articulo.unidad_medida)
         }
       ]
     })
@@ -162,6 +169,7 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
     setEditPrecio3(valorPrecioInput(articulo.precio_lista_3))
     setEditPrecio4(valorPrecioInput(articulo.precio_lista_4))
     setEditPrecio5(valorPrecioInput(articulo.precio_lista_5))
+    setEditUnidad(normalizarUnidadPrecio(articulo.unidad_medida))
   }
 
   const guardarPrecios = async (id: number) => {
@@ -181,7 +189,8 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
         precio_lista_2: parse(editPrecio2),
         precio_lista_3: parse(editPrecio3),
         precio_lista_4: parse(editPrecio4),
-        precio_lista_5: parse(editPrecio5)
+        precio_lista_5: parse(editPrecio5),
+        unidad_medida: normalizarUnidadPrecio(editUnidad)
       })
       if (!res.success) throw new Error(res.error || 'No se guardó')
       setArticulos((prev) => prev.map((a) => (a.id === id ? { ...a, ...res.data } : a)))
@@ -306,7 +315,7 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
                     <th>L3</th>
                     <th>L4</th>
                     <th>L5</th>
-                    <th title="Precio final lista activa">Usar</th>
+                    <th title="Precio final de la lista activa, por unidad">Usar</th>
                     <th>Editar</th>
                   </tr>
                 </thead>
@@ -373,7 +382,27 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
                           </>
                         )}
                         <td className="vlp-precio-activo">
-                          {pActivo != null ? `$${formatArs(pActivo)}` : '—'}
+                          {editando ? (
+                            <select
+                              className="vlp-select vlp-select--unidad"
+                              value={editUnidad}
+                              onChange={(e) => setEditUnidad(e.target.value)}
+                              aria-label="Unidad de medida"
+                            >
+                              {UNIDADES_PRECIO.map((u) => (
+                                <option key={u.id} value={u.id}>
+                                  {u.cantidad}
+                                </option>
+                              ))}
+                            </select>
+                          ) : pActivo != null ? (
+                            <>
+                              ${formatArs(pActivo)}
+                              <span className="vlp-unidad"> / {etiquetaUnidadCorta(a.unidad_medida)}</span>
+                            </>
+                          ) : (
+                            '—'
+                          )}
                         </td>
                         <td className="vlp-actions">
                           {editando ? (
@@ -441,7 +470,7 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
                   <div>
                     <strong>{line.descripcion}</strong>
                     <span>
-                      {line.cantidad} × ${formatArs(line.precio_unitario)}
+                      {line.cantidad} {etiquetaUnidadCorta(line.unidad_medida)} × ${formatArs(line.precio_unitario)}
                     </span>
                   </div>
                   <div className="vlp-carrito-line-actions">

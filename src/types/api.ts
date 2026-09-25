@@ -788,6 +788,8 @@ export interface ArticuloEmpresaRecord {
   precio_lista_3?: number | null
   precio_lista_4?: number | null
   precio_lista_5?: number | null
+  /** Unidad del precio de lista. Lo habitual es m2. */
+  unidad_medida?: string | null
   activo: boolean
   imagen_url?: string | null
   tiempo_estimado_dias?: number | null

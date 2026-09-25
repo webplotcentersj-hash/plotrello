@@ -166,6 +166,20 @@
 .vlp-precio-activo {
   font-weight: 800;
   color: #86efac;
+  white-space: nowrap;
+}
+
+.vlp-unidad {
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: #bbf7d0;
+}
+
+.vlp-select--unidad {
+  min-width: 108px;
+  max-width: 130px;
+  padding: 4px 6px;
+  font-size: 0.75rem;
 }
 
 .vlp-actions {

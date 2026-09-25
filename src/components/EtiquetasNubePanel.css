@@ -1,23 +1,45 @@
 .etiquetas-nube {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   height: fit-content;
-  max-height: 355px;
-  padding: 14px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(15, 23, 42, 0.55);
+  max-height: 420px;
+  padding: 16px 14px 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(120% 70% at 0% 0%, rgba(235, 103, 27, 0.28), transparent 52%),
+    linear-gradient(165deg, rgba(30, 41, 59, 0.78), rgba(15, 23, 42, 0.92));
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
   overflow: auto;
+}
+
+.etiquetas-nube__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .etiquetas-nube__eyebrow {
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   font-size: 0.68rem;
   font-weight: 800;
   color: #fdba74;
+}
+
+.etiquetas-nube__count {
+  min-width: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
 }
 
 .etiquetas-nube__vacio {
@@ -30,30 +52,56 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 
 .etiquetas-nube__cloud button {
-  border: 0;
+  --tag: #64748b;
+  border: 1px solid color-mix(in srgb, var(--tag) 62%, transparent);
   border-radius: 999px;
-  padding: 3px 8px;
+  padding: 5px 10px;
   color: #fff;
-  font-weight: 700;
-  line-height: 1.2;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--tag) 32%, rgba(15, 23, 42, 0.55));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.etiquetas-nube__cloud button:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--tag) 58%, rgba(15, 23, 42, 0.2));
 }
 
 .etiquetas-nube__cloud button.is-activa {
-  outline: 2px solid #fff;
-  outline-offset: 1px;
+  background: var(--tag);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.88);
 }
 
 [data-tema='dia'] .etiquetas-nube {
-  background: #fff;
+  background:
+    radial-gradient(120% 70% at 0% 0%, rgba(235, 103, 27, 0.16), transparent 52%),
+    #fff;
   border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+}
+
+[data-tema='dia'] .etiquetas-nube__count {
+  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.08);
+  color: #475569;
 }
 
 [data-tema='dia'] .etiquetas-nube__vacio {
   color: #64748b;
+}
+
+[data-tema='dia'] .etiquetas-nube__cloud button {
+  color: #0f172a;
+  background: color-mix(in srgb, var(--tag) 18%, #fff);
 }
