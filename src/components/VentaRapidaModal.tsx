@@ -1369,7 +1369,7 @@ const VentaRapidaModal = ({
             </>
           ) : showMpCheckout ? (
             <span className="venta-rapida-footer-hint">Esperando confirmación de Mercado Pago…</span>
-          ) : (
+          ) : ventaCreada ? (
             <>
               {ventaCreada.numero_op && (
                 <button
@@ -1392,7 +1392,7 @@ const VentaRapidaModal = ({
                 Factura AFIP
               </button>
             </>
-          )}
+          ) : null}
           </div>
           </div>
         </div>
