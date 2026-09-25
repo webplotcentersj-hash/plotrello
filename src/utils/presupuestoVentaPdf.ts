@@ -1,6 +1,7 @@
 import type { PresupuestoVentaItemRecord, PresupuestoVentaRecord } from '../types/api'
 import { formatArgentinaDate } from './dateUtils'
 import { LISTAS_PRECIO_VENTAS, type TipoListaPrecioVentas } from '../constants/ventasListasPrecio'
+import { unidadDesdeDescripcionItem } from './unidadPrecio'
 import {
   buildPresupuestoPlanillaPdf,
   downloadPresupuestoPlanillaPdf,
@@ -43,6 +44,7 @@ function toPlanillaPayload(
       codigo: item.codigo_articulo,
       descripcion: item.descripcion,
       cantidad: item.cantidad,
+      unidad: unidadDesdeDescripcionItem(item.descripcion) ?? 'm2',
       precio_unitario: item.precio_unitario,
       subtotal: item.precio_total
     })),

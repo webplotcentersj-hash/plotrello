@@ -3,7 +3,6 @@ import type { Task, TeamMember, TaskStatus } from '../types/board'
 import type { ClienteRecord, MaterialRecord, SectorRecord, PedidoClienteRecord } from '../types/api'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { useAuth } from '../hooks/useAuth'
-import { filterOperariosBySector } from '../utils/dataMappers'
 import apiService from '../services/api'
 import { improveOpDescriptionWithPlotAI } from '../utils/improveOpDescriptionPlotAI'
 import OpFichaGuiaModal from './OpFichaGuiaModal'
@@ -99,7 +98,6 @@ const TaskCreateModal = ({
   const [montoPagoParcialInput, setMontoPagoParcialInput] = useState('')
   const [selectedSectores, setSelectedSectores] = useState<string[]>([])
   const [sectorSearch, setSectorSearch] = useState('')
-  const [operario, setOperario] = useState<string>('')
   const [complejidad, setComplejidad] = useState<string>('Media')
   const [prioridad, setPrioridad] = useState<string>('Normal')
   const [descripcion, setDescripcion] = useState('')
@@ -115,6 +113,7 @@ const TaskCreateModal = ({
   const [materialSearch, setMaterialSearch] = useState('')
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
   const [photoUrl, setPhotoUrl] = useState('')
+  const [portadaId, setPortadaId] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [metrosCuadrados, setMetrosCuadrados] = useState<string>('')
   const [lineasMetrosM2, setLineasMetrosM2] = useState<Array<{ tipo: string; metrosCuadrados: number }>>([])
@@ -143,18 +142,6 @@ const TaskCreateModal = ({
   const draftSnapshotRef = useRef<OpCreateDraftData | null>(null)
 
   // No necesitamos sector inicial, se crean automáticamente para cada sector requerido
-
-  // Filtrar operarios según el primer sector seleccionado
-  const filteredOperarios = useMemo(() => {
-    const primerSector = selectedSectores[0]
-    return filterOperariosBySector(teamMembers, primerSector)
-  }, [teamMembers, selectedSectores])
-
-  useEffect(() => {
-    if (!operario && filteredOperarios.length > 0) {
-      setOperario(filteredOperarios[0].id)
-    }
-  }, [filteredOperarios, operario])
 
   useEffect(() => {
     setRecentTiposOp(getRecentTiposImpresionOp())
@@ -318,7 +305,6 @@ const TaskCreateModal = ({
       setCobroOp(d.cobroOp || 'ninguno')
       setMontoPagoParcialInput(d.montoPagoParcialInput || '')
       setSelectedSectores(Array.isArray(d.selectedSectores) ? d.selectedSectores : [])
-      setOperario(d.operario || '')
       setComplejidad(d.complejidad || 'Media')
       setPrioridad(d.prioridad || 'Normal')
       setDescripcion(d.descripcion || '')
@@ -329,7 +315,23 @@ const TaskCreateModal = ({
       setReferencias(d.referencias || '')
       setDeadlineBrief(d.deadlineBrief || '')
       setMaterials(Array.isArray(d.materials) ? d.materials : [])
-      setPhotoUrl(d.photoUrl || '')
+      const restoredAttachments = (d.attachments || [])
+        .filter((a) => a.remoteUrl)
+        .map((a) => ({
+          id: a.id || `att-${a.remoteUrl}`,
+          name: a.name,
+          previewUrl: a.remoteUrl,
+          remoteUrl: a.remoteUrl,
+          uploading: false,
+          type: a.type
+        }))
+      setAttachments(restoredAttachments)
+      const cover =
+        restoredAttachments.find(
+          (a) => a.type?.startsWith('image/') && a.remoteUrl === d.photoUrl
+        ) ?? restoredAttachments.find((a) => a.type?.startsWith('image/'))
+      setPortadaId(cover?.id ?? null)
+      setPhotoUrl(cover?.remoteUrl || '')
       setMetrosCuadrados(d.metrosCuadrados || '')
       setLineasMetrosM2(Array.isArray(d.lineasMetrosM2) ? d.lineasMetrosM2 : [])
       setTags(Array.isArray(d.tags) ? d.tags : [])
@@ -337,18 +339,6 @@ const TaskCreateModal = ({
       setBriefTokenSeleccionado(d.briefTokenSeleccionado)
       setBriefMockupUrl(d.briefMockupUrl)
       setPedidoWebSeleccionado(d.pedidoWebSeleccionado)
-      setAttachments(
-        (d.attachments || [])
-          .filter((a) => a.remoteUrl)
-          .map((a) => ({
-            id: a.id || `att-${a.remoteUrl}`,
-            name: a.name,
-            previewUrl: a.remoteUrl,
-            remoteUrl: a.remoteUrl,
-            uploading: false,
-            type: a.type
-          }))
-      )
       setDraftSavedAt(rec.savedAt)
       setDraftRestored(true)
     }
@@ -554,7 +544,7 @@ const TaskCreateModal = ({
     cobroOp,
     montoPagoParcialInput,
     selectedSectores,
-    operario,
+    operario: '',
     complejidad,
     prioridad,
     descripcion,
@@ -650,7 +640,6 @@ const TaskCreateModal = ({
     cobroOp,
     montoPagoParcialInput,
     selectedSectores,
-    operario,
     complejidad,
     prioridad,
     descripcion,
@@ -820,7 +809,7 @@ const TaskCreateModal = ({
       summary: descripcion.trim(),
       status: mapSectorToStatus(primerSector),
       priority: (prioridad.toLowerCase() === 'normal' ? 'media' : prioridad.toLowerCase()) as any,
-      ownerId: operario || teamMembers[0]?.id || '',
+      ownerId: 'sin-asignar',
       createdBy: creatorName,
       materials: materials.map((m) => m.name),
       assignedSector: primerSector, // Primer sector (se crearán automáticamente las demás)
@@ -1201,11 +1190,28 @@ const TaskCreateModal = ({
     })
   }
 
+  const handleRenameFile = (attachmentId: string, name: string) => {
+    setAttachments((prev) =>
+      prev.map((item) => (item.id === attachmentId ? { ...item, name } : item))
+    )
+  }
+
   useEffect(() => {
     attachmentsRef.current = attachments
-    const firstReady = attachments.find((attachment) => attachment.remoteUrl && !attachment.uploading)
-    setPhotoUrl(firstReady?.remoteUrl ?? '')
+    setPortadaId((current) => {
+      const stillThere = current && attachments.some((item) => item.id === current)
+      if (stillThere) return current
+      const firstImage = attachments.find(
+        (item) => item.type?.startsWith('image/') && item.remoteUrl && !item.uploading
+      )
+      return firstImage?.id ?? null
+    })
   }, [attachments])
+
+  useEffect(() => {
+    const cover = attachments.find((item) => item.id === portadaId)
+    setPhotoUrl(cover?.remoteUrl && !cover.uploading ? cover.remoteUrl : '')
+  }, [attachments, portadaId])
 
   useEffect(() => {
     return () => {
@@ -1257,16 +1263,29 @@ const TaskCreateModal = ({
         className="modal-content create-modal"
         onClick={(e) => e.stopPropagation()}
         onPaste={(e) => {
-          const items = e.clipboardData?.items
-          if (!items?.length) return
-          const imageItem = Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'))
-          if (!imageItem) return
-          const file = imageItem.getAsFile()
-          if (!file) return
+          const bag = e.clipboardData
+          if (!bag) return
+          const files: File[] = []
+          for (const item of Array.from(bag.items || [])) {
+            if (item.kind === 'file' && item.type.startsWith('image/')) {
+              const file = item.getAsFile()
+              if (file) files.push(file)
+            }
+          }
+          if (files.length === 0) {
+            for (const file of Array.from(bag.files || [])) {
+              if (file.type.startsWith('image/')) files.push(file)
+            }
+          }
+          if (files.length === 0) return
           e.preventDefault()
-          const ext = file.type === 'image/png' ? 'png' : file.type === 'image/jpeg' ? 'jpg' : 'img'
-          const named = new File([file], `captura-${Date.now()}.${ext}`, { type: file.type })
-          void uploadSingleAttachment(named)
+          const stamp = Date.now()
+          files.forEach((file, index) => {
+            const ext =
+              file.type === 'image/png' ? 'png' : file.type === 'image/jpeg' ? 'jpg' : 'img'
+            const named = new File([file], `captura-${stamp}-${index + 1}.${ext}`, { type: file.type })
+            void uploadSingleAttachment(named)
+          })
         }}
       >
         <header className="modal-header create-modal-header">
@@ -1929,18 +1948,6 @@ const TaskCreateModal = ({
 
           <div className="form-row">
             <div className="form-group">
-              <label>Operario</label>
-              <select value={operario} onChange={(e) => setOperario(e.target.value)}>
-                <option value="">Seleccionar...</option>
-                {filteredOperarios.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
               <label>Prioridad</label>
               <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
                 {PRIORITY_OPTIONS.map((opt) => (
@@ -2359,7 +2366,7 @@ const TaskCreateModal = ({
                   const fileUrl = file.remoteUrl || file.previewUrl
                   
                   return (
-                    <div key={file.id} className="file-item">
+                    <div key={file.id} className={`file-item${portadaId === file.id ? ' is-portada' : ''}`}>
                       <div 
                         className="file-preview"
                         style={{ cursor: fileUrl && !file.uploading ? 'pointer' : 'default' }}
@@ -2377,8 +2384,26 @@ const TaskCreateModal = ({
                           <div className="file-icon">📎</div>
                         )}
                         <div className="file-info">
-                          <span className="file-name">{file.name}</span>
+                          <input
+                            className="file-name-input"
+                            value={file.name}
+                            aria-label="Nombre del archivo"
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => handleRenameFile(file.id, e.target.value)}
+                          />
                           {file.uploading && <span className="upload-pill">Subiendo...</span>}
+                          {isImage && !file.uploading && (
+                            <button
+                              type="button"
+                              className={`file-portada-btn${portadaId === file.id ? ' is-active' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setPortadaId(file.id)
+                              }}
+                            >
+                              {portadaId === file.id ? 'Portada' : 'Usar de portada'}
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="file-actions">
@@ -2437,9 +2462,9 @@ const TaskCreateModal = ({
                   ? 'Subiendo archivo...'
                   : requiereFotosLugar && !tieneFotosLugarListas
                     ? 'Elegí una imagen del lugar real y esperá a que termine de subir (no alcanza solo PDF).'
-                    : attachments.length === 0
-                      ? 'Ningún archivo seleccionado'
-                      : `${attachments.length} archivo(s) listo(s)`}
+                      : attachments.length === 0
+                      ? 'Ningún archivo. Podés pegar varias capturas con Ctrl+V.'
+                      : `${attachments.length} archivo(s). Pegá otra captura cuando quieras.`}
               </span>
             </div>
           </div>

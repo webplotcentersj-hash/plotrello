@@ -1414,6 +1414,52 @@
   color: #fbbf24;
 }
 
+.presupuesto-detalle-table-wrap {
+  overflow-x: auto;
+}
+
+.presupuesto-detalle-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.presupuesto-detalle-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  padding: 0 10px 8px 0;
+  border-bottom: 1px solid rgba(249, 115, 22, 0.45);
+}
+
+.presupuesto-detalle-table th:not(:first-child),
+.presupuesto-detalle-table__num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.presupuesto-detalle-table td {
+  padding: 10px 10px 10px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  color: #e2e8f0;
+  vertical-align: top;
+}
+
+.presupuesto-detalle-table__code {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.presupuesto-detalle-table__sub {
+  font-weight: 700;
+  color: #6ee7b7;
+}
+
 .venta-detail-modal .venta-detail-block--notes {
   border-color: rgba(148, 163, 184, 0.14);
   background: rgba(30, 41, 59, 0.45);

@@ -3,7 +3,7 @@ import type { ArticuloEmpresaRecord } from '../types/api'
 /** Lista 1: efectivo o débito. Lista 2: cuenta corriente. */
 export type TipoListaPrecioVentas = 'lista_1' | 'lista_2'
 
-export type NumeroListaPrecio = 1 | 2 | 3 | 4 | 5
+export type NumeroListaPrecio = 1 | 2
 
 export type RecargoPrecioVentas = {
   id: string
@@ -60,7 +60,7 @@ export function labelListaPrecio(tipo: TipoListaPrecioVentas | null | undefined)
 export function resolvePrecioListaBruto(
   articulo: Pick<
     ArticuloEmpresaRecord,
-    'precio_base' | 'precio_lista_1' | 'precio_lista_2' | 'precio_lista_3' | 'precio_lista_4' | 'precio_lista_5'
+    'precio_base' | 'precio_lista_1' | 'precio_lista_2'
   >,
   lista: TipoListaPrecioVentas | NumeroListaPrecio
 ): number | null {
@@ -75,12 +75,6 @@ export function resolvePrecioListaBruto(
       return pick(articulo.precio_lista_1 ?? articulo.precio_base)
     case 2:
       return pick(articulo.precio_lista_2 ?? fallbackL1)
-    case 3:
-      return pick(articulo.precio_lista_3 ?? fallbackL1)
-    case 4:
-      return pick(articulo.precio_lista_4 ?? fallbackL1)
-    case 5:
-      return pick(articulo.precio_lista_5 ?? fallbackL1)
     default:
       return null
   }
@@ -154,7 +148,7 @@ export function calcularAjustesPrecio(
 export function resolvePrecioLista(
   articulo: Pick<
     ArticuloEmpresaRecord,
-    'precio_base' | 'precio_lista_1' | 'precio_lista_2' | 'precio_lista_3' | 'precio_lista_4' | 'precio_lista_5'
+    'precio_base' | 'precio_lista_1' | 'precio_lista_2'
   >,
   lista: TipoListaPrecioVentas | NumeroListaPrecio,
   ajustes: ConfigAjustesPreciosVentas = DEFAULT_AJUSTES_PRECIOS_VENTAS

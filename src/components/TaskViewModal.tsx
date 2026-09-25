@@ -637,6 +637,64 @@ export default function TaskViewModal({
             </section>
           ) : null}
 
+          {ordenIdView != null && (
+            <section className="task-view-panel task-view-panel--wide" aria-label="Archivos y enlaces">
+              <h3 className="task-view-panel-title">Archivos, fotos y enlaces adjuntos</h3>
+              {archivosLib.length === 0 ? (
+                <p className="task-view-muted">Sin adjuntos en enlaces_adjuntos.</p>
+              ) : (
+                <ul className="task-view-archivos-grid">
+                  {(() => {
+                    const seen = new Set<string>()
+                    const rows = archivosLib.filter((a) => {
+                      const u = String((a as any)?.url ?? '').trim()
+                      if (!u) return false
+                      if (seen.has(u)) return false
+                      seen.add(u)
+                      return true
+                    })
+                    return rows
+                  })().map((a) => {
+                    const id = Number(a.id)
+                    const titulo = (a.titulo != null ? String(a.titulo) : '') || 'Adjunto'
+                    const url = String(a.url ?? '')
+                    const creado = a.creado_en != null ? String(a.creado_en) : ''
+                    const evidencia = a.es_evidencia_campo === true
+                    const relev = a.origen_relevamiento === true
+                    const isImg = /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(`${url} ${titulo}`)
+                    const tituloVisible = /^whatsapp (image|imagen)\b/i.test(titulo)
+                      ? 'Foto'
+                      : /^whatsapp video\b/i.test(titulo)
+                        ? 'Video'
+                        : titulo
+                    return (
+                      <li key={Number.isFinite(id) ? id : url} className="task-view-archivo-card">
+                        {isImg ? (
+                          <a href={url} target="_blank" rel="noreferrer" className="task-view-archivo-thumb-wrap">
+                            <img src={url} alt={tituloVisible} className="task-view-archivo-thumb" loading="lazy" />
+                          </a>
+                        ) : null}
+                        <div className="task-view-archivo-meta">
+                          <strong title={titulo}>{tituloVisible}</strong>
+                          {creado ? (
+                            <span className="task-view-muted">{formatDisplayDate(creado) ?? creado}</span>
+                          ) : null}
+                          {evidencia ? (
+                            <span className="task-view-chip task-view-chip--sector">Evidencia campo</span>
+                          ) : null}
+                          {relev ? <span className="task-view-chip">Relevamiento</span> : null}
+                        </div>
+                        <a href={url} target="_blank" rel="noreferrer" className="task-view-archivo-link">
+                          Abrir / descargar
+                        </a>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </section>
+          )}
+
           <KvBlock label="Descripción / resumen" value={viewTask.summary} />
 
           {viewTask.fichaTecnicaPdfUrl ? (
@@ -827,57 +885,6 @@ export default function TaskViewModal({
                   </section>
                 </>
               )}
-
-              <section className="task-view-panel task-view-panel--wide" aria-label="Archivos y enlaces">
-                <h3 className="task-view-panel-title">Archivos, fotos y enlaces adjuntos</h3>
-                {archivosLib.length === 0 ? (
-                  <p className="task-view-muted">Sin adjuntos en enlaces_adjuntos.</p>
-                ) : (
-                  <ul className="task-view-archivos-grid">
-                    {(() => {
-                      const seen = new Set<string>()
-                      const rows = archivosLib.filter((a) => {
-                        const u = String((a as any)?.url ?? '').trim()
-                        if (!u) return false
-                        if (seen.has(u)) return false
-                        seen.add(u)
-                        return true
-                      })
-                      return rows
-                    })().map((a) => {
-                      const id = Number(a.id)
-                      const titulo = (a.titulo != null ? String(a.titulo) : '') || 'Adjunto'
-                      const url = String(a.url ?? '')
-                      const creado = a.creado_en != null ? String(a.creado_en) : ''
-                      const evidencia = a.es_evidencia_campo === true
-                      const relev = a.origen_relevamiento === true
-                      const isImg = /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(url)
-                      return (
-                        <li key={Number.isFinite(id) ? id : url} className="task-view-archivo-card">
-                          <div className="task-view-archivo-meta">
-                            <strong>{titulo}</strong>
-                            {creado ? (
-                              <span className="task-view-muted">{formatDisplayDate(creado) ?? creado}</span>
-                            ) : null}
-                            {evidencia ? (
-                              <span className="task-view-chip task-view-chip--sector">Evidencia campo</span>
-                            ) : null}
-                            {relev ? <span className="task-view-chip">Relevamiento</span> : null}
-                          </div>
-                          {isImg ? (
-                            <a href={url} target="_blank" rel="noreferrer" className="task-view-archivo-thumb-wrap">
-                              <img src={url} alt="" className="task-view-archivo-thumb" loading="lazy" />
-                            </a>
-                          ) : null}
-                          <a href={url} target="_blank" rel="noreferrer" className="task-view-archivo-link">
-                            Abrir / descargar
-                          </a>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </section>
 
             </>
           )}

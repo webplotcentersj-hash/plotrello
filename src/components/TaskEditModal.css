@@ -685,6 +685,48 @@
   text-overflow: ellipsis;
 }
 
+.create-modal .file-name-input {
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.create-modal .file-name-input:hover,
+.create-modal .file-name-input:focus {
+  border-color: rgba(249, 115, 22, 0.55);
+  background: rgba(15, 23, 42, 0.55);
+  outline: none;
+}
+
+.create-modal .file-item.is-portada {
+  border-color: rgba(249, 115, 22, 0.75);
+  box-shadow: inset 3px 0 0 #f97316;
+}
+
+.create-modal .file-portada-btn {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.create-modal .file-portada-btn.is-active {
+  border-color: rgba(249, 115, 22, 0.7);
+  background: rgba(249, 115, 22, 0.18);
+  color: #fdba74;
+}
+
 .file-actions {
   display: flex;
   gap: 8px;

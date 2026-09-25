@@ -67,9 +67,6 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
   const [editCategoria, setEditCategoria] = useState('')
   const [editPrecio1, setEditPrecio1] = useState('')
   const [editPrecio2, setEditPrecio2] = useState('')
-  const [editPrecio3, setEditPrecio3] = useState('')
-  const [editPrecio4, setEditPrecio4] = useState('')
-  const [editPrecio5, setEditPrecio5] = useState('')
   const [editUnidad, setEditUnidad] = useState('m2')
   const [guardandoPrecio, setGuardandoPrecio] = useState(false)
 
@@ -166,9 +163,6 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
     setEditCategoria(articulo.categoria || '')
     setEditPrecio1(valorPrecioInput(articulo.precio_lista_1 ?? articulo.precio_base))
     setEditPrecio2(valorPrecioInput(articulo.precio_lista_2))
-    setEditPrecio3(valorPrecioInput(articulo.precio_lista_3))
-    setEditPrecio4(valorPrecioInput(articulo.precio_lista_4))
-    setEditPrecio5(valorPrecioInput(articulo.precio_lista_5))
     setEditUnidad(normalizarUnidadPrecio(articulo.unidad_medida))
   }
 
@@ -187,9 +181,6 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
         categoria: editCategoria.trim() || null,
         precio_lista_1: l1,
         precio_lista_2: parse(editPrecio2),
-        precio_lista_3: parse(editPrecio3),
-        precio_lista_4: parse(editPrecio4),
-        precio_lista_5: parse(editPrecio5),
         unidad_medida: normalizarUnidadPrecio(editUnidad)
       })
       if (!res.success) throw new Error(res.error || 'No se guardó')
@@ -239,7 +230,7 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
         <div>
           <h2>Lista de precios</h2>
             <p>
-              Misma estructura que Flexxus: código, descripción, rubro y listas 1 a 5. Los valores en tabla
+              Misma estructura que Flexxus: código, descripción, rubro y listas 1 y 2. Los valores en tabla
               incluyen <strong>{labelAjustesPreciosActivos(ajustes)}</strong>. Al editar, los campos son neto
               Flexxus (sin IVA).
             </p>
@@ -312,9 +303,6 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
                     <th>Rubro</th>
                     <th title="Lista 1 con IVA y recargos">L1</th>
                     <th title="Lista 2 con IVA y recargos">L2</th>
-                    <th>L3</th>
-                    <th>L4</th>
-                    <th>L5</th>
                     <th title="Precio final de la lista activa, por unidad">Usar</th>
                     <th>Editar</th>
                   </tr>
@@ -330,15 +318,6 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
                         </td>
                         <td>
                           <input className="vlp-input vlp-input--sm" value={editPrecio2} onChange={(e) => setEditPrecio2(e.target.value)} />
-                        </td>
-                        <td>
-                          <input className="vlp-input vlp-input--sm" value={editPrecio3} onChange={(e) => setEditPrecio3(e.target.value)} />
-                        </td>
-                        <td>
-                          <input className="vlp-input vlp-input--sm" value={editPrecio4} onChange={(e) => setEditPrecio4(e.target.value)} />
-                        </td>
-                        <td>
-                          <input className="vlp-input vlp-input--sm" value={editPrecio5} onChange={(e) => setEditPrecio5(e.target.value)} />
                         </td>
                       </>
                     )
@@ -376,9 +355,6 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
                           <>
                             <td>{formatPrecioCelda(a, 1, ajustes)}</td>
                             <td>{formatPrecioCelda(a, 2, ajustes)}</td>
-                            <td>{formatPrecioCelda(a, 3, ajustes)}</td>
-                            <td>{formatPrecioCelda(a, 4, ajustes)}</td>
-                            <td>{formatPrecioCelda(a, 5, ajustes)}</td>
                           </>
                         )}
                         <td className="vlp-precio-activo">
@@ -437,7 +413,7 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
                                 type="button"
                                 className="vlp-btn vlp-btn--outline vlp-btn--xs"
                                 onClick={() => iniciarEdicionPrecios(a)}
-                                title="Editar descripción, rubro y listas 1 a 5"
+                                title="Editar descripción, rubro y listas 1 y 2"
                               >
                                 Editar
                               </button>

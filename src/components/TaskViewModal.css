@@ -1181,6 +1181,14 @@
   flex-direction: column;
   gap: 4px;
   font-size: 0.85rem;
+  min-width: 0;
+}
+
+.task-view-archivo-meta strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-view-archivo-thumb-wrap {

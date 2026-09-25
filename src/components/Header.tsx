@@ -366,7 +366,7 @@ const Header = ({
                 className="brand-button"
                 onClick={() => setActionsOpen(false)}
               >
-                💰 Ventas
+                🧾 Ventas
               </Link>
             )}
             {canAccessTotemImpresionPanel && (
@@ -404,7 +404,7 @@ const Header = ({
                   onNavigateToCaja?.()
                 }}
               >
-                💰 Caja
+                🏦 Caja
               </Link>
             )}
             {(isDiseno || isMetalurgica || canAccessAppCampo || isAdmin) && (

@@ -18,6 +18,7 @@ import type {
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate, getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
 import { nombreSinRepeticion } from '../utils/buscarClienteMatch'
+import { etiquetaUnidadCorta, unidadDesdeDescripcionItem } from '../utils/unidadPrecio'
 import {
   exportarVentasPDF,
   exportarVentasExcel,
@@ -3246,48 +3247,66 @@ const CRMVentasPage = () => {
                       <h3 className="venta-detail-block__title">
                         Ítems <span className="venta-detail-block__count">{presupuestoModalItems.length}</span>
                       </h3>
-                      <ul className="venta-detail-item-list">
-                        {presupuestoModalItems.map((item) => (
-                          <li key={item.id} className="venta-detail-item">
-                            <div className="venta-detail-item__main">
-                              <div className="venta-detail-item__copy">
-                                <p className="venta-detail-item__desc">
-                                  <span className="venta-detail-item__qty">{item.cantidad}×</span>{' '}
-                                  {item.descripcion}
-                                </p>
-                                {item.codigo_articulo ? (
-                                  <span className="venta-detail-item__code">{item.codigo_articulo}</span>
-                                ) : null}
-                              </div>
-                              <span className="venta-detail-item__price">
-                                $
-                                {Number(item.precio_total).toLocaleString('es-AR', {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}
-                              </span>
-                            </div>
-                            <div className="venta-detail-item__meta">
-                              <span>
-                                Unit. $
-                                {Number(item.precio_unitario).toLocaleString('es-AR', {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}
-                              </span>
-                              {item.descuento > 0 ? (
-                                <span className="venta-detail-item__discount">
-                                  Desc. $
-                                  {Number(item.descuento).toLocaleString('es-AR', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2
-                                  })}
-                                </span>
-                              ) : null}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="presupuesto-detalle-table-wrap">
+                        <table className="presupuesto-detalle-table">
+                          <thead>
+                            <tr>
+                              <th>Descripción</th>
+                              <th>Cant.</th>
+                              <th>Unidad</th>
+                              <th>P. unit.</th>
+                              <th>Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {presupuestoModalItems.map((item) => {
+                              const unidad = etiquetaUnidadCorta(
+                                unidadDesdeDescripcionItem(item.descripcion) ?? 'm2'
+                              )
+                              const descripcion = item.descripcion
+                                .replace(/\s*\((?:m²|m2|m|un|hoja|kg)\)\s*$/i, '')
+                                .trim()
+                              return (
+                                <tr key={item.id}>
+                                  <td>
+                                    <strong>{descripcion}</strong>
+                                    {item.codigo_articulo ? (
+                                      <span className="presupuesto-detalle-table__code">
+                                        {item.codigo_articulo}
+                                      </span>
+                                    ) : null}
+                                    {item.descuento > 0 ? (
+                                      <span className="presupuesto-detalle-table__code">
+                                        Desc. $
+                                        {Number(item.descuento).toLocaleString('es-AR', {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2
+                                        })}
+                                      </span>
+                                    ) : null}
+                                  </td>
+                                  <td className="presupuesto-detalle-table__num">{item.cantidad}</td>
+                                  <td className="presupuesto-detalle-table__num">{unidad}</td>
+                                  <td className="presupuesto-detalle-table__num">
+                                    $
+                                    {Number(item.precio_unitario).toLocaleString('es-AR', {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2
+                                    })}
+                                  </td>
+                                  <td className="presupuesto-detalle-table__num presupuesto-detalle-table__sub">
+                                    $
+                                    {Number(item.precio_total).toLocaleString('es-AR', {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2
+                                    })}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   ) : null}
 

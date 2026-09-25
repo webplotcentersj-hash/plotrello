@@ -2,6 +2,7 @@ import jsPDF from 'jspdf'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { copyPdfBytes } from './pdfTextLines'
+import { etiquetaUnidadCorta, unidadDesdeDescripcionItem } from './unidadPrecio'
 
 /** Planilla oficial en /public (diseño Plot Center). */
 export const PRESUPUESTO_PLANILLA_URL = '/PRESUPUESTO.pdf'
@@ -21,6 +22,8 @@ export type PresupuestoPlanillaItem = {
   codigo?: string | null
   descripcion: string
   cantidad: number
+  /** m2, m, un, hoja o kg. Si falta, se lee del final de la descripción o queda m2. */
+  unidad?: string | null
   precio_unitario: number
   subtotal: number
 }
@@ -62,6 +65,18 @@ function formatArs(n: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   })}`
+}
+
+/** m² no entra en Helvetica; en el PDF se escribe m2, m o un. */
+function unidadEnPdf(item: PresupuestoPlanillaItem): string {
+  const id = item.unidad?.trim()
+    ? item.unidad
+    : unidadDesdeDescripcionItem(item.descripcion) ?? 'm2'
+  return pdfText(etiquetaUnidadCorta(id).replace('²', '2'))
+}
+
+function descripcionSinUnidad(descripcion: string): string {
+  return descripcion.replace(/\s*\((?:m²|m2|m|un|hoja|kg)\)\s*$/i, '').trim()
 }
 
 let workerConfigured = false
@@ -130,10 +145,11 @@ export async function buildPresupuestoPlanillaPdf(
   const right = PLANILLA_W - MARGIN_X
   const tableRight = right
   const colSub = tableRight
-  const colUnit = tableRight - 130
-  const colCant = tableRight - 230
+  const colUnit = tableRight - 145
+  const colMedida = tableRight - 250
+  const colCant = tableRight - 330
   const colDesc = MARGIN_X
-  const colDescWidth = colCant - colDesc - 24
+  const colDescWidth = colCant - colDesc - 16
 
   let y = CONTENT_TOP
 
@@ -208,6 +224,7 @@ export async function buildPresupuestoPlanillaPdf(
   doc.setTextColor(255, 255, 255)
   doc.text('Descripcion', colDesc, y + 13)
   doc.text('Cant.', colCant, y + 13, { align: 'right' })
+  doc.text('Unidad', colMedida, y + 13, { align: 'right' })
   doc.text('P. unit.', colUnit, y + 13, { align: 'right' })
   doc.text('Subtotal', colSub, y + 13, { align: 'right' })
   y += headerH + 10
@@ -229,14 +246,15 @@ export async function buildPresupuestoPlanillaPdf(
 
   for (const item of items) {
     const titulo = item.codigo
-      ? `${item.codigo} — ${item.descripcion}`
-      : item.descripcion
+      ? `${item.codigo} — ${descripcionSinUnidad(item.descripcion)}`
+      : descripcionSinUnidad(item.descripcion)
     const lines = doc.splitTextToSize(pdfText(titulo), colDescWidth) as string[]
     const rowH = Math.max(22, lines.length * 15 + 8)
     ensureSpace(rowH + 8)
 
     doc.text(lines, colDesc, y + 12)
     doc.text(String(item.cantidad), colCant, y + 12, { align: 'right' })
+    doc.text(unidadEnPdf(item), colMedida, y + 12, { align: 'right' })
     doc.text(formatArs(item.precio_unitario), colUnit, y + 12, { align: 'right' })
     doc.text(formatArs(item.subtotal), colSub, y + 12, { align: 'right' })
     y += rowH
