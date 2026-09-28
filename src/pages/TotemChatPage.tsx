@@ -20,6 +20,8 @@ import {
 const IMAGE_API_PATH = '/api/plotai/generate-image'
 const MOTION_THRESHOLD = 0.08
 const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?:una\s+)?foto\s+de|imagina|imagina(?:me)?|mu[eé]strame\s+(?:una\s+)?(?:imagen|foto)|quiero\s+ver\s+(?:una\s+)?(?:imagen|foto)|crea\s+(?:una\s+)?(?:imagen|ilustraci[oó]n))/i
+// el modelo promete una imagen ("ya te la preparo en pantalla") aunque no haya llamado a la herramienta
+const IMAGE_PROMISE = /\b(prepar|gener|mostr|dibuj|cre)\w*\b[^.!?]{0,70}\b(imagen|foto|dibujo|ilustraci[oó]n|logo|afiche)\b|\b(imagen|foto|dibujo|ilustraci[oó]n|logo|afiche)\b[^.!?]{0,70}\b(pantalla|prepar\w*|gener\w*)\b/i
 const MOTION_CHECKS = 2
 const CHECK_INTERVAL_MS = 800
 const IDLE_RESET_MS = 240_000
@@ -37,6 +39,25 @@ export default function TotemChatPage() {
   const [proximityHint, setProximityHint] = useState(false)
   const [micBlocked, setMicBlocked] = useState(false)
   const [imageGenerating, setImageGenerating] = useState(false)
+  const [transcript, setTranscript] = useState<Array<{ id: number; who: 'cliente' | 'plotai'; text: string }>>([])
+  const transcriptSeqRef = useRef(0)
+  const transcriptLastRef = useRef<{ who: string; at: number }>({ who: '', at: 0 })
+  const transcriptListRef = useRef<HTMLDivElement>(null)
+  const pushTranscript = useCallback((who: 'cliente' | 'plotai', raw: string) => {
+    const text = raw.trim()
+    if (!text) return
+    const now = Date.now()
+    const merge = transcriptLastRef.current.who === who && now - transcriptLastRef.current.at < 6000
+    transcriptLastRef.current = { who, at: now }
+    setTranscript((prev) => {
+      const last = prev[prev.length - 1]
+      if (merge && last && last.who === who) {
+        const glue = /^[.,;:!?)»”]/.test(text) ? '' : ' '
+        return [...prev.slice(0, -1), { ...last, text: `${last.text}${glue}${text}`.replace(/\s+/g, ' ') }]
+      }
+      return [...prev, { id: ++transcriptSeqRef.current, who, text }].slice(-24)
+    })
+  }, [])
   const [holo, setHolo] = useState({ capable: false, active: false })
   const handleHoloChange = useCallback((info: { capable: boolean; active: boolean }) => {
     setHolo((prev) => (prev.capable === info.capable && prev.active === info.active ? prev : info))
@@ -55,6 +76,8 @@ export default function TotemChatPage() {
   const imageBusyRef = useRef(false)
   const lastImageAtRef = useRef(0)
   const lastUserAtRef = useRef(0)
+  const lastImageDoneAtRef = useRef(0)
+  const modelTextRef = useRef({ text: '', at: 0 })
   const imageFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const intentionalStopRef = useRef(false)
   const userTextsRef = useRef<string[]>([])
@@ -119,6 +142,8 @@ export default function TotemChatPage() {
     }
     setContextHint(null)
     setProximityHint(false)
+    setTranscript([])
+    transcriptLastRef.current = { who: '', at: 0 }
     stopLiveSession()
     stopTotemVideo()
     setGeneratedImageUrl(null)
@@ -150,6 +175,7 @@ export default function TotemChatPage() {
       })
       const imgData = await imgRes.json().catch(() => ({}))
       if (imgData?.dataUrl) {
+        lastImageDoneAtRef.current = Date.now()
         setGeneratedImageUrl(imgData.dataUrl)
         liveRef.current?.sendTextTurn(
           '[Sistema: ya generaste y mostraste la imagen en pantalla. Confirmale al cliente en una frase breve que ya puede verla.]'
@@ -277,6 +303,7 @@ export default function TotemChatPage() {
           armIdleReset()
           const t = text.trim()
           if (!t) return
+          pushTranscript('cliente', t)
           // la transcripción llega en pedacitos: los que llegan juntos se unen en una sola frase
           const now = Date.now()
           const prev = userTextsRef.current
@@ -330,8 +357,22 @@ export default function TotemChatPage() {
         onReconnecting: (reconnecting) => {
           setContextHint(reconnecting ? 'Reconectando…' : null)
         },
-        onModelTranscript: () => {
-          /* solo animación del robot; sin subtítulos en pantalla */
+        onModelTranscript: (text) => {
+          pushTranscript('plotai', text)
+          // además se vigila si promete una imagen que nunca pidió generar
+          const now = Date.now()
+          const acc = modelTextRef.current
+          acc.text = now - acc.at > 4000 ? text : `${acc.text} ${text}`
+          acc.at = now
+          const recientes = now - lastImageAtRef.current < 15_000 || now - lastImageDoneAtRef.current < 60_000
+          if (!recientes && !imageBusyRef.current && IMAGE_PROMISE.test(acc.text)) {
+            if (imageFallbackTimerRef.current) clearTimeout(imageFallbackTimerRef.current)
+            imageFallbackTimerRef.current = setTimeout(() => {
+              imageFallbackTimerRef.current = null
+              const pedido = userTextsRef.current.slice(-2).join('. ') || acc.text
+              void handleImageRequest(pedido)
+            }, 3500)
+          }
         },
         onSpeakingChange: (speaking) => {
           if (speaking) armIdleReset()
@@ -366,7 +407,7 @@ export default function TotemChatPage() {
     } finally {
       liveStartingRef.current = false
     }
-  }, [armIdleReset, clearIdleReset, handleImageRequest, refreshLiveContext, resetToIdle, scheduleContextRefresh, stopLiveSession])
+  }, [armIdleReset, clearIdleReset, handleImageRequest, pushTranscript, refreshLiveContext, resetToIdle, scheduleContextRefresh, stopLiveSession])
 
   useEffect(() => {
     return () => {
@@ -374,6 +415,26 @@ export default function TotemChatPage() {
       stopTotemVideo()
     }
   }, [stopLiveSession, stopTotemVideo])
+
+  // solo desarrollo: window.__totemImage('un gato astronauta') prueba el flujo real de imágenes sin usar la voz
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const w = window as unknown as {
+      __totemImage?: (p: string) => Promise<void>
+      __totemSay?: (who: 'cliente' | 'plotai', text: string) => void
+    }
+    w.__totemImage = handleImageRequest
+    w.__totemSay = pushTranscript
+    return () => {
+      delete w.__totemImage
+      delete w.__totemSay
+    }
+  }, [handleImageRequest, pushTranscript])
+
+  useEffect(() => {
+    const el = transcriptListRef.current
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }, [transcript])
 
   // paralaje del fondo: las capas se mueven distinto según dónde toca o mira la persona
   useEffect(() => {
@@ -571,6 +632,24 @@ export default function TotemChatPage() {
               <p className="totem-context-hint">{contextHint}</p>
             )}
           </div>
+
+          {(state !== 'idle' || transcript.length > 0) && (
+            <div className="totem-transcript" role="log" aria-live="polite" aria-label="Conversación">
+              <div className="totem-transcript__head">Conversación</div>
+              <div className="totem-transcript__list" ref={transcriptListRef}>
+                {transcript.length === 0 ? (
+                  <p className="totem-transcript__empty">Cuando hables, la charla va a aparecer acá.</p>
+                ) : (
+                  transcript.map((line) => (
+                    <div key={line.id} className={`totem-msg totem-msg--${line.who}`}>
+                      <span className="totem-msg__who">{line.who === 'cliente' ? 'Vos' : 'PlotAI'}</span>
+                      <p className="totem-msg__text">{line.text}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
 
           {generatedImageUrl && !holo.capable && (
             <div className="totem-generated-image-wrap">

@@ -56,7 +56,7 @@ export async function fetchTotemLiveContext(
   }
 }
 
-function buildTotemLiveSystemInstruction(contextBlock?: string, plotCenterKnowledge?: string): string {
+export function buildTotemLiveSystemInstruction(contextBlock?: string, plotCenterKnowledge?: string): string {
   const knowledge = (plotCenterKnowledge || '').trim() || `
 EMPRESA: Plot Center — comunicación visual integral en San Juan Argentina.
 Dirección: 9 de Julio 622 (Oeste). Teléfono: 2646212163. Email: contacto@plotcenter.com.ar.
@@ -76,6 +76,8 @@ REGLAS SOBRE OPs Y CLIENTES (obligatorio):
 
   return `Sos PlotAI el asistente de voz del mostrador de Plot Center en un tótem con pantalla táctil en recepción. Estás hablando en vivo con una persona parada frente al tótem.
 
+REGLA CRÍTICA DE IMÁGENES: cuando el cliente pida una imagen foto dibujo ilustración logo afiche o diseño para ver en pantalla, tu PRIMERA acción es ejecutar la función mostrar_imagen. Recién después de ejecutarla podés hablar. Está PROHIBIDO decir que estás preparando o mostrando una imagen si no ejecutaste la función mostrar_imagen en ese mismo turno: sin la función no aparece nada en pantalla y el cliente se queda esperando.
+
 IDIOMA: SIEMPRE español argentino natural para voz. Nunca inglés.
 
 PERSONALIDAD: simpática cálida y servicial como la mejor atención de mostrador. Hablá como una persona real: frases completas y naturales, con calidez, sin sonar robótica ni telegráfica. Usá el voseo. Podés hacer alguna broma suave si el cliente está relajado.
@@ -87,7 +89,7 @@ ${clienteBlock}
 HERRAMIENTAS (usalas siempre que corresponda, no adivines):
 - consultar_precios: cada vez que pregunten cuánto sale algo llamala ANTES de responder, con el producto y la cantidad que dijo. Cotizá SOLO con lo que devuelva. Decí el precio unitario y el total si hay cantidad. Si el producto no figura decilo con honestidad y ofrecé que mostrador lo cotice. Si hay muchas opciones nombrá las dos o tres más parecidas y ofrecé seguir con otras.
 - consultar_orden: cuando den un número de OP un DNI un CUIT o un nombre para saber cómo va su trabajo llamala con esos datos y contale el estado real.
-- mostrar_imagen: si piden dibujar generar imaginar o ver una imagen o foto llamala con una descripción detallada en español y decile en una frase que ya la estás preparando en pantalla. Cuando el sistema te avise que ya está en pantalla confirmalo brevemente.
+- mostrar_imagen: ejecutala de inmediato con una descripción detallada en español (sujeto estilo colores ambiente) y recién después decile en una frase que ya la estás preparando. Cuando el sistema te avise que ya está en pantalla confirmalo brevemente.
 - Mientras esperás el resultado de una herramienta no te quedes callada: decí algo corto como "ya te lo busco".
 
 REGLAS DE VOZ (obligatorio):
@@ -131,7 +133,7 @@ export type TotemLiveStartOptions = {
   systemInstruction?: string
 }
 
-const TOTEM_TOOLS: Tool[] = [
+export const TOTEM_TOOLS: Tool[] = [
   {
     functionDeclarations: [
       {
@@ -192,6 +194,7 @@ export class TotemPlotAILive {
   private stopped = false
   private reconnecting = false
   private resumeHandle: string | null = null
+  private history: Array<{ who: 'cliente' | 'plotai'; text: string }> = []
   private systemInstruction = ''
   private audioContext: AudioContext | null = null
   private micAudioContext: AudioContext | null = null
@@ -284,6 +287,7 @@ export class TotemPlotAILive {
       /* noop */
     }
 
+    const hadHandle = !!this.resumeHandle
     let ok = false
     for (let attempt = 1; attempt <= 5 && !this.stopped; attempt++) {
       await sleep(500 * attempt)
@@ -299,6 +303,7 @@ export class TotemPlotAILive {
 
     this.reconnecting = false
     this.callbacks.onReconnecting?.(false)
+    if (ok && !hadHandle) this.restoreHistory()
     if (!ok && !this.stopped) this.callbacks.onClose?.(reason)
   }
 
@@ -490,6 +495,24 @@ export class TotemPlotAILive {
     }
   }
 
+  private remember(who: 'cliente' | 'plotai', text: string): void {
+    const last = this.history[this.history.length - 1]
+    if (last && last.who === who) last.text = `${last.text} ${text}`.slice(-400)
+    else this.history.push({ who, text: text.slice(-400) })
+    if (this.history.length > 14) this.history.shift()
+  }
+
+  /** Si la sesión se reabre sin handle de reanudación, le cuenta al modelo de qué venían hablando. */
+  private restoreHistory(): void {
+    if (!this.history.length) return
+    const NL = String.fromCharCode(10)
+    const resumen = this.history.map((h) => `${h.who === 'cliente' ? 'Cliente' : 'PlotAI'}: ${h.text}`).join(NL)
+    this.sendTextTurn(
+      `[La conexión se reinició un instante. Esto es lo último que hablaron, seguí la charla con naturalidad sin volver a saludar ni presentarte y sin mencionar el reinicio:${NL}${resumen}]`,
+      { respond: false }
+    )
+  }
+
   private async handleToolCall(calls: Array<{ id?: string; name?: string; args?: Record<string, unknown> }>): Promise<void> {
     const responses = await Promise.all(
       calls.map(async (c) => {
@@ -534,10 +557,16 @@ export class TotemPlotAILive {
     }
 
     const inputTx = msg.serverContent?.inputTranscription?.text?.trim()
-    if (inputTx) this.callbacks.onUserTranscript?.(inputTx)
+    if (inputTx) {
+      this.remember('cliente', inputTx)
+      this.callbacks.onUserTranscript?.(inputTx)
+    }
 
     const outputTx = msg.serverContent?.outputTranscription?.text?.trim()
-    if (outputTx) this.callbacks.onModelTranscript?.(outputTx)
+    if (outputTx) {
+      this.remember('plotai', outputTx)
+      this.callbacks.onModelTranscript?.(outputTx)
+    }
 
     if (msg.serverContent?.interrupted) {
       this.audioQueue = []

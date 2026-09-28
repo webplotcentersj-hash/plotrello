@@ -57,7 +57,11 @@ export default defineConfig({
   ],
   server: {
     // LAN solo si VITE_DEV_LAN=1 (evita exponer dev en toda la red)
-    host: process.env.VITE_DEV_LAN === '1'
+    host: process.env.VITE_DEV_LAN === '1',
+    // en desarrollo no hay funciones serverless: el tótem (voz, imágenes, precios) usa las de producción
+    proxy: {
+      '/api/plotai': { target: 'https://www.plotcenterlab.com.ar', changeOrigin: true, secure: true }
+    }
   },
   build: {
     modulePreload: {
