@@ -9,7 +9,7 @@
   max-height: 100%;
   overflow: hidden;
   color: var(--totem-text);
-  /* Fondo geométrico del kanban */
+  /* Fondo geométrico del kanban (el shell del kiosk lo refuerza con !important) */
   --totem-kiosk-fondo-velo: 0.7;
   background-color: #1f2233;
   background-image:
@@ -64,8 +64,37 @@
   border-color: rgba(251, 146, 60, 0.35);
 }
 
+.totem-cat-title-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.2vw, 20px);
+  margin-top: 12px;
+}
+
+.totem-cat-ico-ring {
+  flex-shrink: 0;
+  width: clamp(58px, 8vw, 68px);
+  height: clamp(58px, 8vw, 68px);
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 30% 25%, rgba(167, 139, 250, 0.35), rgba(88, 28, 135, 0.18));
+  border: 1px solid var(--totem-line-bright);
+  color: #ddd6fe;
+  box-shadow: 0 14px 36px rgba(99, 102, 241, 0.22);
+}
+
+.totem-cat-kicker {
+  margin: 0 0 4px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--totem-orange);
+}
+
 .totem-cat-title h1 {
-  margin: 10px 0 0;
+  margin: 0;
   font-size: clamp(1.65rem, 3.2vw, 2rem);
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -75,24 +104,41 @@
   color: transparent;
 }
 
-.totem-cat-title p {
+.totem-cat-sub {
   margin: 6px 0 0;
   color: var(--totem-text-muted);
   font-size: 0.98rem;
 }
 
 .totem-cat-cart-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   border: 1px solid rgba(167, 139, 250, 0.45);
   background: linear-gradient(135deg, rgba(167, 139, 250, 0.22), rgba(99, 102, 241, 0.12));
   color: #f5f3ff;
-  padding: 13px 18px;
-  border-radius: var(--totem-radius-lg);
+  padding: 13px 20px;
+  border-radius: var(--totem-radius-pill);
   cursor: pointer;
   font-weight: 800;
-  min-height: 50px;
+  min-height: 54px;
   font-size: 0.98rem;
   box-shadow: 0 10px 36px rgba(99, 102, 241, 0.2);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.totem-cat-cart-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--totem-orange-hot);
+  color: #1a0800;
+  font-size: 0.8rem;
+  font-weight: 900;
 }
 
 .totem-cat-cart-btn:hover:not(:disabled) {
@@ -118,7 +164,9 @@
 .totem-cat-error {
   padding: 14px 16px;
   border-radius: var(--totem-radius-md);
-  background: linear-gradient(135deg, rgba(127, 29, 29, 0.55), rgba(69, 10, 10, 0.45));
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.82), rgba(69, 10, 10, 0.8));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(248, 113, 113, 0.4);
   margin-bottom: 14px;
   font-weight: 600;
@@ -132,7 +180,9 @@
   padding: clamp(16px, 2.2vw, 20px);
   border-radius: var(--totem-radius-xl);
   border: 1px solid var(--totem-line-bright);
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%);
+  background: linear-gradient(165deg, rgba(20, 22, 36, 0.82) 0%, rgba(14, 16, 28, 0.86) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
   max-width: 100%;
   min-width: 0;
@@ -302,13 +352,52 @@
 
 .totem-cat-loading,
 .totem-cat-empty {
-  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 44px 22px;
   border: 1px solid var(--totem-line);
   border-radius: var(--totem-radius-xl);
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(160deg, rgba(20, 22, 36, 0.78), rgba(14, 16, 28, 0.82));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   text-align: center;
   color: var(--totem-text-soft);
   font-size: 1.05rem;
+}
+
+.totem-cat-loading {
+  flex-direction: row;
+  justify-content: center;
+  padding: 32px 22px;
+}
+
+.totem-cat-loading-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid rgba(251, 146, 60, 0.25);
+  border-top-color: var(--totem-orange);
+  animation: totem-cat-spin 0.8s linear infinite;
+}
+
+@keyframes totem-cat-spin {
+  to { transform: rotate(360deg); }
+}
+
+.totem-cat-empty-ico {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(226, 232, 240, 0.5);
+}
+
+.totem-cat-empty p {
+  margin: 0;
 }
 
 .totem-cat-grid {
@@ -365,8 +454,7 @@
 }
 
 .totem-cat-img--empty {
-  font-size: 2.4rem;
-  color: rgba(226, 232, 240, 0.45);
+  color: rgba(226, 232, 240, 0.4);
 }
 
 .totem-cat-card-body {
@@ -432,8 +520,16 @@
 }
 
 .totem-cat-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.82rem;
   color: var(--totem-text-muted);
+}
+
+.totem-cat-time .totem-kiosk-svg {
+  width: 15px;
+  height: 15px;
 }
 
 .totem-cat-stock {
@@ -678,6 +774,8 @@
 }
 
 .totem-cat-remove {
+  display: grid;
+  place-items: center;
   width: 46px;
   height: 46px;
   border-radius: var(--totem-radius-md);
@@ -728,5 +826,8 @@
   .totem-cat-header {
     flex-direction: column;
     align-items: stretch;
+  }
+  .totem-cat-cart-btn {
+    justify-content: center;
   }
 }

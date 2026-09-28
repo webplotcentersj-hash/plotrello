@@ -7,6 +7,7 @@ import {
 } from '../services/commerceCatalogService'
 import type { ArticuloEmpresaRecord } from '../types/api'
 import TotemCatalogoAgregarModal from '../components/totem/TotemCatalogoAgregarModal'
+import { TotemKioskIcon } from '../components/totem/TotemKioskIcons'
 import type { CarritoItemExtra } from '../services/clienteCarritoExtras'
 import './TotemAutogestionCatalogoPage.css'
 import {
@@ -61,6 +62,28 @@ export default function TotemAutogestionCatalogoPage() {
   useEffect(() => {
     void loadCatalogo()
   }, [loadCatalogo])
+
+  // solo desarrollo: window.__catalogoDemo() carga productos de ejemplo sin consultar la base
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const w = window as unknown as { __catalogoDemo?: () => void }
+    w.__catalogoDemo = () => {
+      const demo: ArticuloEmpresaRecord[] = [
+        { id: 1, nombre: 'Banner Vinilo 1x1m', descripcion: 'Impresión full color, ojales cada 50cm.', categoria: 'Gran formato', precio_base: 8500, imagen_url: '', codigo: 'BAN-01', tiempo_estimado_dias: 1 } as ArticuloEmpresaRecord,
+        { id: 2, nombre: 'Tarjetas personales x100', descripcion: 'Papel ilustración 300g, ambas caras.', categoria: 'Gráfica', precio_base: 4200, imagen_url: '', codigo: 'TAR-02', tiempo_estimado_dias: 2 } as ArticuloEmpresaRecord,
+        { id: 3, nombre: 'Cartel foam 5mm A3', descripcion: 'Impresión + corte, listo para exhibir.', categoria: 'Gran formato', precio_base: 5600, imagen_url: '', codigo: 'FOA-03', tiempo_estimado_dias: 1 } as ArticuloEmpresaRecord,
+        { id: 4, nombre: 'Stickers troquelados x50', descripcion: 'Vinilo adhesivo, cualquier forma.', categoria: 'Gráfica', precio_base: 3100, imagen_url: '', codigo: 'STI-04', tiempo_estimado_dias: 3 } as ArticuloEmpresaRecord,
+        { id: 5, nombre: 'Lona frontlight 2x1m', descripcion: 'Alta resistencia, exterior.', categoria: 'Gran formato', precio_base: 12500, imagen_url: '', codigo: 'LON-05', tiempo_estimado_dias: 2 } as ArticuloEmpresaRecord,
+        { id: 6, nombre: 'Remeras sublimadas', descripcion: 'Diseño a elección, talles S-XL.', categoria: 'Textil', precio_base: 6800, imagen_url: '', codigo: 'REM-06', tiempo_estimado_dias: 4 } as ArticuloEmpresaRecord
+      ]
+      setTodosArticulos(demo)
+      setLoading(false)
+      setError('')
+    }
+    return () => {
+      delete w.__catalogoDemo
+    }
+  }, [])
 
   const categorias = useMemo((): CategoriaConConteo[] => {
     const counts = new Map<string, number>()
@@ -150,8 +173,16 @@ export default function TotemAutogestionCatalogoPage() {
             <button type="button" className="totem-cat-back" onClick={() => navigate('/totem/consulta-cliente')}>
               ← Volver
             </button>
-            <h1>Comprar</h1>
-            <p>Elegí tu producto, subí el diseño o completá el brief, y pagá con Mercado Pago.</p>
+            <div className="totem-cat-title-row">
+              <span className="totem-cat-ico-ring" aria-hidden>
+                <TotemKioskIcon name="cart" size="lg" />
+              </span>
+              <div>
+                <p className="totem-cat-kicker">Plot Center · Autogestión</p>
+                <h1>Comprar</h1>
+                <p className="totem-cat-sub">Elegí tu producto, subí el diseño o completá el brief, y pagá con Mercado Pago.</p>
+              </div>
+            </div>
           </div>
 
           <button
@@ -161,7 +192,9 @@ export default function TotemAutogestionCatalogoPage() {
             disabled={itemsCount === 0}
             title={itemsCount === 0 ? 'Carrito vacío' : 'Ver carrito'}
           >
-            🛒 Carrito ({itemsCount})
+            <TotemKioskIcon name="cart" size="strip" />
+            <span>Carrito</span>
+            {itemsCount > 0 && <span className="totem-cat-cart-badge">{itemsCount}</span>}
           </button>
         </header>
 
@@ -228,9 +261,15 @@ export default function TotemAutogestionCatalogoPage() {
           </div>
 
           {loading ? (
-            <div className="totem-cat-loading">Cargando catálogo…</div>
+            <div className="totem-cat-loading">
+              <span className="totem-cat-loading-spinner" aria-hidden />
+              Cargando catálogo…
+            </div>
           ) : articulos.length === 0 ? (
             <div className="totem-cat-empty">
+              <span className="totem-cat-empty-ico" aria-hidden>
+                <TotemKioskIcon name="search" size="lg" />
+              </span>
               <p>No se encontraron productos.</p>
               {(busqueda || categoriaFiltro) && (
                 <button
@@ -261,7 +300,7 @@ export default function TotemAutogestionCatalogoPage() {
                       </div>
                     ) : (
                       <div className="totem-cat-img totem-cat-img--empty" aria-hidden>
-                        📦
+                        <TotemKioskIcon name="box" size="lg" />
                       </div>
                     )}
                     <div className="totem-cat-card-body">
@@ -273,7 +312,8 @@ export default function TotemAutogestionCatalogoPage() {
                       <div className="totem-cat-card-meta">
                         {a.tiempo_estimado_dias != null && a.tiempo_estimado_dias > 0 && (
                           <span className="totem-cat-time">
-                            ⏱️ {a.tiempo_estimado_dias} día{a.tiempo_estimado_dias !== 1 ? 's' : ''}
+                            <TotemKioskIcon name="clock" size="strip" />
+                            {a.tiempo_estimado_dias} día{a.tiempo_estimado_dias !== 1 ? 's' : ''}
                           </span>
                         )}
                         {cantidadMaximaVendible(a) != null && (
@@ -386,7 +426,7 @@ export default function TotemAutogestionCatalogoPage() {
                           aria-label="Quitar"
                           title="Quitar"
                         >
-                          🗑️
+                          <TotemKioskIcon name="trash" size="strip" />
                         </button>
                       </div>
                     </div>

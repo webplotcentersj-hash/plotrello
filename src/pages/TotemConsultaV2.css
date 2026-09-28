@@ -144,32 +144,6 @@
   position: relative;
 }
 
-.tc2-idle__rings {
-  position: absolute;
-  left: 50%;
-  top: 30%;
-  width: min(70vh, 560px);
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.tc2-idle__rings i {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 2px solid rgba(251, 146, 60, 0.35);
-  animation: tc2-ring 4.5s ease-out infinite;
-}
-
-.tc2-idle__rings i:nth-child(2) { animation-delay: 1.5s; border-color: rgba(56, 189, 248, 0.3); }
-.tc2-idle__rings i:nth-child(3) { animation-delay: 3s; border-color: rgba(244, 114, 182, 0.28); }
-
-@keyframes tc2-ring {
-  from { transform: scale(0.35); opacity: 0.9; }
-  to { transform: scale(1.05); opacity: 0; }
-}
-
 .tc2-idle__logo {
   position: relative;
   width: clamp(110px, 17vh, 170px);
@@ -281,25 +255,6 @@
   font-size: clamp(1.15rem, 2.6vh, 1.7rem);
   font-weight: 800;
   box-shadow: 0 16px 44px rgba(255, 190, 0, 0.35);
-  animation: tc2-breathe 2.2s ease-in-out infinite;
-}
-
-.tc2-touch__pulse {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #1a1200;
-  box-shadow: 0 0 0 0 rgba(26, 18, 0, 0.5);
-  animation: tc2-pulse 1.6s ease-out infinite;
-}
-
-@keyframes tc2-breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.04); }
-}
-
-@keyframes tc2-pulse {
-  to { box-shadow: 0 0 0 16px rgba(26, 18, 0, 0); }
 }
 
 .tc2-hours {
@@ -963,7 +918,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tc2-screen, .tc2-idle__rings i, .tc2-idle__logo, .tc2-touch, .tc2-touch__pulse,
+  .tc2-screen, .tc2-idle__logo,
   .tc2-caret, .tc2-ticket__op, .tc2-steps__dot, .tc2-confetti span { animation: none !important; }
   .tc2-tip { transition: none; }
 }
@@ -1017,13 +972,21 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: clamp(8px, 1.3vh, 14px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
 }
+
+.tc2-where__list::-webkit-scrollbar { width: 6px; }
+.tc2-where__list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.28); border-radius: 999px; }
 
 .tc2-sign {
   position: relative;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   min-height: clamp(58px, 8vh, 92px);
   max-height: clamp(96px, 11vh, 150px);
   display: flex;

@@ -10,6 +10,16 @@ export type TotemKioskIconName =
   | 'caja'
   | 'base_operaciones'
   | 'marketing'
+  | 'cart'
+  | 'box'
+  | 'clock'
+  | 'trash'
+  | 'check'
+  | 'phone'
+  | 'chat'
+  | 'cloud'
+  | 'email'
+  | 'usb'
 
 const ICONS: Record<TotemKioskIconName, ReactNode> = {
   search: (
@@ -73,17 +83,68 @@ const ICONS: Record<TotemKioskIconName, ReactNode> = {
       <path d="M18 8v8" />
       <path d="M20 10v4" />
     </>
+  ),
+  cart: (
+    <>
+      <path d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L21 8H6" />
+      <circle cx="9.5" cy="20" r="1.4" />
+      <circle cx="17.5" cy="20" r="1.4" />
+    </>
+  ),
+  box: (
+    <>
+      <path d="M3 8l9-5 9 5-9 5-9-5z" />
+      <path d="M3 8v9l9 5 9-5V8" />
+      <path d="M12 13v9" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4 7h16" />
+      <path d="M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7" />
+      <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+      <path d="M10 11v6M14 11v6" />
+    </>
+  ),
+  check: <path d="M5 12.5l4.5 4.5L19 7" />,
+  phone: (
+    <>
+      <rect x="7" y="2.2" width="10" height="19.6" rx="2.2" />
+      <path d="M11 18.2h2" />
+    </>
+  ),
+  chat: <path d="M4 12a8 8 0 1 1 3.1 6.3L4 20l1.4-4A7.96 7.96 0 0 1 4 12z" />,
+  cloud: <path d="M7 18a4.5 4.5 0 0 1-1-8.9 5.5 5.5 0 0 1 10.6-2A4 4 0 0 1 17 18H7z" />,
+  email: (
+    <>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+      <path d="M4 7l8 6 8-6" />
+    </>
+  ),
+  usb: (
+    <>
+      <rect x="9" y="2.5" width="6" height="6" rx="1.4" />
+      <path d="M12 8.5v3" />
+      <path d="M8.4 15h7.2l-1 4.5h-5.2z" />
+      <path d="M9.2 11.5h5.6l-1 4.5h-3.6z" />
+    </>
   )
 }
 
 type TotemKioskIconProps = {
   name: TotemKioskIconName
-  size?: 'tile' | 'strip'
+  size?: 'tile' | 'strip' | 'lg'
   className?: string
 }
 
 export function TotemKioskIcon({ name, size = 'tile', className }: TotemKioskIconProps) {
-  const dim = size === 'tile' ? 30 : 22
+  const dim = size === 'lg' ? 38 : size === 'tile' ? 30 : 22
   return (
     <svg
       className={`totem-kiosk-svg totem-kiosk-svg--${size}${className ? ` ${className}` : ''}`}

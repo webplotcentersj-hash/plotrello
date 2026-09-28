@@ -708,11 +708,6 @@ const TotemConsultaClientePage = () => {
       <div className={`tc2-shell tc2-step-${step}`}>
         {step === 'idle' && (
           <div className="tc2-screen tc2-idle">
-            <div className="tc2-idle__rings" aria-hidden>
-              <i />
-              <i />
-              <i />
-            </div>
             <div className="tc2-idle__logo">
               <img src="/plot-lab-logo.png" alt="Plot Center" />
             </div>
@@ -737,7 +732,6 @@ const TotemConsultaClientePage = () => {
             </div>
 
             <div className="tc2-touch">
-              <span className="tc2-touch__pulse" aria-hidden />
               <span>Tocá la pantalla para comenzar</span>
             </div>
 

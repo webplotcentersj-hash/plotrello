@@ -44,6 +44,7 @@ import {
 import TotemPrintPreviewMonitor from '../components/totem/TotemPrintPreviewMonitor'
 import TotemMercadoPagoPayPanel from '../components/totem/TotemMercadoPagoPayPanel'
 import type { TotemImpresionCheckoutDraft } from '../services/totemMpApi'
+import { TotemKioskIcon, type TotemKioskIconName } from '../components/totem/TotemKioskIcons'
 import './TotemAutogestionImprimirPage.css'
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
@@ -53,6 +54,14 @@ const WA_CHAT_URL = 'https://wa.me/5492646212163'
 
 type Step = 'form' | 'pay' | 'done'
 type OrigenArchivo = 'WhatsApp' | 'Drive' | 'Email' | 'Pendrive' | 'CelularQR'
+
+const ORIGEN_OPCIONES: { value: OrigenArchivo; label: string; icon: TotemKioskIconName }[] = [
+  { value: 'CelularQR', label: 'Celular (QR)', icon: 'phone' },
+  { value: 'WhatsApp', label: 'WhatsApp', icon: 'chat' },
+  { value: 'Drive', label: 'Drive', icon: 'cloud' },
+  { value: 'Email', label: 'Email', icon: 'email' },
+  { value: 'Pendrive', label: 'Pendrive', icon: 'usb' }
+]
 
 export default function TotemAutogestionImprimirPage() {
   const navigate = useNavigate()
@@ -909,7 +918,11 @@ export default function TotemAutogestionImprimirPage() {
           <button type="button" className="totem-print-back" onClick={() => navigate('/totem/consulta-cliente')}>
             ← Inicio
           </button>
+          <span className="totem-print-ico-ring" aria-hidden>
+            <TotemKioskIcon name="print" size="lg" />
+          </span>
           <div>
+            <p className="totem-print-kicker">Plot Center · Autogestión</p>
             <h1>Impresión (cola)</h1>
             <p>Subí el archivo, pagá con Mercado Pago y enviamos el trabajo a la cola de impresión.</p>
           </div>
@@ -960,7 +973,7 @@ export default function TotemAutogestionImprimirPage() {
                 {clienteId != null && (
                   <div className="totem-print-span2 totem-print-clienteOk" role="status">
                     <span className="totem-print-clienteOk__icon" aria-hidden>
-                      ✓
+                      <TotemKioskIcon name="check" size="strip" />
                     </span>
                     <span>
                       <strong>Cliente registrado</strong> — completamos nombre, DNI y teléfono automáticamente.
@@ -1178,20 +1191,24 @@ export default function TotemAutogestionImprimirPage() {
                   className={`totem-print-span2 totem-print-origenBlock ${origenPulse ? 'totem-print-origenBlock--pulse' : ''}`}
                   ref={origenSectionRef}
                 >
-                  <label>
-                    Origen del archivo
-                    <select
-                      value={origenArchivo}
-                      onChange={(e) => setOrigenArchivo(e.target.value as OrigenArchivo)}
-                      aria-label="Origen del archivo"
-                    >
-                      <option value="CelularQR">Celular (código QR)</option>
-                      <option value="WhatsApp">WhatsApp</option>
-                      <option value="Drive">Drive</option>
-                      <option value="Email">Email</option>
-                      <option value="Pendrive">Pendrive (archivo en esta PC)</option>
-                    </select>
-                  </label>
+                  <div>
+                    <span className="totem-print-origenFieldLabel">Origen del archivo</span>
+                    <div className="totem-print-origenTabs" role="tablist" aria-label="Origen del archivo">
+                      {ORIGEN_OPCIONES.map((o) => (
+                        <button
+                          key={o.value}
+                          type="button"
+                          role="tab"
+                          aria-selected={origenArchivo === o.value}
+                          className={`totem-print-origenTab ${origenArchivo === o.value ? 'is-active' : ''}`}
+                          onClick={() => setOrigenArchivo(o.value)}
+                        >
+                          <TotemKioskIcon name={o.icon} size="strip" />
+                          <span>{o.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {showWaBlock && (
                     <div className="totem-print-origenPanel totem-print-origenPanel--wa">
                       <p className="totem-print-origenLead">Escaneá el código y envianos el archivo por WhatsApp.</p>
