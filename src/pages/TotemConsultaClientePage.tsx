@@ -17,12 +17,37 @@ import { TotemKioskIcon, type TotemKioskIconName } from '../components/totem/Tot
 import { requestTotemKioskFullscreen, useTotemKioskFullscreen } from '../hooks/useTotemKioskMode'
 import './ClienteConsultaPage.css'
 import './TotemConsultaClientePage.css'
+import './TotemConsultaV2.css'
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
 const INACTIVITY_MS = 90000 // Sin tocar → pantalla en espera (modo kiosk)
 
 type SectorDirection = 'planta-baja' | 'adelante' | 'primer-piso'
+
+const TIPS: Array<{ icon: TotemKioskIconName; text: string }> = [
+  { icon: 'search', text: 'Consultá cómo va tu pedido con tu número de OP' },
+  { icon: 'print', text: 'Imprimí tus archivos: subilos desde tu celular' },
+  { icon: 'catalog', text: 'Elegí y comprá productos del catálogo' },
+  { icon: 'presupuestos', text: 'Pedí un presupuesto y asesoramiento' }
+]
+
+const ETAPAS = ['Diseño', 'Producción', 'Terminado', 'Listo para retirar']
+
+const MENSAJE_ETAPA = [
+  'Estamos trabajando en el diseño de tu pedido.',
+  'Tu pedido está en producción.',
+  'Tu pedido terminó de producirse.',
+  '¡Tu pedido está listo para retirar!'
+]
+
+const OP_MAX_DIGITOS = 10
+
+const DIRECCION_TEXTO: Record<SectorDirection, string> = {
+  'planta-baja': 'Seguí las flechas del piso hacia abajo',
+  adelante: 'Seguí hacia adelante',
+  'primer-piso': 'Subí por las escaleras'
+}
 
 /** Paleta CMYK de proceso (impresión) para la señalética del tótem. */
 const CMYK = {
@@ -134,6 +159,8 @@ const TotemConsultaClientePage = () => {
   const [enviandoAvisoVoy, setEnviandoAvisoVoy] = useState(false)
   const [lastInteraction, setLastInteraction] = useState<number>(() => Date.now())
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [tipIdx, setTipIdx] = useState(0)
+  const [historialAbierto, setHistorialAbierto] = useState<Record<number, boolean>>({})
   const { toggle: toggleKioskFullscreen } = useTotemKioskFullscreen()
   const pageRef = useRef<HTMLDivElement>(null)
   const unsubAsesorEnCaminoRef = useRef<(() => void) | null>(null)
@@ -187,6 +214,25 @@ const TotemConsultaClientePage = () => {
   }, [])
 
   useEffect(() => {
+    if (step !== 'idle') return
+    const id = setInterval(() => setTipIdx((i) => (i + 1) % TIPS.length), 4500)
+    return () => clearInterval(id)
+  }, [step])
+
+  // si el tótem tiene teclado físico, también sirve
+  useEffect(() => {
+    if (step !== 'search' || ordenes.length > 0) return
+    const onKey = (e: KeyboardEvent) => {
+      if (/^[0-9]$/.test(e.key)) teclaOp(e.key)
+      else if (e.key === 'Backspace') borrarUltimoOp()
+      else if (e.key === 'Enter' && !loading) void handleSearchOp()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, ordenes.length, searchOp, loading])
+
+  useEffect(() => {
     const id = setInterval(() => {
       const elapsed = Date.now() - lastInteraction
       if (step === 'idle') return
@@ -205,6 +251,27 @@ const TotemConsultaClientePage = () => {
     }, 5000)
     return () => clearInterval(id)
   }, [lastInteraction, step])
+
+  // solo desarrollo: window.__consultaDemo() muestra resultados de ejemplo sin consultar la base
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const w = window as unknown as { __consultaDemo?: (etapa?: number) => void }
+    w.__consultaDemo = (etapa = 1) => {
+      const estados = ['Diseño Gráfico', 'Imprenta (Área de Impresión)', 'Finalizado en Taller', 'Almacén de Entrega']
+      const base = { id: 9001, numero_op: '000123', cliente: 'Cliente de ejemplo', dni_cuit: '20304050607', sector: 'Imprenta' }
+      setOrdenes([{ ...base, estado: estados[etapa] ?? 'imprenta' } as unknown as OrdenTrabajo])
+      setHistorial({
+        9001: [
+          { id: 1, id_orden: 9001, estado_nuevo: 'Diseño Gráfico', timestamp: new Date(Date.now() - 86400000 * 2).toISOString() },
+          { id: 2, id_orden: 9001, estado_nuevo: estados[etapa] ?? 'imprenta', timestamp: new Date().toISOString() }
+        ] as unknown as HistorialMovimiento[]
+      })
+      setStep('search')
+    }
+    return () => {
+      delete w.__consultaDemo
+    }
+  }, [])
 
   const buscarOrdenes = async (
     filtro: (orden: OrdenTrabajo) => boolean,
@@ -275,10 +342,39 @@ const TotemConsultaClientePage = () => {
     }
   }
 
+  const teclaOp = (d: string) => {
+    registrarInteraccion()
+    setError(null)
+    setSearchOp((prev) => digitsOnly(prev + d).slice(0, OP_MAX_DIGITOS))
+  }
+
+  const borrarUltimoOp = () => {
+    registrarInteraccion()
+    setError(null)
+    setSearchOp((prev) => prev.slice(0, -1))
+  }
+
+  const borrarTodoOp = () => {
+    registrarInteraccion()
+    setError(null)
+    setSearchOp('')
+  }
+
+  const nuevaBusqueda = () => {
+    registrarInteraccion()
+    clearLlamadoListeners()
+    setSearchOp('')
+    setOrdenes([])
+    setHistorial({})
+    setHistorialAbierto({})
+    setError(null)
+    setMensaje(null)
+  }
+
   const handleSearchOp = async () => {
     const term = searchOp.trim()
     if (!term) {
-      setError('Ingresá un número de OP para buscar.')
+      setError('Tocá los números para escribir tu OP.')
       return
     }
     const searchDigits = digitsOnly(term)
@@ -289,7 +385,7 @@ const TotemConsultaClientePage = () => {
 
     await buscarOrdenes(
       (orden) => digitsOnly(orden.numero_op ?? '') === searchDigits,
-      'No se encontraron trabajos con ese número de OP.',
+      'No encontramos un trabajo con ese número. Revisá que sea el que figura en tu comprobante.',
       term
     )
   }
@@ -304,6 +400,14 @@ const TotemConsultaClientePage = () => {
     const status = mapEstadoToStatus(estado)
     const column = BOARD_COLUMNS.find((col) => col.id === status)
     return column?.accent || '#6b7280'
+  }
+
+  const etapaDe = (estado: string): number => {
+    const st = mapEstadoToStatus(estado)
+    if (st === 'almacen-entrega') return 3
+    if (st === 'finalizado-taller') return 2
+    if (st === 'diseno-grafico' || st === 'diseno-proceso' || st === 'en-espera') return 0
+    return 1
   }
 
   const formatDate = (dateString: string) => {
@@ -505,38 +609,87 @@ const TotemConsultaClientePage = () => {
   const mostrarTimelineUnificado =
     historialUnificadoLista !== null && historialUnificadoLista.length > 0
 
-  const renderTotemTimeline = (historialOrdenado: HistorialMovimiento[]) => {
-    if (historialOrdenado.length === 0) return null
+  const renderTimeline = (items: HistorialMovimiento[], conSector = false) => {
+    if (items.length === 0) return null
     return (
-      <div className="timeline-section">
-        <h4 className="timeline-title">Historial del trabajo</h4>
-        <div className="timeline">
-          {historialOrdenado.map((movimiento, index) => {
-            const isLast = index === historialOrdenado.length - 1
-            const estadoNuevo = getEstadoLabel(movimiento.estado_nuevo || '')
-            const colorNuevo = getEstadoColor(movimiento.estado_nuevo || '')
-
-            return (
-              <div key={movimiento.id} className="timeline-item">
-                <div
-                  className="timeline-marker"
-                  style={{ backgroundColor: colorNuevo }}
-                >
-                  {isLast ? '✓' : '○'}
-                </div>
-                <div className="timeline-content">
-                  <div className="timeline-header">
-                    <span className="timeline-estado" style={{ color: colorNuevo }}>
-                      {estadoNuevo}
-                    </span>
-                    <span className="timeline-date">{formatDate(movimiento.timestamp)}</span>
-                  </div>
-                </div>
+      <ol className="tc2-timeline">
+        {items.map((m, index) => {
+          const color = getEstadoColor(m.estado_nuevo || '')
+          const ultimo = index === items.length - 1
+          return (
+            <li key={m.id} className={`tc2-timeline__item${ultimo ? ' is-last' : ''}`} style={{ ['--c' as string]: color }}>
+              <span className="tc2-timeline__dot" aria-hidden />
+              <div>
+                <strong>{getEstadoLabel(m.estado_nuevo || '')}</strong>
+                <span>{formatDate(m.timestamp)}</span>
+                {conSector && <em>{etiquetaSectorFicha(m.id_orden)}</em>}
               </div>
-            )
-          })}
-        </div>
-      </div>
+            </li>
+          )
+        })}
+      </ol>
+    )
+  }
+
+  const renderOrden = (orden: OrdenTrabajo) => {
+    const etapa = etapaDe(orden.estado)
+    const lista = etapa === 3
+    const abierto = Boolean(historialAbierto[orden.id])
+    const ordenado = [...(historial[orden.id] || [])].sort(
+      (x, y) => new Date(x.timestamp).getTime() - new Date(y.timestamp).getTime()
+    )
+    const dniCuit = orden.dni_cuit ? digitsOnly(orden.dni_cuit) : null
+    return (
+      <article key={orden.id} className={`tc2-order${lista ? ' tc2-order--ready' : ''}`}>
+        {lista && (
+          <div className="tc2-confetti" aria-hidden>
+            {Array.from({ length: 14 }).map((_, i) => (
+              <span key={i} style={{ ['--i' as string]: i }} />
+            ))}
+          </div>
+        )}
+        <header className="tc2-order__head">
+          <div>
+            <span className="tc2-eyebrow">Orden de producción</span>
+            <h3 className="tc2-op">#{orden.numero_op}</h3>
+            <p className="tc2-client">
+              {orden.cliente}
+              {dniCuit ? <span> · DNI/CUIT {dniCuit}</span> : null}
+            </p>
+          </div>
+          <span className="tc2-badge" style={{ ['--c' as string]: getEstadoColor(orden.estado) }}>
+            {getEstadoLabel(orden.estado)}
+          </span>
+        </header>
+        <p className="tc2-order__msg">{MENSAJE_ETAPA[etapa]}</p>
+        {lista && <p className="tc2-order__sub">Acercate a mostrador con tu número de OP.</p>}
+        <ol className="tc2-steps" aria-label="Avance de tu pedido">
+          {ETAPAS.map((label, i) => (
+            <li key={label} className={i < etapa ? 'is-done' : i === etapa ? 'is-current' : ''}>
+              <span className="tc2-steps__dot">{i < etapa ? '✓' : i + 1}</span>
+              <span className="tc2-steps__label">{label}</span>
+            </li>
+          ))}
+        </ol>
+        <button
+          type="button"
+          className="tc2-link"
+          onClick={() => {
+            registrarInteraccion()
+            setHistorialAbierto((p) => ({ ...p, [orden.id]: !p[orden.id] }))
+          }}
+        >
+          {abierto ? 'Ocultar historial' : 'Ver historial del trabajo'}
+        </button>
+        {abierto &&
+          (mostrarTimelineUnificado ? (
+            <p className="tc2-note">
+              Parte del pedido en <strong>{orden.sector?.trim() || 'este sector'}</strong>. El recorrido completo está abajo.
+            </p>
+          ) : (
+            renderTimeline(ordenado)
+          ))}
+      </article>
     )
   }
 
@@ -552,84 +705,88 @@ const TotemConsultaClientePage = () => {
       }}
       onKeyDown={registrarInteraccion}
     >
-      <div className={`consulta-container totem-container totem-step-${step}`}>
+      <div className={`tc2-shell tc2-step-${step}`}>
         {step === 'idle' && (
-          <div className="totem-idle">
-            <div className="totem-idle-stack">
-              <div className="totem-idle-inner">
-                <div className="totem-kiosk-logo-ring totem-idle-logo-ring">
-                  <img
-                    src="/plot-lab-logo.png"
-                    alt="Plot Center"
-                    className="totem-idle-logo"
-                  />
+          <div className="tc2-screen tc2-idle">
+            <div className="tc2-idle__rings" aria-hidden>
+              <i />
+              <i />
+              <i />
+            </div>
+            <div className="tc2-idle__logo">
+              <img src="/plot-lab-logo.png" alt="Plot Center" />
+            </div>
+            <p className="tc2-eyebrow">Plot Center · Autogestión</p>
+            <h1 className="tc2-idle__title">Bienvenido</h1>
+            <p className="tc2-idle__sub">Impresión · Diseño · Comunicación visual</p>
+
+            <div className="tc2-tips" aria-live="polite">
+              {TIPS.map((tip, i) => (
+                <div key={tip.text} className={`tc2-tip${i === tipIdx ? ' is-on' : ''}`} aria-hidden={i !== tipIdx}>
+                  <span className="tc2-tip__ico">
+                    <TotemKioskIcon name={tip.icon} size="tile" />
+                  </span>
+                  <span className="tc2-tip__text">{tip.text}</span>
                 </div>
-                <p className="totem-idle-kicker">Plot Center · Tótem</p>
-                <p className="totem-idle-tagline">Impresión · Diseño · Comunicación visual</p>
-                <p className="totem-idle-cta-text">Tocá la pantalla para comenzar</p>
-                <div className="totem-idle-horarios">
-                  <p className="totem-idle-horarios-title">Horarios de atención</p>
-                  <p className="totem-idle-horario">
-                    <span className="totem-idle-horario-day">Lun – Vie</span>
-                    <span className="totem-idle-horario-time">6:00 – 22:00 hs</span>
-                  </p>
-                  <p className="totem-idle-horario">
-                    <span className="totem-idle-horario-day">Sábado</span>
-                    <span className="totem-idle-horario-time">9:00 – 18:00 hs</span>
-                  </p>
-                </div>
+              ))}
+              <div className="tc2-tips__dots" aria-hidden>
+                {TIPS.map((tip, i) => (
+                  <i key={tip.text} className={i === tipIdx ? 'is-on' : ''} />
+                ))}
               </div>
-              <p className="totem-footer-tip totem-idle-tip">
-                <span className="totem-footer-tip-icon" aria-hidden />
-                <span className="totem-footer-tip-text">
-                  Si tenés dudas, acercate a <strong>mostrador</strong> con tu número de{' '}
-                  <strong>OP</strong>.
-                </span>
-              </p>
+            </div>
+
+            <div className="tc2-touch">
+              <span className="tc2-touch__pulse" aria-hidden />
+              <span>Tocá la pantalla para comenzar</span>
+            </div>
+
+            <div className="tc2-hours">
+              <span className="tc2-hours__title">Horarios de atención</span>
+              <span>
+                <b>Lun – Vie</b> 6:00 – 22:00 hs
+              </span>
+              <span>
+                <b>Sábado</b> 9:00 – 18:00 hs
+              </span>
             </div>
           </div>
         )}
 
         {step === 'welcome' && (
           <div
-            className="totem-welcome-screen"
+            className="tc2-screen tc2-welcome totem-welcome-screen"
             onPointerDownCapture={registrarInteraccion}
             onClick={(e) => e.stopPropagation()}
           >
-            <header className="totem-kiosk-header totem-welcome-top">
-              <div className="totem-kiosk-header-brand">
-                <div className="totem-kiosk-logo-ring">
-                  <img
-                    src="/plot-lab-logo.png"
-                    alt="Plot Center"
-                    className="totem-welcome-top-logo"
-                  />
+            <header className="tc2-topbar">
+              <div className="tc2-brand">
+                <div className="tc2-logo">
+                  <img src="/plot-lab-logo.png" alt="Plot Center" />
                 </div>
                 <div>
-                  <p className="totem-kiosk-eyebrow">Autogestión en mostrador</p>
-                  <p className="totem-kiosk-lead">
-                    Consultá tu OP, imprimí o elegí productos del catálogo
-                  </p>
+                  <p className="tc2-eyebrow">Plot Center · Autogestión</p>
+                  <h1 className="tc2-h1">¿Qué necesitás hoy?</h1>
                 </div>
               </div>
               <button
                 type="button"
-                className="totem-kiosk-fs-btn"
+                className="tc2-ghost"
                 onClick={(e) => {
                   e.stopPropagation()
                   void toggleFullscreen()
                 }}
                 title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
               >
-                {isFullscreen ? '⊡ Salir pantalla grande' : '⛶ Pantalla grande'}
+                {isFullscreen ? 'Salir de pantalla grande' : 'Pantalla grande'}
               </button>
             </header>
 
-            <div className="totem-welcome-grid">
-              <div className="totem-welcome-main">
-                <div className="totem-kiosk-actions">
+            <div className="tc2-welcome__grid totem-welcome-grid">
+              <div className="tc2-welcome__main totem-welcome-main">
+                <div className="tc2-actions">
                   <button
-                    className="totem-kiosk-tile totem-kiosk-tile--search"
+                    className="tc2-action tc2-action--orange"
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
@@ -637,14 +794,15 @@ const TotemConsultaClientePage = () => {
                       setStep('search')
                     }}
                   >
-                    <span className="totem-kiosk-ico-ring totem-kiosk-ico-ring--orange" aria-hidden>
+                    <span className="tc2-action__ico" aria-hidden>
                       <TotemKioskIcon name="search" size="tile" />
                     </span>
-                    <span className="totem-kiosk-tile-title">Buscar mi trabajo</span>
-                    <span className="totem-kiosk-tile-desc">Estado de tu OP en tiempo real</span>
+                    <span className="tc2-action__title">Buscar mi trabajo</span>
+                    <span className="tc2-action__desc">Mirá en qué estado está tu pedido</span>
+                    <span className="tc2-action__go" aria-hidden>Tocá acá →</span>
                   </button>
                   <button
-                    className="totem-kiosk-tile totem-kiosk-tile--print"
+                    className="tc2-action tc2-action--blue"
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
@@ -652,14 +810,15 @@ const TotemConsultaClientePage = () => {
                       navigate('/totem/autogestion/imprimir')
                     }}
                   >
-                    <span className="totem-kiosk-ico-ring totem-kiosk-ico-ring--blue" aria-hidden>
+                    <span className="tc2-action__ico" aria-hidden>
                       <TotemKioskIcon name="print" size="tile" />
                     </span>
-                    <span className="totem-kiosk-tile-title">Imprimir</span>
-                    <span className="totem-kiosk-tile-desc">Fotos, documentos y más</span>
+                    <span className="tc2-action__title">Imprimir</span>
+                    <span className="tc2-action__desc">Fotos, documentos y más</span>
+                    <span className="tc2-action__go" aria-hidden>Tocá acá →</span>
                   </button>
                   <button
-                    className="totem-kiosk-tile totem-kiosk-tile--catalog"
+                    className="tc2-action tc2-action--green"
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
@@ -669,32 +828,27 @@ const TotemConsultaClientePage = () => {
                       })
                     }}
                   >
-                    <span className="totem-kiosk-ico-ring totem-kiosk-ico-ring--emerald" aria-hidden>
+                    <span className="tc2-action__ico" aria-hidden>
                       <TotemKioskIcon name="catalog" size="tile" />
                     </span>
-                    <span className="totem-kiosk-tile-title">Comprar</span>
-                    <span className="totem-kiosk-tile-desc">Compra Tu Producto</span>
+                    <span className="tc2-action__title">Comprar</span>
+                    <span className="tc2-action__desc">Elegí productos del catálogo</span>
+                    <span className="tc2-action__go" aria-hidden>Tocá acá →</span>
                   </button>
                 </div>
 
-                <div className="totem-senaletica-block totem-senaletica-block--compact totem-kiosk-panel">
-                  <div className="totem-senaletica-head">
-                    <h2 className="totem-senaletica-title">¿Hacia dónde te dirigís?</h2>
-                  </div>
-                  <div className="totem-senaletica-strips totem-senaletica-strips--modern">
+                <section className="tc2-where">
+                  <header className="tc2-where__head">
+                    <h2 className="tc2-where__title">¿Hacia dónde te dirigís?</h2>
+                    <p className="tc2-where__sub">Tocá tu destino y te mostramos cómo llegar</p>
+                  </header>
+                  <div className="tc2-where__list">
                     {TOTEM_SECTORS_QUEHACER.map((sector) => (
                       <button
                         key={sector.id}
                         type="button"
-                        className={`totem-senaletica-strip${sector.direction === 'primer-piso' ? ' totem-senaletica-strip--upstairs' : ''}`}
-                        style={{
-                          backgroundColor: sector.bg,
-                          color: sector.textColor,
-                          borderColor:
-                            sector.textColor === '#fff'
-                              ? 'rgba(255,255,255,0.4)'
-                              : 'rgba(0,0,0,0.15)'
-                        }}
+                        className={`tc2-sign tc2-sign--${sector.direction}`}
+                        style={{ ['--bg' as string]: sector.bg, ['--fg' as string]: sector.textColor }}
                         onClick={() => {
                           registrarInteraccion()
                           setSelectedQueHacer(sector.id)
@@ -704,15 +858,23 @@ const TotemConsultaClientePage = () => {
                           setAvisoVoyMotivo('')
                         }}
                       >
-                        <span className="totem-strip-icon" aria-hidden>
+                        <span className="tc2-sign__ico" aria-hidden>
                           <TotemKioskIcon name={sector.icon} size="strip" />
                         </span>
-                        <span className="totem-strip-text">{sector.label}</span>
-                        <SectorDirectionArrows direction={sector.direction} />
+                        <span className="tc2-sign__text">
+                          <strong>{sector.label}</strong>
+                          <small>{DIRECCION_TEXTO[sector.direction]}</small>
+                        </span>
+                        {sector.direction === 'primer-piso' && <span className="tc2-sign__floor">1° piso</span>}
+                        <span className="tc2-sign__arrow" aria-hidden>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" />
+                          </svg>
+                        </span>
                       </button>
                     ))}
                   </div>
-                </div>
+                </section>
               </div>
 
               <aside className="totem-welcome-aside">
@@ -880,276 +1042,185 @@ const TotemConsultaClientePage = () => {
         )}
 
         {step === 'search' && (
-          <>
-            <header className="consulta-header totem-header">
+          <div
+            className="tc2-screen tc2-search"
+            onPointerDownCapture={registrarInteraccion}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="tc2-topbar">
               <button
                 type="button"
-                className="totem-search-back"
-                onClick={volverAWelcome}
+                className="tc2-back"
+                onClick={ordenes.length > 0 ? nuevaBusqueda : volverAWelcome}
               >
-                ← Volver
+                {ordenes.length > 0 ? '← Buscar otro trabajo' : '← Volver al inicio'}
               </button>
-              <div className="header-content totem-header-content">
-                <img
-                  src="/plot-lab-logo.png"
-                  alt="Plot Center Logo"
-                  className="consulta-logo totem-logo"
-                />
-                <div className="header-text">
-                  <h1>Buscá tu trabajo</h1>
-                  <p>
-                    Ingresá tu número de OP y te mostramos en qué estado está. Más abajo podés enviar un
-                    archivo para imprimir en mostrador.
-                  </p>
-                </div>
+              <div className="tc2-topbar__title">
+                <h1 className="tc2-h1">
+                  {ordenes.length === 0
+                    ? 'Buscá tu trabajo'
+                    : ordenes.length === 1
+                      ? 'Tu trabajo'
+                      : `Tus trabajos (${ordenes.length})`}
+                </h1>
+                {ordenes.length === 0 && <p>Escribí tu número de OP y te mostramos cómo va.</p>}
+              </div>
+              <div className="tc2-logo">
+                <img src="/plot-lab-logo.png" alt="Plot Center" />
               </div>
             </header>
 
-            <div className="consulta-form-section totem-form">
-              <div className="search-box totem-search-box">
-                <div className="input-group">
-                  <label htmlFor="consulta-op">Buscar por número de OP</label>
-                  <input
-                    id="consulta-op"
-                    type="text"
-                    value={searchOp}
-                    onChange={(e) => {
-                      registrarInteraccion()
-                      setSearchOp(e.target.value)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSearchOp()
-                    }}
-                    placeholder="Ej: 000123"
-                    className="dni-input totem-input"
-                    disabled={loading}
-                    autoComplete="off"
-                    inputMode="numeric"
-                  />
-                </div>
-                <button
-                  onClick={handleSearchOp}
-                  disabled={loading || !searchOp.trim()}
-                  className="search-button totem-button"
-                >
-                  {loading ? 'Buscando...' : 'Buscar por OP'}
-                </button>
-              </div>
-
-              {error && (
-                <div className="error-message totem-error">
-                  <span>⚠️</span>
-                  <span>{error}</span>
-                </div>
-              )}
-              {mensaje && !error && (
-                <div className="error-message totem-message">
-                  <span>{mensaje}</span>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {step === 'search' && ordenes.length > 0 && (
-          <div className="ordenes-results totem-results">
-            <h2 className="results-title">
-              {ordenes.length === 1 ? 'Tu trabajo' : `Tus trabajos (${ordenes.length})`}
-            </h2>
-
-            {mostrarTimelineUnificado && historialUnificadoLista && (
-              <div className="timeline-section timeline-section-unified totem-unified-timeline">
-                <h3 className="timeline-unified-title">Recorrido completo de la orden</h3>
-                <p className="timeline-unified-subtitle">
-                  Hay {ordenes.length} fichas con el mismo número de OP. El historial unificado abajo
-                  muestra todos los pasos en orden de fecha y en qué sector quedó cada registro.
-                </p>
-                <h4 className="timeline-title">Historial unificado</h4>
-                <div className="timeline">
-                  {historialUnificadoLista.map((movimiento, index) => {
-                    const isLast = index === historialUnificadoLista.length - 1
-                    const estadoNuevo = getEstadoLabel(movimiento.estado_nuevo || '')
-                    const colorNuevo = getEstadoColor(movimiento.estado_nuevo || '')
-
-                    return (
-                      <div key={movimiento.id} className="timeline-item">
-                        <div
-                          className="timeline-marker"
-                          style={{ backgroundColor: colorNuevo }}
-                        >
-                          {isLast ? '✓' : '○'}
-                        </div>
-                        <div className="timeline-content">
-                          <div className="timeline-header">
-                            <span className="timeline-estado" style={{ color: colorNuevo }}>
-                              {estadoNuevo}
-                            </span>
-                            <span className="timeline-date">
-                              {formatDate(movimiento.timestamp)}
-                            </span>
-                          </div>
-                          <div className="timeline-meta-sector">
-                            {etiquetaSectorFicha(movimiento.id_orden)}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div className="totem-actions-row">
-              <div className="totem-sectors-row">
-                <span className="totem-sectors-label">¿Para qué sector venís?</span>
-                {['Mostrador', 'Diseño', 'Instalaciones', 'Caja'].map((sector) => (
-                  <button
-                    key={sector}
-                    type="button"
-                    className={`totem-sector-chip ${
-                      sectorDestino === sector ? 'active' : ''
-                    }`}
-                    onClick={() => {
-                      registrarInteraccion()
-                      setSectorDestino(sector)
-                    }}
+            {ordenes.length === 0 ? (
+              <div className="tc2-search__grid">
+                <section className="tc2-card tc2-keypad-card">
+                  <span className="tc2-eyebrow">Tu número de OP</span>
+                  <div
+                    className={`tc2-display${error ? ' tc2-display--error' : ''}`}
+                    role="status"
+                    aria-live="polite"
                   >
-                    {sector}
+                    {searchOp ? (
+                      <span className="tc2-display__value">{searchOp}</span>
+                    ) : (
+                      <span className="tc2-display__ph">Ej: 000123</span>
+                    )}
+                    <i className="tc2-caret" aria-hidden />
+                  </div>
+                  {error ? (
+                    <p className="tc2-alert" role="alert">
+                      {error}
+                    </p>
+                  ) : (
+                    <p className="tc2-hint">Tocá los números para escribirlo</p>
+                  )}
+                  <div className="tc2-keypad" role="group" aria-label="Teclado numérico">
+                    {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((k) => (
+                      <button key={k} type="button" className="tc2-key" onClick={() => teclaOp(k)} disabled={loading}>
+                        {k}
+                      </button>
+                    ))}
+                    <button type="button" className="tc2-key tc2-key--soft" onClick={borrarTodoOp} disabled={loading}>
+                      Borrar todo
+                    </button>
+                    <button type="button" className="tc2-key" onClick={() => teclaOp('0')} disabled={loading}>
+                      0
+                    </button>
+                    <button
+                      type="button"
+                      className="tc2-key tc2-key--soft"
+                      onClick={borrarUltimoOp}
+                      disabled={loading}
+                      aria-label="Borrar el último número"
+                    >
+                      ⌫
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="tc2-cta"
+                    onClick={handleSearchOp}
+                    disabled={loading || !searchOp.trim()}
+                  >
+                    {loading ? 'Buscando tu trabajo…' : 'Buscar mi trabajo'}
                   </button>
-                ))}
-              </div>
+                </section>
 
-              <button className="totem-cta-button" onClick={handleYaLlegue}>
-                🖐️ Ya llegué, estoy esperando
-              </button>
-              <button className="totem-cta-button secondary" onClick={handleLlamarAsesor}>
-                📞 Llamar a un asesor
-              </button>
-            </div>
-
-            {ordenesListas.length > 0 && (
-              <div className="totem-section">
-                <h3>Listos para retirar</h3>
-                {ordenesListas.map((orden) => {
-                  const ordenHistorial = historial[orden.id] || []
-                  const historialOrdenado = [...ordenHistorial].sort(
-                    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-                  )
-                  const dniCuit = orden.dni_cuit ? digitsOnly(orden.dni_cuit) : null
-
-                  return (
-                    <div key={orden.id} className="orden-card ready-for-pickup">
-                      <div className="pickup-banner">
-                        <div className="pickup-content">
-                          <span className="pickup-icon">🎉</span>
-                          <div className="pickup-text">
-                            <strong>¡Tu pedido está listo para retirar!</strong>
-                            <span>Acercate a mostrador con tu número de OP.</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="orden-header">
-                        <div className="orden-info">
-                          <div className="orden-op-row">
-                            <span className="orden-op-label">Orden de Producción</span>
-                            <h3 className="orden-op-numero">#{orden.numero_op}</h3>
-                          </div>
-                          <p className="orden-cliente">{orden.cliente}</p>
-                          {dniCuit && (
-                            <div className="orden-dni">
-                              <span className="orden-dni-label">DNI/CUIT:</span>
-                              <span className="orden-dni-value">{dniCuit}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div
-                          className="orden-estado-badge ready-badge"
-                          style={{ backgroundColor: getEstadoColor(orden.estado) }}
-                        >
-                          {getEstadoLabel(orden.estado)}
-                          <span className="ready-indicator">✓</span>
-                        </div>
-                      </div>
-
-                      {mostrarTimelineUnificado ? (
-                        <div className="orden-historial-delegado">
-                          <p>
-                            Parte del pedido en{' '}
-                            <strong>{orden.sector?.trim() || 'este sector'}</strong>. Ver historial
-                            arriba.
-                          </p>
-                        </div>
-                      ) : (
-                        renderTotemTimeline(historialOrdenado)
-                      )}
+                <aside className="tc2-card tc2-help">
+                  <h2 className="tc2-help__title">¿Dónde está mi número de OP?</h2>
+                  <div className="tc2-ticket" aria-hidden>
+                    <div className="tc2-ticket__brand">PLOT CENTER</div>
+                    <div className="tc2-ticket__line" />
+                    <div className="tc2-ticket__line tc2-ticket__line--short" />
+                    <div className="tc2-ticket__op">
+                      <span>OP</span>
+                      <b>N° 000123</b>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-
-            {ordenesActivas.length > 0 && (
-              <div className="totem-section">
-                <h3>En proceso</h3>
-                {ordenesActivas.map((orden) => {
-                  const ordenHistorial = historial[orden.id] || []
-                  const historialOrdenado = [...ordenHistorial].sort(
-                    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-                  )
-                  const dniCuit = orden.dni_cuit ? digitsOnly(orden.dni_cuit) : null
-
-                  return (
-                    <div key={orden.id} className="orden-card">
-                      <div className="orden-header">
-                        <div className="orden-info">
-                          <div className="orden-op-row">
-                            <span className="orden-op-label">Orden de Producción</span>
-                            <h3 className="orden-op-numero">#{orden.numero_op}</h3>
-                          </div>
-                          <p className="orden-cliente">{orden.cliente}</p>
-                          {dniCuit && (
-                            <div className="orden-dni">
-                              <span className="orden-dni-label">DNI/CUIT:</span>
-                              <span className="orden-dni-value">{dniCuit}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div
-                          className="orden-estado-badge"
-                          style={{ backgroundColor: getEstadoColor(orden.estado) }}
-                        >
-                          {getEstadoLabel(orden.estado)}
-                        </div>
-                      </div>
-
-                      {mostrarTimelineUnificado ? (
-                        <div className="orden-historial-delegado">
-                          <p>
-                            Parte del pedido en{' '}
-                            <strong>{orden.sector?.trim() || 'este sector'}</strong>. Ver historial
-                            arriba.
-                          </p>
-                        </div>
-                      ) : (
-                        renderTotemTimeline(historialOrdenado)
-                      )}
+                    <div className="tc2-ticket__qr">
+                      {Array.from({ length: 49 }).map((_, i) => (
+                        <i key={i} className={(i * 7 + (i % 5)) % 3 === 0 ? 'on' : ''} />
+                      ))}
                     </div>
-                  )
-                })}
+                  </div>
+                  <p className="tc2-help__text">
+                    Es el número que figura en tu <strong>comprobante</strong>. Si no lo encontrás,
+                    acercate a <strong>mostrador</strong>.
+                  </p>
+                </aside>
+              </div>
+            ) : (
+              <div className="tc2-results">
+                {ordenesListas.length > 0 && (
+                  <section className="tc2-group">
+                    <h2 className="tc2-group__title">Listos para retirar</h2>
+                    {ordenesListas.map(renderOrden)}
+                  </section>
+                )}
+                {ordenesActivas.length > 0 && (
+                  <section className="tc2-group">
+                    <h2 className="tc2-group__title">En proceso</h2>
+                    {ordenesActivas.map(renderOrden)}
+                  </section>
+                )}
+
+                {mostrarTimelineUnificado && historialUnificadoLista && (
+                  <section className="tc2-card">
+                    <h2 className="tc2-group__title">Recorrido completo de la orden</h2>
+                    <p className="tc2-note">
+                      Hay {ordenes.length} fichas con el mismo número de OP. Estos son todos los pasos en orden de
+                      fecha y el sector de cada uno.
+                    </p>
+                    {renderTimeline(historialUnificadoLista, true)}
+                  </section>
+                )}
+
+                <section className="tc2-card tc2-arrived">
+                  <h2 className="tc2-group__title">¿Ya estás acá?</h2>
+                  <div className="tc2-chips" role="group" aria-label="¿Para qué sector venís?">
+                    <span className="tc2-chips__label">¿Para qué sector venís?</span>
+                    {['Mostrador', 'Diseño', 'Instalaciones', 'Caja'].map((sector) => (
+                      <button
+                        key={sector}
+                        type="button"
+                        className={`tc2-chip${sectorDestino === sector ? ' is-on' : ''}`}
+                        onClick={() => {
+                          registrarInteraccion()
+                          setSectorDestino(sector)
+                        }}
+                      >
+                        {sector}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="tc2-cta-row">
+                    <button type="button" className="tc2-cta" onClick={handleYaLlegue}>
+                      Ya llegué, estoy esperando
+                    </button>
+                    <button type="button" className="tc2-cta tc2-cta--secondary" onClick={handleLlamarAsesor}>
+                      Llamar a un asesor
+                    </button>
+                  </div>
+                  {mensaje && (
+                    <p className="tc2-success" role="status">
+                      {mensaje}
+                    </p>
+                  )}
+                  {error && (
+                    <p className="tc2-alert" role="alert">
+                      {error}
+                    </p>
+                  )}
+                </section>
               </div>
             )}
           </div>
         )}
 
         {step !== 'idle' && (
-          <footer className="consulta-footer totem-footer">
-            <p className="totem-footer-tip">
-              <span className="totem-footer-tip-icon" aria-hidden />
-              <span className="totem-footer-tip-text">
-                Si tenés dudas, acercate a <strong>mostrador</strong> con tu número de{' '}
-                <strong>OP</strong>.
-              </span>
-            </p>
+          <footer className="tc2-footer">
+            <span className="tc2-footer__dot" aria-hidden />
+            <span>
+              Si tenés dudas, acercate a <strong>mostrador</strong> con tu número de <strong>OP</strong>.
+            </span>
           </footer>
         )}
       </div>
@@ -1158,4 +1229,3 @@ const TotemConsultaClientePage = () => {
 }
 
 export default TotemConsultaClientePage
-

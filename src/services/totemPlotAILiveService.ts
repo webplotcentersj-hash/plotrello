@@ -56,7 +56,7 @@ export async function fetchTotemLiveContext(
   }
 }
 
-export function buildTotemLiveSystemInstruction(contextBlock?: string, plotCenterKnowledge?: string): string {
+function buildTotemLiveSystemInstruction(contextBlock?: string, plotCenterKnowledge?: string): string {
   const knowledge = (plotCenterKnowledge || '').trim() || `
 EMPRESA: Plot Center — comunicación visual integral en San Juan Argentina.
 Dirección: 9 de Julio 622 (Oeste). Teléfono: 2646212163. Email: contacto@plotcenter.com.ar.
@@ -133,7 +133,7 @@ export type TotemLiveStartOptions = {
   systemInstruction?: string
 }
 
-export const TOTEM_TOOLS: Tool[] = [
+const TOTEM_TOOLS: Tool[] = [
   {
     functionDeclarations: [
       {
@@ -194,6 +194,7 @@ export class TotemPlotAILive {
   private stopped = false
   private reconnecting = false
   private resumeHandle: string | null = null
+  private goAwayTimer: ReturnType<typeof setInterval> | null = null
   private history: Array<{ who: 'cliente' | 'plotai'; text: string }> = []
   private systemInstruction = ''
   private audioContext: AudioContext | null = null
@@ -364,6 +365,10 @@ export class TotemPlotAILive {
 
   stop(): void {
     this.stopped = true
+    if (this.goAwayTimer) {
+      clearInterval(this.goAwayTimer)
+      this.goAwayTimer = null
+    }
     this.reconnecting = false
     this.resumeHandle = null
     this.sessionSeq++
@@ -495,6 +500,19 @@ export class TotemPlotAILive {
     }
   }
 
+  private scheduleGoAwayReconnect(goAway: unknown): void {
+    if (this.goAwayTimer || this.reconnecting || this.stopped) return
+    const secs = parseFloat(String((goAway as { timeLeft?: string })?.timeLeft ?? '30')) || 30
+    const deadline = Date.now() + Math.max(2, secs - 12) * 1000
+    this.goAwayTimer = setInterval(() => {
+      const quiet = !this.isPlaying && this.audioQueue.length === 0
+      if (!quiet && Date.now() < deadline) return
+      if (this.goAwayTimer) clearInterval(this.goAwayTimer)
+      this.goAwayTimer = null
+      void this.reconnect('goAway')
+    }, 500)
+  }
+
   private remember(who: 'cliente' | 'plotai', text: string): void {
     const last = this.history[this.history.length - 1]
     if (last && last.who === who) last.text = `${last.text} ${text}`.slice(-400)
@@ -543,8 +561,8 @@ export class TotemPlotAILive {
     if (extra.toolCall?.functionCalls?.length) void this.handleToolCall(extra.toolCall.functionCalls)
     const upd = extra.sessionResumptionUpdate
     if (upd?.resumable && upd.newHandle) this.resumeHandle = upd.newHandle
-    // el servidor avisa que va a cerrar: pasamos a una sesión nueva antes de que se corte
-    if (extra.goAway) void this.reconnect('goAway')
+    // el servidor avisa que va a cerrar: se cambia de sesión en una pausa, sin cortar al robot a mitad de frase
+    if (extra.goAway) this.scheduleGoAwayReconnect(extra.goAway)
 
     const msg = message as {
       serverContent?: {
