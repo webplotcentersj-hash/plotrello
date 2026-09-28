@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality } from '@google/genai'
+import { GoogleGenAI, Modality, Type, type LiveConnectConfig, type Tool } from '@google/genai'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
 import { fetchGeminiLiveApiKey } from './geminiLiveKey'
 
@@ -69,31 +69,35 @@ Horarios: lun a vie 9 a 19 hs, sábados 9 a 14 hs.
 ${contextBlock}
 
 REGLAS SOBRE OPs Y CLIENTES (obligatorio):
-- Citá SOLO números de OP estados fechas y ubicaciones que aparezcan arriba.
+- Citá SOLO números de OP estados fechas y ubicaciones que aparezcan arriba o que devuelva la herramienta consultar_orden.
 - Si dice que no se encontró la OP o el cliente decilo sin inventar.
-- Cuando diga LISTO PARA RETIRO avisá que puede pasar a retirar por 9 de Julio 622.
-- Si aún no hay nombre DNI ni OP pedilos solo cuando pregunte por su trabajo.`
-    : `
+- Cuando diga LISTO PARA RETIRO avisá que puede pasar a retirar por 9 de Julio 622.`
+    : ''
 
-Aún no hay datos del cliente en el sistema para esta charla. Si pregunta por su pedido pedile nombre DNI CUIT o número de OP para buscarlo.`
-
-  return `Sos PlotAI el asistente de voz del mostrador de Plot Center en un tótem con pantalla táctil en recepción.
+  return `Sos PlotAI el asistente de voz del mostrador de Plot Center en un tótem con pantalla táctil en recepción. Estás hablando en vivo con una persona parada frente al tótem.
 
 IDIOMA: SIEMPRE español argentino natural para voz. Nunca inglés.
 
-PERSONALIDAD: cordial cálida servicial como buena atención en mostrador. Frases completas que suenen bien al hablar en voz alta. No seas robótica ni telegráfica.
+PERSONALIDAD: simpática cálida y servicial como la mejor atención de mostrador. Hablá como una persona real: frases completas y naturales, con calidez, sin sonar robótica ni telegráfica. Usá el voseo. Podés hacer alguna broma suave si el cliente está relajado.
 
 CONOCIMIENTO DE LA EMPRESA (solo esta info para datos de Plot Center):
 ${knowledge}
 ${clienteBlock}
 
+HERRAMIENTAS (usalas siempre que corresponda, no adivines):
+- consultar_precios: cada vez que pregunten cuánto sale algo llamala ANTES de responder, con el producto y la cantidad que dijo. Cotizá SOLO con lo que devuelva. Decí el precio unitario y el total si hay cantidad. Si el producto no figura decilo con honestidad y ofrecé que mostrador lo cotice. Si hay muchas opciones nombrá las dos o tres más parecidas y ofrecé seguir con otras.
+- consultar_orden: cuando den un número de OP un DNI un CUIT o un nombre para saber cómo va su trabajo llamala con esos datos y contale el estado real.
+- mostrar_imagen: si piden dibujar generar imaginar o ver una imagen o foto llamala con una descripción detallada en español y decile en una frase que ya la estás preparando en pantalla. Cuando el sistema te avise que ya está en pantalla confirmalo brevemente.
+- Mientras esperás el resultado de una herramienta no te quedes callada: decí algo corto como "ya te lo busco".
+
 REGLAS DE VOZ (obligatorio):
 - No uses markdown asteriscos listas con guiones ni emojis.
-- Evitá comas y puntos innecesarios; uní ideas con "y" o pausas naturales.
-- Respuestas concisas: una a tres frases salvo que el cliente pida detalle.
-- NUNCA inventes precios fechas de entrega ni números de OP.
+- Respuestas concisas de una a tres frases salvo que el cliente pida detalle. Una sola pregunta por vez.
+- Los importes decilos en voz natural: por ejemplo "novecientos cuarenta pesos con cincuenta".
+- NUNCA inventes precios plazos de entrega descuentos ni números de OP. Si no tenés el dato decilo y derivá a mostrador o al 2646212163.
 - Orientá sobre sectores: diseño gráfico y marketing en 1° piso impresión y mostrador en planta baja.
-- Si piden dibujar o ver una imagen deciles que la vas a mostrar en pantalla.
+- La conversación la termina el cliente: no te despidas ni cierres vos salvo que el cliente se despida. Si hay silencio esperá sin repetir lo que dijiste.
+- Si no entendiste algo pedí que lo repita con amabilidad.
 
 SALUDO INICIAL: cuando el cliente se acerca saludá breve presentándote como PlotAI de Plot Center y preguntá en qué podés ayudar hoy.`
 }
@@ -103,6 +107,13 @@ export interface TotemLiveCallbacks {
   onUserTranscript?: (text: string) => void
   onModelTranscript?: (text: string) => void
   onSpeakingChange?: (speaking: boolean) => void
+  /**
+   * Si se define, el modelo recibe las herramientas mostrar_imagen, consultar_precios y consultar_orden.
+   * La respuesta vuelve al modelo como resultado de la herramienta.
+   */
+  onToolCall?: (name: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>
+  /** true mientras se reconecta la sesión de voz sin cortar la conversación. */
+  onReconnecting?: (reconnecting: boolean) => void
   onError?: (error: Error) => void
   onClose?: (reason?: string) => void
 }
@@ -120,9 +131,68 @@ export type TotemLiveStartOptions = {
   systemInstruction?: string
 }
 
+const TOTEM_TOOLS: Tool[] = [
+  {
+    functionDeclarations: [
+      {
+        name: 'mostrar_imagen',
+        description:
+          'Genera una imagen y la muestra en la pantalla del tótem. Usala cuando el cliente pida dibujar, generar, imaginar o ver una imagen o foto.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            descripcion: {
+              type: Type.STRING,
+              description: 'Descripción detallada de la imagen en español: sujeto, estilo, colores y ambiente.'
+            }
+          },
+          required: ['descripcion']
+        }
+      },
+      {
+        name: 'consultar_precios',
+        description:
+          'Busca en la Lista 1 de precios de Plot Center y devuelve importes reales. Usala siempre que el cliente pregunte cuánto sale, cuánto cuesta o pida una cotización de un producto o servicio.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            producto: {
+              type: Type.STRING,
+              description: 'Producto o servicio con sus detalles, por ejemplo "impresiones A4 color papel ilustración" o "stickers".'
+            },
+            cantidad: { type: Type.NUMBER, description: 'Cantidad pedida si el cliente la dijo.' }
+          },
+          required: ['producto']
+        }
+      },
+      {
+        name: 'consultar_orden',
+        description:
+          'Busca una orden de trabajo (OP) o los trabajos de un cliente y devuelve su estado real. Usala cuando el cliente dé un número de OP, DNI, CUIT o nombre para saber cómo va su pedido.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            numero_op: { type: Type.STRING, description: 'Número de OP si lo dijo.' },
+            dni: { type: Type.STRING, description: 'DNI si lo dijo.' },
+            cuit: { type: Type.STRING, description: 'CUIT si lo dijo.' },
+            nombre: { type: Type.STRING, description: 'Nombre o empresa si lo dijo.' }
+          }
+        }
+      }
+    ]
+  }
+]
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
 export class TotemPlotAILive {
   private ai: GoogleGenAI
   private session: any = null
+  private sessionSeq = 0
+  private stopped = false
+  private reconnecting = false
+  private resumeHandle: string | null = null
+  private systemInstruction = ''
   private audioContext: AudioContext | null = null
   private micAudioContext: AudioContext | null = null
   private mediaStream: MediaStream | null = null
@@ -136,9 +206,106 @@ export class TotemPlotAILive {
     this.ai = new GoogleGenAI({ apiKey })
   }
 
+  private buildConfig(): LiveConnectConfig {
+    const cb = this.callbacks
+    return {
+      responseModalities: [Modality.AUDIO],
+      systemInstruction: this.systemInstruction,
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } }
+      },
+      // sin estas dos, Gemini nunca manda lo que dijo la persona y onUserTranscript no se dispara
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
+      // sin compresión las sesiones de solo audio se cortan a los pocos minutos
+      contextWindowCompression: { slidingWindow: {} },
+      // permite retomar la misma conversación si el servidor cierra la conexión
+      sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {},
+      // espera un poco más de silencio antes de darle el turno al modelo: no le corta la frase a la persona
+      realtimeInputConfig: {
+        automaticActivityDetection: { silenceDurationMs: 900, prefixPaddingMs: 200 }
+      },
+      ...(cb.onToolCall ? { tools: TOTEM_TOOLS } : {}),
+      generationConfig: { temperature: 0.85 }
+    }
+  }
+
+  private async openSession(): Promise<void> {
+    const seq = ++this.sessionSeq
+    const session = await this.ai.live.connect({
+      model: LIVE_MODEL,
+      config: this.buildConfig(),
+      callbacks: {
+        onopen: () => {
+          /* onOpen se dispara desde start() cuando this.session ya existe */
+        },
+        onmessage: (message: unknown) => {
+          if (seq !== this.sessionSeq) return
+          this.handleMessage(message)
+        },
+        onerror: (error: unknown) => {
+          if (seq !== this.sessionSeq) return
+          const err = error instanceof Error ? error : new Error(String(error))
+          if (this.reconnecting) return
+          this.callbacks.onError?.(err)
+        },
+        onclose: (event: { reason?: string }) => {
+          if (seq !== this.sessionSeq) return
+          if (this.stopped) {
+            this.callbacks.onClose?.(event?.reason)
+            return
+          }
+          void this.reconnect(event?.reason)
+        }
+      }
+    })
+    if (seq !== this.sessionSeq || this.stopped) {
+      try {
+        session.close()
+      } catch {
+        /* noop */
+      }
+      return
+    }
+    this.session = session
+  }
+
+  /** Reabre la sesión con el handle de reanudación para que la conversación siga sin cortarse. */
+  private async reconnect(reason?: string): Promise<void> {
+    if (this.reconnecting || this.stopped) return
+    this.reconnecting = true
+    this.callbacks.onReconnecting?.(true)
+    const old = this.session
+    this.session = null
+    this.sessionSeq++
+    try {
+      old?.close()
+    } catch {
+      /* noop */
+    }
+
+    let ok = false
+    for (let attempt = 1; attempt <= 5 && !this.stopped; attempt++) {
+      await sleep(500 * attempt)
+      if (this.stopped) break
+      try {
+        await this.openSession()
+        ok = !!this.session
+        if (ok) break
+      } catch (e) {
+        console.warn(`[TotemPlotAILive] reconexión ${attempt}/5 falló:`, e)
+      }
+    }
+
+    this.reconnecting = false
+    this.callbacks.onReconnecting?.(false)
+    if (!ok && !this.stopped) this.callbacks.onClose?.(reason)
+  }
+
   async start(options: TotemLiveStartOptions): Promise<void> {
     const { callbacks, initialContext, micStream, systemInstruction: customInstruction } = options
     this.callbacks = callbacks
+    this.stopped = false
 
     await this.startMicrophone(micStream)
 
@@ -147,49 +314,26 @@ export class TotemPlotAILive {
       await this.audioContext.resume()
     }
 
-    const systemInstruction =
+    this.systemInstruction =
       customInstruction?.trim() ||
       buildTotemLiveSystemInstruction(
         initialContext?.contextBlock,
         initialContext?.plotCenterKnowledge
       )
 
-    this.session = await this.ai.live.connect({
-      model: LIVE_MODEL,
-      config: {
-        responseModalities: [Modality.AUDIO],
-        systemInstruction,
-        speechConfig: {
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } }
-        },
-        generationConfig: { temperature: 0.88 }
-      },
-      callbacks: {
-        onopen: () => {
-          this.callbacks.onOpen?.()
-        },
-        onmessage: (message: unknown) => {
-          this.handleMessage(message)
-        },
-        onerror: (error: unknown) => {
-          const err = error instanceof Error ? error : new Error(String(error))
-          this.callbacks.onError?.(err)
-        },
-        onclose: (event: { reason?: string }) => {
-          this.callbacks.onClose?.(event?.reason)
-        }
-      }
-    })
-
+    await this.openSession()
     this.startAudioPlaybackLoop()
+    // recién ahora existe this.session: si se disparara desde onopen el saludo se perdía
+    this.callbacks.onOpen?.()
   }
 
-  sendTextTurn(text: string): void {
+  /** turnComplete=false agrega contexto sin que el modelo hable de inmediato. */
+  sendTextTurn(text: string, opts?: { respond?: boolean }): void {
     if (!this.session || !text.trim()) return
     try {
       this.session.sendClientContent({
         turns: [{ role: 'user', parts: [{ text: text.trim() }] }],
-        turnComplete: true
+        turnComplete: opts?.respond !== false
       })
     } catch (e) {
       console.warn('[TotemPlotAILive] sendTextTurn:', e)
@@ -206,12 +350,18 @@ export class TotemPlotAILive {
   injectContextUpdate(contextBlock: string): void {
     const block = contextBlock.trim()
     if (!block) return
+    // sin respuesta inmediata: si no, el modelo habla solo cada vez que se actualiza el contexto
     this.sendTextTurn(
-      `[CONTEXTO ACTUALIZADO DEL SISTEMA — usá SOLO estos datos reales para OPs pedidos ubicación y precios. No inventes nada que no figure acá:\n${block}]`
+      `[CONTEXTO ACTUALIZADO DEL SISTEMA — usá SOLO estos datos reales para OPs pedidos ubicación y precios. No inventes nada que no figure acá. No respondas a este mensaje, seguí la conversación normal:\n${block}]`,
+      { respond: false }
     )
   }
 
   stop(): void {
+    this.stopped = true
+    this.reconnecting = false
+    this.resumeHandle = null
+    this.sessionSeq++
     if (this.playbackTimer != null) {
       clearInterval(this.playbackTimer)
       this.playbackTimer = null
@@ -340,7 +490,39 @@ export class TotemPlotAILive {
     }
   }
 
+  private async handleToolCall(calls: Array<{ id?: string; name?: string; args?: Record<string, unknown> }>): Promise<void> {
+    const responses = await Promise.all(
+      calls.map(async (c) => {
+        try {
+          const response = this.callbacks.onToolCall
+            ? await this.callbacks.onToolCall(String(c.name ?? ''), c.args ?? {})
+            : { estado: 'error', mensaje: 'Herramienta no disponible.' }
+          return { id: c.id, name: c.name, response }
+        } catch (e) {
+          console.warn('[TotemPlotAILive] herramienta falló:', c.name, e)
+          return { id: c.id, name: c.name, response: { estado: 'error', mensaje: 'No se pudo completar la consulta. Ofrecé que mostrador lo resuelva.' } }
+        }
+      })
+    )
+    try {
+      this.session?.sendToolResponse({ functionResponses: responses })
+    } catch (e) {
+      console.warn('[TotemPlotAILive] sendToolResponse:', e)
+    }
+  }
+
   private handleMessage(message: unknown): void {
+    const extra = message as {
+      toolCall?: { functionCalls?: Array<{ id?: string; name?: string; args?: Record<string, unknown> }> }
+      sessionResumptionUpdate?: { newHandle?: string; resumable?: boolean }
+      goAway?: unknown
+    }
+    if (extra.toolCall?.functionCalls?.length) void this.handleToolCall(extra.toolCall.functionCalls)
+    const upd = extra.sessionResumptionUpdate
+    if (upd?.resumable && upd.newHandle) this.resumeHandle = upd.newHandle
+    // el servidor avisa que va a cerrar: pasamos a una sesión nueva antes de que se corte
+    if (extra.goAway) void this.reconnect('goAway')
+
     const msg = message as {
       serverContent?: {
         inputTranscription?: { text?: string }
@@ -446,4 +628,20 @@ export class TotemPlotAILive {
     }
     return bytes.buffer
   }
+}
+
+/** Herramienta consultar_precios: Lista 1 real según lo que pidió el cliente. */
+export async function fetchTotemPrecios(producto: string, cantidad?: number): Promise<string> {
+  const texto = `cuánto sale ${producto}${cantidad && cantidad > 0 ? ` ${cantidad} unidades` : ''}`
+  const res = await fetch(plotLabApiUrl(TOTEM_CONTEXT_PATH), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userTexts: [texto], modo: 'totem', soloPrecios: true })
+  })
+  const data = (await res.json().catch(() => ({}))) as { preciosContext?: string; error?: string }
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+  return (
+    data.preciosContext?.trim() ||
+    'No hay artículos en la Lista 1 para esa búsqueda. No inventes precios: ofrecé que mostrador cotice con medidas y cantidad.'
+  ).slice(0, 6000)
 }

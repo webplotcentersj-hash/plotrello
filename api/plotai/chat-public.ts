@@ -1002,6 +1002,11 @@ export async function buildLista1PreciosContext(
   return `${encabezado}${lineas.join('\n')}`
 }
 
+/** Solo la Lista 1 según un texto de consulta (herramienta consultar_precios del tótem). */
+export async function resolvePreciosPlotAI(userTexts: string[]): Promise<string> {
+  return supabase ? buildLista1PreciosContext(supabase, userTexts) : ''
+}
+
 export type EmbedPresupuestoItem = {
   codigo?: string | null
   descripcion: string

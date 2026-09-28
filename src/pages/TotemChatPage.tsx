@@ -13,7 +13,8 @@ import {
 import {
   TotemPlotAILive,
   fetchTotemGeminiApiKey,
-  fetchTotemLiveContext
+  fetchTotemLiveContext,
+  fetchTotemPrecios
 } from '../services/totemPlotAILiveService'
 
 const IMAGE_API_PATH = '/api/plotai/generate-image'
@@ -21,7 +22,7 @@ const MOTION_THRESHOLD = 0.08
 const IMAGE_TRIGGER = /\b(dibuja|dibujame|genera\s+(?:una\s+)?(?:imagen|foto)|(?:una\s+)?foto\s+de|imagina|imagina(?:me)?|mu[eé]strame\s+(?:una\s+)?(?:imagen|foto)|quiero\s+ver\s+(?:una\s+)?(?:imagen|foto)|crea\s+(?:una\s+)?(?:imagen|ilustraci[oó]n))/i
 const MOTION_CHECKS = 2
 const CHECK_INTERVAL_MS = 800
-const IDLE_RESET_MS = 90_000
+const IDLE_RESET_MS = 240_000
 
 type TotemState = 'idle' | 'greeting' | 'listening' | 'thinking' | 'speaking'
 
@@ -52,6 +53,9 @@ export default function TotemChatPage() {
   const idleResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSeedRef = useRef<string | null>(null)
   const imageBusyRef = useRef(false)
+  const lastImageAtRef = useRef(0)
+  const lastUserAtRef = useRef(0)
+  const imageFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const intentionalStopRef = useRef(false)
   const userTextsRef = useRef<string[]>([])
   const lastContextFpRef = useRef('')
@@ -109,6 +113,10 @@ export default function TotemChatPage() {
     }
     userTextsRef.current = []
     lastContextFpRef.current = ''
+    if (imageFallbackTimerRef.current) {
+      clearTimeout(imageFallbackTimerRef.current)
+      imageFallbackTimerRef.current = null
+    }
     setContextHint(null)
     setProximityHint(false)
     stopLiveSession()
@@ -127,7 +135,9 @@ export default function TotemChatPage() {
   }, [clearIdleReset, resetToIdle])
 
   const handleImageRequest = useCallback(async (prompt: string) => {
-    if (imageBusyRef.current) return
+    // la herramienta del modelo y la detección por frase pueden coincidir: una sola generación por pedido
+    if (imageBusyRef.current || Date.now() - lastImageAtRef.current < 15_000) return
+    lastImageAtRef.current = Date.now()
     imageBusyRef.current = true
     setImageGenerating(true)
     setState('thinking')
@@ -145,11 +155,17 @@ export default function TotemChatPage() {
           '[Sistema: ya generaste y mostraste la imagen en pantalla. Confirmale al cliente en una frase breve que ya puede verla.]'
         )
       } else {
+        console.warn('[Totem] generate-image falló:', imgRes.status, imgData?.error)
+        lastImageAtRef.current = 0
+        setContextHint('No se pudo generar la imagen')
         liveRef.current?.sendTextTurn(
           '[Sistema: no se pudo generar la imagen. Pedile disculpas breves y sugerí reformular el pedido.]'
         )
       }
-    } catch {
+    } catch (e) {
+      console.warn('[Totem] error al generar imagen:', e)
+      lastImageAtRef.current = 0
+      setContextHint('No se pudo generar la imagen')
       liveRef.current?.sendTextTurn(
         '[Sistema: hubo un error al generar la imagen. Pedile disculpas y sugerí intentar de nuevo.]'
       )
@@ -261,20 +277,64 @@ export default function TotemChatPage() {
           armIdleReset()
           const t = text.trim()
           if (!t) return
-          if (!userTextsRef.current.includes(t)) {
-            userTextsRef.current = [...userTextsRef.current, t].slice(-24)
+          // la transcripción llega en pedacitos: los que llegan juntos se unen en una sola frase
+          const now = Date.now()
+          const prev = userTextsRef.current
+          if (prev.length && now - lastUserAtRef.current < 2000) {
+            const merged = `${prev[prev.length - 1]} ${t}`.trim()
+            userTextsRef.current = [...prev.slice(0, -1), merged].slice(-24)
+          } else if (!prev.includes(t)) {
+            userTextsRef.current = [...prev, t].slice(-24)
           }
+          lastUserAtRef.current = now
           scheduleContextRefresh()
           if (IMAGE_TRIGGER.test(t)) {
-            void handleImageRequest(t)
+            // respaldo: si el modelo no llama a mostrar_imagen en unos segundos, se genera con lo que dijo la persona
+            if (imageFallbackTimerRef.current) clearTimeout(imageFallbackTimerRef.current)
+            imageFallbackTimerRef.current = setTimeout(() => {
+              imageFallbackTimerRef.current = null
+              void handleImageRequest(userTextsRef.current[userTextsRef.current.length - 1] || t)
+            }, 4500)
           } else if (!imageBusyRef.current) {
             setState('thinking')
           }
+        },
+        onToolCall: async (name, args) => {
+          clearIdleReset()
+          armIdleReset()
+          if (name === 'mostrar_imagen') {
+            const descripcion = String(args.descripcion ?? '').trim()
+            if (!descripcion) return { estado: 'error', mensaje: 'Falta la descripción de la imagen.' }
+            void handleImageRequest(descripcion)
+            return { estado: 'generando', mensaje: 'La imagen se está generando y va a aparecer en la pantalla en unos segundos.' }
+          }
+          if (name === 'consultar_precios') {
+            const producto = String(args.producto ?? '').trim()
+            if (!producto) return { estado: 'error', mensaje: 'Falta el producto a cotizar.' }
+            const cantidad = Number(args.cantidad)
+            const resultado = await fetchTotemPrecios(producto, Number.isFinite(cantidad) ? cantidad : undefined)
+            return { estado: 'ok', resultado }
+          }
+          if (name === 'consultar_orden') {
+            const ctx = await fetchTotemLiveContext(userTextsRef.current, {
+              op: String(args.numero_op ?? '').trim() || undefined,
+              dni: String(args.dni ?? '').trim() || undefined,
+              cuit: String(args.cuit ?? '').trim() || undefined,
+              nombre: String(args.nombre ?? '').trim() || undefined
+            })
+            if (ctx.numeroOp) setContextHint(`OP ${ctx.numeroOp} encontrada en el sistema`)
+            return { estado: 'ok', resultado: ctx.contextBlock.slice(0, 6000) }
+          }
+          return { estado: 'error', mensaje: 'Herramienta desconocida.' }
+        },
+        onReconnecting: (reconnecting) => {
+          setContextHint(reconnecting ? 'Reconectando…' : null)
         },
         onModelTranscript: () => {
           /* solo animación del robot; sin subtítulos en pantalla */
         },
         onSpeakingChange: (speaking) => {
+          if (speaking) armIdleReset()
           if (imageBusyRef.current) return
           setState(speaking ? 'speaking' : 'listening')
         },

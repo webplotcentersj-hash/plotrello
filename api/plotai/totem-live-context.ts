@@ -5,8 +5,10 @@ import {
   buildEmbedVoiceSystemInstruction,
   modoRequiereContactoCliente,
   resolveContactoCliente,
-  resolvePlotAIClienteContext
+  resolvePlotAIClienteContext,
+  resolvePreciosPlotAI
 } from './chat-public'
+import { PLOT_CENTER_FUNCIONAMIENTO } from './totemKnowledge'
 import { beginPlotAiRequest } from './plotaiHttp'
 
 type Body = {
@@ -19,6 +21,8 @@ type Body = {
   op?: string
   telefono?: string
   whatsapp?: string
+  /** Consulta rápida de la Lista 1 (herramienta consultar_precios): no resuelve cliente ni OPs. */
+  soloPrecios?: boolean
 }
 
 /** Contexto OP/cliente/precios para Gemini Live del tótem (misma fuente que chat-public). */
@@ -45,6 +49,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const modo = (body.modo || 'totem').toString().trim().toLowerCase() || 'totem'
 
+    if (body.soloPrecios) {
+      const preciosContext = await resolvePreciosPlotAI(userTexts)
+      res.status(200).json({ success: true, preciosContext })
+      return
+    }
+
+    const conocimiento = `${PLOT_CENTER_KNOWLEDGE}\n\n${PLOT_CENTER_FUNCIONAMIENTO}`
+
     const resolved = await resolvePlotAIClienteContext({
       userTexts,
       modo,
@@ -68,14 +80,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const voiceSystemInstruction = buildEmbedVoiceSystemInstruction({
       modo,
       contextBlock: resolved.contextBlock,
-      plotCenterKnowledge: PLOT_CENTER_KNOWLEDGE,
+      plotCenterKnowledge: conocimiento,
       preciosContext: resolved.preciosContext,
       contactoContext
     })
 
     res.status(200).json({
       success: true,
-      plotCenterKnowledge: PLOT_CENTER_KNOWLEDGE,
+      plotCenterKnowledge: conocimiento,
       voiceSystemInstruction,
       ...resolved
     })
