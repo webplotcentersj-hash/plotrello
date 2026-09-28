@@ -42,7 +42,7 @@
   left: -20%;
   top: -20%;
   filter: blur(72px);
-  opacity: 0.55;
+  opacity: 0.22;
   mix-blend-mode: screen;
 }
 
@@ -148,7 +148,8 @@
   background-size: 48px 48px;
   transform: perspective(500px) rotateX(58deg);
   transform-origin: center 80%;
-  opacity: 0.35;
+  opacity: 0;
+  display: none;
   animation: totem-grid-drift 28s linear infinite;
   mask-image: radial-gradient(ellipse 70% 55% at 50% 45%, black 20%, transparent 75%);
 }
@@ -587,4 +588,121 @@
   background: rgba(220, 38, 38, 0.12);
   border-radius: 10px;
   border: 1px solid rgba(248, 113, 113, 0.25);
+}
+
+/* —— Fondo hecho en Blender (paralaje de dos capas) —— */
+.totem-bg-layer {
+  position: absolute;
+  inset: -5%;
+  will-change: transform;
+  transition: transform 0.35s ease-out;
+}
+
+.totem-bg-layer--far {
+  transform: translate3d(calc(var(--px, 0) * -16px), calc(var(--py, 0) * -9px), 0);
+}
+
+.totem-bg-layer--near {
+  transform: translate3d(calc(var(--px, 0) * -46px), calc(var(--py, 0) * -26px), 0);
+}
+
+.totem-bg-plate,
+.totem-bg-near {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.totem-bg-plate {
+  background-image: url('/totem/bg-far.webp');
+  background-position: 36% 62%;
+  animation: totem-plate-drift 26s ease-in-out infinite alternate;
+  transition: filter 0.8s ease;
+  filter: brightness(0.92) saturate(1.05);
+}
+
+.totem-page[data-state='listening'] .totem-bg-plate,
+.totem-page[data-state='speaking'] .totem-bg-plate {
+  filter: brightness(1.12) saturate(1.15);
+}
+
+.totem-page[data-state='thinking'] .totem-bg-plate {
+  filter: brightness(1.02) saturate(1.1) hue-rotate(-14deg);
+}
+
+.totem-bg-near {
+  background-image: url('/totem/bg-near.webp');
+  background-position: center;
+  opacity: 0.55;
+  animation: totem-near-drift 19s ease-in-out infinite alternate;
+}
+
+@keyframes totem-plate-drift {
+  from { transform: scale(1.02) translate3d(-0.6%, 0, 0); }
+  to { transform: scale(1.07) translate3d(0.8%, -0.6%, 0); }
+}
+
+@keyframes totem-near-drift {
+  from { transform: translate3d(0, 1.4%, 0) scale(1.03); }
+  to { transform: translate3d(1.2%, -1.6%, 0) scale(1.06); }
+}
+
+/* luz suave sobre el portal del fondo, detrás del robot */
+.totem-bg-glow {
+  background: radial-gradient(
+    ellipse 42% 46% at 36% 42%,
+    rgba(var(--totem-accent-rgb), 0.22) 0%,
+    transparent 70%
+  );
+}
+
+/* oscurece el lado del panel para que el texto se lea siempre */
+.totem-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 38%, rgba(3, 2, 8, 0.55) 78%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, transparent 55%, rgba(3, 2, 8, 0.65) 100%);
+  pointer-events: none;
+}
+
+/* —— Pantalla holográfica: más ancho para robot + pantalla —— */
+/* al cerrar la pantalla, esperar a que termine la animación 3D antes de angostar el contenedor */
+.totem-hero,
+.totem-hero-stage {
+  transition: flex 0.7s ease 0.9s, width 0.7s ease 0.9s;
+}
+
+.totem-page[data-holo-image='on'] .totem-hero,
+.totem-page[data-holo-image='on'] .totem-hero-stage {
+  transition-delay: 0s;
+}
+
+.totem-page[data-holo='on'] .totem-hero-stage {
+  filter: none;
+}
+
+.totem-page[data-holo-image='on'] .totem-hero {
+  flex: 2.2;
+}
+
+.totem-page[data-holo-image='on'] .totem-hero-stage {
+  width: min(100%, 800px);
+}
+
+.totem-page[data-holo-image='on'] .totem-hero-ring {
+  opacity: 0;
+}
+
+.totem-hero-ring {
+  transition: opacity 0.6s ease;
+}
+
+@media (min-width: 900px) {
+  .totem-page[data-holo-image='on'] .totem-panel {
+    flex: 0.75;
+    max-width: 340px;
+  }
 }

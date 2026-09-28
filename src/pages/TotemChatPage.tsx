@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, type MouseEvent } from 'react
 import './TotemChatPage.css'
 import { consumeTotemSeedMessage } from '../utils/totemSeedMessage'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
-import TotemPlotAIRobot from '../components/totem/TotemPlotAIRobot'
+import TotemPlotAIRobotStage from '../components/totem/TotemPlotAIRobotStage'
 import {
   beginTotemMediaOnGesture,
   isTotemFeatureAllowedByPolicy,
@@ -35,7 +35,13 @@ export default function TotemChatPage() {
   const [contextHint, setContextHint] = useState<string | null>(null)
   const [proximityHint, setProximityHint] = useState(false)
   const [micBlocked, setMicBlocked] = useState(false)
+  const [imageGenerating, setImageGenerating] = useState(false)
+  const [holo, setHolo] = useState({ capable: false, active: false })
+  const handleHoloChange = useCallback((info: { capable: boolean; active: boolean }) => {
+    setHolo((prev) => (prev.capable === info.capable && prev.active === info.active ? prev : info))
+  }, [])
 
+  const pageRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -108,6 +114,7 @@ export default function TotemChatPage() {
     stopLiveSession()
     stopTotemVideo()
     setGeneratedImageUrl(null)
+    setImageGenerating(false)
     setState('idle')
   }, [stopLiveSession, stopTotemVideo])
 
@@ -122,6 +129,7 @@ export default function TotemChatPage() {
   const handleImageRequest = useCallback(async (prompt: string) => {
     if (imageBusyRef.current) return
     imageBusyRef.current = true
+    setImageGenerating(true)
     setState('thinking')
     setGeneratedImageUrl(null)
     try {
@@ -147,6 +155,7 @@ export default function TotemChatPage() {
       )
     } finally {
       imageBusyRef.current = false
+      setImageGenerating(false)
       if (stateRef.current === 'thinking') setState('listening')
     }
   }, [])
@@ -306,6 +315,30 @@ export default function TotemChatPage() {
     }
   }, [stopLiveSession, stopTotemVideo])
 
+  // paralaje del fondo: las capas se mueven distinto según dónde toca o mira la persona
+  useEffect(() => {
+    const el = pageRef.current
+    if (!el) return
+    let raf = 0
+    let nx = 0
+    let ny = 0
+    const apply = () => {
+      raf = 0
+      el.style.setProperty('--px', nx.toFixed(3))
+      el.style.setProperty('--py', ny.toFixed(3))
+    }
+    const onMove = (e: PointerEvent) => {
+      nx = (e.clientX / window.innerWidth) * 2 - 1
+      ny = (e.clientY / window.innerHeight) * 2 - 1
+      if (!raf) raf = requestAnimationFrame(apply)
+    }
+    window.addEventListener('pointermove', onMove, { passive: true })
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [])
+
   useEffect(() => {
     if (state !== 'idle' || !cameraReady || !videoRef.current || !canvasRef.current) return
     const video = videoRef.current
@@ -385,8 +418,22 @@ export default function TotemChatPage() {
   }
 
   return (
-    <div className="totem-page" data-state={state} data-live={liveActive ? 'on' : 'off'} data-proximity={proximityHint ? 'near' : 'far'}>
+    <div
+      ref={pageRef}
+      className="totem-page"
+      data-state={state}
+      data-live={liveActive ? 'on' : 'off'}
+      data-proximity={proximityHint ? 'near' : 'far'}
+      data-holo={holo.capable ? 'on' : 'off'}
+      data-holo-image={holo.active ? 'on' : 'off'}
+    >
       <div className="totem-bg" aria-hidden>
+        <div className="totem-bg-layer totem-bg-layer--far">
+          <div className="totem-bg-plate" />
+        </div>
+        <div className="totem-bg-layer totem-bg-layer--near">
+          <div className="totem-bg-near" />
+        </div>
         <div className="totem-bg-aurora totem-bg-aurora--a" />
         <div className="totem-bg-aurora totem-bg-aurora--b" />
         <div className="totem-bg-aurora totem-bg-aurora--c" />
@@ -413,7 +460,12 @@ export default function TotemChatPage() {
           <div className="totem-hero-ring totem-hero-ring--outer" aria-hidden />
           <div className="totem-hero-ring totem-hero-ring--inner" aria-hidden />
           <div className="totem-hero-stage totem-hero-stage--ready">
-            <TotemPlotAIRobot state={state} />
+            <TotemPlotAIRobotStage
+              state={state}
+              imageUrl={generatedImageUrl}
+              imageGenerating={imageGenerating}
+              onHoloChange={handleHoloChange}
+            />
           </div>
         </div>
 
@@ -460,7 +512,7 @@ export default function TotemChatPage() {
             )}
           </div>
 
-          {generatedImageUrl && (
+          {generatedImageUrl && !holo.capable && (
             <div className="totem-generated-image-wrap">
               <img src={generatedImageUrl} alt="Imagen generada" className="totem-generated-image" />
             </div>

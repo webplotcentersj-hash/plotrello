@@ -47,7 +47,9 @@ export default defineConfig({
           '**/api*.js',
           '**/vendor-*.js',
           // face-api (~1.3MB): se carga on-demand en tablet-reloj, no en el SW
-          '**/face-api*.js'
+          '**/face-api*.js',
+          // three + robot 3D del tótem: solo /totem lo carga, on-demand
+          '**/TotemPlotAIRobot3D*.js'
         ],
         maximumFileSizeToCacheInBytes: 400_000
       }
