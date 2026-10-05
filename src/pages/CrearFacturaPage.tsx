@@ -19,14 +19,34 @@ import {
   type CondicionIvaCliente,
   type TipoFactura
 } from '../utils/afipFacturaUi'
+import { numeroALetras } from '../utils/crmExportUtils'
 import './CrearFacturaPage.css'
 
+/** Teléfono del encabezado de las facturas del sistema anterior. */
+const TELEFONO_FACTURA = '0264-4278026'
+
 type ItemRow = {
+  codigo?: string
   descripcion: string
   cantidad: number
   precio_unitario: number
   descuento: number
   iva_porcentaje: number
+}
+
+function formatoCuit(value?: string | null) {
+  const d = String(value || '').replace(/\D/g, '')
+  if (d.length !== 11) return value?.trim() || '—'
+  return `${d.slice(0, 2)}-${d.slice(2, 10)}-${d.slice(10)}`
+}
+
+function pesos(n: number) {
+  return `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function sonPesos(n: number) {
+  const texto = numeroALetras(n).replace(/ pesos con /, ' con ').replace(/ pesos$/, '')
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
 export default function CrearFacturaPage() {
@@ -115,6 +135,7 @@ export default function CrearFacturaPage() {
       if (itemsResponse.success && itemsResponse.data?.length) {
         setItems(
           itemsResponse.data.map((item) => ({
+            codigo: item.codigo_articulo || '',
             descripcion: item.descripcion,
             cantidad: item.cantidad,
             precio_unitario: item.precio_unitario,
@@ -644,76 +665,75 @@ export default function CrearFacturaPage() {
 
         <div className="afip-comprobante-wrap">
           <div className="afip-comprobante" aria-label="Vista previa comprobante AFIP">
-            <div className="afip-comprobante__ribbon">ORIGINAL</div>
-
             <div className="afip-comprobante__header">
               <div className="afip-comprobante__emisor">
-                <strong className="afip-comprobante__razon">{afipConfig?.razon_social || '— Configurar emisor —'}</strong>
-                <div>Razón Social</div>
-                <div>
-                  <strong>Domicilio Comercial:</strong> {afipConfig?.domicilio_comercial || '—'}
-                </div>
-                <div>
-                  <strong>Condición frente al IVA:</strong> {afipConfig?.condicion_iva || '—'}
-                </div>
+                <img className="afip-comprobante__logo" src="/factura/plot-center-pc.png" alt="Plot Center" />
+                <strong className="afip-comprobante__razon">{(afipConfig?.razon_social || 'PLOT CENTER SRL').toUpperCase()}</strong>
+                {(() => {
+                  const domicilio = (afipConfig?.domicilio_comercial || 'Avenida Libertador Este 580, San Juan').trim()
+                  const [calle, ...resto] = domicilio.split(',')
+                  const localidad = resto.join(',').trim()
+                  return (
+                    <>
+                      <div className="afip-comprobante__emisor-linea">{calle.trim()}</div>
+                      {localidad ? <div className="afip-comprobante__emisor-linea">{localidad}</div> : null}
+                    </>
+                  )
+                })()}
+                <div>Teléfono: {TELEFONO_FACTURA}</div>
+                <div className="afip-comprobante__cond">{afipConfig?.condicion_iva || 'Responsable Inscripto'}</div>
               </div>
 
               <div className="afip-comprobante__tipo-box">
                 <div className="afip-comprobante__letra">{letra}</div>
-                <div className="afip-comprobante__cod">Cod. {codigoAfip}</div>
+                <div className="afip-comprobante__cod">COD. Nº {Number(codigoAfip) || codigoAfip}</div>
               </div>
 
               <div className="afip-comprobante__ident">
-                <div className="afip-comprobante__titulo">FACTURA</div>
+                <div className="afip-comprobante__titulo">FACTURA {letra}</div>
                 <div>
-                  <strong>Punto de Venta:</strong> {String(afipConfig?.punto_venta || 1).padStart(4, '0')}
+                  <strong>Nº</strong> {numeroPreview}
                 </div>
                 <div>
-                  <strong>Comp. Nro:</strong> {String(proximoNumero).padStart(8, '0')}
+                  <strong>Fecha de emisión:</strong> {formatFechaAr(formData.fecha_emision)}
                 </div>
                 <div>
-                  <strong>Fecha de Emisión:</strong> {formatFechaAr(formData.fecha_emision)}
+                  <strong>CUIT:</strong> {formatoCuit(afipConfig?.cuit || '30715518801')}
                 </div>
                 <div>
-                  <strong>CUIT:</strong> {afipConfig?.cuit || '—'}
+                  <strong>Ing. Brutos:</strong> {afipConfig?.ingresos_brutos || '30-71551880-1'}
                 </div>
                 <div>
-                  <strong>Ingresos Brutos:</strong> {afipConfig?.ingresos_brutos || '—'}
-                </div>
-                <div>
-                  <strong>Fecha de Inicio de Actividades:</strong>{' '}
-                  {afipConfig?.fecha_inicio_actividades ? formatFechaAr(afipConfig.fecha_inicio_actividades) : '—'}
+                  <strong>Inic. Activ.:</strong>{' '}
+                  {formatFechaAr(afipConfig?.fecha_inicio_actividades || '2017-01-27')}
                 </div>
               </div>
             </div>
 
             <div className="afip-comprobante__receptor">
               <div>
-                <strong>Apellido y Nombre / Razón Social:</strong> {cliente.nombre || '—'}
+                <strong>Señor(es):</strong> {(cliente.nombre || '—').toUpperCase()}
               </div>
               <div>
-                <strong>CUIT / DNI:</strong> {cliente.dni_cuit || '—'}
+                <strong>CUIT:</strong> {formatoCuit(cliente.dni_cuit)}
               </div>
               <div>
-                <strong>Domicilio:</strong> {cliente.direccion || '—'}
+                <strong>Domicilio:</strong> {(cliente.direccion || '—').toUpperCase()}
               </div>
               <div>
-                <strong>Condición frente al IVA:</strong> {cliente.condicion_iva || '—'}
+                <strong>Ing. Brutos:</strong> —
               </div>
               <div>
-                <strong>Condición de venta:</strong> {venta?.metodo_pago || 'Contado'}
+                <strong>Cond. de IVA:</strong> {(cliente.condicion_iva || '—').toUpperCase()}
+              </div>
+              <div>
+                <strong>Cond. Vta.:</strong> {(venta?.metodo_pago || 'Contado').toUpperCase()}
               </div>
               {esServicio && (
                 <div>
-                  <strong>Período facturado desde:</strong>{' '}
-                  {formatFechaAr(formData.fecha_servicio_desde || formData.fecha_emision)} <strong>hasta:</strong>{' '}
+                  <strong>Período desde:</strong> {formatFechaAr(formData.fecha_servicio_desde || formData.fecha_emision)}{' '}
+                  <strong>hasta:</strong>{' '}
                   {formatFechaAr(formData.fecha_servicio_hasta || formData.fecha_servicio_desde || formData.fecha_emision)}
-                </div>
-              )}
-              {(formData.fecha_vencimiento || esServicio) && (
-                <div>
-                  <strong>Fecha de Vto. para el pago:</strong>{' '}
-                  {formatFechaAr(formData.fecha_vencimiento || formData.fecha_emision)}
                 </div>
               )}
             </div>
@@ -721,45 +741,40 @@ export default function CrearFacturaPage() {
             <table className="afip-comprobante__items">
               <thead>
                 <tr>
-                  <th>Código</th>
-                  <th>Producto / Servicio</th>
+                  <th>Código Art.</th>
+                  <th>Descripción</th>
                   <th>Cantidad</th>
-                  <th>U. medida</th>
                   <th>Precio Unit.</th>
-                  <th>% Bonif</th>
-                  <th>Subtotal</th>
+                  <th>Imp. Total</th>
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="afip-comprobante__empty">
+                    <td colSpan={5} className="afip-comprobante__empty">
                       Sin ítems cargados
                     </td>
                   </tr>
                 ) : (
                   items.map((item, idx) => {
                     const linea = calcularLineaItem(item, opcionesCalculo)
-                    // La A discrimina IVA (subtotal neto); en B y C el subtotal es el precio final
-                    const subtotalLinea = letra === 'A' ? linea.neto : linea.total
+                    const importeLinea = letra === 'A' ? linea.neto : linea.total
                     const factorIva = 1 + linea.alicuota / 100
                     const precioMostrado =
                       letra === 'A'
-                        ? opcionesCalculo.preciosConIva ? item.precio_unitario / factorIva : item.precio_unitario
-                        : opcionesCalculo.preciosConIva || esFacturaC ? item.precio_unitario : item.precio_unitario * factorIva
-                    const bonifPct =
-                      item.cantidad * item.precio_unitario > 0
-                        ? ((item.descuento / (item.cantidad * item.precio_unitario)) * 100).toFixed(1)
-                        : '0.0'
+                        ? opcionesCalculo.preciosConIva
+                          ? item.precio_unitario / factorIva
+                          : item.precio_unitario
+                        : opcionesCalculo.preciosConIva || esFacturaC
+                          ? item.precio_unitario
+                          : item.precio_unitario * factorIva
                     return (
                       <tr key={idx}>
-                        <td>{String(idx + 1).padStart(3, '0')}</td>
-                        <td>{item.descripcion || '—'}</td>
-                        <td>{item.cantidad.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                        <td>unidades</td>
-                        <td>${precioMostrado.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td>{bonifPct}%</td>
-                        <td>${subtotalLinea.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                        <td>{item.codigo || ''}</td>
+                        <td>{(item.descripcion || '—').toUpperCase()}</td>
+                        <td>{item.cantidad.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td>{pesos(precioMostrado)}</td>
+                        <td>{pesos(importeLinea)}</td>
                       </tr>
                     )
                   })
@@ -767,71 +782,59 @@ export default function CrearFacturaPage() {
               </tbody>
             </table>
 
-            <div className="afip-comprobante__footer">
-              <div className="afip-comprobante__iva-detail">
-                <strong>Detalle de alícuotas</strong>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Alícuota</th>
-                      <th>Neto gravado</th>
-                      <th>IVA</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(totales.porAlicuota).length === 0 ? (
-                      <tr>
-                        <td colSpan={3}>—</td>
-                      </tr>
-                    ) : (
-                      Object.entries(totales.porAlicuota).map(([alic, vals]) => (
-                        <tr key={alic}>
-                          <td>{alic}%</td>
-                          <td>${vals.neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                          <td>${vals.iva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+            <div className="afip-comprobante__pie">
+              <div className="afip-comprobante__obs">
+                <strong>Observaciones:</strong>
+                <div>{formData.observaciones || ''}</div>
               </div>
-
               <div className="afip-comprobante__totales">
                 <div>
-                  <span>Subtotal</span>
-                  <strong>${totales.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong>
+                  <span>Neto gravado:</span>
+                  <span>{pesos(totales.subtotal)}</span>
                 </div>
                 <div>
-                  <span>IVA</span>
-                  <strong>${totales.iva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong>
+                  <span>
+                    Descuento:{' '}
+                    {(totales.subtotal + totales.descuento > 0
+                      ? (totales.descuento / (totales.subtotal + totales.descuento)) * 100
+                      : 0
+                    ).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+                    %
+                  </span>
+                  <span />
                 </div>
-                <div className="afip-comprobante__total-final">
-                  <span>Importe Total</span>
-                  <strong>${totales.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong>
+                <div>
+                  <span>Subtotal:</span>
+                  <span>{pesos(totales.subtotal)}</span>
+                </div>
+                <div>
+                  <span>I.V.A. 21%:</span>
+                  <span>{pesos(totales.porAlicuota['21']?.iva || 0)}</span>
+                </div>
+                <div>
+                  <span>I.V.A. 10,5%:</span>
+                  <span>{pesos(totales.porAlicuota['10.5']?.iva || 0)}</span>
+                </div>
+                <div>
+                  <span>Total:</span>
+                  <span>{pesos(totales.total)}</span>
                 </div>
               </div>
             </div>
+
+            <div className="afip-comprobante__son">Son PESOS: {sonPesos(totales.total)}</div>
 
             <div className="afip-comprobante__cae">
+              <div className="afip-comprobante__qr" aria-hidden />
               <div>
-                <strong>CAE N°:</strong> <span className="afip-comprobante__cae-pending">Pendiente de autorización AFIP</span>
+                <div className="afip-comprobante__cae-titulo">Factura Electrónica</div>
+                <div>
+                  <strong>CAE:</strong> —
+                </div>
+                <div>
+                  <strong>Fecha Vencimiento CAE:</strong> —
+                </div>
               </div>
-              <div>
-                <strong>Fecha de Vto. de CAE:</strong> —
-              </div>
-              <div className="afip-comprobante__qr-placeholder" aria-hidden>
-                QR AFIP
-              </div>
-            </div>
-
-            {formData.observaciones && (
-              <div className="afip-comprobante__obs">
-                <strong>Observaciones:</strong> {formData.observaciones}
-              </div>
-            )}
-
-            <div className="afip-comprobante__preview-note">
-              Vista previa · Nº estimado {numeroPreview} · Autorizá en el detalle de la factura
             </div>
           </div>
         </div>

@@ -31,6 +31,7 @@ import {
 import './ventas/VentaCondicionPagoFields.css'
 import OpCobroFooterChecks from './OpCobroFooterChecks'
 import { cobroDesdeVenta } from '../utils/opCobroEstado'
+import { emitirFacturaDesdeVenta } from '../utils/emitirFacturaDesdeVenta'
 import { etiquetaCantidadUnidad, etiquetaUnidadCorta, normalizarUnidadPrecio } from '../utils/unidadPrecio'
 import VentaOpSimplificada from './ventas/VentaOpSimplificada'
 import {
@@ -148,6 +149,7 @@ const VentaRapidaModal = ({
 
   const [guardando, setGuardando] = useState(false)
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
+  const [facturandoAfip, setFacturandoAfip] = useState(false)
   const [comprobanteArchivo, setComprobanteArchivo] = useState<File | null>(null)
   const comprobanteInputRef = useRef<HTMLInputElement>(null)
   const modalContentRef = useRef<HTMLDivElement>(null)
@@ -1391,14 +1393,16 @@ const VentaRapidaModal = ({
               )}
               <button
                 className="btn-secondary venta-rapida-btn-afip"
+                disabled={facturandoAfip}
                 onClick={() => {
-                  const id = ventaCreada.id
-                  onSuccess?.()
-                  onClose()
-                  navigate(`/erp/facturas/nueva?id_venta=${id}`)
+                  if (facturandoAfip) return
+                  setFacturandoAfip(true)
+                  void emitirFacturaDesdeVenta(ventaCreada)
+                    .then((resultado) => alert(resultado.mensaje))
+                    .finally(() => setFacturandoAfip(false))
                 }}
               >
-                Factura AFIP
+                {facturandoAfip ? 'Emitiendo…' : 'Factura AFIP'}
               </button>
             </>
           ) : null}

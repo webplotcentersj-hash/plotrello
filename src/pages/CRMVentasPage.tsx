@@ -17,6 +17,7 @@ import type {
 } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate, getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
+import { emitirFacturaDesdeVenta } from '../utils/emitirFacturaDesdeVenta'
 import { nombreSinRepeticion } from '../utils/buscarClienteMatch'
 import { etiquetaUnidadCorta, unidadDesdeDescripcionItem } from '../utils/unidadPrecio'
 import {
@@ -354,6 +355,7 @@ const CRMVentasPage = () => {
   } | null>(null)
   const [mpVentaModal, setMpVentaModal] = useState<Venta | null>(null)
   const [resyncVentaId, setResyncVentaId] = useState<number | null>(null)
+  const [facturandoAfipId, setFacturandoAfipId] = useState<number | null>(null)
 
   const busquedaOportunidadRef = useRef<HTMLInputElement>(null)
   const busquedaVentaRef = useRef<HTMLInputElement>(null)
@@ -1429,6 +1431,18 @@ const CRMVentasPage = () => {
     setBusquedaArticuloEditar('')
     setArticulosEncontradosEditar([])
     setMostrarModalEditarVenta(true)
+  }
+
+  const emitirFacturaAfipDesdeVenta = async (venta: Venta) => {
+    if (facturandoAfipId != null) return
+    setDropdownDocumentosAbierto(null)
+    setFacturandoAfipId(venta.id)
+    try {
+      const resultado = await emitirFacturaDesdeVenta(venta)
+      alert(resultado.mensaje)
+    } finally {
+      setFacturandoAfipId(null)
+    }
   }
 
   useEffect(() => {
@@ -2821,10 +2835,22 @@ const CRMVentasPage = () => {
                   <button type="button" className="btn-action" onClick={() => handleEditarVenta(ventaModal)}>
                     ✏️ Editar
                   </button>
-                  <div className="export-dropdown" style={{ position: 'relative', display: 'inline-block' }}>
+                  <div className="export-dropdown" style={{ position: 'relative', display: 'inline-flex' }}>
                     <button
                       type="button"
                       className="btn-action"
+                      disabled={facturandoAfipId === ventaModal.id}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        void emitirFacturaAfipDesdeVenta(ventaModal)
+                      }}
+                    >
+                      {facturandoAfipId === ventaModal.id ? 'Emitiendo…' : 'Factura AFIP'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-action"
+                      title="Pagaré, remito y otros documentos"
                       onClick={(e) => {
                         e.stopPropagation()
                         setDropdownDocumentosAbierto(
@@ -2832,7 +2858,7 @@ const CRMVentasPage = () => {
                         )
                       }}
                     >
-                      📄 Documentos {dropdownDocumentosAbierto === ventaModal.id ? '▴' : '▾'}
+                      {dropdownDocumentosAbierto === ventaModal.id ? '▴' : '▾'}
                     </button>
                     {dropdownDocumentosAbierto === ventaModal.id ? (
                       <div
@@ -2870,11 +2896,10 @@ const CRMVentasPage = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            navigate(`/erp/facturas/nueva?id_venta=${ventaModal.id}`)
-                            setDropdownDocumentosAbierto(null)
+                            void emitirFacturaAfipDesdeVenta(ventaModal)
                           }}
                         >
-                          🏛️ Factura AFIP (Contable)
+                          🏛️ Factura AFIP
                         </button>
                       </div>
                     ) : null}
