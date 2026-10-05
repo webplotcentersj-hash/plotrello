@@ -22460,6 +22460,35 @@ class ApiService {
           return { success: false, error: 'No hay configuración AFIP activa' }
         }
 
+        // Una venta, una factura. El borrador se reutiliza; la autorizada no se duplica.
+        if (factura.id_venta && String(factura.tipo_comprobante).startsWith('Factura')) {
+          const { data: existente, error: errorExistente } = await supabase
+            .from('facturas_venta')
+            .select('id, numero_factura, estado_afip')
+            .eq('id_venta', factura.id_venta)
+            .like('tipo_comprobante', 'Factura%')
+            .neq('estado', 'Anulada')
+            .order('id', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (errorExistente) return { success: false, error: errorExistente.message }
+          if (existente?.estado_afip === 'Autorizada') {
+            return {
+              success: false,
+              error: `Esta venta ya tiene la factura ${existente.numero_factura} autorizada. Para anularla emití una nota de crédito.`
+            }
+          }
+          if (existente?.id) {
+            const { data: completa, error: errorCompleta } = await supabase
+              .from('facturas_venta')
+              .select('*, items:facturas_items(*)')
+              .eq('id', existente.id)
+              .single()
+            if (errorCompleta) return { success: false, error: errorCompleta.message }
+            return { success: true, data: completa as any }
+          }
+        }
+
         // Generar número de comprobante
         const { data: numeroComprobante, error: errorNumero } = await supabase.rpc('generar_numero_factura', {
           p_tipo_comprobante: factura.tipo_comprobante,

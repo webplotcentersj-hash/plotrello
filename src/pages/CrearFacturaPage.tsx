@@ -738,6 +738,7 @@ export default function CrearFacturaPage() {
               )}
             </div>
 
+            <div className="afip-comprobante__items-area">
             <table className="afip-comprobante__items">
               <thead>
                 <tr>
@@ -781,6 +782,7 @@ export default function CrearFacturaPage() {
                 )}
               </tbody>
             </table>
+            </div>
 
             <div className="afip-comprobante__pie">
               <div className="afip-comprobante__obs">

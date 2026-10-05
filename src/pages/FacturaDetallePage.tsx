@@ -4,6 +4,7 @@ import apiService from '../services/api'
 import { syncVentaPlotLabACaja } from '../features/control-cajas/plotlabVentaCajaSync'
 import type { CuentaPorCobrarRecord, FacturaVentaRecord, FacturaItemRecord } from '../types/api'
 import { conceptoLabel, formatFechaAr, hoyISO } from '../utils/afipFacturaUi'
+import { anularFacturaAfip } from '../utils/anularFacturaAfip'
 import './FacturaDetallePage.css'
 
 /** Mismo umbral que el servidor: un "Enviando" más viejo se considera colgado y se puede reintentar. */
@@ -17,6 +18,7 @@ export default function FacturaDetallePage() {
   const [cxc, setCxc] = useState<CuentaPorCobrarRecord | null>(null)
   const [loadingCobro, setLoadingCobro] = useState(false)
   const [loadingAfip, setLoadingAfip] = useState(false)
+  const [anulando, setAnulando] = useState(false)
   const [showCobro, setShowCobro] = useState(false)
   const [cuentas, setCuentas] = useState<any[]>([])
 
@@ -111,6 +113,27 @@ export default function FacturaDetallePage() {
       alert('Error al emitir en AFIP')
     } finally {
       setLoadingAfip(false)
+    }
+  }
+
+  const handleAnular = async () => {
+    if (!factura || anulando) return
+    const autorizada = factura.estado_afip === 'Autorizada'
+    const aviso = autorizada
+      ? `Se emite una nota de crédito por el total de ${factura.numero_factura} y ARCA deja sin efecto esta factura. ¿Seguir?`
+      : 'Este borrador no tiene CAE. Se descarta y no se informa a ARCA. ¿Seguir?'
+    if (!confirm(aviso)) return
+    setAnulando(true)
+    try {
+      const resultado = await anularFacturaAfip(factura)
+      alert(resultado.mensaje)
+      if (resultado.notaId) {
+        navigate(`/erp/facturas/${resultado.notaId}`)
+        return
+      }
+      if (id) await loadFactura(parseInt(id))
+    } finally {
+      setAnulando(false)
     }
   }
 
@@ -252,13 +275,21 @@ export default function FacturaDetallePage() {
           )}
           {puedeCrearNotas && (
             <>
+              <button className="btn-secondary" onClick={handleAnular} disabled={anulando}>
+                {anulando ? 'Anulando…' : 'Anular con nota de crédito'}
+              </button>
               <button className="btn-secondary" onClick={() => navigate(`/erp/facturas/${factura.id}/nota?tipo=credito`)}>
-                Nota crédito
+                Nota de crédito parcial
               </button>
               <button className="btn-secondary" onClick={() => navigate(`/erp/facturas/${factura.id}/nota?tipo=debito`)}>
                 Nota débito
               </button>
             </>
+          )}
+          {factura.estado === 'Borrador' && factura.estado_afip !== 'Autorizada' && factura.estado_afip !== 'Enviando' && (
+            <button className="btn-secondary" onClick={handleAnular} disabled={anulando}>
+              {anulando ? 'Descartando…' : 'Descartar borrador'}
+            </button>
           )}
         </div>
       </div>

@@ -43,7 +43,7 @@ export async function emitirFacturaDesdeVenta(venta: Venta): Promise<ResultadoFa
       facturaId: existente.id,
       numero: existente.numero_factura,
       cae: existente.cae,
-      mensaje: `Esta venta ya tiene la factura ${existente.numero_factura}.`
+      mensaje: `Esta venta ya tiene la factura ${existente.numero_factura}. Para anularla emití una nota de crédito.`
     }
   }
 

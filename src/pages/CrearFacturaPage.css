@@ -269,18 +269,26 @@
 .afip-comprobante-wrap {
   position: sticky;
   top: 16px;
+  display: flex;
+  justify-content: center;
 }
 
 .afip-comprobante {
   position: relative;
+  box-sizing: border-box;
+  width: 210mm;
+  max-width: 100%;
+  min-height: 297mm;
+  display: flex;
+  flex-direction: column;
   background: #fff;
   color: #000;
   border: 1px solid #000;
   border-radius: 0;
   padding: 0;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 11px;
-  line-height: 1.25;
+  font-size: 12px;
+  line-height: 1.35;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
 }
 
@@ -289,12 +297,12 @@
   grid-template-columns: 1fr 1fr;
   position: relative;
   margin: 0;
-  min-height: 156px;
+  min-height: 52mm;
   border-bottom: 1px solid #000;
 }
 
 .afip-comprobante__emisor {
-  padding: 10px 40px 10px 12px;
+  padding: 16px 46px 16px 16px;
 }
 
 .afip-comprobante__logo {
@@ -348,7 +356,7 @@
 }
 
 .afip-comprobante__ident {
-  padding: 10px 12px 10px 40px;
+  padding: 16px 16px 16px 46px;
   border-left: 1px solid #000;
   text-align: left;
 }
@@ -366,24 +374,29 @@
 
 .afip-comprobante__receptor {
   margin: 0;
-  padding: 8px 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid #000;
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
-  gap: 2px 18px;
+  gap: 6px 24px;
+}
+
+.afip-comprobante__items-area {
+  flex: 1 1 auto;
+  min-height: 115mm;
 }
 
 .afip-comprobante__items {
   width: 100%;
   border-collapse: collapse;
   margin: 0;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .afip-comprobante__items th,
 .afip-comprobante__items td {
   border: 1px solid #000;
-  padding: 3px 5px;
+  padding: 7px 8px;
   text-align: left;
 }
 
@@ -406,14 +419,14 @@
 
 .afip-comprobante__pie {
   display: grid;
-  grid-template-columns: 1fr 250px;
+  grid-template-columns: 1fr 72mm;
   border-top: 1px solid #000;
-  min-height: 118px;
+  min-height: 42mm;
 }
 
 .afip-comprobante__obs {
   margin: 0;
-  padding: 6px 8px;
+  padding: 10px 12px;
   background: transparent;
   border: none;
   border-right: 1px solid #000;
@@ -443,15 +456,15 @@
 }
 
 .afip-comprobante__son {
-  padding: 6px 10px;
+  padding: 8px 14px;
   border-top: 1px solid #000;
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
 }
 
 .afip-comprobante__cae {
   margin: 0;
-  padding: 8px 12px 12px;
+  padding: 12px 16px 16px;
   border-top: 1px solid #000;
   display: grid;
   grid-template-columns: 82px 1fr;
