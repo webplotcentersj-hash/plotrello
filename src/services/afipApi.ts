@@ -59,14 +59,24 @@ export async function autorizarFacturaAFIP(idFactura: number): Promise<{
       headers: staffHeaders(),
       body: JSON.stringify({ id_factura: idFactura })
     })
-    const json = (await res.json().catch(() => null)) as {
-      success?: boolean
-      data?: FacturaVentaRecord
-      error?: string
-      warning?: string
-    } | null
+    const raw = await res.text()
+    const json = (() => {
+      try {
+        return raw ? (JSON.parse(raw) as {
+          success?: boolean
+          data?: FacturaVentaRecord
+          error?: string
+          warning?: string
+        }) : null
+      } catch {
+        return null
+      }
+    })()
     if (!res.ok || !json?.success) {
-      return { success: false, error: json?.error || `HTTP ${res.status}` }
+      const detalle = typeof json?.error === 'string' && json.error.trim()
+        ? json.error
+        : raw.replace(/\s+/g, ' ').trim().slice(0, 280)
+      return { success: false, error: detalle || `HTTP ${res.status}` }
     }
     return { success: true, data: json.data, warning: json.warning }
   } catch (e) {

@@ -1,5 +1,27 @@
-import Afip from '@afipsdk/afip.js'
+import { createRequire } from 'node:module'
 import type { AfipAmbiente, AfipConfigResumen } from './types'
+
+/**
+ * El SDK es CommonJS. En Vercel (el proyecto es ESM) un `import` estático lo
+ * evalúa al cargar el archivo y la función muere con FUNCTION_INVOCATION_FAILED
+ * antes de poder responder. Se carga recién al autorizar.
+ */
+const require = createRequire(import.meta.url)
+
+type AfipCtor = new (options: Record<string, unknown>) => {
+  ElectronicBilling: {
+    getLastVoucher: (puntoVenta: number, cbteTipo: number) => Promise<number>
+    getVoucherInfo: (numero: number, puntoVenta: number, cbteTipo: number) => Promise<unknown>
+    createVoucher: (data: Record<string, unknown>, returnResponse?: boolean) => Promise<unknown>
+  }
+  CUIT?: number
+  options?: { production?: boolean }
+}
+
+function loadAfip(): AfipCtor {
+  const mod = require('@afipsdk/afip.js') as AfipCtor | { default: AfipCtor }
+  return (mod as { default?: AfipCtor }).default || (mod as AfipCtor)
+}
 
 /** CUIT de prueba AfipSDK (homologación sin certificado propio). */
 export const AFIP_DEV_CUIT = 20409378472
@@ -62,7 +84,8 @@ export function createAfipClient(options: CreateAfipClientOptions = {}) {
     afipOptions.key = key
   }
 
-  return new Afip(afipOptions as ConstructorParameters<typeof Afip>[0])
+  const Afip = loadAfip()
+  return new Afip(afipOptions)
 }
 
 export function formatNumeroFactura(puntoVenta: number, numeroComprobante: number): string {
