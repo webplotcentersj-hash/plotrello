@@ -107,7 +107,7 @@ export async function emitirFacturaDesdeVenta(venta: Venta): Promise<ResultadoFa
     }
   }
 
-  const numero = emit.data.numero_factura || emit.data.numero_comprobante
+  const numero = emit.data.numero_factura || String(emit.data.numero_comprobante || '')
   const cae = emit.data.cae || emit.data.numero_cae
   const extra = emit.warning ? `\n\n${emit.warning}` : ''
   return {
