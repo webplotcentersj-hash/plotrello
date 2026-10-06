@@ -135,10 +135,10 @@ const MostradorDashboardPage = () => {
   const [loading, setLoading] = useState(true)
   const [ordenesListas, setOrdenesListas] = useState<OrdenTrabajo[]>([])
   const [ordenesPendientesHoy, setOrdenesPendientesHoy] = useState<OrdenTrabajo[]>([])
-  const [atencionesHoy, setAtencionesHoy] = useState<Atencion[]>([])
+  const [, setAtencionesHoy] = useState<Atencion[]>([])
   const [, setOrdenesCreadasHoy] = useState<OrdenTrabajo[]>([])
   const [showRegistrarAtencion, setShowRegistrarAtencion] = useState(false)
-  const [datosGraficos, setDatosGraficos] = useState({
+  const [, setDatosGraficos] = useState({
     atencionesPorDia: [] as Array<{ fecha: string; virtual: number; consulta: number; venta: number; total: number }>,
     distribucionTipos: [] as Array<{ name: string; value: number; color: string }>,
     ordenesPorDia: [] as Array<{ fecha: string; creadas: number; entregadas: number }>
