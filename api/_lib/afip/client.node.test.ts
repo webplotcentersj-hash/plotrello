@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { normalizarPem, rechazoAfip, unwrapAfipResult } from './client.ts'
+import { explicarErrorAfip, normalizarPem, rechazoAfip, resolveCuitEmisor, unwrapAfipResult } from './client.ts'
 
 describe('respuesta de ARCA', () => {
   it('desenvuelve FECAESolicitarResult', () => {
@@ -49,6 +49,25 @@ describe('respuesta de ARCA', () => {
     const sucio = '-----BEGIN RSA PRIVATE KEY-----\\\\nAA\\\\BB\\\\n-----END RSA PRIVATE KEY-----'
     const pem = normalizarPem(sucio) || ''
     assert.match(pem, /^-----BEGIN RSA PRIVATE KEY-----\nAABB\n-----END RSA PRIVATE KEY-----\n$/)
+  })
+
+  it('usa el CUIT de la empresa y no el de login ARCA', () => {
+    assert.equal(
+      resolveCuitEmisor({ cuit: '30715518801' }, true, {
+        AFIP_CUIT: '20358577076',
+        AFIP_ARCA_USERNAME: '20358577076'
+      }),
+      30715518801
+    )
+  })
+
+  it('explica el error 600 cuando se mandó el CUIT personal', () => {
+    const msg = explicarErrorAfip(
+      '(600) ValidaciónDeToken: No apareció CUIT en lista de relación: 20358577076',
+      30715518801
+    )
+    assert.match(msg, /30715518801/)
+    assert.match(msg, /no es el emisor/)
   })
 
   it('no rechaza un comprobante aprobado', () => {

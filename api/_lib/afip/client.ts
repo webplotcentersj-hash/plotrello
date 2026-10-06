@@ -18,15 +18,57 @@ type WsfeClient = {
   options?: { production?: boolean }
 }
 
-function parseCuit(value: string | number | undefined | null, production: boolean): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
+function digitsCuit(value: string | number | undefined | null): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const digits = String(Math.trunc(value)).replace(/\D/g, '')
+    return digits.length === 11 ? Number(digits) : null
+  }
   const digits = String(value || '').replace(/\D/g, '')
+  if (digits.length !== 11) return null
   const n = Number(digits)
-  if (digits.length === 11 && Number.isFinite(n)) return n
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * CUIT que firma el comprobante: el de la empresa en Configuración AFIP.
+ * No usar el CUIT personal de login ARCA (AFIP_ARCA_USERNAME): ese error 600
+ * (“CUIT no apareció en lista de relación”) aparece cuando se manda el CUIT del administrador.
+ */
+export function resolveCuitEmisor(
+  config: AfipConfigResumen | null | undefined,
+  production: boolean,
+  env: Record<string, string | undefined> = process.env
+): number {
+  const fromConfig = digitsCuit(config?.cuit)
+  if (fromConfig) return fromConfig
+  const fromEnv = digitsCuit(env.AFIPSDK_CUIT || env.AFIP_CUIT)
+  if (fromEnv) return fromEnv
   if (production) {
-    throw new Error('CUIT del emisor inválido o vacío. Revisá AFIP_CUIT o Contable → Configuración AFIP.')
+    throw new Error('CUIT del emisor inválido o vacío. Revisá Contable → Configuración AFIP o AFIP_CUIT.')
   }
   return AFIP_DEV_CUIT
+}
+
+/** Código 600 de AfipSDK: el token no tiene ese CUIT en “relaciones”. */
+export function explicarErrorAfip(detalle: string, cuitEmisor?: number): string {
+  const texto = (detalle || '').trim()
+  const es600 = /\(600\)|Validaci[oó]nDeToken|lista de relaci[oó]n/i.test(texto)
+  if (!es600) return texto || 'ARCA rechazó el pedido.'
+  const cuitPedido = (texto.match(/(\d{11})/) || [])[1] || ''
+  const emisor = cuitEmisor ? String(cuitEmisor) : ''
+  if (cuitPedido && emisor && cuitPedido !== emisor) {
+    return (
+      `ARCA rechazó el token para el CUIT ${cuitPedido}. Ese no es el emisor de Plot Center (${emisor}). ` +
+      `En Vercel, AFIP_CUIT tiene que ser el CUIT de la empresa, no el CUIT personal de login ARCA. ` +
+      `En app.afipsdk.com, agregá ${emisor} a las relaciones del token.`
+    )
+  }
+  const cuit = cuitPedido || emisor || 'del emisor'
+  return (
+    `ARCA no tiene el CUIT ${cuit} en las relaciones del token de AfipSDK. ` +
+    `En https://app.afipsdk.com abrí el token y agregá el CUIT de Plot Center (el de Configuración AFIP). ` +
+    `No uses el CUIT personal con el que entrás a ARCA.`
+  )
 }
 
 function isProductionAmbiente(ambiente?: AfipAmbiente | string | null): boolean {
@@ -182,7 +224,7 @@ async function ticketAcceso(accessToken: string, production: boolean, cuit: numb
     }
   })()
   if (!res.ok) {
-    const detalle = mensajeHttp(data, res.status, crudo)
+    const detalle = explicarErrorAfip(mensajeHttp(data, res.status, crudo), cuit)
     const faltaPem = !material.cert || !material.key
     throw new Error(
       faltaPem
@@ -283,7 +325,9 @@ async function wsfe(
     }
   })()
   if (!res.ok) {
-    const error = new Error(mensajeHttp(data, res.status, crudo)) as Error & { code?: number }
+    const error = new Error(explicarErrorAfip(mensajeHttp(data, res.status, crudo), cuit)) as Error & {
+      code?: number
+    }
     if (data && typeof data.code === 'number') error.code = data.code
     throw error
   }
@@ -307,7 +351,7 @@ export function createAfipClient(options: CreateAfipClientOptions = {}): WsfeCli
 
   const config = options.config
   const production = process.env.AFIP_PRODUCTION === 'true' || isProductionAmbiente(config?.ambiente)
-  const cuit = parseCuit(process.env.AFIPSDK_CUIT || process.env.AFIP_CUIT || config?.cuit, production)
+  const cuit = resolveCuitEmisor(config, production)
 
   return {
     CUIT: cuit,
