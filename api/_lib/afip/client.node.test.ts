@@ -45,6 +45,12 @@ describe('respuesta de ARCA', () => {
     assert.match(pem, /^-----BEGIN RSA PRIVATE KEY-----\nAAAABBBB\n-----END RSA PRIVATE KEY-----\n$/)
   })
 
+  it('tolera barras y \\n dobles que mete el entorno del servidor', () => {
+    const sucio = '-----BEGIN RSA PRIVATE KEY-----\\\\nAA\\\\BB\\\\n-----END RSA PRIVATE KEY-----'
+    const pem = normalizarPem(sucio) || ''
+    assert.match(pem, /^-----BEGIN RSA PRIVATE KEY-----\nAABB\n-----END RSA PRIVATE KEY-----\n$/)
+  })
+
   it('no rechaza un comprobante aprobado', () => {
     assert.equal(
       rechazoAfip('FECAESolicitar', {

@@ -39,26 +39,50 @@ export function getAfipAccessToken(): string {
 
 /**
  * PEM real, o nada si la variable es una ruta de archivo.
- * Vercel y dotenv a veces meten líneas vacías entre el base64. OpenSSL y Afip SDK
- * rechazan eso (la key “no es válida” / bits 744). Se rearma a líneas de 64.
+ * Vercel y dotenv meten `\n` escapadas, líneas vacías o barras. OpenSSL y Afip SDK
+ * rechazan eso. Se rearma a líneas de 64 y se tira cualquier carácter que no sea base64.
  */
 export function normalizarPem(value: string | undefined): string | undefined {
   if (!value) return undefined
-  let raw = value.trim()
+  let raw = value.trim().replace(/^\uFEFF/, '')
   if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
     raw = raw.slice(1, -1).trim()
   }
-  if (raw.includes('\\n')) raw = raw.replace(/\\n/g, '\n')
-  const begin = raw.match(/-----BEGIN ([A-Z0-9 ]+)-----/)
-  const end = raw.match(/-----END ([A-Z0-9 ]+)-----/)
-  if (!begin || !end || begin[1] !== end[1]) return undefined
+  for (let i = 0; i < 4 && raw.includes('\\n'); i++) raw = raw.replace(/\\n/g, '\n')
+  raw = raw.replace(/\\r/g, '')
+  const begin = raw.match(/-----BEGIN ([^-]+)-----/)
+  const end = raw.match(/-----END ([^-]+)-----/)
+  if (!begin || !end) return undefined
+  const etiqueta = begin[1].trim()
+  if (!etiqueta || etiqueta !== end[1].trim()) return undefined
   const body = raw
-    .replace(/-----BEGIN [A-Z0-9 ]+-----/g, '')
-    .replace(/-----END [A-Z0-9 ]+-----/g, '')
-    .replace(/\s+/g, '')
-  if (!body || !/^[A-Za-z0-9+/=]+$/.test(body)) return undefined
+    .replace(/-----BEGIN [^-]+-----/g, '')
+    .replace(/-----END [^-]+-----/g, '')
+    .replace(/[^A-Za-z0-9+/=]/g, '')
+  if (!body) return undefined
   const lines = body.match(/.{1,64}/g) || []
-  return `-----BEGIN ${begin[1]}-----\n${lines.join('\n')}\n-----END ${end[1]}-----\n`
+  return `-----BEGIN ${etiqueta}-----\n${lines.join('\n')}\n-----END ${etiqueta}-----\n`
+}
+
+const VARS_PEM = [
+  'AFIPSDK_CERT_PATH',
+  'AFIP_CERT_PATH',
+  'AFIPSDK_CERT',
+  'AFIP_CERT',
+  'AFIPSDK_KEY_PATH',
+  'AFIP_KEY_PATH',
+  'AFIPSDK_KEY',
+  'AFIP_KEY'
+] as const
+
+/** Qué variables ve el servidor, sin mostrar el certificado. */
+export function resumenVarsPem(): string {
+  return VARS_PEM.map((nombre) => {
+    const valor = (process.env[nombre] || '').trim()
+    if (!valor) return `${nombre} vacía`
+    const pintaPem = valor.includes('BEGIN')
+    return `${nombre} ${valor.length} caracteres${pintaPem ? '' : ', sin PEM'}`
+  }).join(' · ')
 }
 
 type TicketAcceso = { token: string; sign: string; until: number }
@@ -162,7 +186,7 @@ async function ticketAcceso(accessToken: string, production: boolean, cuit: numb
     const faltaPem = !material.cert || !material.key
     throw new Error(
       faltaPem
-        ? `${detalle} En el servidor, AFIPSDK_CERT_PATH y AFIPSDK_KEY_PATH tienen que apuntar a archivos que existan, o AFIP_CERT y AFIP_KEY tienen que ser el texto PEM.`
+        ? `${detalle} El servidor no mandó el certificado. ${resumenVarsPem()}`
         : detalle
     )
   }
