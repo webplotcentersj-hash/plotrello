@@ -351,6 +351,7 @@
 @media (min-width: 769px) {
   .board-wrapper {
     position: relative;
+    padding-top: 44px;
   }
 
   .columns-grid {
@@ -376,35 +377,39 @@
 
   .board-rail-arrow {
     position: absolute;
-    top: 18px;
-    z-index: 5;
-    width: 34px;
-    height: 34px;
+    top: 4px;
+    z-index: 8;
+    width: 40px;
+    height: 40px;
     border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--text-primary) 22%, transparent);
-    background: color-mix(in srgb, var(--surface-card) 92%, #000);
-    color: var(--text-primary);
-    font-size: 1.45rem;
+    border: 2px solid color-mix(in srgb, var(--brand) 75%, #fff);
+    background: var(--brand, #eb671b);
+    color: #fff;
+    font-size: 1.7rem;
+    font-weight: 700;
     line-height: 1;
     cursor: pointer;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--brand) 55%, #000), 0 10px 20px rgba(0, 0, 0, 0.32);
   }
 
   .board-rail-arrow--prev {
-    left: 0;
+    left: 10px;
   }
 
   .board-rail-arrow--next {
-    right: 0;
+    right: 10px;
   }
 
   .board-rail-arrow:hover:not(:disabled) {
-    border-color: var(--brand);
+    filter: brightness(1.08);
+    transform: translateY(-1px);
   }
 
   .board-rail-arrow:disabled {
-    opacity: 0.28;
+    opacity: 0.35;
     cursor: default;
+    filter: grayscale(0.25);
+    box-shadow: none;
   }
 }
 

@@ -10,6 +10,7 @@ export default function FacturasPage() {
   const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [facturas, setFacturas] = useState<FacturaVentaRecord[]>([])
+  const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [filtros, setFiltros] = useState({
     estado: searchParams.get('estado') || '',
     fechaDesde: '',
@@ -32,10 +33,16 @@ export default function FacturasPage() {
       })
 
       if (response.success && response.data) {
+        setErrorCarga(null)
         setFacturas(response.data)
+      } else {
+        setFacturas([])
+        setErrorCarga(response.error || 'No se pudieron cargar las facturas.')
       }
     } catch (error) {
       console.error('Error cargando facturas:', error)
+      setFacturas([])
+      setErrorCarga('No se pudieron cargar las facturas.')
     } finally {
       setLoading(false)
     }
@@ -147,7 +154,7 @@ export default function FacturasPage() {
             {facturas.length === 0 ? (
               <tr>
                 <td colSpan={8} className="empty-state">
-                  No hay facturas que coincidan con los filtros
+                  {errorCarga || 'No hay facturas que coincidan con los filtros'}
                 </td>
               </tr>
             ) : (

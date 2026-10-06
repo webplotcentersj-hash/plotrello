@@ -22249,8 +22249,7 @@ class ApiService {
           .from('facturas_venta')
           .select(`
             *,
-            items:facturas_items(*),
-            cliente:clientes(*)
+            items:facturas_items(*)
           `)
           .order('fecha_emision', { ascending: false })
           .order('numero_comprobante', { ascending: false })
@@ -24165,7 +24164,6 @@ class ApiService {
           .select(`
             *,
             items:facturas_items(*),
-            cliente:clientes(*),
             asiento:asientos_contables(*)
           `)
           .eq('id', id)
