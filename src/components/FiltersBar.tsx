@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import { getApiService } from '../services/apiLoader'
@@ -59,6 +60,7 @@ const FiltersBar = ({
   searchPlaceholder = 'Buscar: OP, cliente, descripción, etiquetas, contacto, materiales…',
   compactPhone = false
 }: FiltersBarProps) => {
+  const navigate = useNavigate()
   const { isAdmin, isDiseno, canAccessMostradorViews, usuario, nombreVisible } = useAuth()
   const [copiandoBrief, setCopiandoBrief] = useState(false)
   const [showVentaRapida, setShowVentaRapida] = useState(false)
@@ -184,7 +186,7 @@ const FiltersBar = ({
           </div>
         )}
         {canAccessMostradorViews && usuario && (
-          <div className="filters-bar-phone-row">
+          <div className="filters-bar-phone-row filters-bar-phone-row--acciones">
             <button
               type="button"
               className="venta-rapida-button filters-bar-phone-add"
@@ -192,6 +194,14 @@ const FiltersBar = ({
               title="Venta (tecla V)"
             >
               💰 Venta
+            </button>
+            <button
+              type="button"
+              className="factura-button filters-bar-phone-add"
+              onClick={() => navigate('/erp/facturas/nueva')}
+              title="Emitir factura electrónica"
+            >
+              Facturar
             </button>
           </div>
         )}
@@ -277,6 +287,16 @@ const FiltersBar = ({
               title="Registrar una venta sin salir del tablero (tecla V)"
             >
               💰 Venta
+            </button>
+          )}
+          {canAccessMostradorViews && usuario && (
+            <button
+              type="button"
+              className="factura-button"
+              onClick={() => navigate('/erp/facturas/nueva')}
+              title="Emitir factura electrónica AFIP"
+            >
+              Facturar
             </button>
           )}
           {onAddNewOrder && (

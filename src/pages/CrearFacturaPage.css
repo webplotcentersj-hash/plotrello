@@ -176,6 +176,84 @@
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12);
 }
 
+.crear-factura-cliente-search {
+  position: relative;
+}
+
+.crear-factura-cliente-search input {
+  width: 100%;
+}
+
+.crear-factura-cliente-search.is-selected input {
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.crear-factura-cliente-search__spin {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  color: var(--cf-muted);
+  pointer-events: none;
+}
+
+.crear-factura-cliente-list {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 240px;
+  overflow: auto;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--cf-line);
+  background: #0b1220;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+}
+
+.crear-factura-cliente-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cf-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.crear-factura-cliente-item small {
+  color: var(--cf-muted);
+  font-size: 0.75rem;
+}
+
+.crear-factura-cliente-item.is-active,
+.crear-factura-cliente-item:hover {
+  background: rgba(16, 185, 129, 0.14);
+}
+
+.crear-factura-cliente-ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6ee7b7;
+  font-size: 0.75rem;
+}
+
+.crear-factura-cliente-cambiar {
+  border: 0;
+  background: none;
+  color: #93c5fd;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+  padding: 0;
+}
+
 .crear-factura-check {
   display: flex;
   align-items: center;
@@ -210,6 +288,163 @@
   margin: 0;
   font-size: 0.85rem;
   color: var(--cf-muted);
+}
+
+.crear-factura-catalogo__hint {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  color: var(--cf-muted);
+}
+
+.crear-factura-catalogo__hint strong {
+  color: #a7f3d0;
+  font-weight: 700;
+}
+
+.crear-factura-lista-chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.crear-factura-lista-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  border: 1px solid var(--cf-line);
+  background: rgba(15, 23, 42, 0.7);
+  color: var(--cf-ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-align: left;
+}
+
+.crear-factura-lista-chip small {
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--cf-muted);
+}
+
+.crear-factura-lista-chip.is-active {
+  border-color: rgba(16, 185, 129, 0.55);
+  background: rgba(16, 185, 129, 0.16);
+  color: #ecfdf5;
+}
+
+.crear-factura-lista-chip.is-active small {
+  color: #a7f3d0;
+}
+
+.crear-factura-catalogo-filtros {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.crear-factura-catalogo-filtros input,
+.crear-factura-catalogo-filtros select {
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--cf-line);
+  background: rgba(15, 23, 42, 0.8);
+  color: var(--cf-ink);
+  font-size: 0.82rem;
+}
+
+.crear-factura-catalogo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow: auto;
+  margin-bottom: 10px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--cf-line);
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.crear-factura-catalogo-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cf-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.crear-factura-catalogo-row:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.crear-factura-catalogo-row:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.crear-factura-catalogo-row.is-added {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.crear-factura-catalogo-row__nombre {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.crear-factura-catalogo-row__nombre strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.crear-factura-catalogo-row__nombre small {
+  font-size: 0.64rem;
+  color: var(--cf-muted);
+}
+
+.crear-factura-catalogo-row__precio {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #6ee7b7;
+  white-space: nowrap;
+}
+
+.crear-factura-catalogo-row__precio em {
+  font-style: normal;
+  font-size: 0.62rem;
+  color: #fde68a;
+}
+
+.crear-factura-catalogo__more {
+  padding: 4px 6px 6px;
+}
+
+.crear-factura-item-edit__lista {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #6ee7b7;
 }
 
 .crear-factura-items-editor {

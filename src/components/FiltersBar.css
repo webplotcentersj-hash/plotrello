@@ -106,7 +106,8 @@
 .library-button-container .brand-button,
 .library-button-container .library-button,
 .library-button-container .brief-link-button,
-.library-button-container .venta-rapida-button {
+.library-button-container .venta-rapida-button,
+.library-button-container .factura-button {
   height: 26px;
   min-width: 0;
   padding: 0 9px;
@@ -168,6 +169,16 @@
 }
 
 .library-button-container .venta-rapida-button:hover {
+  filter: brightness(1.06);
+}
+
+.library-button-container .factura-button {
+  background: linear-gradient(135deg, #e8c27a, #c4a15a);
+  color: #1a1408;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.library-button-container .factura-button:hover {
   filter: brightness(1.06);
 }
 
@@ -514,9 +525,25 @@
   min-height: 44px;
 }
 
+.filters-bar-phone-row--acciones {
+  display: flex;
+  gap: 8px;
+}
+
+.filters-bar-phone-row--acciones .filters-bar-phone-add {
+  flex: 1;
+}
+
 .filters-bar--phone .venta-rapida-button {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.95));
   color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 700;
+}
+
+.filters-bar--phone .factura-button {
+  background: linear-gradient(135deg, #e8c27a, #c4a15a);
+  color: #1a1408;
   border: 1px solid rgba(255, 255, 255, 0.12);
   font-weight: 700;
 }

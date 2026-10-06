@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
-import type { ConfiguracionAFIPRecord, OrdenTrabajo, Venta } from '../types/api'
+import type { ArticuloEmpresaRecord, ClienteRecord, ConfiguracionAFIPRecord, OrdenTrabajo, Venta } from '../types/api'
+import {
+  LISTAS_PRECIO_VENTAS,
+  labelAjustesPreciosActivos,
+  labelListaPrecio,
+  resolvePrecioLista,
+  type TipoListaPrecioVentas
+} from '../constants/ventasListasPrecio'
+import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
+import { etiquetaUnidadCorta } from '../utils/unidadPrecio'
 import {
   CONCEPTOS_AFIP,
   calcularLineaItem,
@@ -19,8 +28,22 @@ import {
   type CondicionIvaCliente,
   type TipoFactura
 } from '../utils/afipFacturaUi'
+import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
 import { numeroALetras } from '../utils/crmExportUtils'
 import './CrearFacturaPage.css'
+
+const CONDICIONES_IVA: CondicionIvaCliente[] = [
+  'Consumidor Final',
+  'Responsable Inscripto',
+  'Monotributista',
+  'Exento',
+  'No Responsable'
+]
+
+function condicionIvaDeSistema(value: string | null | undefined): CondicionIvaCliente | '' {
+  const raw = String(value || '').trim()
+  return (CONDICIONES_IVA.find((c) => c.toLowerCase() === raw.toLowerCase()) || '') as CondicionIvaCliente | ''
+}
 
 /** Teléfono del encabezado de las facturas del sistema anterior. */
 const TELEFONO_FACTURA = '0264-4278026'
@@ -32,6 +55,8 @@ type ItemRow = {
   precio_unitario: number
   descuento: number
   iva_porcentaje: number
+  unidad_medida?: string
+  id_articulo_empresa?: number
 }
 
 function formatoCuit(value?: string | null) {
@@ -89,6 +114,16 @@ export default function CrearFacturaPage() {
   })
 
   const [items, setItems] = useState<ItemRow[]>([])
+  const { ajustes: ajustesPrecios } = useConfigAjustesPreciosVentas()
+  const [catalogoArticulos, setCatalogoArticulos] = useState<ArticuloEmpresaRecord[]>([])
+  const [loadingCatalogo, setLoadingCatalogo] = useState(false)
+  const [tipoListaPrecio, setTipoListaPrecio] = useState<TipoListaPrecioVentas>('lista_1')
+  const [busquedaArticulo, setBusquedaArticulo] = useState('')
+  const [categoriaArticulo, setCategoriaArticulo] = useState('todas')
+  const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
+  const [buscandoClientes, setBuscandoClientes] = useState(false)
+  const [clienteActivo, setClienteActivo] = useState(0)
+  const clienteItemRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   const aplicarCliente = useCallback(
     (data: {
@@ -114,6 +149,75 @@ export default function CrearFacturaPage() {
     },
     [condicionEmisor]
   )
+
+  useEffect(() => {
+    if (cliente.id_cliente || cliente.nombre.trim().length < 1) {
+      setClientesEncontrados([])
+      setBuscandoClientes(false)
+      return
+    }
+    const timer = window.setTimeout(async () => {
+      setBuscandoClientes(true)
+      try {
+        const response = await apiService.buscarClientes(cliente.nombre.trim())
+        setClientesEncontrados(response.success && response.data ? response.data : [])
+      } catch (error) {
+        console.error('Error buscando clientes:', error)
+        setClientesEncontrados([])
+      } finally {
+        setBuscandoClientes(false)
+      }
+    }, 200)
+    return () => window.clearTimeout(timer)
+  }, [cliente.nombre, cliente.id_cliente])
+
+  useEffect(() => {
+    setClienteActivo(0)
+  }, [clientesEncontrados])
+
+  useEffect(() => {
+    clienteItemRefs.current[clienteActivo]?.scrollIntoView({ block: 'nearest' })
+  }, [clienteActivo, clientesEncontrados])
+
+  const seleccionarClienteSistema = (c: ClienteRecord) => {
+    const nombre = (c.empresa || '').trim() || nombreCompletoCliente(c)
+    aplicarCliente({
+      nombre,
+      dni_cuit: c.dni_cuit,
+      direccion: c.direccion,
+      id_cliente: c.id
+    })
+    setClientesEncontrados([])
+    void apiService.getCuentaCorrientePorCliente(c.id).then((r) => {
+      if (!r.success || !r.data) return
+      const cc = r.data
+      const domicilio = [cc.domicilio, cc.localidad, cc.provincia].filter(Boolean).join(', ')
+      aplicarCliente({
+        nombre: (cc.razon_social || nombre).trim(),
+        dni_cuit: cc.cuit || c.dni_cuit,
+        direccion: domicilio || c.direccion,
+        condicion_iva: condicionIvaDeSistema(cc.condicion_iva) || undefined,
+        id_cliente: c.id
+      })
+    })
+  }
+
+  const moverClienteTeclado = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (cliente.id_cliente || clientesEncontrados.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setClienteActivo((i) => Math.min(clientesEncontrados.length - 1, i + 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setClienteActivo((i) => Math.max(0, i - 1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const elegido = clientesEncontrados[clienteActivo] ?? clientesEncontrados[0]
+      if (elegido) seleccionarClienteSistema(elegido)
+    } else if (e.key === 'Escape') {
+      setClientesEncontrados([])
+    }
+  }
 
   const aplicarVenta = useCallback(
     async (ventaId: number) => {
@@ -246,8 +350,93 @@ export default function CrearFacturaPage() {
     await aplicarVenta(vid)
   }
 
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      setLoadingCatalogo(true)
+      try {
+        const response = await apiService.getArticulosEmpresa(undefined, false)
+        if (!cancelled && response.success && response.data) {
+          setCatalogoArticulos(response.data.filter((a) => a.activo && !a.codigo?.startsWith('ART-')))
+        }
+      } catch (error) {
+        console.error('Error cargando lista de precios:', error)
+      } finally {
+        if (!cancelled) setLoadingCatalogo(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const categoriasArticulos = useMemo(() => {
+    const set = new Set<string>()
+    for (const a of catalogoArticulos) {
+      if (a.categoria?.trim()) set.add(a.categoria.trim())
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'))
+  }, [catalogoArticulos])
+
+  const articulosFiltrados = useMemo(() => {
+    const q = busquedaArticulo.trim().toLowerCase()
+    return catalogoArticulos.filter((a) => {
+      if (categoriaArticulo !== 'todas' && (a.categoria || '') !== categoriaArticulo) return false
+      if (!q) return true
+      const tokens = q.split(/\s+/).filter(Boolean)
+      const haystack = [a.nombre, a.codigo, a.descripcion, a.categoria].filter(Boolean).join(' ').toLowerCase()
+      return tokens.every((t) => haystack.includes(t))
+    })
+  }, [catalogoArticulos, busquedaArticulo, categoriaArticulo])
+
+  useEffect(() => {
+    if (items.length === 0 || catalogoArticulos.length === 0) return
+    setItems((prev) =>
+      prev.map((item) => {
+        if (!item.id_articulo_empresa) return item
+        const art = catalogoArticulos.find((a) => a.id === item.id_articulo_empresa)
+        if (!art) return item
+        const precio = resolvePrecioLista(art, tipoListaPrecio, ajustesPrecios)
+        if (precio == null) return item
+        return { ...item, precio_unitario: precio }
+      })
+    )
+  }, [tipoListaPrecio, catalogoArticulos, ajustesPrecios])
+
   const handleAddItem = () => {
     setItems((prev) => [...prev, { descripcion: '', cantidad: 1, precio_unitario: 0, descuento: 0, iva_porcentaje: 21 }])
+  }
+
+  const handleAddArticulo = (articulo: ArticuloEmpresaRecord) => {
+    const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+    if (precio == null) {
+      alert(`Este artículo no tiene precio en ${labelListaPrecio(tipoListaPrecio)}.`)
+      return
+    }
+    const facturaC = formData.tipo_comprobante === 'Factura C'
+    const iva = facturaC ? 0 : ajustesPrecios.iva_activo ? ajustesPrecios.iva_porcentaje : 21
+    setItems((prev) => {
+      const ya = prev.findIndex((item) => item.id_articulo_empresa === articulo.id)
+      if (ya >= 0) {
+        const next = [...prev]
+        next[ya] = { ...next[ya], cantidad: Number(next[ya].cantidad || 0) + 1, precio_unitario: precio }
+        return next
+      }
+      return [
+        ...prev,
+        {
+          codigo: articulo.codigo || '',
+          descripcion: articulo.nombre,
+          cantidad: 1,
+          precio_unitario: precio,
+          descuento: 0,
+          iva_porcentaje: iva,
+          unidad_medida: articulo.unidad_medida || undefined,
+          id_articulo_empresa: articulo.id
+        }
+      ]
+    })
+    if (!facturaC) setPreciosConIva(true)
   }
 
   const handleUpdateItem = (index: number, field: keyof ItemRow, value: string | number) => {
@@ -532,14 +721,68 @@ export default function CrearFacturaPage() {
 
           <section className="crear-factura-panel">
             <h2>Cliente receptor</h2>
-            <label className="crear-factura-field">
+            <div className="crear-factura-field">
               <span>Razón social / Nombre</span>
-              <input
-                type="text"
-                value={cliente.nombre}
-                onChange={(e) => setCliente((p) => ({ ...p, nombre: e.target.value }))}
-              />
-            </label>
+              <div className={`crear-factura-cliente-search${cliente.id_cliente ? ' is-selected' : ''}`}>
+                <input
+                  type="text"
+                  placeholder="Nombre, apellido, DNI, teléfono o empresa…"
+                  value={cliente.nombre}
+                  onChange={(e) => {
+                    setCliente((p) => ({ ...p, nombre: e.target.value, id_cliente: null }))
+                    setClienteActivo(0)
+                  }}
+                  onKeyDown={moverClienteTeclado}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                {buscandoClientes && !cliente.id_cliente && (
+                  <span className="crear-factura-cliente-search__spin" aria-hidden>
+                    …
+                  </span>
+                )}
+                {clientesEncontrados.length > 0 && !cliente.id_cliente && (
+                  <div className="crear-factura-cliente-list" role="listbox">
+                    {clientesEncontrados.map((c, index) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        role="option"
+                        aria-selected={index === clienteActivo}
+                        className={`crear-factura-cliente-item${index === clienteActivo ? ' is-active' : ''}`}
+                        ref={(node) => {
+                          clienteItemRefs.current[index] = node
+                        }}
+                        onMouseEnter={() => setClienteActivo(index)}
+                        onClick={() => seleccionarClienteSistema(c)}
+                      >
+                        <strong>{nombreCompletoCliente(c)}</strong>
+                        {c.empresa ? <small>{c.empresa}</small> : null}
+                        {c.dni_cuit ? <small>CUIT/DNI {c.dni_cuit}</small> : null}
+                        {c.telefono ? <small>{c.telefono}</small> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {cliente.id_cliente ? (
+                <small className="crear-factura-cliente-ok">
+                  Cliente #{cliente.id_cliente} del sistema
+                  <button
+                    type="button"
+                    className="crear-factura-cliente-cambiar"
+                    onClick={() => {
+                      setCliente((p) => ({ ...p, id_cliente: null }))
+                      setClientesEncontrados([])
+                    }}
+                  >
+                    Cambiar
+                  </button>
+                </small>
+              ) : (
+                <small className="crear-factura-muted">Escribí para buscar en clientes. Si no está, cargalo a mano.</small>
+              )}
+            </div>
             <label className="crear-factura-field">
               <span>CUIT / DNI</span>
               <input
@@ -587,12 +830,100 @@ export default function CrearFacturaPage() {
                 + Ítem
               </button>
             </div>
+
+            <p className="crear-factura-catalogo__hint">
+              Lista Flexxus · precios con <strong>{labelAjustesPreciosActivos(ajustesPrecios)}</strong>
+            </p>
+            <div className="crear-factura-lista-chips">
+              {(Object.keys(LISTAS_PRECIO_VENTAS) as TipoListaPrecioVentas[]).map((lista) => (
+                <button
+                  key={lista}
+                  type="button"
+                  className={`crear-factura-lista-chip${tipoListaPrecio === lista ? ' is-active' : ''}`}
+                  onClick={() => setTipoListaPrecio(lista)}
+                >
+                  {LISTAS_PRECIO_VENTAS[lista].label}
+                  <small>{LISTAS_PRECIO_VENTAS[lista].subtitle}</small>
+                </button>
+              ))}
+            </div>
+            <div className="crear-factura-catalogo-filtros">
+              <input
+                type="search"
+                placeholder="Buscar código, nombre o rubro…"
+                value={busquedaArticulo}
+                onChange={(e) => setBusquedaArticulo(e.target.value)}
+                autoComplete="off"
+              />
+              {categoriasArticulos.length > 0 && (
+                <select value={categoriaArticulo} onChange={(e) => setCategoriaArticulo(e.target.value)}>
+                  <option value="todas">Todos los rubros</option>
+                  {categoriasArticulos.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="crear-factura-catalogo">
+              {loadingCatalogo ? (
+                <p className="crear-factura-muted">Cargando lista de precios…</p>
+              ) : articulosFiltrados.length === 0 ? (
+                <p className="crear-factura-muted">
+                  {busquedaArticulo.trim() || categoriaArticulo !== 'todas'
+                    ? 'Sin resultados. Probá con otras palabras o rubro.'
+                    : 'No hay artículos en la lista de precios.'}
+                </p>
+              ) : (
+                <>
+                  {articulosFiltrados.slice(0, 60).map((articulo) => {
+                    const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+                    const qty = items.find((item) => item.id_articulo_empresa === articulo.id)?.cantidad
+                    return (
+                      <button
+                        key={articulo.id}
+                        type="button"
+                        className={`crear-factura-catalogo-row${qty ? ' is-added' : ''}`}
+                        disabled={precio == null}
+                        onClick={() => handleAddArticulo(articulo)}
+                      >
+                        <span className="crear-factura-catalogo-row__nombre">
+                          <strong>{articulo.nombre}</strong>
+                          <small>
+                            {articulo.codigo || '—'}
+                            {articulo.categoria ? ` · ${articulo.categoria}` : ''}
+                          </small>
+                        </span>
+                        <span className="crear-factura-catalogo-row__precio">
+                          {precio != null
+                            ? `$${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })} / ${etiquetaUnidadCorta(articulo.unidad_medida)}`
+                            : 'Sin precio'}
+                          {qty ? <em>+{qty}</em> : null}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  {articulosFiltrados.length > 60 && (
+                    <p className="crear-factura-muted crear-factura-catalogo__more">
+                      Mostrando 60 de {articulosFiltrados.length}. Acotá la búsqueda.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
             <div className="crear-factura-items-editor">
               {items.length === 0 ? (
-                <p className="crear-factura-muted">Sin ítems. Elegí una venta o agregá manualmente.</p>
+                <p className="crear-factura-muted">
+                  Sin ítems. Elegí un artículo de la lista, una venta o agregá uno manual.
+                </p>
               ) : (
                 items.map((item, index) => (
-                  <div key={index} className="crear-factura-item-edit">
+                  <div key={item.id_articulo_empresa ? `art-${item.id_articulo_empresa}` : `row-${index}`} className="crear-factura-item-edit">
+                    {item.id_articulo_empresa ? (
+                      <span className="crear-factura-item-edit__lista">{labelListaPrecio(tipoListaPrecio)}</span>
+                    ) : null}
                     <input
                       type="text"
                       placeholder="Descripción"
@@ -604,7 +935,7 @@ export default function CrearFacturaPage() {
                         type="number"
                         min="0.01"
                         step="0.01"
-                        title="Cantidad"
+                        title={item.unidad_medida ? `Cantidad (${etiquetaUnidadCorta(item.unidad_medida)})` : 'Cantidad'}
                         value={item.cantidad}
                         onChange={(e) => handleUpdateItem(index, 'cantidad', parseFloat(e.target.value) || 0)}
                       />
