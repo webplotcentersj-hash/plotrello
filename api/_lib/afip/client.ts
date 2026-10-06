@@ -37,7 +37,11 @@ export function getAfipAccessToken(): string {
   return (process.env.AFIPSDK_ACCESS_TOKEN || process.env.AFIP_ACCESS_TOKEN || '').trim()
 }
 
-/** PEM real, o nada si la variable es una ruta de archivo. AfipSDK usa el certificado de la cuenta. */
+/**
+ * PEM real, o nada si la variable es una ruta de archivo.
+ * Vercel y dotenv a veces meten líneas vacías entre el base64. OpenSSL y Afip SDK
+ * rechazan eso (la key “no es válida” / bits 744). Se rearma a líneas de 64.
+ */
 export function normalizarPem(value: string | undefined): string | undefined {
   if (!value) return undefined
   let raw = value.trim()
@@ -45,8 +49,16 @@ export function normalizarPem(value: string | undefined): string | undefined {
     raw = raw.slice(1, -1).trim()
   }
   if (raw.includes('\\n')) raw = raw.replace(/\\n/g, '\n')
-  if (!raw.includes('-----BEGIN')) return undefined
-  return raw
+  const begin = raw.match(/-----BEGIN ([A-Z0-9 ]+)-----/)
+  const end = raw.match(/-----END ([A-Z0-9 ]+)-----/)
+  if (!begin || !end || begin[1] !== end[1]) return undefined
+  const body = raw
+    .replace(/-----BEGIN [A-Z0-9 ]+-----/g, '')
+    .replace(/-----END [A-Z0-9 ]+-----/g, '')
+    .replace(/\s+/g, '')
+  if (!body || !/^[A-Za-z0-9+/=]+$/.test(body)) return undefined
+  const lines = body.match(/.{1,64}/g) || []
+  return `-----BEGIN ${begin[1]}-----\n${lines.join('\n')}\n-----END ${end[1]}-----\n`
 }
 
 type TicketAcceso = { token: string; sign: string; until: number }

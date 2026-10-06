@@ -27,7 +27,22 @@ describe('respuesta de ARCA', () => {
   it('no manda una ruta de archivo como clave', () => {
     assert.equal(normalizarPem('.afip-certs/plotlab.key'), undefined)
     assert.equal(normalizarPem('C:\\\\certs\\\\plotlab.key'), undefined)
-    assert.match(normalizarPem('"-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----"') || '', /BEGIN PRIVATE KEY/)
+    const pem = normalizarPem('"-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----"') || ''
+    assert.match(pem, /BEGIN PRIVATE KEY/)
+    assert.equal(pem.includes('\n\n'), false)
+  })
+
+  it('saca las líneas vacías que rompen la key en Afip SDK', () => {
+    const roto = [
+      '-----BEGIN RSA PRIVATE KEY-----',
+      'AAAA',
+      '',
+      'BBBB',
+      '-----END RSA PRIVATE KEY-----'
+    ].join('\n')
+    const pem = normalizarPem(roto) || ''
+    assert.equal(pem.includes('\n\n'), false)
+    assert.match(pem, /^-----BEGIN RSA PRIVATE KEY-----\nAAAABBBB\n-----END RSA PRIVATE KEY-----\n$/)
   })
 
   it('no rechaza un comprobante aprobado', () => {
