@@ -76,17 +76,13 @@ async function ticketAcceso(accessToken: string, production: boolean, cuit: numb
   const vigente = tickets.get(clave)
   if (vigente && vigente.until > Date.now()) return vigente
 
+  // El certificado ya está en la cuenta de Afip SDK. No reenviar AFIP_KEY:
+  // en Vercel esa variable es una ruta o un PEM que ARCA rechaza.
   const body: Record<string, unknown> = {
     environment: production ? 'prod' : 'dev',
     wsid: 'wsfe',
     tax_id: cuit,
     force_create: false
-  }
-  const cert = normalizarPem(process.env.AFIP_CERT)
-  const key = normalizarPem(process.env.AFIP_KEY)
-  if (cert && key) {
-    body.cert = cert
-    body.key = key
   }
 
   const res = await fetch('https://app.afipsdk.com/api/v1/afip/auth', {
