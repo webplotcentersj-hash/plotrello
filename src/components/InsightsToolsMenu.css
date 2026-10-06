@@ -16,20 +16,21 @@
 
 .insights-tools-trigger-badge {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
   border-radius: 999px;
   background: #ef4444;
   color: #fff;
-  font-size: 0.52rem;
+  font-size: 0.58rem;
   font-weight: 800;
-  line-height: 14px;
+  line-height: 16px;
   text-align: center;
-  border: 1.5px solid rgba(15, 17, 27, 0.95);
+  border: 2px solid rgba(15, 17, 27, 0.95);
   pointer-events: none;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45);
 }
 
 .insights-tools-dropdown {
@@ -91,24 +92,23 @@
   display: grid;
   place-items: center;
   border-radius: 10px;
-  font-size: 1.2rem;
+  color: #fff;
 }
 
 .insights-tools-item--chat .insights-tools-item-icon {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15));
+  background: linear-gradient(145deg, #34d399, #059669);
 }
 
 .insights-tools-item--plotai .insights-tools-item-icon {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.28), rgba(234, 88, 12, 0.15));
-  color: #fb923c;
+  background: linear-gradient(145deg, #fb923c, #ea580c);
 }
 
 .insights-tools-item--print .insights-tools-item-icon {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.28), rgba(37, 99, 235, 0.15));
+  background: linear-gradient(145deg, #38bdf8, #0284c7);
 }
 
 .insights-tools-item--solicitudes .insights-tools-item-icon {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.28), rgba(217, 119, 6, 0.15));
+  background: linear-gradient(145deg, #fbbf24, #d97706);
 }
 
 .insights-tools-item-text {

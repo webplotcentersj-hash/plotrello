@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import ChatFloatingButton from './ChatFloatingButton'
+import { HeaderNavGlyph } from './HeaderNavGlyph'
 import './InsightsToolsMenu.css'
 
 type InsightsToolsMenuProps = {
@@ -67,7 +68,7 @@ export default function InsightsToolsMenu({
       <button
         ref={triggerRef}
         type="button"
-        className={`insights-toggle-btn insights-tools-trigger${menuOpen ? ' insights-tools-trigger--open' : ''}${totalBadge > 0 ? ' insights-tools-trigger--badge' : ''}`}
+        className={`insights-toggle-btn insights-tools-trigger header-board-tool header-board-tool--tools${menuOpen ? ' insights-tools-trigger--open is-on' : ''}${totalBadge > 0 ? ' insights-tools-trigger--badge' : ''}`}
         onClick={() => {
           setMenuOpen((v) => !v)
           setChatOpen(false)
@@ -77,8 +78,8 @@ export default function InsightsToolsMenu({
         title="Herramientas rápidas"
         aria-label="Abrir menú de herramientas"
       >
-        <span className="insights-toggle-icon" aria-hidden="true">
-          {menuOpen ? '✕' : '⋯'}
+        <span className="header-board-tool__glyph" aria-hidden>
+          <HeaderNavGlyph id={menuOpen ? 'close' : 'grid'} size={16} />
         </span>
         {totalBadge > 0 && (
           <span className="insights-tools-trigger-badge" aria-label={`${totalBadge} pendientes`}>
@@ -98,7 +99,9 @@ export default function InsightsToolsMenu({
               setChatOpen(true)
             }}
           >
-            <span className="insights-tools-item-icon">💬</span>
+            <span className="insights-tools-item-icon" aria-hidden>
+              <HeaderNavGlyph id="chat" size={18} />
+            </span>
             <span className="insights-tools-item-text">
               <span className="insights-tools-item-title">Chat</span>
               <span className="insights-tools-item-sub">Canales y menciones</span>
@@ -118,9 +121,7 @@ export default function InsightsToolsMenu({
             }}
           >
             <span className="insights-tools-item-icon insights-tools-item-icon--plotai" aria-hidden>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11C11 9.75 14.75 9.75 14.75 7.5C14.75 6.12 13.63 5 12.25 5C10.87 5 9.75 6.12 9.75 7.5H11.75C11.75 7.08 12.08 6.75 12.5 6.75C12.92 6.75 13.25 7.08 13.25 7.5C13.25 8.5 11 8.83 11 13H13Z" />
-              </svg>
+              <HeaderNavGlyph id="spark" size={18} />
             </span>
             <span className="insights-tools-item-text">
               <span className="insights-tools-item-title">PlotAI</span>
@@ -140,7 +141,9 @@ export default function InsightsToolsMenu({
                 setMenuOpen(false)
               }}
             >
-              <span className="insights-tools-item-icon">🖨️</span>
+              <span className="insights-tools-item-icon" aria-hidden>
+                <HeaderNavGlyph id="printer" size={18} />
+              </span>
               <span className="insights-tools-item-text">
                 <span className="insights-tools-item-title">Impresoras</span>
                 <span className="insights-tools-item-sub">Ocupación y cola</span>
@@ -158,7 +161,9 @@ export default function InsightsToolsMenu({
                 navigate('/avisar-ausencia')
               }}
             >
-              <span className="insights-tools-item-icon">📋</span>
+              <span className="insights-tools-item-icon" aria-hidden>
+                <HeaderNavGlyph id="clipboard" size={18} />
+              </span>
               <span className="insights-tools-item-text">
                 <span className="insights-tools-item-title">Avisar ausencia</span>
                 <span className="insights-tools-item-sub">Desde el celular · solo plataforma</span>

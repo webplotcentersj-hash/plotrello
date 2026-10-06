@@ -1,6 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { buildHeaderQuickNavItems } from '../utils/headerQuickNav'
+import { buildHeaderQuickNavItems, type HeaderQuickNavItem } from '../utils/headerQuickNav'
+import { HeaderNavGlyph, glyphMetaForNavId } from './HeaderNavGlyph'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import { canVerActividadesOperarios } from '../features/work-pool/workPoolOperarioNotas'
@@ -104,6 +105,7 @@ const Header = ({
   const canVerPanelActividadesOperarios = canVerActividadesOperarios(usuario)
   const quickNavBadges = useHeaderQuickNavBadges()
   const [actionsOpen, setActionsOpen] = useState(false)
+  const actionsRef = useRef<HTMLDivElement>(null)
 
   const quickNavItems = useMemo(() => {
     const items = buildHeaderQuickNavItems({
@@ -158,12 +160,253 @@ const Header = ({
     quickNavBadges
   ])
 
-  const renderQuickNavBadge = (count: number) =>
+  const quickNavIds = useMemo(() => new Set(quickNavItems.map((item) => item.id)), [quickNavItems])
+
+  const moreMenuItems = useMemo((): HeaderQuickNavItem[] => {
+    const extras: HeaderQuickNavItem[] = []
+    const skip = (id: string) => quickNavIds.has(id)
+    const push = (item: HeaderQuickNavItem) => {
+      if (!extras.some((e) => e.id === item.id) && !skip(item.id)) extras.push(item)
+    }
+
+    if (onNavigateToMensajeria) {
+      push({
+        id: 'mensajeria',
+        label: 'Mensajería',
+        icon: '✉️',
+        onClick: onNavigateToMensajeria,
+        badge: showMensajeriaUnreadBadge ? dmMensajeriaUnread : 0
+      })
+    }
+    if (canAccessAppCampo && !skip('dashboard-campo-inst')) {
+      push({
+        id: 'app-campo',
+        label:
+          campoSectorMode === 'both'
+            ? 'App campo (Inst. / Met.)'
+            : campoSectorMode === 'metalurgica'
+              ? 'App campo (Metalúrgica)'
+              : campoSectorMode === 'instalaciones'
+                ? 'App campo (Instalaciones)'
+                : 'App campo',
+        icon: '📱',
+        href: '/app-campo'
+      })
+    }
+    if (onNavigateToCalendar) {
+      push({ id: 'calendario', label: 'Calendario', icon: '📅', onClick: onNavigateToCalendar })
+    }
+    if (onNavigateToUsuarios && isAdmin) {
+      push({ id: 'usuarios', label: 'Usuarios', icon: '👥', onClick: onNavigateToUsuarios })
+    }
+    if (canAccessMostradorViews && onNavigateToMostrador) {
+      push({
+        id: 'dashboard-mostrador',
+        label: 'Mostrador',
+        icon: '📋',
+        onClick: onNavigateToMostrador
+      })
+    }
+    if (canAccessMostradorViews) {
+      push({ id: 'ventas', label: 'Ventas', icon: '🧾', href: VENTAS })
+    }
+    if (canAccessTotemImpresionPanel) {
+      push({
+        id: 'impresoras-totem',
+        label: 'Pedidos tótem',
+        icon: '🖨️',
+        href: '/impresoras/totem',
+        badge: quickNavBadges['impresoras-totem'] ?? 0
+      })
+    }
+    if (canManageCompras && onNavigateToCompras) {
+      push({ id: 'dashboard-compras', label: 'Compras', icon: '🛒', onClick: onNavigateToCompras })
+    }
+    if (canManageCaja) {
+      push({
+        id: 'dashboard-caja',
+        label: 'Caja',
+        icon: '🏦',
+        href: isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja',
+        onClick: onNavigateToCaja
+      })
+    }
+    if (isDiseno || isMetalurgica || canAccessAppCampo || isAdmin) {
+      push({ id: 'plotbolsa', label: 'PlotBolsa', icon: '🧰', href: '/bolsa' })
+    }
+    if ((isDiseno || isAdmin) && onNavigateToDiseno) {
+      push({ id: 'dashboard-diseno', label: 'Diseño', icon: '🎨', onClick: onNavigateToDiseno })
+    }
+    if (canManageRecursosHumanos && onNavigateToRecursosHumanos) {
+      push({ id: 'dashboard-rrhh', label: 'Recursos Humanos', icon: '👥', onClick: onNavigateToRecursosHumanos })
+    }
+    if (canAccessClientesConsulta && !skip('clientes-consulta')) {
+      push({ id: 'clientes-dashboard', label: 'Clientes', icon: '👥', href: CLIENTES_DASHBOARD })
+    }
+    if (canAccessMostradorViews && onNavigateToClientesWeb) {
+      push({ id: 'portal-web', label: 'Portal web', icon: '🌐', onClick: onNavigateToClientesWeb })
+    }
+    if (canAccessAsesorPresupuestos && onNavigateToAsesorPresupuestos) {
+      push({ id: 'dashboard-dt', label: 'DT', icon: '📐', onClick: onNavigateToAsesorPresupuestos })
+    }
+    if (isTallerGrafico || isAdmin) {
+      push({ id: 'inventario-tg', label: 'Inventario Taller', icon: '🧴', href: '/taller-grafico/inventario' })
+      if (!skip('dashboard-taller')) {
+        push({ id: 'kanban-tg', label: 'Kanban Taller', icon: '🧩', href: '/taller-grafico/dashboard' })
+      }
+    }
+    if ((isMetalurgica || isAdmin) && !skip('dashboard-metalurgica')) {
+      push({ id: 'inventario-metal', label: 'Inventario Metalúrgica', icon: '🔧', href: '/metalurgica/inventario' })
+    }
+    if ((isTallerImprenta || isAdmin) && !skip('panol-taller-imprenta') && !skip('panol-taller-imprenta-admin') && !skip('panol-taller-imprenta-gerencia')) {
+      push({ id: 'panol-taller-imprenta', label: 'Pañol Imprenta', icon: '🧰', href: '/taller-imprenta/panol' })
+    }
+    if (onNavigateToFlota) {
+      push({ id: 'flota', label: 'Flota', icon: '🚗', onClick: onNavigateToFlota })
+    }
+    if (onNavigateToERP && isAdmin) {
+      push({ id: 'dashboard-erp', label: 'ERP', icon: '💰', onClick: onNavigateToERP })
+    }
+    if (onNavigateToStats && isAdmin) {
+      push({ id: 'dashboard-stats', label: 'Estadísticas', icon: '📊', onClick: onNavigateToStats })
+    }
+    if (isDiseno || isAdmin) {
+      push({ id: 'briefs', label: 'Briefs pendientes', icon: '📋', href: '/briefs-pendientes' })
+    }
+    push({ id: 'libro-actas', label: 'Libro de actas', icon: '📝', href: '/libro-actas' })
+    push({ id: 'protocolos', label: 'Protocolos y bases', icon: '📚', href: '/protocolos-bases' })
+    push({ id: 'capacitaciones', label: 'Capacitaciones', icon: '📚', href: '/capacitaciones' })
+    push({ id: 'evaluaciones', label: 'Mis evaluaciones', icon: '📝', href: '/mis-pruebas' })
+    push({ id: 'manual', label: 'Manual', icon: '📖', href: '/manual' })
+    push({ id: 'mis-pedidos', label: 'Mis pedidos', icon: '📋', href: '/mis-pedidos' })
+    return extras
+  }, [
+    quickNavIds,
+    onNavigateToMensajeria,
+    showMensajeriaUnreadBadge,
+    dmMensajeriaUnread,
+    canAccessAppCampo,
+    campoSectorMode,
+    onNavigateToCalendar,
+    onNavigateToUsuarios,
+    isAdmin,
+    canAccessMostradorViews,
+    onNavigateToMostrador,
+    canAccessTotemImpresionPanel,
+    quickNavBadges,
+    canManageCompras,
+    onNavigateToCompras,
+    canManageCaja,
+    onNavigateToCaja,
+    isDiseno,
+    isMetalurgica,
+    onNavigateToDiseno,
+    canManageRecursosHumanos,
+    onNavigateToRecursosHumanos,
+    canAccessClientesConsulta,
+    onNavigateToClientesWeb,
+    canAccessAsesorPresupuestos,
+    onNavigateToAsesorPresupuestos,
+    isTallerGrafico,
+    isTallerImprenta,
+    onNavigateToFlota,
+    onNavigateToERP,
+    onNavigateToStats
+  ])
+
+  const menuBadgeCount = useMemo(() => {
+    const fromQuick = quickNavItems.reduce((sum, item) => sum + (item.badge ?? 0), 0)
+    const fromMore = moreMenuItems.reduce((sum, item) => sum + (item.badge ?? 0), 0)
+    return fromQuick + fromMore
+  }, [quickNavItems, moreMenuItems])
+
+  useEffect(() => {
+    if (!actionsOpen) return
+    const onDown = (event: MouseEvent) => {
+      if (!(event.target instanceof Node)) return
+      if (!actionsRef.current?.contains(event.target)) setActionsOpen(false)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActionsOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [actionsOpen])
+
+  const closeMenu = () => setActionsOpen(false)
+
+  const renderMenuBadge = (count: number) =>
     count > 0 ? (
-      <span className="header-quick-nav-badge" title={`${count} novedad${count === 1 ? '' : 'es'}`}>
+      <span className="header-menu-badge" title={`${count} novedad${count === 1 ? '' : 'es'}`}>
         {count > 99 ? '99+' : count}
       </span>
     ) : null
+
+  const renderMenuItem = (item: HeaderQuickNavItem, variant: 'tile' | 'row') => {
+    const { glyph, tone } = glyphMetaForNavId(item.id)
+    const className = `header-menu-item header-menu-item--${variant}${
+      item.id.startsWith('dashboard-') || item.id === 'panel-admin' ? ' header-menu-item--primary' : ''
+    }`
+    const inner = (
+      <>
+        <span className="header-menu-glyph" data-tone={tone} aria-hidden>
+          <HeaderNavGlyph id={glyph} size={variant === 'tile' ? 22 : 18} />
+        </span>
+        <span className="header-menu-label">{item.label}</span>
+        {renderMenuBadge(item.badge ?? 0)}
+      </>
+    )
+    const activate = () => {
+      closeMenu()
+      item.onClick?.()
+    }
+    if (item.href && item.external) {
+      return (
+        <a
+          key={item.id}
+          href={item.href}
+          className={className}
+          title={item.title ?? item.label}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={closeMenu}
+        >
+          {inner}
+        </a>
+      )
+    }
+    if (item.href) {
+      return (
+        <Link
+          key={item.id}
+          to={item.href}
+          className={className}
+          title={item.title ?? item.label}
+          onClick={() => {
+            closeMenu()
+            item.onClick?.()
+          }}
+        >
+          {inner}
+        </Link>
+      )
+    }
+    return (
+      <button
+        key={item.id}
+        type="button"
+        className={className}
+        title={item.title ?? item.label}
+        onClick={activate}
+      >
+        {inner}
+      </button>
+    )
+  }
 
   return (
     <header className="tp-header">
@@ -185,60 +428,7 @@ const Header = ({
           </h1>
         </div>
         <div className="header-line-aside">
-          {quickNavItems.length > 0 && (
-            <nav className="header-quick-nav" aria-label="Accesos de tu sector">
-              {quickNavItems.map((item) => {
-                const btnClass = `header-quick-nav-btn${
-                  item.id.startsWith('dashboard-') ? ' header-quick-nav-btn--primary' : ''
-                }${(item.badge ?? 0) > 0 ? ' header-quick-nav-btn--has-badge' : ''}`
-                const badge = renderQuickNavBadge(item.badge ?? 0)
-                return item.href && item.external ? (
-                  <a
-                    key={item.id}
-                    href={item.href}
-                    className={btnClass}
-                    title={item.title ?? item.label}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <span className="header-quick-nav-icon" aria-hidden>
-                      {item.icon}
-                    </span>
-                    <span className="header-quick-nav-label">{item.label}</span>
-                    {badge}
-                  </a>
-                ) : item.href ? (
-                  <Link
-                    key={item.id}
-                    to={item.href}
-                    className={btnClass}
-                    title={item.title ?? item.label}
-                  >
-                    <span className="header-quick-nav-icon" aria-hidden>
-                      {item.icon}
-                    </span>
-                    <span className="header-quick-nav-label">{item.label}</span>
-                    {badge}
-                  </Link>
-                ) : (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={btnClass}
-                    title={item.title ?? item.label}
-                    onClick={() => item.onClick?.()}
-                  >
-                    <span className="header-quick-nav-icon" aria-hidden>
-                      {item.icon}
-                    </span>
-                    <span className="header-quick-nav-label">{item.label}</span>
-                    {badge}
-                  </button>
-                )
-              })}
-            </nav>
-          )}
-        <div className="header-actions">
+        <div className="header-actions" ref={actionsRef}>
           {compactPhone && (
             <div className="header-status-card header-status-card--compact-phone" aria-label="Hora y clima">
               <ClockWidget compact />
@@ -280,256 +470,59 @@ const Header = ({
             <TemaToggle className="header-util-btn header-util-btn--tema" />
             <span className="header-util-divider" aria-hidden />
             <button
-              className={`header-util-btn actions-toggle${showMensajeriaUnreadBadge ? ' has-mensajeria-unread' : ''}${actionsOpen ? ' actions-toggle--open' : ''}`}
+              className={`header-util-btn actions-toggle${menuBadgeCount > 0 ? ' has-mensajeria-unread' : ''}${actionsOpen ? ' actions-toggle--open' : ''}`}
               type="button"
               onClick={() => setActionsOpen((prev) => !prev)}
               aria-expanded={actionsOpen}
               aria-label={
-                showMensajeriaUnreadBadge
-                  ? `Menú de navegación. Mensajes sin leer: ${dmMensajeriaUnread}`
-                  : 'Menú de navegación'
+                menuBadgeCount > 0
+                  ? `Menú de módulos. Novedades: ${menuBadgeCount}`
+                  : 'Menú de módulos'
               }
               title={actionsOpen ? 'Cerrar menú' : 'Abrir menú'}
             >
               <span className="actions-toggle-icon" aria-hidden>
-                {actionsOpen ? '✕' : '☰'}
+                <HeaderNavGlyph id={actionsOpen ? 'close' : 'menu'} size={18} />
               </span>
               <span className="actions-toggle-label">Menú</span>
+              {renderMenuBadge(menuBadgeCount)}
             </button>
           </div>
 
-          <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`} role="menu" aria-label="Menú de navegación">
+          <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`} role="menu" aria-label="Menú de módulos">
             <div className="actions-dropdown-head">
-              <span className="actions-dropdown-eyebrow">PlotLab</span>
-              <strong>Explorar módulos</strong>
+              <span className="actions-dropdown-eyebrow">Plot Lab</span>
+              <strong>Módulos</strong>
             </div>
             <div className="actions-dropdown-scroll">
-            <div className="actions-dropdown-grid">
-            {onNavigateToMensajeria && (
-              <span className="header-mensajeria-btn-wrap">
+              {quickNavItems.length > 0 && (
+                <section className="header-menu-section">
+                  <h3 className="header-menu-section__title">Accesos de tu sector</h3>
+                  <div className="header-menu-tiles">{quickNavItems.map((item) => renderMenuItem(item, 'tile'))}</div>
+                </section>
+              )}
+              {moreMenuItems.length > 0 && (
+                <section className="header-menu-section">
+                  <h3 className="header-menu-section__title">Más módulos</h3>
+                  <div className="header-menu-rows">{moreMenuItems.map((item) => renderMenuItem(item, 'row'))}</div>
+                </section>
+              )}
+              {onLogout && (
                 <button
                   type="button"
-                  className="brand-button"
+                  className="header-menu-item header-menu-item--row header-menu-item--logout"
                   onClick={() => {
-                    setActionsOpen(false)
-                    onNavigateToMensajeria()
+                    closeMenu()
+                    onLogout()
                   }}
+                  title="Cerrar sesión"
                 >
-                  ✉️ Mensajería
+                  <span className="header-menu-glyph" data-tone="rose" aria-hidden>
+                    <HeaderNavGlyph id="door" size={18} />
+                  </span>
+                  <span className="header-menu-label">Salir</span>
                 </button>
-                {showMensajeriaUnreadBadge && (
-                  <span className="header-dm-unread-badge" title="Mensajes sin leer">
-                    {dmMensajeriaUnread > 99 ? '99+' : dmMensajeriaUnread}
-                  </span>
-                )}
-              </span>
-            )}
-            {onNavigateToStats && isAdmin && (
-              <button className="brand-button" onClick={onNavigateToStats}>
-                📊 Estadísticas
-              </button>
-            )}
-            {canAccessAppCampo && (
-              <Link
-                to="/app-campo"
-                className="brand-button"
-                onClick={() => setActionsOpen(false)}
-              >
-                📱 App campo
-                {campoSectorMode === 'both'
-                  ? ' (Inst. / Met.)'
-                  : campoSectorMode === 'metalurgica'
-                    ? ' (Metalúrgica)'
-                    : campoSectorMode === 'instalaciones'
-                      ? ' (Instalaciones)'
-                      : ''}
-              </Link>
-            )}
-            {onNavigateToCalendar && (
-              <button className="brand-button" onClick={onNavigateToCalendar}>
-                📅 Calendario
-              </button>
-            )}
-            {onNavigateToUsuarios && isAdmin && (
-              <button className="brand-button" onClick={onNavigateToUsuarios}>
-                👥 Usuarios
-              </button>
-            )}
-            {canAccessMostradorViews && onNavigateToMostrador && (
-              <button className="brand-button" onClick={onNavigateToMostrador}>
-                📋 Dashboard Mostrador
-              </button>
-            )}
-            {canAccessMostradorViews && (
-              <Link
-                to={VENTAS}
-                className="brand-button"
-                onClick={() => setActionsOpen(false)}
-              >
-                🧾 Ventas
-              </Link>
-            )}
-            {canAccessTotemImpresionPanel && (
-              <Link
-                to="/impresoras/totem"
-                className={`brand-button${(quickNavBadges['impresoras-totem'] ?? 0) > 0 ? ' brand-button--has-badge' : ''}`}
-                onClick={() => setActionsOpen(false)}
-              >
-                🖨️ Pedidos tótem (impresión)
-                {(quickNavBadges['impresoras-totem'] ?? 0) > 0 && (
-                  <span
-                    className="header-action-badge"
-                    title={`${quickNavBadges['impresoras-totem']} pedido${
-                      quickNavBadges['impresoras-totem'] === 1 ? '' : 's'
-                    } pendiente${quickNavBadges['impresoras-totem'] === 1 ? '' : 's'}`}
-                  >
-                    {(quickNavBadges['impresoras-totem'] ?? 0) > 99
-                      ? '99+'
-                      : quickNavBadges['impresoras-totem']}
-                  </span>
-                )}
-              </Link>
-            )}
-            {canManageCompras && onNavigateToCompras && (
-              <button className="brand-button" onClick={onNavigateToCompras}>
-                🛒 Compras
-              </button>
-            )}
-            {canManageCaja && (
-              <Link
-                to={isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja'}
-                className="brand-button"
-                onClick={() => {
-                  setActionsOpen(false)
-                  onNavigateToCaja?.()
-                }}
-              >
-                🏦 Caja
-              </Link>
-            )}
-            {(isDiseno || isMetalurgica || canAccessAppCampo || isAdmin) && (
-              <Link to="/bolsa" className="brand-button" onClick={() => setActionsOpen(false)}>
-                🧰 PlotBolsa
-              </Link>
-            )}
-            {(isDiseno || isAdmin) && onNavigateToDiseno && (
-              <button className="brand-button" onClick={onNavigateToDiseno}>
-                🎨 Dashboard Diseño
-              </button>
-            )}
-            {canManageRecursosHumanos && onNavigateToRecursosHumanos && (
-              <button className="brand-button" onClick={onNavigateToRecursosHumanos}>
-                👥 Recursos Humanos
-              </button>
-            )}
-            {canAccessClientesConsulta && (
-              <Link
-                to={CLIENTES_DASHBOARD}
-                className="brand-button"
-                onClick={() => setActionsOpen(false)}
-              >
-                👥 Clientes
-              </Link>
-            )}
-            {canAccessMostradorViews && onNavigateToClientesWeb && (
-              <button className="brand-button" onClick={onNavigateToClientesWeb}>
-                Portal web
-              </button>
-            )}
-            {canAccessAsesorPresupuestos && onNavigateToAsesorPresupuestos && (
-              <button className="brand-button" onClick={onNavigateToAsesorPresupuestos}>
-                📐 DT
-              </button>
-            )}
-            {(isTallerGrafico || isAdmin) && (
-              <a
-                href="/taller-grafico/inventario"
-                className="brand-button"
-              >
-                🧴 Inventario Taller Gráfico
-              </a>
-            )}
-            {(isMetalurgica || isAdmin) && (
-              <a href="/metalurgica/inventario" className="brand-button">
-                🔧 Inventario Metalúrgica
-              </a>
-            )}
-            {(isTallerGrafico || isAdmin) && (
-              <a
-                href="/taller-grafico/dashboard"
-                className="brand-button"
-              >
-                🧩 Kanban Taller Gráfico
-              </a>
-            )}
-            {(isTallerImprenta || isAdmin) && (
-              <a href="/taller-imprenta/panol" className="brand-button">
-                🧰 Pañol Taller Imprenta
-              </a>
-            )}
-            {onNavigateToFlota && (
-              <button className="brand-button" onClick={onNavigateToFlota}>
-                🚗 Gestión de Flota
-              </button>
-            )}
-            {onNavigateToERP && isAdmin && (
-              <button className="brand-button" onClick={onNavigateToERP}>
-                💰 Sistema ERP
-              </button>
-            )}
-            {(isDiseno || isAdmin) && (
-              <a
-                href="/briefs-pendientes"
-                className="brand-button"
-              >
-                📋 Briefs Pendientes
-              </a>
-            )}
-            <a
-              href="/libro-actas"
-              className="brand-button"
-            >
-              📝 Libro de Actas
-            </a>
-            <a
-              href="/protocolos-bases"
-              className="brand-button"
-            >
-              📚 Protocolos y Bases
-            </a>
-            <a
-              href="/capacitaciones"
-              className="brand-button"
-            >
-              📚 Capacitaciones
-            </a>
-            <Link
-              to="/mis-pruebas"
-              className="brand-button"
-              onClick={() => setActionsOpen(false)}
-            >
-              📝 Mis evaluaciones
-            </Link>
-            <Link
-              to="/manual"
-              className="brand-button"
-              onClick={() => setActionsOpen(false)}
-              title="Manual de usuario actualizado"
-            >
-              📖 Manual
-            </Link>
-            <a
-              href="/mis-pedidos"
-              className="brand-button"
-            >
-              📋 Mis Pedidos
-            </a>
-            {onLogout && (
-              <button className="brand-button logout-button" onClick={onLogout} title="Cerrar sesión">
-                🚪 Salir
-              </button>
-            )}
-            </div>
+              )}
             </div>
           </div>
           {currentUserName && (

@@ -24,6 +24,7 @@ import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
 import WorkPoolOperarioNotasFab from '../features/work-pool/WorkPoolOperarioNotasFab'
 import { registrarActividadTableroAutomatica } from '../features/work-pool/workPoolOperarioNotas'
 import InsightsToolsMenu from '../components/InsightsToolsMenu'
+import { HeaderNavGlyph } from '../components/HeaderNavGlyph'
 import EtiquetasNubePanel from '../components/EtiquetasNubePanel'
 import EntregasSinRetiroPanel from '../components/EntregasSinRetiroPanel'
 const TaskLibraryModal = lazy(() => import('../components/TaskLibraryModal'))
@@ -1424,7 +1425,7 @@ const BoardPage = ({
       {isAdmin && (
         <button
           type="button"
-          className="insights-toggle-btn"
+          className={`insights-toggle-btn header-board-tool header-board-tool--stats${statsPanelOpen ? ' is-on' : ''}`}
           onClick={() => setStatsPanelOpen((v) => !v)}
           aria-expanded={statsPanelOpen}
           aria-controls="board-stats-panel"
@@ -1434,14 +1435,14 @@ const BoardPage = ({
             statsPanelOpen ? 'Ocultar estadísticas del tablero' : 'Mostrar estadísticas del tablero'
           }
         >
-          <span className="insights-toggle-icon" aria-hidden="true">
-            {statsPanelOpen ? '📉' : '📊'}
+          <span className="header-board-tool__glyph" aria-hidden>
+            <HeaderNavGlyph id="chart" size={16} />
           </span>
         </button>
       )}
       <button
         type="button"
-        className="insights-toggle-btn"
+        className={`insights-toggle-btn header-board-tool header-board-tool--activity${activityFeedOpen ? ' is-on' : ''}`}
         onClick={() => setActivityFeedOpen((v) => !v)}
         aria-expanded={activityFeedOpen}
         aria-controls="board-activity-panel"
@@ -1451,8 +1452,8 @@ const BoardPage = ({
           activityFeedOpen ? 'Ocultar movimientos recientes' : 'Mostrar movimientos recientes'
         }
       >
-        <span className="insights-toggle-icon" aria-hidden="true">
-          {activityFeedOpen ? '📋' : '🕐'}
+        <span className="header-board-tool__glyph" aria-hidden>
+          <HeaderNavGlyph id="history" size={16} />
         </span>
       </button>
       {!isPhoneBoard && (

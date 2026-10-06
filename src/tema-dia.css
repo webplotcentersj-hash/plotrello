@@ -124,6 +124,14 @@
   color: #131829;
 }
 
+[data-tema='dia'] .header-util-tools .header-board-tool {
+  color: #fff;
+}
+
+[data-tema='dia'] .header-util-tools .header-board-tool:hover {
+  color: #fff;
+}
+
 [data-tema='dia'] .chip-dot {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
   border-color: rgba(15, 23, 42, 0.35);

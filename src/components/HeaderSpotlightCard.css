@@ -783,3 +783,112 @@
 .header-stat-card .header-spotlight-card--compact .header-spotlight-meta-label {
   font-size: 0.58rem;
 }
+
+/* Header unificado: mismo layout, más bajo */
+.header-stats--single .header-spotlight-card {
+  min-height: 0;
+  gap: 4px;
+}
+
+.header-stats--single .header-spotlight-split {
+  gap: 0.5rem 0.75rem;
+}
+
+.header-stats--single .header-spotlight-split-col--plot {
+  flex-basis: 168px;
+  max-width: 190px;
+}
+
+.header-stats--single .header-spotlight-kicker,
+.header-stats--single .header-spotlight-equipo-title,
+.header-stats--single .header-spotlight-comunicados-head-title,
+.header-stats--single .header-spotlight-frase-head-title {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+}
+
+.header-stats--single .header-spotlight-comunicados-head,
+.header-stats--single .header-spotlight-frase-head {
+  margin-bottom: 4px;
+  min-height: 0;
+  gap: 6px;
+}
+
+.header-stats--single .header-spotlight-comunicados-head-icon,
+.header-stats--single .header-spotlight-frase-head-icon {
+  font-size: 0.95rem;
+}
+
+.header-stats--single .header-spotlight-day-slot {
+  min-height: 0;
+  gap: 3px;
+}
+
+.header-stats--single .header-spotlight-line {
+  font-size: 0.72rem;
+}
+
+.header-stats--single .header-spotlight-equipo-line {
+  font-size: 0.68rem;
+}
+
+.header-stats--single .header-spotlight-equipo-list {
+  max-height: 52px;
+}
+
+.header-stats--single .header-spotlight-equipo-avatar {
+  width: 28px;
+  height: 28px;
+}
+
+.header-stats--single .header-spotlight-equipo-avatar-letter {
+  font-size: 0.65rem;
+}
+
+.header-stats--single .header-spotlight-comunicados-list {
+  min-height: 0;
+  max-height: 88px;
+  gap: 6px;
+}
+
+.header-stats--single .header-spotlight-comunicados-list > li:first-child .header-spotlight-comunicado-item {
+  min-height: 0;
+}
+
+.header-stats--single .header-spotlight-comunicado-item {
+  padding: 6px 8px;
+}
+
+.header-stats--single .header-spotlight-comunicado-title {
+  font-size: 0.72rem;
+}
+
+.header-stats--single .header-spotlight-comunicado-desc {
+  font-size: 0.64rem;
+  -webkit-line-clamp: 2;
+}
+
+.header-stats--single .header-spotlight-frase-quote {
+  min-height: 0;
+  padding: 0.4rem 0.55rem 0.4rem 0.65rem;
+  gap: 0.3rem;
+}
+
+.header-stats--single .header-spotlight-frase-texto {
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.header-stats--single .header-spotlight-frase-autor {
+  font-size: 0.64rem;
+}
+
+.header-stats--single .header-spotlight-badge {
+  font-size: 0.6rem;
+  padding: 2px 6px;
+}
+
+.header-stats--single .header-spotlight-celebrate-avatar {
+  width: 36px;
+  height: 36px;
+}
