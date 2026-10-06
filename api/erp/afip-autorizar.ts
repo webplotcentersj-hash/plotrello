@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireStaffSession } from '../_lib/staffAuth'
-import { AfipRechazoError, autorizarFacturaAfip, buildNumeroFacturaFromAutorizacion } from '../../lib/afip/autorizar'
-import { getAfipAccessToken } from '../../lib/afip/client'
-import { fechaComprobanteParaAfip, normalizarConcepto } from '../../lib/afip/fechas'
-import { calcularImportesAfip, FacturaInvalidaError, letraDeTipo } from '../../lib/afip/mapFactura'
-import { getSupabaseAdmin, loadAfipConfigResumen } from '../../lib/afip/supabaseAdmin'
-import type { AfipConfigResumen, FacturaAfipInput, FacturaReferenciaAfip } from '../../lib/afip/types'
+import { AfipRechazoError, autorizarFacturaAfip, buildNumeroFacturaFromAutorizacion } from '../_lib/afip/autorizar'
+import { getAfipAccessToken } from '../_lib/afip/client'
+import { fechaComprobanteParaAfip, normalizarConcepto } from '../_lib/afip/fechas'
+import { calcularImportesAfip, FacturaInvalidaError, letraDeTipo } from '../_lib/afip/mapFactura'
+import { getSupabaseAdmin, loadAfipConfigResumen } from '../_lib/afip/supabaseAdmin'
+import type { AfipConfigResumen, FacturaAfipInput, FacturaReferenciaAfip } from '../_lib/afip/types'
 
 type Body = { id_factura?: number }
 

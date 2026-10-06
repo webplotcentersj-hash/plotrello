@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { requireStaffSession } from '../_lib/staffAuth'
-import { getSupabaseAdmin } from '../../lib/afip/supabaseAdmin'
-import { clasificarLote } from '../../lib/clasificacion/clasificar'
-import { TIPOS_CLASIFICACION, type TipoClasificacion } from '../../lib/clasificacion/reglas'
-import { getTypeSafeApiKey } from '../../lib/typesafe/client'
+import { getSupabaseAdmin } from '../_lib/afip/supabaseAdmin'
+import { clasificarLote } from '../_lib/clasificacion/clasificar'
+import { TIPOS_CLASIFICACION, type TipoClasificacion } from '../_lib/clasificacion/reglas'
+import { getTypeSafeApiKey } from '../_lib/typesafe/client'
 
 /**
  * KPIs con clasificación (ventas por rubro, motivos de insatisfacción en entregas).

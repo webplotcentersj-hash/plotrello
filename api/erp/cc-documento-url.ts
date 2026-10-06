@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { requireStaffSession } from '../_lib/staffAuth'
-import { getSupabaseAdmin } from '../../lib/afip/supabaseAdmin'
+import { getSupabaseAdmin } from '../_lib/afip/supabaseAdmin'
 
 /**
  * Paso 26: URL firmada (corta) para ver un documento del alta de cuenta corriente
