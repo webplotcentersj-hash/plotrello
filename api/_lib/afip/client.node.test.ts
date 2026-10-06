@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { rechazoAfip, unwrapAfipResult } from './client.ts'
+import { normalizarPem, rechazoAfip, unwrapAfipResult } from './client.ts'
 
 describe('respuesta de ARCA', () => {
   it('desenvuelve FECAESolicitarResult', () => {
@@ -22,6 +22,12 @@ describe('respuesta de ARCA', () => {
     assert.equal(rechazo?.code, 10016)
     assert.match(rechazo?.message || '', /10016/)
     assert.match(rechazo?.message || '', /correlativo/)
+  })
+
+  it('no manda una ruta de archivo como clave', () => {
+    assert.equal(normalizarPem('.afip-certs/plotlab.key'), undefined)
+    assert.equal(normalizarPem('C:\\\\certs\\\\plotlab.key'), undefined)
+    assert.match(normalizarPem('"-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----"') || '', /BEGIN PRIVATE KEY/)
   })
 
   it('no rechaza un comprobante aprobado', () => {

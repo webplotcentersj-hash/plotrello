@@ -36,10 +36,16 @@ export function getAfipAccessToken(): string {
   return (process.env.AFIP_ACCESS_TOKEN || '').trim()
 }
 
-function pemFromEnv(name: string): string | undefined {
-  const raw = process.env[name]?.trim()
-  if (!raw) return undefined
-  return raw.includes('\\n') ? raw.replace(/\\n/g, '\n') : raw
+/** PEM real, o nada si la variable es una ruta de archivo. AfipSDK usa el certificado de la cuenta. */
+export function normalizarPem(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  let raw = value.trim()
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    raw = raw.slice(1, -1).trim()
+  }
+  if (raw.includes('\\n')) raw = raw.replace(/\\n/g, '\n')
+  if (!raw.includes('-----BEGIN')) return undefined
+  return raw
 }
 
 type TicketAcceso = { token: string; sign: string; until: number }
@@ -76,10 +82,12 @@ async function ticketAcceso(accessToken: string, production: boolean, cuit: numb
     tax_id: cuit,
     force_create: false
   }
-  const cert = pemFromEnv('AFIP_CERT')
-  const key = pemFromEnv('AFIP_KEY')
-  if (cert) body.cert = cert
-  if (key) body.key = key
+  const cert = normalizarPem(process.env.AFIP_CERT)
+  const key = normalizarPem(process.env.AFIP_KEY)
+  if (cert && key) {
+    body.cert = cert
+    body.key = key
+  }
 
   const res = await fetch('https://app.afipsdk.com/api/v1/afip/auth', {
     method: 'POST',
