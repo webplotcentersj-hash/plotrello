@@ -125,7 +125,33 @@ export async function autorizarFacturaAfip(
   }
 
   // AFIP es la fuente de verdad de la numeración (cada tipo de comprobante tiene su propia secuencia)
-  const numero = Number(await ws.getLastVoucher(puntoVenta, cbteTipo)) + 1
+  const ultimo = Number(await ws.getLastVoucher(puntoVenta, cbteTipo))
+  // Un envío anterior pudo autorizar el último número y la respuesta no se guardó.
+  if (!(previo > 0) && ultimo > 0) {
+    const info = (await ws.getVoucherInfo(ultimo, puntoVenta, cbteTipo)) as Record<string, unknown> | null
+    const coincide =
+      info &&
+      String(info.Resultado || 'A') === 'A' &&
+      Boolean(info.CodAutorizacion) &&
+      Math.abs(Number(info.ImpTotal) - Number(baseData.ImpTotal)) < 0.005 &&
+      Number(info.DocTipo) === Number(baseData.DocTipo) &&
+      Number(info.DocNro) === Number(baseData.DocNro)
+    if (coincide && !(await opts.numeroUsadoPorOtra(ultimo, puntoVenta))) {
+      return {
+        cae: String(info.CodAutorizacion),
+        caeVencimiento: afipDateToIso(info.FchVto),
+        numeroComprobante: ultimo,
+        puntoVenta,
+        fechaEmision: afipDateToIso(info.CbteFch) || opts.fechaEmision,
+        servicio: servicioInformado(info),
+        resultado: 'A',
+        observaciones: 'CAE recuperado: ARCA ya había autorizado este comprobante.',
+        recuperado: true,
+        raw: info
+      }
+    }
+  }
+  const numero = ultimo + 1
   await opts.reservarNumero(numero)
 
   let raw: unknown

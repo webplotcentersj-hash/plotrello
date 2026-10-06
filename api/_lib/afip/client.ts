@@ -36,28 +36,132 @@ export function getAfipAccessToken(): string {
   return (process.env.AFIP_ACCESS_TOKEN || '').trim()
 }
 
+function pemFromEnv(name: string): string | undefined {
+  const raw = process.env[name]?.trim()
+  if (!raw) return undefined
+  return raw.includes('\\n') ? raw.replace(/\\n/g, '\n') : raw
+}
+
+type TicketAcceso = { token: string; sign: string; until: number }
+const tickets = new Map<string, TicketAcceso>()
+const TICKET_TTL_MS = 10 * 60 * 60 * 1000
+
+function sdkHeaders(accessToken: string, production: boolean): HeadersInit {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${accessToken}`,
+    'sdk-version-number': '1.2.2',
+    'sdk-library': 'javascript',
+    'sdk-environment': production ? 'prod' : 'dev'
+  }
+}
+
+function mensajeHttp(data: Record<string, unknown> | null, status: number): string {
+  return (
+    (data && typeof data.message === 'string' && data.message) ||
+    (data && typeof data.error === 'string' && data.error) ||
+    `ARCA respondió HTTP ${status}`
+  )
+}
+
+/** El SDK pide el ticket (WSAA) y recién después llama al webservice. */
+async function ticketAcceso(accessToken: string, production: boolean, cuit: number): Promise<TicketAcceso> {
+  const clave = `${production ? 'prod' : 'dev'}:${cuit}`
+  const vigente = tickets.get(clave)
+  if (vigente && vigente.until > Date.now()) return vigente
+
+  const body: Record<string, unknown> = {
+    environment: production ? 'prod' : 'dev',
+    wsid: 'wsfe',
+    tax_id: cuit,
+    force_create: false
+  }
+  const cert = pemFromEnv('AFIP_CERT')
+  const key = pemFromEnv('AFIP_KEY')
+  if (cert) body.cert = cert
+  if (key) body.key = key
+
+  const res = await fetch('https://app.afipsdk.com/api/v1/afip/auth', {
+    method: 'POST',
+    headers: sdkHeaders(accessToken, production),
+    body: JSON.stringify(body)
+  })
+  const data = (await res.json().catch(() => null)) as Record<string, unknown> | null
+  if (!res.ok) throw new Error(mensajeHttp(data, res.status))
+  const token = typeof data?.token === 'string' ? data.token : ''
+  const sign = typeof data?.sign === 'string' ? data.sign : ''
+  if (!token || !sign) throw new Error('ARCA no devolvió el ticket de acceso.')
+  const ticket = { token, sign, until: Date.now() + TICKET_TTL_MS }
+  tickets.set(clave, ticket)
+  return ticket
+}
+
+/** La respuesta HTTP viene envuelta en `{ MetodoResult: ... }`, igual que el SDK. */
+export function unwrapAfipResult(method: string, data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== 'object') return {}
+  const record = data as Record<string, unknown>
+  const nested = record[`${method}Result`]
+  if (nested && typeof nested === 'object') return nested as Record<string, unknown>
+  return record
+}
+
+function primerError(err: unknown): Record<string, unknown> | null {
+  if (Array.isArray(err)) return (err[0] as Record<string, unknown>) || null
+  if (err && typeof err === 'object') return err as Record<string, unknown>
+  return null
+}
+
 /**
- * Misma llamada que hace @afipsdk/afip.js (POST /v1/afip/requests), con fetch.
+ * Igual que ElectronicBilling._checkErrors: un rechazo trae código y texto.
+ * Devuelve null si ARCA aprobó.
+ */
+export function rechazoAfip(method: string, result: Record<string, unknown>): { message: string; code?: number } | null {
+  if (method === 'FECAESolicitar' && result.FeDetResp && typeof result.FeDetResp === 'object') {
+    const det = result.FeDetResp as Record<string, unknown>
+    let first = det.FECAEDetResponse
+    if (Array.isArray(first)) {
+      if (first.length > 1) return null
+      first = first[0]
+      det.FECAEDetResponse = first
+    }
+    if (first && typeof first === 'object') {
+      const row = first as Record<string, unknown>
+      const obs = row.Observaciones as Record<string, unknown> | undefined
+      if (obs?.Obs && row.Resultado !== 'A') result.Errors = { Err: obs.Obs }
+    }
+  }
+  if (!result.Errors || typeof result.Errors !== 'object') return null
+  const err = primerError((result.Errors as Record<string, unknown>).Err)
+  if (!err) return { message: 'ARCA rechazó el comprobante.' }
+  const code = Number(err.Code)
+  const msg = String(err.Msg || 'ARCA rechazó el comprobante.')
+  return {
+    message: Number.isFinite(code) ? `(${code}) ${msg}` : msg,
+    code: Number.isFinite(code) ? code : undefined
+  }
+}
+
+/**
+ * Misma llamada que hace @afipsdk/afip.js (auth + POST /v1/afip/requests), con fetch.
  * El paquete CommonJS hacía caer la función de Vercel al arrancar.
  */
 async function wsfe(
-  token: string,
+  accessToken: string,
   production: boolean,
+  cuit: number,
   method: string,
   params: Record<string, unknown>
-): Promise<unknown> {
+): Promise<Record<string, unknown>> {
+  const ta = await ticketAcceso(accessToken, production, cuit)
   const res = await fetch('https://app.afipsdk.com/api/v1/afip/requests', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      'sdk-version-number': '1.2.2',
-      'sdk-library': 'javascript',
-      'sdk-environment': production ? 'prod' : 'dev'
-    },
+    headers: sdkHeaders(accessToken, production),
     body: JSON.stringify({
       method,
-      params,
+      params: {
+        ...params,
+        Auth: { Token: ta.token, Sign: ta.sign, Cuit: cuit }
+      },
       environment: production ? 'prod' : 'dev',
       wsid: 'wsfe',
       url: production
@@ -70,15 +174,18 @@ async function wsfe(
 
   const data = (await res.json().catch(() => null)) as Record<string, unknown> | null
   if (!res.ok) {
-    const message =
-      (data && typeof data.message === 'string' && data.message) ||
-      (data && typeof data.error === 'string' && data.error) ||
-      `AFIP respondió HTTP ${res.status}`
-    const error = new Error(message) as Error & { code?: number }
+    const error = new Error(mensajeHttp(data, res.status)) as Error & { code?: number }
     if (data && typeof data.code === 'number') error.code = data.code
     throw error
   }
-  return data
+  const result = unwrapAfipResult(method, data)
+  const rechazo = rechazoAfip(method, result)
+  if (rechazo) {
+    const error = new Error(rechazo.message) as Error & { code?: number }
+    if (rechazo.code != null) error.code = rechazo.code
+    throw error
+  }
+  return result
 }
 
 export function createAfipClient(options: CreateAfipClientOptions = {}): WsfeClient {
@@ -98,18 +205,18 @@ export function createAfipClient(options: CreateAfipClientOptions = {}): WsfeCli
     options: { production },
     ElectronicBilling: {
       async getLastVoucher(puntoVenta, cbteTipo) {
-        const data = (await wsfe(accessToken, production, 'FECompUltimoAutorizado', {
+        const data = await wsfe(accessToken, production, cuit, 'FECompUltimoAutorizado', {
           PtoVta: puntoVenta,
           CbteTipo: cbteTipo
-        })) as { CbteNro?: number }
-        return Number(data?.CbteNro || 0)
+        })
+        return Number(data.CbteNro || 0)
       },
       async getVoucherInfo(numero, puntoVenta, cbteTipo) {
         try {
-          const data = (await wsfe(accessToken, production, 'FECompConsultar', {
+          const data = await wsfe(accessToken, production, cuit, 'FECompConsultar', {
             FeCompConsReq: { CbteNro: numero, PtoVta: puntoVenta, CbteTipo: cbteTipo }
-          })) as { ResultGet?: unknown }
-          return data?.ResultGet ?? null
+          })
+          return data.ResultGet ?? null
         } catch (error) {
           if ((error as { code?: number }).code === 602) return null
           throw error
@@ -136,11 +243,12 @@ export function createAfipClient(options: CreateAfipClientOptions = {}): WsfeCli
         if (voucher.Compradores) voucher.Compradores = { Comprador: voucher.Compradores }
         if (voucher.Opcionales) voucher.Opcionales = { Opcional: voucher.Opcionales }
 
-        const results = (await wsfe(accessToken, production, 'FECAESolicitar', req)) as {
-          FeDetResp?: { FECAEDetResponse?: Record<string, unknown> | Record<string, unknown>[] }
-        }
+        const results = await wsfe(accessToken, production, cuit, 'FECAESolicitar', req)
         if (returnResponse) return results
-        const det = results.FeDetResp?.FECAEDetResponse
+        const detResp = results.FeDetResp as
+          | { FECAEDetResponse?: Record<string, unknown> | Record<string, unknown>[] }
+          | undefined
+        const det = detResp?.FECAEDetResponse
         const first = (Array.isArray(det) ? det[0] : det) || {}
         return { CAE: first.CAE, CAEFchVto: first.CAEFchVto }
       }

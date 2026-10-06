@@ -16,8 +16,14 @@ export type ResultadoFacturaVenta = {
   mensaje: string
 }
 
+export type EtapaEmision = 'comprobante' | 'arca' | 'cae'
+
 /** Crea y autoriza la factura AFIP de una venta. Un solo paso, sin formulario. */
-export async function emitirFacturaDesdeVenta(venta: Venta): Promise<ResultadoFacturaVenta> {
+export async function emitirFacturaDesdeVenta(
+  venta: Venta,
+  onEtapa?: (etapa: EtapaEmision) => void
+): Promise<ResultadoFacturaVenta> {
+  onEtapa?.('comprobante')
   if (!supabase) {
     return { ok: false, mensaje: 'No hay conexión para facturar.' }
   }
@@ -98,6 +104,9 @@ export async function emitirFacturaDesdeVenta(venta: Venta): Promise<ResultadoFa
     facturaId = creada.data.id
   }
 
+  onEtapa?.('arca')
+  await new Promise((resolve) => setTimeout(resolve, 450))
+  onEtapa?.('cae')
   const emit = await apiService.emitirFactura(facturaId)
   if (!emit.success || !emit.data) {
     return {

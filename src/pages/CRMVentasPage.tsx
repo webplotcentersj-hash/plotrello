@@ -17,7 +17,8 @@ import type {
 } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate, getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
-import { emitirFacturaDesdeVenta } from '../utils/emitirFacturaDesdeVenta'
+import { emitirFacturaDesdeVenta, type EtapaEmision, type ResultadoFacturaVenta } from '../utils/emitirFacturaDesdeVenta'
+import EmisionFacturaOverlay from '../components/facturas/EmisionFacturaOverlay'
 import { nombreSinRepeticion } from '../utils/buscarClienteMatch'
 import { etiquetaUnidadCorta, unidadDesdeDescripcionItem } from '../utils/unidadPrecio'
 import {
@@ -356,6 +357,12 @@ const CRMVentasPage = () => {
   const [mpVentaModal, setMpVentaModal] = useState<Venta | null>(null)
   const [resyncVentaId, setResyncVentaId] = useState<number | null>(null)
   const [facturandoAfipId, setFacturandoAfipId] = useState<number | null>(null)
+  const [emisionAfip, setEmisionAfip] = useState<{
+    cliente: string
+    total: number
+    etapa: EtapaEmision
+    resultado: ResultadoFacturaVenta | null
+  } | null>(null)
 
   const busquedaOportunidadRef = useRef<HTMLInputElement>(null)
   const busquedaVentaRef = useRef<HTMLInputElement>(null)
@@ -1437,9 +1444,20 @@ const CRMVentasPage = () => {
     if (facturandoAfipId != null) return
     setDropdownDocumentosAbierto(null)
     setFacturandoAfipId(venta.id)
+    setEmisionAfip({
+      cliente: venta.cliente_nombre || 'Consumidor final',
+      total: Number(venta.valor_total) || 0,
+      etapa: 'comprobante',
+      resultado: null
+    })
     try {
-      const resultado = await emitirFacturaDesdeVenta(venta)
-      alert(resultado.mensaje)
+      const resultado = await emitirFacturaDesdeVenta(venta, (etapa) => {
+        setEmisionAfip((prev) => (prev ? { ...prev, etapa } : prev))
+      })
+      setEmisionAfip((prev) => (prev ? { ...prev, etapa: 'cae', resultado } : prev))
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo emitir la factura.'
+      setEmisionAfip((prev) => (prev ? { ...prev, resultado: { ok: false, mensaje } } : prev))
     } finally {
       setFacturandoAfipId(null)
     }
@@ -4199,6 +4217,16 @@ const CRMVentasPage = () => {
           prefillDesdeOportunidad={oportunidadParaPresupuesto}
         />
       )}
+
+      {emisionAfip ? (
+        <EmisionFacturaOverlay
+          cliente={emisionAfip.cliente}
+          total={emisionAfip.total}
+          etapa={emisionAfip.etapa}
+          resultado={emisionAfip.resultado}
+          onClose={() => setEmisionAfip(null)}
+        />
+      ) : null}
 
       {showVentaRapida && usuario && (
         <VentaRapidaModal

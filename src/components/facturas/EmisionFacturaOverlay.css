@@ -1,0 +1,216 @@
+.emision-afip {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 6, 16, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.emision-afip__panel {
+  position: relative;
+  width: min(440px, 100%);
+  overflow: hidden;
+  padding: 28px 28px 24px;
+  border-radius: 22px;
+  border: 1px solid rgba(212, 168, 92, 0.35);
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(212, 168, 92, 0.18), transparent 55%),
+    linear-gradient(180deg, #161d2e 0%, #0d1320 100%);
+  color: #f8fafc;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+
+.emision-afip__panel::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #e8c27a, transparent);
+  animation: emision-afip-barra 1.6s ease-in-out infinite;
+}
+
+.emision-afip__panel--ok::after,
+.emision-afip__panel--error::after {
+  animation: none;
+}
+
+.emision-afip__panel--ok {
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+.emision-afip__panel--error {
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.emision-afip__sello {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 14px;
+  border: 2px solid rgba(232, 194, 122, 0.8);
+  border-radius: 8px;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: #e8c27a;
+  animation: emision-afip-sello 2.2s ease-in-out infinite;
+}
+
+.emision-afip__panel--ok .emision-afip__sello,
+.emision-afip__panel--error .emision-afip__sello {
+  animation: none;
+}
+
+.emision-afip__kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(232, 194, 122, 0.85);
+}
+
+.emision-afip h2 {
+  margin: 4px 0 8px;
+  font-size: 1.7rem;
+}
+
+.emision-afip__cliente {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.emision-afip__cliente strong {
+  color: #fff;
+}
+
+.emision-afip__pasos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.emision-afip__paso {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(226, 232, 240, 0.45);
+}
+
+.emision-afip__paso strong,
+.emision-afip__paso small {
+  display: block;
+}
+
+.emision-afip__paso small {
+  margin-top: 2px;
+  font-size: 0.78rem;
+}
+
+.emision-afip__paso--listo {
+  color: #d1fae5;
+}
+
+.emision-afip__paso--activo {
+  color: #fff;
+  background: rgba(232, 194, 122, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(232, 194, 122, 0.35);
+}
+
+.emision-afip__marca {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.8rem;
+}
+
+.emision-afip__paso--activo .emision-afip__marca {
+  animation: emision-afip-pulso 1.1s ease-in-out infinite;
+}
+
+.emision-afip__espera {
+  min-height: 1.4em;
+  margin: 16px 0 0;
+  color: rgba(232, 194, 122, 0.9);
+  font-size: 0.92rem;
+}
+
+.emision-afip__resultado {
+  padding-top: 4px;
+}
+
+.emision-afip__numero {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.emision-afip__cae {
+  margin: 8px 0 0;
+  color: rgba(226, 232, 240, 0.75);
+}
+
+.emision-afip__cae span {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.emision-afip__mensaje {
+  margin: 12px 0 0;
+  line-height: 1.45;
+  color: rgba(226, 232, 240, 0.86);
+  white-space: pre-wrap;
+}
+
+.emision-afip__mensaje--error {
+  color: #fecaca;
+}
+
+.emision-afip__cerrar {
+  margin-top: 18px;
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 16px;
+  background: #c4a15a;
+  color: #1a1408;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.emision-afip__cerrar:hover {
+  background: #e8c27a;
+}
+
+@keyframes emision-afip-barra {
+  0% { transform: translateX(-40%); opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { transform: translateX(40%); opacity: 0.4; }
+}
+
+@keyframes emision-afip-pulso {
+  50% { transform: scale(1.08); }
+}
+
+@keyframes emision-afip-sello {
+  50% { box-shadow: 0 0 0 6px rgba(232, 194, 122, 0.08); }
+}

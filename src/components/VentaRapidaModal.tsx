@@ -31,7 +31,8 @@ import {
 import './ventas/VentaCondicionPagoFields.css'
 import OpCobroFooterChecks from './OpCobroFooterChecks'
 import { cobroDesdeVenta } from '../utils/opCobroEstado'
-import { emitirFacturaDesdeVenta } from '../utils/emitirFacturaDesdeVenta'
+import { emitirFacturaDesdeVenta, type EtapaEmision, type ResultadoFacturaVenta } from '../utils/emitirFacturaDesdeVenta'
+import EmisionFacturaOverlay from './facturas/EmisionFacturaOverlay'
 import { etiquetaCantidadUnidad, etiquetaUnidadCorta, normalizarUnidadPrecio } from '../utils/unidadPrecio'
 import VentaOpSimplificada from './ventas/VentaOpSimplificada'
 import {
@@ -150,6 +151,10 @@ const VentaRapidaModal = ({
   const [guardando, setGuardando] = useState(false)
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
   const [facturandoAfip, setFacturandoAfip] = useState(false)
+  const [emisionAfip, setEmisionAfip] = useState<{
+    etapa: EtapaEmision
+    resultado: ResultadoFacturaVenta | null
+  } | null>(null)
   const [comprobanteArchivo, setComprobanteArchivo] = useState<File | null>(null)
   const comprobanteInputRef = useRef<HTMLInputElement>(null)
   const modalContentRef = useRef<HTMLDivElement>(null)
@@ -1397,8 +1402,17 @@ const VentaRapidaModal = ({
                 onClick={() => {
                   if (facturandoAfip) return
                   setFacturandoAfip(true)
-                  void emitirFacturaDesdeVenta(ventaCreada)
-                    .then((resultado) => alert(resultado.mensaje))
+                  setEmisionAfip({ etapa: 'comprobante', resultado: null })
+                  void emitirFacturaDesdeVenta(ventaCreada, (etapa) => {
+                    setEmisionAfip((prev) => (prev ? { ...prev, etapa } : prev))
+                  })
+                    .then((resultado) => {
+                      setEmisionAfip((prev) => (prev ? { ...prev, etapa: 'cae', resultado } : prev))
+                    })
+                    .catch((error: unknown) => {
+                      const mensaje = error instanceof Error ? error.message : 'No se pudo emitir la factura.'
+                      setEmisionAfip((prev) => (prev ? { ...prev, resultado: { ok: false, mensaje } } : prev))
+                    })
                     .finally(() => setFacturandoAfip(false))
                 }}
               >
@@ -1410,6 +1424,15 @@ const VentaRapidaModal = ({
           </div>
         </div>
       </div>
+      {emisionAfip && ventaCreada ? (
+        <EmisionFacturaOverlay
+          cliente={ventaCreada.cliente_nombre || 'Consumidor final'}
+          total={Number(ventaCreada.valor_total) || 0}
+          etapa={emisionAfip.etapa}
+          resultado={emisionAfip.resultado}
+          onClose={() => setEmisionAfip(null)}
+        />
+      ) : null}
     </div>,
     document.body
   )
