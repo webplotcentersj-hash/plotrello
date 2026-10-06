@@ -29,7 +29,7 @@ export default defineConfig({
             handler: 'NetworkFirst',
             options: {
               cacheName: 'plotlab-pages',
-              networkTimeoutSeconds: 5,
+              networkTimeoutSeconds: 2,
               expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 },
               cacheableResponse: { statuses: [0, 200] }
             }
