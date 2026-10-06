@@ -105,7 +105,9 @@ const Header = ({
   const canVerPanelActividadesOperarios = canVerActividadesOperarios(usuario)
   const quickNavBadges = useHeaderQuickNavBadges()
   const [actionsOpen, setActionsOpen] = useState(false)
+  const [menuQuery, setMenuQuery] = useState('')
   const actionsRef = useRef<HTMLDivElement>(null)
+  const menuSearchRef = useRef<HTMLInputElement>(null)
 
   const quickNavItems = useMemo(() => {
     const items = buildHeaderQuickNavItems({
@@ -314,24 +316,52 @@ const Header = ({
     onNavigateToStats
   ])
 
-  const menuBadgeCount = useMemo(() => {
-    const fromQuick = quickNavItems.reduce((sum, item) => sum + (item.badge ?? 0), 0)
-    const fromMore = moreMenuItems.reduce((sum, item) => sum + (item.badge ?? 0), 0)
-    return fromQuick + fromMore
+  const allMenuItems = useMemo(() => {
+    const seen = new Set<string>()
+    const list: HeaderQuickNavItem[] = []
+    for (const item of [...quickNavItems, ...moreMenuItems]) {
+      if (seen.has(item.id)) continue
+      seen.add(item.id)
+      list.push(item)
+    }
+    return list
   }, [quickNavItems, moreMenuItems])
+
+  const filteredMenuItems = useMemo(() => {
+    const q = menuQuery.trim().toLowerCase()
+    if (!q) return allMenuItems
+    const tokens = q.split(/\s+/).filter(Boolean)
+    return allMenuItems.filter((item) => {
+      const hay = [item.label, item.title, item.id].filter(Boolean).join(' ').toLowerCase()
+      return tokens.every((t) => hay.includes(t))
+    })
+  }, [allMenuItems, menuQuery])
+
+  const menuBadgeCount = useMemo(
+    () => allMenuItems.reduce((sum, item) => sum + (item.badge ?? 0), 0),
+    [allMenuItems]
+  )
 
   useEffect(() => {
     if (!actionsOpen) return
+    setMenuQuery('')
+    const focusTimer = window.setTimeout(() => menuSearchRef.current?.focus(), 40)
     const onDown = (event: MouseEvent) => {
       if (!(event.target instanceof Node)) return
       if (!actionsRef.current?.contains(event.target)) setActionsOpen(false)
     }
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setActionsOpen(false)
+      if (event.key !== 'Escape') return
+      if (menuSearchRef.current && document.activeElement === menuSearchRef.current && menuSearchRef.current.value) {
+        setMenuQuery('')
+        return
+      }
+      setActionsOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     return () => {
+      window.clearTimeout(focusTimer)
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
     }
@@ -346,15 +376,15 @@ const Header = ({
       </span>
     ) : null
 
-  const renderMenuItem = (item: HeaderQuickNavItem, variant: 'tile' | 'row') => {
+  const renderMenuItem = (item: HeaderQuickNavItem) => {
     const { glyph, tone } = glyphMetaForNavId(item.id)
-    const className = `header-menu-item header-menu-item--${variant}${
+    const className = `header-menu-item header-menu-item--tile${
       item.id.startsWith('dashboard-') || item.id === 'panel-admin' ? ' header-menu-item--primary' : ''
     }`
     const inner = (
       <>
         <span className="header-menu-glyph" data-tone={tone} aria-hidden>
-          <HeaderNavGlyph id={glyph} size={variant === 'tile' ? 22 : 18} />
+          <HeaderNavGlyph id={glyph} size={22} />
         </span>
         <span className="header-menu-label">{item.label}</span>
         {renderMenuBadge(item.badge ?? 0)}
@@ -491,26 +521,41 @@ const Header = ({
 
           <div className={`actions-dropdown ${actionsOpen ? 'open' : ''}`} role="menu" aria-label="Menú de módulos">
             <div className="actions-dropdown-head">
-              <span className="actions-dropdown-eyebrow">Plot Lab</span>
-              <strong>Módulos</strong>
+              <div className="actions-dropdown-head__copy">
+                <span className="actions-dropdown-eyebrow">Plot Lab</span>
+                <strong>Módulos</strong>
+              </div>
+              <label className="header-menu-search">
+                <span className="header-menu-search__icon" aria-hidden>
+                  <HeaderNavGlyph id="search" size={15} />
+                </span>
+                <input
+                  ref={menuSearchRef}
+                  type="search"
+                  value={menuQuery}
+                  onChange={(e) => setMenuQuery(e.target.value)}
+                  placeholder="Buscar herramienta…"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-label="Buscar herramienta o módulo"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.preventDefault()
+                  }}
+                />
+              </label>
             </div>
             <div className="actions-dropdown-scroll">
-              {quickNavItems.length > 0 && (
-                <section className="header-menu-section">
-                  <h3 className="header-menu-section__title">Accesos de tu sector</h3>
-                  <div className="header-menu-tiles">{quickNavItems.map((item) => renderMenuItem(item, 'tile'))}</div>
-                </section>
-              )}
-              {moreMenuItems.length > 0 && (
-                <section className="header-menu-section">
-                  <h3 className="header-menu-section__title">Más módulos</h3>
-                  <div className="header-menu-rows">{moreMenuItems.map((item) => renderMenuItem(item, 'row'))}</div>
-                </section>
+              {filteredMenuItems.length > 0 ? (
+                <div className="header-menu-tiles">{filteredMenuItems.map((item) => renderMenuItem(item))}</div>
+              ) : (
+                <p className="header-menu-empty">
+                  {menuQuery.trim() ? 'Ninguna herramienta coincide.' : 'No hay módulos para mostrar.'}
+                </p>
               )}
               {onLogout && (
                 <button
                   type="button"
-                  className="header-menu-item header-menu-item--row header-menu-item--logout"
+                  className="header-menu-item header-menu-item--tile header-menu-item--logout"
                   onClick={() => {
                     closeMenu()
                     onLogout()
@@ -518,7 +563,7 @@ const Header = ({
                   title="Cerrar sesión"
                 >
                   <span className="header-menu-glyph" data-tone="rose" aria-hidden>
-                    <HeaderNavGlyph id="door" size={18} />
+                    <HeaderNavGlyph id="door" size={22} />
                   </span>
                   <span className="header-menu-label">Salir</span>
                 </button>

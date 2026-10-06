@@ -41,6 +41,7 @@ export type HeaderGlyphId =
   | 'close'
   | 'history'
   | 'chat'
+  | 'search'
 
 const paths: Record<HeaderGlyphId, string> = {
   compass:
@@ -105,7 +106,8 @@ const paths: Record<HeaderGlyphId, string> = {
   bell: 'M12 4.5a5.2 5.2 0 0 1 5.2 5.2c0 3.4.8 4.6 1.3 5.3H5.5c.5-.7 1.3-1.9 1.3-5.3A5.2 5.2 0 0 1 12 4.5ZM10 18.4a2 2 0 0 0 4 0',
   close: 'M6 6l12 12M18 6 6 18',
   history: 'M4.6 12A7.4 7.4 0 1 0 7 6.2M4.6 4.8v4.2H8.8M12 8v4.4l3.1 1.8',
-  chat: 'M5 6.2h14v9.2H9.4L5 19.2V6.2Zm4 3.6h6M9 12.6h4.5'
+  chat: 'M5 6.2h14v9.2H9.4L5 19.2V6.2Zm4 3.6h6M9 12.6h4.5',
+  search: 'M11 5.2a5.8 5.8 0 1 1 0 11.6 5.8 5.8 0 0 1 0-11.6Zm8.3 14.1-3.4-3.4'
 }
 
 export function HeaderNavGlyph({ id, size = 20 }: { id: HeaderGlyphId; size?: number }) {

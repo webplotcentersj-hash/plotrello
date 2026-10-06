@@ -732,8 +732,9 @@ a.header-user-chip--link:hover {
 }
 
 .header-menu-item--logout {
-  grid-column: 1 / -1;
-  margin-top: 4px;
+  width: 100%;
+  margin-top: 10px;
+  min-height: 56px;
   background: rgba(239, 68, 68, 0.08);
   border-color: rgba(239, 68, 68, 0.22);
   color: #fecaca;
@@ -868,8 +869,17 @@ a.header-user-chip--link:hover {
 
 .actions-dropdown-head {
   flex-shrink: 0;
-  padding: 14px 16px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.actions-dropdown-head__copy {
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .actions-dropdown-eyebrow {
@@ -888,6 +898,51 @@ a.header-user-chip--link:hover {
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
+}
+
+.header-menu-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(2, 6, 23, 0.45);
+}
+
+.header-menu-search__icon {
+  display: grid;
+  place-items: center;
+  color: rgba(148, 163, 184, 0.95);
+  flex-shrink: 0;
+}
+
+.header-menu-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary, #f1f5f9);
+  font-size: 0.78rem;
+  outline: none;
+}
+
+.header-menu-search input::placeholder {
+  color: rgba(148, 163, 184, 0.8);
+}
+
+.header-menu-search:focus-within {
+  border-color: rgba(235, 103, 27, 0.55);
+  box-shadow: 0 0 0 2px rgba(235, 103, 27, 0.16);
+}
+
+.header-menu-empty {
+  margin: 8px 2px 12px;
+  font-size: 0.78rem;
+  color: var(--text-muted, #94a3b8);
 }
 
 .actions-dropdown-scroll {
@@ -1388,8 +1443,12 @@ a.header-user-chip--link:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .header-menu-rows {
-    grid-template-columns: 1fr;
+  .actions-dropdown-head {
+    flex-wrap: wrap;
+  }
+
+  .header-menu-search {
+    flex: 1 1 160px;
   }
 }
 
