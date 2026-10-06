@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useMemo, useRef, useState, memo, type ReactNode } from 'react'
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, memo, type ReactNode } from 'react'
 import { DragDropContext, Droppable, type DropResult } from '@hello-pangea/dnd'
 import type { ColumnConfig, Task, TaskStatus, TeamMember, ActivityEvent } from '../types/board'
 import type { SectorRecord } from '../types/api'
@@ -30,6 +30,8 @@ type BoardProps = {
   excludeHiddenFromKanban?: boolean
   /** Panel extra al final de la grilla, en el hueco que dejan las columnas de la última fila. */
   sidePanel?: ReactNode
+  /** Al tocar un filtro de etapa, esa columna entra en la zona visible. */
+  scrollToColumn?: { id: TaskStatus; tick: number } | null
 }
 
 const Board = ({
@@ -49,7 +51,8 @@ const Board = ({
   onAgendarVisita,
   disableDrag = false,
   excludeHiddenFromKanban = false,
-  sidePanel
+  sidePanel,
+  scrollToColumn = null
 }: BoardProps) => {
   const [isDragging, setIsDragging] = useState(false)
   /** Evita que un endDragUi diferido pise un drag nuevo (setTimeout tras soltar). */
@@ -158,10 +161,70 @@ const Board = ({
     return cb
   }, [])
 
+  const railRef = useRef<HTMLDivElement>(null)
+  const [canScrollPrev, setCanScrollPrev] = useState(false)
+  const [canScrollNext, setCanScrollNext] = useState(false)
+
+  const syncRailArrows = useCallback(() => {
+    const rail = railRef.current
+    if (!rail) return
+    const max = rail.scrollWidth - rail.clientWidth
+    setCanScrollPrev(rail.scrollLeft > 8)
+    setCanScrollNext(max > 8 && rail.scrollLeft < max - 8)
+  }, [])
+
+  useEffect(() => {
+    const rail = railRef.current
+    if (!rail) return
+    syncRailArrows()
+    rail.addEventListener('scroll', syncRailArrows, { passive: true })
+    const observer = new ResizeObserver(syncRailArrows)
+    observer.observe(rail)
+    return () => {
+      rail.removeEventListener('scroll', syncRailArrows)
+      observer.disconnect()
+    }
+  }, [syncRailArrows, columns.length])
+
+  const scrollRail = useCallback((direction: -1 | 1) => {
+    const rail = railRef.current
+    if (!rail) return
+    const column = rail.querySelector('.board-column') as HTMLElement | null
+    const step = (column?.offsetWidth ?? 260) + 18
+    rail.scrollBy({ left: direction * step, behavior: 'smooth' })
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!scrollToColumn) return
+    const rail = railRef.current
+    const column = rail?.querySelector(`[data-column-id="${scrollToColumn.id}"]`) as HTMLElement | null
+    if (!rail || !column) return
+    const delta = column.getBoundingClientRect().left - rail.getBoundingClientRect().left
+    rail.scrollTo({ left: rail.scrollLeft + delta - 8, behavior: 'smooth' })
+  }, [scrollToColumn])
+
   return (
     <div
       className={`board-wrapper ${isDragging ? 'is-dragging' : ''}${disableDrag ? ' board-wrapper--no-drag' : ''}`}
     >
+      <button
+        type="button"
+        className="board-rail-arrow board-rail-arrow--prev"
+        aria-label="Columnas anteriores"
+        disabled={!canScrollPrev}
+        onClick={() => scrollRail(-1)}
+      >
+        ‹
+      </button>
+      <button
+        type="button"
+        className="board-rail-arrow board-rail-arrow--next"
+        aria-label="Columnas siguientes"
+        disabled={!canScrollNext}
+        onClick={() => scrollRail(1)}
+      >
+        ›
+      </button>
       <DragDropContext
         onDragStart={() => {
           dragSessionRef.current += 1
@@ -170,7 +233,7 @@ const Board = ({
         }}
         onDragEnd={handleDragEnd}
       >
-        <div className="columns-grid">
+        <div className="columns-grid" ref={railRef}>
           {columns.map((column) => (
             <Droppable droppableId={column.id} key={column.id}>
               {(provided, snapshot) => (
@@ -183,6 +246,7 @@ const Board = ({
                   isActive={snapshot.isDraggingOver}
                   isBoardDragging={isDragging}
                   containerRef={getColumnContainerRef(column.id as TaskStatus)}
+                  railTarget={scrollToColumn?.id === column.id}
                   onEditTask={onEditTask}
                   onDeleteTask={onDeleteTask}
                   sectores={sectores}

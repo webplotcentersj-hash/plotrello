@@ -347,3 +347,70 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 55%, transparent), 0 10px 28px rgba(0, 0, 0, 0.28);
 }
 
+/* Escritorio: una sola fila. En el teléfono el carril ya vive en plotlab-mobile.css */
+@media (min-width: 769px) {
+  .board-wrapper {
+    position: relative;
+  }
+
+  .columns-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-inline: 8px 12px;
+  }
+
+  .board-column,
+  .columns-grid > .entregas-sin-retiro,
+  .columns-grid > .etiquetas-nube {
+    flex: 1 0 252px;
+    min-width: 252px;
+    max-width: 340px;
+  }
+
+  .board-column.is-rail-target {
+    box-shadow: 0 0 0 2px var(--column-accent);
+  }
+
+  .board-rail-arrow {
+    position: absolute;
+    top: 18px;
+    z-index: 5;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--text-primary) 22%, transparent);
+    background: color-mix(in srgb, var(--surface-card) 92%, #000);
+    color: var(--text-primary);
+    font-size: 1.45rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  }
+
+  .board-rail-arrow--prev {
+    left: 0;
+  }
+
+  .board-rail-arrow--next {
+    right: 0;
+  }
+
+  .board-rail-arrow:hover:not(:disabled) {
+    border-color: var(--brand);
+  }
+
+  .board-rail-arrow:disabled {
+    opacity: 0.28;
+    cursor: default;
+  }
+}
+
+@media (max-width: 768px) {
+  .board-rail-arrow {
+    display: none;
+  }
+}
+

@@ -46,6 +46,8 @@ type ColumnProps = {
   isBoardDragging?: boolean
   /** Teléfono: sin arrastre de fichas. */
   disableDrag?: boolean
+  /** La fila horizontal acaba de traer esta columna a la vista. */
+  railTarget?: boolean
 }
 
 const Column = ({
@@ -69,7 +71,8 @@ const Column = ({
   hideReclamoUI,
   onAgendarVisita,
   isBoardDragging = false,
-  disableDrag = false
+  disableDrag = false,
+  railTarget = false
 }: ColumnProps) => {
   const { isAdmin } = useAuth()
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_TASKS)
@@ -165,7 +168,8 @@ const Column = ({
 
   return (
     <div
-      className={`board-column ${isActive ? 'column-active' : ''}${column.headerFilled ? ' board-column--header-filled' : ''}`}
+      className={`board-column ${isActive ? 'column-active' : ''}${column.headerFilled ? ' board-column--header-filled' : ''}${railTarget ? ' is-rail-target' : ''}`}
+      data-column-id={column.id}
       ref={containerRef}
       style={
         {

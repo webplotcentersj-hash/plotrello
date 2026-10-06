@@ -128,6 +128,7 @@ const BoardPage = ({
   const location = useLocation()
   const navigate = useNavigate()
   const [statusFocus, setStatusFocus] = useState<TaskStatus[]>([])
+  const [columnScroll, setColumnScroll] = useState<{ id: TaskStatus; tick: number } | null>(null)
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [misTrabajosFilter, setMisTrabajosFilter] = useState(false)
   const [sectorFilter, setSectorFilter] = useState<string>('todos')
@@ -524,6 +525,7 @@ const BoardPage = ({
   }, [])
 
   const toggleStatusFocus = (status: TaskStatus) => {
+    setColumnScroll({ id: status, tick: Date.now() })
     setStatusFocus((prev) =>
       prev.includes(status) ? prev.filter((item) => item !== status) : [...prev, status]
     )
@@ -1609,6 +1611,7 @@ const BoardPage = ({
             onSelectTask={setSelectedTaskId}
             onViewTask={handleViewTask}
             disableDrag={isPhoneBoard}
+            scrollToColumn={columnScroll}
             sidePanel={
               !isPhoneBoard ? (
                 <>
