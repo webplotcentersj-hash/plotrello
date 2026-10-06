@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs'
 import type { AfipAmbiente, AfipConfigResumen } from './types'
 
 /** CUIT de prueba AfipSDK (homologación sin certificado propio). */
@@ -33,7 +34,7 @@ function isProductionAmbiente(ambiente?: AfipAmbiente | string | null): boolean 
 }
 
 export function getAfipAccessToken(): string {
-  return (process.env.AFIP_ACCESS_TOKEN || '').trim()
+  return (process.env.AFIPSDK_ACCESS_TOKEN || process.env.AFIP_ACCESS_TOKEN || '').trim()
 }
 
 /** PEM real, o nada si la variable es una ruta de archivo. AfipSDK usa el certificado de la cuenta. */
@@ -62,12 +63,55 @@ function sdkHeaders(accessToken: string, production: boolean): HeadersInit {
   }
 }
 
-function mensajeHttp(data: Record<string, unknown> | null, status: number): string {
-  return (
-    (data && typeof data.message === 'string' && data.message) ||
-    (data && typeof data.error === 'string' && data.error) ||
-    `ARCA respondió HTTP ${status}`
-  )
+export function mensajeHttp(data: unknown, status: number, crudo = ''): string {
+  const partes: string[] = []
+  const walk = (valor: unknown, depth: number) => {
+    if (depth > 5 || partes.length >= 6) return
+    if (typeof valor === 'string') {
+      const texto = valor.trim()
+      if (!texto || texto.length > 400 || texto.includes('-----BEGIN')) return
+      partes.push(texto)
+      return
+    }
+    if (Array.isArray(valor)) valor.forEach((item) => walk(item, depth + 1))
+    else if (valor && typeof valor === 'object') {
+      Object.values(valor as Record<string, unknown>).forEach((item) => walk(item, depth + 1))
+    }
+  }
+  walk(data, 0)
+  const unico = [...new Set(partes)]
+  if (unico.length) return unico.join(' · ')
+  const plano = crudo.replace(/\s+/g, ' ').trim()
+  if (plano && plano.length < 400 && !plano.includes('-----BEGIN')) return plano
+  return `ARCA respondió HTTP ${status}`
+}
+
+/** Igual que el ejemplo oficial: si la variable es una ruta, se lee el archivo y se manda el PEM. */
+function leerPem(valor: string | undefined): string | undefined {
+  const directo = normalizarPem(valor)
+  if (directo) return directo
+  const ruta = valor?.trim().replace(/^["']|["']$/g, '')
+  if (!ruta || ruta.includes('-----BEGIN') || !existsSync(ruta)) return undefined
+  return normalizarPem(readFileSync(ruta, 'utf8'))
+}
+
+function materialCertificado(): { cert?: string; key?: string } {
+  // La guía de Next.js lee el archivo y manda el texto: AFIPSDK_CERT_PATH / AFIPSDK_KEY_PATH.
+  const cert =
+    leerPem(process.env.AFIPSDK_CERT_PATH) ||
+    leerPem(process.env.AFIP_CERT_PATH) ||
+    leerPem(process.env.AFIPSDK_CERT) ||
+    leerPem(process.env.AFIP_CERT)
+  const key =
+    leerPem(process.env.AFIPSDK_KEY_PATH) ||
+    leerPem(process.env.AFIP_KEY_PATH) ||
+    leerPem(process.env.AFIPSDK_KEY) ||
+    leerPem(process.env.AFIP_KEY)
+  const piezas = [cert, key].filter((item): item is string => Boolean(item))
+  return {
+    cert: piezas.find((item) => item.includes('CERTIFICATE')),
+    key: piezas.find((item) => item.includes('PRIVATE KEY'))
+  }
 }
 
 /** El SDK pide el ticket (WSAA) y recién después llama al webservice. */
@@ -76,13 +120,16 @@ async function ticketAcceso(accessToken: string, production: boolean, cuit: numb
   const vigente = tickets.get(clave)
   if (vigente && vigente.until > Date.now()) return vigente
 
-  // El certificado ya está en la cuenta de Afip SDK. No reenviar AFIP_KEY:
-  // en Vercel esa variable es una ruta o un PEM que ARCA rechaza.
   const body: Record<string, unknown> = {
     environment: production ? 'prod' : 'dev',
     wsid: 'wsfe',
-    tax_id: cuit,
+    tax_id: String(cuit),
     force_create: false
+  }
+  const material = materialCertificado()
+  if (material.cert && material.key) {
+    body.cert = material.cert
+    body.key = material.key
   }
 
   const res = await fetch('https://app.afipsdk.com/api/v1/afip/auth', {
@@ -90,8 +137,23 @@ async function ticketAcceso(accessToken: string, production: boolean, cuit: numb
     headers: sdkHeaders(accessToken, production),
     body: JSON.stringify(body)
   })
-  const data = (await res.json().catch(() => null)) as Record<string, unknown> | null
-  if (!res.ok) throw new Error(mensajeHttp(data, res.status))
+  const crudo = await res.text()
+  const data = (() => {
+    try {
+      return crudo ? (JSON.parse(crudo) as Record<string, unknown>) : null
+    } catch {
+      return null
+    }
+  })()
+  if (!res.ok) {
+    const detalle = mensajeHttp(data, res.status, crudo)
+    const faltaPem = !material.cert || !material.key
+    throw new Error(
+      faltaPem
+        ? `${detalle} En el servidor, AFIPSDK_CERT_PATH y AFIPSDK_KEY_PATH tienen que apuntar a archivos que existan, o AFIP_CERT y AFIP_KEY tienen que ser el texto PEM.`
+        : detalle
+    )
+  }
   const token = typeof data?.token === 'string' ? data.token : ''
   const sign = typeof data?.sign === 'string' ? data.sign : ''
   if (!token || !sign) throw new Error('ARCA no devolvió el ticket de acceso.')
@@ -176,9 +238,16 @@ async function wsfe(
     })
   })
 
-  const data = (await res.json().catch(() => null)) as Record<string, unknown> | null
+  const crudo = await res.text()
+  const data = (() => {
+    try {
+      return crudo ? (JSON.parse(crudo) as Record<string, unknown>) : null
+    } catch {
+      return null
+    }
+  })()
   if (!res.ok) {
-    const error = new Error(mensajeHttp(data, res.status)) as Error & { code?: number }
+    const error = new Error(mensajeHttp(data, res.status, crudo)) as Error & { code?: number }
     if (data && typeof data.code === 'number') error.code = data.code
     throw error
   }
@@ -196,13 +265,13 @@ export function createAfipClient(options: CreateAfipClientOptions = {}): WsfeCli
   const accessToken = getAfipAccessToken()
   if (!accessToken) {
     throw new Error(
-      'AFIP_ACCESS_TOKEN no configurado. Obtené uno en https://app.afipsdk.com y agregalo a .env.local / Vercel.'
+      'AFIPSDK_ACCESS_TOKEN no configurado. Obtené uno en https://app.afipsdk.com y agregalo a Vercel.'
     )
   }
 
   const config = options.config
   const production = process.env.AFIP_PRODUCTION === 'true' || isProductionAmbiente(config?.ambiente)
-  const cuit = parseCuit(process.env.AFIP_CUIT || config?.cuit, production)
+  const cuit = parseCuit(process.env.AFIPSDK_CUIT || process.env.AFIP_CUIT || config?.cuit, production)
 
   return {
     CUIT: cuit,
