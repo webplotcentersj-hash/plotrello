@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { descargarPdfFacturaAfip } from '../../services/afipApi'
 import type { EtapaEmision, ResultadoFacturaVenta } from '../../utils/emitirFacturaDesdeVenta'
 import './EmisionFacturaOverlay.css'
 
@@ -30,6 +31,7 @@ type Props = {
 
 export default function EmisionFacturaOverlay({ cliente, total, etapa, resultado, onClose }: Props) {
   const [pulso, setPulso] = useState(0)
+  const [descargandoPdf, setDescargandoPdf] = useState(false)
   const indice = Math.max(0, PASOS.findIndex((paso) => paso.id === etapa))
 
   useEffect(() => {
@@ -87,9 +89,34 @@ export default function EmisionFacturaOverlay({ cliente, total, etapa, resultado
         )}
 
         {resultado ? (
-          <button type="button" className="emision-afip__cerrar" onClick={onClose}>
-            {ok ? 'Listo' : 'Cerrar'}
-          </button>
+          <div className="emision-afip__acciones">
+            {ok && resultado.facturaId ? (
+              <button
+                type="button"
+                className="emision-afip__cerrar"
+                disabled={descargandoPdf}
+                onClick={() => {
+                  if (descargandoPdf || !resultado.facturaId) return
+                  setDescargandoPdf(true)
+                  void descargarPdfFacturaAfip(resultado.facturaId)
+                    .catch((error) => {
+                      console.error('Error descargando PDF AfipSDK:', error)
+                      alert(error instanceof Error ? error.message : 'No se pudo descargar el PDF.')
+                    })
+                    .finally(() => setDescargandoPdf(false))
+                }}
+              >
+                {descargandoPdf ? 'Descargando PDF…' : 'Descargar PDF'}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={ok && resultado.facturaId ? 'emision-afip__listo' : 'emision-afip__cerrar'}
+              onClick={onClose}
+            >
+              {ok ? 'Listo' : 'Cerrar'}
+            </button>
+          </div>
         ) : null}
       </div>
     </div>,

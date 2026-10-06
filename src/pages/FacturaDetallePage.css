@@ -19,6 +19,48 @@
   font-size: 2rem;
 }
 
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 640px;
+}
+
+.factura-detalle-page .btn-primary,
+.factura-detalle-page .btn-secondary {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.factura-detalle-page .btn-primary {
+  background: #4299e1;
+  color: white;
+}
+
+.factura-detalle-page .btn-primary:hover:not(:disabled) {
+  background: #3182ce;
+}
+
+.factura-detalle-page .btn-secondary {
+  background: #e2e8f0;
+  color: #2d3748;
+}
+
+.factura-detalle-page .btn-secondary:hover:not(:disabled) {
+  background: #cbd5e0;
+}
+
+.factura-detalle-page .btn-primary:disabled,
+.factura-detalle-page .btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .factura-meta {
   display: flex;
   gap: 10px;

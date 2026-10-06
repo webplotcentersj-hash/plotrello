@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
 import type { FacturaVentaRecord } from '../types/api'
 import { formatFechaAr } from '../utils/afipFacturaUi'
+import { descargarPdfFacturaAfip } from '../services/afipApi'
+import { descargarFacturaAfipPdf } from '../utils/facturaAfipPdf'
 import './FacturasPage.css'
 
 export default function FacturasPage() {
@@ -11,6 +13,7 @@ export default function FacturasPage() {
   const [loading, setLoading] = useState(true)
   const [facturas, setFacturas] = useState<FacturaVentaRecord[]>([])
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
+  const [pdfId, setPdfId] = useState<number | null>(null)
   const [filtros, setFiltros] = useState({
     estado: searchParams.get('estado') || '',
     fechaDesde: '',
@@ -45,6 +48,28 @@ export default function FacturasPage() {
       setErrorCarga('No se pudieron cargar las facturas.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDescargarPdf = async (id: number) => {
+    if (pdfId != null) return
+    setPdfId(id)
+    try {
+      const response = await apiService.getFactura(id)
+      if (!response.success || !response.data) {
+        alert('No se pudo cargar la factura para el PDF: ' + (response.error || 'desconocido'))
+        return
+      }
+      if (response.data.estado_afip === 'Autorizada' && (response.data.cae || response.data.numero_cae)) {
+        await descargarPdfFacturaAfip(id)
+      } else {
+        await descargarFacturaAfipPdf(response.data)
+      }
+    } catch (error) {
+      console.error('Error generando PDF de factura:', error)
+      alert('No se pudo generar el PDF de la factura.')
+    } finally {
+      setPdfId(null)
     }
   }
 
@@ -184,6 +209,13 @@ export default function FacturasPage() {
                         onClick={() => navigate(`/erp/facturas/${factura.id}`)}
                       >
                         Ver
+                      </button>
+                      <button
+                        className="btn-small btn-pdf"
+                        onClick={() => void handleDescargarPdf(factura.id)}
+                        disabled={pdfId != null}
+                      >
+                        {pdfId === factura.id ? 'PDF…' : 'PDF'}
                       </button>
                       {factura.estado === 'Borrador' && (
                         <button

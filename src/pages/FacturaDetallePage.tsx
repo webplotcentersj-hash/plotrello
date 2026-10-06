@@ -5,6 +5,8 @@ import { syncVentaPlotLabACaja } from '../features/control-cajas/plotlabVentaCaj
 import type { CuentaPorCobrarRecord, FacturaVentaRecord, FacturaItemRecord } from '../types/api'
 import { conceptoLabel, formatFechaAr, hoyISO } from '../utils/afipFacturaUi'
 import { anularFacturaAfip } from '../utils/anularFacturaAfip'
+import { descargarPdfFacturaAfip } from '../services/afipApi'
+import { descargarFacturaAfipPdf } from '../utils/facturaAfipPdf'
 import './FacturaDetallePage.css'
 
 /** Mismo umbral que el servidor: un "Enviando" más viejo se considera colgado y se puede reintentar. */
@@ -19,6 +21,7 @@ export default function FacturaDetallePage() {
   const [loadingCobro, setLoadingCobro] = useState(false)
   const [loadingAfip, setLoadingAfip] = useState(false)
   const [anulando, setAnulando] = useState(false)
+  const [descargandoPdf, setDescargandoPdf] = useState(false)
   const [showCobro, setShowCobro] = useState(false)
   const [cuentas, setCuentas] = useState<any[]>([])
 
@@ -113,6 +116,23 @@ export default function FacturaDetallePage() {
       alert('Error al emitir en AFIP')
     } finally {
       setLoadingAfip(false)
+    }
+  }
+
+  const handleDescargarPdf = async () => {
+    if (!factura || descargandoPdf) return
+    setDescargandoPdf(true)
+    try {
+      if (factura.estado_afip === 'Autorizada' && (factura.cae || factura.numero_cae)) {
+        await descargarPdfFacturaAfip(factura.id)
+      } else {
+        await descargarFacturaAfipPdf(factura)
+      }
+    } catch (error) {
+      console.error('Error generando PDF de factura:', error)
+      alert('No se pudo generar el PDF de la factura.')
+    } finally {
+      setDescargandoPdf(false)
     }
   }
 
@@ -251,6 +271,9 @@ export default function FacturaDetallePage() {
         <div className="header-actions">
           <button className="btn-secondary" onClick={() => navigate('/erp/facturas')}>
             ← Volver
+          </button>
+          <button className="btn-primary" onClick={() => void handleDescargarPdf()} disabled={descargandoPdf}>
+            {descargandoPdf ? 'Generando PDF…' : 'Descargar PDF'}
           </button>
           {puedeEmitirAfip && (
             <button className="btn-primary" onClick={handleEmitirAfip} disabled={loadingAfip}>

@@ -181,6 +181,21 @@
   background: #3182ce;
 }
 
+.btn-pdf {
+  background: #2d3748;
+  color: white;
+}
+
+.btn-pdf:hover:not(:disabled) {
+  background: #1a202c;
+}
+
+.btn-pdf:disabled,
+.btn-view:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-emit {
   background: #48bb78;
   color: white;
