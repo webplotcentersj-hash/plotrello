@@ -248,6 +248,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const numeroFactura = buildNumeroFacturaFromAutorizacion(auth.puntoVenta, auth.numeroComprobante)
     const now = new Date().toISOString()
 
+    const { data: borradoresConEseNumero } = await supabase
+      .from('facturas_venta')
+      .select('id')
+      .eq('numero_factura', numeroFactura)
+      .neq('id', idFactura)
+      .neq('estado_afip', 'Autorizada')
+    for (const otro of borradoresConEseNumero || []) {
+      await supabase
+        .from('facturas_venta')
+        .update({ numero_factura: `PEND-${otro.id}`, updated_at: now })
+        .eq('id', otro.id)
+    }
+
     const { error: errUpdate } = await supabase
       .from('facturas_venta')
       .update({

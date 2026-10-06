@@ -1,6 +1,9 @@
 -- Producción no tenía afip_numero_intento, efectos_aplicados_at, concepto,
 -- fecha_servicio_desde/hasta ni aplicar_efectos_factura (patch 2026-09-22).
 -- Sin eso el CAE no se puede guardar. Esas columnas y la función ya están en la base.
+-- El UNIQUE de la columna numero_factura se sacó: un borrador no puede impedir
+-- el número que ARCA asigna al autorizar. La unicidad queda en
+-- uq_facturas_numero_autorizado (solo comprobantes autorizados).
 -- La numeración leía configuracion_afip como el usuario (anon no tiene SELECT).
 -- Una venta no puede tener dos facturas vivas, y una nota de crédito no puede pasar el total.
 CREATE OR REPLACE FUNCTION public.generar_numero_factura(
@@ -21,7 +24,7 @@ BEGIN
   FROM public.facturas_venta
   WHERE tipo_comprobante = p_tipo_comprobante
     AND punto_venta = COALESCE(p_punto_venta, 1)
-    AND estado_afip = 'Autorizada';
+    AND estado IS DISTINCT FROM 'Anulada';
 
   SELECT COALESCE(CASE p_tipo_comprobante
       WHEN 'Factura A' THEN c.ultimo_numero_factura_a
