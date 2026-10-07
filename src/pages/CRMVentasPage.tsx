@@ -222,7 +222,7 @@ function aplicarClienteAOportunidadForm(
   }
 }
 
-const VENTAS_TAB_IDS_BASE = ['ventas', 'lista-precios', 'presupuestos', 'oportunidades'] as const
+const VENTAS_TAB_IDS_BASE = ['ventas', 'por-facturar', 'lista-precios', 'presupuestos', 'oportunidades'] as const
 const VENTAS_TAB_IDS_VENDEDOR = [...VENTAS_TAB_IDS_BASE, 'arqueos', 'egresos'] as const
 const VENTAS_TAB_IDS = VENTAS_TAB_IDS_VENDEDOR
 type VentasTabId = (typeof VENTAS_TAB_IDS)[number]
@@ -278,6 +278,8 @@ const CRMVentasPage = () => {
   const [ventas, setVentas] = useState<Venta[]>([])
   const [ventasFiltradas, setVentasFiltradas] = useState<Venta[]>([])
   const [filtroEstadoPago, setFiltroEstadoPago] = useState<string>('todos')
+  const [filtroSoloSinFactura, setFiltroSoloSinFactura] = useState(false)
+  const [idsVentasFacturadas, setIdsVentasFacturadas] = useState<Set<number>>(() => new Set())
   const [filtroMetodoPago, setFiltroMetodoPago] = useState<string>('todos')
   const [filtroVendedor, setFiltroVendedor] = useState<string>('todos')
   const [busquedaVenta, setBusquedaVenta] = useState('')
@@ -484,6 +486,19 @@ const CRMVentasPage = () => {
     }
     return map
   }, [ventasFiltradas])
+
+  const ventasSinFactura = useMemo(
+    () =>
+      ventas
+        .filter((v) => v.estado_pago !== 'Cancelado' && !idsVentasFacturadas.has(v.id))
+        .sort(compararVentasRecientes),
+    [ventas, idsVentasFacturadas]
+  )
+
+  const ventaTieneFactura = useCallback(
+    (id: number) => idsVentasFacturadas.has(id),
+    [idsVentasFacturadas]
+  )
 
   const ventaModal = useMemo(
     () => (ventaModalId != null ? ventas.find((v) => v.id === ventaModalId) ?? null : null),
@@ -802,10 +817,15 @@ const CRMVentasPage = () => {
         console.log('Ventas cargadas en CRM:', ventasResponse.data.length)
         setVentas(ventasResponse.data)
         setVentasFiltradas(ventasResponse.data)
+        const facturadasRes = await apiService.listIdsVentasFacturadas(ventasResponse.data.map((v) => v.id))
+        if (facturadasRes.success && facturadasRes.data) {
+          setIdsVentasFacturadas(new Set(facturadasRes.data))
+        }
       } else {
         console.error('Error cargando ventas:', ventasResponse.error)
         setVentas([])
         setVentasFiltradas([])
+        setIdsVentasFacturadas(new Set())
       }
       
       // Cargar presupuestos de ventas presenciales
@@ -961,6 +981,10 @@ const CRMVentasPage = () => {
     if (filtroEstadoPago !== 'todos') {
       filtradas = filtradas.filter(v => v.estado_pago === filtroEstadoPago)
     }
+
+    if (filtroSoloSinFactura) {
+      filtradas = filtradas.filter((v) => v.estado_pago !== 'Cancelado' && !idsVentasFacturadas.has(v.id))
+    }
     
     // Filtro por método de pago
     if (filtroMetodoPago !== 'todos') {
@@ -1035,7 +1059,7 @@ const CRMVentasPage = () => {
     }
     
     setVentasFiltradas(filtradas)
-  }, [ventas, filtroEstadoPago, filtroMetodoPago, filtroVendedor, fechaDesde, fechaHasta, busquedaVenta])
+  }, [ventas, filtroEstadoPago, filtroSoloSinFactura, idsVentasFacturadas, filtroMetodoPago, filtroVendedor, fechaDesde, fechaHasta, busquedaVenta])
 
   // Filtros presupuestos
   useEffect(() => {
@@ -1504,6 +1528,13 @@ const CRMVentasPage = () => {
         setEmisionAfip((prev) => (prev ? { ...prev, etapa } : prev))
       })
       setEmisionAfip((prev) => (prev ? { ...prev, etapa: 'cae', resultado } : prev))
+      if (resultado.ok) {
+        setIdsVentasFacturadas((prev) => {
+          const next = new Set(prev)
+          next.add(venta.id)
+          return next
+        })
+      }
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'No se pudo emitir la factura.'
       setEmisionAfip((prev) => (prev ? { ...prev, resultado: { ok: false, mensaje } } : prev))
@@ -2031,6 +2062,18 @@ const CRMVentasPage = () => {
         <button
           type="button"
           role="tab"
+          id="crm-tab-por-facturar"
+          aria-selected={activeTab === 'por-facturar'}
+          className={`tab-button ${activeTab === 'por-facturar' ? 'active' : ''}${
+            ventasSinFactura.length > 0 ? ' tab-button--alerta' : ''
+          }`}
+          onClick={() => setActiveTab('por-facturar')}
+        >
+          🧾 Por facturar ({ventasSinFactura.length})
+        </button>
+        <button
+          type="button"
+          role="tab"
           id="crm-tab-lista-precios"
           aria-selected={activeTab === 'lista-precios'}
           className={`tab-button ${activeTab === 'lista-precios' ? 'active' : ''}`}
@@ -2088,6 +2131,7 @@ const CRMVentasPage = () => {
       </header>
 
       {activeTab !== 'ventas' &&
+        activeTab !== 'por-facturar' &&
         activeTab !== 'lista-precios' &&
         activeTab !== 'presupuestos' &&
         activeTab !== 'arqueos' &&
@@ -2544,6 +2588,14 @@ const CRMVentasPage = () => {
                   <option value="Cancelado">Cancelado</option>
                 </select>
               </div>
+              <label className="filtro-group ventas-filtro-sin-factura">
+                <input
+                  type="checkbox"
+                  checked={filtroSoloSinFactura}
+                  onChange={(e) => setFiltroSoloSinFactura(e.target.checked)}
+                />
+                <span>Solo sin factura ({ventasSinFactura.length})</span>
+              </label>
               <div className="filtro-group ventas-filtro-fecha">
                 <label>Período</label>
                 <div className="ventas-filtro-fecha__row">
@@ -2696,7 +2748,11 @@ const CRMVentasPage = () => {
                       <button
                         key={venta.id}
                         type="button"
-                        className="venta-pipeline-card"
+                        className={`venta-pipeline-card${
+                          venta.estado_pago !== 'Cancelado' && !ventaTieneFactura(venta.id)
+                            ? ' venta-pipeline-card--sin-factura'
+                            : ''
+                        }`}
                         onClick={() => abrirVentaModal(venta.id)}
                       >
                         <div className="venta-pipeline-card__top">
@@ -2712,6 +2768,9 @@ const CRMVentasPage = () => {
                         </div>
                         {venta.cliente_empresa ? (
                           <span className="venta-pipeline-card__empresa">{venta.cliente_empresa}</span>
+                        ) : null}
+                        {venta.estado_pago !== 'Cancelado' && !ventaTieneFactura(venta.id) ? (
+                          <span className="venta-pipeline-card__factura-pendiente">Sin factura</span>
                         ) : null}
                       </button>
                     ))}
@@ -2760,6 +2819,13 @@ const CRMVentasPage = () => {
                     </span>
                     {ventaModal.metodo_pago ? (
                       <span className="venta-detail-modal__chip">{ventaModal.metodo_pago}</span>
+                    ) : null}
+                    {ventaModal.estado_pago !== 'Cancelado' && !ventaTieneFactura(ventaModal.id) ? (
+                      <span className="venta-detail-modal__chip venta-detail-modal__chip--alerta">
+                        Sin factura
+                      </span>
+                    ) : ventaTieneFactura(ventaModal.id) ? (
+                      <span className="venta-detail-modal__chip">Facturada</span>
                     ) : null}
                   </div>
 
@@ -3030,6 +3096,96 @@ const CRMVentasPage = () => {
           {ventasFiltradas.length === 0 && (
             <div className="empty-state">
               <p>No hay ventas que coincidan con los filtros</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'por-facturar' && (
+        <div className="crm-section" role="tabpanel" aria-labelledby="crm-tab-por-facturar">
+          <p className="ventas-por-facturar__intro">
+            Ventas sin factura AFIP. No usa el filtro de fecha de Ventas: acá aparecen todas las que faltan facturar.
+          </p>
+          <div className="ventas-pipeline ventas-pipeline--por-facturar">
+            {VENTA_PIPELINE_ESTADOS.filter((estado) => estado !== 'Cancelado').map((estado) => {
+              const columnVentas = ventasSinFactura.filter((v) => v.estado_pago === estado)
+              const columnTotal = columnVentas.reduce((sum, v) => sum + Number(v.valor_total || 0), 0)
+              return (
+                <section key={estado} className="ventas-pipeline__col">
+                  <header className="ventas-pipeline__col-head">
+                    <span
+                      className="ventas-pipeline__dot"
+                      style={{ backgroundColor: getEstadoPagoColor(estado) }}
+                    />
+                    <h3>{estado}</h3>
+                    <span className="ventas-pipeline__count">{columnVentas.length}</span>
+                    <span className="ventas-pipeline__total">${columnTotal.toLocaleString()}</span>
+                  </header>
+                  <div className="ventas-pipeline__cards">
+                    {columnVentas.map((venta) => (
+                      <article
+                        key={venta.id}
+                        className="venta-pipeline-card venta-pipeline-card--sin-factura"
+                      >
+                        <button
+                          type="button"
+                          className="venta-pipeline-card__open"
+                          onClick={() => {
+                            setActiveTab('ventas')
+                            abrirVentaModal(venta.id)
+                          }}
+                        >
+                          <div className="venta-pipeline-card__top">
+                            <span className="venta-pipeline-card__client">{venta.cliente_nombre}</span>
+                            <span className="venta-pipeline-card__amount">
+                              ${Number(venta.valor_total || 0).toLocaleString()}
+                            </span>
+                          </div>
+                          <span className="venta-pipeline-card__num">{venta.numero_venta}</span>
+                          <div className="venta-pipeline-card__meta">
+                            <span>{formatArgentinaDate(venta.fecha_venta)}</span>
+                            {venta.numero_op ? (
+                              <span className="venta-pipeline-card__op">{venta.numero_op}</span>
+                            ) : null}
+                          </div>
+                          {venta.cliente_empresa ? (
+                            <span className="venta-pipeline-card__empresa">{venta.cliente_empresa}</span>
+                          ) : null}
+                          <span className="venta-pipeline-card__factura-pendiente">Sin factura</span>
+                        </button>
+                        <div className="venta-pipeline-card__actions">
+                          <button
+                            type="button"
+                            className="btn-action"
+                            onClick={() => {
+                              setActiveTab('ventas')
+                              abrirVentaModal(venta.id)
+                            }}
+                          >
+                            Ver
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-action btn-primary"
+                            disabled={facturandoAfipId === venta.id}
+                            onClick={() => void emitirFacturaAfipDesdeVenta(venta)}
+                          >
+                            {facturandoAfipId === venta.id ? 'Emitiendo…' : 'Facturar'}
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                    {columnVentas.length === 0 ? (
+                      <p className="ventas-pipeline__empty">Sin ventas</p>
+                    ) : null}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+          {ventasSinFactura.length === 0 && (
+            <div className="empty-state">
+              <p>Todas las ventas de este listado ya tienen factura.</p>
             </div>
           )}
         </div>

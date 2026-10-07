@@ -467,6 +467,10 @@
   box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
 }
 
+.tab-button--alerta:not(.active) {
+  color: #fde68a;
+}
+
 /* Filtros */
 .filtros-section {
   display: flex;
@@ -1260,6 +1264,75 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.venta-pipeline-card--sin-factura {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.venta-pipeline-card__factura-pendiente {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #fde68a;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.venta-pipeline-card__open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.venta-pipeline-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.venta-pipeline-card__actions .btn-action {
+  flex: 1;
+}
+
+.ventas-por-facturar__intro {
+  margin: 0 0 16px;
+  color: #cbd5e1;
+  font-size: 0.88rem;
+}
+
+.ventas-filtro-sin-factura {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fde68a;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ventas-filtro-sin-factura input {
+  width: 16px;
+  height: 16px;
+  accent-color: #f59e0b;
+}
+
+.venta-detail-modal__chip--alerta {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #fde68a;
 }
 
 .estado-badge--sm {

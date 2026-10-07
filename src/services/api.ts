@@ -20705,6 +20705,32 @@ class ApiService {
     }
   }
 
+  async listIdsVentasFacturadas(idsVentas?: number[]): Promise<ApiResponse<number[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      let query = supabase
+        .from('facturas_venta')
+        .select('id_venta')
+        .not('id_venta', 'is', null)
+        .neq('estado', 'Anulada')
+      if (idsVentas && idsVentas.length > 0) {
+        query = query.in('id_venta', idsVentas)
+      }
+      const { data, error } = await query.limit(5000)
+      if (error) return { success: false, error: error.message }
+      const ids = Array.from(
+        new Set(
+          (data || [])
+            .map((f: { id_venta?: number | null }) => f.id_venta)
+            .filter((id): id is number => id != null)
+        )
+      )
+      return { success: true, data: ids }
+    } catch (error: unknown) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al listar facturas' }
+    }
+  }
+
   /** Ventas del CRM/mostrador que aún no tienen factura ERP asociada. */
   async listVentasPendientesFacturacion(limit = 100): Promise<ApiResponse<Array<import('../types/api').Venta>>> {
     if (!supabase) return { success: false, error: 'Supabase no inicializado' }
