@@ -31,6 +31,34 @@ export function etiquetaCantidadUnidad(raw?: string | null): string {
   return UNIDADES_PRECIO.find((u) => u.id === id)?.cantidad ?? 'm²'
 }
 
+/** Unidades/hojas de a 1; metros y kg aceptan centésimas (6,25 m²). */
+export function pasoCantidadUnidad(raw?: string | null): number {
+  const id = normalizarUnidadPrecio(raw)
+  return id === 'u' || id === 'hoja' ? 1 : 0.01
+}
+
+export function cantidadMinimaUnidad(raw?: string | null): number {
+  return pasoCantidadUnidad(raw)
+}
+
+export function parseCantidadInput(raw: string): number | null {
+  const t = raw.trim().replace(/\s/g, '').replace(',', '.')
+  if (!t || t === '.' || t === '-' || t === '-.') return null
+  if (!/^-?\d*[.]?\d*$/.test(t)) return null
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}
+
+export function formatCantidadInput(q: number): string {
+  if (!Number.isFinite(q)) return ''
+  const r = Math.round(q * 1000) / 1000
+  return String(r).replace('.', ',')
+}
+
+export function importeLineaVenta(precioUnitario: number, cantidad: number, descuento = 0): number {
+  return Math.round((Number(precioUnitario || 0) * Number(cantidad || 0) - Number(descuento || 0)) * 100) / 100
+}
+
 /** Unidad guardada en la descripción del ítem: "Vinilo (m)" o "Vinilo (m²)". */
 export function unidadDesdeDescripcionItem(descripcion?: string | null): UnidadPrecioId | null {
   const m = String(descripcion ?? '').match(/\((m²|m2|m|un|hoja|kg)\)\s*$/i)

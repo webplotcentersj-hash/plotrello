@@ -534,6 +534,44 @@
   border-color: #94a3b8;
 }
 
+.item-cantidad-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.item-cantidad-input {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.item-cantidad-btn {
+  flex: 0 0 42px;
+  width: 42px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.item-cantidad-btn:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.item-precio-calc {
+  display: block;
+  margin-bottom: 6px;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .item-subtotal {
   grid-column: 1 / -1;
   padding-top: 12px;

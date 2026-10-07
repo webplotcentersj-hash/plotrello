@@ -33,7 +33,16 @@ import OpCobroFooterChecks from './OpCobroFooterChecks'
 import { cobroDesdeVenta } from '../utils/opCobroEstado'
 import { emitirFacturaDesdeVenta, type EtapaEmision, type ResultadoFacturaVenta } from '../utils/emitirFacturaDesdeVenta'
 import EmisionFacturaOverlay from './facturas/EmisionFacturaOverlay'
-import { etiquetaCantidadUnidad, etiquetaUnidadCorta, normalizarUnidadPrecio } from '../utils/unidadPrecio'
+import {
+  cantidadMinimaUnidad,
+  etiquetaCantidadUnidad,
+  etiquetaUnidadCorta,
+  formatCantidadInput,
+  importeLineaVenta,
+  normalizarUnidadPrecio,
+  parseCantidadInput,
+  pasoCantidadUnidad
+} from '../utils/unidadPrecio'
 import VentaOpSimplificada from './ventas/VentaOpSimplificada'
 import {
   ESTADO_CC_LABELS,
@@ -63,6 +72,8 @@ interface ItemVenta {
   codigo_articulo?: string
   descripcion: string
   cantidad: number
+  /** Texto del input para no perder la coma al tipear 6,25 */
+  cantidadTexto?: string
   precio_unitario: number
   descuento: number
   precio_lista?: TipoListaPrecioVentas
@@ -350,6 +361,7 @@ const VentaRapidaModal = ({
       codigo_articulo: articulo.codigo || undefined,
       descripcion: articulo.nombre,
       cantidad: 1,
+      cantidadTexto: '1',
       precio_unitario: precio,
       precio_lista: tipoListaPrecio,
       unidad_medida: normalizarUnidadPrecio(articulo.unidad_medida),
@@ -374,9 +386,57 @@ const VentaRapidaModal = ({
     setItemsVenta(nuevosItems)
   }
 
+  const setCantidadItem = (index: number, cantidad: number, texto?: string) => {
+    const q = Math.round(cantidad * 1000) / 1000
+    setItemsVenta((prev) => {
+      const next = [...prev]
+      const item = next[index]
+      if (!item) return prev
+      next[index] = {
+        ...item,
+        cantidad: q,
+        cantidadTexto: texto ?? formatCantidadInput(q)
+      }
+      return next
+    })
+  }
+
+  const onCantidadChange = (index: number, raw: string) => {
+    const parsed = parseCantidadInput(raw)
+    setItemsVenta((prev) => {
+      const next = [...prev]
+      const item = next[index]
+      if (!item) return prev
+      next[index] = {
+        ...item,
+        cantidadTexto: raw,
+        cantidad: parsed != null && parsed >= 0 ? parsed : item.cantidad
+      }
+      return next
+    })
+  }
+
+  const onCantidadBlur = (index: number) => {
+    const item = itemsVenta[index]
+    if (!item) return
+    const parsed = parseCantidadInput(item.cantidadTexto ?? '')
+    const min = cantidadMinimaUnidad(item.unidad_medida)
+    const q = parsed != null && parsed > 0 ? Math.round(parsed * 1000) / 1000 : min
+    setCantidadItem(index, Math.max(min, q))
+  }
+
+  const ajustarCantidad = (index: number, direccion: 1 | -1) => {
+    const item = itemsVenta[index]
+    if (!item) return
+    const step = pasoCantidadUnidad(item.unidad_medida)
+    const min = cantidadMinimaUnidad(item.unidad_medida)
+    const next = Math.round((item.cantidad + direccion * step) * 1000) / 1000
+    setCantidadItem(index, Math.max(min, next))
+  }
+
   const calcularSubtotal = () => {
     return itemsVenta.reduce((sum, item) => {
-      return sum + (item.precio_unitario * item.cantidad - item.descuento)
+      return sum + importeLineaVenta(item.precio_unitario, item.cantidad, item.descuento)
     }, 0)
   }
 
@@ -444,6 +504,11 @@ const VentaRapidaModal = ({
 
     if (itemsVenta.length === 0) {
       alert('Debes agregar al menos un artículo')
+      return
+    }
+
+    if (itemsVenta.some((item) => !(item.cantidad > 0))) {
+      alert('Revisá las cantidades: tienen que ser mayores a 0 (se aceptan decimales, por ejemplo 6,25 m²).')
       return
     }
 
@@ -594,7 +659,7 @@ const VentaRapidaModal = ({
           descripcion: `${item.descripcion} (${etiquetaUnidadCorta(item.unidad_medida)})`,
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
-          precio_total: item.cantidad * item.precio_unitario - (item.descuento || 0),
+          precio_total: importeLineaVenta(item.precio_unitario, item.cantidad, item.descuento),
           descuento: item.descuento ?? undefined,
           observaciones: item.observaciones ?? undefined,
           created_at: ahora
@@ -1238,14 +1303,32 @@ const VentaRapidaModal = ({
                     <div className="item-controls">
                       <div className="item-control">
                         <label>{etiquetaCantidadUnidad(item.unidad_medida)}</label>
-                        <input
-                          type="number"
-                          min="0.001"
-                          step="0.01"
-                          className="form-input-small"
-                          value={item.cantidad}
-                          onChange={(e) => actualizarItem(index, 'cantidad', parseFloat(e.target.value) || 0)}
-                        />
+                        <div className="item-cantidad-row">
+                          <button
+                            type="button"
+                            className="item-cantidad-btn"
+                            onClick={() => ajustarCantidad(index, -1)}
+                            aria-label="Quitar"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="form-input-small item-cantidad-input"
+                            value={item.cantidadTexto ?? formatCantidadInput(item.cantidad)}
+                            onChange={(e) => onCantidadChange(index, e.target.value)}
+                            onBlur={() => onCantidadBlur(index)}
+                          />
+                          <button
+                            type="button"
+                            className="item-cantidad-btn"
+                            onClick={() => ajustarCantidad(index, 1)}
+                            aria-label="Agregar"
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
                       <div className="item-control item-control--precio">
                         <label>
@@ -1272,10 +1355,12 @@ const VentaRapidaModal = ({
                         />
                       </div>
                       <div className="item-subtotal">
+                        <span className="item-precio-calc">
+                          {formatCantidadInput(item.cantidad)} {etiquetaUnidadCorta(item.unidad_medida)} × $
+                          {formatArs(item.precio_unitario)} / {etiquetaUnidadCorta(item.unidad_medida)}
+                        </span>
                         <strong>
-                          Subtotal: ${formatArs(item.precio_unitario * item.cantidad - item.descuento)}
-                          {' '}
-                          ({item.cantidad} {etiquetaUnidadCorta(item.unidad_medida)})
+                          Subtotal: ${formatArs(importeLineaVenta(item.precio_unitario, item.cantidad, item.descuento))}
                         </strong>
                       </div>
                     </div>
