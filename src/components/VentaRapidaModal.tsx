@@ -1301,7 +1301,7 @@ const VentaRapidaModal = ({
                       <div className="item-info">Código: {item.codigo_articulo}</div>
                     )}
                     <div className="item-controls">
-                      <div className="item-control">
+                      <div className="item-control item-control--cantidad">
                         <label>{etiquetaCantidadUnidad(item.unidad_medida)}</label>
                         <div className="item-cantidad-row">
                           <button
