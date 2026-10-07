@@ -211,6 +211,7 @@ const Header = ({
     }
     if (canAccessMostradorViews) {
       push({ id: 'ventas', label: 'Ventas', icon: '🧾', href: VENTAS })
+      push({ id: 'facturas', label: 'Facturas', icon: '📄', href: '/erp/facturas' })
     }
     if (canAccessTotemImpresionPanel) {
       push({

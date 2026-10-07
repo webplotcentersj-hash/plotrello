@@ -4,7 +4,7 @@
  * - Mostrador y caja: cada uno ve y contabiliza solo lo propio (ventas, arqueos, cierres).
  */
 export function esUsuarioCajaOperativa(rol: string | undefined | null): boolean {
-  return rol === 'mostrador' || rol === 'caja'
+  return rol === 'mostrador' || rol === 'caja' || rol === 'diseno'
 }
 
 export function esVistaVentasPropiaVendedor(isAdmin: boolean, isPresupuestos: boolean): boolean {

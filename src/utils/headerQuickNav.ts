@@ -189,6 +189,31 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         href: '/diseno/plot-ai',
         title: 'Herramientas creativas con Gemini'
       })
+      if (ctx.canAccessMostradorViews && ctx.onNavigateToMostrador) {
+        push({
+          id: 'dashboard-mostrador',
+          label: 'Mostrador',
+          icon: '📋',
+          onClick: ctx.onNavigateToMostrador,
+          title: 'Dashboard Mostrador'
+        })
+      }
+      push({
+        id: 'facturas-diseno',
+        label: 'Facturar',
+        icon: '📄',
+        href: '/erp/facturas/nueva',
+        title: 'Nueva factura AFIP'
+      })
+      if (ctx.canManageCaja && ctx.onNavigateToCaja) {
+        push({
+          id: 'dashboard-caja',
+          label: 'Mi caja',
+          icon: '💰',
+          onClick: ctx.onNavigateToCaja,
+          title: 'Arqueo, cierre de turno y movimientos propios'
+        })
+      }
       break
     case 'taller-grafico':
       push({

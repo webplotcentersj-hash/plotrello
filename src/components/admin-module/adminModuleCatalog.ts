@@ -273,7 +273,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     icon: '💰',
     path: VENTAS,
     category: 'ventas',
-    roles: ['mostrador', 'caja', 'presupuestos', 'administracion', 'gerencia'],
+    roles: ['mostrador', 'caja', 'presupuestos', 'diseno', 'administracion', 'gerencia'],
     accent: '#6366f1',
     featured: true
   },
@@ -284,7 +284,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     icon: '🏪',
     path: '/mostrador/dashboard',
     category: 'ventas',
-    roles: ['mostrador', 'caja', 'presupuestos', 'administracion', 'gerencia'],
+    roles: ['mostrador', 'caja', 'presupuestos', 'diseno', 'administracion', 'gerencia'],
     accent: '#3b82f6'
   },
   {
@@ -294,7 +294,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     icon: '💳',
     path: '/clientes/cuenta-corriente',
     category: 'ventas',
-    roles: ['mostrador', 'caja', 'administracion', 'gerencia'],
+    roles: ['mostrador', 'caja', 'diseno', 'administracion', 'gerencia'],
     accent: '#0ea5e9'
   },
   {
@@ -324,7 +324,7 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     icon: '💵',
     path: '/caja/dashboard/admin',
     category: 'finanzas',
-    roles: ['caja', 'administracion', 'gerencia'],
+    roles: ['caja', 'mostrador', 'diseno', 'administracion', 'gerencia'],
     accent: '#10b981',
     featured: true
   },

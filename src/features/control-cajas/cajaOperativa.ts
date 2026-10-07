@@ -52,7 +52,7 @@ export async function prepararCajaOperativaEnLogin(
   const login = (loginNombre || usuarioNombre).trim()
   const tieneCaja =
     esUsuarioCajaOperativa(rol) ||
-    usuarioTieneAlgunRol({ nombre: login, rol: rol as 'mostrador' }, ['mostrador', 'caja'])
+    usuarioTieneAlgunRol({ nombre: login, rol: rol as 'mostrador' }, ['mostrador', 'caja', 'diseno'])
   if (!tieneCaja) return
   try {
     await obtenerCajaOperativa(usuarioId, usuarioNombre)

@@ -74,6 +74,22 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
         enabled: canAccessMostradorViews
       },
       {
+        id: 'ventas',
+        title: 'Ventas',
+        description: 'Venta rápida, cobros y listado',
+        icon: '🧾',
+        path: '/ventas',
+        enabled: canAccessMostradorViews
+      },
+      {
+        id: 'facturas',
+        title: 'Facturas',
+        description: 'Emitir y descargar comprobantes AFIP',
+        icon: '📄',
+        path: '/erp/facturas',
+        enabled: canAccessMostradorViews
+      },
+      {
         id: 'caja',
         title: 'Caja',
         description: 'Arqueo, cierre de turno y movimientos propios',

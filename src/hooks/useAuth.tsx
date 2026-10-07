@@ -250,7 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAsesorTecnico = usuarioTieneRol(usuario, 'asesor-tecnico')
     const isPresupuestos = usuarioTieneRol(usuario, 'presupuestos')
     const canAccessMostradorViews =
-      !!usuario && (isCajaOperativa || isPresupuestos || isAdmin)
+      !!usuario && (isCajaOperativa || isPresupuestos || isDiseno || isAdmin)
     const canManageImpresoras =
       !!usuario && (usuarioTieneRol(usuario, 'taller-grafico') || isAdmin)
     const canManageCompras =
@@ -278,7 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const canAccessTotemImpresionPanel =
       !!usuario &&
       (isAdmin ||
-        usuarioTieneAlgunRol(usuario, ['imprenta', 'mostrador', 'caja', 'taller-grafico']))
+        usuarioTieneAlgunRol(usuario, ['imprenta', 'mostrador', 'caja', 'taller-grafico', 'diseno']))
     const canMarcarPagoTotemImpresion = !!usuario && (isCajaOperativa || isAdmin)
     const canManageWorkPool =
       !!usuario && (isAdmin || usuarioTieneRol(usuario, 'presupuestos'))
