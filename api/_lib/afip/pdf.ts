@@ -80,6 +80,29 @@ function n(value: unknown): number {
   return Number.isFinite(v) ? v : 0
 }
 
+function round2(value: unknown): number {
+  return Math.round((n(value) + Number.EPSILON) * 100) / 100
+}
+
+/** AfipSDK exige cantidad entera y precio con 2 decimales. */
+function cantidadEntera(value: unknown): boolean {
+  const q = n(value)
+  return q > 0 && Number.isInteger(q)
+}
+
+function formatoCantidad(q: number): string {
+  const r = Math.round(q * 10000) / 10000
+  return String(r).replace('.', ',')
+}
+
+function textoItem(value: string | null | undefined): string {
+  const t = String(value || '')
+    .replace(/²/g, '2')
+    .replace(/³/g, '3')
+    .trim()
+  return t || 'Item'
+}
+
 function fechaSdk(iso: string | null | undefined): string {
   if (!iso) return ''
   const [y, m, d] = String(iso).slice(0, 10).split('-')
@@ -129,18 +152,23 @@ export function buildAfipSdkPdfRequest(
 
   const lineas = items.length
     ? items.map((item, i) => {
-        const cantidad = n(item.cantidad) || 1
-        const neto = n(item.subtotal)
-        const total = n(item.total) || neto
-        const unit = esA
-          ? n(item.precio_unitario) || neto / cantidad
-          : total / cantidad
+        const cantidadRaw = n(item.cantidad) || 1
+        const neto = round2(item.subtotal)
+        const total = round2(n(item.total) || neto)
+        const entero = cantidadEntera(cantidadRaw)
+        const cantidad = entero ? cantidadRaw : 1
+        const importeLinea = esA ? neto : total
+        const unitRaw = esA
+          ? n(item.precio_unitario) || neto / cantidadRaw
+          : total / cantidadRaw
+        const unit = entero ? round2(unitRaw) : importeLinea
+        const desc = textoItem(item.descripcion)
         return {
           code: String(item.item_numero || i + 1).padStart(3, '0'),
-          description: String(item.descripcion || 'Ítem').trim() || 'Ítem',
+          description: entero ? desc : `${desc} x ${formatoCantidad(cantidadRaw)}`,
           quantity: cantidad,
           unit_price: unit,
-          subtotal: esA ? neto : total,
+          subtotal: importeLinea,
           vat_rate: n(item.iva_porcentaje)
         }
       })
@@ -149,8 +177,8 @@ export function buildAfipSdkPdfRequest(
           code: '001',
           description: tipo,
           quantity: 1,
-          unit_price: esA ? n(factura.subtotal) : n(factura.total),
-          subtotal: esA ? n(factura.subtotal) : n(factura.total),
+          unit_price: esA ? round2(factura.subtotal) : round2(factura.total),
+          subtotal: esA ? round2(factura.subtotal) : round2(factura.total),
           vat_rate: n(factura.iva) > 0 ? 21 : 0
         }
       ]
@@ -160,8 +188,8 @@ export function buildAfipSdkPdfRequest(
     const rate = n(item.iva_porcentaje)
     const prev = vatBreakdown.get(rate) || { taxable_base: 0, vat_subtotal: 0 }
     vatBreakdown.set(rate, {
-      taxable_base: prev.taxable_base + n(item.subtotal),
-      vat_subtotal: prev.vat_subtotal + n(item.iva_monto)
+      taxable_base: round2(prev.taxable_base + n(item.subtotal)),
+      vat_subtotal: round2(prev.vat_subtotal + n(item.iva_monto))
     })
   }
 
@@ -187,10 +215,10 @@ export function buildAfipSdkPdfRequest(
     currency_rate: 1,
     concept: n(factura.concepto) || 1,
     items: lineas,
-    vat_amount: n(factura.iva),
+    vat_amount: round2(factura.iva),
     tributes_amount: 0,
-    total_amount: n(factura.total),
-    net_amount_taxed: n(factura.subtotal),
+    total_amount: round2(factura.total),
+    net_amount_taxed: round2(factura.subtotal),
     net_amount_untaxed: 0,
     exempt_amount: 0
   }

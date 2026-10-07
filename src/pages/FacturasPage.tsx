@@ -67,7 +67,7 @@ export default function FacturasPage() {
       }
     } catch (error) {
       console.error('Error generando PDF de factura:', error)
-      alert('No se pudo generar el PDF de la factura.')
+      alert(error instanceof Error ? error.message : 'No se pudo generar el PDF de la factura.')
     } finally {
       setPdfId(null)
     }

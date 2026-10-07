@@ -97,6 +97,61 @@ describe('PDF AfipSDK', () => {
     assert.equal(asoc[0].voucher_number, 3)
   })
 
+  it('aplana cantidades decimales: AfipSDK solo acepta enteros y 2 decimales', () => {
+    const req = buildAfipSdkPdfRequest(
+      {
+        tipo_comprobante: 'Factura B',
+        punto_venta: 14,
+        numero_comprobante: 6,
+        numero_factura: '0014-00000006',
+        fecha_emision: '2026-10-07',
+        cliente_nombre: 'MARTIN ERICA',
+        cliente_dni_cuit: '31633164',
+        cliente_condicion_iva: 'Consumidor Final',
+        subtotal: 219925.11,
+        iva: 46184.27,
+        total: 266109.38,
+        cae: '86406563254980',
+        items: [
+          {
+            item_numero: 1,
+            descripcion: 'VINILO DE CORTE M2 (m²)',
+            cantidad: 6.25,
+            precio_unitario: 32300.02,
+            subtotal: 201875.11,
+            iva_porcentaje: 21,
+            iva_monto: 42393.77,
+            total: 244268.88
+          },
+          {
+            item_numero: 2,
+            descripcion: 'VINILO IMPRESO',
+            cantidad: 0.95,
+            precio_unitario: 19000,
+            subtotal: 18050,
+            iva_porcentaje: 21,
+            iva_monto: 3790.5,
+            total: 21840.5
+          }
+        ]
+      },
+      emisor
+    )
+    const items = req.template.params.items as Array<{
+      quantity: number
+      unit_price: number
+      subtotal: number
+      description: string
+    }>
+    assert.equal(items[0].quantity, 1)
+    assert.equal(items[0].unit_price, 244268.88)
+    assert.equal(items[0].subtotal, 244268.88)
+    assert.match(items[0].description, /x 6,25/)
+    assert.equal(items[1].quantity, 1)
+    assert.equal(items[1].unit_price, 21840.5)
+    assert.match(items[1].description, /x 0,95/)
+  })
+
   it('nombra el archivo con tipo y número', () => {
     assert.equal(
       nombreArchivoPdfAfip({
