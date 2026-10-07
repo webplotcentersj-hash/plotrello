@@ -1113,8 +1113,24 @@ const VentaRapidaModal = ({
                         <span className="lista-precios-row__codigo" title={articulo.codigo}>
                           {articulo.codigo}
                         </span>
-                        <span className="lista-precios-row__nombre" title={articulo.nombre}>
-                          {articulo.nombre}
+                        <span
+                          className="lista-precios-row__nombre"
+                          title={articulo.descripcion?.trim() || articulo.nombre}
+                        >
+                          <span className="lista-precios-row__icon" aria-hidden>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M8 3h6l5 5v13a1.2 1.2 0 0 1-1.2 1.2H8.2A1.2 1.2 0 0 1 7 21V4.2A1.2 1.2 0 0 1 8.2 3z" />
+                              <path d="M14 3v5.2H20" />
+                              <path d="M9.5 13h5.5M9.5 16.5h5.5" />
+                            </svg>
+                          </span>
+                          <span className="lista-precios-row__nombre-wrap">
+                            <span className="lista-precios-row__nombre-text">{articulo.nombre}</span>
+                            {articulo.descripcion?.trim() &&
+                            articulo.descripcion.trim() !== articulo.nombre.trim() ? (
+                              <span className="lista-precios-row__desc">{articulo.descripcion}</span>
+                            ) : null}
+                          </span>
                         </span>
                         <span className="lista-precios-row__precio">
                           {precio != null
