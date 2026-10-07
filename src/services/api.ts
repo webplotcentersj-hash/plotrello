@@ -16016,25 +16016,50 @@ class ApiService {
           p_observaciones_internas: observacionesInternas || null
         })
 
+        const rpcOk = Array.isArray(data) ? data.length > 0 : Boolean(data)
         if (error) return { success: false, error: error.message }
-        if (!data || data.length === 0) {
+        if (!rpcOk) {
           return { success: false, error: 'No se pudo actualizar el presupuesto' }
         }
 
-        // Obtener el presupuesto completo
         const { data: presupuestoCompleto, error: fetchError } = await supabase
           .from('presupuestos_ventas')
           .select('*')
           .eq('id', idPresupuesto)
           .single()
 
-        if (fetchError) return { success: false, error: fetchError.message }
+        if (fetchError || !presupuestoCompleto) {
+          return {
+            success: true,
+            data: { id: idPresupuesto, estado } as PresupuestoVentaRecord
+          }
+        }
         return { success: true, data: presupuestoCompleto as PresupuestoVentaRecord }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
     }
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async vincularPresupuestoVentaAVenta(
+    idPresupuesto: number,
+    idVenta: number
+  ): Promise<ApiResponse<PresupuestoVentaRecord>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { error } = await supabase
+        .from('presupuestos_ventas')
+        .update({
+          id_venta_asociada: idVenta,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', idPresupuesto)
+      if (error) return { success: false, error: error.message }
+      return this.actualizarEstadoPresupuestoVenta(idPresupuesto, 'convertido')
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
   }
 
   /**

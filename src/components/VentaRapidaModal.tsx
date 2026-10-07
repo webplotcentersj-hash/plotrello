@@ -2,7 +2,13 @@ import { useState, useEffect, useRef, useMemo, useCallback, type KeyboardEvent }
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
-import type { ArticuloEmpresaRecord, ClienteRecord, Venta } from '../types/api'
+import type {
+  ArticuloEmpresaRecord,
+  ClienteRecord,
+  PresupuestoVentaItemRecord,
+  PresupuestoVentaRecord,
+  Venta
+} from '../types/api'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
 import { CLIENTES_CUENTA_CORRIENTE, clientesCcAlta, clientesCcPerfil } from '../utils/clientesRoutes'
 import { getArgentinaDateString } from '../utils/dateUtils'
@@ -41,7 +47,8 @@ import {
   importeLineaVenta,
   normalizarUnidadPrecio,
   parseCantidadInput,
-  pasoCantidadUnidad
+  pasoCantidadUnidad,
+  unidadDesdeDescripcionItem
 } from '../utils/unidadPrecio'
 import VentaOpSimplificada from './ventas/VentaOpSimplificada'
 import {
@@ -57,6 +64,11 @@ import {
 import CuentaCorrienteScoreBadge from './CuentaCorrienteScoreBadge'
 import './VentaRapidaModal.css'
 
+export type PrefillVentaDesdePresupuesto = {
+  presupuesto: PresupuestoVentaRecord
+  items: PresupuestoVentaItemRecord[]
+}
+
 interface VentaRapidaModalProps {
   onClose: () => void
   onSuccess: () => void
@@ -64,6 +76,8 @@ interface VentaRapidaModalProps {
   usuarioNombre: string
   /** Tema de formularios (p. ej. desplegables claros en dashboard mostrador) */
   uiVariant?: 'default' | 'mostrador'
+  /** Cliente e ítems de un presupuesto aceptado */
+  prefillDesdePresupuesto?: PrefillVentaDesdePresupuesto | null
 }
 
 interface ItemVenta {
@@ -90,7 +104,8 @@ const VentaRapidaModal = ({
   onSuccess,
   usuarioId,
   usuarioNombre,
-  uiVariant = 'default'
+  uiVariant = 'default',
+  prefillDesdePresupuesto = null
 }: VentaRapidaModalProps) => {
   const navigate = useNavigate()
   const { ajustes: ajustesPrecios } = useConfigAjustesPreciosVentas()
@@ -197,6 +212,67 @@ const VentaRapidaModal = ({
     return () => clearTimeout(timer)
   }, [busquedaCliente])
 
+  const seleccionarCliente = useCallback((cliente: ClienteRecord) => {
+    setClienteSeleccionado(cliente)
+    setBusquedaCliente(nombreCompletoCliente(cliente))
+    setClientesEncontrados([])
+    setClienteActivo(0)
+    setCrearNuevoCliente(false)
+    setClienteCcHabilitado(null)
+    setClienteCcScoring(null)
+    setClienteCcEstado(null)
+  }, [])
+
+  useEffect(() => {
+    if (!prefillDesdePresupuesto) return
+    const { presupuesto, items } = prefillDesdePresupuesto
+    const nro = presupuesto.numero_presupuesto || `#${presupuesto.id}`
+    setObservaciones(`Desde presupuesto ${nro}`)
+    setItemsVenta(
+      items.map((item) => {
+        const cantidad = Number(item.cantidad) || 1
+        return {
+          id_articulo_stock: item.id_articulo_stock ?? undefined,
+          codigo_articulo: item.codigo_articulo ?? undefined,
+          descripcion: item.descripcion,
+          cantidad,
+          cantidadTexto: formatCantidadInput(cantidad),
+          precio_unitario: Number(item.precio_unitario) || 0,
+          descuento: Number(item.descuento) || 0,
+          unidad_medida: unidadDesdeDescripcionItem(item.descripcion) || 'u',
+          observaciones: item.observaciones ?? undefined
+        }
+      })
+    )
+    let cancelled = false
+    const cargarCliente = async () => {
+      if (presupuesto.id_cliente) {
+        const res = await apiService.getClientePorId(presupuesto.id_cliente)
+        if (cancelled) return
+        if (res.success && res.data) {
+          seleccionarCliente(res.data)
+          return
+        }
+      }
+      if (cancelled) return
+      const nombre = (presupuesto.cliente_nombre || '').trim()
+      setBusquedaCliente(nombre)
+      setClienteSeleccionado(null)
+      setCrearNuevoCliente(true)
+      setNuevoCliente({
+        nombre: nombre || 'Consumidor Final',
+        dni_cuit: presupuesto.cliente_dni_cuit || '',
+        telefono: presupuesto.cliente_telefono || '',
+        email: presupuesto.cliente_email || '',
+        direccion: presupuesto.cliente_direccion || ''
+      })
+    }
+    void cargarCliente()
+    return () => {
+      cancelled = true
+    }
+  }, [prefillDesdePresupuesto, seleccionarCliente])
+
   useEffect(() => {
     let cancelled = false
     const run = async () => {
@@ -268,17 +344,6 @@ const VentaRapidaModal = ({
       })
     )
   }, [tipoListaPrecio, prioridad, catalogoArticulos, ajustesPrecios])
-
-  const seleccionarCliente = (cliente: ClienteRecord) => {
-    setClienteSeleccionado(cliente)
-    setBusquedaCliente(nombreCompletoCliente(cliente))
-    setClientesEncontrados([])
-    setClienteActivo(0)
-    setCrearNuevoCliente(false)
-    setClienteCcHabilitado(null)
-    setClienteCcScoring(null)
-    setClienteCcEstado(null)
-  }
 
   const moverClienteTeclado = (e: KeyboardEvent<HTMLInputElement>) => {
     if (clienteSeleccionado || clientesEncontrados.length === 0) return
@@ -634,6 +699,16 @@ const VentaRapidaModal = ({
       }
 
       const ventaData = ventaResponse.data
+
+      if (prefillDesdePresupuesto?.presupuesto.id) {
+        const vinculo = await apiService.vincularPresupuestoVentaAVenta(
+          prefillDesdePresupuesto.presupuesto.id,
+          ventaData.id
+        )
+        if (!vinculo.success) {
+          console.warn('No se pudo marcar el presupuesto como convertido:', vinculo.error)
+        }
+      }
 
       const ahora = new Date().toISOString()
       const ventaMinima: Venta = {

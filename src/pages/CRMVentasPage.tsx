@@ -252,6 +252,10 @@ const CRMVentasPage = () => {
     return 'ventas'
   })
   const [showVentaRapida, setShowVentaRapida] = useState(false)
+  const [presupuestoParaVenta, setPresupuestoParaVenta] = useState<{
+    presupuesto: PresupuestoVentaRecord
+    items: PresupuestoVentaItemRecord[]
+  } | null>(null)
 
   useEffect(() => {
     if (!vistaPropia && (activeTab === 'arqueos' || activeTab === 'egresos')) {
@@ -862,16 +866,61 @@ const CRMVentasPage = () => {
     []
   )
 
-  const actualizarEstadoPresupuestoModal = useCallback(
-    async (presupuesto: PresupuestoVentaRecord, estado: EstadoPresupuestoCliente) => {
-      const res = await apiService.actualizarEstadoPresupuestoVenta(presupuesto.id, estado)
-      if (!res.success) {
-        alert(res.error || 'No se pudo actualizar el estado')
+  const abrirVentaDesdePresupuesto = useCallback(
+    async (presupuesto: PresupuestoVentaRecord, itemsYaCargados?: PresupuestoVentaItemRecord[]) => {
+      if (presupuesto.id_venta_asociada) {
+        cerrarPresupuestoModal()
+        setActiveTab('ventas')
+        abrirVentaModal(presupuesto.id_venta_asociada)
         return
       }
-      void loadData()
+
+      let actual = presupuesto
+      if (actual.estado !== 'aceptado' && actual.estado !== 'convertido') {
+        const resEstado = await apiService.actualizarEstadoPresupuestoVenta(actual.id, 'aceptado')
+        if (resEstado.success) {
+          actual = resEstado.data
+            ? { ...actual, ...resEstado.data, estado: 'aceptado' }
+            : { ...actual, estado: 'aceptado' }
+          setPresupuestos((prev) => prev.map((p) => (p.id === actual.id ? actual : p)))
+        }
+      }
+
+      let items = itemsYaCargados && itemsYaCargados.length > 0 ? itemsYaCargados : presupuestoModalItems
+      if (items.length === 0) {
+        const detalle = await apiService.obtenerDetallePresupuestoVenta(presupuesto.id)
+        if (!detalle.success || !detalle.data) {
+          alert(detalle.error || 'No se pudieron cargar los ítems del presupuesto para armar la venta.')
+          return
+        }
+        items = detalle.data.items
+      }
+      cerrarPresupuestoModal()
+      setPresupuestoParaVenta({ presupuesto: actual, items })
+      setShowVentaRapida(true)
     },
-    []
+    [abrirVentaModal, cerrarPresupuestoModal, presupuestoModalItems]
+  )
+
+  const actualizarEstadoPresupuestoModal = useCallback(
+    async (presupuesto: PresupuestoVentaRecord, estado: EstadoPresupuestoCliente) => {
+      try {
+        const res = await apiService.actualizarEstadoPresupuestoVenta(presupuesto.id, estado)
+        if (!res.success) {
+          alert(res.error || 'No se pudo actualizar el estado del presupuesto.')
+          return
+        }
+        const actualizado = res.data ? { ...presupuesto, ...res.data, estado } : { ...presupuesto, estado }
+        setPresupuestos((prev) => prev.map((p) => (p.id === presupuesto.id ? actualizado : p)))
+        if (estado === 'aceptado' || (estado === 'convertido' && !actualizado.id_venta_asociada)) {
+          await abrirVentaDesdePresupuesto(actualizado)
+        }
+      } catch (error) {
+        console.error('Error actualizando estado de presupuesto:', error)
+        alert(error instanceof Error ? error.message : 'No se pudo actualizar el estado del presupuesto.')
+      }
+    },
+    [abrirVentaDesdePresupuesto]
   )
 
   // Filtros oportunidades
@@ -3449,6 +3498,27 @@ const CRMVentasPage = () => {
                       👁️ Ver OP
                     </button>
                   ) : null}
+                  {presupuestoModal.id_venta_asociada ? (
+                    <button
+                      type="button"
+                      className="btn-action"
+                      onClick={() => {
+                        cerrarPresupuestoModal()
+                        setActiveTab('ventas')
+                        abrirVentaModal(presupuestoModal.id_venta_asociada!)
+                      }}
+                    >
+                      🧾 Ver venta
+                    </button>
+                  ) : presupuestoModal.estado !== 'rechazado' && presupuestoModal.estado !== 'cancelado' ? (
+                    <button
+                      type="button"
+                      className="btn-action btn-action--venta"
+                      onClick={() => void abrirVentaDesdePresupuesto(presupuestoModal)}
+                    >
+                      🧾 Generar venta
+                    </button>
+                  ) : null}
                   <label className="presupuesto-estado-select">
                     <span>Estado</span>
                     <select
@@ -4231,14 +4301,19 @@ const CRMVentasPage = () => {
       {showVentaRapida && usuario && (
         <VentaRapidaModal
           uiVariant="mostrador"
-          onClose={() => setShowVentaRapida(false)}
+          onClose={() => {
+            setShowVentaRapida(false)
+            setPresupuestoParaVenta(null)
+          }}
           onSuccess={() => {
             setShowVentaRapida(false)
+            setPresupuestoParaVenta(null)
             void loadData()
             setActiveTab('ventas')
           }}
           usuarioId={usuario.id}
           usuarioNombre={nombreOperador}
+          prefillDesdePresupuesto={presupuestoParaVenta}
         />
       )}
     </div>
