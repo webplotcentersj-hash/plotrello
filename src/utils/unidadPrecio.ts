@@ -81,6 +81,18 @@ export function porcentajeDesdeDescuentoPesos(precioUnitario: number, cantidad: 
   return clampDescuentoPct((Number(descuentoPesos) || 0) / bruto * 100)
 }
 
+/** Precio unitario ya neto del descuento en pesos (para facturar el importe cobrado). */
+export function precioUnitarioTrasDescuentoPesos(
+  precioUnitario: number,
+  cantidad: number,
+  descuentoPesos = 0
+): number {
+  const qty = Number(cantidad) || 0
+  const total = importeLineaVenta(precioUnitario, qty, descuentoPesos)
+  if (qty <= 0) return Math.max(0, total)
+  return Math.round((total / qty) * 100) / 100
+}
+
 /** Unidad guardada en la descripción del ítem: "Vinilo (m)" o "Vinilo (m²)". */
 export function unidadDesdeDescripcionItem(descripcion?: string | null): UnidadPrecioId | null {
   const m = String(descripcion ?? '').match(/\((m²|m2|m|un|hoja|kg)\)\s*$/i)

@@ -7,6 +7,7 @@ import {
   validarReceptorComprobante
 } from './afipFacturaUi'
 import { getArgentinaDateString } from './dateUtils'
+import { precioUnitarioTrasDescuentoPesos } from './unidadPrecio'
 
 export type ResultadoFacturaVenta = {
   ok: boolean
@@ -91,8 +92,12 @@ export async function emitirFacturaDesdeVenta(
       items: items.map((item) => ({
         descripcion: item.descripcion.trim(),
         cantidad: Number(item.cantidad),
-        precio_unitario: Number(item.precio_unitario),
-        descuento: Number(item.descuento) || 0,
+        precio_unitario: precioUnitarioTrasDescuentoPesos(
+          Number(item.precio_unitario),
+          Number(item.cantidad),
+          Number(item.descuento) || 0
+        ),
+        descuento: 0,
         iva_porcentaje: 21
       })),
       precios_con_iva: tipo !== 'Factura C',

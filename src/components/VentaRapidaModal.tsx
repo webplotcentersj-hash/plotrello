@@ -1502,23 +1502,21 @@ const VentaRapidaModal = ({
                             actualizarItem(index, 'descuento', clampDescuentoPct(parseFloat(e.target.value) || 0))
                           }
                         />
-                        {item.descuento > 0 ? (
-                          <span className="item-descuento-pesos">
-                            −${formatArs(descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento))}
-                          </span>
-                        ) : null}
                       </div>
-                      <div className="item-subtotal">
-                        <span className="item-precio-calc">
-                          {formatCantidadInput(item.cantidad)} {etiquetaUnidadCorta(item.unidad_medida)} × $
-                          {formatArs(item.precio_unitario)} / {etiquetaUnidadCorta(item.unidad_medida)}
-                          {item.descuento > 0 ? ` − ${item.descuento}%` : ''}
-                        </span>
-                        <strong>
-                          Subtotal: ${formatArs(importeLineaVentaPct(item.precio_unitario, item.cantidad, item.descuento))}
-                        </strong>
+                      <div className="item-control item-control--subtotal">
+                        <label>Subtotal</label>
+                        <div className="item-subtotal-box">
+                          ${formatArs(importeLineaVentaPct(item.precio_unitario, item.cantidad, item.descuento))}
+                        </div>
                       </div>
                     </div>
+                    <p className="item-precio-calc">
+                      {formatCantidadInput(item.cantidad)} {etiquetaUnidadCorta(item.unidad_medida)} × $
+                      {formatArs(item.precio_unitario)} / {etiquetaUnidadCorta(item.unidad_medida)}
+                      {item.descuento > 0
+                        ? ` − ${item.descuento}% (−$${formatArs(descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento))})`
+                        : ''}
+                    </p>
                     {item.observaciones && (
                       <div className="item-warning">⚠️ {item.observaciones}</div>
                     )}

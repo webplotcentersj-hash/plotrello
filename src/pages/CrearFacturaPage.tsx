@@ -10,7 +10,7 @@ import {
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
 import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
-import { etiquetaUnidadCorta } from '../utils/unidadPrecio'
+import { etiquetaUnidadCorta, precioUnitarioTrasDescuentoPesos } from '../utils/unidadPrecio'
 import {
   CONCEPTOS_AFIP,
   calcularLineaItem,
@@ -242,8 +242,12 @@ export default function CrearFacturaPage() {
             codigo: item.codigo_articulo || '',
             descripcion: item.descripcion,
             cantidad: item.cantidad,
-            precio_unitario: item.precio_unitario,
-            descuento: item.descuento || 0,
+            precio_unitario: precioUnitarioTrasDescuentoPesos(
+              Number(item.precio_unitario),
+              Number(item.cantidad),
+              Number(item.descuento) || 0
+            ),
+            descuento: 0,
             iva_porcentaje: 21
           }))
         )
