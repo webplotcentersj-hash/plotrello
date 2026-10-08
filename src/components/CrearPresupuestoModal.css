@@ -169,9 +169,18 @@
   grid-column: 1 / -1;
 }
 
-.presupuesto-venta-modal .nuevo-cliente-form .btn-secondary {
+.presupuesto-venta-modal .nuevo-cliente-form__acciones {
   grid-column: 1 / -1;
-  justify-self: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.presupuesto-venta-modal .nuevo-cliente-form__acciones .btn-primary,
+.presupuesto-venta-modal .nuevo-cliente-form__acciones .btn-secondary {
+  min-height: 42px;
+  padding: 0 16px;
 }
 
 .presupuesto-venta-modal .cliente-seleccionado {
@@ -527,10 +536,21 @@
   -webkit-text-fill-color: #ecfdf5 !important;
 }
 
-.modal-content.presupuesto-venta-modal .nuevo-cliente-form .form-input {
-  background: rgba(15, 23, 42, 0.92) !important;
+.modal-content.presupuesto-venta-modal .nuevo-cliente-form .form-input,
+.modal-content.presupuesto-venta-modal .nuevo-cliente-form .form-input:focus,
+.modal-content.presupuesto-venta-modal .nuevo-cliente-form .form-input:hover,
+.modal-content.presupuesto-venta-modal .nuevo-cliente-form .form-input:-webkit-autofill,
+.modal-content.presupuesto-venta-modal .nuevo-cliente-form .form-input:-webkit-autofill:hover,
+.modal-content.presupuesto-venta-modal .nuevo-cliente-form .form-input:-webkit-autofill:focus,
+.modal-content.presupuesto-venta-modal .nuevo-cliente-form .form-input:-webkit-autofill:active {
+  background: #0f172a !important;
+  background-color: #0f172a !important;
   color: #f8fafc !important;
   -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #f8fafc;
+  box-shadow: 0 0 0 1000px #0f172a inset !important;
+  -webkit-box-shadow: 0 0 0 1000px #0f172a inset !important;
+  transition: background-color 99999s ease-out;
 }
 
 /* Ítems del presupuesto — tema oscuro (anula VentaRapidaModal.css blanco) */

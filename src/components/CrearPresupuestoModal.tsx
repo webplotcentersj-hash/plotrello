@@ -77,6 +77,7 @@ const CrearPresupuestoModal = ({
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteRecord | null>(null)
   const [crearNuevoCliente, setCrearNuevoCliente] = useState(false)
+  const [guardandoCliente, setGuardandoCliente] = useState(false)
   const [nuevoCliente, setNuevoCliente] = useState({
     nombre: '',
     dni_cuit: '',
@@ -238,6 +239,32 @@ const CrearPresupuestoModal = ({
       })
     )
   }, [tipoListaPrecio, catalogoArticulos, ajustesPrecios])
+
+  const guardarNuevoCliente = async () => {
+    const nombre = nuevoCliente.nombre.trim()
+    if (!nombre) {
+      alert('El nombre del cliente es obligatorio')
+      return
+    }
+    setGuardandoCliente(true)
+    try {
+      const clienteResponse = await apiService.buscarOCrearCliente({
+        nombre,
+        dni_cuit: nuevoCliente.dni_cuit || undefined,
+        telefono: nuevoCliente.telefono || undefined,
+        email: nuevoCliente.email || undefined,
+        direccion: nuevoCliente.direccion || undefined
+      })
+      if (!clienteResponse.success || !clienteResponse.data) {
+        throw new Error(clienteResponse.error || 'No se pudo guardar el cliente')
+      }
+      seleccionarCliente(clienteResponse.data)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'No se pudo guardar el cliente')
+    } finally {
+      setGuardandoCliente(false)
+    }
+  }
 
   const seleccionarCliente = (cliente: ClienteRecord) => {
     setClienteSeleccionado(cliente)
@@ -607,6 +634,7 @@ const CrearPresupuestoModal = ({
                     className="form-input"
                     placeholder="Nombre completo *"
                     value={nuevoCliente.nombre}
+                    autoComplete="off"
                     onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })}
                   />
                   <input
@@ -644,23 +672,34 @@ const CrearPresupuestoModal = ({
                     value={nuevoCliente.direccion}
                     onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })}
                   />
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => {
-                      setCrearNuevoCliente(false)
-                      setNuevoCliente({
-                        nombre: '',
-                        dni_cuit: '',
-                        telefono: '',
-                        email: '',
-                        empresa: '',
-                        direccion: ''
-                      })
-                    }}
-                  >
-                    Cancelar nuevo cliente
-                  </button>
+                  <div className="nuevo-cliente-form__acciones">
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => void guardarNuevoCliente()}
+                      disabled={guardandoCliente || !nuevoCliente.nombre.trim()}
+                    >
+                      {guardandoCliente ? 'Guardando…' : 'Guardar'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={guardandoCliente}
+                      onClick={() => {
+                        setCrearNuevoCliente(false)
+                        setNuevoCliente({
+                          nombre: '',
+                          dni_cuit: '',
+                          telefono: '',
+                          email: '',
+                          empresa: '',
+                          direccion: ''
+                        })
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
               )}
 
