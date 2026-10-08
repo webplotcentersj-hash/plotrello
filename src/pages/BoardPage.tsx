@@ -49,10 +49,6 @@ import { recordTiposImpresionUsados } from '../utils/opImpresionRecientes'
 import { mergeEspejoSiblingTask } from '../utils/opEspejoSectores'
 import Subtasks from '../components/Subtasks'
 import {
-  getSectorEtapaKanbanBySectorName,
-  sectorNameSupportsEtapaKanban
-} from '../data/sectorEtapaKanban'
-import {
   archivosRowsHaveImage,
   taskPhotoUrlCountAsSitePhoto,
   taskStatusDestinoRequiereFotosLugar
@@ -132,7 +128,6 @@ const BoardPage = ({
   const [columnScroll, setColumnScroll] = useState<{ id: TaskStatus; tick: number } | null>(null)
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'todas'>('todas')
   const [misTrabajosFilter, setMisTrabajosFilter] = useState(false)
-  const [sectorFilter, setSectorFilter] = useState<string>('todos')
   const [searchQuery, setSearchQuery] = useState('')
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
   const [checklistTask, setChecklistTask] = useState<Task | null>(null)
@@ -323,20 +318,6 @@ const BoardPage = ({
     }
   }, [setTasks])
 
-  // Obtener sectores únicos de las tareas
-  const availableSectors = useMemo(() => {
-    const sectorsSet = new Set<string>()
-    tasks.forEach((task) => {
-      if (task.assignedSector) {
-        sectorsSet.add(task.assignedSector)
-      }
-      if (task.sectores && task.sectores.length > 0) {
-        task.sectores.forEach((sector) => sectorsSet.add(sector))
-      }
-    })
-    return Array.from(sectorsSet).sort()
-  }, [tasks])
-
   const filteredTasks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     const matchesSearchText = (task: Task) => {
@@ -363,24 +344,10 @@ const BoardPage = ({
 
       const matchesStatus = statusFocus.length === 0 || statusFocus.includes(task.status)
       const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter
-      const matchesSector =
-        sectorFilter === 'todos' ||
-        task.assignedSector === sectorFilter ||
-        (task.sectores && task.sectores.includes(sectorFilter))
       const matchesMisTrabajos = !misTrabajosFilter || isTaskAssignedToMe(task)
-      return (
-        matchesStatus && matchesPriority && matchesSector && matchesSearchText(task) && matchesMisTrabajos
-      )
+      return matchesStatus && matchesPriority && matchesSearchText(task) && matchesMisTrabajos
     })
-  }, [
-    tasks,
-    statusFocus,
-    priorityFilter,
-    misTrabajosFilter,
-    sectorFilter,
-    searchQuery,
-    isTaskAssignedToMe
-  ])
+  }, [tasks, statusFocus, priorityFilter, misTrabajosFilter, searchQuery, isTaskAssignedToMe])
 
   /** Si buscan un nº de OP que no está en memoria (tope del tablero), traerlo de la BD. */
   useEffect(() => {
@@ -428,7 +395,6 @@ const BoardPage = ({
 
   const phoneFilterChips = useMemo(() => {
     const chips: { key: string; text: string }[] = []
-    if (sectorFilter !== 'todos') chips.push({ key: 'sector', text: `Sector: ${sectorFilter}` })
     const q = searchQuery.trim()
     if (q) {
       const short = q.length > 36 ? `${q.slice(0, 34)}…` : q
@@ -443,7 +409,7 @@ const BoardPage = ({
       chips.push({ key: 'cols', text: `Columnas: ${labels}` })
     }
     return chips
-  }, [sectorFilter, searchQuery, priorityFilter, misTrabajosFilter, statusFocus])
+  }, [searchQuery, priorityFilter, misTrabajosFilter, statusFocus])
 
   const statusFocusKey = useMemo(() => [...statusFocus].sort().join('|'), [statusFocus])
   const filteredTasksRef = useRef(filteredTasks)
@@ -457,7 +423,6 @@ const BoardPage = ({
     if (!wrap || !grid) return
 
     const noFilters =
-      sectorFilter === 'todos' &&
       !searchQuery.trim() &&
       priorityFilter === 'todas' &&
       !misTrabajosFilter &&
@@ -472,25 +437,7 @@ const BoardPage = ({
     if (!colDivs.length) return
 
     const ft = filteredTasksRef.current
-    let targetIdx = -1
-
-    if (sectorFilter !== 'todos') {
-      const byLabel = BOARD_COLUMNS.findIndex(
-        (c) => c.label.trim().toLowerCase() === sectorFilter.trim().toLowerCase()
-      )
-      if (byLabel >= 0) {
-        const colId = BOARD_COLUMNS[byLabel].id
-        const hasInThatCol = ft.some((t) => t.status === colId)
-        targetIdx = hasInThatCol
-          ? byLabel
-          : BOARD_COLUMNS.findIndex((c) => ft.some((t) => t.status === c.id))
-        if (targetIdx < 0) targetIdx = byLabel
-      }
-    }
-
-    if (targetIdx < 0) {
-      targetIdx = BOARD_COLUMNS.findIndex((c) => ft.some((t) => t.status === c.id))
-    }
+    const targetIdx = BOARD_COLUMNS.findIndex((c) => ft.some((t) => t.status === c.id))
 
     if (targetIdx < 0 || targetIdx >= colDivs.length) {
       wrap.scrollLeft = 0
@@ -502,14 +449,7 @@ const BoardPage = ({
       block: 'nearest',
       behavior: 'auto'
     })
-  }, [
-    isPhoneBoard,
-    sectorFilter,
-    searchQuery,
-    priorityFilter,
-    misTrabajosFilter,
-    statusFocusKey
-  ])
+  }, [isPhoneBoard, searchQuery, priorityFilter, misTrabajosFilter, statusFocusKey])
 
   const taskToView = useMemo(
     () => (taskViewId ? tasks.find((t) => t.id === taskViewId) ?? null : null),
@@ -1560,19 +1500,9 @@ const BoardPage = ({
         onPriorityChange={setPriorityFilter}
         misTrabajosFilter={misTrabajosFilter}
         onMisTrabajosChange={setMisTrabajosFilter}
-        sectorFilter={sectorFilter}
-        availableSectors={availableSectors}
-        onSectorChange={setSectorFilter}
         onAddNewOrder={() => setIsCreateModalOpen(true)}
         onOpenLibrary={() => setIsLibraryModalOpen(true)}
         onOptimizeSprint={() => setIsOptimizerModalOpen(true)}
-        showEtapaKanbanButton={
-          sectorFilter !== 'todos' && sectorNameSupportsEtapaKanban(sectorFilter)
-        }
-        onOpenEtapaKanban={() => {
-          const cfg = getSectorEtapaKanbanBySectorName(sectorFilter)
-          if (cfg) navigate(`/kanban-etapas/${cfg.slug}`)
-        }}
       />
 
       <main

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
@@ -21,18 +21,12 @@ type FiltersBarProps = {
   /** Solo en home: filtrar OPs donde el usuario es operario asignado o está trabajando la ficha */
   misTrabajosFilter?: boolean
   onMisTrabajosChange?: (value: boolean) => void
-  sectorFilter?: string
-  availableSectors?: string[]
-  onSectorChange?: (value: string) => void
   onOpenLibrary?: () => void
   onAddNewOrder?: () => void
   onOptimizeSprint?: () => void
-  /** Botón para abrir kanban de etapas del sector (solo si el sector tiene etapas internas) */
-  showEtapaKanbanButton?: boolean
-  onOpenEtapaKanban?: () => void
   /** Placeholder del buscador (ej. asesor-presupuestos: fichas FICHA-*, no OP de taller) */
   searchPlaceholder?: string
-  /** Teléfono: solo buscador + sector (si aplica) + alta ficha; sin chips ni prioridad. */
+  /** Teléfono: solo buscador + alta ficha; sin chips ni prioridad. */
   compactPhone?: boolean
 }
 
@@ -49,14 +43,9 @@ const FiltersBar = ({
   onPriorityChange,
   misTrabajosFilter = false,
   onMisTrabajosChange,
-  sectorFilter = 'todos',
-  availableSectors = [],
-  onSectorChange,
   onOpenLibrary,
   onAddNewOrder,
   onOptimizeSprint,
-  showEtapaKanbanButton = false,
-  onOpenEtapaKanban,
   searchPlaceholder = 'Buscar: OP, cliente, descripción, etiquetas, contacto, materiales…',
   compactPhone = false
 }: FiltersBarProps) => {
@@ -64,27 +53,6 @@ const FiltersBar = ({
   const { isAdmin, isDiseno, canAccessMostradorViews, usuario, nombreVisible } = useAuth()
   const [copiandoBrief, setCopiandoBrief] = useState(false)
   const [showVentaRapida, setShowVentaRapida] = useState(false)
-  const [sectorPickerOpen, setSectorPickerOpen] = useState(false)
-  const sectorPickerWrapRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!compactPhone) setSectorPickerOpen(false)
-  }, [compactPhone])
-
-  useEffect(() => {
-    if (!sectorPickerOpen) return undefined
-    const close = (e: MouseEvent | TouchEvent) => {
-      const el = sectorPickerWrapRef.current
-      const t = e.target
-      if (el && t instanceof Node && !el.contains(t)) setSectorPickerOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('touchstart', close, { passive: true })
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('touchstart', close)
-    }
-  }, [sectorPickerOpen])
 
   const handleGenerarBriefLink = async () => {
     setCopiandoBrief(true)
@@ -121,63 +89,6 @@ const FiltersBar = ({
             ref={searchInputRef}
           />
         </div>
-        {onSectorChange && availableSectors.length > 0 && (
-          <div className="filters-bar-phone-row filters-bar-phone-sector-wrap" ref={sectorPickerWrapRef}>
-            <button
-              type="button"
-              className="filters-bar-phone-sector-trigger"
-              id="filters-bar-phone-sector-trigger"
-              aria-expanded={sectorPickerOpen}
-              aria-haspopup="listbox"
-              aria-controls="filters-bar-phone-sector-list"
-              onClick={() => setSectorPickerOpen((o) => !o)}
-            >
-              <span className="filters-bar-phone-sector-trigger-label">Sector</span>
-              <span className="filters-bar-phone-sector-trigger-value">
-                {sectorFilter === 'todos' ? 'Todos los sectores' : sectorFilter}
-              </span>
-              <span className="filters-bar-phone-sector-trigger-chevron" aria-hidden>
-                {sectorPickerOpen ? '▲' : '▼'}
-              </span>
-            </button>
-            {sectorPickerOpen && (
-              <div
-                className="filters-bar-phone-sector-panel"
-                id="filters-bar-phone-sector-list"
-                role="listbox"
-                aria-labelledby="filters-bar-phone-sector-trigger"
-              >
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={sectorFilter === 'todos'}
-                  className={`filters-bar-phone-sector-option${sectorFilter === 'todos' ? ' is-active' : ''}`}
-                  onClick={() => {
-                    onSectorChange('todos')
-                    setSectorPickerOpen(false)
-                  }}
-                >
-                  Todos los sectores
-                </button>
-                {availableSectors.map((sector) => (
-                  <button
-                    key={sector}
-                    type="button"
-                    role="option"
-                    aria-selected={sectorFilter === sector}
-                    className={`filters-bar-phone-sector-option${sectorFilter === sector ? ' is-active' : ''}`}
-                    onClick={() => {
-                      onSectorChange(sector)
-                      setSectorPickerOpen(false)
-                    }}
-                  >
-                    {sector}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
         {onAddNewOrder && (
           <div className="filters-bar-phone-row">
             <button type="button" className="brand-button filters-bar-phone-add" onClick={onAddNewOrder}>
@@ -257,35 +168,6 @@ const FiltersBar = ({
           </div>
         </div>
         <div className="filter-right-section">
-          {onSectorChange && availableSectors.length > 0 && (
-            <div className="filter-control sector-filter-control">
-              <label>Sector</label>
-              <div className="sector-filter-row">
-                <select
-                  value={sectorFilter}
-                  onChange={(e) => onSectorChange(e.target.value)}
-                  className="sector-select"
-                >
-                  <option value="todos">Todos los sectores</option>
-                  {availableSectors.map((sector) => (
-                    <option key={sector} value={sector}>
-                      {sector}
-                    </option>
-                  ))}
-                </select>
-                {showEtapaKanbanButton && onOpenEtapaKanban && (
-                  <button
-                    type="button"
-                    className="etapa-kanban-expand-btn"
-                    onClick={onOpenEtapaKanban}
-                    title="Abrir vista ampliada: kanban solo con las etapas de este sector"
-                  >
-                    Kanban etapas
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
           <div className="library-button-container">
           {canAccessMostradorViews && usuario && (
             <button

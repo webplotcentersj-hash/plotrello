@@ -261,8 +261,7 @@
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
 }
 
-.asesor-presupuestos-page .filters-bar .search-filter input,
-.asesor-presupuestos-page .filters-bar .sector-select {
+.asesor-presupuestos-page .filters-bar .search-filter input {
   background: rgba(2, 6, 23, 0.55) !important;
   border-color: var(--ap-border) !important;
   color: var(--ap-text) !important;
