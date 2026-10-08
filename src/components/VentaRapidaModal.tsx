@@ -832,11 +832,6 @@ const VentaRapidaModal = ({
           numeroVenta: ventaData.numero_venta 
         }
       }))
-
-      navigate(`/erp/facturas/nueva?id_venta=${ventaData.id}`)
-      onSuccess?.()
-      onClose()
-      return
     } catch (error: any) {
       console.error('Error guardando venta:', error)
       alert('Error al guardar venta: ' + error.message)
@@ -1093,7 +1088,7 @@ const VentaRapidaModal = ({
             <p className="form-hint-comprobante">
               {esMercadoPagoCondicion
                 ? 'Al confirmar el QR se emite y descarga sola la factura AFIP.'
-                : 'Al guardar vas a Facturar para emitir el comprobante a mano.'}
+                : 'Al guardar queda la venta. La factura la armás después, si hace falta.'}
             </p>
           </div>
 
@@ -1497,9 +1492,13 @@ const VentaRapidaModal = ({
                           max="100"
                           step="0.01"
                           className="form-input-small"
-                          value={item.descuento}
+                          value={item.descuento > 0 ? item.descuento : ''}
                           onChange={(e) =>
-                            actualizarItem(index, 'descuento', clampDescuentoPct(parseFloat(e.target.value) || 0))
+                            actualizarItem(
+                              index,
+                              'descuento',
+                              e.target.value.trim() === '' ? 0 : clampDescuentoPct(parseFloat(e.target.value) || 0)
+                            )
                           }
                         />
                       </div>
@@ -1618,7 +1617,7 @@ const VentaRapidaModal = ({
                 ? 'Guardando...'
                 : esMercadoPagoCondicion
                   ? '💳 Generar QR Mercado Pago'
-                  : '💾 Guardar y facturar'}
+                  : '💾 Guardar venta'}
             </button>
             </>
           ) : showMpCheckout ? (
