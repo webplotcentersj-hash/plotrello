@@ -13,6 +13,7 @@ import { ordenToTask, parseTaskIdToOrdenId, mapStatusToEstado } from '../utils/d
 import { BOARD_COLUMNS } from '../data/mockData'
 import { useTagColors } from '../hooks/useTagColors'
 import { fetchPlotAIRecommendationsForTask } from '../utils/taskPlotAIRecommendations'
+import { fetchPlotAICorroborarOp } from '../utils/taskPlotAICorroborar'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
 import OpCobroPill from './OpCobroPill'
 import OpGaleriaCarousel from './OpGaleriaCarousel'
@@ -169,6 +170,7 @@ export default function TaskViewModal({
   const [plotAIRecoLoading, setPlotAIRecoLoading] = useState(false)
   const [plotAIRecoText, setPlotAIRecoText] = useState('')
   const [plotAIRecoError, setPlotAIRecoError] = useState<string | null>(null)
+  const [plotAIRecoMode, setPlotAIRecoMode] = useState<'reco' | 'corroborar'>('reco')
   const [historial, setHistorial] = useState<HistorialMovimiento[]>([])
   const [historialLoading, setHistorialLoading] = useState(false)
   const [historialError, setHistorialError] = useState<string | null>(null)
@@ -372,6 +374,7 @@ export default function TaskViewModal({
   }, [ordenIdView, exhaustiveDetail])
 
   const openPlotAIRecommendations = () => {
+    setPlotAIRecoMode('reco')
     setPlotAIRecoOpen(true)
     setPlotAIRecoError(null)
     setPlotAIRecoText('')
@@ -382,6 +385,24 @@ export default function TaskViewModal({
       })
       .catch((err) => {
         setPlotAIRecoError(err instanceof Error ? err.message : 'No se pudo obtener la recomendación.')
+      })
+      .finally(() => {
+        setPlotAIRecoLoading(false)
+      })
+  }
+
+  const openPlotAICorroborar = () => {
+    setPlotAIRecoMode('corroborar')
+    setPlotAIRecoOpen(true)
+    setPlotAIRecoError(null)
+    setPlotAIRecoText('')
+    setPlotAIRecoLoading(true)
+    void fetchPlotAICorroborarOp(viewTask)
+      .then((text) => {
+        setPlotAIRecoText(text.trim())
+      })
+      .catch((err) => {
+        setPlotAIRecoError(err instanceof Error ? err.message : 'No se pudo corroborar ítem, pago y factura.')
       })
       .finally(() => {
         setPlotAIRecoLoading(false)
@@ -488,13 +509,7 @@ export default function TaskViewModal({
               {exhaustiveError}
             </p>
           )}
-          <div
-            className={
-              exhaustiveDetail
-                ? 'task-view-banner'
-                : 'task-view-banner task-view-banner--with-action'
-            }
-          >
+          <div className="task-view-banner task-view-banner--with-action">
             <span className="task-view-banner-icon" aria-hidden="true">
               👁
             </span>
@@ -508,16 +523,26 @@ export default function TaskViewModal({
                   : 'Para editar usá el botón ✏️ en la tarjeta del tablero.'}
               </p>
             </div>
-            {!exhaustiveDetail && (
+            <div className="task-view-banner-actions">
               <button
                 type="button"
-                className="task-view-plotai-reco-btn"
-                onClick={openPlotAIRecommendations}
+                className="task-view-plotai-reco-btn task-view-plotai-reco-btn--corroborar"
+                onClick={openPlotAICorroborar}
                 disabled={plotAIRecoLoading}
               >
-                {plotAIRecoLoading ? 'Generando…' : 'Recomendación de PlotAI'}
+                {plotAIRecoLoading && plotAIRecoMode === 'corroborar' ? 'Corroborando…' : 'Corroborar'}
               </button>
-            )}
+              {!exhaustiveDetail && (
+                <button
+                  type="button"
+                  className="task-view-plotai-reco-btn"
+                  onClick={openPlotAIRecommendations}
+                  disabled={plotAIRecoLoading}
+                >
+                  {plotAIRecoLoading && plotAIRecoMode === 'reco' ? 'Generando…' : 'Recomendación de PlotAI'}
+                </button>
+              )}
+            </div>
           </div>
 
           <section className="task-view-hero-card">
@@ -989,12 +1014,16 @@ export default function TaskViewModal({
             onClick={(e) => e.stopPropagation()}
           >
             <header className="task-view-reco-header">
-              <h2 id="task-view-reco-heading">Recomendación de PlotAI</h2>
+              <h2 id="task-view-reco-heading">
+                {plotAIRecoMode === 'corroborar'
+                  ? 'Corroborar ítem, pago y factura'
+                  : 'Recomendación de PlotAI'}
+              </h2>
               <button
                 type="button"
                 className="task-view-reco-close"
                 onClick={() => setPlotAIRecoOpen(false)}
-                aria-label="Cerrar recomendaciones"
+                aria-label="Cerrar"
               >
                 Cerrar
               </button>
@@ -1002,7 +1031,9 @@ export default function TaskViewModal({
             <div className="task-view-reco-body">
               {plotAIRecoLoading && (
                 <p className="task-view-reco-status" role="status">
-                  Analizando la ficha y generando recomendaciones, ideas y buenas prácticas…
+                  {plotAIRecoMode === 'corroborar'
+                    ? 'PlotAI compara el ítem de la ficha con el pago y la factura…'
+                    : 'Analizando la ficha y generando recomendaciones, ideas y buenas prácticas…'}
                 </p>
               )}
               {plotAIRecoError && (

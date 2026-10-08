@@ -1229,6 +1229,17 @@
   white-space: nowrap;
 }
 
+.venta-pipeline-card__autor {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fde68a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .venta-pipeline-card__num {
   display: block;
   font-size: 0.68rem;

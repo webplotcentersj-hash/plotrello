@@ -16032,14 +16032,18 @@ class ApiService {
   async actualizarEstadoPresupuestoVenta(
     idPresupuesto: number,
     estado: 'borrador' | 'enviado' | 'aceptado' | 'rechazado' | 'cancelado' | 'convertido',
-    observacionesInternas?: string
+    observacionesInternas?: string,
+    actor?: import('../types/api').PresupuestoVentaActor
   ): Promise<ApiResponse<PresupuestoVentaRecord>> {
     if (supabase) {
       try {
         const { data, error } = await supabase.rpc('actualizar_estado_presupuesto_venta', {
           p_id_presupuesto: idPresupuesto,
           p_estado: estado,
-          p_observaciones_internas: observacionesInternas || null
+          p_observaciones_internas: observacionesInternas || null,
+          p_actor_id: actor?.id ?? null,
+          p_actor_nombre: actor?.nombre || null,
+          p_motivo: actor?.motivo || null
         })
 
         const rpcOk = Array.isArray(data) ? data.length > 0 : Boolean(data)
@@ -16070,7 +16074,8 @@ class ApiService {
 
   async vincularPresupuestoVentaAVenta(
     idPresupuesto: number,
-    idVenta: number
+    idVenta: number,
+    actor?: import('../types/api').PresupuestoVentaActor
   ): Promise<ApiResponse<PresupuestoVentaRecord>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
     try {
@@ -16082,7 +16087,7 @@ class ApiService {
         })
         .eq('id', idPresupuesto)
       if (error) return { success: false, error: error.message }
-      return this.actualizarEstadoPresupuestoVenta(idPresupuesto, 'convertido')
+      return this.actualizarEstadoPresupuestoVenta(idPresupuesto, 'convertido', undefined, actor)
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
     }
@@ -16118,6 +16123,48 @@ class ApiService {
       }
     }
     return { success: false, error: 'No hay conexión a Supabase' }
+  }
+
+  async listAuditoriaPresupuestoVenta(
+    idPresupuesto: number
+  ): Promise<ApiResponse<import('../types/api').PresupuestoVentaAuditoria[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase
+        .from('presupuestos_ventas_auditoria')
+        .select('*')
+        .eq('id_presupuesto', idPresupuesto)
+        .order('created_at', { ascending: false })
+        .limit(80)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as import('../types/api').PresupuestoVentaAuditoria[]) ?? [] }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al leer auditoría'
+      }
+    }
+  }
+
+  async registrarAuditoriaPresupuestoVenta(params: {
+    idPresupuesto: number
+    accion: string
+    actor?: import('../types/api').PresupuestoVentaActor
+    detalle?: Record<string, unknown> | null
+  }): Promise<void> {
+    if (!supabase) return
+    try {
+      await supabase.rpc('registrar_auditoria_presupuesto_venta', {
+        p_id_presupuesto: params.idPresupuesto,
+        p_accion: params.accion,
+        p_actor_id: params.actor?.id ?? null,
+        p_actor_nombre: params.actor?.nombre || null,
+        p_motivo: params.actor?.motivo || null,
+        p_detalle: params.detalle ?? null
+      })
+    } catch {
+      /* no bloquear la acción si falla el log */
+    }
   }
 
   /**
@@ -20787,6 +20834,41 @@ class ApiService {
     }
   }
 
+  async obtenerVentasPorOp(params: {
+    idOp?: number | null
+    numeroOp?: string | null
+  }): Promise<ApiResponse<Array<import('../types/api').Venta>>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    const idOp = Number(params.idOp)
+    const numero = String(params.numeroOp || '').trim()
+    const hasId = Number.isFinite(idOp) && idOp > 0
+    if (!hasId && !numero) return { success: true, data: [] }
+    try {
+      let query = supabase.from('ventas').select('*').order('fecha_venta', { ascending: false }).limit(30)
+      if (hasId && numero) {
+        query = query.or(`id_op.eq.${idOp},numero_op.eq.${numero}`)
+      } else if (hasId) {
+        query = query.eq('id_op', idOp)
+      } else {
+        query = query.eq('numero_op', numero)
+      }
+      const { data, error } = await query
+      if (!error) {
+        return { success: true, data: (data as import('../types/api').Venta[]) ?? [] }
+      }
+      const all = await this.obtenerVentas(undefined, undefined, undefined, 'todos')
+      if (!all.success || !all.data) return { success: false, error: error.message }
+      const filtered = all.data.filter((v) => {
+        if (hasId && Number(v.id_op) === idOp) return true
+        if (numero && String(v.numero_op || '').trim() === numero) return true
+        return false
+      })
+      return { success: true, data: filtered }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al buscar ventas de la OP' }
+    }
+  }
+
   async obtenerVentas(
     idVendedor?: number,
     fechaDesde?: string,
@@ -22455,6 +22537,7 @@ class ApiService {
     tipo_comprobante?: string
     id_cliente?: number
     id_op?: number
+    id_venta?: number
   }): Promise<ApiResponse<import('../types/api').FacturaVentaRecord[]>> {
     if (supabase) {
       try {
@@ -22484,6 +22567,9 @@ class ApiService {
         }
         if (filters?.id_op) {
           query = query.eq('id_op', filters.id_op)
+        }
+        if (filters?.id_venta) {
+          query = query.eq('id_venta', filters.id_venta)
         }
 
         const { data, error } = await query

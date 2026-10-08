@@ -235,6 +235,11 @@
   grid-column: 1 / -1;
 }
 
+.grafico-card--lead {
+  grid-column: auto;
+  margin-bottom: 24px;
+}
+
 .articulos-rank__head h3 {
   margin: 0;
 }
@@ -363,6 +368,10 @@
 
 .articulos-rank__stat--money strong {
   color: #34d399;
+}
+
+.articulos-rank__stat--hoy strong {
+  color: #fbbf24;
 }
 
 .articulos-rank__share {

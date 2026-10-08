@@ -14,6 +14,7 @@ import type {
   ClienteRecord,
   PresupuestoVentaRecord,
   PresupuestoVentaItemRecord,
+  PresupuestoVentaAuditoria,
   EstadoPresupuestoCliente
 } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
@@ -249,12 +250,16 @@ function tabIdsPermitidos(vistaPropia: boolean): readonly string[] {
 const CRMVentasPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { canAccessMostradorViews, usuario, nombreVisible, isAdmin, isPresupuestos, loading: authLoading } = useAuth()
+  const { usuario, nombreVisible, isAdmin, isPresupuestos, loading: authLoading } = useAuth()
   const { slug: cajaSlugPropia, nombre: cajaNombrePropia } = useCajaOperativa()
   const vistaPropia = esVistaVentasPropiaVendedor(isAdmin, isPresupuestos)
   const idVendedorScope = idVendedorParaConsulta(isAdmin, isPresupuestos, usuario?.id)
   const usuarioEtiquetaCaja = nombreVisible || resolveUsuarioCajaEtiqueta(usuario?.nombre ?? 'Usuario')
   const nombreOperador = nombreVisible || usuario?.nombre || 'Usuario'
+  const actorPresupuesto = useMemo(
+    () => ({ id: usuario?.id ?? null, nombre: nombreOperador }),
+    [usuario?.id, nombreOperador]
+  )
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<VentasTabId>(() => {
     try {
@@ -413,6 +418,7 @@ const CRMVentasPage = () => {
   const [presupuestoModalId, setPresupuestoModalId] = useState<number | null>(null)
   const [presupuestoModalItems, setPresupuestoModalItems] = useState<PresupuestoVentaItemRecord[]>([])
   const [presupuestoModalLoading, setPresupuestoModalLoading] = useState(false)
+  const [presupuestoAuditoria, setPresupuestoAuditoria] = useState<PresupuestoVentaAuditoria[]>([])
 
   // PlotAI informe (solo modal Nueva/Editar Oportunidad)
   const [plotAiInforme, setPlotAiInforme] = useState<string>('')
@@ -424,8 +430,8 @@ const CRMVentasPage = () => {
   const [presupuestosFiltrados, setPresupuestosFiltrados] = useState<PresupuestoVentaRecord[]>([])
   const [filtroEstadoPresupuesto, setFiltroEstadoPresupuesto] = useState<string>('todos')
   const [busquedaPresupuesto, setBusquedaPresupuesto] = useState('')
-  const [fechaDesdePresupuesto, setFechaDesdePresupuesto] = useState(() => getArgentinaDateString())
-  const [fechaHastaPresupuesto, setFechaHastaPresupuesto] = useState(() => getArgentinaDateString())
+  const [fechaDesdePresupuesto, setFechaDesdePresupuesto] = useState('')
+  const [fechaHastaPresupuesto, setFechaHastaPresupuesto] = useState('')
 
   const etiquetaUrgencia = (u: UrgenciaProximaAccion): string | null => {
     if (u === 'vencida') return 'Acción vencida'
@@ -708,6 +714,20 @@ const CRMVentasPage = () => {
     return accion
   }
 
+  const etiquetaAuditoriaPresupuesto = (row: PresupuestoVentaAuditoria) => {
+    if (row.accion === 'creado') return 'creó el presupuesto'
+    if (row.accion === 'generar_venta') return 'abrió generar venta'
+    if (row.accion === 'estado') {
+      const desde = typeof row.detalle?.desde === 'string' ? row.detalle.desde : ''
+      const hasta = typeof row.detalle?.hasta === 'string' ? row.detalle.hasta : ''
+      if (desde && hasta) {
+        return `cambió el estado de ${labelEstadoPresupuesto(desde as EstadoPresupuestoCliente)} a ${labelEstadoPresupuesto(hasta as EstadoPresupuestoCliente)}`
+      }
+      return 'cambió el estado'
+    }
+    return row.accion
+  }
+
   const presupuestosPorEstado = useMemo(() => {
     const map: Record<EstadoPresupuestoCliente, PresupuestoVentaRecord[]> = {
       borrador: [],
@@ -743,21 +763,29 @@ const CRMVentasPage = () => {
   const cerrarPresupuestoModal = useCallback(() => {
     setPresupuestoModalId(null)
     setPresupuestoModalItems([])
+    setPresupuestoAuditoria([])
     setPresupuestoModalLoading(false)
   }, [])
 
   useEffect(() => {
-    if (presupuestoModalId == null) return
+    if (presupuestoModalId == null) {
+      setPresupuestoAuditoria([])
+      return
+    }
     let cancelled = false
     const run = async () => {
       setPresupuestoModalLoading(true)
-      const detalle = await apiService.obtenerDetallePresupuestoVenta(presupuestoModalId)
+      const [detalle, aud] = await Promise.all([
+        apiService.obtenerDetallePresupuestoVenta(presupuestoModalId),
+        apiService.listAuditoriaPresupuestoVenta(presupuestoModalId)
+      ])
       if (cancelled) return
       if (detalle.success && detalle.data) {
         setPresupuestoModalItems(detalle.data.items)
       } else {
         setPresupuestoModalItems([])
       }
+      setPresupuestoAuditoria(aud.success && aud.data ? aud.data : [])
       setPresupuestoModalLoading(false)
     }
     void run()
@@ -871,17 +899,17 @@ const CRMVentasPage = () => {
     }
   }, [formOportunidad, nombreOperador])
 
-  // Verificar permisos (mostrador, caja, presupuestos, admin)
+  // Presupuestos compartidos: cualquier usuario logueado puede ver y gestionar el pipeline
   useEffect(() => {
-    if (authLoading) return // Esperar a que termine de cargar el usuario
+    if (authLoading) return
 
-    if (!canAccessMostradorViews) {
+    if (!usuario) {
       navigate('/')
       return
     }
 
     loadData()
-  }, [canAccessMostradorViews, navigate, authLoading])
+  }, [usuario, navigate, authLoading])
 
   // Escuchar eventos de venta creada desde otros componentes
   useEffect(() => {
@@ -1012,10 +1040,8 @@ const CRMVentasPage = () => {
         setIdsVentasFacturadas(new Set())
       }
       
-      // Cargar presupuestos de ventas presenciales
-      const presupuestosResponse = await apiService.getPresupuestosVentasAdmin(
-        idVendedorScope != null ? { id_vendedor: idVendedorScope } : undefined
-      )
+      // Pipeline compartido: todos ven todos los presupuestos presenciales
+      const presupuestosResponse = await apiService.getPresupuestosVentasAdmin()
       if (presupuestosResponse.success && presupuestosResponse.data) {
         // Filtrar solo presupuestos de ventas presenciales (no clientes web)
         // Por ahora usamos todos, pero se puede filtrar por algún campo que identifique ventas presenciales
@@ -1059,7 +1085,7 @@ const CRMVentasPage = () => {
         else if (modo === 'whatsapp') await enviarPresupuestoPorWhatsapp(p, items)
         else await enviarPresupuestoPorEmail(p, items)
         if (p.estado === 'borrador') {
-          await apiService.actualizarEstadoPresupuestoVenta(p.id, 'enviado')
+          await apiService.actualizarEstadoPresupuestoVenta(p.id, 'enviado', undefined, actorPresupuesto)
           void loadData()
         }
       } catch (e) {
@@ -1067,7 +1093,7 @@ const CRMVentasPage = () => {
         alert('Error al generar o enviar el PDF')
       }
     },
-    []
+    [actorPresupuesto]
   )
 
   const abrirVentaDesdePresupuesto = useCallback(
@@ -1081,7 +1107,12 @@ const CRMVentasPage = () => {
 
       let actual = presupuesto
       if (actual.estado !== 'aceptado' && actual.estado !== 'convertido') {
-        const resEstado = await apiService.actualizarEstadoPresupuestoVenta(actual.id, 'aceptado')
+        const resEstado = await apiService.actualizarEstadoPresupuestoVenta(
+          actual.id,
+          'aceptado',
+          undefined,
+          actorPresupuesto
+        )
         if (resEstado.success) {
           actual = resEstado.data
             ? { ...actual, ...resEstado.data, estado: 'aceptado' }
@@ -1099,23 +1130,35 @@ const CRMVentasPage = () => {
         }
         items = detalle.data.items
       }
+      void apiService.registrarAuditoriaPresupuestoVenta({
+        idPresupuesto: actual.id,
+        accion: 'generar_venta',
+        actor: actorPresupuesto
+      })
       cerrarPresupuestoModal()
       setPresupuestoParaVenta({ presupuesto: actual, items })
       setShowVentaRapida(true)
     },
-    [abrirVentaModal, cerrarPresupuestoModal, presupuestoModalItems]
+    [abrirVentaModal, actorPresupuesto, cerrarPresupuestoModal, presupuestoModalItems]
   )
 
   const actualizarEstadoPresupuestoModal = useCallback(
     async (presupuesto: PresupuestoVentaRecord, estado: EstadoPresupuestoCliente) => {
       try {
-        const res = await apiService.actualizarEstadoPresupuestoVenta(presupuesto.id, estado)
+        const res = await apiService.actualizarEstadoPresupuestoVenta(
+          presupuesto.id,
+          estado,
+          undefined,
+          actorPresupuesto
+        )
         if (!res.success) {
           alert(res.error || 'No se pudo actualizar el estado del presupuesto.')
           return
         }
         const actualizado = res.data ? { ...presupuesto, ...res.data, estado } : { ...presupuesto, estado }
         setPresupuestos((prev) => prev.map((p) => (p.id === presupuesto.id ? actualizado : p)))
+        const aud = await apiService.listAuditoriaPresupuestoVenta(presupuesto.id)
+        if (aud.success && aud.data) setPresupuestoAuditoria(aud.data)
         if (estado === 'aceptado' || (estado === 'convertido' && !actualizado.id_venta_asociada)) {
           await abrirVentaDesdePresupuesto(actualizado)
         }
@@ -1124,7 +1167,7 @@ const CRMVentasPage = () => {
         alert(error instanceof Error ? error.message : 'No se pudo actualizar el estado del presupuesto.')
       }
     },
-    [abrirVentaDesdePresupuesto]
+    [abrirVentaDesdePresupuesto, actorPresupuesto]
   )
 
   // Filtros oportunidades
@@ -1281,6 +1324,7 @@ const CRMVentasPage = () => {
           if (p.cliente_email?.toLowerCase().includes(busqueda)) return true
           if (p.observaciones_cliente?.toLowerCase().includes(busqueda)) return true
           if (p.observaciones_internas?.toLowerCase().includes(busqueda)) return true
+          if (p.nombre_vendedor?.toLowerCase().includes(busqueda)) return true
           if (p.precio_total?.toString().includes(busqueda)) return true
           return false
         })
@@ -3618,6 +3662,7 @@ const CRMVentasPage = () => {
             <div>
               <h2>Presupuestos presenciales</h2>
               <p>
+                Pipeline compartido: todos pueden ver, cambiar estado, aprobar y generar venta. Queda quién lo armó y el trazado de cada cambio.
                 Armá desde la <button type="button" className="ventas-link-btn" onClick={() => setActiveTab('lista-precios')}>Lista de precios</button>{' '}
                 (Lista 1 efectivo/débito · Lista 2 cuenta corriente). Los presupuestos online del portal (PCL) se gestionan en Clientes Web.
               </p>
@@ -3719,6 +3764,9 @@ const CRMVentasPage = () => {
                           </span>
                         </div>
                         <span className="venta-pipeline-card__num">{presupuesto.numero_presupuesto}</span>
+                        <span className="venta-pipeline-card__autor">
+                          {presupuesto.nombre_vendedor || 'Sin autor'}
+                        </span>
                         <div className="venta-pipeline-card__meta">
                           <span>{formatArgentinaDate(presupuesto.fecha_creacion)}</span>
                           {presupuesto.tipo_lista_precio ? (
@@ -3818,12 +3866,12 @@ const CRMVentasPage = () => {
                         </span>
                       </div>
                     ) : null}
-                    {presupuestoModal.nombre_vendedor ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">Vendedor</span>
-                        <span className="venta-compact-v">{presupuestoModal.nombre_vendedor}</span>
-                      </div>
-                    ) : null}
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Lo hizo</span>
+                      <span className="venta-compact-v">
+                        {presupuestoModal.nombre_vendedor || 'Sin autor registrado'}
+                      </span>
+                    </div>
                     {presupuestoModal.cliente_telefono ? (
                       <div className="venta-compact-row">
                         <span className="venta-compact-k">Tel / WhatsApp</span>
@@ -3964,6 +4012,24 @@ const CRMVentasPage = () => {
                       <p className="venta-detail-block__text">{presupuestoModal.observaciones_cliente}</p>
                     </div>
                   ) : null}
+
+                  <div className="venta-detail-block venta-detail-block--audit">
+                    <h3 className="venta-detail-block__title">Trazado de cambios</h3>
+                    {presupuestoAuditoria.length > 0 ? (
+                      <ul className="venta-detail-audit">
+                        {presupuestoAuditoria.map((row) => (
+                          <li key={row.id}>
+                            <strong>{row.actor_nombre || 'Usuario'}</strong>{' '}
+                            {etiquetaAuditoriaPresupuesto(row)}
+                            <span> · {formatArgentinaDate(row.created_at)}</span>
+                            {row.motivo ? <em> — {row.motivo}</em> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="venta-detail-block__text">Todavía no hay cambios registrados.</p>
+                    )}
+                  </div>
 
                   {presupuestoModal.observaciones_internas ? (
                     <div className="venta-detail-block venta-detail-block--notes venta-detail-block--notes-internal">

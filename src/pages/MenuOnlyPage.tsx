@@ -79,7 +79,7 @@ export default function MenuOnlyPage({ onLogout }: { onLogout: () => void }) {
         description: 'Venta rápida, cobros y listado',
         icon: '🧾',
         path: '/ventas',
-        enabled: canAccessMostradorViews
+        enabled: Boolean(usuario)
       },
       {
         id: 'facturas',

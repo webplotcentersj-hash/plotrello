@@ -745,7 +745,8 @@ const VentaRapidaModal = ({
       if (prefillDesdePresupuesto?.presupuesto.id) {
         const vinculo = await apiService.vincularPresupuestoVentaAVenta(
           prefillDesdePresupuesto.presupuesto.id,
-          ventaData.id
+          ventaData.id,
+          { id: usuarioId, nombre: usuarioNombre }
         )
         if (!vinculo.success) {
           console.warn('No se pudo marcar el presupuesto como convertido:', vinculo.error)
@@ -857,17 +858,7 @@ const VentaRapidaModal = ({
   }, [ventaCreada?.id, showMpCheckout])
 
   return createPortal(
-    <div
-      className="venta-rapida-modal-overlay"
-      onMouseDown={(e) => {
-        if (ventaCreada || showMpCheckout) return
-        if (e.target === e.currentTarget) onClose()
-      }}
-      onTouchStart={(e) => {
-        if (ventaCreada || showMpCheckout) return
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
+    <div className="venta-rapida-modal-overlay">
       <div
         className={`venta-rapida-modal${uiVariant === 'mostrador' ? ' venta-rapida-modal--mostrador' : ''}`}
         onClick={(e) => e.stopPropagation()}

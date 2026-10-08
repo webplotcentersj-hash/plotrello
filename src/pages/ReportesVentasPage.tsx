@@ -1,13 +1,34 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { Venta } from '../types/api'
-import { formatArgentinaDate } from '../utils/dateUtils'
+import { formatArgentinaDate, getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
 import { VENTAS } from '../utils/ventasRoutes'
 import { idVendedorParaConsulta } from '../utils/ventasCajaScope'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './ReportesVentasPage.css'
+
+function fechaVentaKey(v: Venta): string {
+  const raw = String(v.fecha_venta || '').trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10)
+  return isoToArgentinaDateKey(raw)
+}
+
+function ingresoVenta(v: Venta): number {
+  if (v.estado_pago === 'Cancelado') return 0
+  return Number(v.valor_total) || 0
+}
+
+function primerDiaMes(hoy: string): string {
+  return `${hoy.slice(0, 7)}-01`
+}
+
+function etiquetaMes(hoy: string): string {
+  const [y, m] = hoy.split('-')
+  const d = new Date(Number(y), Number(m) - 1, 1)
+  return d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+}
 
 const ReportesVentasPage = () => {
   const navigate = useNavigate()
@@ -15,6 +36,7 @@ const ReportesVentasPage = () => {
   const idVendedorScope = idVendedorParaConsulta(isAdmin, isPresupuestos, usuario?.id)
   const [loading, setLoading] = useState(true)
   const [ventas, setVentas] = useState<Venta[]>([])
+  const [ventasMes, setVentasMes] = useState<Venta[]>([])
   const [fechaDesde, setFechaDesde] = useState(() => {
     const date = new Date()
     date.setMonth(date.getMonth() - 1)
@@ -47,12 +69,16 @@ const ReportesVentasPage = () => {
   const loadVentas = async () => {
     setLoading(true)
     try {
-      const response = await apiService.obtenerVentas(
-        idVendedorScope,
-        fechaDesde || undefined,
-        fechaHasta || undefined,
-        'todos'
-      )
+      const hoy = getArgentinaDateString()
+      const [response, mesRes] = await Promise.all([
+        apiService.obtenerVentas(
+          idVendedorScope,
+          fechaDesde || undefined,
+          fechaHasta || undefined,
+          'todos'
+        ),
+        apiService.obtenerVentas(idVendedorScope, primerDiaMes(hoy), hoy, 'todos')
+      ])
       
       if (response.success && response.data) {
         setVentas(response.data)
@@ -60,9 +86,15 @@ const ReportesVentasPage = () => {
         console.error('Error cargando ventas:', response.error)
         setVentas([])
       }
+      if (mesRes.success && mesRes.data) {
+        setVentasMes(mesRes.data)
+      } else {
+        setVentasMes([])
+      }
     } catch (error: any) {
       console.error('Error cargando ventas:', error)
       setVentas([])
+      setVentasMes([])
     } finally {
       setLoading(false)
     }
@@ -213,32 +245,6 @@ const ReportesVentasPage = () => {
     const ingresosArticulos = topItemsAll.reduce((sum, item) => sum + item.ingresos, 0)
     const unidadesVendidas = topItemsAll.reduce((sum, item) => sum + item.cantidad, 0)
 
-    const porOperario = ventas.reduce((acc, v) => {
-      const nombre = v.nombre_vendedor?.trim() || 'Sin vendedor'
-      if (!acc[nombre]) {
-        acc[nombre] = { unidades: 0, ingresos: 0, ventas: 0, articulos: new Set<string>() }
-      }
-      acc[nombre].ventas += 1
-      for (const item of v.items ?? []) {
-        const qty = Number(item.cantidad) || 0
-        acc[nombre].unidades += qty
-        acc[nombre].ingresos += Number(item.precio_total) || 0
-        const key = (item.descripcion || item.codigo_articulo || '').trim()
-        if (key) acc[nombre].articulos.add(key)
-      }
-      return acc
-    }, {} as Record<string, { unidades: number; ingresos: number; ventas: number; articulos: Set<string> }>)
-
-    const articulosPorOperario = Object.entries(porOperario)
-      .map(([nombre, datos]) => ({
-        nombre,
-        unidades: datos.unidades,
-        ingresos: datos.ingresos,
-        ventas: datos.ventas,
-        articulos: datos.articulos.size
-      }))
-      .sort((a, b) => b.unidades - a.unidades || b.ingresos - a.ingresos)
-
     return {
       totalVentas,
       totalIngresos,
@@ -259,8 +265,7 @@ const ReportesVentasPage = () => {
       topItems,
       articulosDistintos: topItemsAll.length,
       ingresosArticulos,
-      unidadesVendidas,
-      articulosPorOperario
+      unidadesVendidas
     }
   }
 
@@ -273,6 +278,46 @@ const ReportesVentasPage = () => {
   }
 
   const estadisticas = getEstadisticas()
+  const hoyKey = getArgentinaDateString()
+  const mesLabel = etiquetaMes(hoyKey)
+  const operariosDiaMes = useMemo(() => {
+    const acc: Record<
+      string,
+      { ventasHoy: number; ingresosHoy: number; ventasMes: number; ingresosMes: number }
+    > = {}
+    for (const v of ventasMes) {
+      if (v.estado_pago === 'Cancelado') continue
+      const nombre = v.nombre_vendedor?.trim() || 'Sin vendedor'
+      if (!acc[nombre]) {
+        acc[nombre] = { ventasHoy: 0, ingresosHoy: 0, ventasMes: 0, ingresosMes: 0 }
+      }
+      const monto = ingresoVenta(v)
+      acc[nombre].ventasMes += 1
+      acc[nombre].ingresosMes += monto
+      if (fechaVentaKey(v) === hoyKey) {
+        acc[nombre].ventasHoy += 1
+        acc[nombre].ingresosHoy += monto
+      }
+    }
+    return Object.entries(acc)
+      .map(([nombre, datos]) => ({ nombre, ...datos }))
+      .sort((a, b) => {
+        if (b.ingresosHoy !== a.ingresosHoy) return b.ingresosHoy - a.ingresosHoy
+        if (b.ventasHoy !== a.ventasHoy) return b.ventasHoy - a.ventasHoy
+        return b.ingresosMes - a.ingresosMes
+      })
+  }, [ventasMes, hoyKey])
+  const totalesOperario = useMemo(
+    () =>
+      operariosDiaMes.reduce(
+        (sum, op) => ({
+          hoy: sum.hoy + op.ingresosHoy,
+          mes: sum.mes + op.ingresosMes
+        }),
+        { hoy: 0, mes: 0 }
+      ),
+    [operariosDiaMes]
+  )
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
@@ -320,6 +365,78 @@ const ReportesVentasPage = () => {
             className="filtro-input"
           />
         </div>
+      </div>
+
+      <div className="grafico-card grafico-card--articulos grafico-card--lead">
+        <div className="articulos-rank__head">
+          <div>
+            <h3>Artículos por operario</h3>
+            <p>
+              Ingresos de hoy ({hoyKey.slice(8, 10)}/{hoyKey.slice(5, 7)}) y acumulado de {mesLabel}
+            </p>
+          </div>
+        </div>
+        <div className="articulos-kpis">
+          <div className="articulos-kpi">
+            <span>Ingresos de hoy</span>
+            <strong>
+              ${totalesOperario.hoy.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+            </strong>
+          </div>
+          <div className="articulos-kpi">
+            <span>Acumulado {mesLabel}</span>
+            <strong>
+              ${totalesOperario.mes.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+            </strong>
+          </div>
+          <div className="articulos-kpi">
+            <span>Operarios con venta hoy</span>
+            <strong>{operariosDiaMes.filter((op) => op.ventasHoy > 0).length}</strong>
+          </div>
+          <div className="articulos-kpi">
+            <span>Operarios en el mes</span>
+            <strong>{operariosDiaMes.length}</strong>
+          </div>
+        </div>
+        {operariosDiaMes.length === 0 ? (
+          <p className="articulos-rank__empty">No hay ventas en el mes en curso.</p>
+        ) : (
+          <ol className="articulos-rank">
+            {operariosDiaMes.map((op) => {
+              const maxHoy = Math.max(operariosDiaMes[0]?.ingresosHoy || 0, 1)
+              return (
+                <li key={op.nombre} className="articulos-rank__row articulos-rank__row--operario">
+                  <div className="articulos-rank__main">
+                    <div className="articulos-rank__name" title={op.nombre}>{op.nombre}</div>
+                    <div className="articulos-rank__bar" aria-hidden>
+                      <span style={{ width: `${Math.max(4, (op.ingresosHoy / maxHoy) * 100)}%` }} />
+                    </div>
+                  </div>
+                  <div className="articulos-rank__stat">
+                    <span>Ventas hoy</span>
+                    <strong>{op.ventasHoy}</strong>
+                  </div>
+                  <div className="articulos-rank__stat articulos-rank__stat--money articulos-rank__stat--hoy">
+                    <span>Ingresos hoy</span>
+                    <strong>
+                      ${op.ingresosHoy.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                    </strong>
+                  </div>
+                  <div className="articulos-rank__stat">
+                    <span>Ventas mes</span>
+                    <strong>{op.ventasMes}</strong>
+                  </div>
+                  <div className="articulos-rank__stat articulos-rank__stat--money">
+                    <span>Acumulado mes</span>
+                    <strong>
+                      ${op.ingresosMes.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                    </strong>
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+        )}
       </div>
 
       {/* Métricas principales */}
@@ -451,52 +568,6 @@ const ReportesVentasPage = () => {
               <Bar dataKey="cantidad" fill="#3b82f6" name="Compras" />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-
-        <div className="grafico-card grafico-card--articulos">
-          <div className="articulos-rank__head">
-            <div>
-              <h3>Artículos por operario</h3>
-              <p>Unidades vendidas por quien registró la venta, en el período</p>
-            </div>
-          </div>
-          {estadisticas.articulosPorOperario.length === 0 ? (
-            <p className="articulos-rank__empty">No hay ventas en este período.</p>
-          ) : (
-            <ol className="articulos-rank">
-              {estadisticas.articulosPorOperario.map((op) => {
-                const maxUnidades = estadisticas.articulosPorOperario[0]?.unidades || 1
-                return (
-                  <li key={op.nombre} className="articulos-rank__row articulos-rank__row--operario">
-                    <div className="articulos-rank__main">
-                      <div className="articulos-rank__name" title={op.nombre}>{op.nombre}</div>
-                      <div className="articulos-rank__bar" aria-hidden>
-                        <span style={{ width: `${Math.max(4, (op.unidades / maxUnidades) * 100)}%` }} />
-                      </div>
-                    </div>
-                    <div className="articulos-rank__stat">
-                      <span>Ventas</span>
-                      <strong>{op.ventas}</strong>
-                    </div>
-                    <div className="articulos-rank__stat">
-                      <span>Artículos distintos</span>
-                      <strong>{op.articulos}</strong>
-                    </div>
-                    <div className="articulos-rank__stat articulos-rank__stat--money">
-                      <span>Unidades</span>
-                      <strong>{op.unidades.toLocaleString('es-AR', { maximumFractionDigits: 2 })}</strong>
-                    </div>
-                    <div className="articulos-rank__stat">
-                      <span>Ingresos</span>
-                      <strong>
-                        ${op.ingresos.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
-                      </strong>
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
-          )}
         </div>
 
         <div className="grafico-card grafico-card--articulos">

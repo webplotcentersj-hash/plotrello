@@ -940,6 +940,23 @@ export interface PresupuestoVentaRecord {
   updated_at?: string
 }
 
+export interface PresupuestoVentaAuditoria {
+  id: number
+  id_presupuesto: number
+  accion: string
+  motivo?: string | null
+  actor_id?: number | null
+  actor_nombre?: string | null
+  detalle?: Record<string, unknown> | null
+  created_at: string
+}
+
+export type PresupuestoVentaActor = {
+  id?: number | null
+  nombre?: string | null
+  motivo?: string | null
+}
+
 export interface PresupuestoVentaItemRecord {
   id: number
   id_presupuesto: number

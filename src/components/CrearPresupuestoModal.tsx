@@ -481,7 +481,10 @@ const CrearPresupuestoModal = ({
     try {
       await fn()
       if (presupuestoCreado.estado === 'borrador') {
-        await apiService.actualizarEstadoPresupuestoVenta(presupuestoCreado.id, 'enviado')
+        await apiService.actualizarEstadoPresupuestoVenta(presupuestoCreado.id, 'enviado', undefined, {
+          id: usuarioId,
+          nombre: usuarioNombre
+        })
         setPresupuestoCreado({ ...presupuestoCreado, estado: 'enviado' })
       }
     } catch (e) {
@@ -493,13 +496,7 @@ const CrearPresupuestoModal = ({
   }
 
   return (
-    <div
-      className="modal-overlay"
-      onMouseDown={(e) => {
-        if (presupuestoCreado) return
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
+    <div className="modal-overlay">
       <div className="modal-content presupuesto-venta-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>📄 Crear Presupuesto de Venta</h2>

@@ -97,29 +97,33 @@ const FiltersBar = ({
             </button>
           </div>
         )}
-        {canAccessMostradorViews && usuario && (
+        {usuario && (
           <div className="filters-bar-phone-row filters-bar-phone-row--acciones">
-            <button
-              type="button"
-              className="venta-rapida-button filters-bar-phone-add"
-              onClick={() => setShowVentaRapida(true)}
-              title="Venta (tecla V)"
-            >
-              💰 Venta
-            </button>
-            <button
-              type="button"
-              className="factura-button filters-bar-phone-add"
-              onClick={() => navigate('/erp/facturas/nueva')}
-              title="Emitir factura electrónica"
-            >
-              Facturar
-            </button>
+            {canAccessMostradorViews && (
+              <button
+                type="button"
+                className="venta-rapida-button filters-bar-phone-add"
+                onClick={() => setShowVentaRapida(true)}
+                title="Venta (tecla V)"
+              >
+                💰 Venta
+              </button>
+            )}
+            {canAccessMostradorViews && (
+              <button
+                type="button"
+                className="factura-button filters-bar-phone-add"
+                onClick={() => navigate('/erp/facturas/nueva')}
+                title="Emitir factura electrónica"
+              >
+                Facturar
+              </button>
+            )}
             <button
               type="button"
               className="presupuesto-button filters-bar-phone-add"
               onClick={() => navigate('/ventas?tab=presupuestos')}
-              title="Crear presupuesto de venta"
+              title="Ver y crear presupuestos de venta"
             >
               Presupuesto
             </button>
@@ -208,17 +212,17 @@ const FiltersBar = ({
               Facturar
             </button>
           )}
-          {canAccessMostradorViews && usuario && (
+          {usuario && (
             <button
               type="button"
               className="presupuesto-button"
               onClick={() => navigate('/ventas?tab=presupuestos')}
-              title="Crear presupuesto de venta"
+              title="Ver y crear presupuestos de venta"
             >
               Presupuesto
             </button>
           )}
-          {canAccessMostradorViews && usuario && (
+          {usuario && (
             <button
               type="button"
               className="ventas-nav-button"
