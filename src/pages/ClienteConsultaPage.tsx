@@ -3,10 +3,14 @@ import type { OrdenTrabajo, HistorialMovimiento } from '../types/api'
 import apiService from '../services/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
-import { historialPorOrdenId, historialUnificadoMismoNumeroOp, formatConsultaTimelineComment } from '../utils/consultaOpHistorial'
+import {
+  digitsOnly,
+  ordenCoincideConsulta,
+  historialPorOrdenId,
+  historialUnificadoMismoNumeroOp,
+  formatConsultaTimelineComment
+} from '../utils/consultaOpHistorial'
 import './ClienteConsultaPage.css'
-
-const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
 
 const CONSULTA_CONTACT_EMAIL = 'contacto@plotcenter.com.ar'
 const CONSULTA_WEB_URL = 'https://www.plotcenter.com.ar'
@@ -27,14 +31,29 @@ const ClienteConsultaPage = () => {
     try {
       const term = searchOp.trim()
       const searchDigits = digitsOnly(term)
-      // Buscar en BD por número de OP (no en el listado acotado del tablero).
-      const response =
-        searchDigits.length > 0
-          ? await apiService.searchOrdenesBiblioteca(searchDigits, { limit: 40 })
-          : await apiService.getOrdenes()
+      const consultas = new Set<string>()
+      if (searchDigits) consultas.add(searchDigits)
+      if (term && term !== searchDigits) consultas.add(term)
 
-      if (response.success && response.data) {
-        const ordenesFiltradas = response.data.filter(filtro)
+      const respuestas = await Promise.all(
+        consultas.size > 0
+          ? [...consultas].map((q) => apiService.searchOrdenesBiblioteca(q, { limit: 40 }))
+          : [apiService.getOrdenes()]
+      )
+      const porId = new Map<number, OrdenTrabajo>()
+      let huboError = false
+      for (const response of respuestas) {
+        if (response.success && response.data) {
+          for (const orden of response.data) {
+            if (orden.id != null) porId.set(orden.id, orden)
+          }
+        } else {
+          huboError = true
+        }
+      }
+
+      if (porId.size > 0 || !huboError) {
+        const ordenesFiltradas = [...porId.values()].filter(filtro)
 
         if (ordenesFiltradas.length === 0) {
           setError(mensajeError)
@@ -73,18 +92,18 @@ const ClienteConsultaPage = () => {
   const handleSearchOp = async () => {
     const term = searchOp.trim()
     if (!term) {
-      setError('Ingresá un número de OP para buscar.')
+      setError('Ingresá un número de OP, DNI, CUIT o CUIL.')
       return
     }
     const searchDigits = digitsOnly(term)
     if (!searchDigits) {
-      setError('El número de OP debe contener dígitos.')
+      setError('Ingresá un número de OP, DNI, CUIT o CUIL.')
       return
     }
 
     await buscarOrdenes(
-      (orden) => digitsOnly(orden.numero_op ?? '') === searchDigits,
-      'No se encontraron pedidos con ese número de OP.'
+      (orden) => ordenCoincideConsulta(orden, searchDigits),
+      'No se encontraron pedidos con esos datos.'
     )
   }
 
@@ -146,7 +165,7 @@ const ClienteConsultaPage = () => {
             />
             <div className="header-text">
               <h1>Consulta el Estado de tu Pedido</h1>
-              <p>Ingresá el número de OP para ver el estado de tu pedido</p>
+              <p>Ingresá el número de OP, DNI, CUIT o CUIL para ver el estado de tu pedido</p>
             </div>
           </div>
         </header>
@@ -154,7 +173,7 @@ const ClienteConsultaPage = () => {
         <div className="consulta-form-section">
           <div className="search-box">
             <div className="input-group">
-              <label htmlFor="consulta-op">Buscar por número de OP</label>
+              <label htmlFor="consulta-op">Buscar por OP, DNI, CUIT o CUIL</label>
               <input
                 id="consulta-op"
                 type="text"
@@ -163,7 +182,7 @@ const ClienteConsultaPage = () => {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSearchOp()
                 }}
-                placeholder="Ej: OP-000123 o 000123"
+                placeholder="Ej: OP-000123, 30123456 o 20-12345678-9"
                 className="dni-input"
                 disabled={loading}
                 autoComplete="off"
@@ -181,7 +200,7 @@ const ClienteConsultaPage = () => {
                 </>
               ) : (
                 <>
-                  🔍 Buscar por OP
+                  🔍 Buscar
                 </>
               )}
             </button>

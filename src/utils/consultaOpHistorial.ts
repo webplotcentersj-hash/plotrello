@@ -1,7 +1,19 @@
 import type { HistorialMovimiento, OrdenTrabajo } from '../types/api'
 import { BOARD_COLUMNS } from '../data/mockData'
 
-const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
+export const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
+
+/** OP exacta, o DNI / CUIT / CUIL (también si el DNI está dentro del CUIT). */
+export function ordenCoincideConsulta(orden: OrdenTrabajo, digits: string): boolean {
+  if (!digits) return false
+  if (digitsOnly(orden.numero_op ?? '') === digits) return true
+  const doc = digitsOnly(orden.dni_cuit ?? '')
+  if (!doc) return false
+  if (doc === digits) return true
+  if (digits.length >= 7 && doc.includes(digits)) return true
+  if (doc.length >= 7 && digits.includes(doc)) return true
+  return false
+}
 
 function findSectorDescripcion(nombre: string): string | null {
   const norm = nombre.trim().toLowerCase()

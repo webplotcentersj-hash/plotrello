@@ -4,7 +4,12 @@ import type { OrdenTrabajo, HistorialMovimiento } from '../types/api'
 import apiService from '../services/api'
 import { mapEstadoToStatus } from '../utils/dataMappers'
 import { BOARD_COLUMNS } from '../data/mockData'
-import { historialPorOrdenId, historialUnificadoMismoNumeroOp } from '../utils/consultaOpHistorial'
+import {
+  digitsOnly,
+  historialPorOrdenId,
+  historialUnificadoMismoNumeroOp,
+  ordenCoincideConsulta
+} from '../utils/consultaOpHistorial'
 import { TOTEM_FINALIZADO_TALLER_PATH } from '../constants/totemFinalizadoTaller'
 import { listenAsesorEnCamino, solicitarAsesorTotem } from '../utils/totemSolicitarAsesor'
 import { listenDisenadorEnCamino, solicitarDisenadorTotem } from '../utils/totemSolicitarDisenador'
@@ -19,14 +24,12 @@ import './ClienteConsultaPage.css'
 import './TotemConsultaClientePage.css'
 import './TotemConsultaV2.css'
 
-const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
-
 const INACTIVITY_MS = 90000 // Sin tocar → pantalla en espera (modo kiosk)
 
 type SectorDirection = 'planta-baja' | 'adelante' | 'primer-piso'
 
 const TIPS: Array<{ icon: TotemKioskIconName; text: string }> = [
-  { icon: 'search', text: 'Consultá cómo va tu pedido con tu número de OP' },
+  { icon: 'search', text: 'Consultá tu pedido con OP, DNI, CUIT o CUIL' },
   { icon: 'print', text: 'Imprimí tus archivos: subilos desde tu celular' },
   { icon: 'catalog', text: 'Elegí y comprá productos del catálogo' },
   { icon: 'presupuestos', text: 'Pedí un presupuesto y asesoramiento' }
@@ -41,7 +44,7 @@ const MENSAJE_ETAPA = [
   '¡Tu pedido está listo para retirar!'
 ]
 
-const OP_MAX_DIGITOS = 10
+const OP_MAX_DIGITOS = 11
 
 const DIRECCION_TEXTO: Record<SectorDirection, string> = {
   'planta-baja': 'Seguí las flechas del piso hacia abajo',
@@ -289,13 +292,29 @@ const TotemConsultaClientePage = () => {
     try {
       const term = (opBuscada ?? searchOp).trim()
       const searchDigits = digitsOnly(term)
-      const response =
-        searchDigits.length > 0
-          ? await apiService.searchOrdenesBiblioteca(searchDigits, { limit: 40 })
-          : await apiService.getOrdenes()
+      const consultas = new Set<string>()
+      if (searchDigits) consultas.add(searchDigits)
+      if (term && term !== searchDigits) consultas.add(term)
 
-      if (response.success && response.data) {
-        const ordenesFiltradas = response.data.filter(filtro)
+      const respuestas = await Promise.all(
+        consultas.size > 0
+          ? [...consultas].map((q) => apiService.searchOrdenesBiblioteca(q, { limit: 40 }))
+          : [apiService.getOrdenes()]
+      )
+      const porId = new Map<number, OrdenTrabajo>()
+      let huboError = false
+      for (const response of respuestas) {
+        if (response.success && response.data) {
+          for (const orden of response.data) {
+            if (orden.id != null) porId.set(orden.id, orden)
+          }
+        } else {
+          huboError = true
+        }
+      }
+
+      if (porId.size > 0 || !huboError) {
+        const ordenesFiltradas = [...porId.values()].filter(filtro)
 
         if (ordenesFiltradas.length === 0) {
           setError(mensajeError)
@@ -332,11 +351,11 @@ const TotemConsultaClientePage = () => {
           return
         }
       } else {
-        setError('Error al buscar pedidos. Por favor intenta nuevamente.')
+        setError('Error al buscar. Tocá de nuevo o acercate a mostrador.')
       }
     } catch (err) {
       console.error('Error buscando pedidos:', err)
-      setError('Error al buscar pedidos. Por favor intenta nuevamente.')
+      setError('Error al buscar. Tocá de nuevo o acercate a mostrador.')
     } finally {
       setLoading(false)
     }
@@ -374,18 +393,18 @@ const TotemConsultaClientePage = () => {
   const handleSearchOp = async () => {
     const term = searchOp.trim()
     if (!term) {
-      setError('Tocá los números para escribir tu OP.')
+      setError('Tocá los números: OP, DNI, CUIT o CUIL.')
       return
     }
     const searchDigits = digitsOnly(term)
     if (!searchDigits) {
-      setError('El número de OP debe contener dígitos.')
+      setError('Tocá los números: OP, DNI, CUIT o CUIL.')
       return
     }
 
     await buscarOrdenes(
-      (orden) => digitsOnly(orden.numero_op ?? '') === searchDigits,
-      'No encontramos un trabajo con ese número. Revisá que sea el que figura en tu comprobante.',
+      (orden) => ordenCoincideConsulta(orden, searchDigits),
+      'No encontramos un trabajo con esos datos. Revisá el número de OP, DNI, CUIT o CUIL.',
       term
     )
   }
@@ -1057,7 +1076,9 @@ const TotemConsultaClientePage = () => {
                       ? 'Tu trabajo'
                       : `Tus trabajos (${ordenes.length})`}
                 </h1>
-                {ordenes.length === 0 && <p>Escribí tu número de OP y te mostramos cómo va.</p>}
+                {ordenes.length === 0 && (
+                  <p>Escribí tu OP, DNI, CUIT o CUIL y te mostramos cómo va.</p>
+                )}
               </div>
               <div className="tc2-logo">
                 <img src="/plot-lab-logo.png" alt="Plot Center" />
@@ -1067,7 +1088,7 @@ const TotemConsultaClientePage = () => {
             {ordenes.length === 0 ? (
               <div className="tc2-search__grid">
                 <section className="tc2-card tc2-keypad-card">
-                  <span className="tc2-eyebrow">Tu número de OP</span>
+                  <span className="tc2-eyebrow">OP, DNI, CUIT o CUIL</span>
                   <div
                     className={`tc2-display${error ? ' tc2-display--error' : ''}`}
                     role="status"
@@ -1076,7 +1097,7 @@ const TotemConsultaClientePage = () => {
                     {searchOp ? (
                       <span className="tc2-display__value">{searchOp}</span>
                     ) : (
-                      <span className="tc2-display__ph">Ej: 000123</span>
+                      <span className="tc2-display__ph">Ej: 000123 o 20123456789</span>
                     )}
                     <i className="tc2-caret" aria-hidden />
                   </div>
@@ -1085,7 +1106,7 @@ const TotemConsultaClientePage = () => {
                       {error}
                     </p>
                   ) : (
-                    <p className="tc2-hint">Tocá los números para escribirlo</p>
+                    <p className="tc2-hint">Tocá los números de tu OP, DNI, CUIT o CUIL</p>
                   )}
                   <div className="tc2-keypad" role="group" aria-label="Teclado numérico">
                     {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((k) => (
@@ -1120,7 +1141,7 @@ const TotemConsultaClientePage = () => {
                 </section>
 
                 <aside className="tc2-card tc2-help">
-                  <h2 className="tc2-help__title">¿Dónde está mi número de OP?</h2>
+                  <h2 className="tc2-help__title">¿Qué número uso?</h2>
                   <div className="tc2-ticket" aria-hidden>
                     <div className="tc2-ticket__brand">PLOT CENTER</div>
                     <div className="tc2-ticket__line" />
@@ -1136,8 +1157,9 @@ const TotemConsultaClientePage = () => {
                     </div>
                   </div>
                   <p className="tc2-help__text">
-                    Es el número que figura en tu <strong>comprobante</strong>. Si no lo encontrás,
-                    acercate a <strong>mostrador</strong>.
+                    La <strong>OP</strong> figura en tu comprobante. También podés usar tu{' '}
+                    <strong>DNI, CUIT o CUIL</strong>. Si no aparece, acercate a{' '}
+                    <strong>mostrador</strong>.
                   </p>
                 </aside>
               </div>

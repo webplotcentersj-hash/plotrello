@@ -1213,6 +1213,32 @@ class ApiService {
         if (rowsNum.length > 0) {
           return { success: true, data: rowsNum }
         }
+        // DNI (7–8) / CUIT-CUIL (11): el número no es OP, buscar en documento del cliente
+        if (digits.length >= 7) {
+          const { data: byDoc, error: errDoc } = await withQueryTimeout(
+            Promise.resolve(
+              sb
+                .from('ordenes_trabajo')
+                .select(ORDENES_TABLERO_SELECT)
+                .ilike('dni_cuit', `%${digits}%`)
+                .order('fecha_creacion', { ascending: false })
+                .limit(limit)
+            ),
+            'searchOrdenesBiblioteca(dni_cuit)'
+          )
+          if (errDoc) {
+            return {
+              success: false,
+              error: formatSupabaseStatementTimeoutError(errDoc.message)
+            }
+          }
+          const rowsDoc = (byDoc ?? []).map((row) =>
+            normalizeOrdenListRow(row as Record<string, unknown>)
+          )
+          if (rowsDoc.length > 0) {
+            return { success: true, data: rowsDoc }
+          }
+        }
         // Fallback: #id interno de BD (biblioteca avanzada)
         if (Number.isFinite(asId) && asId > 0) return fetchById(asId)
         return { success: true, data: [] }
@@ -21128,9 +21154,19 @@ class ApiService {
 
       await this.rpcVentasUpsert(updateData)
 
-      const ventaRes = await this.getVenta(id)
-      if (ventaRes.success && ventaRes.data) {
-        void syncCajaDesdeVentaApi(ventaRes.data, { silencioso: true })
+      const tocaCaja =
+        venta.valor_total !== undefined ||
+        venta.estado_pago !== undefined ||
+        venta.metodo_pago !== undefined ||
+        venta.monto_pagado !== undefined ||
+        venta.fecha_venta !== undefined ||
+        venta.detalle_pago !== undefined ||
+        venta.mp_payment_id !== undefined
+      if (tocaCaja) {
+        const ventaRes = await this.getVenta(id)
+        if (ventaRes.success && ventaRes.data) {
+          void syncCajaDesdeVentaApi(ventaRes.data, { silencioso: true })
+        }
       }
 
       try {
