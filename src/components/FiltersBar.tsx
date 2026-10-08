@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import { getApiService } from '../services/apiLoader'
+import { VENTAS } from '../utils/ventasRoutes'
 import VentaRapidaModal from './VentaRapidaModal'
 import './FiltersBar.css'
 
@@ -50,7 +51,7 @@ const FiltersBar = ({
   compactPhone = false
 }: FiltersBarProps) => {
   const navigate = useNavigate()
-  const { isAdmin, isDiseno, canAccessMostradorViews, usuario, nombreVisible } = useAuth()
+  const { isAdmin, isDiseno, canAccessMostradorViews, canManageCaja, usuario, nombreVisible } = useAuth()
   const [copiandoBrief, setCopiandoBrief] = useState(false)
   const [showVentaRapida, setShowVentaRapida] = useState(false)
 
@@ -122,6 +123,24 @@ const FiltersBar = ({
             >
               Presupuesto
             </button>
+            <button
+              type="button"
+              className="ventas-nav-button filters-bar-phone-add"
+              onClick={() => navigate(VENTAS)}
+              title="Ir a Ventas"
+            >
+              Ventas
+            </button>
+            {(canManageCaja || canAccessMostradorViews) && (
+              <button
+                type="button"
+                className="caja-button filters-bar-phone-add"
+                onClick={() => navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')}
+                title="Ir a Caja"
+              >
+                Caja
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -197,6 +216,26 @@ const FiltersBar = ({
               title="Crear presupuesto de venta"
             >
               Presupuesto
+            </button>
+          )}
+          {canAccessMostradorViews && usuario && (
+            <button
+              type="button"
+              className="ventas-nav-button"
+              onClick={() => navigate(VENTAS)}
+              title="Pipeline y listado de ventas"
+            >
+              Ventas
+            </button>
+          )}
+          {(canManageCaja || canAccessMostradorViews) && usuario && (
+            <button
+              type="button"
+              className="caja-button"
+              onClick={() => navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')}
+              title="Dashboard de caja"
+            >
+              Caja
             </button>
           )}
           {onAddNewOrder && (

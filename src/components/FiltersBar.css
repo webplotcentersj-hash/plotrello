@@ -72,7 +72,9 @@
 .library-button-container .brief-link-button,
 .library-button-container .venta-rapida-button,
 .library-button-container .factura-button,
-.library-button-container .presupuesto-button {
+.library-button-container .presupuesto-button,
+.library-button-container .ventas-nav-button,
+.library-button-container .caja-button {
   height: 26px;
   min-width: 0;
   padding: 0 9px;
@@ -154,6 +156,26 @@
 }
 
 .library-button-container .presupuesto-button:hover {
+  filter: brightness(1.06);
+}
+
+.library-button-container .ventas-nav-button {
+  background: linear-gradient(135deg, #93c5fd, #3b82f6);
+  color: #082f49;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.library-button-container .ventas-nav-button:hover {
+  filter: brightness(1.06);
+}
+
+.library-button-container .caja-button {
+  background: linear-gradient(135deg, #67e8f9, #0891b2);
+  color: #083344;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.library-button-container .caja-button:hover {
   filter: brightness(1.06);
 }
 

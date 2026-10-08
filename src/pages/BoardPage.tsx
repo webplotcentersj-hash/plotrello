@@ -1493,9 +1493,7 @@ const BoardPage = ({
         priorityFilter={priorityFilter}
         priorityFilters={[
           { id: 'todas', label: 'Todas' },
-          { id: 'alta', label: 'Alta' },
-          { id: 'media', label: 'Media' },
-          { id: 'baja', label: 'Baja' }
+          { id: 'alta', label: 'Alta' }
         ]}
         onPriorityChange={setPriorityFilter}
         misTrabajosFilter={misTrabajosFilter}
