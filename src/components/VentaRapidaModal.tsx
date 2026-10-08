@@ -37,6 +37,7 @@ import {
 import './ventas/VentaCondicionPagoFields.css'
 import OpCobroFooterChecks from './OpCobroFooterChecks'
 import { cobroDesdeVenta } from '../utils/opCobroEstado'
+import { descargarPdfFacturaAfip } from '../services/afipApi'
 import { emitirFacturaDesdeVenta, type EtapaEmision, type ResultadoFacturaVenta } from '../utils/emitirFacturaDesdeVenta'
 import EmisionFacturaOverlay from './facturas/EmisionFacturaOverlay'
 import {
@@ -44,7 +45,10 @@ import {
   etiquetaCantidadUnidad,
   etiquetaUnidadCorta,
   formatCantidadInput,
-  importeLineaVenta,
+  importeLineaVentaPct,
+  descuentoPesosDesdePct,
+  porcentajeDesdeDescuentoPesos,
+  clampDescuentoPct,
   normalizarUnidadPrecio,
   parseCantidadInput,
   pasoCantidadUnidad,
@@ -238,7 +242,11 @@ const VentaRapidaModal = ({
           cantidad,
           cantidadTexto: formatCantidadInput(cantidad),
           precio_unitario: Number(item.precio_unitario) || 0,
-          descuento: Number(item.descuento) || 0,
+          descuento: porcentajeDesdeDescuentoPesos(
+            Number(item.precio_unitario) || 0,
+            cantidad,
+            Number(item.descuento) || 0
+          ),
           unidad_medida: unidadDesdeDescripcionItem(item.descripcion) || 'u',
           observaciones: item.observaciones ?? undefined
         }
@@ -501,9 +509,32 @@ const VentaRapidaModal = ({
 
   const calcularSubtotal = () => {
     return itemsVenta.reduce((sum, item) => {
-      return sum + importeLineaVenta(item.precio_unitario, item.cantidad, item.descuento)
+      return sum + importeLineaVentaPct(item.precio_unitario, item.cantidad, item.descuento)
     }, 0)
   }
+
+  const emitirYExportarFacturaMp = useCallback(async (venta: Venta) => {
+    setFacturandoAfip(true)
+    setEmisionAfip({ etapa: 'comprobante', resultado: null })
+    try {
+      const resultado = await emitirFacturaDesdeVenta(venta, (etapa) => {
+        setEmisionAfip((prev) => (prev ? { ...prev, etapa } : prev))
+      })
+      setEmisionAfip((prev) => (prev ? { ...prev, etapa: 'cae', resultado } : prev))
+      if (resultado.ok && resultado.facturaId) {
+        try {
+          await descargarPdfFacturaAfip(resultado.facturaId)
+        } catch (error) {
+          console.error('No se pudo exportar el PDF de la factura MP:', error)
+        }
+      }
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo emitir la factura.'
+      setEmisionAfip((prev) => (prev ? { ...prev, resultado: { ok: false, mensaje } } : prev))
+    } finally {
+      setFacturandoAfip(false)
+    }
+  }, [])
 
   const finalizarVentaTrasMp = useCallback(
     async (data: {
@@ -536,12 +567,19 @@ const VentaRapidaModal = ({
 
       setShowMpCheckout(false)
 
+      let ventaParaFactura: Venta | null = ventaCreada
+        ? { ...ventaCreada, id: ventaId, estado_pago: 'Pagado', detalle_pago: detalle }
+        : null
       try {
         const ventasResponse = await apiService.obtenerVentas()
         if (ventasResponse.success && ventasResponse.data) {
           const ventaCompleta = ventasResponse.data.find((v) => v.id === ventaId)
-          if (ventaCompleta) setVentaCreada(ventaCompleta)
-          else if (ventaCreada) setVentaCreada({ ...ventaCreada, estado_pago: 'Pagado', detalle_pago: detalle })
+          if (ventaCompleta) {
+            setVentaCreada(ventaCompleta)
+            ventaParaFactura = ventaCompleta
+          } else if (ventaCreada) {
+            setVentaCreada({ ...ventaCreada, estado_pago: 'Pagado', detalle_pago: detalle })
+          }
         }
       } catch {
         if (ventaCreada) setVentaCreada({ ...ventaCreada, estado_pago: 'Pagado', detalle_pago: detalle })
@@ -552,8 +590,12 @@ const VentaRapidaModal = ({
           detail: { ventaId, numeroVenta: ventaCreada?.numero_venta }
         })
       )
+
+      if (ventaParaFactura) {
+        void emitirYExportarFacturaMp({ ...ventaParaFactura, id: ventaId, estado_pago: 'Pagado' })
+      }
     },
-    [detallePago, mpVentaId, ventaCreada]
+    [detallePago, mpVentaId, ventaCreada, emitirYExportarFacturaMp]
   )
 
   const handleGuardarVenta = async () => {
@@ -685,7 +727,7 @@ const VentaRapidaModal = ({
           descripcion: `${item.descripcion} (${etiquetaUnidadCorta(item.unidad_medida)})`,
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
-          descuento: item.descuento ?? 0,
+          descuento: descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento),
           observaciones: item.observaciones ?? null
         }))
       })
@@ -717,6 +759,12 @@ const VentaRapidaModal = ({
         id_op: 0,
         numero_op: '',
         cliente_nombre: clienteFinal.nombre,
+        cliente_telefono: clienteFinal.telefono || undefined,
+        cliente_email: clienteFinal.email || undefined,
+        cliente_dni_cuit: clienteFinal.dni_cuit || undefined,
+        cliente_empresa: clienteFinal.empresa || undefined,
+        cliente_direccion: clienteFinal.direccion || undefined,
+        id_cliente: clienteFinal.id || undefined,
         valor_total: calcularSubtotal(),
         fecha_venta: fechaVenta,
         estado_pago: estadoPagoInicial,
@@ -734,8 +782,8 @@ const VentaRapidaModal = ({
           descripcion: `${item.descripcion} (${etiquetaUnidadCorta(item.unidad_medida)})`,
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
-          precio_total: importeLineaVenta(item.precio_unitario, item.cantidad, item.descuento),
-          descuento: item.descuento ?? undefined,
+          precio_total: importeLineaVentaPct(item.precio_unitario, item.cantidad, item.descuento),
+          descuento: descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento) || undefined,
           observaciones: item.observaciones ?? undefined,
           created_at: ahora
         }))
@@ -778,15 +826,17 @@ const VentaRapidaModal = ({
         console.error('Error obteniendo venta completa:', e)
       }
 
-      // Disparar evento personalizado para que el CRM se actualice si está abierto
       window.dispatchEvent(new CustomEvent('venta-creada', { 
         detail: { 
           ventaId: ventaData.id, 
           numeroVenta: ventaData.numero_venta 
         }
       }))
-      
-      // La venta queda en esta ventana para armar la OP simplificada.
+
+      navigate(`/erp/facturas/nueva?id_venta=${ventaData.id}`)
+      onSuccess?.()
+      onClose()
+      return
     } catch (error: any) {
       console.error('Error guardando venta:', error)
       alert('Error al guardar venta: ' + error.message)
@@ -1040,6 +1090,11 @@ const VentaRapidaModal = ({
                 </option>
               ))}
             </select>
+            <p className="form-hint-comprobante">
+              {esMercadoPagoCondicion
+                ? 'Al confirmar el QR se emite y descarga sola la factura AFIP.'
+                : 'Al guardar vas a Facturar para emitir el comprobante a mano.'}
+            </p>
           </div>
 
 
@@ -1434,24 +1489,33 @@ const VentaRapidaModal = ({
                           ${formatArs(item.precio_unitario)}
                         </div>
                       </div>
-                      <div className="item-control">
-                        <label>Descuento</label>
+                      <div className="item-control item-control--descuento">
+                        <label>Desc. %</label>
                         <input
                           type="number"
                           min="0"
+                          max="100"
                           step="0.01"
                           className="form-input-small"
                           value={item.descuento}
-                          onChange={(e) => actualizarItem(index, 'descuento', parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            actualizarItem(index, 'descuento', clampDescuentoPct(parseFloat(e.target.value) || 0))
+                          }
                         />
+                        {item.descuento > 0 ? (
+                          <span className="item-descuento-pesos">
+                            −${formatArs(descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento))}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="item-subtotal">
                         <span className="item-precio-calc">
                           {formatCantidadInput(item.cantidad)} {etiquetaUnidadCorta(item.unidad_medida)} × $
                           {formatArs(item.precio_unitario)} / {etiquetaUnidadCorta(item.unidad_medida)}
+                          {item.descuento > 0 ? ` − ${item.descuento}%` : ''}
                         </span>
                         <strong>
-                          Subtotal: ${formatArs(importeLineaVenta(item.precio_unitario, item.cantidad, item.descuento))}
+                          Subtotal: ${formatArs(importeLineaVentaPct(item.precio_unitario, item.cantidad, item.descuento))}
                         </strong>
                       </div>
                     </div>
@@ -1556,7 +1620,7 @@ const VentaRapidaModal = ({
                 ? 'Guardando...'
                 : esMercadoPagoCondicion
                   ? '💳 Generar QR Mercado Pago'
-                  : '💾 Guardar Venta'}
+                  : '💾 Guardar y facturar'}
             </button>
             </>
           ) : showMpCheckout ? (
@@ -1577,19 +1641,7 @@ const VentaRapidaModal = ({
                 disabled={facturandoAfip}
                 onClick={() => {
                   if (facturandoAfip) return
-                  setFacturandoAfip(true)
-                  setEmisionAfip({ etapa: 'comprobante', resultado: null })
-                  void emitirFacturaDesdeVenta(ventaCreada, (etapa) => {
-                    setEmisionAfip((prev) => (prev ? { ...prev, etapa } : prev))
-                  })
-                    .then((resultado) => {
-                      setEmisionAfip((prev) => (prev ? { ...prev, etapa: 'cae', resultado } : prev))
-                    })
-                    .catch((error: unknown) => {
-                      const mensaje = error instanceof Error ? error.message : 'No se pudo emitir la factura.'
-                      setEmisionAfip((prev) => (prev ? { ...prev, resultado: { ok: false, mensaje } } : prev))
-                    })
-                    .finally(() => setFacturandoAfip(false))
+                  void emitirYExportarFacturaMp(ventaCreada)
                 }}
               >
                 {facturandoAfip ? 'Emitiendo…' : 'Factura AFIP'}

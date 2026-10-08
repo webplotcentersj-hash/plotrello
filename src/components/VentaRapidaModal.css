@@ -490,9 +490,15 @@
 
 .item-controls {
   display: grid;
-  grid-template-columns: minmax(260px, 1.6fr) minmax(140px, 1fr) minmax(110px, 0.8fr);
+  grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 1fr) minmax(96px, 0.7fr) minmax(140px, 1fr);
   gap: 12px;
   align-items: end;
+}
+
+.item-control--descuento .item-descuento-pesos {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #b45309;
 }
 
 .item-control {
@@ -535,7 +541,7 @@
 }
 
 .item-control--cantidad {
-  min-width: 260px;
+  min-width: 0;
 }
 
 .item-cantidad-row {

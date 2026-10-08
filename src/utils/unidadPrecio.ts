@@ -59,6 +59,28 @@ export function importeLineaVenta(precioUnitario: number, cantidad: number, desc
   return Math.round((Number(precioUnitario || 0) * Number(cantidad || 0) - Number(descuento || 0)) * 100) / 100
 }
 
+/** Descuento del ítem en venta rápida: porcentaje 0–100. */
+export function clampDescuentoPct(pct: number): number {
+  if (!Number.isFinite(pct) || pct <= 0) return 0
+  return Math.min(100, Math.round(pct * 100) / 100)
+}
+
+export function descuentoPesosDesdePct(precioUnitario: number, cantidad: number, pct = 0): number {
+  const bruto = Number(precioUnitario || 0) * Number(cantidad || 0)
+  return Math.round(bruto * (clampDescuentoPct(pct) / 100) * 100) / 100
+}
+
+export function importeLineaVentaPct(precioUnitario: number, cantidad: number, pct = 0): number {
+  const bruto = Number(precioUnitario || 0) * Number(cantidad || 0)
+  return Math.round((bruto - descuentoPesosDesdePct(precioUnitario, cantidad, pct)) * 100) / 100
+}
+
+export function porcentajeDesdeDescuentoPesos(precioUnitario: number, cantidad: number, descuentoPesos = 0): number {
+  const bruto = Number(precioUnitario || 0) * Number(cantidad || 0)
+  if (bruto <= 0) return 0
+  return clampDescuentoPct((Number(descuentoPesos) || 0) / bruto * 100)
+}
+
 /** Unidad guardada en la descripción del ítem: "Vinilo (m)" o "Vinilo (m²)". */
 export function unidadDesdeDescripcionItem(descripcion?: string | null): UnidadPrecioId | null {
   const m = String(descripcion ?? '').match(/\((m²|m2|m|un|hoja|kg)\)\s*$/i)
