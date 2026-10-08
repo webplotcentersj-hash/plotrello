@@ -10,6 +10,7 @@ import type {
   Venta,
   OrdenTrabajo,
   VentaItem,
+  VentaAuditoria,
   ClienteRecord,
   PresupuestoVentaRecord,
   PresupuestoVentaItemRecord,
@@ -80,6 +81,20 @@ function compararVentasRecientes(a: Venta, b: Venta): number {
   const byFecha = ventaDiaArgentina(b).localeCompare(ventaDiaArgentina(a))
   if (byFecha !== 0) return byFecha
   return (b.id ?? 0) - (a.id ?? 0)
+}
+
+function leyendaPagoVenta(venta: Venta): { texto: string; tipo: 'mp' | 'transferencia' | 'otro' } {
+  const metodo = (venta.metodo_pago || '').trim()
+  const detalle = venta.detalle_pago
+  const mpId = detalle?.mp_payment_id || venta.mp_payment_id || ''
+  if (metodo === 'Mercado Pago' || mpId) {
+    return { texto: mpId ? `Mercado Pago · ${mpId}` : 'Mercado Pago', tipo: 'mp' }
+  }
+  if (metodo === 'Transferencia' || detalle?.banco_destino || detalle?.alias || detalle?.cbu) {
+    const extra = [detalle?.banco_destino, detalle?.alias || detalle?.cbu].filter(Boolean).join(' · ')
+    return { texto: extra ? `Transferencia · ${extra}` : 'Transferencia', tipo: 'transferencia' }
+  }
+  return { texto: metodo || 'Sin medio de pago', tipo: 'otro' }
 }
 
 const PRESUPUESTO_PIPELINE_ESTADOS: EstadoPresupuestoCliente[] = [
@@ -378,6 +393,21 @@ const CRMVentasPage = () => {
 
   // Ventas (solo CRM): ficha compacta + ampliar
   const [ventaModalId, setVentaModalId] = useState<number | null>(null)
+  const [ventaCabeceraDraft, setVentaCabeceraDraft] = useState({
+    cliente_nombre: '',
+    cliente_telefono: '',
+    cliente_email: '',
+    cliente_dni_cuit: '',
+    observaciones: '',
+    fecha_venta: ''
+  })
+  const [ventaItemsDraft, setVentaItemsDraft] = useState<
+    Record<number, { descripcion: string; cantidad: string; precio_unitario: string; descuento: string }>
+  >({})
+  const [ventaAuditoria, setVentaAuditoria] = useState<VentaAuditoria[]>([])
+  const [ventaEditBusy, setVentaEditBusy] = useState(false)
+  const [ventaMotivoAccion, setVentaMotivoAccion] = useState<{ tipo: 'item' | 'venta'; itemId?: number } | null>(null)
+  const [ventaMotivoTexto, setVentaMotivoTexto] = useState('')
 
   // Presupuestos: pipeline + modal detalle
   const [presupuestoModalId, setPresupuestoModalId] = useState<number | null>(null)
@@ -490,13 +520,13 @@ const CRMVentasPage = () => {
   const ventasSinFactura = useMemo(
     () =>
       ventas
-        .filter((v) => v.estado_pago !== 'Cancelado' && !idsVentasFacturadas.has(v.id))
+        .filter((v) => v.estado_pago !== 'Cancelado' && !idsVentasFacturadas.has(Number(v.id)))
         .sort(compararVentasRecientes),
     [ventas, idsVentasFacturadas]
   )
 
   const ventaTieneFactura = useCallback(
-    (id: number) => idsVentasFacturadas.has(id),
+    (id: number) => idsVentasFacturadas.has(Number(id)),
     [idsVentasFacturadas]
   )
 
@@ -513,6 +543,9 @@ const CRMVentasPage = () => {
   const cerrarVentaModal = useCallback(() => {
     setVentaModalId(null)
     setDropdownDocumentosAbierto(null)
+    setVentaMotivoAccion(null)
+    setVentaMotivoTexto('')
+    setVentaEditBusy(false)
   }, [])
 
   const actualizarComprobanteIaVenta = useCallback(
@@ -523,6 +556,157 @@ const CRMVentasPage = () => {
     },
     []
   )
+
+  const ventaModalStamp = ventaModal
+    ? `${ventaModal.id}:${ventaModal.updated_at}:${(ventaModal.items || []).map((i) => i.id).join(',')}`
+    : ''
+
+  useEffect(() => {
+    if (ventaModalId == null) {
+      setVentaAuditoria([])
+      return
+    }
+    void apiService.listAuditoriaVenta(ventaModalId).then((r) => {
+      if (r.success && r.data) setVentaAuditoria(r.data)
+    })
+  }, [ventaModalId, ventaModalStamp])
+
+  useEffect(() => {
+    if (!ventaModal) return
+    setVentaCabeceraDraft({
+      cliente_nombre: ventaModal.cliente_nombre || '',
+      cliente_telefono: ventaModal.cliente_telefono || '',
+      cliente_email: ventaModal.cliente_email || '',
+      cliente_dni_cuit: ventaModal.cliente_dni_cuit || '',
+      observaciones: ventaModal.observaciones || '',
+      fecha_venta: isoToArgentinaDateKey(ventaModal.fecha_venta)
+    })
+    setVentaItemsDraft(
+      Object.fromEntries(
+        (ventaModal.items || []).map((it) => [
+          it.id,
+          {
+            descripcion: it.descripcion || '',
+            cantidad: String(it.cantidad ?? ''),
+            precio_unitario: String(it.precio_unitario ?? ''),
+            descuento: String(it.descuento ?? 0)
+          }
+        ])
+      )
+    )
+  }, [ventaModalStamp])
+
+  const refrescarVentaTrasCambio = async (ventaId: number) => {
+    await loadData()
+    const [ventaRes, itemsRes, aud] = await Promise.all([
+      apiService.getVenta(ventaId),
+      apiService.getItemsVenta(ventaId),
+      apiService.listAuditoriaVenta(ventaId)
+    ])
+    const patch: Partial<Venta> = {}
+    if (ventaRes.success && ventaRes.data) Object.assign(patch, ventaRes.data)
+    if (itemsRes.success && itemsRes.data) patch.items = itemsRes.data
+    if (Object.keys(patch).length > 0) {
+      setVentas((prev) => prev.map((v) => (v.id === ventaId ? { ...v, ...patch } : v)))
+      setVentasFiltradas((prev) => prev.map((v) => (v.id === ventaId ? { ...v, ...patch } : v)))
+    }
+    if (aud.success && aud.data) setVentaAuditoria(aud.data)
+  }
+
+  const guardarCabeceraVentaDetalle = async () => {
+    if (!ventaModal || ventaModal.estado_pago === 'Cancelado') return
+    const nombre = ventaCabeceraDraft.cliente_nombre.trim()
+    if (!nombre) {
+      alert('El nombre del cliente es obligatorio')
+      return
+    }
+    setVentaEditBusy(true)
+    try {
+      const r = await apiService.actualizarVenta(ventaModal.id, {
+        cliente_nombre: nombre,
+        cliente_telefono: ventaCabeceraDraft.cliente_telefono.trim() || null,
+        cliente_email: ventaCabeceraDraft.cliente_email.trim() || null,
+        cliente_dni_cuit: ventaCabeceraDraft.cliente_dni_cuit.trim() || null,
+        observaciones: ventaCabeceraDraft.observaciones,
+        fecha_venta: ventaCabeceraDraft.fecha_venta
+      })
+      if (!r.success) throw new Error(r.error || 'No se pudo guardar')
+      await refrescarVentaTrasCambio(ventaModal.id)
+    } catch (error: any) {
+      alert(error.message || 'No se pudo guardar la venta')
+    } finally {
+      setVentaEditBusy(false)
+    }
+  }
+
+  const guardarItemVentaDetalle = async (itemId: number) => {
+    if (!ventaModal || ventaModal.estado_pago === 'Cancelado') return
+    const draft = ventaItemsDraft[itemId]
+    if (!draft) return
+    const descripcion = draft.descripcion.trim()
+    const cantidad = Number(String(draft.cantidad).replace(',', '.'))
+    const precio = Number(String(draft.precio_unitario).replace(',', '.'))
+    const descuento = Number(String(draft.descuento).replace(',', '.')) || 0
+    if (!descripcion) {
+      alert('La descripción del ítem es obligatoria')
+      return
+    }
+    if (!(cantidad > 0) || Number.isNaN(precio)) {
+      alert('Cantidad y precio tienen que ser válidos')
+      return
+    }
+    setVentaEditBusy(true)
+    try {
+      const r = await apiService.actualizarItemVentaDetalle({
+        id: itemId,
+        descripcion,
+        cantidad,
+        precio_unitario: precio,
+        descuento
+      })
+      if (!r.success) throw new Error(r.error || 'No se pudo guardar el ítem')
+      await refrescarVentaTrasCambio(ventaModal.id)
+    } catch (error: any) {
+      alert(error.message || 'No se pudo guardar el ítem')
+    } finally {
+      setVentaEditBusy(false)
+    }
+  }
+
+  const confirmarMotivoVenta = async () => {
+    if (!ventaModal || !ventaMotivoAccion) return
+    const motivo = ventaMotivoTexto.trim()
+    if (!motivo) {
+      alert('Escribí por qué se elimina')
+      return
+    }
+    setVentaEditBusy(true)
+    try {
+      if (ventaMotivoAccion.tipo === 'item' && ventaMotivoAccion.itemId) {
+        const r = await apiService.eliminarItemVenta(ventaMotivoAccion.itemId, motivo)
+        if (!r.success) throw new Error(r.error || 'No se pudo eliminar el ítem')
+      } else {
+        const r = await apiService.anularVentaConMotivo(ventaModal.id, motivo)
+        if (!r.success) throw new Error(r.error || 'No se pudo eliminar la venta')
+      }
+      setVentaMotivoAccion(null)
+      setVentaMotivoTexto('')
+      await refrescarVentaTrasCambio(ventaModal.id)
+    } catch (error: any) {
+      alert(error.message || 'No se pudo completar la eliminación')
+    } finally {
+      setVentaEditBusy(false)
+    }
+  }
+
+  const etiquetaAuditoriaVenta = (accion: string) => {
+    if (accion === 'editar_item') return 'Editó ítem'
+    if (accion === 'eliminar_item') return 'Eliminó ítem'
+    if (accion === 'eliminar_venta') return 'Eliminó la venta'
+    if (accion === 'agregar_item') return 'Agregó ítem'
+    if (accion === 'editar_venta') return 'Editó la venta'
+    return accion
+  }
 
   const presupuestosPorEstado = useMemo(() => {
     const map: Record<EstadoPresupuestoCliente, PresupuestoVentaRecord[]> = {
@@ -817,9 +1001,9 @@ const CRMVentasPage = () => {
         console.log('Ventas cargadas en CRM:', ventasResponse.data.length)
         setVentas(ventasResponse.data)
         setVentasFiltradas(ventasResponse.data)
-        const facturadasRes = await apiService.listIdsVentasFacturadas(ventasResponse.data.map((v) => v.id))
+        const facturadasRes = await apiService.listIdsVentasFacturadas(ventasResponse.data.map((v) => Number(v.id)))
         if (facturadasRes.success && facturadasRes.data) {
-          setIdsVentasFacturadas(new Set(facturadasRes.data))
+          setIdsVentasFacturadas(new Set(facturadasRes.data.map((id) => Number(id))))
         }
       } else {
         console.error('Error cargando ventas:', ventasResponse.error)
@@ -983,7 +1167,7 @@ const CRMVentasPage = () => {
     }
 
     if (filtroSoloSinFactura) {
-      filtradas = filtradas.filter((v) => v.estado_pago !== 'Cancelado' && !idsVentasFacturadas.has(v.id))
+      filtradas = filtradas.filter((v) => v.estado_pago !== 'Cancelado' && !idsVentasFacturadas.has(Number(v.id)))
     }
     
     // Filtro por método de pago
@@ -1531,9 +1715,13 @@ const CRMVentasPage = () => {
       if (resultado.ok) {
         setIdsVentasFacturadas((prev) => {
           const next = new Set(prev)
-          next.add(venta.id)
+          next.add(Number(venta.id))
           return next
         })
+        const sync = await apiService.listIdsVentasFacturadas()
+        if (sync.success && sync.data) {
+          setIdsVentasFacturadas(new Set(sync.data.map((id) => Number(id))))
+        }
       }
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'No se pudo emitir la factura.'
@@ -1631,10 +1819,11 @@ const CRMVentasPage = () => {
   const eliminarItemVentaEditando = async (itemId: number) => {
     if (!ventaEditando) return
 
-    if (!confirm('¿Estás seguro de eliminar este item?')) return
+    const motivo = window.prompt('¿Por qué se elimina este ítem?')
+    if (!motivo?.trim()) return
 
     try {
-      const response = await apiService.eliminarItemVenta(itemId)
+      const response = await apiService.eliminarItemVenta(itemId, motivo.trim())
       if (response.success) {
         await loadData()
         // Recargar la venta actualizada
@@ -2769,6 +2958,14 @@ const CRMVentasPage = () => {
                         {venta.cliente_empresa ? (
                           <span className="venta-pipeline-card__empresa">{venta.cliente_empresa}</span>
                         ) : null}
+                        {(() => {
+                          const pago = leyendaPagoVenta(venta)
+                          return (
+                            <span className={`venta-pipeline-card__pago venta-pipeline-card__pago--${pago.tipo}`}>
+                              {pago.texto}
+                            </span>
+                          )
+                        })()}
                         {venta.estado_pago !== 'Cancelado' && !ventaTieneFactura(venta.id) ? (
                           <span className="venta-pipeline-card__factura-pendiente">Sin factura</span>
                         ) : null}
@@ -2829,7 +3026,24 @@ const CRMVentasPage = () => {
                     ) : null}
                   </div>
 
+                  {ventaModal.estado_pago === 'Cancelado' ? (
+                    <p className="venta-detail-modal__locked">
+                      Esta venta está eliminada/cancelada. Quedó registrado quién la borró y el motivo.
+                    </p>
+                  ) : null}
+
                   <div className="venta-compact-summary venta-compact-summary--modal">
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Cliente</span>
+                      <input
+                        className="venta-detail-input"
+                        value={ventaCabeceraDraft.cliente_nombre}
+                        disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                        onChange={(e) =>
+                          setVentaCabeceraDraft((prev) => ({ ...prev, cliente_nombre: e.target.value }))
+                        }
+                      />
+                    </div>
                     <div className="venta-compact-row">
                       <span className="venta-compact-k">OP</span>
                       <span className="venta-compact-v">{ventaModal.numero_op || 'Sin OP'}</span>
@@ -2842,81 +3056,186 @@ const CRMVentasPage = () => {
                     </div>
                     <div className="venta-compact-row">
                       <span className="venta-compact-k">Fecha</span>
-                      <span className="venta-compact-v">{formatArgentinaDate(ventaModal.fecha_venta)}</span>
+                      <input
+                        type="date"
+                        className="venta-detail-input"
+                        value={ventaCabeceraDraft.fecha_venta}
+                        disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                        onChange={(e) =>
+                          setVentaCabeceraDraft((prev) => ({ ...prev, fecha_venta: e.target.value }))
+                        }
+                      />
                     </div>
                     <div className="venta-compact-row">
                       <span className="venta-compact-k">Vendedor</span>
                       <span className="venta-compact-v">{ventaModal.nombre_vendedor}</span>
                     </div>
-                    {ventaModal.cliente_telefono ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">Tel</span>
-                        <span className="venta-compact-v">{ventaModal.cliente_telefono}</span>
-                      </div>
-                    ) : null}
-                    {ventaModal.cliente_email ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">Email</span>
-                        <span className="venta-compact-v">{ventaModal.cliente_email}</span>
-                      </div>
-                    ) : null}
-                    {ventaModal.cliente_dni_cuit ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">DNI/CUIT</span>
-                        <span className="venta-compact-v">{ventaModal.cliente_dni_cuit}</span>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Tel</span>
+                      <input
+                        className="venta-detail-input"
+                        value={ventaCabeceraDraft.cliente_telefono}
+                        disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                        onChange={(e) =>
+                          setVentaCabeceraDraft((prev) => ({ ...prev, cliente_telefono: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Email</span>
+                      <input
+                        className="venta-detail-input"
+                        value={ventaCabeceraDraft.cliente_email}
+                        disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                        onChange={(e) =>
+                          setVentaCabeceraDraft((prev) => ({ ...prev, cliente_email: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">DNI/CUIT</span>
+                      <input
+                        className="venta-detail-input"
+                        value={ventaCabeceraDraft.cliente_dni_cuit}
+                        disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                        onChange={(e) =>
+                          setVentaCabeceraDraft((prev) => ({ ...prev, cliente_dni_cuit: e.target.value }))
+                        }
+                      />
+                    </div>
+                    {ventaModal.estado_pago !== 'Cancelado' ? (
+                      <div className="venta-detail-save-row">
+                        <button
+                          type="button"
+                          className="btn-action btn-primary"
+                          disabled={ventaEditBusy}
+                          onClick={() => void guardarCabeceraVentaDetalle()}
+                        >
+                          {ventaEditBusy ? 'Guardando…' : 'Guardar datos'}
+                        </button>
                       </div>
                     ) : null}
                   </div>
 
-                  {ventaModal.items && ventaModal.items.length > 0 ? (
-                    <div className="venta-detail-block venta-detail-block--items">
-                      <h3 className="venta-detail-block__title">
-                        Ítems <span className="venta-detail-block__count">{ventaModal.items.length}</span>
-                      </h3>
+                  <div className="venta-detail-block venta-detail-block--items">
+                    <h3 className="venta-detail-block__title">
+                      Ítems{' '}
+                      <span className="venta-detail-block__count">{ventaModal.items?.length || 0}</span>
+                    </h3>
+                    {ventaModal.items && ventaModal.items.length > 0 ? (
                       <ul className="venta-detail-item-list">
-                        {ventaModal.items.map((item) => (
-                          <li key={item.id} className="venta-detail-item">
-                            <div className="venta-detail-item__main">
-                              <div className="venta-detail-item__copy">
-                                <p className="venta-detail-item__desc">
-                                  <span className="venta-detail-item__qty">{item.cantidad}×</span>{' '}
-                                  {item.descripcion}
-                                </p>
-                                {item.codigo_articulo ? (
-                                  <span className="venta-detail-item__code">{item.codigo_articulo}</span>
-                                ) : null}
-                              </div>
-                              <span className="venta-detail-item__price">
-                                $
-                                {Number(item.precio_total).toLocaleString('es-AR', {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}
-                              </span>
-                            </div>
-                            <div className="venta-detail-item__meta">
-                              <span>
-                                Unit. $
-                                {Number(item.precio_unitario).toLocaleString('es-AR', {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}
-                              </span>
-                              {item.descuento && item.descuento > 0 ? (
-                                <span className="venta-detail-item__discount">
-                                  Desc. $
-                                  {Number(item.descuento).toLocaleString('es-AR', {
+                        {ventaModal.items.map((item) => {
+                          const draft = ventaItemsDraft[item.id] || {
+                            descripcion: item.descripcion,
+                            cantidad: String(item.cantidad),
+                            precio_unitario: String(item.precio_unitario),
+                            descuento: String(item.descuento ?? 0)
+                          }
+                          const qty = Number(String(draft.cantidad).replace(',', '.')) || 0
+                          const unit = Number(String(draft.precio_unitario).replace(',', '.')) || 0
+                          const desc = Number(String(draft.descuento).replace(',', '.')) || 0
+                          const preview = qty * unit - desc
+                          return (
+                            <li key={item.id} className="venta-detail-item venta-detail-item--edit">
+                              <input
+                                className="venta-detail-input venta-detail-input--wide"
+                                value={draft.descripcion}
+                                disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                                onChange={(e) =>
+                                  setVentaItemsDraft((prev) => ({
+                                    ...prev,
+                                    [item.id]: { ...draft, descripcion: e.target.value }
+                                  }))
+                                }
+                              />
+                              {item.codigo_articulo ? (
+                                <span className="venta-detail-item__code">{item.codigo_articulo}</span>
+                              ) : null}
+                              <div className="venta-detail-item__grid">
+                                <label>
+                                  Cant.
+                                  <input
+                                    className="venta-detail-input"
+                                    inputMode="decimal"
+                                    value={draft.cantidad}
+                                    disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                                    onChange={(e) =>
+                                      setVentaItemsDraft((prev) => ({
+                                        ...prev,
+                                        [item.id]: { ...draft, cantidad: e.target.value }
+                                      }))
+                                    }
+                                  />
+                                </label>
+                                <label>
+                                  Unit.
+                                  <input
+                                    className="venta-detail-input"
+                                    inputMode="decimal"
+                                    value={draft.precio_unitario}
+                                    disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                                    onChange={(e) =>
+                                      setVentaItemsDraft((prev) => ({
+                                        ...prev,
+                                        [item.id]: { ...draft, precio_unitario: e.target.value }
+                                      }))
+                                    }
+                                  />
+                                </label>
+                                <label>
+                                  Desc.
+                                  <input
+                                    className="venta-detail-input"
+                                    inputMode="decimal"
+                                    value={draft.descuento}
+                                    disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                                    onChange={(e) =>
+                                      setVentaItemsDraft((prev) => ({
+                                        ...prev,
+                                        [item.id]: { ...draft, descuento: e.target.value }
+                                      }))
+                                    }
+                                  />
+                                </label>
+                                <span className="venta-detail-item__price">
+                                  $
+                                  {preview.toLocaleString('es-AR', {
                                     minimumFractionDigits: 2,
                                     maximumFractionDigits: 2
                                   })}
                                 </span>
+                              </div>
+                              {ventaModal.estado_pago !== 'Cancelado' ? (
+                                <div className="venta-detail-item__actions">
+                                  <button
+                                    type="button"
+                                    className="btn-action"
+                                    disabled={ventaEditBusy}
+                                    onClick={() => void guardarItemVentaDetalle(item.id)}
+                                  >
+                                    Guardar ítem
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-action venta-detail-btn-danger"
+                                    disabled={ventaEditBusy}
+                                    onClick={() => {
+                                      setVentaMotivoAccion({ tipo: 'item', itemId: item.id })
+                                      setVentaMotivoTexto('')
+                                    }}
+                                  >
+                                    Eliminar ítem
+                                  </button>
+                                </div>
                               ) : null}
-                            </div>
-                          </li>
-                        ))}
+                            </li>
+                          )
+                        })}
                       </ul>
-                    </div>
-                  ) : null}
+                    ) : (
+                      <p className="venta-detail-block__text">Sin ítems cargados.</p>
+                    )}
+                  </div>
 
                   {ventaModal.comprobante_pago_url ? (
                     <VentaComprobantePagoDetalle
@@ -2928,10 +3247,70 @@ const CRMVentasPage = () => {
                     />
                   ) : null}
 
-                  {ventaModal.observaciones ? (
-                    <div className="venta-detail-block venta-detail-block--notes">
-                      <h3 className="venta-detail-block__title">Observaciones</h3>
-                      <p className="venta-detail-block__text">{ventaModal.observaciones}</p>
+                  <div className="venta-detail-block venta-detail-block--notes">
+                    <h3 className="venta-detail-block__title">Observaciones</h3>
+                    <textarea
+                      className="venta-detail-input venta-detail-input--area"
+                      rows={3}
+                      value={ventaCabeceraDraft.observaciones}
+                      disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                      onChange={(e) =>
+                        setVentaCabeceraDraft((prev) => ({ ...prev, observaciones: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  {ventaAuditoria.length > 0 ? (
+                    <div className="venta-detail-block venta-detail-block--audit">
+                      <h3 className="venta-detail-block__title">Cambios</h3>
+                      <ul className="venta-detail-audit">
+                        {ventaAuditoria.map((row) => (
+                          <li key={row.id}>
+                            <strong>{row.actor_nombre || 'Usuario'}</strong>{' '}
+                            {etiquetaAuditoriaVenta(row.accion)}
+                            <span> · {formatArgentinaDate(row.created_at)}</span>
+                            {row.motivo ? <em> — {row.motivo}</em> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {ventaMotivoAccion ? (
+                    <div className="venta-detail-motivo">
+                      <h3 className="venta-detail-block__title">
+                        {ventaMotivoAccion.tipo === 'venta'
+                          ? '¿Por qué se elimina esta venta?'
+                          : '¿Por qué se elimina este ítem?'}
+                      </h3>
+                      <textarea
+                        className="venta-detail-input venta-detail-input--area"
+                        rows={3}
+                        value={ventaMotivoTexto}
+                        placeholder="El motivo queda guardado con tu nombre"
+                        onChange={(e) => setVentaMotivoTexto(e.target.value)}
+                      />
+                      <div className="venta-detail-item__actions">
+                        <button
+                          type="button"
+                          className="btn-action"
+                          disabled={ventaEditBusy}
+                          onClick={() => {
+                            setVentaMotivoAccion(null)
+                            setVentaMotivoTexto('')
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-action venta-detail-btn-danger"
+                          disabled={ventaEditBusy || !ventaMotivoTexto.trim()}
+                          onClick={() => void confirmarMotivoVenta()}
+                        >
+                          {ventaEditBusy ? 'Eliminando…' : 'Confirmar eliminación'}
+                        </button>
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -2966,8 +3345,21 @@ const CRMVentasPage = () => {
                     </button>
                   )}
                   <button type="button" className="btn-action" onClick={() => handleEditarVenta(ventaModal)}>
-                    ✏️ Editar
+                    ➕ Agregar ítems
                   </button>
+                  {ventaModal.estado_pago !== 'Cancelado' ? (
+                    <button
+                      type="button"
+                      className="btn-action venta-detail-btn-danger"
+                      disabled={ventaEditBusy}
+                      onClick={() => {
+                        setVentaMotivoAccion({ tipo: 'venta' })
+                        setVentaMotivoTexto('')
+                      }}
+                    >
+                      Eliminar venta
+                    </button>
+                  ) : null}
                   <div className="export-dropdown" style={{ position: 'relative', display: 'inline-flex' }}>
                     <button
                       type="button"
@@ -3151,6 +3543,14 @@ const CRMVentasPage = () => {
                           {venta.cliente_empresa ? (
                             <span className="venta-pipeline-card__empresa">{venta.cliente_empresa}</span>
                           ) : null}
+                          {(() => {
+                            const pago = leyendaPagoVenta(venta)
+                            return (
+                              <span className={`venta-pipeline-card__pago venta-pipeline-card__pago--${pago.tipo}`}>
+                                {pago.texto}
+                              </span>
+                            )
+                          })()}
                           <span className="venta-pipeline-card__factura-pendiente">Sin factura</span>
                         </button>
                         <div className="venta-pipeline-card__actions">

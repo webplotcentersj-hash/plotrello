@@ -565,6 +565,35 @@
   line-height: 1.35;
 }
 
+.presupuesto-item-desc-label,
+.modal-content.presupuesto-venta-modal .presupuesto-item-desc-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.presupuesto-item-desc-input,
+.modal-content.presupuesto-venta-modal .presupuesto-item-desc-input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.95) !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .modal-content.presupuesto-venta-modal .presupuesto-item-card .item-codigo {
   color: #7dd3fc !important;
   font-size: 0.8rem;

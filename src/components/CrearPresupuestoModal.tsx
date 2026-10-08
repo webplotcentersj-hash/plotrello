@@ -40,6 +40,16 @@ interface CrearPresupuestoModalProps {
   prefillDesdeOportunidad?: OportunidadVenta | null
 }
 
+function descripcionEditableArticulo(articulo: ArticuloEmpresaRecord): string {
+  const nombre = (articulo.nombre || '').trim()
+  if (/\(\s*no usar\s*\)/i.test(nombre)) {
+    const desc = (articulo.descripcion || '').trim()
+    if (desc && !/\(\s*no usar\s*\)/i.test(desc)) return desc
+    return ''
+  }
+  return nombre
+}
+
 interface ItemPresupuesto {
   id_articulo_empresa?: number
   id_articulo_stock?: number
@@ -261,7 +271,7 @@ const CrearPresupuestoModal = ({
       id_articulo_empresa: articulo.id,
       id_articulo_stock: articulo.id_articulo_stock ?? undefined,
       codigo_articulo: articulo.codigo || undefined,
-      descripcion: articulo.nombre,
+      descripcion: descripcionEditableArticulo(articulo),
       cantidad: 1,
       precio_unitario: precio,
       descuento: 0,
@@ -281,15 +291,21 @@ const CrearPresupuestoModal = ({
     setItemsPresupuesto(itemsPresupuesto.filter((_, i) => i !== index))
   }
 
-  const actualizarItem = (index: number, campo: keyof ItemPresupuesto, valor: number) => {
+  const actualizarItem = (index: number, campo: keyof ItemPresupuesto, valor: number | string) => {
     const nuevosItems = [...itemsPresupuesto]
     const item = nuevosItems[index]
-    const cantidad = campo === 'cantidad' ? valor : item.cantidad
-    const precioUnitario = campo === 'precio_unitario' ? valor : item.precio_unitario
-    const descuento = campo === 'descuento' ? valor : item.descuento
+    if (campo === 'descripcion' || campo === 'observaciones' || campo === 'codigo_articulo') {
+      nuevosItems[index] = { ...item, [campo]: String(valor) }
+      setItemsPresupuesto(nuevosItems)
+      return
+    }
+    const n = typeof valor === 'number' ? valor : parseFloat(valor) || 0
+    const cantidad = campo === 'cantidad' ? n : item.cantidad
+    const precioUnitario = campo === 'precio_unitario' ? n : item.precio_unitario
+    const descuento = campo === 'descuento' ? n : item.descuento
     nuevosItems[index] = {
       ...item,
-      [campo]: valor,
+      [campo]: n,
       precio_total: precioUnitario * cantidad - descuento
     }
     setItemsPresupuesto(nuevosItems)
@@ -367,6 +383,10 @@ const CrearPresupuestoModal = ({
   const handleGuardarPresupuesto = async () => {
     if (itemsPresupuesto.length === 0) {
       alert('Agregá al menos un artículo')
+      return
+    }
+    if (itemsPresupuesto.some((item) => !item.descripcion.trim())) {
+      alert('Completá la descripción de cada ítem')
       return
     }
 
@@ -780,7 +800,16 @@ const CrearPresupuestoModal = ({
                     <div key={index} className="item-card presupuesto-item-card">
                       <div className="item-header">
                         <div className="presupuesto-item-card__info">
-                          <strong>{item.descripcion}</strong>
+                          <label className="presupuesto-item-desc-label">
+                            Descripción
+                            <input
+                              type="text"
+                              className="form-input presupuesto-item-desc-input"
+                              value={item.descripcion}
+                              placeholder="Escribí la descripción del ítem"
+                              onChange={(e) => actualizarItem(index, 'descripcion', e.target.value)}
+                            />
+                          </label>
                           {item.codigo_articulo && (
                             <div className="item-codigo">Código: {item.codigo_articulo}</div>
                           )}

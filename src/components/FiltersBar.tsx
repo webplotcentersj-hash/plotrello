@@ -203,6 +203,14 @@ const FiltersBar = ({
             >
               Facturar
             </button>
+            <button
+              type="button"
+              className="presupuesto-button filters-bar-phone-add"
+              onClick={() => navigate('/ventas?tab=presupuestos')}
+              title="Crear presupuesto de venta"
+            >
+              Presupuesto
+            </button>
           </div>
         )}
       </section>
@@ -297,6 +305,16 @@ const FiltersBar = ({
               title="Emitir factura electrónica AFIP"
             >
               Facturar
+            </button>
+          )}
+          {canAccessMostradorViews && usuario && (
+            <button
+              type="button"
+              className="presupuesto-button"
+              onClick={() => navigate('/ventas?tab=presupuestos')}
+              title="Crear presupuesto de venta"
+            >
+              Presupuesto
             </button>
           )}
           {onAddNewOrder && (

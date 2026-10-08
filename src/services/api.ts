@@ -20708,21 +20708,27 @@ class ApiService {
   async listIdsVentasFacturadas(idsVentas?: number[]): Promise<ApiResponse<number[]>> {
     if (!supabase) return { success: false, error: 'Supabase no inicializado' }
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('facturas_venta')
-        .select('id_venta')
+        .select('id_venta, estado, estado_afip')
         .not('id_venta', 'is', null)
-        .neq('estado', 'Anulada')
-      if (idsVentas && idsVentas.length > 0) {
-        query = query.in('id_venta', idsVentas)
-      }
-      const { data, error } = await query.limit(5000)
+        .limit(5000)
       if (error) return { success: false, error: error.message }
+      const wanted = idsVentas && idsVentas.length > 0
+        ? new Set(idsVentas.map((id) => Number(id)).filter((id) => Number.isFinite(id)))
+        : null
       const ids = Array.from(
         new Set(
           (data || [])
-            .map((f: { id_venta?: number | null }) => f.id_venta)
-            .filter((id): id is number => id != null)
+            .filter((f: { id_venta?: number | null; estado?: string | null; estado_afip?: string | null }) => {
+              const estado = String(f.estado || '').trim()
+              const afip = String(f.estado_afip || '').trim()
+              if (estado === 'Anulada' || afip === 'Anulada') return false
+              const id = Number(f.id_venta)
+              if (!Number.isFinite(id)) return false
+              return wanted ? wanted.has(id) : true
+            })
+            .map((f: { id_venta?: number | null }) => Number(f.id_venta))
         )
       )
       return { success: true, data: ids }
@@ -21072,6 +21078,10 @@ class ApiService {
       caja_slug_cobro: string | null
       fecha_venta: string
       observaciones: string
+      cliente_nombre: string
+      cliente_telefono: string | null
+      cliente_email: string | null
+      cliente_dni_cuit: string | null
       comprobante_pago_url: string | null
       comprobante_pago_texto: string | null
       detalle_pago: import('../constants/ventasCondicionesPago').VentaDetallePago | null
@@ -21094,6 +21104,10 @@ class ApiService {
       if (venta.caja_slug_cobro !== undefined) updateData.caja_slug_cobro = venta.caja_slug_cobro
       if (venta.fecha_venta !== undefined) updateData.fecha_venta = venta.fecha_venta
       if (venta.observaciones !== undefined) updateData.observaciones = venta.observaciones
+      if (venta.cliente_nombre !== undefined) updateData.cliente_nombre = venta.cliente_nombre
+      if (venta.cliente_telefono !== undefined) updateData.cliente_telefono = venta.cliente_telefono
+      if (venta.cliente_email !== undefined) updateData.cliente_email = venta.cliente_email
+      if (venta.cliente_dni_cuit !== undefined) updateData.cliente_dni_cuit = venta.cliente_dni_cuit
       if (venta.comprobante_pago_url !== undefined) {
         updateData.comprobante_pago_url = venta.comprobante_pago_url
       }
@@ -21119,6 +21133,17 @@ class ApiService {
         void syncCajaDesdeVentaApi(ventaRes.data, { silencioso: true })
       }
 
+      try {
+        await supabase.rpc('ventas_registrar_cambio', {
+          p_actor_id: this.requireComercialActorId(),
+          p_id_venta: id,
+          p_accion: 'editar_venta',
+          p_detalle: venta
+        })
+      } catch {
+        /* no bloquear el guardado si falla el log */
+      }
+
       return { success: true, data: { success: true } }
     } catch (error: any) {
       console.error('Error al actualizar venta:', error)
@@ -21129,9 +21154,105 @@ class ApiService {
     }
   }
 
-  async eliminarItemVenta(idItem: number): Promise<ApiResponse<boolean>> {
+  async listAuditoriaVenta(idVenta: number): Promise<ApiResponse<import('../types/api').VentaAuditoria[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase
+        .from('ventas_auditoria')
+        .select('*')
+        .eq('id_venta', idVenta)
+        .order('created_at', { ascending: false })
+        .limit(40)
+      if (error) return { success: false, error: error.message }
+      return { success: true, data: (data as import('../types/api').VentaAuditoria[]) ?? [] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al leer auditoría' }
+    }
+  }
+
+  private async sincronizarCajaTrasCambioVenta(idVenta: number): Promise<void> {
+    const ventaRes = await this.getVenta(idVenta)
+    if (ventaRes.success && ventaRes.data) {
+      void syncCajaDesdeVentaApi(ventaRes.data, { silencioso: true })
+    }
+  }
+
+  async actualizarItemVentaDetalle(item: {
+    id: number
+    descripcion: string
+    cantidad: number
+    precio_unitario: number
+    descuento?: number
+  }): Promise<ApiResponse<{ valor_total: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data: prev } = await supabase
+        .from('ventas_items')
+        .select('id, id_venta, id_articulo_stock, cantidad')
+        .eq('id', item.id)
+        .maybeSingle()
+
+      const { data, error } = await supabase.rpc('ventas_editar_item', {
+        p_actor_id: this.requireComercialActorId(),
+        p_id_item: item.id,
+        p_descripcion: item.descripcion,
+        p_cantidad: item.cantidad,
+        p_precio_unitario: item.precio_unitario,
+        p_descuento: item.descuento ?? 0
+      })
+      if (error) throw error
+
+      if (prev?.id_articulo_stock) {
+        const delta = Number(item.cantidad) - Number(prev.cantidad || 0)
+        if (delta > 0) {
+          await this.descontarStockDeVenta(Number(prev.id_venta), Number(prev.id_articulo_stock), delta, Number(prev.id))
+        } else if (delta < 0) {
+          await this.devolverStockDeItemVenta({
+            id: Number(prev.id),
+            id_venta: Number(prev.id_venta),
+            id_articulo_stock: Number(prev.id_articulo_stock),
+            cantidad: Math.abs(delta)
+          })
+        }
+      }
+
+      if (prev?.id_venta) {
+        await this.sincronizarCajaTrasCambioVenta(Number(prev.id_venta))
+      }
+
+      const valorTotal = Number((data as { valor_total?: number } | null)?.valor_total ?? 0)
+      return { success: true, data: { valor_total: valorTotal } }
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Error al actualizar ítem' }
+    }
+  }
+
+  async anularVentaConMotivo(idVenta: number, motivo: string): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    const texto = motivo.trim()
+    if (!texto) return { success: false, error: 'Escribí por qué se elimina la venta' }
+    try {
+      const { error } = await supabase.rpc('ventas_anular_motivo', {
+        p_actor_id: this.requireComercialActorId(),
+        p_id_venta: idVenta,
+        p_motivo: texto
+      })
+      if (error) throw error
+      await this.sincronizarCajaTrasCambioVenta(idVenta)
+      return { success: true, data: true }
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Error al eliminar la venta' }
+    }
+  }
+
+  async eliminarItemVenta(idItem: number, motivo?: string): Promise<ApiResponse<boolean>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
+    }
+
+    const motivoTexto = motivo?.trim()
+    if (!motivoTexto) {
+      return { success: false, error: 'Escribí por qué se elimina el ítem' }
     }
 
     try {
@@ -21142,9 +21263,10 @@ class ApiService {
         .eq('id', idItem)
         .maybeSingle()
 
-      const { error } = await supabase.rpc('ventas_eliminar_item', {
+      const { error } = await supabase.rpc('ventas_borrar_item_motivo', {
         p_actor_id: this.requireComercialActorId(),
-        p_id_item: idItem
+        p_id_item: idItem,
+        p_motivo: motivoTexto
       })
 
       if (error) throw error
@@ -21156,6 +21278,10 @@ class ApiService {
           id_articulo_stock: Number(item.id_articulo_stock),
           cantidad: Number(item.cantidad)
         })
+      }
+
+      if (item?.id_venta) {
+        await this.sincronizarCajaTrasCambioVenta(Number(item.id_venta))
       }
 
       return {

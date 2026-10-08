@@ -2147,6 +2147,18 @@ export interface VentaItem {
   created_at: string
 }
 
+export interface VentaAuditoria {
+  id: number
+  id_venta: number
+  id_item?: number | null
+  accion: string
+  motivo?: string | null
+  actor_id?: number | null
+  actor_nombre?: string | null
+  detalle?: Record<string, unknown> | null
+  created_at: string
+}
+
 // ============================================
 // SISTEMA DE GESTIÓN DE FLOTA
 // ============================================
