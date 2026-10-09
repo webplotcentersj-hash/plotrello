@@ -9,6 +9,7 @@ export type CampoFusionCliente =
   | 'telefono'
   | 'email'
   | 'direccion'
+  | 'condicion_iva'
 
 export const CAMPOS_FUSION_CLIENTE: { key: CampoFusionCliente; label: string }[] = [
   { key: 'nombre', label: 'Nombre' },
@@ -17,7 +18,8 @@ export const CAMPOS_FUSION_CLIENTE: { key: CampoFusionCliente; label: string }[]
   { key: 'dni_cuit', label: 'DNI / CUIT' },
   { key: 'telefono', label: 'Teléfono' },
   { key: 'email', label: 'Email' },
-  { key: 'direccion', label: 'Dirección' }
+  { key: 'direccion', label: 'Dirección' },
+  { key: 'condicion_iva', label: 'Condición de IVA' }
 ]
 
 export type DatosFusionCliente = Record<CampoFusionCliente, string>

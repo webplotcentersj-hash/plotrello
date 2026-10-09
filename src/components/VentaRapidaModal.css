@@ -445,7 +445,8 @@
 .item-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 10px;
   margin-bottom: 12px;
 }
 
@@ -454,6 +455,47 @@
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+
+.item-desc-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.item-desc-input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.item-desc-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.item-precio-input {
+  width: 100%;
+  height: 48px;
+  box-sizing: border-box;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .btn-remove {
@@ -1192,6 +1234,17 @@
   min-width: 0;
   word-break: break-word;
   padding-right: 8px;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .item-desc-input {
+  background: #fff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.venta-rapida-modal.venta-rapida-modal--mostrador .item-precio-input {
+  color: #0f172a;
+  font-weight: 800;
 }
 
 .item-precio-readonly {

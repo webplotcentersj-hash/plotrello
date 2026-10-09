@@ -5,6 +5,38 @@ export type CondicionIvaCliente =
   | 'Consumidor Final'
   | 'No Responsable'
 
+export const CONDICIONES_IVA_CLIENTE: CondicionIvaCliente[] = [
+  'Consumidor Final',
+  'Responsable Inscripto',
+  'Monotributista',
+  'Exento',
+  'No Responsable'
+]
+
+/** AFIP labels o snake_case de cuenta corriente → valor de ficha cliente. */
+export function normalizarCondicionIvaCliente(
+  value: string | null | undefined
+): CondicionIvaCliente | '' {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  const exact = CONDICIONES_IVA_CLIENTE.find((c) => c.toLowerCase() === raw.toLowerCase())
+  if (exact) return exact
+  const key = raw.toLowerCase().replace(/[\s-]+/g, '_')
+  const map: Record<string, CondicionIvaCliente> = {
+    responsable_inscripto: 'Responsable Inscripto',
+    iva_responsable_inscripto: 'Responsable Inscripto',
+    monotributo: 'Monotributista',
+    monotributista: 'Monotributista',
+    responsable_monotributo: 'Monotributista',
+    exento: 'Exento',
+    iva_exento: 'Exento',
+    iva_sujeto_exento: 'Exento',
+    no_responsable: 'No Responsable',
+    consumidor_final: 'Consumidor Final'
+  }
+  return map[key] || ''
+}
+
 export type TipoFactura = 'Factura A' | 'Factura B' | 'Factura C'
 
 /** Concepto AFIP. Servicios (2/3) informan período del servicio y vencimiento del pago. */

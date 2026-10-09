@@ -17,9 +17,13 @@ import {
 import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
 import { nombreCompletoCliente, nombreSinRepeticion } from '../utils/buscarClienteMatch'
 import {
+  clampDescuentoPct,
+  descuentoPesosDesdePct,
   etiquetaCantidadUnidad,
   etiquetaUnidadCorta,
-  normalizarUnidadPrecio
+  importeLineaVentaPct,
+  normalizarUnidadPrecio,
+  porcentajeDesdeDescuentoPesos
 } from '../utils/unidadPrecio'
 import {
   leerVentasPresupuestoDraft,
@@ -57,6 +61,7 @@ interface ItemPresupuesto {
   descripcion: string
   cantidad: number
   precio_unitario: number
+  /** Porcentaje 0–100, igual que venta rápida. Al persistir se convierte a pesos. */
   descuento: number
   precio_total: number
   unidad_medida?: string
@@ -142,8 +147,16 @@ const CrearPresupuestoModal = ({
         descripcion: item.descripcion,
         cantidad: item.cantidad,
         precio_unitario: item.precio_unitario,
-        descuento: item.descuento,
-        precio_total: item.precio_total,
+        descuento: porcentajeDesdeDescuentoPesos(
+          item.precio_unitario,
+          item.cantidad,
+          item.descuento
+        ),
+        precio_total: importeLineaVentaPct(
+          item.precio_unitario,
+          item.cantidad,
+          porcentajeDesdeDescuentoPesos(item.precio_unitario, item.cantidad, item.descuento)
+        ),
         unidad_medida: item.unidad_medida
       }))
     )
@@ -229,11 +242,10 @@ const CrearPresupuestoModal = ({
         if (!art) return item
         const precio = resolvePrecioLista(art, tipoListaPrecio, ajustesPrecios)
         if (precio == null) return item
-        const precioTotal = precio * item.cantidad - (item.descuento || 0)
         return {
           ...item,
           precio_unitario: precio,
-          precio_total: precioTotal,
+          precio_total: importeLineaVentaPct(precio, item.cantidad, item.descuento),
           unidad_medida: item.unidad_medida || normalizarUnidadPrecio(art.unidad_medida)
         }
       })
@@ -329,11 +341,11 @@ const CrearPresupuestoModal = ({
     const n = typeof valor === 'number' ? valor : parseFloat(valor) || 0
     const cantidad = campo === 'cantidad' ? n : item.cantidad
     const precioUnitario = campo === 'precio_unitario' ? n : item.precio_unitario
-    const descuento = campo === 'descuento' ? n : item.descuento
+    const descuento = campo === 'descuento' ? clampDescuentoPct(n) : item.descuento
     nuevosItems[index] = {
       ...item,
-      [campo]: n,
-      precio_total: precioUnitario * cantidad - descuento
+      [campo]: campo === 'descuento' ? descuento : n,
+      precio_total: importeLineaVentaPct(precioUnitario, cantidad, descuento)
     }
     setItemsPresupuesto(nuevosItems)
   }
@@ -428,8 +440,8 @@ const CrearPresupuestoModal = ({
         descripcion: `${item.descripcion} (${etiquetaUnidadCorta(item.unidad_medida)})`,
         cantidad: item.cantidad,
         precio_unitario: item.precio_unitario,
-        descuento: item.descuento || 0,
-        precio_total: item.precio_total,
+        descuento: descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento),
+        precio_total: importeLineaVentaPct(item.precio_unitario, item.cantidad, item.descuento),
         observaciones: item.observaciones
       }))
 
@@ -887,21 +899,43 @@ const CrearPresupuestoModal = ({
                           />
                         </div>
                         <div className="item-control">
-                          <label>Descuento</label>
+                          <label>Desc. %</label>
                           <input
                             type="number"
                             className="form-input-small"
                             min="0"
+                            max="100"
                             step="0.01"
-                            value={item.descuento}
+                            value={item.descuento > 0 ? item.descuento : ''}
                             onChange={(e) =>
-                              actualizarItem(index, 'descuento', parseFloat(e.target.value) || 0)
+                              actualizarItem(
+                                index,
+                                'descuento',
+                                e.target.value.trim() === ''
+                                  ? 0
+                                  : clampDescuentoPct(parseFloat(e.target.value) || 0)
+                              )
                             }
                           />
                         </div>
                       </div>
+                      <p className="item-precio-calc">
+                        {item.cantidad} {etiquetaUnidadCorta(item.unidad_medida)} × $
+                        {item.precio_unitario.toLocaleString('es-AR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })}{' '}
+                        / {etiquetaUnidadCorta(item.unidad_medida)}
+                        {item.descuento > 0
+                          ? ` − ${item.descuento}% (−$${descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+                          : ''}
+                      </p>
                       <div className="item-subtotal">
-                        Subtotal: ${item.precio_total.toFixed(2)}
+                        Subtotal: $
+                        {item.precio_total.toLocaleString('es-AR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })}
                       </div>
                     </div>
                   ))}

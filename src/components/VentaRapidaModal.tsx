@@ -93,10 +93,22 @@ interface ItemVenta {
   /** Texto del input para no perder la coma al tipear 6,25 */
   cantidadTexto?: string
   precio_unitario: number
+  /** Si el operador tocó el precio, no lo pisa el recargo de lista/prioridad. */
+  precioEditado?: boolean
   descuento: number
   precio_lista?: TipoListaPrecioVentas
   unidad_medida?: string
   observaciones?: string
+}
+
+function descripcionEditableArticulo(articulo: ArticuloEmpresaRecord): string {
+  const nombre = (articulo.nombre || '').trim()
+  if (/\(\s*no usar\s*\)/i.test(nombre)) {
+    const desc = (articulo.descripcion || '').trim()
+    if (desc && !/\(\s*no usar\s*\)/i.test(desc)) return desc
+    return ''
+  }
+  return nombre
 }
 
 function formatArs(n: number): string {
@@ -347,6 +359,7 @@ const VentaRapidaModal = ({
         if (!art) return item
         const precioBase = resolvePrecioLista(art, lista, ajustesPrecios)
         if (precioBase == null) return item
+        if (item.precioEditado) return { ...item, precio_lista: lista }
         const precio = aplicarRecargoPrioridad(precioBase, prioridad)
         return { ...item, precio_unitario: precio, precio_lista: lista }
       })
@@ -432,7 +445,7 @@ const VentaRapidaModal = ({
       id_articulo_empresa: articulo.id,
       id_articulo_stock: articulo.id_articulo_stock ?? undefined,
       codigo_articulo: articulo.codigo || undefined,
-      descripcion: articulo.nombre,
+      descripcion: descripcionEditableArticulo(articulo),
       cantidad: 1,
       cantidadTexto: '1',
       precio_unitario: precio,
@@ -455,7 +468,11 @@ const VentaRapidaModal = ({
 
   const actualizarItem = (index: number, campo: keyof ItemVenta, valor: any) => {
     const nuevosItems = [...itemsVenta]
-    nuevosItems[index] = { ...nuevosItems[index], [campo]: valor }
+    nuevosItems[index] = {
+      ...nuevosItems[index],
+      [campo]: valor,
+      ...(campo === 'precio_unitario' ? { precioEditado: true } : {})
+    }
     setItemsVenta(nuevosItems)
   }
 
@@ -614,6 +631,11 @@ const VentaRapidaModal = ({
       return
     }
 
+    if (itemsVenta.some((item) => !item.descripcion.trim())) {
+      alert('Completá la descripción de cada ítem. Eso es lo que figura en la factura.')
+      return
+    }
+
     if (itemsVenta.some((item) => !(item.cantidad > 0))) {
       alert('Revisá las cantidades: tienen que ser mayores a 0 (se aceptan decimales, por ejemplo 6,25 m²).')
       return
@@ -724,7 +746,7 @@ const VentaRapidaModal = ({
         items: itemsVenta.map((item) => ({
           id_articulo_stock: item.id_articulo_stock ?? null,
           codigo_articulo: item.codigo_articulo ?? null,
-          descripcion: `${item.descripcion} (${etiquetaUnidadCorta(item.unidad_medida)})`,
+          descripcion: `${item.descripcion.trim() || 'Ítem'} (${etiquetaUnidadCorta(item.unidad_medida)})`,
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
           descuento: descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento),
@@ -780,7 +802,7 @@ const VentaRapidaModal = ({
           id_venta: ventaData.id,
           id_articulo_stock: item.id_articulo_stock ?? undefined,
           codigo_articulo: item.codigo_articulo ?? undefined,
-          descripcion: `${item.descripcion} (${etiquetaUnidadCorta(item.unidad_medida)})`,
+          descripcion: `${item.descripcion.trim() || 'Ítem'} (${etiquetaUnidadCorta(item.unidad_medida)})`,
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
           precio_total: importeLineaVentaPct(item.precio_unitario, item.cantidad, item.descuento),
@@ -1143,6 +1165,8 @@ const VentaRapidaModal = ({
                   {articulosFiltrados.slice(0, 80).map((articulo) => {
                     const precio = precioListaConPrioridad(articulo)
                     const yaAgregado = itemsVenta.some((i) => i.id_articulo_empresa === articulo.id)
+                    const nombreVisible = descripcionEditableArticulo(articulo) || articulo.nombre
+                    const descCatalogo = articulo.descripcion?.trim() || ''
                     return (
                       <button
                         key={articulo.id}
@@ -1156,7 +1180,7 @@ const VentaRapidaModal = ({
                         </span>
                         <span
                           className="lista-precios-row__nombre"
-                          title={articulo.descripcion?.trim() || articulo.nombre}
+                          title={descCatalogo || nombreVisible}
                         >
                           <span className="lista-precios-row__icon" aria-hidden>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -1166,10 +1190,11 @@ const VentaRapidaModal = ({
                             </svg>
                           </span>
                           <span className="lista-precios-row__nombre-wrap">
-                            <span className="lista-precios-row__nombre-text">{articulo.nombre}</span>
-                            {articulo.descripcion?.trim() &&
-                            articulo.descripcion.trim() !== articulo.nombre.trim() ? (
-                              <span className="lista-precios-row__desc">{articulo.descripcion}</span>
+                            <span className="lista-precios-row__nombre-text">{nombreVisible}</span>
+                            {descCatalogo &&
+                            descCatalogo !== nombreVisible &&
+                            !/\(\s*no usar\s*\)/i.test(descCatalogo) ? (
+                              <span className="lista-precios-row__desc">{descCatalogo}</span>
                             ) : null}
                           </span>
                         </span>
@@ -1421,8 +1446,18 @@ const VentaRapidaModal = ({
                 {itemsVenta.map((item, index) => (
                   <div key={index} className="item-card">
                     <div className="item-header">
-                      <strong>{item.descripcion}</strong>
+                      <label className="item-desc-label">
+                        Descripción
+                        <input
+                          type="text"
+                          className="form-input item-desc-input"
+                          value={item.descripcion}
+                          placeholder="Escribí la descripción que va a la factura"
+                          onChange={(e) => actualizarItem(index, 'descripcion', e.target.value)}
+                        />
+                      </label>
                       <button
+                        type="button"
                         className="btn-remove"
                         onClick={() => eliminarItem(index)}
                       >
@@ -1471,9 +1506,21 @@ const VentaRapidaModal = ({
                             </span>
                           )}
                         </label>
-                        <div className="item-precio-readonly" title="Precio de lista con recargo de prioridad si aplica">
-                          ${formatArs(item.precio_unitario)}
-                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="form-input-small item-precio-input"
+                          value={item.precio_unitario || ''}
+                          title="Precio por unidad. Este valor es el que va a la factura."
+                          onChange={(e) =>
+                            actualizarItem(
+                              index,
+                              'precio_unitario',
+                              e.target.value.trim() === '' ? 0 : parseFloat(e.target.value) || 0
+                            )
+                          }
+                        />
                       </div>
                       <div className="item-control item-control--descuento">
                         <label>Desc. %</label>

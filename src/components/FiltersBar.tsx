@@ -5,6 +5,7 @@ import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
 import { getApiService } from '../services/apiLoader'
 import { VENTAS } from '../utils/ventasRoutes'
+import { CLIENTES_CUENTA_CORRIENTE, CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
 import VentaRapidaModal from './VentaRapidaModal'
 import './FiltersBar.css'
 
@@ -112,6 +113,26 @@ const FiltersBar = ({
             {canAccessMostradorViews && (
               <button
                 type="button"
+                className="cc-button filters-bar-phone-add"
+                onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
+                title="Cuenta corriente"
+              >
+                CC
+              </button>
+            )}
+            {usuario && (
+              <button
+                type="button"
+                className="clientes-button filters-bar-phone-add"
+                onClick={() => navigate(CLIENTES_DASHBOARD)}
+                title="Buscar y editar clientes"
+              >
+                Clientes
+              </button>
+            )}
+            {canAccessMostradorViews && (
+              <button
+                type="button"
                 className="factura-button filters-bar-phone-add"
                 onClick={() => navigate('/erp/facturas/nueva')}
                 title="Emitir factura electrónica"
@@ -200,6 +221,26 @@ const FiltersBar = ({
               title="Registrar una venta sin salir del tablero (tecla V)"
             >
               💰 Venta
+            </button>
+          )}
+          {canAccessMostradorViews && usuario && (
+            <button
+              type="button"
+              className="cc-button"
+              onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
+              title="Cuenta corriente de clientes"
+            >
+              CC
+            </button>
+          )}
+          {usuario && (
+            <button
+              type="button"
+              className="clientes-button"
+              onClick={() => navigate(CLIENTES_DASHBOARD)}
+              title="Buscar y editar clientes"
+            >
+              Clientes
             </button>
           )}
           {canAccessMostradorViews && usuario && (

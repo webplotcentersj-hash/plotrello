@@ -5633,6 +5633,7 @@ class ApiService {
       email?: string
       dni_cuit?: string
       direccion?: string
+      condicion_iva?: string
     } | undefined,
     actorId: number
   ): Promise<ApiResponse<ClienteRecord>> {
@@ -5652,7 +5653,8 @@ class ApiService {
         p_telefono: datosFinales?.telefono ?? null,
         p_email: datosFinales?.email ?? null,
         p_dni_cuit: datosFinales?.dni_cuit ?? null,
-        p_direccion: datosFinales?.direccion ?? null
+        p_direccion: datosFinales?.direccion ?? null,
+        p_condicion_iva: datosFinales?.condicion_iva ?? null
       })
       if (fusionErr) return { success: false, error: fusionErr.message }
       const row = Array.isArray(fusionRpc) ? fusionRpc[0] : fusionRpc
@@ -5677,6 +5679,7 @@ class ApiService {
       email?: string
       dni_cuit?: string
       direccion?: string
+      condicion_iva?: string
     } | undefined,
     actorId: number
   ): Promise<ApiResponse<{ principal: ClienteRecord; idsFusionados: number[] }>> {
@@ -5771,6 +5774,7 @@ class ApiService {
     direccion?: string
     ubicacion_link?: string
     drive_link?: string
+    condicion_iva?: string
   }): Promise<ApiResponse<ClienteRecord>> {
     if (supabase) {
       const { data, error } = await supabase.rpc('buscar_o_crear_cliente', {
@@ -5780,7 +5784,8 @@ class ApiService {
         p_email: cliente.email?.trim() || null,
         p_direccion: cliente.direccion?.trim() || null,
         p_ubicacion_link: cliente.ubicacion_link?.trim() || null,
-        p_drive_link: cliente.drive_link?.trim() || null
+        p_drive_link: cliente.drive_link?.trim() || null,
+        p_condicion_iva: cliente.condicion_iva?.trim() || null
       })
 
       if (error) {
@@ -16146,6 +16151,65 @@ class ApiService {
     }
   }
 
+  async actualizarPresupuestoVentaCompleto(params: {
+    id: number
+    actor?: import('../types/api').PresupuestoVentaActor
+    cliente_nombre?: string
+    cliente_telefono?: string | null
+    cliente_email?: string | null
+    cliente_dni_cuit?: string | null
+    cliente_empresa?: string | null
+    cliente_direccion?: string | null
+    fecha_vencimiento?: string | null
+    observaciones_cliente?: string | null
+    observaciones_internas?: string | null
+    tipo_lista_precio?: 'lista_1' | 'lista_2' | null
+    items: Array<{
+      id?: number
+      descripcion: string
+      cantidad: number
+      precio_unitario: number
+      descuento?: number
+      codigo_articulo?: string | null
+      id_articulo_stock?: number | null
+      observaciones?: string | null
+    }>
+  }): Promise<ApiResponse<PresupuestoVentaRecord>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('actualizar_presupuesto_venta', {
+        p_id_presupuesto: params.id,
+        p_actor_id: params.actor?.id ?? null,
+        p_actor_nombre: params.actor?.nombre || null,
+        p_cliente_nombre: params.cliente_nombre || null,
+        p_cliente_telefono: params.cliente_telefono || null,
+        p_cliente_email: params.cliente_email || null,
+        p_cliente_dni_cuit: params.cliente_dni_cuit || null,
+        p_cliente_empresa: params.cliente_empresa || null,
+        p_cliente_direccion: params.cliente_direccion || null,
+        p_fecha_vencimiento: params.fecha_vencimiento || null,
+        p_observaciones_cliente: params.observaciones_cliente ?? null,
+        p_observaciones_internas: params.observaciones_internas ?? null,
+        p_tipo_lista_precio: params.tipo_lista_precio || null,
+        p_items: params.items
+      })
+      if (error) return { success: false, error: error.message }
+      const detalle = await this.obtenerDetallePresupuestoVenta(params.id)
+      if (detalle.success && detalle.data) {
+        return { success: true, data: detalle.data.presupuesto }
+      }
+      return {
+        success: true,
+        data: {
+          id: params.id,
+          precio_total: Number((data as { precio_total?: number } | null)?.precio_total) || 0
+        } as PresupuestoVentaRecord
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al guardar el presupuesto' }
+    }
+  }
+
   async registrarAuditoriaPresupuestoVenta(params: {
     idPresupuesto: number
     accion: string
@@ -23464,26 +23528,7 @@ class ApiService {
 
   // ========== DEUDAS PROVEEDORES ==========
   async importarDeudasProveedoresSeed(): Promise<ApiResponse<{ importados: number }>> {
-    if (!supabase) return { success: false, error: 'Supabase no configurado' }
-    try {
-      const seed = (await import('../data/deudas-proveedores-seed.json')).default as {
-        fecha_corte: string
-        rows: Array<{ codigo: string; razon_social: string; telefono: string; saldo: number }>
-      }
-      const payload = seed.rows.map((r) => ({
-        codigo: r.codigo,
-        razon_social: r.razon_social,
-        telefono: r.telefono || '-',
-        saldo: r.saldo,
-        fecha_corte: seed.fecha_corte
-      }))
-      const { error } = await supabase.from('deudas_proveedores').upsert(payload, { onConflict: 'codigo' })
-      if (error) return { success: false, error: error.message }
-      await supabase.rpc('vincular_deudas_proveedores')
-      return { success: true, data: { importados: payload.length } }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
-    }
+    return { success: true, data: { importados: 0 } }
   }
 
   async vincularDeudasProveedores(): Promise<ApiResponse<{ vinculados: number }>> {
@@ -23511,23 +23556,12 @@ class ApiService {
 
       if (error) {
         if (error.message.includes('deudas_proveedores') || error.code === '42P01') {
-          const imp = await this.importarDeudasProveedoresSeed()
-          if (!imp.success) return { success: false, error: imp.error }
-          const retry = await supabase.from('deudas_proveedores').select('*').order('codigo', { ascending: true })
-          if (retry.error) return { success: false, error: retry.error.message }
-          return this.getDeudasProveedores(options)
+          return { success: true, data: [] }
         }
         return { success: false, error: error.message }
       }
 
       let rows = (data as import('../types/api').DeudaProveedorRecord[]) ?? []
-      if (rows.length === 0) {
-        const imp = await this.importarDeudasProveedoresSeed()
-        if (imp.success) {
-          const retry = await supabase.from('deudas_proveedores').select('*').order('codigo', { ascending: true })
-          rows = (retry.data as import('../types/api').DeudaProveedorRecord[]) ?? []
-        }
-      }
 
       const [cxpRes, provRes] = await Promise.all([
         this.getCuentasPorPagar(),
@@ -23619,36 +23653,7 @@ class ApiService {
 
   // ========== PAGOS PROVEEDORES (legacy planilla) ==========
   async importarPagosProveedoresSeed(): Promise<ApiResponse<{ importados: number }>> {
-    if (!supabase) return { success: false, error: 'Supabase no configurado' }
-    try {
-      const seed = (await import('../data/pagos-proveedores-seed.json')).default as {
-        fecha_desde: string
-        fecha_hasta: string
-        rows: Array<{
-          fecha: string
-          numero_pago: string
-          numero_recibo: string
-          proveedor_nombre: string
-          usuario: string
-          monto: number
-        }>
-      }
-      const payload = seed.rows.map((r) => ({
-        fecha: r.fecha,
-        numero_pago: r.numero_pago,
-        numero_recibo: r.numero_recibo || '',
-        proveedor_nombre: r.proveedor_nombre,
-        usuario: r.usuario || null,
-        monto: r.monto,
-        fecha_desde: seed.fecha_desde,
-        fecha_hasta: seed.fecha_hasta
-      }))
-      await this.rpcTesoreriaUpsert('pagos_proveedores', { items: payload })
-      await supabase.rpc('vincular_pagos_proveedores')
-      return { success: true, data: { importados: payload.length } }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
-    }
+    return { success: true, data: { importados: 0 } }
   }
 
   async vincularPagosProveedores(): Promise<ApiResponse<{ vinculados: number }>> {
@@ -23679,21 +23684,12 @@ class ApiService {
 
       if (error) {
         if (error.message.includes('pagos_proveedores') || error.code === '42P01') {
-          const imp = await this.importarPagosProveedoresSeed()
-          if (!imp.success) return { success: false, error: imp.error }
-          return this.getPagosProveedores(options)
+          return { success: true, data: [] }
         }
         return { success: false, error: error.message }
       }
 
       let rows = (data as import('../types/api').PagoProveedorRecord[]) ?? []
-      if (rows.length === 0) {
-        const imp = await this.importarPagosProveedoresSeed()
-        if (imp.success) {
-          const retry = await supabase.from('pagos_proveedores').select('*').order('fecha', { ascending: false })
-          rows = (retry.data as import('../types/api').PagoProveedorRecord[]) ?? []
-        }
-      }
 
       const pagosSistema = await this.getPagosCobros({ tipo: 'Pago', limit: 500 })
       const sistemaPagos = pagosSistema.data ?? []
@@ -23760,34 +23756,7 @@ class ApiService {
 
   // ========== MOVIMIENTOS PROVEEDORES (legacy cuenta corriente) ==========
   async importarMovimientosProveedoresSeed(): Promise<ApiResponse<{ importados: number }>> {
-    if (!supabase) return { success: false, error: 'Supabase no configurado' }
-    try {
-      const seed = (await import('../data/movimientos-proveedores-seed.json')).default as {
-        rows: Array<{
-          proveedor_nombre: string
-          moneda: string
-          fecha_desde: string
-          fecha_hasta: string
-          fecha_hora: string
-          fecha_comprobante: string
-          tipo_movimiento: string
-          comprobante: string
-          debe: number
-          haber: number
-          saldo: number
-          es_saldo_inicial: boolean
-        }>
-      }
-      const payload = seed.rows.map((r) => ({ ...r }))
-      const { error } = await supabase.from('movimientos_proveedores').upsert(payload, {
-        onConflict: 'proveedor_nombre,fecha_hora,comprobante,tipo_movimiento'
-      })
-      if (error) return { success: false, error: error.message }
-      await supabase.rpc('vincular_movimientos_proveedores')
-      return { success: true, data: { importados: payload.length } }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
-    }
+    return { success: true, data: { importados: 0 } }
   }
 
   async vincularMovimientosProveedores(): Promise<ApiResponse<{ vinculados: number }>> {
@@ -23817,24 +23786,12 @@ class ApiService {
 
       if (error) {
         if (error.message.includes('movimientos_proveedores') || error.code === '42P01') {
-          const imp = await this.importarMovimientosProveedoresSeed()
-          if (!imp.success) return { success: false, error: imp.error }
-          return this.getMovimientosProveedores(options)
+          return { success: true, data: [] }
         }
         return { success: false, error: error.message }
       }
 
       let rows = (data as import('../types/api').MovimientoProveedorRecord[]) ?? []
-      if (rows.length === 0) {
-        const imp = await this.importarMovimientosProveedoresSeed()
-        if (imp.success) {
-          const retry = await supabase
-            .from('movimientos_proveedores')
-            .select('*')
-            .order('fecha_hora', { ascending: true })
-          rows = (retry.data as import('../types/api').MovimientoProveedorRecord[]) ?? []
-        }
-      }
 
       const pagosRes = await supabase.from('pagos_proveedores').select('id, numero_pago')
       const pagosMap = new Map<string, number>()
@@ -23912,18 +23869,6 @@ class ApiService {
     if (!supabase) return []
 
     type CcRow = import('../types/api').DeudaCcProveedorRecord
-    type SeedFile = {
-      rows: Array<Omit<CcRow, 'id' | 'id_proveedor'>>
-    }
-
-    const seedFromFile = async (): Promise<CcRow[]> => {
-      const seed = (await import('../data/deuda-cc-proveedores-seed.json')).default as SeedFile
-      return seed.rows.map((r, i) => ({
-        id: -(i + 1),
-        ...r,
-        id_proveedor: null
-      }))
-    }
 
     try {
       const { data, error } = await supabase
@@ -23931,49 +23876,15 @@ class ApiService {
         .select('*')
         .order('fecha_vencimiento', { ascending: true })
 
-      if (error) {
-        if (error.message.includes('deuda_cc_proveedores') || error.code === '42P01') {
-          const imp = await this.importarDeudaCcProveedoresSeed()
-          if (imp.success) return this.loadDeudaCcRows()
-        }
-        return seedFromFile()
-      }
-
-      let rows = (data as CcRow[]) ?? []
-      if (rows.length === 0) {
-        const imp = await this.importarDeudaCcProveedoresSeed()
-        if (imp.success) {
-          const retry = await supabase
-            .from('deuda_cc_proveedores')
-            .select('*')
-            .order('fecha_vencimiento', { ascending: true })
-          rows = (retry.data as CcRow[]) ?? []
-        }
-      }
-
-      if (rows.length === 0) return seedFromFile()
-      return rows
+      if (error) return []
+      return (data as CcRow[]) ?? []
     } catch {
-      return seedFromFile()
+      return []
     }
   }
 
   async importarDeudaCcProveedoresSeed(): Promise<ApiResponse<{ importados: number }>> {
-    if (!supabase) return { success: false, error: 'Supabase no configurado' }
-    try {
-      const seed = (await import('../data/deuda-cc-proveedores-seed.json')).default as {
-        rows: Array<Record<string, unknown>>
-      }
-      const payload = seed.rows.map((r) => ({ ...r }))
-      const { error } = await supabase.from('deuda_cc_proveedores').upsert(payload, {
-        onConflict: 'proveedor_nombre,tipo_comprobante,numero_comprobante,fecha_comprobante'
-      })
-      if (error) return { success: false, error: error.message }
-      await supabase.rpc('vincular_deuda_cc_proveedores')
-      return { success: true, data: { importados: payload.length } }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
-    }
+    return { success: true, data: { importados: 0 } }
   }
 
   async vincularDeudaCcProveedores(): Promise<ApiResponse<{ vinculados: number }>> {

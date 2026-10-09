@@ -95,9 +95,9 @@ export default function ClientesDashboardPage() {
         <button
           type="button"
           className="cl-dash-btn cl-dash-btn--ghost"
-          onClick={() => navigate('/admin')}
+          onClick={() => navigate('/')}
         >
-          ← Volver a admin
+          ← Volver al tablero
         </button>
       </header>
 

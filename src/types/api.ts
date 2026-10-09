@@ -521,6 +521,7 @@ export interface ClienteRecord {
   empresa?: string | null
   activo?: boolean | null
   es_cliente_web?: boolean | null
+  condicion_iva?: string | null
 }
 
 /** Ficha de alta en `clientes_cuenta_corriente` (requisitos fiscales + documentos). */

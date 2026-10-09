@@ -22,7 +22,6 @@ import { formatArgentinaDate, getArgentinaDateString, isoToArgentinaDateKey } fr
 import { emitirFacturaDesdeVenta, type EtapaEmision, type ResultadoFacturaVenta } from '../utils/emitirFacturaDesdeVenta'
 import EmisionFacturaOverlay from '../components/facturas/EmisionFacturaOverlay'
 import { nombreSinRepeticion } from '../utils/buscarClienteMatch'
-import { etiquetaUnidadCorta, unidadDesdeDescripcionItem } from '../utils/unidadPrecio'
 import {
   exportarVentasPDF,
   exportarVentasExcel,
@@ -56,15 +55,22 @@ import VentaComprobantePagoDetalle from '../components/ventas/VentaComprobantePa
 import VentasListaPreciosPanel from '../components/ventas/VentasListaPreciosPanel'
 import VentasOportunidadesChatLeads from '../components/ventas/VentasOportunidadesChatLeads'
 import VentasOportunidadesSugeridas from '../components/ventas/VentasOportunidadesSugeridas'
-import { labelListaPrecio } from '../constants/ventasListasPrecio'
+import { labelListaPrecio, LISTAS_PRECIO_VENTAS, type TipoListaPrecioVentas } from '../constants/ventasListasPrecio'
 import {
   descargarPresupuestoVentaPDF,
   enviarPresupuestoPorEmail,
   enviarPresupuestoPorWhatsapp
 } from '../utils/presupuestoVentaPdf'
+import {
+  clampDescuentoPct,
+  descuentoPesosDesdePct,
+  importeLineaVentaPct,
+  porcentajeDesdeDescuentoPesos
+} from '../utils/unidadPrecio'
 import { clientesPerfil } from '../utils/clientesRoutes'
 import { VENTAS_REPORTES } from '../utils/ventasRoutes'
 import { esVistaVentasPropiaVendedor, idVendedorParaConsulta } from '../utils/ventasCajaScope'
+import { HeaderNavGlyph, type HeaderGlyphId } from '../components/HeaderNavGlyph'
 import './CRMVentasPage.css'
 import './CajaDashboardPage.css'
 
@@ -247,6 +253,22 @@ function tabIdsPermitidos(vistaPropia: boolean): readonly string[] {
   return vistaPropia ? VENTAS_TAB_IDS_VENDEDOR : VENTAS_TAB_IDS_BASE
 }
 
+type PresupuestoItemDraft = {
+  key: string
+  id?: number
+  descripcion: string
+  cantidad: string
+  precio_unitario: string
+  descuento: string
+  codigo_articulo?: string | null
+  id_articulo_stock?: number | null
+}
+
+function parseDecimalDraft(raw: string): number {
+  const n = Number(String(raw).replace(',', '.').trim())
+  return Number.isFinite(n) ? n : 0
+}
+
 const CRMVentasPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -419,6 +441,20 @@ const CRMVentasPage = () => {
   const [presupuestoModalItems, setPresupuestoModalItems] = useState<PresupuestoVentaItemRecord[]>([])
   const [presupuestoModalLoading, setPresupuestoModalLoading] = useState(false)
   const [presupuestoAuditoria, setPresupuestoAuditoria] = useState<PresupuestoVentaAuditoria[]>([])
+  const [presupuestoEditBusy, setPresupuestoEditBusy] = useState(false)
+  const [presupuestoCabeceraDraft, setPresupuestoCabeceraDraft] = useState({
+    cliente_nombre: '',
+    cliente_telefono: '',
+    cliente_email: '',
+    cliente_dni_cuit: '',
+    cliente_empresa: '',
+    cliente_direccion: '',
+    fecha_vencimiento: '',
+    observaciones_cliente: '',
+    observaciones_internas: '',
+    tipo_lista_precio: '' as '' | TipoListaPrecioVentas
+  })
+  const [presupuestoItemsDraft, setPresupuestoItemsDraft] = useState<PresupuestoItemDraft[]>([])
 
   // PlotAI informe (solo modal Nueva/Editar Oportunidad)
   const [plotAiInforme, setPlotAiInforme] = useState<string>('')
@@ -716,6 +752,7 @@ const CRMVentasPage = () => {
 
   const etiquetaAuditoriaPresupuesto = (row: PresupuestoVentaAuditoria) => {
     if (row.accion === 'creado') return 'creó el presupuesto'
+    if (row.accion === 'editar') return 'editó el presupuesto'
     if (row.accion === 'generar_venta') return 'abrió generar venta'
     if (row.accion === 'estado') {
       const desde = typeof row.detalle?.desde === 'string' ? row.detalle.desde : ''
@@ -765,6 +802,8 @@ const CRMVentasPage = () => {
     setPresupuestoModalItems([])
     setPresupuestoAuditoria([])
     setPresupuestoModalLoading(false)
+    setPresupuestoEditBusy(false)
+    setPresupuestoItemsDraft([])
   }, [])
 
   useEffect(() => {
@@ -793,6 +832,46 @@ const CRMVentasPage = () => {
       cancelled = true
     }
   }, [presupuestoModalId])
+
+  useEffect(() => {
+    if (!presupuestoModal || presupuestoModalLoading) return
+    setPresupuestoCabeceraDraft({
+      cliente_nombre: presupuestoModal.cliente_nombre || '',
+      cliente_telefono: presupuestoModal.cliente_telefono || '',
+      cliente_email: presupuestoModal.cliente_email || '',
+      cliente_dni_cuit: presupuestoModal.cliente_dni_cuit || '',
+      cliente_empresa: presupuestoModal.cliente_empresa || '',
+      cliente_direccion: presupuestoModal.cliente_direccion || '',
+      fecha_vencimiento: presupuestoModal.fecha_vencimiento
+        ? isoToArgentinaDateKey(presupuestoModal.fecha_vencimiento)
+        : '',
+      observaciones_cliente: presupuestoModal.observaciones_cliente || '',
+      observaciones_internas: presupuestoModal.observaciones_internas || '',
+      tipo_lista_precio:
+        presupuestoModal.tipo_lista_precio === 'lista_1' || presupuestoModal.tipo_lista_precio === 'lista_2'
+          ? presupuestoModal.tipo_lista_precio
+          : ''
+    })
+    setPresupuestoItemsDraft(
+      presupuestoModalItems.map((it) => ({
+        key: `p-${it.id}`,
+        id: it.id,
+        descripcion: it.descripcion || '',
+        cantidad: String(it.cantidad ?? ''),
+        precio_unitario: String(it.precio_unitario ?? ''),
+        descuento: (() => {
+          const pct = porcentajeDesdeDescuentoPesos(
+            Number(it.precio_unitario) || 0,
+            Number(it.cantidad) || 0,
+            Number(it.descuento) || 0
+          )
+          return pct > 0 ? String(pct) : ''
+        })(),
+        codigo_articulo: it.codigo_articulo,
+        id_articulo_stock: it.id_articulo_stock
+      }))
+    )
+  }, [presupuestoModal, presupuestoModalLoading, presupuestoModalItems])
 
   useEffect(() => {
     if (!crmBootstrapped) return
@@ -1169,6 +1248,67 @@ const CRMVentasPage = () => {
     },
     [abrirVentaDesdePresupuesto, actorPresupuesto]
   )
+
+  const guardarPresupuestoModal = useCallback(async () => {
+    if (!presupuestoModal) return
+    const nombre = presupuestoCabeceraDraft.cliente_nombre.trim()
+    if (!nombre) {
+      alert('El nombre del cliente no puede quedar vacío.')
+      return
+    }
+    const items = presupuestoItemsDraft
+      .filter((it) => it.id || it.descripcion.trim() || parseDecimalDraft(it.precio_unitario) > 0)
+      .map((it) => ({
+        id: it.id,
+        descripcion: it.descripcion.trim() || 'Ítem',
+        cantidad: parseDecimalDraft(it.cantidad),
+        precio_unitario: parseDecimalDraft(it.precio_unitario),
+        descuento: descuentoPesosDesdePct(
+          parseDecimalDraft(it.precio_unitario),
+          parseDecimalDraft(it.cantidad),
+          clampDescuentoPct(parseDecimalDraft(it.descuento))
+        ),
+        codigo_articulo: it.codigo_articulo || null,
+        id_articulo_stock: it.id_articulo_stock ?? null
+      }))
+    setPresupuestoEditBusy(true)
+    try {
+      const res = await apiService.actualizarPresupuestoVentaCompleto({
+        id: presupuestoModal.id,
+        actor: actorPresupuesto,
+        cliente_nombre: nombre,
+        cliente_telefono: presupuestoCabeceraDraft.cliente_telefono.trim() || null,
+        cliente_email: presupuestoCabeceraDraft.cliente_email.trim() || null,
+        cliente_dni_cuit: presupuestoCabeceraDraft.cliente_dni_cuit.trim() || null,
+        cliente_empresa: presupuestoCabeceraDraft.cliente_empresa.trim() || null,
+        cliente_direccion: presupuestoCabeceraDraft.cliente_direccion.trim() || null,
+        fecha_vencimiento: presupuestoCabeceraDraft.fecha_vencimiento || null,
+        observaciones_cliente: presupuestoCabeceraDraft.observaciones_cliente,
+        observaciones_internas: presupuestoCabeceraDraft.observaciones_internas,
+        tipo_lista_precio: presupuestoCabeceraDraft.tipo_lista_precio || null,
+        items
+      })
+      if (!res.success) {
+        alert(res.error || 'No se pudo guardar el presupuesto.')
+        return
+      }
+      const detalle = await apiService.obtenerDetallePresupuestoVenta(presupuestoModal.id)
+      if (detalle.success && detalle.data) {
+        setPresupuestos((prev) =>
+          prev.map((p) => (p.id === presupuestoModal.id ? { ...p, ...detalle.data!.presupuesto } : p))
+        )
+        setPresupuestoModalItems(detalle.data.items)
+      } else if (res.data) {
+        setPresupuestos((prev) => prev.map((p) => (p.id === presupuestoModal.id ? { ...p, ...res.data } : p)))
+      }
+      const aud = await apiService.listAuditoriaPresupuestoVenta(presupuestoModal.id)
+      if (aud.success && aud.data) setPresupuestoAuditoria(aud.data)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'No se pudo guardar el presupuesto.')
+    } finally {
+      setPresupuestoEditBusy(false)
+    }
+  }, [actorPresupuesto, presupuestoCabeceraDraft, presupuestoItemsDraft, presupuestoModal])
 
   // Filtros oportunidades
   useEffect(() => {
@@ -2197,49 +2337,56 @@ const CRMVentasPage = () => {
         <div className="crm-header__hero">
           <div className="crm-header__brand">
             <span className="crm-header__icon" aria-hidden>
-              💰
+              <HeaderNavGlyph id="receipt" size={22} />
             </span>
             <div>
+              <p className="crm-header__kicker">Plot Lab</p>
               <h1>Ventas</h1>
               <p className="crm-header__meta">
                 {vistaPropia
-                  ? 'Tus ventas, arqueos y egresos · mismo criterio que tu caja'
+                  ? 'Tus ventas, arqueos y egresos · el mismo criterio que tu caja'
                   : lastDataRefresh
-                    ? `Actualizado ${lastDataRefresh.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · Ctrl+K buscar`
-                    : 'Pipeline de cobros · Ctrl+K enfoca la búsqueda'}
+                    ? `Actualizado ${lastDataRefresh.toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                    : 'Pipeline de cobros y presupuestos'}
+                <kbd className="crm-header__kbd">Ctrl+K</kbd>
               </p>
             </div>
           </div>
           <div className="header-actions">
-            <button type="button" className="btn-primary" onClick={() => setShowVentaRapida(true)}>
-              Venta
+            <button type="button" className="btn-primary crm-header-btn" onClick={() => setShowVentaRapida(true)}>
+              <HeaderNavGlyph id="receipt" size={15} />
+              Nueva venta
             </button>
-            <button className="btn-secondary" onClick={() => navigate('/')}>
-              ← Volver al Tablero
+            <button type="button" className="btn-secondary crm-header-btn" onClick={() => navigate('/')}>
+              <HeaderNavGlyph id="kanban" size={15} />
+              Tablero
             </button>
             {activeTab === 'oportunidades' && (
-              <button className="btn-primary" onClick={handleCrearOportunidad}>
-                ➕ Nueva Oportunidad
+              <button type="button" className="btn-primary crm-header-btn" onClick={handleCrearOportunidad}>
+                <HeaderNavGlyph id="spark" size={15} />
+                Nueva oportunidad
               </button>
             )}
             <button
               type="button"
-              className="btn-secondary"
+              className="btn-secondary crm-header-btn"
               onClick={() => navigate(VENTAS_REPORTES)}
             >
-              📊 Ver Reportes
+              <HeaderNavGlyph id="chart" size={15} />
+              Reportes
             </button>
             {activeTab === 'ventas' && ventasFiltradas.length > 0 && (
               <div className="export-dropdown">
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="btn-secondary crm-header-btn"
                   onClick={(e) => {
                     e.stopPropagation()
                     setDropdownExportVentasAbierto((v) => !v)
                   }}
                 >
-                  📥 Exportar {dropdownExportVentasAbierto ? '▴' : '▾'}
+                  <HeaderNavGlyph id="file" size={15} />
+                  Exportar {dropdownExportVentasAbierto ? '▴' : '▾'}
                 </button>
                 {dropdownExportVentasAbierto ? (
                   <div
@@ -2270,11 +2417,21 @@ const CRMVentasPage = () => {
             )}
             {activeTab === 'oportunidades' && oportunidadesFiltradas.length > 0 && (
               <>
-                <button className="btn-secondary" onClick={() => exportarOportunidadesPDF(oportunidadesFiltradas)}>
-                  📄 Exportar PDF
+                <button
+                  type="button"
+                  className="btn-secondary crm-header-btn"
+                  onClick={() => exportarOportunidadesPDF(oportunidadesFiltradas)}
+                >
+                  <HeaderNavGlyph id="file" size={15} />
+                  PDF
                 </button>
-                <button className="btn-secondary" onClick={() => exportarOportunidadesCSV(oportunidadesFiltradas)}>
-                  📑 Exportar CSV
+                <button
+                  type="button"
+                  className="btn-secondary crm-header-btn"
+                  onClick={() => exportarOportunidadesCSV(oportunidadesFiltradas)}
+                >
+                  <HeaderNavGlyph id="clipboard" size={15} />
+                  CSV
                 </button>
               </>
             )}
@@ -2282,83 +2439,55 @@ const CRMVentasPage = () => {
         </div>
 
       <div className="crm-tabs" role="tablist" aria-label="Secciones de Ventas">
-        <button
-          type="button"
-          role="tab"
-          id="crm-tab-ventas"
-          aria-selected={activeTab === 'ventas'}
-          className={`tab-button ${activeTab === 'ventas' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ventas')}
-        >
-          💰 Ventas ({ventasFiltradas.length})
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="crm-tab-por-facturar"
-          aria-selected={activeTab === 'por-facturar'}
-          className={`tab-button ${activeTab === 'por-facturar' ? 'active' : ''}${
-            ventasSinFactura.length > 0 ? ' tab-button--alerta' : ''
-          }`}
-          onClick={() => setActiveTab('por-facturar')}
-        >
-          🧾 Por facturar ({ventasSinFactura.length})
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="crm-tab-lista-precios"
-          aria-selected={activeTab === 'lista-precios'}
-          className={`tab-button ${activeTab === 'lista-precios' ? 'active' : ''}`}
-          onClick={() => setActiveTab('lista-precios')}
-        >
-          📋 Lista de precios
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="crm-tab-presupuestos"
-          aria-selected={activeTab === 'presupuestos'}
-          className={`tab-button ${activeTab === 'presupuestos' ? 'active' : ''}`}
-          onClick={() => setActiveTab('presupuestos')}
-        >
-          📄 Presupuestos ({presupuestosFiltrados.length})
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="crm-tab-oportunidades"
-          aria-selected={activeTab === 'oportunidades'}
-          className={`tab-button ${activeTab === 'oportunidades' ? 'active' : ''}`}
-          onClick={() => setActiveTab('oportunidades')}
-        >
-          🎯 Oportunidades ({oportunidadesFiltradas.length}
-          {chatLeadsSinLeer > 0 ? ` · ${chatLeadsSinLeer} chat` : ''})
-        </button>
-        {vistaPropia ? (
-          <>
-            <button
-              type="button"
-              role="tab"
-              id="crm-tab-arqueos"
-              aria-selected={activeTab === 'arqueos'}
-              className={`tab-button ${activeTab === 'arqueos' ? 'active' : ''}`}
-              onClick={() => setActiveTab('arqueos')}
-            >
-              🧮 Mis arqueos
-            </button>
-            <button
-              type="button"
-              role="tab"
-              id="crm-tab-egresos"
-              aria-selected={activeTab === 'egresos'}
-              className={`tab-button ${activeTab === 'egresos' ? 'active' : ''}`}
-              onClick={() => setActiveTab('egresos')}
-            >
-              📤 Mis egresos
-            </button>
-          </>
-        ) : null}
+        {(
+          [
+            { id: 'ventas' as const, label: 'Ventas', glyph: 'receipt' as HeaderGlyphId, count: ventasFiltradas.length },
+            {
+              id: 'por-facturar' as const,
+              label: 'Por facturar',
+              glyph: 'file' as HeaderGlyphId,
+              count: ventasSinFactura.length,
+              alerta: ventasSinFactura.length > 0
+            },
+            { id: 'lista-precios' as const, label: 'Lista de precios', glyph: 'clipboard' as HeaderGlyphId },
+            {
+              id: 'presupuestos' as const,
+              label: 'Presupuestos',
+              glyph: 'note' as HeaderGlyphId,
+              count: presupuestosFiltrados.length
+            },
+            {
+              id: 'oportunidades' as const,
+              label: 'Oportunidades',
+              glyph: 'spark' as HeaderGlyphId,
+              count: oportunidadesFiltradas.length,
+              extra: chatLeadsSinLeer > 0 ? `${chatLeadsSinLeer} chat` : undefined
+            },
+            ...(vistaPropia
+              ? [
+                  { id: 'arqueos' as const, label: 'Arqueos', glyph: 'vault' as HeaderGlyphId },
+                  { id: 'egresos' as const, label: 'Egresos', glyph: 'cart' as HeaderGlyphId }
+                ]
+              : [])
+          ]
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={`crm-tab-${tab.id}`}
+            aria-selected={activeTab === tab.id}
+            className={`tab-button${activeTab === tab.id ? ' active' : ''}${
+              'alerta' in tab && tab.alerta ? ' tab-button--alerta' : ''
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <HeaderNavGlyph id={tab.glyph} size={14} />
+            <span>{tab.label}</span>
+            {'count' in tab && tab.count != null ? <span className="crm-tab-count">{tab.count}</span> : null}
+            {'extra' in tab && tab.extra ? <span className="crm-tab-extra">{tab.extra}</span> : null}
+          </button>
+        ))}
       </div>
 
       </header>
@@ -3696,23 +3825,55 @@ const CRMVentasPage = () => {
                 <option value="convertido">Convertido</option>
               </select>
             </div>
-            <div className="filtro-group">
-              <label>Desde:</label>
-              <input
-                type="date"
-                value={fechaDesdePresupuesto}
-                onChange={(e) => setFechaDesdePresupuesto(e.target.value)}
-                className="filtro-input"
-              />
-            </div>
-            <div className="filtro-group">
-              <label>Hasta:</label>
-              <input
-                type="date"
-                value={fechaHastaPresupuesto}
-                onChange={(e) => setFechaHastaPresupuesto(e.target.value)}
-                className="filtro-input"
-              />
+            <div className="filtro-group ventas-filtro-fecha">
+              <label>Período</label>
+              <div className="ventas-filtro-fecha__row">
+                <input
+                  type="date"
+                  value={fechaDesdePresupuesto}
+                  onChange={(e) => setFechaDesdePresupuesto(e.target.value)}
+                  className="filtro-input"
+                  aria-label="Desde"
+                />
+                <span className="ventas-filtro-fecha__sep">—</span>
+                <input
+                  type="date"
+                  value={fechaHastaPresupuesto}
+                  onChange={(e) => setFechaHastaPresupuesto(e.target.value)}
+                  className="filtro-input"
+                  aria-label="Hasta"
+                />
+              </div>
+              <div className="ventas-filtro-fecha__presets">
+                <button
+                  type="button"
+                  className={`ventas-filtro-preset${
+                    fechaDesdePresupuesto === getArgentinaDateString() &&
+                    fechaHastaPresupuesto === getArgentinaDateString()
+                      ? ' active'
+                      : ''
+                  }`}
+                  onClick={() => {
+                    const hoy = getArgentinaDateString()
+                    setFechaDesdePresupuesto(hoy)
+                    setFechaHastaPresupuesto(hoy)
+                  }}
+                >
+                  Hoy
+                </button>
+                <button
+                  type="button"
+                  className={`ventas-filtro-preset${
+                    !fechaDesdePresupuesto && !fechaHastaPresupuesto ? ' active' : ''
+                  }`}
+                  onClick={() => {
+                    setFechaDesdePresupuesto('')
+                    setFechaHastaPresupuesto('')
+                  }}
+                >
+                  Todo
+                </button>
+              </div>
             </div>
             <div className="filtro-group" style={{ flex: 1, minWidth: '300px' }}>
               <label>🔍 Buscar:</label>
@@ -3805,7 +3966,7 @@ const CRMVentasPage = () => {
                 <div className="modal-header">
                   <div>
                     <h2 id="presupuesto-detail-title">
-                      {presupuestoModal.cliente_nombre || 'Cliente'}
+                      {presupuestoCabeceraDraft.cliente_nombre || presupuestoModal.cliente_nombre || 'Cliente'}
                     </h2>
                     <p className="venta-detail-modal__sub">
                       {presupuestoModal.numero_presupuesto}
@@ -3839,10 +4000,62 @@ const CRMVentasPage = () => {
 
                   <div className="venta-compact-summary venta-compact-summary--modal">
                     <div className="venta-compact-row">
+                      <span className="venta-compact-k">Cliente</span>
+                      <input
+                        className="venta-detail-input"
+                        value={presupuestoCabeceraDraft.cliente_nombre}
+                        disabled={presupuestoEditBusy}
+                        onChange={(e) =>
+                          setPresupuestoCabeceraDraft((prev) => ({ ...prev, cliente_nombre: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Empresa</span>
+                      <input
+                        className="venta-detail-input"
+                        value={presupuestoCabeceraDraft.cliente_empresa}
+                        disabled={presupuestoEditBusy}
+                        onChange={(e) =>
+                          setPresupuestoCabeceraDraft((prev) => ({ ...prev, cliente_empresa: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="venta-compact-row">
                       <span className="venta-compact-k">Total</span>
                       <span className="venta-compact-v">
-                        ${Number(presupuestoModal.precio_total || 0).toLocaleString()}
+                        $
+                        {presupuestoItemsDraft
+                          .reduce((sum, it) => {
+                            return (
+                              sum +
+                              importeLineaVentaPct(
+                                parseDecimalDraft(it.precio_unitario),
+                                parseDecimalDraft(it.cantidad),
+                                clampDescuentoPct(parseDecimalDraft(it.descuento))
+                              )
+                            )
+                          }, 0)
+                          .toLocaleString('es-AR', { maximumFractionDigits: 2 })}
                       </span>
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Lista</span>
+                      <select
+                        className="venta-detail-input"
+                        value={presupuestoCabeceraDraft.tipo_lista_precio}
+                        disabled={presupuestoEditBusy}
+                        onChange={(e) =>
+                          setPresupuestoCabeceraDraft((prev) => ({
+                            ...prev,
+                            tipo_lista_precio: e.target.value as '' | TipoListaPrecioVentas
+                          }))
+                        }
+                      >
+                        <option value="">Sin lista</option>
+                        <option value="lista_1">{LISTAS_PRECIO_VENTAS.lista_1.label}</option>
+                        <option value="lista_2">{LISTAS_PRECIO_VENTAS.lista_2.label}</option>
+                      </select>
                     </div>
                     <div className="venta-compact-row">
                       <span className="venta-compact-k">Creación</span>
@@ -3850,168 +4063,232 @@ const CRMVentasPage = () => {
                         {formatArgentinaDate(presupuestoModal.fecha_creacion)}
                       </span>
                     </div>
-                    {presupuestoModal.fecha_vencimiento ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">Vencimiento</span>
-                        <span className="venta-compact-v">
-                          {formatArgentinaDate(presupuestoModal.fecha_vencimiento)}
-                        </span>
-                      </div>
-                    ) : null}
-                    {presupuestoModal.fecha_envio ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">Envío</span>
-                        <span className="venta-compact-v">
-                          {formatArgentinaDate(presupuestoModal.fecha_envio)}
-                        </span>
-                      </div>
-                    ) : null}
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Vencimiento</span>
+                      <input
+                        type="date"
+                        className="venta-detail-input"
+                        value={presupuestoCabeceraDraft.fecha_vencimiento}
+                        disabled={presupuestoEditBusy}
+                        onChange={(e) =>
+                          setPresupuestoCabeceraDraft((prev) => ({
+                            ...prev,
+                            fecha_vencimiento: e.target.value
+                          }))
+                        }
+                      />
+                    </div>
                     <div className="venta-compact-row">
                       <span className="venta-compact-k">Lo hizo</span>
                       <span className="venta-compact-v">
                         {presupuestoModal.nombre_vendedor || 'Sin autor registrado'}
                       </span>
                     </div>
-                    {presupuestoModal.cliente_telefono ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">Tel / WhatsApp</span>
-                        <span className="venta-compact-v">
-                          {whatsappHrefDesdeTelefono(presupuestoModal.cliente_telefono) ||
-                          extraerWhatsappDeObservaciones(presupuestoModal.observaciones_internas) ? (
-                            <a
-                              className="presupuesto-wa-link"
-                              href={
-                                whatsappHrefDesdeTelefono(presupuestoModal.cliente_telefono) ||
-                                extraerWhatsappDeObservaciones(
-                                  presupuestoModal.observaciones_internas
-                                ) ||
-                                '#'
-                              }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {presupuestoModal.cliente_telefono}
-                            </a>
-                          ) : (
-                            presupuestoModal.cliente_telefono
-                          )}
-                        </span>
-                      </div>
-                    ) : extraerWhatsappDeObservaciones(presupuestoModal.observaciones_internas) ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">WhatsApp</span>
-                        <span className="venta-compact-v">
-                          <a
-                            className="presupuesto-wa-link"
-                            href={
-                              extraerWhatsappDeObservaciones(
-                                presupuestoModal.observaciones_internas
-                              )!
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Abrir chat
-                          </a>
-                        </span>
-                      </div>
-                    ) : null}
-                    {presupuestoModal.cliente_email ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">Email</span>
-                        <span className="venta-compact-v">{presupuestoModal.cliente_email}</span>
-                      </div>
-                    ) : null}
-                    {presupuestoModal.cliente_dni_cuit ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">DNI/CUIT</span>
-                        <span className="venta-compact-v">{presupuestoModal.cliente_dni_cuit}</span>
-                      </div>
-                    ) : null}
-                    {presupuestoModal.cliente_direccion ? (
-                      <div className="venta-compact-row">
-                        <span className="venta-compact-k">Dirección</span>
-                        <span className="venta-compact-v">{presupuestoModal.cliente_direccion}</span>
-                      </div>
-                    ) : null}
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Tel / WhatsApp</span>
+                      <input
+                        className="venta-detail-input"
+                        value={presupuestoCabeceraDraft.cliente_telefono}
+                        disabled={presupuestoEditBusy}
+                        onChange={(e) =>
+                          setPresupuestoCabeceraDraft((prev) => ({
+                            ...prev,
+                            cliente_telefono: e.target.value
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Email</span>
+                      <input
+                        className="venta-detail-input"
+                        value={presupuestoCabeceraDraft.cliente_email}
+                        disabled={presupuestoEditBusy}
+                        onChange={(e) =>
+                          setPresupuestoCabeceraDraft((prev) => ({ ...prev, cliente_email: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">DNI/CUIT</span>
+                      <input
+                        className="venta-detail-input"
+                        value={presupuestoCabeceraDraft.cliente_dni_cuit}
+                        disabled={presupuestoEditBusy}
+                        onChange={(e) =>
+                          setPresupuestoCabeceraDraft((prev) => ({
+                            ...prev,
+                            cliente_dni_cuit: e.target.value
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Dirección</span>
+                      <input
+                        className="venta-detail-input"
+                        value={presupuestoCabeceraDraft.cliente_direccion}
+                        disabled={presupuestoEditBusy}
+                        onChange={(e) =>
+                          setPresupuestoCabeceraDraft((prev) => ({
+                            ...prev,
+                            cliente_direccion: e.target.value
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="venta-detail-save-row">
+                      <button
+                        type="button"
+                        className="btn-action btn-primary"
+                        disabled={presupuestoEditBusy}
+                        onClick={() => void guardarPresupuestoModal()}
+                      >
+                        {presupuestoEditBusy ? 'Guardando…' : 'Guardar cambios'}
+                      </button>
+                    </div>
                   </div>
 
                   {presupuestoModalLoading ? (
                     <p className="presupuesto-detail-loading">Cargando ítems…</p>
-                  ) : presupuestoModalItems.length > 0 ? (
+                  ) : (
                     <div className="venta-detail-block venta-detail-block--items">
                       <h3 className="venta-detail-block__title">
-                        Ítems <span className="venta-detail-block__count">{presupuestoModalItems.length}</span>
+                        Ítems <span className="venta-detail-block__count">{presupuestoItemsDraft.length}</span>
                       </h3>
-                      <div className="presupuesto-detalle-table-wrap">
-                        <table className="presupuesto-detalle-table">
-                          <thead>
-                            <tr>
-                              <th>Descripción</th>
-                              <th>Cant.</th>
-                              <th>Unidad</th>
-                              <th>P. unit.</th>
-                              <th>Subtotal</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {presupuestoModalItems.map((item) => {
-                              const unidad = etiquetaUnidadCorta(
-                                unidadDesdeDescripcionItem(item.descripcion) ?? 'm2'
-                              )
-                              const descripcion = item.descripcion
-                                .replace(/\s*\((?:m²|m2|m|un|hoja|kg)\)\s*$/i, '')
-                                .trim()
-                              return (
-                                <tr key={item.id}>
-                                  <td>
-                                    <strong>{descripcion}</strong>
-                                    {item.codigo_articulo ? (
-                                      <span className="presupuesto-detalle-table__code">
-                                        {item.codigo_articulo}
-                                      </span>
-                                    ) : null}
-                                    {item.descuento > 0 ? (
-                                      <span className="presupuesto-detalle-table__code">
-                                        Desc. $
-                                        {Number(item.descuento).toLocaleString('es-AR', {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2
-                                        })}
-                                      </span>
-                                    ) : null}
-                                  </td>
-                                  <td className="presupuesto-detalle-table__num">{item.cantidad}</td>
-                                  <td className="presupuesto-detalle-table__num">{unidad}</td>
-                                  <td className="presupuesto-detalle-table__num">
-                                    $
-                                    {Number(item.precio_unitario).toLocaleString('es-AR', {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2
-                                    })}
-                                  </td>
-                                  <td className="presupuesto-detalle-table__num presupuesto-detalle-table__sub">
-                                    $
-                                    {Number(item.precio_total).toLocaleString('es-AR', {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2
-                                    })}
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                      {presupuestoItemsDraft.length > 0 ? (
+                        <ul className="venta-detail-item-list">
+                          {presupuestoItemsDraft.map((item) => {
+                            const qty = parseDecimalDraft(item.cantidad)
+                            const unit = parseDecimalDraft(item.precio_unitario)
+                            const descPct = clampDescuentoPct(parseDecimalDraft(item.descuento))
+                            const preview = importeLineaVentaPct(unit, qty, descPct)
+                            return (
+                              <li key={item.key} className="venta-detail-item venta-detail-item--edit">
+                                <input
+                                  className="venta-detail-input venta-detail-input--wide"
+                                  value={item.descripcion}
+                                  disabled={presupuestoEditBusy}
+                                  onChange={(e) =>
+                                    setPresupuestoItemsDraft((prev) =>
+                                      prev.map((it) =>
+                                        it.key === item.key ? { ...it, descripcion: e.target.value } : it
+                                      )
+                                    )
+                                  }
+                                />
+                                {item.codigo_articulo ? (
+                                  <span className="venta-detail-item__code">{item.codigo_articulo}</span>
+                                ) : null}
+                                <div className="venta-detail-item__grid">
+                                  <label>
+                                    Cant.
+                                    <input
+                                      className="venta-detail-input"
+                                      inputMode="decimal"
+                                      value={item.cantidad}
+                                      disabled={presupuestoEditBusy}
+                                      onChange={(e) =>
+                                        setPresupuestoItemsDraft((prev) =>
+                                          prev.map((it) =>
+                                            it.key === item.key ? { ...it, cantidad: e.target.value } : it
+                                          )
+                                        )
+                                      }
+                                    />
+                                  </label>
+                                  <label>
+                                    Unit.
+                                    <input
+                                      className="venta-detail-input"
+                                      inputMode="decimal"
+                                      value={item.precio_unitario}
+                                      disabled={presupuestoEditBusy}
+                                      onChange={(e) =>
+                                        setPresupuestoItemsDraft((prev) =>
+                                          prev.map((it) =>
+                                            it.key === item.key ? { ...it, precio_unitario: e.target.value } : it
+                                          )
+                                        )
+                                      }
+                                    />
+                                  </label>
+                                  <label>
+                                    Desc. %
+                                    <input
+                                      className="venta-detail-input"
+                                      inputMode="decimal"
+                                      value={item.descuento}
+                                      disabled={presupuestoEditBusy}
+                                      onChange={(e) =>
+                                        setPresupuestoItemsDraft((prev) =>
+                                          prev.map((it) =>
+                                            it.key === item.key ? { ...it, descuento: e.target.value } : it
+                                          )
+                                        )
+                                      }
+                                    />
+                                  </label>
+                                  <span className="venta-detail-item__sub">
+                                    ${preview.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                                <div className="venta-detail-item__actions">
+                                  <button
+                                    type="button"
+                                    className="btn-action"
+                                    disabled={presupuestoEditBusy}
+                                    onClick={() =>
+                                      setPresupuestoItemsDraft((prev) => prev.filter((it) => it.key !== item.key))
+                                    }
+                                  >
+                                    Quitar
+                                  </button>
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      ) : (
+                        <p className="venta-detail-block__text">Sin ítems. Agregá uno para armar el presupuesto.</p>
+                      )}
+                      <button
+                        type="button"
+                        className="btn-action"
+                        disabled={presupuestoEditBusy}
+                        onClick={() =>
+                          setPresupuestoItemsDraft((prev) => [
+                            ...prev,
+                            {
+                              key: `n-${Date.now()}`,
+                              descripcion: '',
+                              cantidad: '1',
+                              precio_unitario: '',
+                              descuento: ''
+                            }
+                          ])
+                        }
+                      >
+                        + Agregar ítem
+                      </button>
                     </div>
-                  ) : null}
+                  )}
 
-                  {presupuestoModal.observaciones_cliente ? (
-                    <div className="venta-detail-block venta-detail-block--notes venta-detail-block--notes-client">
-                      <h3 className="venta-detail-block__title">Observaciones cliente</h3>
-                      <p className="venta-detail-block__text">{presupuestoModal.observaciones_cliente}</p>
-                    </div>
-                  ) : null}
+                  <div className="venta-detail-block venta-detail-block--notes venta-detail-block--notes-client">
+                    <h3 className="venta-detail-block__title">Observaciones cliente</h3>
+                    <textarea
+                      className="venta-detail-input venta-detail-input--area"
+                      rows={3}
+                      value={presupuestoCabeceraDraft.observaciones_cliente}
+                      disabled={presupuestoEditBusy}
+                      onChange={(e) =>
+                        setPresupuestoCabeceraDraft((prev) => ({
+                          ...prev,
+                          observaciones_cliente: e.target.value
+                        }))
+                      }
+                    />
+                  </div>
 
                   <div className="venta-detail-block venta-detail-block--audit">
                     <h3 className="venta-detail-block__title">Trazado de cambios</h3>
@@ -4031,43 +4308,60 @@ const CRMVentasPage = () => {
                     )}
                   </div>
 
-                  {presupuestoModal.observaciones_internas ? (
-                    <div className="venta-detail-block venta-detail-block--notes venta-detail-block--notes-internal">
-                      <h3 className="venta-detail-block__title">Observaciones internas</h3>
-                      <p className="venta-detail-block__text">{presupuestoModal.observaciones_internas}</p>
-                      {(() => {
-                        const urls = extraerUrlsDeObservaciones(
-                          presupuestoModal.observaciones_internas
-                        ).filter(
-                          (u) =>
-                            !u.includes('wa.me/') &&
-                            (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(u) ||
-                              u.includes('/storage/') ||
-                              u.includes('presupuesto-web'))
-                        )
-                        if (!urls.length) return null
-                        return (
-                          <div className="presupuesto-adjuntos">
-                            {urls.map((url) => (
-                              <a
-                                key={url}
-                                className="presupuesto-adjunto"
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="Abrir imagen"
-                              >
-                                <img src={url} alt="Adjunto del presupuesto" />
-                              </a>
-                            ))}
-                          </div>
-                        )
-                      })()}
-                    </div>
-                  ) : null}
+                  <div className="venta-detail-block venta-detail-block--notes venta-detail-block--notes-internal">
+                    <h3 className="venta-detail-block__title">Observaciones internas</h3>
+                    <textarea
+                      className="venta-detail-input venta-detail-input--area"
+                      rows={3}
+                      value={presupuestoCabeceraDraft.observaciones_internas}
+                      disabled={presupuestoEditBusy}
+                      onChange={(e) =>
+                        setPresupuestoCabeceraDraft((prev) => ({
+                          ...prev,
+                          observaciones_internas: e.target.value
+                        }))
+                      }
+                    />
+                    {(() => {
+                      const urls = extraerUrlsDeObservaciones(
+                        presupuestoCabeceraDraft.observaciones_internas
+                      ).filter(
+                        (u) =>
+                          !u.includes('wa.me/') &&
+                          (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(u) ||
+                            u.includes('/storage/') ||
+                            u.includes('presupuesto-web'))
+                      )
+                      if (!urls.length) return null
+                      return (
+                        <div className="presupuesto-adjuntos">
+                          {urls.map((url) => (
+                            <a
+                              key={url}
+                              className="presupuesto-adjunto"
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Abrir imagen"
+                            >
+                              <img src={url} alt="Adjunto del presupuesto" />
+                            </a>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
                 </div>
 
                 <div className="modal-footer venta-detail-modal__footer">
+                  <button
+                    type="button"
+                    className="btn-action btn-primary"
+                    disabled={presupuestoEditBusy}
+                    onClick={() => void guardarPresupuestoModal()}
+                  >
+                    {presupuestoEditBusy ? 'Guardando…' : 'Guardar cambios'}
+                  </button>
                   <button
                     type="button"
                     className="btn-action"

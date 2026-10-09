@@ -673,6 +673,13 @@
   outline: none !important;
 }
 
+.modal-content.presupuesto-venta-modal .presupuesto-item-card .item-precio-calc {
+  margin: 8px 0 0;
+  color: #94a3b8 !important;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .modal-content.presupuesto-venta-modal .presupuesto-item-card .item-subtotal {
   margin-top: 10px;
   padding-top: 12px;
