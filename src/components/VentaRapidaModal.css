@@ -377,6 +377,15 @@
   gap: 12px;
 }
 
+.nuevo-cliente-iva {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+}
+
 .cliente-seleccionado {
   margin-top: 12px;
   padding: 12px;

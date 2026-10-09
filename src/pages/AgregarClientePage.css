@@ -71,7 +71,8 @@
   color: #cbd5e1;
 }
 
-.cl-agregar-grid input {
+.cl-agregar-grid input,
+.cl-agregar-grid select {
   padding: 11px 12px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);

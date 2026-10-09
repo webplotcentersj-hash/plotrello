@@ -10,6 +10,7 @@ import type {
   Venta
 } from '../types/api'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
+import { CONDICIONES_IVA_CLIENTE, type CondicionIvaCliente } from '../utils/afipFacturaUi'
 import { CLIENTES_CUENTA_CORRIENTE, clientesCcAlta, clientesCcPerfil } from '../utils/clientesRoutes'
 import { getArgentinaDateString } from '../utils/dateUtils'
 import {
@@ -139,7 +140,8 @@ const VentaRapidaModal = ({
     dni_cuit: '',
     telefono: '',
     email: '',
-    direccion: ''
+    direccion: '',
+    condicion_iva: 'Consumidor Final' as CondicionIvaCliente
   })
 
   const [condicionVenta, setCondicionVenta] = useState<MedioPagoCodigo>('Efectivo')
@@ -284,7 +286,8 @@ const VentaRapidaModal = ({
         dni_cuit: presupuesto.cliente_dni_cuit || '',
         telefono: presupuesto.cliente_telefono || '',
         email: presupuesto.cliente_email || '',
-        direccion: presupuesto.cliente_direccion || ''
+        direccion: presupuesto.cliente_direccion || '',
+        condicion_iva: 'Consumidor Final'
       })
     }
     void cargarCliente()
@@ -683,7 +686,8 @@ const VentaRapidaModal = ({
           dni_cuit: nuevoCliente.dni_cuit || undefined,
           telefono: nuevoCliente.telefono || undefined,
           email: nuevoCliente.email || undefined,
-          direccion: nuevoCliente.direccion || undefined
+          direccion: nuevoCliente.direccion || undefined,
+          condicion_iva: nuevoCliente.condicion_iva
         })
 
         if (!clienteResponse.success || !clienteResponse.data) {
@@ -1029,11 +1033,37 @@ const VentaRapidaModal = ({
                   value={nuevoCliente.direccion}
                   onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })}
                 />
+                <label className="nuevo-cliente-iva">
+                  Condición de IVA *
+                  <select
+                    className="form-select"
+                    value={nuevoCliente.condicion_iva}
+                    onChange={(e) =>
+                      setNuevoCliente({
+                        ...nuevoCliente,
+                        condicion_iva: e.target.value as CondicionIvaCliente
+                      })
+                    }
+                  >
+                    {CONDICIONES_IVA_CLIENTE.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   className="btn-secondary"
                   onClick={() => {
                     setCrearNuevoCliente(false)
-                    setNuevoCliente({ nombre: '', dni_cuit: '', telefono: '', email: '', direccion: '' })
+                    setNuevoCliente({
+                      nombre: '',
+                      dni_cuit: '',
+                      telefono: '',
+                      email: '',
+                      direccion: '',
+                      condicion_iva: 'Consumidor Final'
+                    })
                   }}
                 >
                   Cancelar

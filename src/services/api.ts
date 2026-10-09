@@ -14254,6 +14254,7 @@ class ApiService {
     email?: string
     dni_cuit?: string
     direccion?: string
+    condicion_iva?: string
     actorId: number
   }): Promise<ApiResponse<ClienteRecord>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
@@ -14266,6 +14267,7 @@ class ApiService {
         p_email: cliente.email || null,
         p_dni_cuit: cliente.dni_cuit || null,
         p_direccion: cliente.direccion || null,
+        p_condicion_iva: cliente.condicion_iva || null,
         p_actor_id: cliente.actorId
       })
       if (error) return { success: false, error: error.message }

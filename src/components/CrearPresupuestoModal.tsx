@@ -16,6 +16,7 @@ import {
 } from '../constants/ventasListasPrecio'
 import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
 import { nombreCompletoCliente, nombreSinRepeticion } from '../utils/buscarClienteMatch'
+import { CONDICIONES_IVA_CLIENTE, type CondicionIvaCliente } from '../utils/afipFacturaUi'
 import {
   clampDescuentoPct,
   descuentoPesosDesdePct,
@@ -89,7 +90,8 @@ const CrearPresupuestoModal = ({
     telefono: '',
     email: '',
     empresa: '',
-    direccion: ''
+    direccion: '',
+    condicion_iva: 'Consumidor Final' as CondicionIvaCliente
   })
 
   const [fechaVencimiento, setFechaVencimiento] = useState('')
@@ -265,7 +267,8 @@ const CrearPresupuestoModal = ({
         dni_cuit: nuevoCliente.dni_cuit || undefined,
         telefono: nuevoCliente.telefono || undefined,
         email: nuevoCliente.email || undefined,
-        direccion: nuevoCliente.direccion || undefined
+        direccion: nuevoCliente.direccion || undefined,
+        condicion_iva: nuevoCliente.condicion_iva
       })
       if (!clienteResponse.success || !clienteResponse.data) {
         throw new Error(clienteResponse.error || 'No se pudo guardar el cliente')
@@ -289,7 +292,8 @@ const CrearPresupuestoModal = ({
       telefono: cliente.telefono || '',
       email: cliente.email || '',
       empresa: cliente.empresa || '',
-      direccion: cliente.direccion || ''
+      direccion: cliente.direccion || '',
+      condicion_iva: (cliente.condicion_iva as CondicionIvaCliente) || 'Consumidor Final'
     })
   }
 
@@ -382,7 +386,8 @@ const CrearPresupuestoModal = ({
         dni_cuit: nuevoCliente.dni_cuit || undefined,
         telefono: nuevoCliente.telefono || undefined,
         email: nuevoCliente.email || undefined,
-        direccion: nuevoCliente.direccion || undefined
+        direccion: nuevoCliente.direccion || undefined,
+        condicion_iva: nuevoCliente.condicion_iva
       })
 
       if (!clienteResponse.success || !clienteResponse.data) {
@@ -681,6 +686,25 @@ const CrearPresupuestoModal = ({
                     value={nuevoCliente.direccion}
                     onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })}
                   />
+                  <label className="nuevo-cliente-iva">
+                    Condición de IVA *
+                    <select
+                      className="form-input"
+                      value={nuevoCliente.condicion_iva}
+                      onChange={(e) =>
+                        setNuevoCliente({
+                          ...nuevoCliente,
+                          condicion_iva: e.target.value as CondicionIvaCliente
+                        })
+                      }
+                    >
+                      {CONDICIONES_IVA_CLIENTE.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <div className="nuevo-cliente-form__acciones">
                     <button
                       type="button"
@@ -702,7 +726,8 @@ const CrearPresupuestoModal = ({
                           telefono: '',
                           email: '',
                           empresa: '',
-                          direccion: ''
+                          direccion: '',
+                          condicion_iva: 'Consumidor Final'
                         })
                       }}
                     >

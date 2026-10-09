@@ -7,6 +7,7 @@ import {
   CLIENTES_DASHBOARD,
   clientesCcPerfil
 } from '../utils/clientesRoutes'
+import { CONDICIONES_IVA_CLIENTE, type CondicionIvaCliente } from '../utils/afipFacturaUi'
 import './AgregarClientePage.css'
 
 export default function AgregarClientePage() {
@@ -19,6 +20,7 @@ export default function AgregarClientePage() {
   const [telefono, setTelefono] = useState('')
   const [email, setEmail] = useState('')
   const [direccion, setDireccion] = useState('')
+  const [condicionIva, setCondicionIva] = useState<CondicionIvaCliente>('Consumidor Final')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [creadoId, setCreadoId] = useState<number | null>(null)
@@ -39,6 +41,7 @@ export default function AgregarClientePage() {
     setTelefono('')
     setEmail('')
     setDireccion('')
+    setCondicionIva('Consumidor Final')
     setCreadoId(null)
     setError(null)
   }
@@ -67,6 +70,7 @@ export default function AgregarClientePage() {
         telefono: telefono.trim() || undefined,
         email: email.trim() || undefined,
         direccion: direccion.trim() || undefined,
+        condicion_iva: condicionIva,
         actorId: usuario.id
       })
       if (!res.success || !res.data) {
@@ -184,6 +188,19 @@ export default function AgregarClientePage() {
                 onChange={(e) => setDireccion(e.target.value)}
                 placeholder="Calle, número, localidad"
               />
+            </label>
+            <label>
+              Condición de IVA <span className="cl-agregar-req">*</span>
+              <select
+                value={condicionIva}
+                onChange={(e) => setCondicionIva(e.target.value as CondicionIvaCliente)}
+              >
+                {CONDICIONES_IVA_CLIENTE.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 
