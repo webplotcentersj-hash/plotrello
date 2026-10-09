@@ -15,7 +15,8 @@ import type {
   PresupuestoVentaRecord,
   PresupuestoVentaItemRecord,
   PresupuestoVentaAuditoria,
-  EstadoPresupuestoCliente
+  EstadoPresupuestoCliente,
+  MetodoPago
 } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate, getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
@@ -366,7 +367,7 @@ const CRMVentasPage = () => {
     id_op: '',
     numero_op: '',
     valor_total: '',
-    metodo_pago: 'Efectivo' as const,
+    metodo_pago: 'Efectivo' as MetodoPago,
     estado_pago: 'Pendiente' as const,
     fecha_venta: getArgentinaDateString(),
     observaciones: ''
