@@ -1106,8 +1106,31 @@
 
 .caja-cc-modal.caja-cc-modal-wide,
 .caja-dashboard-page .caja-cc-modal.caja-cc-modal-wide {
-  width: min(920px, 100%);
+  width: min(980px, 100%);
   max-height: min(92vh, 860px);
+}
+
+.caja-cc-dia-medios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.caja-cc-dia-medios li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  font-size: 12px;
+}
+
+.caja-cc-modal tr.caja-cc-row-cc td:last-child {
+  color: #0369a1;
 }
 
 .caja-cc-comprobantes-embed-title {

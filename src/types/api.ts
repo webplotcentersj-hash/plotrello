@@ -1251,6 +1251,8 @@ export interface MovimientoProveedorRecord {
   saldo: number
   es_saldo_inicial: boolean
   id_proveedor?: number | null
+  url_adjunto?: string | null
+  url_adjuntos?: Array<{ url: string; nombre?: string }> | string[] | null
   created_at?: string
   updated_at?: string
 }
@@ -1264,11 +1266,14 @@ export interface ProveedorFinanzasResumen {
   codigo_deuda: string | null
   saldo_listado: number | null
   saldo_movimientos: number | null
+  /** Único saldo de la cuenta: movimientos si hay, si no el listado. */
+  saldo_cuenta: number
   pagos_total: number
   movimientos_count: number
   pagos_count: number
   deuda_cc_count: number
   tiene_cuenta_corriente: boolean
+  busqueda_texto?: string
 }
 
 export type ProveedorConFinanzas = import('./pedidos').Proveedor & {

@@ -26,6 +26,15 @@
   margin: 0;
   color: var(--text-muted);
   font-size: 1rem;
+  max-width: 42rem;
+  line-height: 1.45;
+}
+
+.prov-dir-kicker {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .header-actions {
@@ -72,11 +81,41 @@
   margin-bottom: 24px;
 }
 
+.prov-dir-search {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prov-dir-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.prov-dir-chips button {
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.55);
+  color: #cbd5e1;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.prov-dir-chips button.is-on {
+  border-color: rgba(96, 165, 250, 0.5);
+  background: rgba(59, 130, 246, 0.18);
+  color: #bfdbfe;
+}
+
 .search-input {
   width: 100%;
-  max-width: 500px;
-  padding: 12px 16px;
-  border-radius: 8px;
+  max-width: 720px;
+  padding: 14px 18px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: var(--surface-card);
   color: var(--text-primary);
@@ -91,6 +130,120 @@
 
 .proveedores-section {
   margin-bottom: 32px;
+}
+
+.prov-dir {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prov-dir-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: linear-gradient(160deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.7) 100%);
+}
+
+.prov-dir-card__main {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.prov-dir-card__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: linear-gradient(160deg, #3b82f6, #1d4ed8);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.prov-dir-card__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.prov-dir-card__main strong {
+  font-size: 1.05rem;
+  color: #f8fafc;
+}
+
+.prov-dir-card__main:hover strong {
+  color: #93c5fd;
+}
+
+.prov-dir-card__meta {
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.prov-dir-card__estado {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+
+.prov-dir-card__estado span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.prov-dir-card__estado strong {
+  font-size: 0.95rem;
+}
+
+.prov-dir-card__estado--ok strong {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.prov-dir-card__estado--deuda span,
+.prov-dir-card__estado--deuda strong {
+  color: #fbbf24;
+}
+
+.prov-dir-card__estado--favor span,
+.prov-dir-card__estado--favor strong {
+  color: #4ade80;
+}
+
+.prov-dir-card__acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.prov-dir-card__acciones .btn-secondary {
+  min-height: 40px;
+  padding: 8px 14px;
 }
 
 /* Pipeline proveedores */
@@ -775,6 +928,19 @@
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .prov-dir-card {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .prov-dir-card__acciones {
+    justify-content: stretch;
+  }
+
+  .prov-dir-card__acciones .btn-secondary {
+    flex: 1;
   }
 }
 

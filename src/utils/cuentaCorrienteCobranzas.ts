@@ -13,6 +13,9 @@ export function esVentaCuentaCorriente(metodo?: string | null): boolean {
   return !!metodo && /cuenta\s*corriente/i.test(metodo)
 }
 
+export const MSG_CC_NO_HABILITADA =
+  'Este cliente no está habilitado para cuenta corriente. Hay que darlo de alta y aprobarlo antes de vender a cuenta.'
+
 export function fechaVencimientoVentaCc(fechaVenta: string): string {
   const base = new Date(fechaVenta.includes('T') ? fechaVenta : `${fechaVenta}T12:00:00`)
   if (Number.isNaN(base.getTime())) return fechaVenta.slice(0, 10)
@@ -72,6 +75,16 @@ export function ventasCcAbiertasDesdeVentas(ventas: Venta[]): CcCobranzaVentaIte
     })
     .filter((v) => v.monto_pendiente > 0.009)
     .sort((a, b) => b.dias_vencido - a.dias_vencido || b.monto_pendiente - a.monto_pendiente)
+}
+
+/** Cobranzas CC: solo deudas de clientes con ficha aprobada. */
+export function filtrarVentasCcConFicha(
+  items: CcCobranzaVentaItem[],
+  idsConCc: Iterable<number>
+): CcCobranzaVentaItem[] {
+  const set = idsConCc instanceof Set ? idsConCc : new Set(idsConCc)
+  if (!set.size) return []
+  return items.filter((v) => set.has(v.id_cliente))
 }
 
 /** Movimiento mínimo del ledger para reconciliar cobranzas. */

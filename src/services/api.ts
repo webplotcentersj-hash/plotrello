@@ -15,6 +15,9 @@ import { applyOrdenRestartLocally } from '../utils/ordenLocalSync'
 import {
   agingDesdeItems,
   enriquecerVentasCcResumenes,
+  esVentaCuentaCorriente,
+  filtrarVentasCcConFicha,
+  MSG_CC_NO_HABILITADA,
   reconciliarVentasCcConLedger,
   resumenPorCliente,
   resumenPorVendedor,
@@ -5944,6 +5947,21 @@ class ApiService {
     }
   }
 
+  /** Bloquea crear/pasar a CC si el cliente no tiene ficha aprobada. */
+  private async errorSiVentaCcNoHabilitada(
+    metodo: string | null | undefined,
+    idCliente: number | null | undefined
+  ): Promise<string | null> {
+    if (!esVentaCuentaCorriente(metodo)) return null
+    if (!idCliente || !Number.isFinite(idCliente) || idCliente <= 0) {
+      return 'Para vender a cuenta corriente hay que elegir un cliente habilitado.'
+    }
+    const hab = await this.clienteHabilitadoCuentaCorriente(idCliente)
+    if (!hab.success) return hab.error || MSG_CC_NO_HABILITADA
+    if (!hab.data) return MSG_CC_NO_HABILITADA
+    return null
+  }
+
   async registrarAltaCuentaCorriente(
     payload: AltaCuentaCorrientePayload
   ): Promise<
@@ -6465,15 +6483,36 @@ class ApiService {
         }
       }
 
-      const ventasRaw = ventasCcAbiertasDesdeVentas([...(pendRes.data ?? []), ...(parcRes.data ?? [])])
+      let ventasRaw = ventasCcAbiertasDesdeVentas([...(pendRes.data ?? []), ...(parcRes.data ?? [])])
       const clienteIds = [...new Set(ventasRaw.map((v) => v.id_cliente))]
+
+      // Sin ficha aprobada no es deuda de este módulo (ej. venta marcada CC a un cliente sin alta).
+      if (clienteIds.length) {
+        const { data: fichasCc, error: fichasErr } = await supabase
+          .from('clientes_cuenta_corriente')
+          .select('id_cliente')
+          .in('id_cliente', clienteIds)
+          .eq('estado', 'aprobada')
+        if (fichasErr) {
+          console.warn('listCobranzasCcPanel fichas:', fichasErr.message)
+        } else {
+          ventasRaw = filtrarVentasCcConFicha(
+            ventasRaw,
+            (fichasCc ?? []).map((f) => Number(f.id_cliente))
+          )
+        }
+      } else {
+        ventasRaw = []
+      }
+
+      const clienteIdsAbiertos = [...new Set(ventasRaw.map((v) => v.id_cliente))]
       let ventas_abiertas = ventasRaw
 
-      if (clienteIds.length) {
+      if (clienteIdsAbiertos.length) {
         const { data: movsRaw, error: movsErr } = await supabase
           .from('cc_cuenta_movimientos')
           .select('id_cliente, id_venta, tipo, debe, haber')
-          .in('id_cliente', clienteIds)
+          .in('id_cliente', clienteIdsAbiertos)
           .in('tipo', ['pago', 'nota_credito', 'nc'])
 
         if (movsErr) {
@@ -12598,6 +12637,9 @@ class ApiService {
 
         const lastMov = movsProv[movsProv.length - 1]
         const pagosTotal = pagosProv.reduce((s, pg) => s + (Number(pg.monto) || 0), 0)
+        const saldoMov = lastMov ? Number(lastMov.saldo) || 0 : null
+        const saldoLista = deuda ? Number(deuda.saldo) || 0 : null
+        const saldoCuenta = saldoMov != null ? saldoMov : saldoLista ?? 0
 
         const telefono =
           p.telefono ||
@@ -12607,14 +12649,18 @@ class ApiService {
 
         const finanzas: import('../types/api').ProveedorFinanzasResumen = {
           codigo_deuda: deuda?.codigo ?? null,
-          saldo_listado: deuda ? Number(deuda.saldo) || 0 : null,
-          saldo_movimientos: lastMov ? Number(lastMov.saldo) || 0 : null,
+          saldo_listado: saldoLista,
+          saldo_movimientos: saldoMov,
+          saldo_cuenta: saldoCuenta,
           pagos_total: pagosTotal,
           movimientos_count: movsProv.length,
           pagos_count: pagosProv.length,
           deuda_cc_count: ccProv.length,
           tiene_cuenta_corriente:
-            movsProv.length > 0 || pagosProv.length > 0 || ccProv.length > 0 || !!deuda
+            movsProv.length > 0 || pagosProv.length > 0 || ccProv.length > 0 || !!deuda,
+          busqueda_texto: movsProv
+            .map((m) => `${m.comprobante || ''} ${m.tipo_movimiento || ''}`)
+            .join(' ')
         }
 
         return {
@@ -12658,11 +12704,13 @@ class ApiService {
             codigo_deuda: d.codigo,
             saldo_listado: Number(d.saldo) || 0,
             saldo_movimientos: null,
+            saldo_cuenta: Number(d.saldo) || 0,
             pagos_total: 0,
             movimientos_count: 0,
             pagos_count: 0,
             deuda_cc_count: ccSolo.length,
-            tiene_cuenta_corriente: true
+            tiene_cuenta_corriente: true,
+            busqueda_texto: d.codigo || ''
           },
           es_solo_listado: true,
           id_deuda: d.id
@@ -20474,6 +20522,9 @@ class ApiService {
     }
 
     try {
+      const bloqueoCc = await this.errorSiVentaCcNoHabilitada(venta.metodo_pago, venta.id_cliente)
+      if (bloqueoCc) return { success: false, error: bloqueoCc }
+
       const { data, error } = await supabase.rpc('ventas_crear_directa', {
         p_actor_id: this.requireComercialActorId(),
         p_cliente_nombre: venta.cliente_nombre,
@@ -20565,6 +20616,9 @@ class ApiService {
 
     const { venta, items } = input
     try {
+      const bloqueoCc = await this.errorSiVentaCcNoHabilitada(venta.metodo_pago, venta.id_cliente)
+      if (bloqueoCc) return { success: false, error: bloqueoCc }
+
       const { data, error } = await supabase.rpc('ventas_crear_con_items', {
         p_actor_id: this.requireComercialActorId(),
         p_venta: {
@@ -20773,6 +20827,19 @@ class ApiService {
     }
 
     try {
+      if (esVentaCuentaCorriente(venta.metodo_pago)) {
+        const { data: opp } = await supabase
+          .from('oportunidades_venta')
+          .select('id_cliente')
+          .eq('id', venta.id_oportunidad)
+          .maybeSingle()
+        const bloqueoCc = await this.errorSiVentaCcNoHabilitada(
+          venta.metodo_pago,
+          opp?.id_cliente != null ? Number(opp.id_cliente) : null
+        )
+        if (bloqueoCc) return { success: false, error: bloqueoCc }
+      }
+
       const { data, error } = await supabase.rpc('ventas_crear_desde_oportunidad', {
         p_actor_id: this.requireComercialActorId(),
         p_id_oportunidad: venta.id_oportunidad,
@@ -21268,6 +21335,13 @@ class ApiService {
     }
 
     try {
+      if (venta.metodo_pago !== undefined && esVentaCuentaCorriente(venta.metodo_pago)) {
+        const actual = await this.getVenta(id)
+        const idCliente = actual.success ? actual.data?.id_cliente ?? null : null
+        const bloqueoCc = await this.errorSiVentaCcNoHabilitada(venta.metodo_pago, idCliente)
+        if (bloqueoCc) return { success: false, error: bloqueoCc }
+      }
+
       const updateData: any = {}
       if (venta.id_op !== undefined) updateData.id_op = venta.id_op
       if (venta.numero_op !== undefined) updateData.numero_op = venta.numero_op
@@ -23827,6 +23901,8 @@ class ApiService {
           debe: Number(m.debe) || 0,
           haber: Number(m.haber) || 0,
           saldo: Number(m.saldo) || 0,
+          url_adjunto: m.url_adjunto ?? null,
+          url_adjuntos: m.url_adjuntos ?? [],
           enlace_tipo,
           id_pago_proveedor
         }
@@ -23863,6 +23939,89 @@ class ApiService {
       return { success: true, data: enriched }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async subirAdjuntoCuentaProveedor(
+    idProveedor: number,
+    file: File
+  ): Promise<ApiResponse<{ url: string; nombre: string }>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    const maxBytes = 8 * 1024 * 1024
+    if (file.size > maxBytes) return { success: false, error: 'El archivo supera 8 MB' }
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const allowed = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'])
+    if (!allowed.has(ext)) {
+      return { success: false, error: 'Usá PDF, JPG, PNG, WEBP o GIF.' }
+    }
+    const safeBase = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
+      .slice(0, 80)
+    const path = `proveedores-comprobantes/${idProveedor}/${Date.now()}_${safeBase}.${ext}`
+    try {
+      const { error: uploadError } = await supabase.storage.from('archivos').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || (ext === 'pdf' ? 'application/pdf' : `image/${ext}`)
+      })
+      if (uploadError) return { success: false, error: uploadError.message }
+      const { data: urlData } = supabase.storage.from('archivos').getPublicUrl(path)
+      if (!urlData?.publicUrl) return { success: false, error: 'No se pudo obtener la URL del archivo' }
+      return { success: true, data: { url: urlData.publicUrl, nombre: file.name } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al subir' }
+    }
+  }
+
+  async registrarEnCuentaProveedor(input: {
+    id_proveedor: number
+    tipo: 'factura' | 'pago'
+    monto: number
+    fecha: string
+    comprobante?: string
+    usuario?: string
+    url_adjunto?: string | null
+    url_adjuntos?: Array<{ url: string; nombre?: string }>
+  }): Promise<ApiResponse<{ saldo: number; id?: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase.rpc('proveedor_registrar_en_cuenta', {
+        p_id_proveedor: input.id_proveedor,
+        p_tipo: input.tipo,
+        p_monto: input.monto,
+        p_fecha: input.fecha,
+        p_comprobante: input.comprobante || '',
+        p_usuario: input.usuario || null,
+        p_url_adjunto: input.url_adjunto || null,
+        p_url_adjuntos: input.url_adjuntos ?? []
+      })
+      if (error) return { success: false, error: error.message }
+      const payload = data as { success?: boolean; saldo?: number; id?: number; error?: string } | null
+      if (payload && payload.success === false) {
+        return { success: false, error: payload.error || 'No se pudo registrar' }
+      }
+      return { success: true, data: { saldo: Number(payload?.saldo) || 0, id: payload?.id } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  async adjuntarComprobanteMovimientoProveedor(
+    idMovimiento: number,
+    adjuntos: Array<{ url: string; nombre?: string }>
+  ): Promise<ApiResponse<void>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { error } = await supabase.rpc('proveedor_adjuntar_comprobante', {
+        p_id_movimiento: idMovimiento,
+        p_url_adjunto: adjuntos[0]?.url || '',
+        p_url_adjuntos: adjuntos
+      })
+      if (error) return { success: false, error: error.message }
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error al adjuntar' }
     }
   }
 

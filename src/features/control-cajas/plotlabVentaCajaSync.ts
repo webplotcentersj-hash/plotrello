@@ -307,7 +307,9 @@ export async function syncDesdeVentaRecord(
     (venta.id_pedido_cliente ? 'Portal/Tótem' : 'PlotLab')
 
   if (!ventaDebeSincronizarCaja(venta)) {
-    if (existente) {
+    const cancelada =
+      venta.estado_pago === 'Cancelado' || (Number(venta.valor_total) || 0) <= 0
+    if (existente && cancelada) {
       try {
         const actorId = opts?.actorId ?? titularId ?? existente.id_usuario ?? undefined
         if (actorId == null) {
@@ -488,10 +490,20 @@ export async function syncVentaPlotLabACaja(
       }
     }
 
+    if (existente && !existente.anulado) {
+      const mismoMonto = Math.abs((Number(existente.monto_total) || 0) - monto) <= 0.02
+      const mismoDestino = existente.destino_slug === cajaSlug
+      const mismaFecha = !existente.fecha || existente.fecha === fecha
+      if (mismoMonto && mismoDestino && mismaFecha) {
+        return { ok: true, yaExistia: true, cajaSlug }
+      }
+    }
+
     const mov = await saveMovimiento(
       {
         ...movBase,
         id: existente?.id,
+        fecha: existente?.fecha || fecha,
         medios: mediosGuardar as CajaMovimiento['medios'],
         cierre_id: existente?.cierre_id ?? null
       },

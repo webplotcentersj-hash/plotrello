@@ -67,6 +67,7 @@ import {
   type CcScoreNivel
 } from '../constants/cuentaCorrienteScoring'
 import CuentaCorrienteScoreBadge from './CuentaCorrienteScoreBadge'
+import { MSG_CC_NO_HABILITADA } from '../utils/cuentaCorrienteCobranzas'
 import './VentaRapidaModal.css'
 
 export type PrefillVentaDesdePresupuesto = {
@@ -644,8 +645,21 @@ const VentaRapidaModal = ({
       return
     }
 
+    const quiereCc = esCuentaCorriente || condicionVenta === 'Cuenta Corriente'
     if (esCuentaCorriente && condicionVenta !== 'Cuenta Corriente') {
       alert('Si marcas Cuenta Corriente, la condición de venta debe ser "Cuenta Corriente"')
+      return
+    }
+    if (quiereCc && crearNuevoCliente) {
+      alert(`${MSG_CC_NO_HABILITADA} Primero guardá el cliente y completá el alta.`)
+      return
+    }
+    if (quiereCc && !clienteSeleccionado?.id) {
+      alert('Para vender a cuenta corriente hay que elegir un cliente habilitado.')
+      return
+    }
+    if (quiereCc && clienteCcHabilitado === false) {
+      alert(MSG_CC_NO_HABILITADA)
       return
     }
 
@@ -701,12 +715,10 @@ const VentaRapidaModal = ({
         throw new Error('No se pudo obtener el cliente')
       }
 
-      if (esCuentaCorriente) {
+      if (quiereCc) {
         const ccRes = await apiService.clienteHabilitadoCuentaCorriente(clienteFinal.id)
         if (!ccRes.success || !ccRes.data) {
-          alert(
-            'Este cliente no está habilitado para cuenta corriente. Completá el alta con CUIT, razón social, condición IVA, contacto, domicilio y documentación en Mostrador → Cuenta corriente.'
-          )
+          alert(MSG_CC_NO_HABILITADA)
           setGuardando(false)
           return
         }
@@ -1679,7 +1691,12 @@ const VentaRapidaModal = ({
             <button
               className="btn-primary"
               onClick={handleGuardarVenta}
-              disabled={guardando || itemsVenta.length === 0}
+              disabled={
+                guardando ||
+                itemsVenta.length === 0 ||
+                ((esCuentaCorriente || condicionVenta === 'Cuenta Corriente') &&
+                  clienteCcHabilitado !== true)
+              }
             >
               {guardando
                 ? 'Guardando...'

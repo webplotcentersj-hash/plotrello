@@ -2104,6 +2104,19 @@ const CRMVentasPage = () => {
     if (nuevoMetodo === venta.metodo_pago) return
 
     try {
+      if (nuevoMetodo === 'Cuenta Corriente') {
+        const hab = venta.id_cliente
+          ? await apiService.clienteHabilitadoCuentaCorriente(venta.id_cliente)
+          : { success: true, data: false }
+        if (!hab.success || !hab.data) {
+          alert(
+            hab.error ||
+              'Este cliente no está habilitado para cuenta corriente. Hay que darlo de alta y aprobarlo antes de vender a cuenta.'
+          )
+          return
+        }
+      }
+
       const r = await apiService.actualizarVenta(venta.id, { metodo_pago: nuevoMetodo })
       if (!r.success) {
         alert('Error al actualizar método de pago: ' + (r.error || 'desconocido'))
@@ -2228,6 +2241,20 @@ const CRMVentasPage = () => {
     if (!formVenta.valor_total || parseFloat(formVenta.valor_total) <= 0) {
       alert('El valor total debe ser mayor a 0')
       return
+    }
+
+    if (formVenta.metodo_pago === 'Cuenta Corriente') {
+      const idCliente = oportunidadParaConvertir.id_cliente
+      const hab = idCliente
+        ? await apiService.clienteHabilitadoCuentaCorriente(idCliente)
+        : { success: true, data: false }
+      if (!hab.success || !hab.data) {
+        alert(
+          hab.error ||
+            'Este cliente no está habilitado para cuenta corriente. Hay que darlo de alta y aprobarlo antes de vender a cuenta.'
+        )
+        return
+      }
     }
 
     // Buscar ID de la OP

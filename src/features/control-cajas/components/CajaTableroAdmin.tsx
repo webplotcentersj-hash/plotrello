@@ -175,7 +175,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
   const tituloDia = esHoy ? `Hoy — ${fmtDateAr(selectedFecha)}` : fmtDateAr(selectedFecha)
   const ingresoHeroLabel = tituloIngresoDia(resumen, esHoy)
   const ingresoHeroHint = subtituloIngresoDia(resumen)
-  const ingresoHeroMonto = montoIngresoHeroDia(resumen, mediosDia.totalCobrado)
+  const ingresoHeroMonto = montoIngresoHeroDia(resumen, mediosDia.total)
 
   const handlePdfDia = () => {
     setPdfBusy(true)
@@ -263,7 +263,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
               </span>
               {mediosDia.cuenta_corriente > 0 && resumen.ingresoFuente !== 'cierre_turno' && (
                 <span className="caja-cc-hoy-hero-cc">
-                  CC $ {fmtArs(mediosDia.cuenta_corriente)}
+                  Cobrado $ {fmtArs(mediosDia.totalCobrado)} · CC $ {fmtArs(mediosDia.cuenta_corriente)}
                 </span>
               )}
               <span className="caja-cc-hoy-hero-hint">{ingresoHeroHint}</span>

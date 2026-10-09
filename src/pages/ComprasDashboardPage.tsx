@@ -377,18 +377,6 @@ export default function ComprasDashboardPage() {
           <button type="button" className="compras-dash-nav__btn" onClick={() => navigate('/compras/proveedores')}>
             🏢 Proveedores
           </button>
-          <button type="button" className="compras-dash-nav__btn" onClick={() => navigate('/compras/deudas-proveedores')}>
-            💳 Deudas proveedores
-          </button>
-          <button type="button" className="compras-dash-nav__btn" onClick={() => navigate('/compras/pagos-proveedores')}>
-            💸 Pagos proveedores
-          </button>
-          <button type="button" className="compras-dash-nav__btn" onClick={() => navigate('/compras/movimientos-proveedores')}>
-            📒 Movimientos proveedores
-          </button>
-          <button type="button" className="compras-dash-nav__btn" onClick={() => navigate('/compras/deuda-cc-proveedores')}>
-            📑 Deuda CC proveedores
-          </button>
         </div>
         <div className="compras-dash-nav__group">
           <span className="compras-dash-nav__label">Análisis</span>

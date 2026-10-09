@@ -6,6 +6,7 @@ import { fmtArs, fmtDateAr } from '../format'
 import {
   lineasEgresoDia,
   lineasIngresoDia,
+  resumenLineasIngreso,
   subtituloIngresoDia,
   tituloIngresoDia
 } from '../movimientoDetalle'
@@ -44,15 +45,16 @@ export default function CajaDiaResumenDetalleModal({
   const [movimientoSel, setMovimientoSel] = useState<CajaMovimiento | null>(null)
 
   const lineas = useMemo(() => {
-    if (tipo === 'ingreso') return lineasIngresoDia(fecha, resumen, planillas, movimientos)
+    if (tipo === 'ingreso') return lineasIngresoDia(fecha, resumen, planillas, movimientos, cajas)
     return lineasEgresoDia(fecha, egresos, planillas)
-  }, [tipo, fecha, resumen, planillas, movimientos, egresos])
+  }, [tipo, fecha, resumen, planillas, movimientos, egresos, cajas])
 
-  const total = tipo === 'ingreso' ? resumen.ingresoHoy : resumen.egresosHoy
+  const resumenLineas = useMemo(() => resumenLineasIngreso(lineas), [lineas])
+  const total = tipo === 'ingreso' ? resumenLineas.total : resumen.egresosHoy
   const titulo = tipo === 'ingreso' ? tituloIngresoDia(resumen, esHoy) : esHoy ? 'Egresos hoy' : 'Egresos del día'
   const subtitulo =
     tipo === 'ingreso'
-      ? subtituloIngresoDia(resumen)
+      ? `${resumenLineas.count} venta${resumenLineas.count === 1 ? '' : 's'} · ${subtituloIngresoDia(resumen)}`
       : resumen.egresosPendientes > 0
         ? `${resumen.egresosPendientes} egreso(s) pendiente(s) de aprobar`
         : 'Egresos aprobados del día (todas las cajas)'
@@ -68,7 +70,7 @@ export default function CajaDiaResumenDetalleModal({
   const handlePdf = () => {
     setPdfBusy(true)
     try {
-      if (tipo === 'ingreso') downloadIngresoDiaPdf(resumen, lineas, esHoy)
+      if (tipo === 'ingreso') downloadIngresoDiaPdf(resumen, lineas, esHoy, total)
       else downloadEgresoDiaPdf(fecha, total, lineas, esHoy)
     } finally {
       setPdfBusy(false)
@@ -99,14 +101,37 @@ export default function CajaDiaResumenDetalleModal({
         <div className="caja-cc-modal-body">
           <div className="caja-cc-arqueo-meta-grid">
             <div>
-              <span className="caja-cc-meta-label">Total</span>
+              <span className="caja-cc-meta-label">Total (suma de líneas)</span>
               <strong className="caja-cc-meta-total">$ {fmtArs(total)}</strong>
             </div>
+            {tipo === 'ingreso' && resumen.ingresoFuente === 'plotlab' ? (
+              <>
+                <div>
+                  <span className="caja-cc-meta-label">Cobrado</span>
+                  <strong>$ {fmtArs(resumenLineas.cobrado)}</strong>
+                </div>
+                <div>
+                  <span className="caja-cc-meta-label">Cuenta corriente</span>
+                  <strong>$ {fmtArs(resumenLineas.cc)}</strong>
+                </div>
+              </>
+            ) : null}
             <div>
               <span className="caja-cc-meta-label">Líneas</span>
               <strong>{lineas.length}</strong>
             </div>
           </div>
+
+          {tipo === 'ingreso' && resumenLineas.porMedio.length > 0 ? (
+            <ul className="caja-cc-dia-medios">
+              {resumenLineas.porMedio.map((m) => (
+                <li key={m.label}>
+                  <span>{m.label}</span>
+                  <strong>$ {fmtArs(m.monto)}</strong>
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
           <h3>Detalle</h3>
           {lineas.length === 0 ? (
@@ -116,8 +141,10 @@ export default function CajaDiaResumenDetalleModal({
               <table className="caja-cc-table caja-cc-table-clickable">
                 <thead>
                   <tr>
-                    <th>Concepto</th>
-                    <th>Detalle</th>
+                    <th>Hora</th>
+                    <th>Cliente</th>
+                    <th>Medio</th>
+                    <th>Caja</th>
                     <th className="num">Monto</th>
                   </tr>
                 </thead>
@@ -125,7 +152,12 @@ export default function CajaDiaResumenDetalleModal({
                   {lineas.map((linea) => (
                     <tr
                       key={linea.id}
-                      className={linea.movimiento ? 'caja-cc-row-clickable' : undefined}
+                      className={[
+                        linea.movimiento ? 'caja-cc-row-clickable' : '',
+                        linea.esCc ? 'caja-cc-row-cc' : ''
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                       onClick={
                         linea.movimiento
                           ? () => setMovimientoSel(linea.movimiento!)
@@ -133,15 +165,20 @@ export default function CajaDiaResumenDetalleModal({
                       }
                       title={linea.movimiento ? 'Ver detalle del movimiento' : undefined}
                     >
-                      <td>{linea.titulo}</td>
-                      <td className="caja-cc-meta">{linea.detalle || '—'}</td>
+                      <td className="caja-cc-meta">{linea.hora || '—'}</td>
+                      <td>
+                        <div>{linea.titulo}</div>
+                        {linea.detalle ? <div className="caja-cc-meta">{linea.detalle}</div> : null}
+                      </td>
+                      <td>{linea.medio || '—'}</td>
+                      <td className="caja-cc-meta">{linea.caja || '—'}</td>
                       <td className="num">$ {fmtArs(linea.monto)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={2}>
+                    <td colSpan={4}>
                       <strong>Total</strong>
                     </td>
                     <td className="num">

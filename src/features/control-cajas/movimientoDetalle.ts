@@ -4,7 +4,8 @@ import {
   totalesIngresosPlanilla,
   type ResumenAdminHoy
 } from './cajaDashboardData'
-import { fmtArs, montoVisibleMovimiento } from './format'
+import { fmtArs, montoCuentaCorriente, montoVisibleMovimiento } from './format'
+import { esPaseCierreTurno, esTraspasoEntreCajas } from './movimientoCaja'
 import { paseTieneTrazabilidad } from './paseCaja'
 import type {
   CajaEgresoSolicitud,
@@ -118,13 +119,52 @@ export type DiaResumenLinea = {
   detalle: string
   monto: number
   movimiento?: CajaMovimiento
+  medio?: string
+  caja?: string
+  hora?: string | null
+  esCc?: boolean
+}
+
+export function medioVisibleIngreso(m: CajaMovimiento): string {
+  const medios = mediosPagoMovimiento(m)
+  if (medios.length === 1) return medios[0].label
+  if (medios.length > 1) return medios.map((x) => x.label).join(' + ')
+  return m.observacion?.split('—').pop()?.trim() || 'Otro'
+}
+
+export function resumenLineasIngreso(lineas: DiaResumenLinea[]): {
+  total: number
+  cobrado: number
+  cc: number
+  count: number
+  porMedio: { label: string; monto: number }[]
+} {
+  let total = 0
+  let cc = 0
+  const porMedio = new Map<string, number>()
+  for (const l of lineas) {
+    total += l.monto
+    if (l.esCc) cc += l.monto
+    const med = l.medio || 'Otro'
+    porMedio.set(med, (porMedio.get(med) || 0) + l.monto)
+  }
+  return {
+    total,
+    cobrado: Math.max(0, total - cc),
+    cc,
+    count: lineas.length,
+    porMedio: [...porMedio.entries()]
+      .map(([label, monto]) => ({ label, monto }))
+      .sort((a, b) => b.monto - a.monto)
+  }
 }
 
 export function lineasIngresoDia(
   fecha: string,
   resumen: ResumenAdminHoy,
   planillas: PlanillaCajaGuardada[],
-  movimientos: CajaMovimiento[]
+  movimientos: CajaMovimiento[],
+  cajas: CajaRegistro[] = []
 ): DiaResumenLinea[] {
   if (resumen.ingresoFuente === 'cierre_turno') {
     return resumen.cierresTurnoHoy.map((l) => ({
@@ -151,21 +191,32 @@ export function lineasIngresoDia(
           m.fecha === fecha &&
           !m.anulado &&
           m.tipo_movimiento === 'ingreso' &&
-          m.origen_importacion === 'plotlab_venta'
+          m.origen_importacion === 'plotlab_venta' &&
+          !esPaseCierreTurno(m) &&
+          !esTraspasoEntreCajas(m)
       )
-      .map((m) => ({
-        id: m.id,
-        titulo: m.concepto,
-        detalle: [
-          m.tercero_nombre,
-          parseRefPlotLab(m),
-          m.observacion?.split('—').pop()?.trim()
-        ]
-          .filter(Boolean)
-          .join(' · '),
-        monto: montoVisibleMovimiento(m),
-        movimiento: m
-      }))
+      .map((m) => {
+        const medio = medioVisibleIngreso(m)
+        const cc = montoCuentaCorriente(m)
+        const cliente = (m.tercero_nombre || m.concepto.replace(/^Venta\s+/i, '')).trim()
+        return {
+          id: m.id,
+          titulo: cliente,
+          detalle: [parseRefPlotLab(m), m.usuario_nombre].filter(Boolean).join(' · '),
+          monto: montoVisibleMovimiento(m),
+          movimiento: m,
+          medio,
+          caja: etiquetaRutaCajasMovimiento(m, cajas),
+          hora: m.hora || null,
+          esCc: cc > 0.02 && cc >= montoVisibleMovimiento(m) - 0.02
+        }
+      })
+      .sort((a, b) => {
+        const ha = a.hora || ''
+        const hb = b.hora || ''
+        if (ha && hb && ha !== hb) return hb.localeCompare(ha)
+        return b.monto - a.monto
+      })
   }
   return []
 }

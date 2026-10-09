@@ -1,0 +1,2 @@
+-- Evita que editar una venta (nombre, obs, ítems) reescriba o anule caja
+-- y que un cobro ya asentado salte de día. Pendiente ya no borra el movimiento.

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { plotLabFetch } from '../utils/plotLabApiOrigin'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { supabase } from '../services/supabaseClient'
+import { extraerDatosTicket, fileToDataUrl, type TicketExtract } from '../utils/extractTicketAi'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import './ErpSectionPage.css'
 
@@ -26,20 +26,6 @@ type ErpGastoRow = {
   origen: 'manual' | 'ticket_ai' | string
 }
 
-type TicketExtract = {
-  fecha?: string | null
-  proveedor?: string | null
-  categoria?: string | null
-  descripcion?: string | null
-  total?: number | null
-  iva?: number | null
-  neto?: number | null
-  moneda?: string | null
-  metodo_pago?: string | null
-  confidence?: number | null
-  raw_text_hint?: string | null
-}
-
 const PIE_COLORS = ['#f97316', '#38bdf8', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#94a3b8', '#e2e8f0']
 const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia'] as const
 
@@ -51,17 +37,6 @@ function safeNumber(v: unknown): number | null {
   const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(',', '.'))
   if (!Number.isFinite(n)) return null
   return n
-}
-
-async function fileToDataUrl(file: File): Promise<string> {
-  const buf = await file.arrayBuffer()
-  const bytes = new Uint8Array(buf)
-  let binary = ''
-  const chunk = 0x8000
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
-  }
-  return `data:${file.type};base64,${btoa(binary)}`
 }
 
 export default function ErpGastosPage() {
@@ -199,35 +174,24 @@ export default function ErpGastosPage() {
       const url = await uploadAttachmentAndGetUrl(file, 'erp-gastos')
       setForm((p) => ({ ...p, ticket_url: url }))
 
-      // Extraer datos con IA (servidor)
       setTicketExtracting(true)
-      const res = await plotLabFetch('/api/erp/extract-ticket', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mimeType: file.type || 'image/jpeg',
-          dataUrl: preview
-        })
-      })
-      const j = (await res.json().catch(() => null)) as { success?: boolean; data?: TicketExtract; error?: string } | null
-      if (!res.ok || !j?.data) throw new Error(j?.error || 'No se pudo extraer el ticket.')
-      setTicketExtract(j.data)
+      const extracted = await extraerDatosTicket(file)
+      setTicketExtract(extracted)
 
-      // Autocompletar
       setForm((p) => ({
         ...p,
-        fecha_gasto: (j.data?.fecha || p.fecha_gasto || ymdToday()).slice(0, 10),
-        proveedor: j.data?.proveedor ? String(j.data.proveedor) : p.proveedor,
-        categoria: j.data?.categoria ? String(j.data.categoria) : p.categoria,
-        descripcion: j.data?.descripcion ? String(j.data.descripcion) : p.descripcion,
-        total: j.data?.total != null ? String(j.data.total) : p.total,
-        iva: j.data?.iva != null ? String(j.data.iva) : p.iva,
-        neto: j.data?.neto != null ? String(j.data.neto) : p.neto,
-        moneda: j.data?.moneda ? String(j.data.moneda) : p.moneda,
-        metodo_pago: j.data?.metodo_pago ? String(j.data.metodo_pago) : p.metodo_pago
+        fecha_gasto: (extracted.fecha || p.fecha_gasto || ymdToday()).slice(0, 10),
+        proveedor: extracted.proveedor ? String(extracted.proveedor) : p.proveedor,
+        categoria: extracted.categoria ? String(extracted.categoria) : p.categoria,
+        descripcion: extracted.descripcion ? String(extracted.descripcion) : p.descripcion,
+        total: extracted.total != null ? String(extracted.total) : p.total,
+        iva: extracted.iva != null ? String(extracted.iva) : p.iva,
+        neto: extracted.neto != null ? String(extracted.neto) : p.neto,
+        moneda: extracted.moneda ? String(extracted.moneda) : p.moneda,
+        metodo_pago: extracted.metodo_pago ? String(extracted.metodo_pago) : p.metodo_pago
       }))
 
-      if (j.data?.categoria) {
+      if (extracted.categoria) {
         // Pre-cargar sugerencias para autocompletar.
         await loadCategorias()
       }

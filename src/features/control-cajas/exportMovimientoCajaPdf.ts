@@ -170,13 +170,14 @@ export function downloadDiaResumenPdf(opts: {
 export function downloadIngresoDiaPdf(
   resumen: ResumenAdminHoy,
   lineas: DiaResumenLinea[],
-  esHoy: boolean
+  esHoy: boolean,
+  total = lineas.reduce((s, l) => s + l.monto, 0)
 ): void {
   downloadDiaResumenPdf({
     titulo: esHoy ? 'Ingreso hoy' : 'Ingreso del dia',
     fecha: resumen.fecha,
-    subtitulo: subtituloIngresoDia(resumen),
-    total: resumen.ingresoHoy,
+    subtitulo: `${lineas.length} ventas · ${subtituloIngresoDia(resumen)}`,
+    total,
     lineas
   })
 }

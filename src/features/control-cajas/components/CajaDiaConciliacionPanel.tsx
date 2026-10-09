@@ -136,6 +136,9 @@ export default function CajaDiaConciliacionPanel({
               {l.esContable && l.movimientos > 0 && (
                 <p className="caja-cc-concil-hint-cc">No suma al arqueo físico</p>
               )}
+              {l.estado === 'pendiente' && l.canal === 'mercado_pago' && l.movimientos > 0 ? (
+                <p className="caja-cc-concil-fuente">Falta cargar el dashboard de Mercado Pago</p>
+              ) : null}
               {l.estado === 'revisar' && (
                 <div className="caja-cc-concil-dif">
                   Dif. $ {fmtArs(Math.abs(l.diferencia))}

@@ -96,12 +96,14 @@ SCHEMA JSON:
   "neto": number|null,
   "moneda": string|null,
   "metodo_pago": string|null,
+  "numero_comprobante": string|null,
   "confidence": number|null,
   "raw_text_hint": string|null
 }
 
 Categoria: intentá elegir una etiqueta corta tipo: Combustible, Limpieza, Insumos, Servicios, Repuestos, Transporte, Comida, Otros.
-Descripcion: una frase corta con lo principal (ej. "Nafta", "Insumos de oficina", "Service", etc.).`
+Descripcion: una frase corta con lo principal (ej. "Nafta", "Insumos de oficina", "Service", etc.).
+numero_comprobante: punto de venta y número si se ve (ej. 0001-00001234), o el n° de recibo/ticket.`
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',

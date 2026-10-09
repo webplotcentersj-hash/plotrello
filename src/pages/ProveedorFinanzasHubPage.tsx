@@ -25,8 +25,12 @@ function ProveedorFinanzasHubPage({ initialTab }: HubPageProps) {
     if (authLoading) return
     if (!canManageCompras) {
       navigate('/')
+      return
     }
-  }, [authLoading, canManageCompras, navigate])
+    if (!idProveedor) {
+      navigate('/compras/proveedores', { replace: true })
+    }
+  }, [authLoading, canManageCompras, navigate, idProveedor])
 
   useEffect(() => {
     if (!idProveedor) {

@@ -107,6 +107,19 @@ function movimientosPlotLabEfectivo(movimientos: CajaMovimiento[], fecha: string
   return movimientosPlotLabIngreso(movimientos, fecha, (m) => m.efectivo ?? 0)
 }
 
+/** Cajas que realmente cobraron efectivo ese día (para no usar un arqueo suelto como referencia global). */
+function cajasConEfectivoDia(movimientos: CajaMovimiento[], fecha: string): Set<string> {
+  const slugs = new Set<string>()
+  for (const m of movimientos) {
+    if (m.fecha !== fecha || m.anulado) continue
+    if (m.tipo_movimiento !== 'ingreso') continue
+    if (esPaseCierreTurno(m) || esTraspasoEntreCajas(m)) continue
+    if ((m.efectivo || 0) <= TOLERANCIA) continue
+    if (m.destino_slug) slugs.add(m.destino_slug)
+  }
+  return slugs
+}
+
 const LABELS: Record<CanalConciliacion, { label: string; icon: string; esContable: boolean }> = {
   efectivo: { label: 'Efectivo', icon: '💵', esContable: false },
   tarjeta: { label: 'Tarjeta', icon: '💳', esContable: false },
@@ -122,13 +135,17 @@ function mediosDesdeMovimiento(
 ): MediosDiaTotales {
   // Solo cheques: no meter transferencia ni el agregado legacy `otros`.
   const otros = (m.cheque_propio || 0) + (m.cheque_tercero || 0)
-  const cc = m.cuenta_corriente || 0
+  const mediosJson = m.medios as Record<string, unknown> | null | undefined
+  const cc =
+    m.cuenta_corriente ||
+    (typeof mediosJson?.cta_cte === 'number' ? mediosJson.cta_cte : 0) ||
+    0
   const efectivo = m.efectivo || 0
   const rawTarjeta = m.tarjeta || 0
   const esMp = rawTarjeta > 0 && esIngresoMercadoPago(m)
   const esVentaPlotlab = m.origen_importacion === 'plotlab_venta'
-  const mpOk = esMp && (!esVentaPlotlab || mpPagoConfirmado(m, ventasMpPagadas))
-  // Sin confirmación de MP no entra a ningún canal (ni tarjeta ni MP).
+  // Venta PlotLab ya cobrada cuenta; el resto de MP solo si hay pago aprobado.
+  const mpOk = esMp && (esVentaPlotlab || mpPagoConfirmado(m, ventasMpPagadas))
   const tarjeta = esMp ? 0 : rawTarjeta
   const mercado_pago = mpOk ? rawTarjeta : 0
   const transferencia = m.transferencia_bancaria || 0
@@ -363,22 +380,27 @@ export function conciliacionAutomaticaDia(input: {
   const efArqueoContado = totalesArqueoEfectivoDia(arqueos, fecha)
   const efArqueo = efArqueoContado > 0 ? efArqueoContado + egresosEfectivoDia(movimientos, fecha) : 0
   const efPlotlab = movimientosPlotLabEfectivo(movimientos, fecha)
-  const refEfectivo =
-    efArqueo > 0
-      ? efArqueo
-      : planilla != null && planilla.efectivo > 0
-        ? planilla.efectivo
-        : efPlotlab > 0
-          ? efPlotlab
-          : null
-  const refEfectivoFuente =
-    efArqueo > 0
-      ? 'Arqueo + egresos pagados'
-      : planilla != null && planilla.efectivo > 0
-        ? 'Planilla PDF'
-        : efPlotlab > 0
-          ? 'Ventas PlotLab'
-          : null
+  const slugsEfectivo = cajasConEfectivoDia(movimientos, fecha)
+  const slugsArqueo = new Set(arqueos.filter((a) => a.fecha === fecha).map((a) => a.caja_slug))
+  const arqueoCubreElDia =
+    slugsEfectivo.size > 0 && [...slugsEfectivo].every((slug) => slugsArqueo.has(slug))
+  const usarArqueoRef = efArqueo > 0 && arqueoCubreElDia
+  const refEfectivo = usarArqueoRef
+    ? efArqueo
+    : planilla != null && planilla.efectivo > 0
+      ? planilla.efectivo
+      : efPlotlab > 0
+        ? efPlotlab
+        : null
+  const refEfectivoFuente = usarArqueoRef
+    ? 'Arqueo + egresos pagados'
+    : planilla != null && planilla.efectivo > 0
+      ? 'Planilla PDF'
+      : efPlotlab > 0
+        ? efArqueoContado > 0
+          ? 'Ventas PlotLab (arqueo parcial, no se usa de referencia)'
+          : 'Ventas PlotLab'
+        : null
 
   const dashboardMp = concilMp && (concilMp.dashboard ?? 0) > 0 ? (concilMp.dashboard ?? 0) : 0
   const refMp =
@@ -498,7 +520,7 @@ export function labelEstadoConciliacion(estado: EstadoConciliacion): string {
     case 'revisar':
       return 'Revisar'
     case 'pendiente':
-      return 'Pendiente'
+      return 'A conciliar'
     default:
       return '—'
   }
