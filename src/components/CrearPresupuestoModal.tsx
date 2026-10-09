@@ -123,7 +123,8 @@ const CrearPresupuestoModal = ({
       telefono: o.cliente_telefono || '',
       email: o.cliente_email || '',
       empresa: o.cliente_empresa || '',
-      direccion: o.cliente_direccion || ''
+      direccion: o.cliente_direccion || '',
+      condicion_iva: 'Consumidor Final'
     })
     const int = [o.descripcion, o.observaciones && `Obs. CRM: ${o.observaciones}`]
       .filter(Boolean)
