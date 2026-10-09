@@ -367,7 +367,7 @@ const CRMVentasPage = () => {
     id_op: '',
     numero_op: '',
     valor_total: '',
-    metodo_pago: 'Efectivo' as MetodoPago,
+    metodo_pago: 'Efectivo' as Exclude<MetodoPago, 'Mercado Pago'>,
     estado_pago: 'Pendiente' as const,
     fecha_venta: getArgentinaDateString(),
     observaciones: ''
