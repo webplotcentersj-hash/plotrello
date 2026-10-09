@@ -37,10 +37,7 @@ import {
   type UrgenciaProximaAccion
 } from '../utils/crmVentasHelpers'
 import { generateContent } from '../services/plotAIService'
-import {
-  extraerUrlsDeObservaciones,
-  extraerWhatsappDeObservaciones
-} from '../utils/presupuestoWebPublico'
+import { extraerUrlsDeObservaciones } from '../utils/presupuestoWebPublico'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
