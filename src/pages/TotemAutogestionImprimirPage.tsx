@@ -53,7 +53,14 @@ const TOTEM_PRINT_EMAIL = 'totem@plotcenter.com.ar'
 const WA_CHAT_URL = 'https://wa.me/5492646212163'
 
 type Step = 'form' | 'pay' | 'done'
+type FormStage = 'datos' | 'archivo' | 'opciones'
 type OrigenArchivo = 'WhatsApp' | 'Drive' | 'Email' | 'Pendrive' | 'CelularQR'
+
+const FORM_STAGES: { id: FormStage; n: number; label: string; hint: string }[] = [
+  { id: 'datos', n: 1, label: 'Tus datos', hint: 'Nombre y contacto' },
+  { id: 'archivo', n: 2, label: 'Archivo', hint: 'Subilo con el celular' },
+  { id: 'opciones', n: 3, label: 'Imprimir', hint: 'Papel, color y copias' }
+]
 
 const ORIGEN_OPCIONES: { value: OrigenArchivo; label: string; icon: TotemKioskIconName }[] = [
   { value: 'CelularQR', label: 'Celular (QR)', icon: 'phone' },
@@ -66,6 +73,7 @@ const ORIGEN_OPCIONES: { value: OrigenArchivo; label: string; icon: TotemKioskIc
 export default function TotemAutogestionImprimirPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('form')
+  const [formStage, setFormStage] = useState<FormStage>('datos')
   const [error, setError] = useState<string | null>(null)
 
   const [clienteNombre, setClienteNombre] = useState('')
@@ -759,6 +767,70 @@ export default function TotemAutogestionImprimirPage() {
     return null
   }
 
+  const canAvanzarDatos = () => {
+    if (!clienteNombre.trim()) return 'Ingresá tu nombre.'
+    if (!dniDigits || dniDigits.length < 7) return 'Ingresá un DNI/CUIT válido.'
+    if (!clienteTelefono.trim()) return 'Ingresá un teléfono.'
+    return null
+  }
+
+  const canAvanzarArchivo = () => {
+    if (origenArchivo === 'WhatsApp' || origenArchivo === 'Email' || origenArchivo === 'Drive') {
+      return 'Para seguir, subí el archivo con el celular (QR) o desde esta tablet.'
+    }
+    if (origenArchivo === 'Pendrive') {
+      if (pendriveArchivos.length === 0) return 'Elegí uno o más archivos.'
+      if (pendriveSubiendo) return 'Esperá a que terminen de subirse los archivos.'
+    }
+    if (origenArchivo === 'CelularQR') {
+      if (!qrSesionCompleta || archivosCargados.length === 0) {
+        return 'Escaneá el QR con el celular y subí el archivo.'
+      }
+    }
+    return null
+  }
+
+  const irEtapaAnterior = () => {
+    setError(null)
+    if (step === 'done') {
+      navigate('/totem/consulta-cliente')
+      return
+    }
+    if (step === 'pay') {
+      setStep('form')
+      setCheckoutDraft(null)
+      setFormStage('opciones')
+      return
+    }
+    if (formStage === 'archivo') setFormStage('datos')
+    else if (formStage === 'opciones') setFormStage('archivo')
+    else navigate('/totem/consulta-cliente')
+  }
+
+  const irEtapaSiguiente = () => {
+    setError(null)
+    if (formStage === 'datos') {
+      const v = canAvanzarDatos()
+      if (v) {
+        setError(v)
+        return
+      }
+      setFormStage('archivo')
+      return
+    }
+    if (formStage === 'archivo') {
+      const v = canAvanzarArchivo()
+      if (v) {
+        setError(v)
+        return
+      }
+      setFormStage('opciones')
+    }
+  }
+
+  const etapaActiva: FormStage | 'pay' | 'done' =
+    step === 'pay' || step === 'done' ? step : formStage
+
   const buildCheckoutDraft = (): TotemImpresionCheckoutDraft | null => {
     let urlFinal = archivoUrl.trim()
     let nombreFinal = archivoNombre.trim()
@@ -913,26 +985,52 @@ export default function TotemAutogestionImprimirPage() {
   const showCelularQrBlock = origenArchivo === 'CelularQR'
 
   return (
-      <div className="totem-print-page">
+      <div className="totem-print-page totem-print-page--tablet">
         <header className="totem-print-header">
-          <button type="button" className="totem-print-back" onClick={() => navigate('/totem/consulta-cliente')}>
-            ← Inicio
+          <button type="button" className="totem-print-back" onClick={irEtapaAnterior}>
+            {formStage === 'datos' && step === 'form' ? '← Inicio' : '← Atrás'}
           </button>
-          <span className="totem-print-ico-ring" aria-hidden>
-            <TotemKioskIcon name="print" size="lg" />
-          </span>
-          <div>
-            <p className="totem-print-kicker">Plot Center · Autogestión</p>
-            <h1>Impresión (cola)</h1>
-            <p>Subí el archivo, pagá con Mercado Pago y enviamos el trabajo a la cola de impresión.</p>
-          </div>
+          <ol className="totem-print-steps" aria-label="Pasos para imprimir">
+            {FORM_STAGES.map((s) => {
+              const done =
+                etapaActiva === 'pay' ||
+                etapaActiva === 'done' ||
+                FORM_STAGES.findIndex((x) => x.id === formStage) > FORM_STAGES.findIndex((x) => x.id === s.id)
+              const current = etapaActiva === s.id
+              return (
+                <li
+                  key={s.id}
+                  className={`totem-print-step${current ? ' is-current' : ''}${done ? ' is-done' : ''}`}
+                >
+                  <span className="totem-print-step__n">{done && !current ? '✓' : s.n}</span>
+                  <span className="totem-print-step__copy">
+                    <strong>{s.label}</strong>
+                    <small>{s.hint}</small>
+                  </span>
+                </li>
+              )
+            })}
+            <li className={`totem-print-step${etapaActiva === 'pay' || etapaActiva === 'done' ? ' is-current is-done' : ''}`}>
+              <span className="totem-print-step__n">{etapaActiva === 'done' ? '✓' : 4}</span>
+              <span className="totem-print-step__copy">
+                <strong>Pagar</strong>
+                <small>Mercado Pago</small>
+              </span>
+            </li>
+          </ol>
         </header>
 
         <main className="totem-print-main">
           {step === 'form' && (
             <section className="totem-print-card">
-              <div className="totem-print-body">
+              <div className={`totem-print-body${formStage === 'opciones' ? ' totem-print-body--split' : ''}`}>
                 <div className="totem-print-grid">
+                {formStage === 'datos' && (
+                <>
+                <p className="totem-print-span2 totem-print-stageLead">
+                  <strong>Paso 1 · Tus datos</strong>
+                  Escribí tu nombre. Si ya sos cliente, el tótem completa DNI y teléfono.
+                </p>
                 <label className="totem-print-span2">
                   Nombre
                   <div className="totem-print-nombreWrap" ref={nombreWrapRef}>
@@ -1013,6 +1111,14 @@ export default function TotemAutogestionImprimirPage() {
                     className={clienteId != null ? 'totem-print-input--matched' : undefined}
                   />
                 </label>
+                </>
+                )}
+                {formStage === 'opciones' && (
+                <>
+                <p className="totem-print-span2 totem-print-stageLead">
+                  <strong>Paso 3 · Cómo imprimir</strong>
+                  Elegí papel, color y copias. Tocá las hojas en la vista previa si no querés imprimir todo.
+                </p>
                 <label>
                   Cantidad de hojas
                   <input
@@ -1187,6 +1293,14 @@ export default function TotemAutogestionImprimirPage() {
                     </span>
                   )}
                 </label>
+                </>
+                )}
+                {formStage === 'archivo' && (
+                <>
+                <p className="totem-print-span2 totem-print-stageLead">
+                  <strong>Paso 2 · El archivo</strong>
+                  Subilo con el celular (más fácil) o desde esta tablet.
+                </p>
                 <div
                   className={`totem-print-span2 totem-print-origenBlock ${origenPulse ? 'totem-print-origenBlock--pulse' : ''}`}
                   ref={origenSectionRef}
@@ -1203,7 +1317,7 @@ export default function TotemAutogestionImprimirPage() {
                           className={`totem-print-origenTab ${origenArchivo === o.value ? 'is-active' : ''}`}
                           onClick={() => setOrigenArchivo(o.value)}
                         >
-                          <TotemKioskIcon name={o.icon} size="strip" />
+                          <TotemKioskIcon name={o.icon} size="tile" />
                           <span>{o.label}</span>
                         </button>
                       ))}
@@ -1433,6 +1547,10 @@ export default function TotemAutogestionImprimirPage() {
                     <span className="totem-print-hojasHint">Volvé a subir el archivo si te equivocaste.</span>
                   </div>
                 )}
+                </>
+                )}
+                {formStage === 'opciones' && (
+                <>
                 <label className="totem-print-span2 totem-print-readonlyField">
                   Valor a cobrar (Lista 1)
                   <div className="totem-print-priceTotal" aria-live="polite">
@@ -1451,9 +1569,11 @@ export default function TotemAutogestionImprimirPage() {
                     <span className="totem-print-qrError">{printQuoteError}</span>
                   )}
                 </label>
+                </>
+                )}
               </div>
 
-              <aside className="totem-print-previewAside">
+              <aside className={`totem-print-previewAside${formStage === 'opciones' ? '' : ' is-hidden'}`}>
                 <TotemPrintPreviewMonitor
                   sources={previewSources}
                   formatoImpresion={formatoImpresion}
@@ -1501,10 +1621,19 @@ export default function TotemAutogestionImprimirPage() {
 
               {error && <div className="totem-print-error">{error}</div>}
 
-              <div className="totem-print-actions">
-                <button type="button" className="totem-print-primary" onClick={handlePay}>
-                  Pagar y enviar
+              <div className="totem-print-actions totem-print-actions--tablet">
+                <button type="button" className="totem-print-secondary" onClick={irEtapaAnterior}>
+                  {formStage === 'datos' ? '← Inicio' : '← Atrás'}
                 </button>
+                {formStage !== 'opciones' ? (
+                  <button type="button" className="totem-print-primary" onClick={irEtapaSiguiente}>
+                    Siguiente →
+                  </button>
+                ) : (
+                  <button type="button" className="totem-print-primary" onClick={handlePay}>
+                    Pagar y enviar
+                  </button>
+                )}
               </div>
             </section>
           )}
@@ -1514,10 +1643,7 @@ export default function TotemAutogestionImprimirPage() {
               <button
                 type="button"
                 className="totem-print-back totem-print-back--inline"
-                onClick={() => {
-                  setStep('form')
-                  setCheckoutDraft(null)
-                }}
+                onClick={irEtapaAnterior}
               >
                 ← Volver
               </button>

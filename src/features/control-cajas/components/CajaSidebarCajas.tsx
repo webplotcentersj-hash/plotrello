@@ -8,6 +8,7 @@ import { conteosPorCajaOperativa, type ConteoCajaResumen } from '../cajaMenuOper
 import { listCajasOperativasUsuarios } from '../cajaOperativa'
 import {
   listArqueos,
+  listCajas,
   listCierres,
   listEgresoSolicitudes,
   listMovimientos,
@@ -39,7 +40,8 @@ export default function CajaSidebarCajas({
     setLoading(true)
     void (async () => {
       try {
-        const [cajas, movimientos, arqueos, egresos, lotes, cierres] = await Promise.all([
+        const [todas, operativas, movimientos, arqueos, egresos, lotes, cierres] = await Promise.all([
+          listCajas(),
           listCajasOperativasUsuarios(),
           listMovimientos(),
           listArqueos(),
@@ -47,6 +49,8 @@ export default function CajaSidebarCajas({
           listTransferenciaLotes(200),
           listCierres()
         ])
+        const admin = todas.find((c) => c.slug === 'admin' && c.activa !== false)
+        const cajas = admin ? [admin, ...operativas.filter((c) => c.slug !== 'admin')] : operativas
         if (cancelled) return
         setConteosHoy(
           conteosPorCajaOperativa({
@@ -108,10 +112,12 @@ export default function CajaSidebarCajas({
 }
 
 /**
- * Caja = usuario: solo ventas del titular (`id_vendedor`).
- * No mezclar por `caja_slug_cobro` ajeno (evita ver a Facundo en caja de Alejandro).
+ * Caja de cobro si está marcada (tótem → admin).
+ * Si no, caja = usuario: solo ventas del titular.
  */
 function ventaPerteneceACaja(v: Venta, caja: CajaRegistro): boolean {
+  const cobro = (v.caja_slug_cobro || '').trim()
+  if (cobro) return cobro === caja.slug
   if (caja.id_usuario == null) return false
   return v.id_vendedor === caja.id_usuario
 }

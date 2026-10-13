@@ -182,7 +182,7 @@ export default function TotemAutogestionCheckoutPage() {
         </button>
         <div>
           <h1>Confirmar compra</h1>
-          <p>Identificate y pagá con Mercado Pago. El pedido entra a mostrador como venta tótem.</p>
+          <p>Identificate y pagá con Mercado Pago. La venta se registra en Caja Administración.</p>
         </div>
       </header>
 
@@ -297,7 +297,7 @@ export default function TotemAutogestionCheckoutPage() {
               payload={checkoutPayload}
               amountHint={total}
               title="Pagar compra del tótem"
-              note="Escaneá el QR con Mercado Pago. Al confirmarse el pago registramos tu pedido y la venta en mostrador."
+              note="Escaneá el QR con Mercado Pago. Al confirmarse el pago registramos el pedido y la venta en Caja Administración."
               onPaid={({ pedidoId, mpPaymentId }) => {
                 clearTotemCart()
                 setResult({ pedidoId: pedidoId ?? null, mpPaymentId: mpPaymentId ?? null })

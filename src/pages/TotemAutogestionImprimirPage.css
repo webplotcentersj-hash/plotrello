@@ -39,10 +39,95 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: clamp(16px, 2.5vw, 22px) clamp(18px, 3vw, 28px);
+  padding: clamp(12px, 1.8vw, 18px) clamp(16px, 2.4vw, 24px);
   border-bottom: 1px solid var(--totem-line);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
   backdrop-filter: blur(12px);
+}
+
+.totem-print-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.totem-print-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 10, 20, 0.35);
+  color: rgba(226, 232, 240, 0.62);
+}
+
+.totem-print-step.is-done {
+  border-color: rgba(52, 211, 153, 0.28);
+  color: #d1fae5;
+}
+
+.totem-print-step.is-current {
+  border-color: rgba(251, 146, 60, 0.7);
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.28), rgba(249, 115, 22, 0.12));
+  color: #fff7ed;
+  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.2);
+}
+
+.totem-print-step__n {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 1.05rem;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.totem-print-step.is-current .totem-print-step__n,
+.totem-print-step.is-done .totem-print-step__n {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.totem-print-step__copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.totem-print-step__copy strong {
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.totem-print-step__copy small {
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.78;
+}
+
+.totem-print-stageLead {
+  margin: 0 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  color: rgba(226, 232, 240, 0.86);
+}
+
+.totem-print-stageLead strong {
+  font-size: 1.35rem;
+  color: #fff;
 }
 
 .totem-print-ico-ring {
@@ -88,10 +173,12 @@
   border: 1px solid var(--totem-line-bright);
   background: var(--totem-glass);
   color: var(--totem-text);
-  padding: 12px 16px;
+  padding: 14px 18px;
+  min-height: 56px;
   border-radius: var(--totem-radius-md);
   cursor: pointer;
   font-weight: 800;
+  font-size: 1rem;
   transition: border-color 0.18s ease, background 0.18s ease;
 }
 
@@ -129,6 +216,10 @@
 }
 
 .totem-print-body {
+  display: block;
+}
+
+.totem-print-body--split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   gap: 22px;
@@ -138,6 +229,10 @@
 .totem-print-previewAside {
   position: sticky;
   top: 16px;
+}
+
+.totem-print-previewAside.is-hidden {
+  display: none;
 }
 
 .totem-print-hojasHint {
@@ -237,12 +332,13 @@
 .totem-print-origenBlock select {
   width: 100%;
   box-sizing: border-box;
-  padding: 15px 16px;
+  padding: 16px 18px;
+  min-height: 58px;
   border-radius: var(--totem-radius-lg);
   border: 1px solid var(--totem-line-bright);
   background: rgba(8, 10, 20, 0.8);
   color: var(--totem-text);
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -389,24 +485,26 @@
 }
 
 .totem-print-origenTabs {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
 .totem-print-origenTab {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 16px 10px;
   border-radius: var(--totem-radius-lg);
   border: 1px solid var(--totem-line-bright);
   background: rgba(8, 10, 20, 0.6);
   color: var(--totem-text-soft);
-  font-weight: 700;
-  font-size: 0.92rem;
+  font-weight: 800;
+  font-size: 1rem;
   cursor: pointer;
-  min-height: 52px;
+  min-height: 92px;
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
 }
 
@@ -669,6 +767,32 @@
   margin-top: 18px;
 }
 
+.totem-print-actions--tablet {
+  justify-content: stretch;
+  gap: 12px;
+  position: sticky;
+  bottom: 0;
+  padding-top: 14px;
+  background: linear-gradient(180deg, transparent, rgba(22, 24, 38, 0.92) 18%);
+}
+
+.totem-print-actions--tablet .totem-print-secondary,
+.totem-print-actions--tablet .totem-print-primary {
+  flex: 1;
+}
+
+.totem-print-secondary {
+  border: 1px solid var(--totem-line-bright);
+  border-radius: var(--totem-radius-lg);
+  background: var(--totem-glass);
+  color: var(--totem-text);
+  padding: 16px 22px;
+  font-weight: 800;
+  cursor: pointer;
+  min-height: 64px;
+  font-size: 1.15rem;
+}
+
 .totem-print-clearRow {
   display: flex;
   flex-direction: column;
@@ -704,11 +828,11 @@
   border-radius: var(--totem-radius-lg);
   background: linear-gradient(135deg, var(--totem-orange) 0%, var(--totem-orange-hot) 50%, var(--totem-orange-deep) 100%);
   color: var(--totem-cta-text);
-  padding: 15px 24px;
+  padding: 16px 24px;
   font-weight: 800;
   cursor: pointer;
-  min-height: 52px;
-  font-size: 1rem;
+  min-height: 64px;
+  font-size: 1.2rem;
   box-shadow: 0 12px 36px rgba(249, 115, 22, 0.32);
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
@@ -735,8 +859,21 @@
   line-height: 1.45;
 }
 
-@media (max-width: 820px) {
-  .totem-print-body {
+@media (max-width: 900px) {
+  .totem-print-header {
+    flex-wrap: wrap;
+  }
+
+  .totem-print-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .totem-print-origenTabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .totem-print-body--split {
     grid-template-columns: 1fr;
   }
 

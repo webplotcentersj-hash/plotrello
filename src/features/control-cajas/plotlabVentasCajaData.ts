@@ -32,11 +32,14 @@ export function movimientoPlotlabPerteneceCaja(
   cajaSlug: string,
   idUsuarioCaja?: number | null
 ): boolean {
+  if (m.destino_slug === cajaSlug) return true
+  // Tótem / admin: no reasignar a la caja personal del usuario 1
+  if (m.destino_slug === 'admin') return false
   const titular = idTitularDesdeCajaSlug(cajaSlug, idUsuarioCaja)
   if (m.id_usuario != null && titular != null) {
     return m.id_usuario === titular
   }
-  return m.destino_slug === cajaSlug
+  return false
 }
 
 export function resumenPlotlabVentasCaja(

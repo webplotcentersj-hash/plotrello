@@ -727,12 +727,100 @@ const TotemConsultaClientePage = () => {
       <div className={`tc2-shell tc2-step-${step}`}>
         {step === 'idle' && (
           <div className="tc2-screen tc2-idle">
-            <div className="tc2-idle__logo">
-              <img src="/plot-lab-logo.png" alt="Plot Center" />
+            <div className="tc2-idle__hero">
+              <div className="tc2-idle__logo">
+                <img src="/plot-lab-logo.png" alt="Plot Center" />
+              </div>
+              <p className="tc2-eyebrow">Plot Center · Autogestión</p>
+              <h1 className="tc2-idle__title">Bienvenido</h1>
+              <p className="tc2-idle__sub">Impresión · Diseño · Comunicación visual</p>
+
+              <div className="tc2-hours">
+                <span className="tc2-hours__title">Horarios de atención</span>
+                <span>
+                  <b>Lun – Vie</b> 6:00 – 22:00 hs
+                </span>
+                <span>
+                  <b>Sábado</b> 9:00 – 18:00 hs
+                </span>
+              </div>
             </div>
-            <p className="tc2-eyebrow">Plot Center · Autogestión</p>
-            <h1 className="tc2-idle__title">Bienvenido</h1>
-            <p className="tc2-idle__sub">Impresión · Diseño · Comunicación visual</p>
+
+            <div
+              className="tc2-idle__tablet"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDownCapture={registrarInteraccion}
+            >
+              <p className="tc2-idle__tablet-lead">Elegí qué querés hacer</p>
+              <div className="tc2-idle__tablet-grid">
+                <button
+                  type="button"
+                  className="tc2-idle-card tc2-idle-card--search"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    registrarInteraccionKiosk()
+                    setStep('search')
+                  }}
+                >
+                  <span className="tc2-idle-card__ico" aria-hidden>
+                    <TotemKioskIcon name="search" size="tile" />
+                  </span>
+                  <strong>Buscar mi trabajo</strong>
+                  <small>OP, DNI, CUIT o CUIL</small>
+                  <span className="tc2-idle-card__go">Tocá →</span>
+                </button>
+                <button
+                  type="button"
+                  className="tc2-idle-card tc2-idle-card--print"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    registrarInteraccionKiosk()
+                    navigate('/totem/autogestion/imprimir')
+                  }}
+                >
+                  <span className="tc2-idle-card__ico" aria-hidden>
+                    <TotemKioskIcon name="print" size="tile" />
+                  </span>
+                  <strong>Imprimir</strong>
+                  <small>Subí el archivo desde el celular</small>
+                  <span className="tc2-idle-card__go">Tocá →</span>
+                </button>
+                <button
+                  type="button"
+                  className="tc2-idle-card tc2-idle-card--catalog"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    registrarInteraccionKiosk()
+                    navigate('/totem/autogestion/catalogo', {
+                      state: { returnTo: '/totem/consulta-cliente' }
+                    })
+                  }}
+                >
+                  <span className="tc2-idle-card__ico" aria-hidden>
+                    <TotemKioskIcon name="catalog" size="tile" />
+                  </span>
+                  <strong>Comprar</strong>
+                  <small>Productos del catálogo</small>
+                  <span className="tc2-idle-card__go">Tocá →</span>
+                </button>
+                <button
+                  type="button"
+                  className="tc2-idle-card tc2-idle-card--more"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    registrarInteraccionKiosk()
+                    setStep('welcome')
+                  }}
+                >
+                  <span className="tc2-idle-card__ico" aria-hidden>
+                    <TotemKioskIcon name="presupuestos" size="tile" />
+                  </span>
+                  <strong>Señalética y más</strong>
+                  <small>Cómo llegar · PlotAI · horarios</small>
+                  <span className="tc2-idle-card__go">Tocá →</span>
+                </button>
+              </div>
+            </div>
 
             <div className="tc2-tips" aria-live="polite">
               {TIPS.map((tip, i) => (
@@ -752,16 +840,6 @@ const TotemConsultaClientePage = () => {
 
             <div className="tc2-touch">
               <span>Tocá la pantalla para comenzar</span>
-            </div>
-
-            <div className="tc2-hours">
-              <span className="tc2-hours__title">Horarios de atención</span>
-              <span>
-                <b>Lun – Vie</b> 6:00 – 22:00 hs
-              </span>
-              <span>
-                <b>Sábado</b> 9:00 – 18:00 hs
-              </span>
             </div>
           </div>
         )}

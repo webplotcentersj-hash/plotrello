@@ -142,7 +142,7 @@ export function resumenPorCajeroAdminDia(
   lotes: CajaTransferenciaLote[]
 ): ResumenCajeroAdminDia[] {
   return cajas
-    .filter((c) => c.activa && requiereFondoMinimo(c.slug))
+    .filter((c) => c.activa && (c.slug === 'admin' || requiereFondoMinimo(c.slug)))
     .map((c) => {
       const plot = resumenPlotlabVentasCaja(movimientos, fecha, c.slug, c.id_usuario)
       const totales = calcularTotalesCoherentesDia(movimientos, fecha, c.slug)
@@ -201,7 +201,7 @@ export function conteosPorCajaOperativa(input: {
   const { cajas, movimientos, arqueos, egresos, lotes, cierres, fecha = null } = input
 
   return cajas
-    .filter((c) => c.activa && requiereFondoMinimo(c.slug))
+    .filter((c) => c.activa && (c.slug === 'admin' || requiereFondoMinimo(c.slug)))
     .map((c) => {
       let ventasCount = 0
       let ventasTotal = 0

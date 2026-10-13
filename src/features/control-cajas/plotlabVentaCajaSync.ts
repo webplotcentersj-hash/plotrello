@@ -87,10 +87,10 @@ export function ventaPerteneceCaja(
   cajaSlug: string,
   usuarioId?: number
 ): boolean {
-  // Caja = usuario: priorizar vendedor titular
+  const cobro = venta.caja_slug_cobro?.trim()
+  if (cobro) return cobro === cajaSlug
+  // Sin caja de cobro: la venta es del titular (caja = usuario)
   if (usuarioId != null && venta.id_vendedor === usuarioId) return true
-  const slug = venta.caja_slug_cobro?.trim()
-  if (slug) return slug === cajaSlug
   return false
 }
 
@@ -360,6 +360,9 @@ export async function syncDesdeVentaRecord(
     fecha: (venta.fecha_venta || getArgentinaDateString()).slice(0, 10),
     usuarioId: titularId,
     usuarioNombre: venta.nombre_vendedor || actorNombre,
+    cajaSlug:
+      venta.caja_slug_cobro?.trim() ||
+      (/totem/i.test(venta.nombre_vendedor || '') ? 'admin' : opts?.cajaSlug),
     montoRecibido: venta.detalle_pago?.monto_recibido ?? null,
     vuelto: venta.detalle_pago?.vuelto ?? null,
     mpPaymentId: venta.mp_payment_id || venta.detalle_pago?.mp_payment_id || null
@@ -418,9 +421,10 @@ export async function syncVentaPlotLabACaja(
     const existente = await buscarMovimientoPlotLabPorRef(ref)
 
     const usuarioNombre = input.usuarioNombre?.trim() || 'PlotLab'
-    // Destino = titular. Nunca reutilizar destino viejo ni override ajeno.
-    let cajaSlug = await resolverCajaSlugVenta(usuarioNombre, input.usuarioId)
-    if (input.usuarioId != null && input.usuarioId > 0) {
+    // Destino: caja de cobro si vino de la venta (tótem → admin). Si no, caja del titular.
+    const cajaCobro = input.cajaSlug?.trim() || ''
+    let cajaSlug = cajaCobro || (await resolverCajaSlugVenta(usuarioNombre, input.usuarioId))
+    if (!cajaCobro && input.usuarioId != null && input.usuarioId > 0) {
       cajaSlug = cajaSlugForUsuario(input.usuarioId)
     }
     if (!cajaSlug) {
