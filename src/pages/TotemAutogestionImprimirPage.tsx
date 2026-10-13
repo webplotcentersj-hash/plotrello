@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { ClienteRecord } from '@/types/api'
-import { TOTEM_PRINT_MAX_FILE_BYTES, TOTEM_PRINT_MAX_FILE_MB, TOTEM_PRINT_MAX_FILES } from '@/constants/totemPrint'
+import { TOTEM_PRINT_MAX_FILES } from '@/constants/totemPrint'
 import {
   buildTotemArchivoManifest,
   parseTotemArchivoManifest,
@@ -44,7 +44,7 @@ import {
 import TotemPrintPreviewMonitor from '../components/totem/TotemPrintPreviewMonitor'
 import TotemMercadoPagoPayPanel from '../components/totem/TotemMercadoPagoPayPanel'
 import type { TotemImpresionCheckoutDraft } from '../services/totemMpApi'
-import { TotemKioskIcon, type TotemKioskIconName } from '../components/totem/TotemKioskIcons'
+import { TotemKioskIcon } from '../components/totem/TotemKioskIcons'
 import './TotemAutogestionImprimirPage.css'
 
 const digitsOnly = (s: string) => String(s ?? '').replace(/\D/g, '')
@@ -60,14 +60,6 @@ const FORM_STAGES: { id: FormStage; n: number; label: string; hint: string }[] =
   { id: 'datos', n: 1, label: 'Tus datos', hint: 'Nombre y contacto' },
   { id: 'archivo', n: 2, label: 'Archivo', hint: 'Subilo con el celular' },
   { id: 'opciones', n: 3, label: 'Imprimir', hint: 'Papel, color y copias' }
-]
-
-const ORIGEN_OPCIONES: { value: OrigenArchivo; label: string; icon: TotemKioskIconName }[] = [
-  { value: 'CelularQR', label: 'Celular (QR)', icon: 'phone' },
-  { value: 'WhatsApp', label: 'WhatsApp', icon: 'chat' },
-  { value: 'Drive', label: 'Drive', icon: 'cloud' },
-  { value: 'Email', label: 'Email', icon: 'email' },
-  { value: 'Pendrive', label: 'Pendrive', icon: 'usb' }
 ]
 
 export default function TotemAutogestionImprimirPage() {
@@ -86,7 +78,7 @@ export default function TotemAutogestionImprimirPage() {
   const [modoColor, setModoColor] = useState<TotemPrintColorModo>('auto')
   const [printJobs, setPrintJobs] = useState<TotemPrintJobSpec[]>([])
   const [activeJobIndex, setActiveJobIndex] = useState(0)
-  const [origenArchivo, setOrigenArchivo] = useState<OrigenArchivo>('CelularQR')
+  const [origenArchivo] = useState<OrigenArchivo>('CelularQR')
   const [archivoUrl, setArchivoUrl] = useState('')
   const [archivoNombre, setArchivoNombre] = useState('')
   const [descripcionImpresion, setDescripcionImpresion] = useState('')
@@ -102,10 +94,7 @@ export default function TotemAutogestionImprimirPage() {
   const [clienteId, setClienteId] = useState<number | null>(null)
 
   const [pendriveArchivos, setPendriveArchivos] = useState<TotemArchivoItem[]>([])
-  const [pendriveSubiendo, setPendriveSubiendo] = useState(false)
-  const [driveLinkDraft, setDriveLinkDraft] = useState('')
   const [driveArchivos, setDriveArchivos] = useState<TotemArchivoItem[]>([])
-  const [waQrSrc, setWaQrSrc] = useState<string | null>(null)
   const [origenPulse, setOrigenPulse] = useState(false)
 
   const [qrUploadPageUrl, setQrUploadPageUrl] = useState<string | null>(null)
@@ -205,21 +194,6 @@ export default function TotemAutogestionImprimirPage() {
     }
   }, [printJobs, hojasTotalesSeleccionadas])
 
-  const tieneArchivoSeleccionado = useMemo(() => {
-    if (origenArchivo === 'Pendrive') return pendriveArchivos.length > 0
-    if (origenArchivo === 'CelularQR') return archivosCargados.length > 0 || qrSesionCompleta
-    if (origenArchivo === 'Drive') return driveArchivos.length > 0
-    return archivoNombre.trim().length > 0 || archivosActivos.length > 0
-  }, [
-    origenArchivo,
-    pendriveArchivos,
-    archivosCargados,
-    qrSesionCompleta,
-    driveArchivos,
-    archivoNombre,
-    archivosActivos
-  ])
-
   const tieneDatosCliente =
     clienteId != null ||
     clienteNombre.trim().length > 0 ||
@@ -235,7 +209,6 @@ export default function TotemAutogestionImprimirPage() {
     setArchivosCargados([])
     setPendriveArchivos([])
     setDriveArchivos([])
-    setDriveLinkDraft('')
     qrArchivosAcumuladosRef.current = []
     setArchivoNombre('')
     setQrSesionCompleta(false)
@@ -473,7 +446,6 @@ export default function TotemAutogestionImprimirPage() {
     }
     if (origenArchivo !== 'Drive') {
       setDriveArchivos([])
-      setDriveLinkDraft('')
     }
     if (origenArchivo !== 'CelularQR') {
       qrArchivosAcumuladosRef.current = []
@@ -582,31 +554,6 @@ export default function TotemAutogestionImprimirPage() {
       cancelled = true
     }
   }, [qrUploadPageUrl])
-
-  useEffect(() => {
-    if (origenArchivo !== 'WhatsApp') {
-      setWaQrSrc(null)
-      return
-    }
-    let cancelled = false
-    void import('qrcode').then((QR) => {
-      QR.default
-        .toDataURL(WA_CHAT_URL, {
-          margin: 1,
-          width: 220,
-          color: { dark: '#0c1222', light: '#fff7ed' }
-        })
-        .then((url) => {
-          if (!cancelled) setWaQrSrc(url)
-        })
-        .catch(() => {
-          if (!cancelled) setWaQrSrc(null)
-        })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [origenArchivo])
 
   const applyClienteDetectado = useCallback((c: ClienteRecord) => {
     const nom = [c.nombre, c.apellido].filter(Boolean).join(' ').trim()
@@ -751,7 +698,6 @@ export default function TotemAutogestionImprimirPage() {
     }
     if (origenArchivo === 'Pendrive') {
       if (pendriveArchivos.length === 0) return 'Seleccioná uno o más archivos desde tu PC.'
-      if (pendriveSubiendo) return 'Esperá a que terminen de subirse los archivos.'
     }
     if (origenArchivo === 'CelularQR') {
       if (!qrSesionCompleta || archivosCargados.length === 0) {
@@ -775,17 +721,8 @@ export default function TotemAutogestionImprimirPage() {
   }
 
   const canAvanzarArchivo = () => {
-    if (origenArchivo === 'WhatsApp' || origenArchivo === 'Email' || origenArchivo === 'Drive') {
-      return 'Para seguir, subí el archivo con el celular (QR) o desde esta tablet.'
-    }
-    if (origenArchivo === 'Pendrive') {
-      if (pendriveArchivos.length === 0) return 'Elegí uno o más archivos.'
-      if (pendriveSubiendo) return 'Esperá a que terminen de subirse los archivos.'
-    }
-    if (origenArchivo === 'CelularQR') {
-      if (!qrSesionCompleta || archivosCargados.length === 0) {
-        return 'Escaneá el QR con el celular y subí el archivo.'
-      }
+    if (!qrSesionCompleta || archivosCargados.length === 0) {
+      return 'Escaneá el QR con el celular y subí el archivo.'
     }
     return null
   }
@@ -891,99 +828,6 @@ export default function TotemAutogestionImprimirPage() {
     setStep('pay')
   }
 
-  const handlePendriveFiles = (list: FileList | null) => {
-    setError(null)
-    if (!list?.length) {
-      if (pendriveInputRef.current) pendriveInputRef.current.value = ''
-      return
-    }
-    const incoming = Array.from(list)
-    const cupo = TOTEM_PRINT_MAX_FILES - pendriveArchivos.length
-    if (cupo <= 0) {
-      setError(`Ya tenés el máximo de ${TOTEM_PRINT_MAX_FILES} archivos.`)
-      if (pendriveInputRef.current) pendriveInputRef.current.value = ''
-      return
-    }
-    if (incoming.length > cupo) {
-      setError(`Solo podés agregar ${cupo} archivo(s) más (máx. ${TOTEM_PRINT_MAX_FILES}).`)
-    }
-    const files = incoming.slice(0, Math.max(0, cupo))
-    const tooBig = files.find((f) => f.size > TOTEM_PRINT_MAX_FILE_BYTES)
-    if (tooBig) {
-      setError(`"${tooBig.name}" supera ${TOTEM_PRINT_MAX_FILE_MB} MB.`)
-      if (pendriveInputRef.current) pendriveInputRef.current.value = ''
-      return
-    }
-
-    setPendriveSubiendo(true)
-    void (async () => {
-      const uploaded: TotemArchivoItem[] = [...pendriveArchivos]
-      for (const file of files) {
-        const r = await apiService.subirArchivoTotemImpresion(file)
-        if (!r.success || !r.data?.url) {
-          setError(r.error || `No se pudo subir "${file.name}".`)
-          setPendriveArchivos(uploaded)
-          setArchivoNombre(summarizeTotemArchivoNombres(uploaded))
-          setPendriveSubiendo(false)
-          if (pendriveInputRef.current) pendriveInputRef.current.value = ''
-          return
-        }
-        uploaded.push({ url: r.data.url, nombre: file.name, bytes: file.size })
-      }
-      setPendriveArchivos(uploaded)
-      setArchivoNombre(summarizeTotemArchivoNombres(uploaded))
-      setPendriveSubiendo(false)
-      if (pendriveInputRef.current) pendriveInputRef.current.value = ''
-    })()
-  }
-
-  const quitarPendriveArchivo = (idx: number) => {
-    setPendriveArchivos((prev) => {
-      const next = prev.filter((_, i) => i !== idx)
-      setArchivoNombre(summarizeTotemArchivoNombres(next))
-      return next
-    })
-    setError(null)
-  }
-
-  const agregarDriveLink = () => {
-    const u = driveLinkDraft.trim()
-    if (!u.startsWith('http://') && !u.startsWith('https://')) {
-      setError('Pegá un link válido de Drive (https…).')
-      return
-    }
-    if (driveArchivos.length >= TOTEM_PRINT_MAX_FILES) {
-      setError(`Máximo ${TOTEM_PRINT_MAX_FILES} links.`)
-      return
-    }
-    if (driveArchivos.some((f) => f.url === u)) {
-      setError('Ese link ya está en la lista.')
-      return
-    }
-    setError(null)
-    const next = [...driveArchivos, { url: u, nombre: `Drive ${driveArchivos.length + 1}` }]
-    setDriveArchivos(next)
-    setArchivoUrl(buildTotemArchivoManifest(next))
-    setArchivoNombre(summarizeTotemArchivoNombres(next))
-    setDriveLinkDraft('')
-  }
-
-  const quitarDriveArchivo = (idx: number) => {
-    setDriveArchivos((prev) => {
-      const next = prev.filter((_, i) => i !== idx)
-      setArchivoUrl(buildTotemArchivoManifest(next))
-      setArchivoNombre(summarizeTotemArchivoNombres(next))
-      return next
-    })
-    setError(null)
-  }
-
-  const showDriveLink = origenArchivo === 'Drive'
-  const showEmailBlock = origenArchivo === 'Email'
-  const showWaBlock = origenArchivo === 'WhatsApp'
-  const showPendriveBlock = origenArchivo === 'Pendrive'
-  const showCelularQrBlock = origenArchivo === 'CelularQR'
-
   return (
       <div className="totem-print-page totem-print-page--tablet">
         <header className="totem-print-header">
@@ -1000,7 +844,7 @@ export default function TotemAutogestionImprimirPage() {
               return (
                 <li
                   key={s.id}
-                  className={`totem-print-step${current ? ' is-current' : ''}${done ? ' is-done' : ''}`}
+                  className={`totem-print-step totem-print-step--${s.id}${current ? ' is-current' : ''}${done ? ' is-done' : ''}`}
                 >
                   <span className="totem-print-step__n">{done && !current ? '✓' : s.n}</span>
                   <span className="totem-print-step__copy">
@@ -1010,7 +854,7 @@ export default function TotemAutogestionImprimirPage() {
                 </li>
               )
             })}
-            <li className={`totem-print-step${etapaActiva === 'pay' || etapaActiva === 'done' ? ' is-current is-done' : ''}`}>
+            <li className={`totem-print-step totem-print-step--pay${etapaActiva === 'pay' || etapaActiva === 'done' ? ' is-current is-done' : ''}`}>
               <span className="totem-print-step__n">{etapaActiva === 'done' ? '✓' : 4}</span>
               <span className="totem-print-step__copy">
                 <strong>Pagar</strong>
@@ -1027,7 +871,7 @@ export default function TotemAutogestionImprimirPage() {
                 <div className="totem-print-grid">
                 {formStage === 'datos' && (
                 <>
-                <p className="totem-print-span2 totem-print-stageLead">
+                <p className="totem-print-span2 totem-print-stageLead totem-print-stageLead--datos">
                   <strong>Paso 1 · Tus datos</strong>
                   Escribí tu nombre. Si ya sos cliente, el tótem completa DNI y teléfono.
                 </p>
@@ -1115,7 +959,7 @@ export default function TotemAutogestionImprimirPage() {
                 )}
                 {formStage === 'opciones' && (
                 <>
-                <p className="totem-print-span2 totem-print-stageLead">
+                <p className="totem-print-span2 totem-print-stageLead totem-print-stageLead--opciones">
                   <strong>Paso 3 · Cómo imprimir</strong>
                   Elegí papel, color y copias. Tocá las hojas en la vista previa si no querés imprimir todo.
                 </p>
@@ -1297,175 +1141,29 @@ export default function TotemAutogestionImprimirPage() {
                 )}
                 {formStage === 'archivo' && (
                 <>
-                <p className="totem-print-span2 totem-print-stageLead">
-                  <strong>Paso 2 · El archivo</strong>
-                  Subilo con el celular (más fácil) o desde esta tablet.
+                <p className="totem-print-span2 totem-print-stageLead totem-print-stageLead--archivo">
+                  <strong>Paso 2 · Escaneá el QR</strong>
+                  Abrí la cámara del celular y subí el PDF o las fotos.
                 </p>
                 <div
-                  className={`totem-print-span2 totem-print-origenBlock ${origenPulse ? 'totem-print-origenBlock--pulse' : ''}`}
+                  className={`totem-print-span2 totem-print-origenBlock totem-print-origenBlock--qrOnly ${origenPulse ? 'totem-print-origenBlock--pulse' : ''}`}
                   ref={origenSectionRef}
                 >
-                  <div>
-                    <span className="totem-print-origenFieldLabel">Origen del archivo</span>
-                    <div className="totem-print-origenTabs" role="tablist" aria-label="Origen del archivo">
-                      {ORIGEN_OPCIONES.map((o) => (
-                        <button
-                          key={o.value}
-                          type="button"
-                          role="tab"
-                          aria-selected={origenArchivo === o.value}
-                          className={`totem-print-origenTab ${origenArchivo === o.value ? 'is-active' : ''}`}
-                          onClick={() => setOrigenArchivo(o.value)}
-                        >
-                          <TotemKioskIcon name={o.icon} size="tile" />
-                          <span>{o.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {showWaBlock && (
-                    <div className="totem-print-origenPanel totem-print-origenPanel--wa">
-                      <p className="totem-print-origenLead">Escaneá el código y envianos el archivo por WhatsApp.</p>
-                      <div className="totem-print-waRow">
-                        {waQrSrc ? (
-                          <img className="totem-print-qr" src={waQrSrc} alt="Código QR WhatsApp Plot Center" width={220} height={220} />
-                        ) : (
-                          <div className="totem-print-qrFallback">Generando QR…</div>
-                        )}
-                        <div className="totem-print-waAside">
-                          <p className="totem-print-waNum">
-                            <strong>+54 9 2646 21-2163</strong>
-                          </p>
-                          <a className="totem-print-waLink" href={WA_CHAT_URL} target="_blank" rel="noopener noreferrer">
-                            Abrir WhatsApp
-                          </a>
-                          <p className="totem-print-waHint">El enlace de la solicitud se guarda automáticamente para mostrador.</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {showDriveLink && (
-                    <div className="totem-print-origenPanel">
-                      <span className="totem-print-origenLabel">Links de Google Drive (hasta {TOTEM_PRINT_MAX_FILES})</span>
-                      <div className="totem-print-driveAdd">
-                        <input
-                          value={driveLinkDraft}
-                          onChange={(e) => setDriveLinkDraft(e.target.value)}
-                          placeholder="https://drive.google.com/…"
-                          aria-label="Link de Google Drive"
-                        />
-                        <button
-                          type="button"
-                          className="totem-print-addFileBtn"
-                          onClick={agregarDriveLink}
-                          disabled={driveArchivos.length >= TOTEM_PRINT_MAX_FILES}
-                        >
-                          Agregar link
-                        </button>
-                      </div>
-                      {driveArchivos.length > 0 && (
-                        <ul className="totem-print-fileList">
-                          {driveArchivos.map((f, i) => (
-                            <li key={`${f.url}-${i}`}>
-                              <span className="totem-print-fileList__name" title={f.url}>
-                                {f.nombre}
-                              </span>
-                              <button
-                                type="button"
-                                className="totem-print-fileList__remove"
-                                onClick={() => quitarDriveArchivo(i)}
-                                aria-label={`Quitar ${f.nombre}`}
-                              >
-                                Quitar
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {driveArchivos.length > 0 && (
-                        <button type="button" className="totem-print-clearBtn" onClick={limpiarSeleccionArchivo}>
-                          Quitar todos los links
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {showEmailBlock && (
-                    <div className="totem-print-origenPanel totem-print-origenPanel--email">
-                      <p className="totem-print-origenLead">Enviá el archivo a:</p>
-                      <p className="totem-print-emailAddr">
-                        <a href={archivoUrl} className="totem-print-emailLink">
-                          {TOTEM_PRINT_EMAIL}
-                        </a>
-                      </p>
-                      <p className="totem-print-waHint">Usá el mismo correo que figura arriba en el asunto automático.</p>
-                    </div>
-                  )}
-                  {showPendriveBlock && (
-                    <div className="totem-print-origenPanel">
-                      <label className="totem-print-fileLabel">
-                        {pendriveArchivos.length === 0
-                          ? `Elegir archivos (hasta ${TOTEM_PRINT_MAX_FILES}, máx. ${TOTEM_PRINT_MAX_FILE_MB} MB c/u)`
-                          : `Agregar más archivos (${pendriveArchivos.length}/${TOTEM_PRINT_MAX_FILES})`}
-                        <input
-                          ref={pendriveInputRef}
-                          type="file"
-                          multiple
-                          accept=".pdf,application/pdf,image/jpeg,image/png,image/webp,image/heic,.heic"
-                          className="totem-print-fileInput"
-                          disabled={pendriveSubiendo || pendriveArchivos.length >= TOTEM_PRINT_MAX_FILES}
-                          onChange={(e) => handlePendriveFiles(e.target.files)}
-                        />
-                      </label>
-                      {pendriveSubiendo && <p className="totem-print-waHint">Subiendo archivos…</p>}
-                      {pendriveArchivos.length > 0 && !pendriveSubiendo && (
-                        <ul className="totem-print-fileList">
-                          {pendriveArchivos.map((f, i) => (
-                            <li key={`${f.url}-${i}`}>
-                              <span className="totem-print-fileList__name">{f.nombre}</span>
-                              <button
-                                type="button"
-                                className="totem-print-fileList__remove"
-                                onClick={() => quitarPendriveArchivo(i)}
-                                aria-label={`Quitar ${f.nombre}`}
-                              >
-                                Quitar
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {pendriveArchivos.length > 0 && !pendriveSubiendo && (
-                        <div className="totem-print-fileActions">
-                          <button
-                            type="button"
-                            className="totem-print-addFileBtn"
-                            disabled={pendriveArchivos.length >= TOTEM_PRINT_MAX_FILES}
-                            onClick={() => pendriveInputRef.current?.click()}
-                          >
-                            + Agregar más archivos
-                          </button>
-                          <button type="button" className="totem-print-clearBtn" onClick={limpiarSeleccionArchivo}>
-                            Quitar todos
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {showCelularQrBlock && (
                     <div className="totem-print-origenPanel totem-print-origenPanel--qr">
-                      <p className="totem-print-origenLead">
-                        Abrí la cámara del celular, escaneá el código y subí uno o más PDF o imágenes en la página que se abre.
-                      </p>
                       {qrSesionError ? (
                         <p className="totem-print-qrError">{qrSesionError}</p>
                       ) : (
                         <div className="totem-print-waRow">
                           {qrLinkSrc ? (
-                            <img className="totem-print-qr" src={qrLinkSrc} alt="Código QR para subir archivo desde el celular" width={240} height={240} />
+                            <img className="totem-print-qr" src={qrLinkSrc} alt="Código QR para subir archivo desde el celular" width={280} height={280} />
                           ) : (
                             <div className="totem-print-qrFallback">Generando código…</div>
                           )}
                           <div className="totem-print-waAside">
+                            <span className="totem-print-qrBadge">Celular</span>
+                            <p className="totem-print-origenLead">
+                              1. Abrí la cámara · 2. Escaneá · 3. Subí el archivo. La tablet se actualiza sola.
+                            </p>
                             {qrSesionCompleta && archivosCargados.length > 0 ? (
                               <>
                                 <ul className="totem-print-fileList">
@@ -1482,7 +1180,7 @@ export default function TotemAutogestionImprimirPage() {
                             ) : archivosCargados.length > 0 ? (
                               <p className="totem-print-waHint">Recibiendo archivos… confirmá en el celular.</p>
                             ) : (
-                              <p className="totem-print-waHint">Esperando subida… La pantalla se actualiza sola.</p>
+                              <p className="totem-print-waHint">Esperando subida… no hace falta tocar nada más.</p>
                             )}
                             {qrUploadPageUrl && (
                               <a className="totem-print-waLink totem-print-waLink--ghost" href={qrUploadPageUrl} target="_blank" rel="noopener noreferrer">
@@ -1515,7 +1213,6 @@ export default function TotemAutogestionImprimirPage() {
                         </div>
                       )}
                     </div>
-                  )}
                 </div>
 
                 <label className="totem-print-span2">
@@ -1536,17 +1233,6 @@ export default function TotemAutogestionImprimirPage() {
                     Opcional. Lo ve mostrador (ej. qué hojas van a color o B/N). {descripcionImpresion.length}/500
                   </span>
                 </label>
-                {tieneArchivoSeleccionado &&
-                  origenArchivo !== 'Pendrive' &&
-                  origenArchivo !== 'CelularQR' &&
-                  origenArchivo !== 'Drive' && (
-                  <div className="totem-print-span2 totem-print-clearRow">
-                    <button type="button" className="totem-print-clearBtn" onClick={limpiarSeleccionArchivo}>
-                      Quitar selección de archivo
-                    </button>
-                    <span className="totem-print-hojasHint">Volvé a subir el archivo si te equivocaste.</span>
-                  </div>
-                )}
                 </>
                 )}
                 {formStage === 'opciones' && (

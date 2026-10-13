@@ -889,3 +889,158 @@
     grid-column: auto;
   }
 }
+
+.totem-print-page--tablet {
+  --totem-kiosk-fondo-velo: 0.52;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 0% 0%, rgba(249, 115, 22, 0.42), transparent 58%),
+    radial-gradient(ellipse 70% 50% at 100% 0%, rgba(14, 165, 233, 0.38), transparent 52%),
+    radial-gradient(ellipse 55% 45% at 50% 100%, rgba(168, 85, 247, 0.32), transparent 55%),
+    linear-gradient(
+      rgba(20, 16, 42, var(--totem-kiosk-fondo-velo)),
+      rgba(12, 18, 36, var(--totem-kiosk-fondo-velo))
+    ),
+    url('/fondos/tablero-geometrico.png');
+}
+
+.totem-print-page--tablet .totem-print-header {
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.22), rgba(14, 165, 233, 0.16), rgba(168, 85, 247, 0.2));
+  border-bottom-color: rgba(255, 255, 255, 0.18);
+}
+
+.totem-print-page--tablet .totem-print-back {
+  background: linear-gradient(135deg, #fb923c, #ea580c);
+  border: none;
+  color: #1c1006;
+}
+
+.totem-print-step--datos.is-current {
+  border-color: #fb923c;
+  background: linear-gradient(135deg, #f97316, #c2410c);
+  color: #fff7ed;
+  box-shadow: 0 12px 28px rgba(249, 115, 22, 0.4);
+}
+
+.totem-print-step--archivo.is-current {
+  border-color: #38bdf8;
+  background: linear-gradient(135deg, #0ea5e9, #0369a1);
+  color: #f0f9ff;
+  box-shadow: 0 12px 28px rgba(14, 165, 233, 0.4);
+}
+
+.totem-print-step--opciones.is-current {
+  border-color: #34d399;
+  background: linear-gradient(135deg, #10b981, #047857);
+  color: #ecfdf5;
+  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.4);
+}
+
+.totem-print-step--pay.is-current {
+  border-color: #f472b6;
+  background: linear-gradient(135deg, #d946ef, #7c3aed);
+  color: #fdf4ff;
+  box-shadow: 0 12px 28px rgba(168, 85, 247, 0.4);
+}
+
+.totem-print-step--datos.is-done:not(.is-current) { border-color: rgba(251, 146, 60, 0.45); color: #fed7aa; }
+.totem-print-step--archivo.is-done:not(.is-current) { border-color: rgba(56, 189, 248, 0.45); color: #bae6fd; }
+.totem-print-step--opciones.is-done:not(.is-current) { border-color: rgba(52, 211, 153, 0.45); color: #a7f3d0; }
+
+.totem-print-page--tablet .totem-print-card {
+  border-color: rgba(255, 255, 255, 0.2);
+  background:
+    linear-gradient(160deg, rgba(249, 115, 22, 0.14), transparent 36%),
+    linear-gradient(320deg, rgba(14, 165, 233, 0.12), transparent 40%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.1) 0%, rgba(8, 10, 28, 0.55) 100%);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+}
+
+.totem-print-stageLead--datos strong { color: #fdba74; }
+.totem-print-stageLead--archivo strong { color: #7dd3fc; }
+.totem-print-stageLead--opciones strong { color: #6ee7b7; }
+
+.totem-print-origenBlock--qrOnly {
+  padding: 6px 0 0;
+}
+
+.totem-print-origenPanel--qr {
+  border: 2px solid rgba(56, 189, 248, 0.45);
+  background:
+    radial-gradient(circle at 12% 20%, rgba(56, 189, 248, 0.28), transparent 42%),
+    radial-gradient(circle at 90% 80%, rgba(244, 114, 182, 0.22), transparent 46%),
+    linear-gradient(145deg, rgba(14, 165, 233, 0.16), rgba(8, 10, 20, 0.55));
+  padding: 22px;
+}
+
+.totem-print-qrBadge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe600, #fb923c);
+  color: #1c1200;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.totem-print-page--tablet .totem-print-qr {
+  width: min(280px, 42vw);
+  height: auto;
+  border: 6px solid #fff;
+  border-radius: 22px;
+  box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.45), 0 18px 40px rgba(14, 165, 233, 0.35);
+}
+
+.totem-print-page--tablet .totem-print-qrFallback {
+  width: 280px;
+  height: 280px;
+}
+
+.totem-print-page--tablet .totem-print-origenLead {
+  font-size: 1.12rem;
+  color: #f8fafc;
+}
+
+.totem-print-page--tablet .totem-print-fileOk {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #34d399, #059669);
+  color: #052e16;
+  font-weight: 800;
+}
+
+.totem-print-page--tablet .totem-print-priceTotal {
+  padding: 18px 20px;
+  font-size: 1.7rem;
+  border: none;
+  background: linear-gradient(135deg, #ffe600, #f59e0b);
+  color: #1c1400;
+  box-shadow: 0 12px 32px rgba(245, 158, 11, 0.35);
+}
+
+.totem-print-page--tablet .totem-print-clienteOk {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.28), rgba(8, 10, 20, 0.35));
+}
+
+.totem-print-page--tablet .totem-print-grid input,
+.totem-print-page--tablet .totem-print-grid select,
+.totem-print-page--tablet .totem-print-grid textarea {
+  border-color: rgba(125, 211, 252, 0.35);
+  background: rgba(8, 16, 36, 0.78);
+}
+
+.totem-print-page--tablet .totem-print-secondary {
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  border: none;
+  color: #042f4a;
+}
+
+.totem-print-page--tablet .totem-print-primary {
+  background: linear-gradient(135deg, #ffe600, #f97316 55%, #ea580c);
+  color: #1c1006;
+  box-shadow: 0 14px 36px rgba(249, 115, 22, 0.45);
+}
