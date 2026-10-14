@@ -8,6 +8,35 @@
   background: linear-gradient(165deg, rgba(0, 188, 212, 0.1) 0%, rgba(15, 23, 42, 0.04) 100%);
 }
 
+.mp-checkout-pay--brand {
+  border: 2px solid #009ee3;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 230, 0, 0.35), transparent 42%),
+    linear-gradient(160deg, #e8f7fc 0%, #ffffff 55%, #fff8cc 100%);
+  box-shadow: 0 16px 40px rgba(0, 158, 227, 0.18);
+}
+
+.mp-checkout-pay-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mp-checkout-pay-badge {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #ffe600, #009ee3);
+  color: #04121a;
+  font-weight: 900;
+  font-size: 1.05rem;
+  letter-spacing: -0.04em;
+  box-shadow: 0 8px 20px rgba(0, 158, 227, 0.28);
+}
+
 .mp-checkout-pay-title {
   margin: 0;
   font-size: 1.25rem;
@@ -51,8 +80,44 @@
 
 .mp-checkout-pay-qr {
   border-radius: 16px;
-  border: 3px solid #fff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border: 6px solid #ffe600;
+  box-shadow: 0 0 0 4px #009ee3, 0 12px 28px rgba(0, 158, 227, 0.28);
+}
+
+.mp-checkout-pay-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  counter-reset: mpstep;
+}
+
+.mp-checkout-pay-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(0, 158, 227, 0.08);
+  font-weight: 700;
+  color: #0f172a;
+  counter-increment: mpstep;
+}
+
+.mp-checkout-pay-steps li::before {
+  content: counter(mpstep);
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #009ee3;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
 }
 
 .mp-checkout-pay-qrFallback {
@@ -88,8 +153,8 @@
   padding: 12px 18px;
   border-radius: 12px;
   font-weight: 800;
-  background: linear-gradient(135deg, #00bcd4, #0097a7);
-  color: #042f2e;
+  background: linear-gradient(135deg, #ffe600, #009ee3);
+  color: #04121a;
   text-decoration: none;
   width: fit-content;
 }

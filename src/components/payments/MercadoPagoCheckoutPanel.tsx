@@ -117,13 +117,20 @@ export default function MercadoPagoCheckoutPanel({
       : null
 
   return (
-    <section className="mp-checkout-pay">
-      <h2 className="mp-checkout-pay-title">{title}</h2>
-      {amountLabel ? (
-        <p className="mp-checkout-pay-lead">
-          Total: <strong>{amountLabel}</strong>
-        </p>
-      ) : null}
+    <section className="mp-checkout-pay mp-checkout-pay--brand">
+      <header className="mp-checkout-pay-head">
+        <span className="mp-checkout-pay-badge" aria-hidden>
+          MP
+        </span>
+        <div>
+          <h2 className="mp-checkout-pay-title">{title}</h2>
+          {amountLabel ? (
+            <p className="mp-checkout-pay-lead">
+              A cobrar: <strong>{amountLabel}</strong>
+            </p>
+          ) : null}
+        </div>
+      </header>
       <p className="mp-checkout-pay-note">{note}</p>
 
       {loading ? <p className="mp-checkout-pay-muted">Preparando pago…</p> : null}
@@ -137,9 +144,11 @@ export default function MercadoPagoCheckoutPanel({
             <div className="mp-checkout-pay-qrFallback">Generando QR…</div>
           )}
           <div className="mp-checkout-pay-aside">
-            <p className="mp-checkout-pay-step">1. Escaneá el QR con Mercado Pago</p>
-            <p className="mp-checkout-pay-step">2. Confirmá el pago en el celular</p>
-            <p className="mp-checkout-pay-step">3. Esta pantalla se actualiza sola</p>
+            <ol className="mp-checkout-pay-steps">
+              <li>Escaneá el QR con la app</li>
+              <li>Confirmá el pago en el celular</li>
+              <li>Esta pantalla se actualiza sola</li>
+            </ol>
             <a className="mp-checkout-pay-link" href={initPoint} target="_blank" rel="noopener noreferrer">
               Abrir pago en el navegador
             </a>

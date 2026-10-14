@@ -43,6 +43,8 @@ export type PlotLabVentaCajaSyncInput = {
   vuelto?: number | null
   /** Id que devuelve Mercado Pago cuando el pago quedó aprobado. */
   mpPaymentId?: string | null
+  /** Pago mixto: efectivo + MP, tarjeta + transferencia, etc. */
+  detalleMedios?: { metodo: string; monto: number }[] | null
 }
 
 export type PlotLabVentaCajaSyncResult =
@@ -68,6 +70,7 @@ export type VentaCajaSyncRecord = {
     monto_recibido?: number
     vuelto?: number
     mp_payment_id?: string
+    lineas?: { metodo: string; monto: number }[]
   } | null
 }
 
@@ -236,7 +239,45 @@ export function metodoPagoPlotLabAMedios(
     return { ...base, transferencia_bancaria: monto }
   }
   if (m === 'Cheque') return { ...base, cheque_tercero: monto }
+  if (/pago\s*mixto|pago\s*m[uú]ltiple/i.test(m)) return { ...base, otros: monto }
   return { ...base, otros: monto }
+}
+
+function mediosDesdeDetalleVenta(
+  input: PlotLabVentaCajaSyncInput,
+  monto: number
+): MediosPagoInput | null {
+  const lineas = (input.detalleMedios ?? []).filter((l) => Number(l.monto) > 0)
+  if (lineas.length < 2) {
+    return metodoPagoPlotLabAMedios(input.metodoPago, monto, input.estadoPago)
+  }
+  const base: MediosPagoInput = {
+    total: monto,
+    efectivo: 0,
+    tarjeta: 0,
+    transferencia_bancaria: 0,
+    cheque_tercero: 0,
+    cuenta_corriente: 0,
+    otros: 0
+  }
+  let suma = 0
+  for (const d of lineas) {
+    const m = Number(d.monto) || 0
+    if (m <= 0) continue
+    const part = metodoPagoPlotLabAMedios(d.metodo as MetodoPagoPlotLab, m, 'Pagado')
+    if (!part) continue
+    base.efectivo = (base.efectivo || 0) + (part.efectivo || 0)
+    base.tarjeta = (base.tarjeta || 0) + (part.tarjeta || 0)
+    base.transferencia_bancaria =
+      (base.transferencia_bancaria || 0) + (part.transferencia_bancaria || 0)
+    base.cheque_tercero = (base.cheque_tercero || 0) + (part.cheque_tercero || 0)
+    base.cuenta_corriente = (base.cuenta_corriente || 0) + (part.cuenta_corriente || 0)
+    base.otros = (base.otros || 0) + (part.otros || 0)
+    suma += m
+  }
+  if (suma <= 0) return metodoPagoPlotLabAMedios(input.metodoPago, monto, input.estadoPago)
+  base.total = Math.round(suma * 100) / 100
+  return base
 }
 
 /**
@@ -365,7 +406,8 @@ export async function syncDesdeVentaRecord(
       (/totem/i.test(venta.nombre_vendedor || '') ? 'admin' : opts?.cajaSlug),
     montoRecibido: venta.detalle_pago?.monto_recibido ?? null,
     vuelto: venta.detalle_pago?.vuelto ?? null,
-    mpPaymentId: venta.mp_payment_id || venta.detalle_pago?.mp_payment_id || null
+    mpPaymentId: venta.mp_payment_id || venta.detalle_pago?.mp_payment_id || null,
+    detalleMedios: venta.detalle_pago?.lineas ?? null
   })
 
   if (!opts?.silencioso) {
@@ -414,7 +456,7 @@ export async function syncVentaPlotLabACaja(
     const monto = Number(input.monto) || 0
     if (monto <= 0) return { ok: false, error: 'Monto inválido' }
 
-    const medios = metodoPagoPlotLabAMedios(input.metodoPago, monto, input.estadoPago)
+    const medios = mediosDesdeDetalleVenta(input, monto)
     if (!medios) return { ok: false, error: 'Venta cancelada o sin medios de pago' }
 
     const ref = refPlotLab(input)
@@ -473,14 +515,18 @@ export async function syncVentaPlotLabACaja(
       { origen_slug: 'admin', destino_slug: cajaSlug }
     )
 
+    const montoMpLinea = (input.detalleMedios ?? [])
+      .filter((l) => /mercado\s*pago/i.test(String(l.metodo)))
+      .reduce((s, l) => s + (Number(l.monto) || 0), 0)
     const esMp =
+      montoMpLinea > 0 ||
       /mercado\s*pago/i.test(String(input.metodoPago)) ||
       String(input.metodoPago).trim().toLowerCase() === 'mp'
     const mpId = (input.mpPaymentId || '').trim()
     const mediosGuardar: Record<string, number | string | boolean> = esMp
       ? {
           ...(linea as unknown as Record<string, number>),
-          mercado_pago: monto,
+          mercado_pago: montoMpLinea > 0 ? montoMpLinea : monto,
           ...(mpId ? { mp_payment_id: mpId, mp_aprobado: true } : { mp_aprobado: false })
         }
       : (linea as unknown as Record<string, number>)

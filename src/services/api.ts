@@ -20508,7 +20508,7 @@ class ApiService {
     cliente_empresa?: string
     cliente_direccion?: string
     valor_total: number
-    metodo_pago?: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Mercado Pago' | 'Otro'
+    metodo_pago?: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Mercado Pago' | 'Pago mixto' | 'Otro'
     estado_pago?: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
     fecha_venta?: string
     id_vendedor: number
@@ -20580,7 +20580,8 @@ class ApiService {
         detalle_pago: venta.detalle_pago
           ? {
               monto_recibido: venta.detalle_pago.monto_recibido,
-              vuelto: venta.detalle_pago.vuelto
+              vuelto: venta.detalle_pago.vuelto,
+              lineas: venta.detalle_pago.lineas
             }
           : null
       })
@@ -20686,7 +20687,11 @@ class ApiService {
         id_vendedor: venta.id_vendedor,
         nombre_vendedor: venta.nombre_vendedor,
         detalle_pago: venta.detalle_pago
-          ? { monto_recibido: venta.detalle_pago.monto_recibido, vuelto: venta.detalle_pago.vuelto }
+          ? {
+              monto_recibido: venta.detalle_pago.monto_recibido,
+              vuelto: venta.detalle_pago.vuelto,
+              lineas: venta.detalle_pago.lineas
+            }
           : null
       })
 
@@ -21313,7 +21318,7 @@ class ApiService {
       id_op: number | null
       numero_op: string | null
       valor_total: number
-      metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Mercado Pago' | 'Otro'
+      metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Mercado Pago' | 'Pago mixto' | 'Otro'
       estado_pago: 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
       monto_pagado: number | null
       caja_slug_cobro: string | null

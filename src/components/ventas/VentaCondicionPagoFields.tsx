@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CuentaBancariaRecord } from '../../types/api'
-import type {
-  ConfigCondicionesVenta,
-  MedioPagoCodigo,
-  VentaDetallePago
+import {
+  esPagoMixto,
+  lineasPagoConMonto,
+  sumaLineasPago,
+  type ConfigCondicionesVenta,
+  type MedioPagoCodigo,
+  type VentaDetallePago
 } from '../../constants/ventasCondicionesPago'
 import './VentaCondicionPagoFields.css'
 
@@ -435,7 +438,7 @@ export default function VentaCondicionPagoFields({
       <div className="venta-condicion-fields venta-condicion-fields--mp">
         <p className="venta-condicion-fields__hint">
           {mensajeMercadoPago ??
-            'Al confirmar la venta se generará un código QR de Mercado Pago. El comprobante del pago queda registrado automáticamente al aprobarse el cobro.'}
+            'Revisá el cobro y confirmá. Recién ahí se genera el QR de Mercado Pago. El comprobante queda registrado al aprobarse el pago.'}
         </p>
       </div>
     )
@@ -533,6 +536,30 @@ export function validarDetallePago(
     }
     const monto = Number(detalle.monto_cheque)
     if (!(monto > 0)) return 'Ingresá el monto del cheque.'
+  }
+  if (esPagoMixto(condicion)) {
+    const total = Number(montoVenta) || 0
+    const suma = sumaLineasPago(detalle)
+    if (lineasPagoConMonto(detalle).length < 2) {
+      return 'En pago mixto cargá al menos dos medios con monto.'
+    }
+    if (total > 0 && Math.abs(suma - total) > 0.02) {
+      return `La suma de medios ($${suma.toLocaleString('es-AR')}) debe coincidir con el total ($${total.toLocaleString('es-AR')}).`
+    }
+    const efectivo = Number(
+      (detalle.lineas ?? []).filter((l) => l.metodo === 'Efectivo').reduce((s, l) => s + Number(l.monto), 0)
+    )
+    if (efectivo > 0) {
+      const recibido = Number(detalle.monto_recibido)
+      if (!(recibido > 0)) return 'Indicá con cuánto pagó en efectivo.'
+      if (recibido + 0.009 < efectivo) {
+        return `El efectivo recibido ($${recibido.toLocaleString('es-AR')}) es menor a la parte en efectivo ($${efectivo.toLocaleString('es-AR')}).`
+      }
+    }
+    if ((detalle.lineas ?? []).some((l) => l.metodo === 'Transferencia' && l.monto > 0) && !detalle.id_cuenta_bancaria) {
+      return 'Seleccioná la cuenta bancaria de destino para la parte en transferencia.'
+    }
+    return null
   }
   if (condicion === 'Efectivo') {
     const total = Number(montoVenta) || 0

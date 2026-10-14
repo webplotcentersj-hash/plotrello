@@ -336,7 +336,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-  min-height: clamp(148px, 24vh, 196px);
+  min-height: clamp(118px, 18vh, 168px);
   padding: clamp(16px, 2.2vh, 22px) clamp(16px, 2vw, 22px);
   border: 1px solid rgba(255, 255, 255, 0.32);
   border-radius: 26px;
@@ -414,6 +414,68 @@
   background: linear-gradient(150deg, #e879f9, #a855f7 48%, #6d28d9);
   box-shadow: 0 16px 40px rgba(168, 85, 247, 0.4);
 }
+
+.tc2-idle-card--sector {
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--bg) 45%, #000);
+}
+
+.tc2-idle-card--sector .tc2-idle-card__ico {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.tc2-idle-card--sector .tc2-idle-card__ico svg,
+.tc2-idle-card--sector strong,
+.tc2-idle-card--sector small {
+  color: inherit;
+}
+
+.tc2-idle-card--sector small {
+  opacity: 0.82;
+}
+
+.tc2-idle-card__floor {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tc2-idle-card--wide {
+  grid-column: 1 / -1;
+  min-height: 112px;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tc2-idle-card--wide strong { margin-top: 0; flex: 1; }
+
+.tc2-idle__shortcuts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tc2-idle-shortcut {
+  min-height: 52px;
+  border: none;
+  border-radius: 16px;
+  color: #fff;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tc2-idle-shortcut--search { background: linear-gradient(135deg, #f97316, #c2410c); }
+.tc2-idle-shortcut--print { background: linear-gradient(135deg, #0ea5e9, #0369a1); }
+.tc2-idle-shortcut--catalog { background: linear-gradient(135deg, #10b981, #047857); }
 
 .tc2-idle__tablet-lead {
   margin: 0;

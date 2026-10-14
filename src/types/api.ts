@@ -2047,7 +2047,7 @@ export interface MenuIntercambioTurno {
 
 export type EtapaOportunidad = 'Prospecto' | 'Calificación' | 'Propuesta' | 'Negociación' | 'Cerrado' | 'Perdido'
 export type TipoSeguimiento = 'Llamada' | 'Email' | 'Reunión' | 'WhatsApp' | 'Visita' | 'Propuesta' | 'Otro'
-export type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Mercado Pago' | 'Otro'
+export type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Cuenta Corriente' | 'Mercado Pago' | 'Pago mixto' | 'Otro'
 export type EstadoPago = 'Pendiente' | 'Parcial' | 'Pagado' | 'Cancelado'
 
 export interface OportunidadVenta {

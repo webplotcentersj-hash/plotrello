@@ -7,7 +7,15 @@ export type MedioPagoCodigo =
   | 'Cheque'
   | 'Cuenta Corriente'
   | 'Mercado Pago'
+  | 'Pago mixto'
   | 'Otro'
+
+export const PAGO_MIXTO: MedioPagoCodigo = 'Pago mixto'
+
+export type VentaPagoLinea = {
+  metodo: Exclude<MedioPagoCodigo, 'Pago mixto' | 'Cuenta Corriente'>
+  monto: number
+}
 
 export interface MedioPagoConfig {
   codigo: MedioPagoCodigo
@@ -61,6 +69,8 @@ export interface VentaDetallePago {
   monto_recibido?: number
   /** Efectivo: vuelto entregado (recibido − total venta). */
   vuelto?: number
+  /** Pago mixto: desglose por medio (efectivo + MP, tarjeta + transferencia, etc.). */
+  lineas?: VentaPagoLinea[]
 }
 
 /** Tipos de cheque usados en venta rápida. */
@@ -195,6 +205,34 @@ export function esMercadoPago(codigo: string): boolean {
   return codigo === 'Mercado Pago'
 }
 
+export function esPagoMixto(codigo: string): boolean {
+  return codigo === PAGO_MIXTO || /pago\s*mixto|pago\s*m[uú]ltiple/i.test(codigo)
+}
+
+export function lineasPagoConMonto(detalle?: VentaDetallePago | null): VentaPagoLinea[] {
+  return (detalle?.lineas ?? []).filter((l) => Number(l.monto) > 0)
+}
+
+export function sumaLineasPago(detalle?: VentaDetallePago | null): number {
+  return Math.round(lineasPagoConMonto(detalle).reduce((s, l) => s + Number(l.monto), 0) * 100) / 100
+}
+
+export function montoLineaMetodo(
+  detalle: VentaDetallePago | null | undefined,
+  metodo: VentaPagoLinea['metodo']
+): number {
+  return Math.round(
+    lineasPagoConMonto(detalle)
+      .filter((l) => l.metodo === metodo)
+      .reduce((s, l) => s + Number(l.monto), 0) * 100
+  ) / 100
+}
+
+export function incluyeMercadoPago(condicion: string, detalle?: VentaDetallePago | null): boolean {
+  if (esMercadoPago(condicion)) return true
+  return esPagoMixto(condicion) && montoLineaMetodo(detalle, 'Mercado Pago') > 0
+}
+
 export function resumenDetallePago(detalle: VentaDetallePago | null | undefined): string {
   if (!detalle) return ''
   const partes: string[] = []
@@ -221,6 +259,14 @@ export function resumenDetallePago(detalle: VentaDetallePago | null | undefined)
   }
   if (detalle.vuelto != null && Number(detalle.vuelto) >= 0) {
     partes.push(`Vuelto $${Number(detalle.vuelto).toLocaleString('es-AR')}`)
+  }
+  const lineas = lineasPagoConMonto(detalle)
+  if (lineas.length > 0) {
+    partes.push(
+      lineas
+        .map((l) => `${l.metodo} $${Number(l.monto).toLocaleString('es-AR')}`)
+        .join(' + ')
+    )
   }
   return partes.join(' · ')
 }

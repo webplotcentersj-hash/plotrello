@@ -717,7 +717,7 @@ const TotemConsultaClientePage = () => {
       ref={pageRef}
       className={`cliente-consulta-page totem-consulta-page${isFullscreen ? ' totem-consulta-page--fs' : ''}`}
       onClick={() => {
-        if (step === 'idle') {
+        if (step === 'idle' && !selectedQueHacer) {
           setStep('welcome')
         }
         registrarInteraccionKiosk()
@@ -751,43 +751,60 @@ const TotemConsultaClientePage = () => {
               onClick={(e) => e.stopPropagation()}
               onPointerDownCapture={registrarInteraccion}
             >
-              <p className="tc2-idle__tablet-lead">Elegí qué querés hacer</p>
+              <p className="tc2-idle__tablet-lead">¿A dónde vas?</p>
               <div className="tc2-idle__tablet-grid">
+                {TOTEM_SECTORS_QUEHACER.map((sector, i) => (
+                  <button
+                    key={sector.id}
+                    type="button"
+                    className={`tc2-idle-card tc2-idle-card--sector${i === TOTEM_SECTORS_QUEHACER.length - 1 ? ' tc2-idle-card--wide' : ''}`}
+                    style={{ ['--bg' as string]: sector.bg, ['--fg' as string]: sector.textColor }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      registrarInteraccionKiosk()
+                      setSelectedQueHacer(sector.id)
+                      setError(null)
+                      setMensaje(null)
+                      setAvisoVoyNombre('')
+                      setAvisoVoyMotivo('')
+                    }}
+                  >
+                    <span className="tc2-idle-card__ico" aria-hidden>
+                      <TotemKioskIcon name={sector.icon} size="tile" />
+                    </span>
+                    <strong>{sector.label}</strong>
+                    <small>{DIRECCION_TEXTO[sector.direction]}</small>
+                    {sector.direction === 'primer-piso' && <span className="tc2-idle-card__floor">1° piso</span>}
+                    <span className="tc2-idle-card__go">Tocá →</span>
+                  </button>
+                ))}
+              </div>
+              <div className="tc2-idle__shortcuts">
                 <button
                   type="button"
-                  className="tc2-idle-card tc2-idle-card--search"
+                  className="tc2-idle-shortcut tc2-idle-shortcut--search"
                   onClick={(e) => {
                     e.stopPropagation()
                     registrarInteraccionKiosk()
                     setStep('search')
                   }}
                 >
-                  <span className="tc2-idle-card__ico" aria-hidden>
-                    <TotemKioskIcon name="search" size="tile" />
-                  </span>
-                  <strong>Buscar mi trabajo</strong>
-                  <small>OP, DNI, CUIT o CUIL</small>
-                  <span className="tc2-idle-card__go">Tocá →</span>
+                  Buscar trabajo
                 </button>
                 <button
                   type="button"
-                  className="tc2-idle-card tc2-idle-card--print"
+                  className="tc2-idle-shortcut tc2-idle-shortcut--print"
                   onClick={(e) => {
                     e.stopPropagation()
                     registrarInteraccionKiosk()
                     navigate('/totem/autogestion/imprimir')
                   }}
                 >
-                  <span className="tc2-idle-card__ico" aria-hidden>
-                    <TotemKioskIcon name="print" size="tile" />
-                  </span>
-                  <strong>Imprimir</strong>
-                  <small>Subí el archivo desde el celular</small>
-                  <span className="tc2-idle-card__go">Tocá →</span>
+                  Imprimir
                 </button>
                 <button
                   type="button"
-                  className="tc2-idle-card tc2-idle-card--catalog"
+                  className="tc2-idle-shortcut tc2-idle-shortcut--catalog"
                   onClick={(e) => {
                     e.stopPropagation()
                     registrarInteraccionKiosk()
@@ -796,28 +813,7 @@ const TotemConsultaClientePage = () => {
                     })
                   }}
                 >
-                  <span className="tc2-idle-card__ico" aria-hidden>
-                    <TotemKioskIcon name="catalog" size="tile" />
-                  </span>
-                  <strong>Comprar</strong>
-                  <small>Productos del catálogo</small>
-                  <span className="tc2-idle-card__go">Tocá →</span>
-                </button>
-                <button
-                  type="button"
-                  className="tc2-idle-card tc2-idle-card--more"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    registrarInteraccionKiosk()
-                    setStep('welcome')
-                  }}
-                >
-                  <span className="tc2-idle-card__ico" aria-hidden>
-                    <TotemKioskIcon name="presupuestos" size="tile" />
-                  </span>
-                  <strong>Señalética y más</strong>
-                  <small>Cómo llegar · PlotAI · horarios</small>
-                  <span className="tc2-idle-card__go">Tocá →</span>
+                  Comprar
                 </button>
               </div>
             </div>
@@ -989,6 +985,8 @@ const TotemConsultaClientePage = () => {
                 </div>
               </aside>
             </div>
+          </div>
+        )}
 
               {selectedQueHacer && (() => {
                 const sector = TOTEM_SECTORS_QUEHACER.find((s) => s.id === selectedQueHacer)
@@ -997,6 +995,7 @@ const TotemConsultaClientePage = () => {
                   <div
                     className="totem-direccion-modal-overlay totem-modal-overlay-enter"
                     onClick={(e) => {
+                      e.stopPropagation()
                       if (e.target === e.currentTarget) {
                         registrarInteraccion()
                         setSelectedQueHacer(null)
@@ -1129,8 +1128,6 @@ const TotemConsultaClientePage = () => {
                   </div>
                 )
               })()}
-          </div>
-        )}
 
         {step === 'search' && (
           <div

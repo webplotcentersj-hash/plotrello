@@ -29,11 +29,18 @@ import VentaCondicionPagoFields, { validarDetallePago } from './ventas/VentaCond
 import type { CuentaBancariaRecord } from '../types/api'
 import {
   esMercadoPago,
+  esPagoMixto,
+  incluyeMercadoPago,
+  lineasPagoConMonto,
   listaFromMedioPago,
   mediosPagoActivos,
+  montoLineaMetodo,
+  PAGO_MIXTO,
   resumenDetallePago,
+  sumaLineasPago,
   type MedioPagoCodigo,
-  type VentaDetallePago
+  type VentaDetallePago,
+  type VentaPagoLinea
 } from '../constants/ventasCondicionesPago'
 import './ventas/VentaCondicionPagoFields.css'
 import OpCobroFooterChecks from './OpCobroFooterChecks'
@@ -149,6 +156,7 @@ const VentaRapidaModal = ({
   const [detallePago, setDetallePago] = useState<VentaDetallePago>({})
   const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancariaRecord[]>([])
   const [showMpCheckout, setShowMpCheckout] = useState(false)
+  const [faseCobro, setFaseCobro] = useState<'editar' | 'revisar'>('editar')
   const [mpVentaId, setMpVentaId] = useState<number | null>(null)
   const [esCuentaCorriente, setEsCuentaCorriente] = useState(false)
   const [clienteCcHabilitado, setClienteCcHabilitado] = useState<boolean | null>(null)
@@ -177,7 +185,6 @@ const VentaRapidaModal = ({
     [condicionVenta, configCondiciones]
   )
 
-  const esMercadoPagoCondicion = esMercadoPago(condicionVenta)
 
   useEffect(() => {
     if (!mediosActivos.length) return
@@ -534,6 +541,37 @@ const VentaRapidaModal = ({
     }, 0)
   }
 
+  const totalVenta = calcularSubtotal()
+  const esMixto = esPagoMixto(condicionVenta)
+  const lineasMixto = detallePago.lineas ?? [
+    { metodo: 'Efectivo', monto: 0 },
+    { metodo: 'Mercado Pago', monto: 0 }
+  ]
+  const incluyeMp = incluyeMercadoPago(condicionVenta, detallePago)
+  const montoMpCobrar = esMercadoPago(condicionVenta)
+    ? totalVenta
+    : montoLineaMetodo(detallePago, 'Mercado Pago')
+  const mediosMixto = mediosActivos.filter(
+    (m) => m.codigo !== 'Cuenta Corriente' && m.codigo !== PAGO_MIXTO
+  ) as Array<{ codigo: VentaPagoLinea['metodo']; label: string }>
+
+  const patchLineaMixto = (idx: number, patch: Partial<VentaPagoLinea>) => {
+    const next = lineasMixto.map((l, i) => (i === idx ? { ...l, ...patch } : l))
+    setDetallePago((prev) => ({ ...prev, lineas: next }))
+  }
+
+  const completarRestoLinea = (idx: number) => {
+    const resto = Math.max(
+      0,
+      Math.round(
+        (totalVenta -
+          lineasMixto.reduce((s, l, i) => (i === idx ? s : s + (Number(l.monto) || 0)), 0)) *
+          100
+      ) / 100
+    )
+    patchLineaMixto(idx, { monto: resto })
+  }
+
   const emitirYExportarFacturaMp = useCallback(async (venta: Venta) => {
     setFacturandoAfip(true)
     setEmisionAfip({ etapa: 'comprobante', resultado: null })
@@ -588,16 +626,12 @@ const VentaRapidaModal = ({
 
       setShowMpCheckout(false)
 
-      let ventaParaFactura: Venta | null = ventaCreada
-        ? { ...ventaCreada, id: ventaId, estado_pago: 'Pagado', detalle_pago: detalle }
-        : null
       try {
         const ventasResponse = await apiService.obtenerVentas()
         if (ventasResponse.success && ventasResponse.data) {
           const ventaCompleta = ventasResponse.data.find((v) => v.id === ventaId)
           if (ventaCompleta) {
             setVentaCreada(ventaCompleta)
-            ventaParaFactura = ventaCompleta
           } else if (ventaCreada) {
             setVentaCreada({ ...ventaCreada, estado_pago: 'Pagado', detalle_pago: detalle })
           }
@@ -611,12 +645,8 @@ const VentaRapidaModal = ({
           detail: { ventaId, numeroVenta: ventaCreada?.numero_venta }
         })
       )
-
-      if (ventaParaFactura) {
-        void emitirYExportarFacturaMp({ ...ventaParaFactura, id: ventaId, estado_pago: 'Pagado' })
-      }
     },
-    [detallePago, mpVentaId, ventaCreada, emitirYExportarFacturaMp]
+    [detallePago, mpVentaId, ventaCreada]
   )
 
   const handleGuardarVenta = async () => {
@@ -675,7 +705,8 @@ const VentaRapidaModal = ({
     }
 
     if (
-      condicionVenta === 'Transferencia' &&
+      (condicionVenta === 'Transferencia' ||
+        (esMixto && montoLineaMetodo(detallePago, 'Transferencia') > 0)) &&
       configCondiciones.transferencia_requiere_comprobante &&
       !comprobanteArchivo
     ) {
@@ -683,8 +714,13 @@ const VentaRapidaModal = ({
       return
     }
 
-    if (esMercadoPagoCondicion && calcularSubtotal() < 1) {
-      alert('El total debe ser al menos $1 para cobrar con Mercado Pago.')
+    if (incluyeMp && montoMpCobrar < 1) {
+      alert('La parte de Mercado Pago debe ser al menos $1.')
+      return
+    }
+
+    if (faseCobro !== 'revisar') {
+      setFaseCobro('revisar')
       return
     }
 
@@ -726,19 +762,27 @@ const VentaRapidaModal = ({
 
       const valorTotal = calcularSubtotal()
       let detallePagoFinal = { ...detallePago }
-      if (condicionVenta === 'Efectivo') {
+      if (esMixto) {
+        detallePagoFinal = {
+          ...detallePagoFinal,
+          lineas: lineasPagoConMonto(detallePago)
+        }
+      }
+      if (condicionVenta === 'Efectivo' || (esMixto && montoLineaMetodo(detallePagoFinal, 'Efectivo') > 0)) {
+        const parteEfectivo = esMixto ? montoLineaMetodo(detallePagoFinal, 'Efectivo') : valorTotal
         const recibido = Number(detallePagoFinal.monto_recibido) || 0
         detallePagoFinal = {
           ...detallePagoFinal,
           monto_recibido: recibido,
-          vuelto: Math.max(0, Math.round((recibido - valorTotal) * 100) / 100)
+          vuelto: Math.max(0, Math.round((recibido - parteEfectivo) * 100) / 100)
         }
       }
       const detalleResumen = resumenDetallePago(detallePagoFinal)
       const obsBase = observaciones ? `Prioridad: ${prioridad}. ${observaciones}` : `Prioridad: ${prioridad}`
       const observacionesFinal = detalleResumen ? `${obsBase}\nPago: ${detalleResumen}` : obsBase
+      const metodoPagoFinal: MedioPagoCodigo = esMixto ? PAGO_MIXTO : condicionVenta
       const estadoPagoInicial =
-        esCuentaCorriente || esMercadoPagoCondicion ? 'Pendiente' : 'Pagado'
+        esCuentaCorriente || incluyeMp ? 'Pendiente' : 'Pagado'
 
       // Venta e ítems juntos: si algo falla, no queda una venta a medias con el total cambiado
       const ventaResponse = await apiService.crearVentaConItems({
@@ -750,7 +794,7 @@ const VentaRapidaModal = ({
           cliente_empresa: clienteFinal.empresa || undefined,
           cliente_direccion: clienteFinal.direccion || undefined,
           valor_total: valorTotal,
-          metodo_pago: condicionVenta,
+          metodo_pago: metodoPagoFinal,
           estado_pago: estadoPagoInicial,
           fecha_venta: fechaVenta,
           id_vendedor: usuarioId,
@@ -807,7 +851,7 @@ const VentaRapidaModal = ({
         valor_total: calcularSubtotal(),
         fecha_venta: fechaVenta,
         estado_pago: estadoPagoInicial,
-        metodo_pago: condicionVenta,
+        metodo_pago: metodoPagoFinal,
         detalle_pago: Object.keys(detallePagoFinal).length ? detallePagoFinal : null,
         id_vendedor: usuarioId,
         nombre_vendedor: usuarioNombre,
@@ -830,7 +874,14 @@ const VentaRapidaModal = ({
 
       // Los ítems ya se guardaron junto con la venta, y el stock se descontó por ítem
 
-      if (esMercadoPagoCondicion) {
+      if (incluyeMp) {
+        const cobradoSinMp = Math.max(0, Math.round((valorTotal - montoMpCobrar) * 100) / 100)
+        if (cobradoSinMp > 0) {
+          await apiService.actualizarVenta(ventaData.id, {
+            monto_pagado: cobradoSinMp,
+            estado_pago: 'Pendiente'
+          })
+        }
         setMpVentaId(ventaData.id)
         setVentaCreada({ ...ventaMinima, estado_pago: 'Pendiente' })
         setShowMpCheckout(true)
@@ -1116,7 +1167,16 @@ const VentaRapidaModal = ({
               onChange={(e) => {
                 const valor = e.target.value as MedioPagoCodigo
                 setCondicionVenta(valor)
-                if (valor === 'Cheque') {
+                setFaseCobro('editar')
+                if (valor === PAGO_MIXTO) {
+                  const mitad = Math.round((calcularSubtotal() / 2) * 100) / 100
+                  setDetallePago({
+                    lineas: [
+                      { metodo: 'Efectivo', monto: mitad },
+                      { metodo: 'Mercado Pago', monto: Math.max(0, Math.round((calcularSubtotal() - mitad) * 100) / 100) }
+                    ]
+                  })
+                } else if (valor === 'Cheque') {
                   const total = calcularSubtotal()
                   setDetallePago(total > 0 ? { monto_cheque: total } : {})
                 } else if (valor === 'Efectivo') {
@@ -1139,11 +1199,12 @@ const VentaRapidaModal = ({
                   {m.label}
                 </option>
               ))}
+              <option value={PAGO_MIXTO}>Pago mixto</option>
             </select>
             <p className="form-hint-comprobante">
-              {esMercadoPagoCondicion
-                ? 'Al confirmar el QR se emite y descarga sola la factura AFIP.'
-                : 'Al guardar queda la venta. La factura la armás después, si hace falta.'}
+              {incluyeMp
+                ? 'Revisá el cobro y confirmá. Recién ahí se genera el QR. La factura AFIP la emitís después, si hace falta.'
+                : 'Revisá el cobro y confirmá. La factura la armás después, si hace falta.'}
             </p>
           </div>
 
@@ -1258,23 +1319,191 @@ const VentaRapidaModal = ({
             </div>
           </div>
 
-          <VentaCondicionPagoFields
-            condicion={condicionVenta}
-            config={configCondiciones}
-            detalle={detallePago}
-            cuentasBancarias={cuentasBancarias}
-            onChange={setDetallePago}
-            montoVenta={calcularSubtotal()}
-          />
+          {esMixto ? (
+            <div className="venta-pago-mixto">
+              <p className="venta-pago-mixto__title">Desglose del cobro</p>
+              <p className="venta-pago-mixto__hint">
+                Combiná medios (efectivo + Mercado Pago, tarjeta + transferencia, etc.). La suma tiene que
+                coincidir con el total.
+              </p>
+              {lineasMixto.map((linea, idx) => (
+                <div key={`${linea.metodo}-${idx}`} className="venta-pago-mixto__row">
+                  <select
+                    className="form-select"
+                    value={linea.metodo}
+                    disabled={showMpCheckout}
+                    onChange={(e) =>
+                      patchLineaMixto(idx, { metodo: e.target.value as VentaPagoLinea['metodo'] })
+                    }
+                  >
+                    {mediosMixto.map((m) => (
+                      <option key={m.codigo} value={m.codigo}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="form-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="Monto"
+                    disabled={showMpCheckout}
+                    value={linea.monto || ''}
+                    onChange={(e) =>
+                      patchLineaMixto(idx, { monto: e.target.value === '' ? 0 : Number(e.target.value) })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary venta-pago-mixto__resto"
+                    disabled={showMpCheckout}
+                    onClick={() => completarRestoLinea(idx)}
+                  >
+                    Resto
+                  </button>
+                  {lineasMixto.length > 2 ? (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={showMpCheckout}
+                      onClick={() =>
+                        setDetallePago((prev) => ({
+                          ...prev,
+                          lineas: lineasMixto.filter((_, i) => i !== idx)
+                        }))
+                      }
+                    >
+                      Quitar
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+              <div className="venta-pago-mixto__foot">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={showMpCheckout}
+                  onClick={() =>
+                    setDetallePago((prev) => ({
+                      ...prev,
+                      lineas: [
+                        ...lineasMixto,
+                        { metodo: 'Transferencia', monto: 0 }
+                      ]
+                    }))
+                  }
+                >
+                  + Agregar medio
+                </button>
+                <span
+                  className={`venta-pago-mixto__suma${
+                    Math.abs(sumaLineasPago(detallePago) - totalVenta) > 0.02 ? ' is-off' : ' is-ok'
+                  }`}
+                >
+                  Suma ${formatArs(sumaLineasPago(detallePago))} / Total ${formatArs(totalVenta)}
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          {esMixto ? (
+            <>
+              {montoLineaMetodo(detallePago, 'Efectivo') > 0 ? (
+                <VentaCondicionPagoFields
+                  condicion="Efectivo"
+                  config={configCondiciones}
+                  detalle={detallePago}
+                  cuentasBancarias={cuentasBancarias}
+                  onChange={setDetallePago}
+                  montoVenta={montoLineaMetodo(detallePago, 'Efectivo')}
+                />
+              ) : null}
+              {montoLineaMetodo(detallePago, 'Transferencia') > 0 ? (
+                <VentaCondicionPagoFields
+                  condicion="Transferencia"
+                  config={configCondiciones}
+                  detalle={detallePago}
+                  cuentasBancarias={cuentasBancarias}
+                  onChange={setDetallePago}
+                  montoVenta={montoLineaMetodo(detallePago, 'Transferencia')}
+                />
+              ) : null}
+              {montoLineaMetodo(detallePago, 'Cheque') > 0 ? (
+                <VentaCondicionPagoFields
+                  condicion="Cheque"
+                  config={configCondiciones}
+                  detalle={detallePago}
+                  cuentasBancarias={cuentasBancarias}
+                  onChange={setDetallePago}
+                  montoVenta={montoLineaMetodo(detallePago, 'Cheque')}
+                />
+              ) : null}
+              {montoMpCobrar > 0 ? (
+                <VentaCondicionPagoFields
+                  condicion="Mercado Pago"
+                  config={configCondiciones}
+                  detalle={detallePago}
+                  cuentasBancarias={cuentasBancarias}
+                  onChange={setDetallePago}
+                  montoVenta={montoMpCobrar}
+                  mensajeMercadoPago={`Mercado Pago cobra $${formatArs(montoMpCobrar)} después de revisar y confirmar.`}
+                />
+              ) : null}
+            </>
+          ) : (
+            <VentaCondicionPagoFields
+              condicion={condicionVenta}
+              config={configCondiciones}
+              detalle={detallePago}
+              cuentasBancarias={cuentasBancarias}
+              onChange={setDetallePago}
+              montoVenta={totalVenta}
+            />
+          )}
+
+          {faseCobro === 'revisar' && !showMpCheckout ? (
+            <div className="venta-rapida-revision">
+              <p className="venta-rapida-revision__kicker">Revisá antes de confirmar</p>
+              <strong className="venta-rapida-revision__total">${formatArs(totalVenta)}</strong>
+              <ul className="venta-rapida-revision__list">
+                {(esMixto ? lineasPagoConMonto(detallePago) : [{ metodo: condicionVenta, monto: totalVenta }]).map(
+                  (l, i) => (
+                    <li key={`${l.metodo}-${i}`}>
+                      <span>{l.metodo}</span>
+                      <b>${formatArs(l.monto)}</b>
+                    </li>
+                  )
+                )}
+              </ul>
+              <p className="venta-rapida-revision__note">
+                {incluyeMp
+                  ? `El QR de Mercado Pago se genera ahora por $${formatArs(montoMpCobrar)}. Podés volver y editar si algo no cierra.`
+                  : 'Si está bien, confirmá. Si no, volvé y editá el cobro.'}
+              </p>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setFaseCobro('editar')}
+              >
+                ← Volver a editar
+              </button>
+            </div>
+          ) : null}
 
           {showMpCheckout && mpVentaId ? (
             <div className="venta-rapida-mp-panel">
               <MercadoPagoCheckoutPanel
                 tipo="venta"
                 payload={{ venta_id: mpVentaId }}
-                amountHint={calcularSubtotal()}
+                amountHint={montoMpCobrar || totalVenta}
                 title="Cobrar con Mercado Pago"
-                note="Escaneá el QR con la app de Mercado Pago. Al confirmarse el pago la venta queda registrada y guardamos el comprobante."
+                note={
+                  esMixto
+                    ? `Solo la parte de Mercado Pago: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(montoMpCobrar)}. El resto ya quedó cargado en el desglose.`
+                    : 'Escaneá el QR con la app de Mercado Pago. Al confirmarse el pago la venta queda registrada y guardamos el comprobante.'
+                }
                 onPaid={(data) => void finalizarVentaTrasMp(data)}
               />
             </div>
@@ -1410,11 +1639,11 @@ const VentaRapidaModal = ({
                 : ' (opcional)'}
             </label>
             <p className="form-hint-comprobante">
-              {esMercadoPagoCondicion
+              {incluyeMp && !esMixto
                 ? 'Con Mercado Pago el comprobante se guarda automáticamente al aprobarse el pago.'
                 : 'PDF o imagen (transferencia, QR, etc.). Máximo 8 MB.'}
             </p>
-            {!esMercadoPagoCondicion ? (
+            {!(incluyeMp && !esMixto) ? (
               <>
             <input
               ref={comprobanteInputRef}
@@ -1700,9 +1929,11 @@ const VentaRapidaModal = ({
             >
               {guardando
                 ? 'Guardando...'
-                : esMercadoPagoCondicion
-                  ? '💳 Generar QR Mercado Pago'
-                  : '💾 Guardar venta'}
+                : faseCobro !== 'revisar'
+                  ? 'Revisar cobro'
+                  : incluyeMp
+                    ? 'Confirmar y generar QR'
+                    : 'Confirmar venta'}
             </button>
             </>
           ) : showMpCheckout ? (
