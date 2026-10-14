@@ -264,9 +264,50 @@
 }
 
 .venta-rapida-revision__note {
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   line-height: 1.4;
   font-weight: 600;
+  color: #431407;
+}
+
+.venta-rapida-revision__list b {
+  color: #9a3412;
+}
+
+.venta-rapida-revision__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.venta-rapida-revision__back,
+.venta-rapida-revision__confirm {
+  min-height: 52px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.venta-rapida-revision__back {
+  background: #1e293b;
+  color: #fff;
+}
+
+.venta-rapida-revision__confirm {
+  flex: 1;
+  min-width: 200px;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(234, 88, 12, 0.35);
+}
+
+.venta-rapida-revision__confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .venta-rapida-mp-panel {

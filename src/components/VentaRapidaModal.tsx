@@ -556,7 +556,21 @@ const VentaRapidaModal = ({
   ) as Array<{ codigo: VentaPagoLinea['metodo']; label: string }>
 
   const patchLineaMixto = (idx: number, patch: Partial<VentaPagoLinea>) => {
-    const next = lineasMixto.map((l, i) => (i === idx ? { ...l, ...patch } : l))
+    let next = lineasMixto.map((l, i) => (i === idx ? { ...l, ...patch } : l))
+    if (patch.monto != null && next.length >= 2) {
+      const editado = Math.max(0, Math.round((Number(patch.monto) || 0) * 100) / 100)
+      next[idx] = { ...next[idx], monto: Math.min(editado, totalVenta) }
+      const destino = idx === next.length - 1 ? 0 : next.length - 1
+      const sumaSinDestino = next.reduce(
+        (s, l, i) => (i === destino ? s : s + (Number(l.monto) || 0)),
+        0
+      )
+      next = next.map((l, i) =>
+        i === destino
+          ? { ...l, monto: Math.max(0, Math.round((totalVenta - sumaSinDestino) * 100) / 100) }
+          : l
+      )
+    }
     setDetallePago((prev) => ({ ...prev, lineas: next }))
   }
 
@@ -1169,11 +1183,11 @@ const VentaRapidaModal = ({
                 setCondicionVenta(valor)
                 setFaseCobro('editar')
                 if (valor === PAGO_MIXTO) {
-                  const mitad = Math.round((calcularSubtotal() / 2) * 100) / 100
+                  const total = calcularSubtotal()
                   setDetallePago({
                     lineas: [
-                      { metodo: 'Efectivo', monto: mitad },
-                      { metodo: 'Mercado Pago', monto: Math.max(0, Math.round((calcularSubtotal() - mitad) * 100) / 100) }
+                      { metodo: 'Efectivo', monto: 0 },
+                      { metodo: 'Mercado Pago', monto: Math.max(0, Math.round(total * 100) / 100) }
                     ]
                   })
                 } else if (valor === 'Cheque') {
@@ -1323,8 +1337,7 @@ const VentaRapidaModal = ({
             <div className="venta-pago-mixto">
               <p className="venta-pago-mixto__title">Desglose del cobro</p>
               <p className="venta-pago-mixto__hint">
-                Combiná medios (efectivo + Mercado Pago, tarjeta + transferencia, etc.). La suma tiene que
-                coincidir con el total.
+                Cargá un monto (ej. efectivo) y el otro medio se completa solo para llegar al total.
               </p>
               {lineasMixto.map((linea, idx) => (
                 <div key={`${linea.metodo}-${idx}`} className="venta-pago-mixto__row">
@@ -1482,13 +1495,32 @@ const VentaRapidaModal = ({
                   ? `El QR de Mercado Pago se genera ahora por $${formatArs(montoMpCobrar)}. Podés volver y editar si algo no cierra.`
                   : 'Si está bien, confirmá. Si no, volvé y editá el cobro.'}
               </p>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setFaseCobro('editar')}
-              >
-                ← Volver a editar
-              </button>
+              <div className="venta-rapida-revision__actions">
+                <button
+                  type="button"
+                  className="venta-rapida-revision__back"
+                  onClick={() => setFaseCobro('editar')}
+                >
+                  ← Volver a editar
+                </button>
+                <button
+                  type="button"
+                  className="venta-rapida-revision__confirm"
+                  onClick={() => void handleGuardarVenta()}
+                  disabled={
+                    guardando ||
+                    itemsVenta.length === 0 ||
+                    ((esCuentaCorriente || condicionVenta === 'Cuenta Corriente') &&
+                      clienteCcHabilitado !== true)
+                  }
+                >
+                  {guardando
+                    ? 'Guardando…'
+                    : incluyeMp
+                      ? 'Confirmar y generar QR'
+                      : 'Confirmar venta'}
+                </button>
+              </div>
             </div>
           ) : null}
 
