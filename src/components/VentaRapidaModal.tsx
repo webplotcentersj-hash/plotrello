@@ -10,7 +10,12 @@ import type {
   Venta
 } from '../types/api'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
-import { CONDICIONES_IVA_CLIENTE, type CondicionIvaCliente } from '../utils/afipFacturaUi'
+import {
+  CONDICIONES_IVA_CLIENTE,
+  inferirCondicionIva,
+  normalizarCondicionIvaCliente,
+  type CondicionIvaCliente
+} from '../utils/afipFacturaUi'
 import { CLIENTES_CUENTA_CORRIENTE, clientesCcAlta, clientesCcPerfil } from '../utils/clientesRoutes'
 import { getArgentinaDateString } from '../utils/dateUtils'
 import {
@@ -35,6 +40,7 @@ import {
   listaFromMedioPago,
   mediosPagoActivos,
   montoLineaMetodo,
+  MIXTO_SEGUNDOS,
   PAGO_MIXTO,
   resumenDetallePago,
   sumaLineasPago,
@@ -188,6 +194,7 @@ const VentaRapidaModal = ({
 
   useEffect(() => {
     if (!mediosActivos.length) return
+    if (esPagoMixto(condicionVenta)) return
     if (!mediosActivos.some((m) => m.codigo === condicionVenta)) {
       setCondicionVenta(mediosActivos[0].codigo)
     }
@@ -239,7 +246,13 @@ const VentaRapidaModal = ({
   }, [busquedaCliente])
 
   const seleccionarCliente = useCallback((cliente: ClienteRecord) => {
-    setClienteSeleccionado(cliente)
+    const iva =
+      normalizarCondicionIvaCliente(cliente.condicion_iva) || inferirCondicionIva(cliente.dni_cuit)
+    setClienteSeleccionado({
+      ...cliente,
+      direccion: cliente.direccion || '',
+      condicion_iva: iva
+    })
     setBusquedaCliente(nombreCompletoCliente(cliente))
     setClientesEncontrados([])
     setClienteActivo(0)
@@ -547,44 +560,65 @@ const VentaRapidaModal = ({
     { metodo: 'Efectivo', monto: 0 },
     { metodo: 'Mercado Pago', monto: 0 }
   ]
+  const mixtoEfectivo =
+    lineasMixto.find((l) => l.metodo === 'Efectivo') ?? { metodo: 'Efectivo' as const, monto: 0 }
+  const mixtoOtro =
+    lineasMixto.find((l) => l.metodo !== 'Efectivo') ?? {
+      metodo: 'Mercado Pago' as VentaPagoLinea['metodo'],
+      monto: 0
+    }
   const incluyeMp = incluyeMercadoPago(condicionVenta, detallePago)
   const montoMpCobrar = esMercadoPago(condicionVenta)
     ? totalVenta
     : montoLineaMetodo(detallePago, 'Mercado Pago')
-  const mediosMixto = mediosActivos.filter(
-    (m) => m.codigo !== 'Cuenta Corriente' && m.codigo !== PAGO_MIXTO
-  ) as Array<{ codigo: VentaPagoLinea['metodo']; label: string }>
 
-  const patchLineaMixto = (idx: number, patch: Partial<VentaPagoLinea>) => {
-    let next = lineasMixto.map((l, i) => (i === idx ? { ...l, ...patch } : l))
-    if (patch.monto != null && next.length >= 2) {
-      const editado = Math.max(0, Math.round((Number(patch.monto) || 0) * 100) / 100)
-      next[idx] = { ...next[idx], monto: Math.min(editado, totalVenta) }
-      const destino = idx === next.length - 1 ? 0 : next.length - 1
-      const sumaSinDestino = next.reduce(
-        (s, l, i) => (i === destino ? s : s + (Number(l.monto) || 0)),
-        0
-      )
-      next = next.map((l, i) =>
-        i === destino
-          ? { ...l, monto: Math.max(0, Math.round((totalVenta - sumaSinDestino) * 100) / 100) }
-          : l
-      )
-    }
-    setDetallePago((prev) => ({ ...prev, lineas: next }))
+  const redondearMonto = (n: number) => Math.max(0, Math.round(n * 100) / 100)
+
+  const setLineasMixto = (cash: number, otroMetodo: VentaPagoLinea['metodo'], otroMonto?: number) => {
+    const efectivo = Math.min(totalVenta, redondearMonto(cash))
+    const resto =
+      otroMonto == null
+        ? redondearMonto(totalVenta - efectivo)
+        : Math.min(totalVenta, redondearMonto(otroMonto))
+    const cashFinal = otroMonto == null ? efectivo : redondearMonto(totalVenta - resto)
+    setDetallePago((prev) => ({
+      ...prev,
+      lineas: [
+        { metodo: 'Efectivo', monto: cashFinal },
+        { metodo: otroMetodo, monto: resto }
+      ]
+    }))
   }
 
-  const completarRestoLinea = (idx: number) => {
-    const resto = Math.max(
-      0,
-      Math.round(
-        (totalVenta -
-          lineasMixto.reduce((s, l, i) => (i === idx ? s : s + (Number(l.monto) || 0)), 0)) *
-          100
-      ) / 100
-    )
-    patchLineaMixto(idx, { monto: resto })
-  }
+  useEffect(() => {
+    if (!esPagoMixto(condicionVenta)) return
+    setDetallePago((prev) => {
+      const lineas = prev.lineas ?? []
+      const cashLine = lineas.find((l) => l.metodo === 'Efectivo')
+      const otroLine = lineas.find((l) => l.metodo !== 'Efectivo')
+      const metodoOtro: VentaPagoLinea['metodo'] =
+        otroLine && otroLine.metodo !== 'Efectivo' ? otroLine.metodo : 'Mercado Pago'
+      const cash = Math.min(totalVenta, redondearMonto(Number(cashLine?.monto) || 0))
+      const resto = redondearMonto(totalVenta - cash)
+      if (
+        cashLine &&
+        otroLine &&
+        Math.abs((cashLine.monto || 0) - cash) < 0.009 &&
+        Math.abs((otroLine.monto || 0) - resto) < 0.009
+      ) {
+        return prev
+      }
+      return {
+        ...prev,
+        lineas: [
+          { metodo: 'Efectivo', monto: cash },
+          { metodo: metodoOtro, monto: resto }
+        ]
+      }
+    })
+    // Solo rebalancear si cambia el total de la venta, no al tipear un monto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [condicionVenta, totalVenta])
 
   const emitirYExportarFacturaMp = useCallback(async (venta: Venta) => {
     setFacturandoAfip(true)
@@ -640,27 +674,30 @@ const VentaRapidaModal = ({
 
       setShowMpCheckout(false)
 
+      let ventaParaFactura: Venta | null = ventaCreada
+        ? { ...ventaCreada, estado_pago: 'Pagado', detalle_pago: detalle }
+        : null
       try {
         const ventasResponse = await apiService.obtenerVentas()
         if (ventasResponse.success && ventasResponse.data) {
           const ventaCompleta = ventasResponse.data.find((v) => v.id === ventaId)
-          if (ventaCompleta) {
-            setVentaCreada(ventaCompleta)
-          } else if (ventaCreada) {
-            setVentaCreada({ ...ventaCreada, estado_pago: 'Pagado', detalle_pago: detalle })
-          }
+          if (ventaCompleta) ventaParaFactura = ventaCompleta
         }
       } catch {
-        if (ventaCreada) setVentaCreada({ ...ventaCreada, estado_pago: 'Pagado', detalle_pago: detalle })
+        /* usamos el snapshot local */
+      }
+      if (ventaParaFactura) {
+        setVentaCreada(ventaParaFactura)
+        void emitirYExportarFacturaMp(ventaParaFactura)
       }
 
       window.dispatchEvent(
         new CustomEvent('venta-creada', {
-          detail: { ventaId, numeroVenta: ventaCreada?.numero_venta }
+          detail: { ventaId, numeroVenta: ventaParaFactura?.numero_venta }
         })
       )
     },
-    [detallePago, mpVentaId, ventaCreada]
+    [detallePago, mpVentaId, ventaCreada, emitirYExportarFacturaMp]
   )
 
   const handleGuardarVenta = async () => {
@@ -765,6 +802,22 @@ const VentaRapidaModal = ({
         throw new Error('No se pudo obtener el cliente')
       }
 
+      const direccionCliente = (clienteFinal.direccion || '').trim()
+      const condicionIvaCliente =
+        normalizarCondicionIvaCliente(clienteFinal.condicion_iva) ||
+        inferirCondicionIva(clienteFinal.dni_cuit)
+      if (clienteFinal.id) {
+        const upd = await apiService.actualizarClienteDatos(
+          clienteFinal.id,
+          {
+            direccion: direccionCliente || undefined,
+            condicion_iva: condicionIvaCliente
+          },
+          usuarioId
+        )
+        if (upd.success && upd.data) clienteFinal = upd.data
+      }
+
       if (quiereCc) {
         const ccRes = await apiService.clienteHabilitadoCuentaCorriente(clienteFinal.id)
         if (!ccRes.success || !ccRes.data) {
@@ -806,7 +859,7 @@ const VentaRapidaModal = ({
           cliente_email: clienteFinal.email || undefined,
           cliente_dni_cuit: clienteFinal.dni_cuit || undefined,
           cliente_empresa: clienteFinal.empresa || undefined,
-          cliente_direccion: clienteFinal.direccion || undefined,
+          cliente_direccion: direccionCliente || undefined,
           valor_total: valorTotal,
           metodo_pago: metodoPagoFinal,
           estado_pago: estadoPagoInicial,
@@ -860,7 +913,7 @@ const VentaRapidaModal = ({
         cliente_email: clienteFinal.email || undefined,
         cliente_dni_cuit: clienteFinal.dni_cuit || undefined,
         cliente_empresa: clienteFinal.empresa || undefined,
-        cliente_direccion: clienteFinal.direccion || undefined,
+        cliente_direccion: direccionCliente || undefined,
         id_cliente: clienteFinal.id || undefined,
         valor_total: calcularSubtotal(),
         fecha_venta: fechaVenta,
@@ -1149,6 +1202,7 @@ const VentaRapidaModal = ({
             )}
 
             {clienteSeleccionado && (
+              <>
               <div className="cliente-seleccionado">
                 <div className="cliente-seleccionado__texto">
                   <strong>✓ {nombreCompletoCliente(clienteSeleccionado)}</strong>
@@ -1168,6 +1222,46 @@ const VentaRapidaModal = ({
                   Cambiar
                 </button>
               </div>
+              <div className="cliente-afip-fields">
+                <label>
+                  Domicilio
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Domicilio para la factura"
+                    value={clienteSeleccionado.direccion || ''}
+                    onChange={(e) =>
+                      setClienteSeleccionado((prev) =>
+                        prev ? { ...prev, direccion: e.target.value } : prev
+                      )
+                    }
+                  />
+                </label>
+                <label>
+                  Condición AFIP
+                  <select
+                    className="form-select"
+                    value={
+                      normalizarCondicionIvaCliente(clienteSeleccionado.condicion_iva) ||
+                      'Consumidor Final'
+                    }
+                    onChange={(e) =>
+                      setClienteSeleccionado((prev) =>
+                        prev
+                          ? { ...prev, condicion_iva: e.target.value as CondicionIvaCliente }
+                          : prev
+                      )
+                    }
+                  >
+                    {CONDICIONES_IVA_CLIENTE.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              </>
             )}
           </div>
 
@@ -1213,7 +1307,9 @@ const VentaRapidaModal = ({
                   {m.label}
                 </option>
               ))}
-              <option value={PAGO_MIXTO}>Pago mixto</option>
+              {!mediosActivos.some((m) => m.codigo === PAGO_MIXTO) ? (
+                <option value={PAGO_MIXTO}>Pago mixto</option>
+              ) : null}
             </select>
             <p className="form-hint-comprobante">
               {incluyeMp
@@ -1335,81 +1431,70 @@ const VentaRapidaModal = ({
 
           {esMixto ? (
             <div className="venta-pago-mixto">
-              <p className="venta-pago-mixto__title">Desglose del cobro</p>
+              <p className="venta-pago-mixto__title">Pago mixto: efectivo + otro medio</p>
               <p className="venta-pago-mixto__hint">
-                Cargá un monto (ej. efectivo) y el otro medio se completa solo para llegar al total.
+                El efectivo queda fijo. Elegí con qué se paga el resto (Mercado Pago o tarjeta). Al cargar
+                un monto, el otro se completa para llegar al total.
               </p>
-              {lineasMixto.map((linea, idx) => (
-                <div key={`${linea.metodo}-${idx}`} className="venta-pago-mixto__row">
-                  <select
-                    className="form-select"
-                    value={linea.metodo}
+              <p className="venta-pago-mixto__combo-label">Combinar efectivo con</p>
+              <div className="venta-pago-mixto__combos">
+                {MIXTO_SEGUNDOS.map((metodo) => (
+                  <button
+                    key={metodo}
+                    type="button"
+                    className={`venta-pago-mixto__combo${mixtoOtro.metodo === metodo ? ' is-on' : ''}`}
                     disabled={showMpCheckout}
-                    onChange={(e) =>
-                      patchLineaMixto(idx, { metodo: e.target.value as VentaPagoLinea['metodo'] })
-                    }
+                    onClick={() => setLineasMixto(mixtoEfectivo.monto || 0, metodo)}
                   >
-                    {mediosMixto.map((m) => (
-                      <option key={m.codigo} value={m.codigo}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
+                    {metodo === 'Mercado Pago' ? 'Efectivo + MP' : `Efectivo + ${metodo}`}
+                  </button>
+                ))}
+              </div>
+              <div className="venta-pago-mixto__parts">
+                <div className="venta-pago-mixto__part">
+                  <label htmlFor="mixto-efectivo">Efectivo</label>
                   <input
+                    id="mixto-efectivo"
                     className="form-input"
                     type="number"
                     min="0"
                     step="0.01"
                     inputMode="decimal"
-                    placeholder="Monto"
+                    placeholder="Cuánto en efectivo"
                     disabled={showMpCheckout}
-                    value={linea.monto || ''}
+                    value={mixtoEfectivo.monto || ''}
                     onChange={(e) =>
-                      patchLineaMixto(idx, { monto: e.target.value === '' ? 0 : Number(e.target.value) })
+                      setLineasMixto(
+                        e.target.value === '' ? 0 : Number(e.target.value),
+                        mixtoOtro.metodo
+                      )
                     }
                   />
-                  <button
-                    type="button"
-                    className="btn-secondary venta-pago-mixto__resto"
-                    disabled={showMpCheckout}
-                    onClick={() => completarRestoLinea(idx)}
-                  >
-                    Resto
-                  </button>
-                  {lineasMixto.length > 2 ? (
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      disabled={showMpCheckout}
-                      onClick={() =>
-                        setDetallePago((prev) => ({
-                          ...prev,
-                          lineas: lineasMixto.filter((_, i) => i !== idx)
-                        }))
-                      }
-                    >
-                      Quitar
-                    </button>
-                  ) : null}
                 </div>
-              ))}
+                <div className="venta-pago-mixto__part venta-pago-mixto__part--otro">
+                  <label htmlFor="mixto-otro">{mixtoOtro.metodo}</label>
+                  <input
+                    id="mixto-otro"
+                    className="form-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="Resto"
+                    disabled={showMpCheckout}
+                    value={mixtoOtro.monto || ''}
+                    onChange={(e) =>
+                      setLineasMixto(
+                        mixtoEfectivo.monto || 0,
+                        mixtoOtro.metodo,
+                        e.target.value === '' ? 0 : Number(e.target.value)
+                      )
+                    }
+                  />
+                  <span className="venta-pago-mixto__part-note">Se completa solo con el resto del total</span>
+                </div>
+              </div>
               <div className="venta-pago-mixto__foot">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  disabled={showMpCheckout}
-                  onClick={() =>
-                    setDetallePago((prev) => ({
-                      ...prev,
-                      lineas: [
-                        ...lineasMixto,
-                        { metodo: 'Transferencia', monto: 0 }
-                      ]
-                    }))
-                  }
-                >
-                  + Agregar medio
-                </button>
                 <span
                   className={`venta-pago-mixto__suma${
                     Math.abs(sumaLineasPago(detallePago) - totalVenta) > 0.02 ? ' is-off' : ' is-ok'
@@ -1663,20 +1748,23 @@ const VentaRapidaModal = ({
           </div>
 
 
+          {condicionVenta === 'Transferencia' ||
+          condicionVenta === 'Tarjeta' ||
+          esMixto ? (
           <div className="form-group">
             <label>
               Comprobante de pago
-              {condicionVenta === 'Transferencia' && configCondiciones.transferencia_requiere_comprobante
+              {(condicionVenta === 'Transferencia' ||
+                (esMixto && mixtoOtro.metodo === 'Transferencia')) &&
+              configCondiciones.transferencia_requiere_comprobante
                 ? ' *'
                 : ' (opcional)'}
             </label>
             <p className="form-hint-comprobante">
-              {incluyeMp && !esMixto
-                ? 'Con Mercado Pago el comprobante se guarda automáticamente al aprobarse el pago.'
-                : 'PDF o imagen (transferencia, QR, etc.). Máximo 8 MB.'}
+              {condicionVenta === 'Tarjeta' || (esMixto && mixtoOtro.metodo === 'Tarjeta')
+                ? 'Adjuntá el ticket o comprobante de la tarjeta. PDF o imagen, máximo 8 MB.'
+                : 'PDF o imagen del comprobante (transferencia, tarjeta, etc.). Máximo 8 MB.'}
             </p>
-            {!(incluyeMp && !esMixto) ? (
-              <>
             <input
               ref={comprobanteInputRef}
               type="file"
@@ -1702,9 +1790,8 @@ const VentaRapidaModal = ({
                 </button>
               </div>
             )}
-              </>
-            ) : null}
           </div>
+          ) : null}
 
           {/* Fecha */}
           <div className="form-group">
@@ -1990,6 +2077,16 @@ const VentaRapidaModal = ({
                 }}
               >
                 {facturandoAfip ? 'Emitiendo…' : 'Factura AFIP'}
+              </button>
+              <button
+                type="button"
+                className="btn-primary venta-rapida-btn-facturar"
+                onClick={() => {
+                  onClose()
+                  navigate(`/erp/facturas/nueva?id_venta=${ventaCreada.id}`)
+                }}
+              >
+                Facturar
               </button>
             </>
           ) : null}

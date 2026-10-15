@@ -17,6 +17,13 @@ export type VentaPagoLinea = {
   monto: number
 }
 
+/** Segundo medio en pago mixto: siempre Efectivo + uno de estos. */
+export const MIXTO_SEGUNDOS: Array<VentaPagoLinea['metodo']> = [
+  'Mercado Pago',
+  'Tarjeta',
+  'Transferencia'
+]
+
 export interface MedioPagoConfig {
   codigo: MedioPagoCodigo
   label: string
@@ -108,7 +115,8 @@ export const DEFAULT_CONFIG_CONDICIONES_VENTA: ConfigCondicionesVenta = {
       orden: 6,
       lista_precio: 'lista_2'
     },
-    { codigo: 'Otro', label: 'Otro', activo: true, orden: 7, lista_precio: 'lista_1' }
+    { codigo: 'Otro', label: 'Otro', activo: true, orden: 7, lista_precio: 'lista_1' },
+    { codigo: 'Pago mixto', label: 'Pago mixto', activo: true, orden: 8, lista_precio: 'lista_1' }
   ],
   cuentas_transferencia_ids: [],
   tipos_cheque: TIPOS_CHEQUE_CANONICOS.map((t) => ({ ...t })),

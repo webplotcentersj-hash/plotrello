@@ -14373,7 +14373,16 @@ class ApiService {
    */
   async actualizarClienteDatos(
     id: number,
-    datos: { nombre?: string; apellido?: string; empresa?: string; telefono?: string; email?: string; dni_cuit?: string; direccion?: string },
+    datos: {
+      nombre?: string
+      apellido?: string
+      empresa?: string
+      telefono?: string
+      email?: string
+      dni_cuit?: string
+      direccion?: string
+      condicion_iva?: string
+    },
     actorId: number
   ): Promise<ApiResponse<ClienteRecord>> {
     if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
@@ -14387,7 +14396,8 @@ class ApiService {
         p_email: datos.email ?? null,
         p_dni_cuit: datos.dni_cuit ?? null,
         p_direccion: datos.direccion ?? null,
-        p_actor_id: actorId
+        p_actor_id: actorId,
+        p_condicion_iva: datos.condicion_iva ?? null
       })
       if (error) return { success: false, error: error.message }
       const row = Array.isArray(data) ? data[0] : data

@@ -4,6 +4,7 @@ import type { Venta } from '../types/api'
 import {
   inferirCondicionIva,
   inferirTipoFactura,
+  normalizarCondicionIvaCliente,
   validarReceptorComprobante
 } from './afipFacturaUi'
 import { getArgentinaDateString } from './dateUtils'
@@ -55,7 +56,16 @@ export async function emitirFacturaDesdeVenta(
   }
 
   const cuit = (venta.cliente_dni_cuit || '').trim()
-  const condicion = inferirCondicionIva(cuit)
+  let condicion = inferirCondicionIva(cuit)
+  let direccion = venta.cliente_direccion?.trim() || null
+  if (venta.id_cliente) {
+    const cli = await apiService.getClientePorId(venta.id_cliente)
+    if (cli.success && cli.data) {
+      const ivaCliente = normalizarCondicionIvaCliente(cli.data.condicion_iva)
+      if (ivaCliente) condicion = ivaCliente
+      if (!direccion) direccion = cli.data.direccion?.trim() || null
+    }
+  }
   const tipo = inferirTipoFactura(cuit, condicion, cfg.data.condicion_iva)
   const errorReceptor = validarReceptorComprobante(tipo, condicion, cuit)
   if (errorReceptor) return { ok: false, mensaje: errorReceptor }
@@ -84,7 +94,7 @@ export async function emitirFacturaDesdeVenta(
       id_cliente: venta.id_cliente ?? null,
       cliente_nombre: (venta.cliente_nombre || '').trim() || 'Consumidor Final',
       cliente_dni_cuit: cuit || null,
-      cliente_direccion: venta.cliente_direccion?.trim() || null,
+      cliente_direccion: direccion,
       cliente_condicion_iva: condicion,
       id_op: venta.id_op ?? null,
       numero_op: venta.numero_op ?? null,

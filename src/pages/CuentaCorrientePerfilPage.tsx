@@ -80,7 +80,10 @@ export default function CuentaCorrientePerfilPage() {
   const { config: configCondiciones } = useConfigCondicionesVenta()
 
   const mediosPagoCc = useMemo(
-    () => mediosPagoActivos(configCondiciones).filter((m) => m.codigo !== 'Cuenta Corriente'),
+    () =>
+      mediosPagoActivos(configCondiciones).filter(
+        (m) => m.codigo !== 'Cuenta Corriente' && m.codigo !== 'Pago mixto'
+      ),
     [configCondiciones]
   )
 

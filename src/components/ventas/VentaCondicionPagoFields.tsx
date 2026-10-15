@@ -541,7 +541,7 @@ export function validarDetallePago(
     const total = Number(montoVenta) || 0
     const suma = sumaLineasPago(detalle)
     if (lineasPagoConMonto(detalle).length < 2) {
-      return 'En pago mixto cargá al menos dos medios con monto.'
+      return 'En pago mixto cargá efectivo y el otro medio (Mercado Pago o tarjeta).'
     }
     if (total > 0 && Math.abs(suma - total) > 0.02) {
       return `La suma de medios ($${suma.toLocaleString('es-AR')}) debe coincidir con el total ($${total.toLocaleString('es-AR')}).`
