@@ -222,6 +222,7 @@ export type ReciboComposicion = {
   osTrabajador: number
   inssjpEmpleador: number
   inssjpTrabajador: number
+  art: number
   scvo: number
 }
 
@@ -330,22 +331,20 @@ export function netoEnLetras(neto: number): string {
   return raw.replace(/\s*pesos\s*/i, ' ').replace(/\s+/g, ' ').trim()
 }
 
-export function liquidarRecibo(opts: {
-  item: RrhhLibroSueldosItem
-  libro: Pick<
-    RrhhLibroSueldos,
-    | 'periodo'
-    | 'empresa_nombre'
-    | 'empresa_domicilio'
-    | 'empresa_cuit'
-    | 'banco'
-    | 'fecha_pago'
-    | 'os_base_mult'
-    | 'alicuotas'
-    | 'dias_base'
-  >
-}): ReciboLiquidado {
-  const { item, libro } = opts
+type LibroLiq = Pick<
+  RrhhLibroSueldos,
+  | 'periodo'
+  | 'empresa_nombre'
+  | 'empresa_domicilio'
+  | 'empresa_cuit'
+  | 'banco'
+  | 'fecha_pago'
+  | 'os_base_mult'
+  | 'alicuotas'
+  | 'dias_base'
+>
+
+export function numerosLiquidacion(item: RrhhLibroSueldosItem, libro: LibroLiq) {
   const a = mergeAlicuotas(libro.alicuotas)
   const osMult = Number(libro.os_base_mult) > 0 ? Number(libro.os_base_mult) : 2
   const extras = item.extras || []
@@ -355,13 +354,11 @@ export function liquidarRecibo(opts: {
   )
   const extraDesc = round2(extras.filter((x) => x.tipo === 'descuento').reduce((s, x) => s + (Number(x.monto) || 0), 0))
   const extraEmp = round2(extras.filter((x) => x.tipo === 'empleador').reduce((s, x) => s + (Number(x.monto) || 0), 0))
-
   const basico = round2(item.sueldo_basico)
   const antig = round2(item.adicional_antiguedad)
   const bruto = round2(basico + antig + extraRem)
   const baseOs = round2(bruto * osMult)
   const scvo = round2(item.scvo)
-
   const sipa = round2(bruto * a.sipaEmpleador)
   const inssjpE = round2(bruto * a.inssjpEmpleador)
   const osE = round2(baseOs * a.osEmpleador)
@@ -369,7 +366,6 @@ export function liquidarRecibo(opts: {
   const fne = round2(bruto * a.fne)
   const sindE = round2(bruto * a.sindicatoEmpleador)
   const contribuciones = round2(sipa + inssjpE + osE + af + fne + sindE + scvo + extraEmp)
-
   const sindT = round2(bruto * a.sindicatoTrabajador)
   const jub = round2(bruto * a.jubilacion)
   const inssjpT = round2(bruto * a.inssjpTrabajador)
@@ -377,7 +373,63 @@ export function liquidarRecibo(opts: {
   const descuentos = round2(sindT + jub + inssjpT + osT + extraDesc)
   const neto = round2(bruto + extraNoRem - descuentos)
   const costoEmpleador = round2(bruto + extraNoRem + contribuciones)
-  const anios = item.anios_antiguedad || 0
+  return {
+    a,
+    extras,
+    extraRem,
+    extraNoRem,
+    extraDesc,
+    extraEmp,
+    basico,
+    antig,
+    bruto,
+    baseOs,
+    scvo,
+    sipa,
+    inssjpE,
+    osE,
+    af,
+    fne,
+    sindE,
+    contribuciones,
+    sindT,
+    jub,
+    inssjpT,
+    osT,
+    descuentos,
+    neto,
+    costoEmpleador,
+    anios: item.anios_antiguedad || 0
+  }
+}
+
+export function liquidarRecibo(opts: { item: RrhhLibroSueldosItem; libro: LibroLiq }): ReciboLiquidado {
+  const { item, libro } = opts
+  const n = numerosLiquidacion(item, libro)
+  const {
+    a,
+    extras,
+    basico,
+    antig,
+    bruto,
+    baseOs,
+    scvo,
+    sipa,
+    inssjpE,
+    osE,
+    af,
+    fne,
+    sindE,
+    contribuciones,
+    sindT,
+    jub,
+    inssjpT,
+    osT,
+    descuentos,
+    neto,
+    costoEmpleador,
+    anios
+  } = n
 
   const lineasEmpleador: ReciboLinea[] = [
     {
@@ -556,6 +608,7 @@ export function liquidarRecibo(opts: {
       osTrabajador: osT,
       inssjpEmpleador: inssjpE,
       inssjpTrabajador: inssjpT,
+      art: 0,
       scvo
     },
     netoEnLetras: netoEnLetras(neto)

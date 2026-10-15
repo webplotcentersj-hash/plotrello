@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import ReciboSueldoLct from '../components/ReciboSueldoLct'
@@ -32,6 +32,7 @@ import {
   fichaDesdeItem,
   formatArs2,
   liquidarRecibo,
+  numerosLiquidacion,
   type RrhhLibroSueldos,
   type RrhhLibroSueldosItem,
   type RrhhSueldoFicha
@@ -292,23 +293,44 @@ const RecursosHumanosLibroSueldosPage = () => {
   }
 
   const itemSel = items.find((i) => i.id_usuario === sel) || items[0] || null
+  const itemsDeferred = useDeferredValue(items)
+  const libroDeferred = useDeferredValue(libro)
+  const selDeferred = useDeferredValue(sel)
+
   const liq = useMemo(() => {
-    if (!libro || !itemSel) return null
+    if (!libroDeferred) return null
+    const it = itemsDeferred.find((i) => i.id_usuario === selDeferred) || itemsDeferred[0]
+    if (!it) return null
     return liquidarRecibo({
-      item: { ...itemSel, id: itemSel.id || 0, id_libro: itemSel.id_libro || libro.id },
-      libro
+      item: { ...it, id: it.id || 0, id_libro: it.id_libro || libroDeferred.id },
+      libro: libroDeferred
     })
-  }, [libro, itemSel])
+  }, [libroDeferred, itemsDeferred, selDeferred])
+
+  const netos = useMemo(() => {
+    const m = new Map<number, number>()
+    if (!libro) return m
+    for (const it of items) {
+      m.set(it.id_usuario, numerosLiquidacion(it as RrhhLibroSueldosItem, libro).neto)
+    }
+    return m
+  }, [items, libro])
 
   const totales = useMemo(() => {
     if (!libro) return { neto: 0, bruto: 0, costo: 0, n: 0 }
-    const liqs = items.filter((i) => i.incluido).map((item) => liquidarRecibo({ item: { ...item, id: item.id || 0, id_libro: libro.id }, libro }))
-    return {
-      n: liqs.length,
-      bruto: liqs.reduce((s, l) => s + l.bruto, 0),
-      neto: liqs.reduce((s, l) => s + l.neto, 0),
-      costo: liqs.reduce((s, l) => s + l.costoEmpleador, 0)
+    let n = 0
+    let bruto = 0
+    let neto = 0
+    let costo = 0
+    for (const it of items) {
+      if (!it.incluido) continue
+      const t = numerosLiquidacion(it as RrhhLibroSueldosItem, libro)
+      n += 1
+      bruto += t.bruto
+      neto += t.neto
+      costo += t.costoEmpleador
     }
+    return { n, bruto, neto, costo }
   }, [items, libro])
 
   const exportarPdfUno = async () => {
@@ -628,9 +650,7 @@ const RecursosHumanosLibroSueldosPage = () => {
               </thead>
               <tbody>
                 {items.map((it) => {
-                  const n = libro
-                    ? liquidarRecibo({ item: { ...it, id: it.id || 0, id_libro: libro.id }, libro }).neto
-                    : 0
+                  const n = netos.get(it.id_usuario) || 0
                   return (
                     <tr
                       key={it.id_usuario}

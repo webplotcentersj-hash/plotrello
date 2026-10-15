@@ -1,73 +1,101 @@
 .recibo-lct {
-  width: 1100px;
+  width: 1120px;
   background: #fff;
-  color: #111;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 11px;
-  border: 1px solid #222;
+  color: #000;
+  font-family: Calibri, Arial, Helvetica, sans-serif;
+  font-size: 12px;
   box-sizing: border-box;
+  border: 1px solid #bfbfbf;
 }
 
 .recibo-lct * {
   box-sizing: border-box;
 }
 
-.recibo-lct table {
+.recibo-lct-sheet {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .recibo-lct td,
 .recibo-lct th {
-  border: 1px solid #333;
-  padding: 3px 6px;
+  border: 1px solid #000;
+  padding: 3px 5px;
   vertical-align: middle;
+  height: 20px;
+}
+
+.recibo-lct .blank,
+.recibo-lct .blank-row {
+  border-color: #d0d0d0;
+  height: 16px;
 }
 
 .recibo-lct .emp-name {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
+  border-color: #d0d0d0;
 }
 
 .recibo-lct .emp-addr,
-.recibo-lct .emp-cuit {
-  font-size: 11px;
+.recibo-lct .emp-cuit,
+.recibo-lct .emp-cuit-val {
+  font-size: 12px;
+  border-color: #d0d0d0;
 }
 
 .recibo-lct .title {
-  background: #c6e0b4;
+  background: #c6efce;
   text-align: center;
   font-weight: 800;
-  font-size: 14px;
-  letter-spacing: 0.4px;
-  padding: 6px;
+  font-size: 16px;
+  letter-spacing: 0.6px;
+  padding: 6px 4px;
 }
 
 .recibo-lct .hd {
-  background: #5b9bd5;
-  color: #fff;
+  background: #9dc3e6;
+  color: #000;
   font-weight: 700;
   text-align: center;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .recibo-lct .hd-sub {
-  background: #8ea9db;
-  color: #fff;
+  background: #bdd7ee;
+  color: #000;
   text-align: center;
   font-weight: 700;
+  font-size: 11px;
 }
 
-.recibo-lct .bar-yellow {
-  background: #c6e0b4;
+.recibo-lct .hd-grey {
+  background: #d9d9d9;
+  color: #000;
+  font-weight: 700;
+  text-align: center;
+  font-size: 11px;
+}
+
+.recibo-lct .bar-green {
+  background: #c6efce;
   font-weight: 800;
-  font-size: 12px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.recibo-lct .bar-green.num,
+.recibo-lct .bar-blue.num,
+.recibo-lct .neto.num {
+  text-align: right;
 }
 
 .recibo-lct .bar-blue {
-  background: #5b9bd5;
-  color: #fff;
+  background: #9dc3e6;
   font-weight: 800;
+  font-size: 12px;
+  text-align: center;
 }
 
 .recibo-lct .neto {
@@ -76,48 +104,134 @@
   font-size: 13px;
 }
 
+.recibo-lct .neto.letras {
+  text-align: left;
+  font-weight: 700;
+  font-size: 13px;
+}
+
 .recibo-lct .pct {
   background: #ffff00;
   text-align: center;
+  font-weight: 600;
+}
+
+.recibo-lct .remun {
+  background: #c6efce;
 }
 
 .recibo-lct .num {
   text-align: right;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .recibo-lct .center {
   text-align: center;
 }
 
-.recibo-lct .obs {
-  font-size: 10px;
-  padding: 6px;
+.recibo-lct .obs-label {
+  font-weight: 700;
+  border-bottom: none;
 }
 
-.recibo-lct .pie {
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  margin: 8px auto 0;
-  border: 1px solid #ccc;
-}
-
-.recibo-lct .legend {
-  font-size: 10px;
-  line-height: 1.45;
-}
-
-.recibo-lct .dot {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  margin-right: 4px;
-  vertical-align: middle;
+.recibo-lct .obs-text {
+  border-top: none;
+  padding-bottom: 8px;
 }
 
 .recibo-lct .firma {
   text-align: right;
+  font-size: 11px;
+  border: none;
+  padding: 10px 8px 6px;
+}
+
+.recibo-lct-bottom {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  border-top: 1px solid #000;
+  min-height: 280px;
+}
+
+.recibo-lct-comp {
+  border-right: 1px solid #000;
+}
+
+.recibo-lct-comp table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.recibo-lct-comp th {
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.recibo-lct-comp td {
+  font-size: 12px;
+}
+
+.recibo-lct-comp tr.tot td {
+  background: #ffff00;
+}
+
+.recibo-lct .comp-title {
+  padding: 5px;
+  border-bottom: 1px solid #000;
+}
+
+.recibo-lct-comp .nota {
+  margin: 8px 8px 10px;
   font-size: 10px;
-  padding: 10px 8px 14px;
+  color: #333;
+}
+
+.recibo-lct-pie-block {
+  background: #fff;
+}
+
+.pie-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px 12px 10px;
+  min-height: 240px;
+}
+
+.pie-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1.55;
+  flex: 0 0 auto;
+}
+
+.pie-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.pie-legend .swatch {
+  width: 11px;
+  height: 11px;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  flex: 0 0 11px;
+}
+
+.pie-chart {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.recibo-lct-pie {
+  display: block;
+  overflow: visible;
 }
