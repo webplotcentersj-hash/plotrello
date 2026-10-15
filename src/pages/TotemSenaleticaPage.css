@@ -309,7 +309,7 @@
   gap: clamp(8px, 1.7vmin, 20px);
 }
 
-/* medallón con icono flotante y ondas */
+/* medallón con icono flotante */
 .sen-medal {
   position: relative;
   width: var(--m);
@@ -329,16 +329,6 @@
   border: 3px solid color-mix(in srgb, var(--fg) 34%, transparent);
 }
 
-.sen-medal__ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 3px solid var(--fg);
-  opacity: 0;
-  animation: sen-ripple 2.7s ease-out infinite;
-  animation-delay: calc(var(--r) * 0.9s);
-}
-
 .sen-medal__ico {
   position: relative;
   width: 100%;
@@ -355,11 +345,6 @@
 
 @keyframes sen-pop {
   from { opacity: 0; transform: scale(0.3) rotate(-12deg); }
-}
-
-@keyframes sen-ripple {
-  0% { opacity: 0.55; transform: scale(0.9); }
-  100% { opacity: 0; transform: scale(2); }
 }
 
 @keyframes sen-bob {
@@ -420,18 +405,11 @@
   font-weight: 900;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  animation:
-    sen-pop-badge 0.7s cubic-bezier(0.2, 1.5, 0.4, 1) 1.05s backwards,
-    sen-badge-pulse 1.8s ease-out 1.8s infinite;
+  animation: sen-pop-badge 0.7s cubic-bezier(0.2, 1.5, 0.4, 1) 1.05s backwards;
 }
 
 @keyframes sen-pop-badge {
   from { opacity: 0; transform: scale(0.2); }
-}
-
-@keyframes sen-badge-pulse {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fg) 55%, transparent); }
-  80%, 100% { box-shadow: 0 0 0 clamp(10px, 2vmin, 22px) transparent; }
 }
 
 .sen-detail {
@@ -476,20 +454,6 @@
 .sen-route__start,
 .sen-route__end { fill: var(--fg); }
 .sen-route__end-dot { fill: var(--bg); }
-
-.sen-route__pulse {
-  fill: none;
-  stroke: var(--fg);
-  stroke-width: 3;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: sen-pin 1.8s ease-out infinite;
-}
-
-@keyframes sen-pin {
-  0% { opacity: 0.8; transform: scale(0.8); }
-  100% { opacity: 0; transform: scale(2.6); }
-}
 
 .sen-route__walker {
   fill: var(--fg);
@@ -635,18 +599,31 @@
   from { transform: scaleX(0); }
 }
 
-/* ───────── lista de franjas (idéntica al tótem, pero viva) ───────── */
+/* ───────── lista de franjas (idéntica al tótem, pero viva; las anima motion) ───────── */
 
 .sen-list {
+  --sen-sign-gap: clamp(8px, 1.6vmin, 18px);
+  /* alto de una franja, para que ícono y flecha entren también con 6 filas (cqh = alto de esta lista) */
+  --row: calc((100cqh - (var(--n, 6) - 1) * var(--sen-sign-gap)) / var(--n, 6));
   position: relative;
   min-height: 0;
   display: grid;
-  grid-template-rows: repeat(5, minmax(0, 1fr));
-  gap: clamp(8px, 1.6vmin, 18px);
+  grid-template-rows: repeat(var(--n, 6), minmax(0, 1fr));
+  gap: var(--sen-sign-gap);
+  container-type: size;
+}
+
+/* slot: lo mueve motion (flotado en reposo, salto de la intro) */
+.sen-slot {
+  position: relative;
+  min-height: 0;
+  display: flex;
 }
 
 .sen-sign {
   position: relative;
+  flex: 1;
+  min-width: 0;
   min-height: 0;
   display: flex;
   align-items: center;
@@ -658,50 +635,23 @@
   color: var(--fg);
   background: linear-gradient(135deg, color-mix(in srgb, var(--bg) 86%, #fff), var(--bg));
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  opacity: 0.6;
   filter: saturate(0.82);
-  transform: scale(0.97);
-  transition:
-    transform 0.55s cubic-bezier(0.2, 0.9, 0.25, 1.2),
-    opacity 0.5s ease,
-    filter 0.5s ease,
-    box-shadow 0.5s ease;
-  animation: sen-sign-in 0.85s cubic-bezier(0.2, 0.9, 0.25, 1.1) backwards;
-  animation-delay: calc(var(--i) * 0.12s + 0.3s);
-}
-
-@keyframes sen-sign-in {
-  from { opacity: 0; transform: translateX(14vmin) scale(0.9); }
+  transition: filter 0.5s ease, box-shadow 0.5s ease;
 }
 
 .sen--intro .sen-sign,
 .sen-sign.is-active {
-  opacity: 1;
   filter: none;
 }
 
 .sen-sign.is-active {
-  z-index: 3;
-  transform: scale(1.03);
   box-shadow:
     0 0 0 clamp(3px, 0.6vmin, 6px) color-mix(in srgb, var(--bg) 55%, #fff 25%),
     0 0 clamp(30px, 6vmin, 70px) color-mix(in srgb, var(--bg) 70%, transparent),
     0 16px 34px rgba(0, 0, 0, 0.45);
 }
 
-/* en la intro todas se encienden una tras otra */
-.sen--intro .sen-sign {
-  animation:
-    sen-sign-in 0.85s cubic-bezier(0.2, 0.9, 0.25, 1.1) calc(var(--i) * 0.12s + 0.3s) backwards,
-    sen-wave 1.3s ease-in-out calc(2s + var(--i) * 0.32s) 1;
-}
-
-@keyframes sen-wave {
-  45% { transform: scale(1.045); }
-}
-
-.sen-sign::after {
-  content: '';
+.sen-sign__shine {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -709,23 +659,12 @@
   transform: translateX(-130%);
 }
 
-.sen-sign.is-active::after {
-  animation: sen-shine 2.6s ease-in-out 0.7s infinite;
-}
-
-.sen--intro .sen-sign::after {
-  animation: sen-shine 1.6s ease-in-out calc(2s + var(--i) * 0.32s) 1;
-}
-
-@keyframes sen-shine {
-  0% { transform: translateX(-130%); }
-  60%, 100% { transform: translateX(130%); }
-}
-
 .sen-sign__ico {
   flex: none;
   width: clamp(44px, 7.2vmin, 84px);
   height: clamp(44px, 7.2vmin, 84px);
+  width: clamp(34px, min(7.2vmin, calc(var(--row) * 0.66)), 84px);
+  height: clamp(34px, min(7.2vmin, calc(var(--row) * 0.66)), 84px);
   display: grid;
   place-items: center;
   border-radius: 20px;
@@ -736,17 +675,6 @@
 .sen-sign__ico svg {
   width: 58%;
   height: 58%;
-}
-
-.sen-sign.is-active .sen-sign__ico {
-  animation: sen-wiggle 1.8s ease-in-out infinite;
-}
-
-@keyframes sen-wiggle {
-  0%, 60%, 100% { transform: rotate(0); }
-  70% { transform: rotate(-9deg) scale(1.08); }
-  80% { transform: rotate(8deg) scale(1.08); }
-  90% { transform: rotate(-4deg); }
 }
 
 .sen-sign__text {
@@ -788,6 +716,8 @@
   flex: none;
   width: clamp(44px, 7.2vmin, 84px);
   height: clamp(44px, 7.2vmin, 84px);
+  width: clamp(34px, min(7.2vmin, calc(var(--row) * 0.66)), 84px);
+  height: clamp(34px, min(7.2vmin, calc(var(--row) * 0.66)), 84px);
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -796,35 +726,23 @@
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
 }
 
-.sen-sign__arrow::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 3px solid var(--fg);
-  opacity: 0;
-}
-
-.sen-sign.is-active .sen-sign__arrow::before {
-  animation: sen-ripple 1.6s ease-out infinite;
-}
-
-.sen-sign__arrow svg {
+/* el empujón lo hace motion sobre el glifo; el giro del svg queda en CSS */
+.sen-sign__glyph {
   width: 62%;
   height: 62%;
+  display: grid;
+  place-items: center;
 }
 
-.sen-sign--planta-baja .sen-sign__arrow svg { rotate: 180deg; animation: sen-nudge-down 1.3s ease-in-out infinite; }
-.sen-sign--adelante .sen-sign__arrow svg { rotate: 90deg; animation: sen-nudge-ahead 1.3s ease-in-out infinite; }
-.sen-sign--primer-piso .sen-sign__arrow svg { animation: sen-nudge-up 1.3s ease-in-out infinite; }
+.sen-sign__glyph svg {
+  width: 100%;
+  height: 100%;
+}
 
-.sen-sign.is-active .sen-sign__arrow svg { animation-duration: 0.8s; }
+.sen-sign--planta-baja .sen-sign__glyph svg { rotate: 180deg; }
+.sen-sign--adelante .sen-sign__glyph svg { rotate: 90deg; }
 
-@keyframes sen-nudge-down { 50% { translate: 0 18%; } }
-@keyframes sen-nudge-ahead { 50% { translate: 18% 0; } }
-@keyframes sen-nudge-up { 50% { translate: 0 -18%; } }
-
-/* barra de tiempo de la franja activa */
+/* barra de tiempo de la franja activa (la llena motion) */
 .sen-sign__timer {
   position: absolute;
   left: 0;
@@ -833,13 +751,7 @@
   height: clamp(4px, 0.8vmin, 8px);
   background: var(--fg);
   opacity: 0.5;
-  transform: scaleX(0);
   transform-origin: left;
-  animation: sen-fill var(--dur, 8s) linear forwards;
-}
-
-@keyframes sen-fill {
-  to { transform: scaleX(1); }
 }
 
 /* ───────── pie ───────── */
@@ -900,7 +812,22 @@
   }
 
   .sen-hero {
+    --m: clamp(64px, 11vmin, 130px);
     --s: clamp(90px, 21vmin, 220px);
+  }
+
+  .sen-hero__inner {
+    padding-block: clamp(14px, 3vmin, 44px);
+  }
+
+  /* el héroe es bajo en vertical: recorrido más chico y menos aire para el peor caso (Diseño) */
+  .sen-hero__copy {
+    gap: clamp(6px, 1.3vmin, 16px);
+  }
+
+  .sen-route {
+    width: min(100%, 360px);
+    margin-top: 0;
   }
 }
 
@@ -933,7 +860,8 @@
   }
 
   .sen-flow,
-  .sen-route__walker {
+  .sen-route__walker,
+  .sen-sign__shine {
     display: none;
   }
 }

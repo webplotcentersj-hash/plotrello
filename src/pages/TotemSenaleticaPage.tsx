@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { MotionConfig, motion, useReducedMotion } from 'motion/react'
 import { TotemKioskIcon } from '../components/totem/TotemKioskIcons'
 import { useTotemKioskFullscreen, useTotemKioskMode } from '../hooks/useTotemKioskMode'
 import {
   DIRECCION_DETALLE,
   DIRECCION_TEXTO,
-  TOTEM_SECTORS_QUEHACER,
+  TOTEM_SENALETICA_ITEMS,
   type SectorDirection,
   type TotemSectorSenaletica
 } from '../constants/totemSectoresSenaletica'
@@ -19,7 +20,10 @@ import './TotemSenaleticaPage.css'
  *
  * - /totem/senaletica               → rota: intro + cada franja a pantalla completa.
  * - /totem/senaletica?sector=diseno → fija un solo destino (tablet en la escalera, etc.).
- *   ids: presupuestos · recepcion · diseno · caja · base_operaciones
+ *   ids: presupuestos · recepcion · diseno · caja · base_operaciones · imprimir
+ *
+ * Las franjas de la derecha se animan con `motion` (resortes, flotado, brillo);
+ * el fondo y el destino a pantalla completa van en CSS puro.
  */
 
 const LOGO_URL = '/plot-lab-logo.png'
@@ -28,8 +32,18 @@ const SECTOR_MS = 8000
 const HOLD_MS = 25_000
 const LEAVE_MS = 1000
 
-/** Paso 0 = intro; 1..n = una franja del tótem. */
-const STEPS: Array<TotemSectorSenaletica | null> = [null, ...TOTEM_SECTORS_QUEHACER]
+/** Paso 0 = intro; 1..n = una franja del tótem (+ Imprimir). */
+const STEPS: Array<TotemSectorSenaletica | null> = [null, ...TOTEM_SENALETICA_ITEMS]
+
+const SPRING = { type: 'spring', stiffness: 240, damping: 17, mass: 0.9 } as const
+const EASE_IN_OUT = 'easeInOut' as const
+
+/** Empujón de la flecha hacia donde apunta la franja (en pantalla: ↓ / → / ↑). */
+const NUDGE: Record<SectorDirection, { x?: string[]; y?: string[] }> = {
+  'planta-baja': { y: ['0%', '20%', '0%'] },
+  adelante: { x: ['0%', '20%', '0%'] },
+  'primer-piso': { y: ['0%', '-20%', '0%'] }
+}
 
 type Vars = Record<`--${string}`, string | number>
 const vars = (v: Vars) => v as unknown as CSSProperties
@@ -84,7 +98,6 @@ function RouteStrip({ dir }: { dir: SectorDirection }) {
     <div className="sen-route" aria-hidden>
       <svg viewBox="0 0 600 112">
         <path className="sen-route__track" d={d} />
-        <circle className="sen-route__pulse" cx={sx} cy={sy} r="12" />
         <circle className="sen-route__start" cx={sx} cy={sy} r="9" />
         <circle className="sen-route__end" cx={ex} cy={ey} r="17" />
         <circle className="sen-route__end-dot" cx={ex} cy={ey} r="7" />
@@ -111,9 +124,6 @@ function SectorHero({ sector, leaving }: { sector: TotemSectorSenaletica; leavin
       <div className="sen-hero__inner">
         <div className="sen-hero__copy">
           <div className="sen-medal" aria-hidden>
-            {[0, 1, 2].map((r) => (
-              <span key={r} className="sen-medal__ring" style={vars({ '--r': r })} />
-            ))}
             <span className="sen-medal__ico">
               <TotemKioskIcon name={sector.icon} size="lg" />
             </span>
@@ -150,7 +160,119 @@ function IntroHero({ leaving }: { leaving: boolean }) {
   )
 }
 
-export default function TotemSenaleticaPage() {
+type SignProps = {
+  sector: TotemSectorSenaletica
+  index: number
+  active: boolean
+  intro: boolean
+  /** Rotación automática (en modo fijo no hay barra de tiempo). */
+  cycling: boolean
+  /** Cuánto dura la franja activa; reinicia la barra de tiempo con `timerKey`. */
+  durMs: number
+  timerKey: string
+  onSelect: () => void
+}
+
+/**
+ * Una franja de la señalética. Tres capas para que las animaciones no se pisen:
+ * - slot: flotado en reposo + "salto" escalonado en la intro
+ * - botón: entrada con resorte, estado activo y toque
+ * - contenido: ícono que se sacude, flecha que empuja, brillo y barra de tiempo
+ */
+function SenaleticaSign({ sector, index, active, intro, cycling, durMs, timerKey, onSelect }: SignProps) {
+  const reduce = useReducedMotion()
+  const [entered, setEntered] = useState(false)
+  const dir = sector.direction
+  const entryDelay = entered ? 0 : 0.35 + index * 0.11
+
+  const slotAnimate = active
+    ? { y: 0, scale: 1 }
+    : intro
+      ? { y: 0, scale: [1, 1.05, 1] }
+      : { y: [0, -5, 0], scale: 1 }
+  const slotTransition = active
+    ? SPRING
+    : intro
+      ? { y: { duration: 0.3 }, scale: { duration: 0.8, delay: 2 + index * 0.32, ease: EASE_IN_OUT } }
+      : {
+          y: { duration: 3.4 + (index % 3) * 0.5, repeat: Infinity, ease: EASE_IN_OUT, delay: index * 0.35 },
+          scale: { duration: 0.3 }
+        }
+
+  const shineAnimate = active || intro ? { x: ['-130%', '130%'] } : { x: '-130%' }
+  const shineTransition = active
+    ? { duration: 1.4, ease: EASE_IN_OUT, repeat: Infinity, repeatDelay: 1.2, delay: 0.7 }
+    : intro
+      ? { duration: 1.4, ease: EASE_IN_OUT, delay: 2 + index * 0.32 }
+      : { duration: 0 }
+
+  return (
+    <motion.div
+      className="sen-slot"
+      role="listitem"
+      style={{ ...sectorVars(sector), zIndex: active ? 3 : 1 }}
+      animate={slotAnimate}
+      transition={slotTransition}
+    >
+      <motion.button
+        type="button"
+        className={`sen-sign sen-sign--${dir}${active ? ' is-active' : ''}`}
+        initial={{ opacity: 0, x: 160, scale: 0.86, rotate: 3 }}
+        animate={{
+          opacity: active || intro ? 1 : 0.6,
+          x: 0,
+          scale: active ? 1.04 : intro ? 1 : 0.97,
+          rotate: 0
+        }}
+        transition={{ ...SPRING, opacity: { duration: 0.4 }, delay: entryDelay }}
+        whileTap={{ scale: 0.93 }}
+        onAnimationComplete={() => setEntered(true)}
+        onClick={onSelect}
+        aria-pressed={active}
+      >
+        <motion.span
+          className="sen-sign__ico"
+          aria-hidden
+          animate={active ? { rotate: [0, -10, 9, -5, 0], scale: [1, 1.12, 1.12, 1.05, 1] } : { rotate: 0, scale: 1 }}
+          transition={
+            active ? { duration: 1.1, repeat: Infinity, repeatDelay: 0.8, ease: EASE_IN_OUT } : { duration: 0.25 }
+          }
+        >
+          <TotemKioskIcon name={sector.icon} size="strip" />
+        </motion.span>
+        <span className="sen-sign__text">
+          <strong>{sector.label}</strong>
+          <small>{DIRECCION_TEXTO[dir]}</small>
+        </span>
+        {dir === 'primer-piso' && <span className="sen-sign__floor">1° piso</span>}
+        <span className="sen-sign__arrow" aria-hidden>
+          <motion.span
+            className="sen-sign__glyph"
+            animate={NUDGE[dir]}
+            transition={{ duration: active ? 0.7 : 1.3, repeat: Infinity, ease: EASE_IN_OUT }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" />
+            </svg>
+          </motion.span>
+        </span>
+        <motion.span className="sen-sign__shine" aria-hidden animate={shineAnimate} transition={shineTransition} />
+        {active && cycling && !reduce && (
+          <motion.span
+            key={timerKey}
+            className="sen-sign__timer"
+            aria-hidden
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: durMs / 1000, ease: 'linear' }}
+          />
+        )}
+      </motion.button>
+    </motion.div>
+  )
+}
+
+function SenaleticaScreen() {
   useTotemKioskMode()
   const [params] = useSearchParams()
   const { toggle: toggleFullscreen } = useTotemKioskFullscreen()
@@ -158,7 +280,7 @@ export default function TotemSenaleticaPage() {
   const fixedIdx = useMemo(() => {
     const id = params.get('sector')?.trim().toLowerCase()
     if (!id) return null
-    const i = TOTEM_SECTORS_QUEHACER.findIndex((s) => s.id === id)
+    const i = TOTEM_SENALETICA_ITEMS.findIndex((s) => s.id === id)
     return i >= 0 ? i + 1 : null
   }, [params])
 
@@ -295,36 +417,20 @@ export default function TotemSenaleticaPage() {
           })}
         </section>
 
-        <div className="sen-list" role="list">
-          {TOTEM_SECTORS_QUEHACER.map((sector, i) => {
-            const active = idx === i + 1
-            return (
-              <button
-                key={sector.id}
-                type="button"
-                role="listitem"
-                className={`sen-sign sen-sign--${sector.direction}${active ? ' is-active' : ''}`}
-                style={{ ...sectorVars(sector), ...vars({ '--i': i, '--dur': `${hold ? HOLD_MS : SECTOR_MS}ms` }) }}
-                onClick={() => goTo(i + 1)}
-                aria-pressed={active}
-              >
-                <span className="sen-sign__ico" aria-hidden>
-                  <TotemKioskIcon name={sector.icon} size="strip" />
-                </span>
-                <span className="sen-sign__text">
-                  <strong>{sector.label}</strong>
-                  <small>{DIRECCION_TEXTO[sector.direction]}</small>
-                </span>
-                {sector.direction === 'primer-piso' && <span className="sen-sign__floor">1° piso</span>}
-                <span className="sen-sign__arrow" aria-hidden>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" />
-                  </svg>
-                </span>
-                {active && cycling && <span key={`${idx}-${tick}`} className="sen-sign__timer" aria-hidden />}
-              </button>
-            )
-          })}
+        <div className="sen-list" role="list" style={vars({ '--n': TOTEM_SENALETICA_ITEMS.length })}>
+          {TOTEM_SENALETICA_ITEMS.map((sector, i) => (
+            <SenaleticaSign
+              key={sector.id}
+              sector={sector}
+              index={i}
+              active={idx === i + 1}
+              intro={intro}
+              cycling={cycling}
+              durMs={hold ? HOLD_MS : SECTOR_MS}
+              timerKey={`${idx}-${tick}`}
+              onSelect={() => goTo(i + 1)}
+            />
+          ))}
         </div>
       </main>
 
@@ -352,5 +458,14 @@ export default function TotemSenaleticaPage() {
         </p>
       </footer>
     </div>
+  )
+}
+
+export default function TotemSenaleticaPage() {
+  // "user": si la tablet tiene movimiento reducido, motion deja las franjas quietas.
+  return (
+    <MotionConfig reducedMotion="user">
+      <SenaleticaScreen />
+    </MotionConfig>
   )
 }

@@ -84,3 +84,23 @@ export const TOTEM_SECTORS_QUEHACER: TotemSectorSenaletica[] = [
     direction: 'adelante'
   }
 ]
+
+/**
+ * Imprimir es un flujo del tótem (no un sector que genere avisos al personal), por eso
+ * no está en TOTEM_SECTORS_QUEHACER: se suma solo a la señalética animada de tablet.
+ */
+export const TOTEM_IMPRIMIR_SENALETICA: TotemSectorSenaletica = {
+  id: 'imprimir',
+  label: 'IMPRIMIR',
+  icon: 'print',
+  sectorDestino: 'Imprimir',
+  bg: '#7C3AED',
+  textColor: '#ffffff',
+  direction: 'adelante'
+}
+
+/** Franjas de la señalética de tablet: las del tótem + Imprimir. */
+export const TOTEM_SENALETICA_ITEMS: TotemSectorSenaletica[] = [
+  ...TOTEM_SECTORS_QUEHACER,
+  TOTEM_IMPRIMIR_SENALETICA
+]
