@@ -1,0 +1,123 @@
+.recibo-lct {
+  width: 1100px;
+  background: #fff;
+  color: #111;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  border: 1px solid #222;
+  box-sizing: border-box;
+}
+
+.recibo-lct * {
+  box-sizing: border-box;
+}
+
+.recibo-lct table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.recibo-lct td,
+.recibo-lct th {
+  border: 1px solid #333;
+  padding: 3px 6px;
+  vertical-align: middle;
+}
+
+.recibo-lct .emp-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.recibo-lct .emp-addr,
+.recibo-lct .emp-cuit {
+  font-size: 11px;
+}
+
+.recibo-lct .title {
+  background: #c6e0b4;
+  text-align: center;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.4px;
+  padding: 6px;
+}
+
+.recibo-lct .hd {
+  background: #5b9bd5;
+  color: #fff;
+  font-weight: 700;
+  text-align: center;
+  font-size: 10px;
+}
+
+.recibo-lct .hd-sub {
+  background: #8ea9db;
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+}
+
+.recibo-lct .bar-yellow {
+  background: #c6e0b4;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.recibo-lct .bar-blue {
+  background: #5b9bd5;
+  color: #fff;
+  font-weight: 800;
+}
+
+.recibo-lct .neto {
+  background: #ffff99;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.recibo-lct .pct {
+  background: #ffff00;
+  text-align: center;
+}
+
+.recibo-lct .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.recibo-lct .center {
+  text-align: center;
+}
+
+.recibo-lct .obs {
+  font-size: 10px;
+  padding: 6px;
+}
+
+.recibo-lct .pie {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  margin: 8px auto 0;
+  border: 1px solid #ccc;
+}
+
+.recibo-lct .legend {
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.recibo-lct .dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.recibo-lct .firma {
+  text-align: right;
+  font-size: 10px;
+  padding: 10px 8px 14px;
+}

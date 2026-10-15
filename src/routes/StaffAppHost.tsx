@@ -78,6 +78,7 @@ const RecursosHumanosDesvinculacionesPage = lazy(
   () => import('../pages/RecursosHumanosDesvinculacionesPage')
 )
 const RecursosHumanosLiquidacionPage = lazy(() => import('../pages/RecursosHumanosLiquidacionPage'))
+const RecursosHumanosLibroSueldosPage = lazy(() => import('../pages/RecursosHumanosLibroSueldosPage'))
 const RecursosHumanosVacacionesPage = lazy(() => import('../pages/RecursosHumanosVacacionesPage'))
 const RecursosHumanosOnboardingPage = lazy(() => import('../pages/RecursosHumanosOnboardingPage'))
 const RecursosHumanosOrganigramaPage = lazy(() => import('../pages/RecursosHumanosOrganigramaPage'))
@@ -1280,6 +1281,10 @@ function AppRoutes({
       <Route
         path="/rrhh/liquidacion"
         element={<RecursosHumanosLiquidacionPage />}
+      />
+      <Route
+        path="/rrhh/libro-sueldos"
+        element={<RecursosHumanosLibroSueldosPage />}
       />
       <Route
         path="/rrhh/vacaciones"

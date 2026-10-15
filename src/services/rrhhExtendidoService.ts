@@ -12,6 +12,13 @@ import type {
   RrhhOnboardingProgreso,
   RrhhPuesto
 } from '../types/api'
+import type {
+  AlicuotasLct,
+  ReciboExtra,
+  RrhhLibroSueldos,
+  RrhhLibroSueldosItem,
+  RrhhSueldoFicha
+} from '../utils/rrhhLibroSueldos'
 
 function err(e: unknown, fb: string): string {
   if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
@@ -673,5 +680,299 @@ export async function rrhhClimaResultados(idEncuesta: number): Promise<{
     }
   } catch (e) {
     return { success: false, error: err(e, 'Error al calcular resultados') }
+  }
+}
+
+// ——— Libro de sueldos ———
+
+function num(v: unknown, fallback = 0): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : fallback
+}
+
+function parseExtras(raw: unknown): ReciboExtra[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((x, i) => {
+    const r = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>
+    const tipo = r.tipo
+    return {
+      id: String(r.id || `x-${i}`),
+      concepto: String(r.concepto || ''),
+      tipo:
+        tipo === 'no_remunerativo' || tipo === 'descuento' || tipo === 'empleador' ? tipo : 'remunerativo',
+      unidad: String(r.unidad || ''),
+      base: r.base == null || r.base === '' ? null : num(r.base),
+      monto: num(r.monto),
+      codigo_lsd: String(r.codigo_lsd || '')
+    }
+  })
+}
+
+function mapLibro(row: Record<string, unknown>): RrhhLibroSueldos {
+  return {
+    id: num(row.id),
+    periodo: String(row.periodo || ''),
+    estado: row.estado === 'cerrado' ? 'cerrado' : 'borrador',
+    empresa_nombre: String(row.empresa_nombre || 'PLOT CENTER SRL'),
+    empresa_domicilio: String(row.empresa_domicilio || ''),
+    empresa_cuit: String(row.empresa_cuit || '30715518801'),
+    jurisdiccion: String(row.jurisdiccion || 'SAN JUAN'),
+    cct_default: String(row.cct_default || '0409/05'),
+    art_codigo: String(row.art_codigo || '00000'),
+    scvo_cia: String(row.scvo_cia || 'S880 EXPERTA SEGUROS'),
+    banco: row.banco == null ? null : String(row.banco),
+    fecha_pago: row.fecha_pago == null ? null : String(row.fecha_pago).slice(0, 10),
+    scvo_default: num(row.scvo_default),
+    os_base_mult: num(row.os_base_mult, 2),
+    nro_liquidacion: num(row.nro_liquidacion, 1),
+    dias_base: num(row.dias_base, 30),
+    tipo_empleador: String(row.tipo_empleador || '1'),
+    codigo_actividad: String(row.codigo_actividad || '049'),
+    codigo_localidad: String(row.codigo_localidad || '00'),
+    codigo_os_default: row.codigo_os_default == null ? null : String(row.codigo_os_default),
+    importe_detraer: num(row.importe_detraer),
+    alicuotas: (row.alicuotas && typeof row.alicuotas === 'object' ? row.alicuotas : {}) as Partial<AlicuotasLct>,
+    notas: row.notas == null ? null : String(row.notas),
+    id_lote_recibos: row.id_lote_recibos == null ? null : num(row.id_lote_recibos),
+    created_by: row.created_by == null ? null : num(row.created_by),
+    created_at: String(row.created_at || '')
+  }
+}
+
+function mapItem(row: Record<string, unknown>): RrhhLibroSueldosItem {
+  return {
+    id: num(row.id),
+    id_libro: num(row.id_libro),
+    id_usuario: num(row.id_usuario),
+    incluido: row.incluido !== false,
+    n_legajo: num(row.n_legajo),
+    apellido_nombre: String(row.apellido_nombre || ''),
+    cuil: String(row.cuil || ''),
+    categoria: row.categoria == null ? null : String(row.categoria),
+    fecha_ingreso: row.fecha_ingreso == null ? null : String(row.fecha_ingreso).slice(0, 10),
+    antiguedad_reconocida: num(row.antiguedad_reconocida),
+    anios_antiguedad: num(row.anios_antiguedad),
+    dias: num(row.dias, 30),
+    etiqueta_basico: String(row.etiqueta_basico || 'Sueldo básico'),
+    sueldo_basico: num(row.sueldo_basico),
+    adicional_antiguedad: num(row.adicional_antiguedad),
+    scvo: num(row.scvo),
+    banco: row.banco == null ? null : String(row.banco),
+    cbu: row.cbu == null ? null : String(row.cbu),
+    forma_pago: String(row.forma_pago || '1'),
+    conyuge: row.conyuge === true,
+    hijos: num(row.hijos),
+    cct: row.cct !== false,
+    cct_codigo: row.cct_codigo == null ? null : String(row.cct_codigo),
+    cobertura_scvo: row.cobertura_scvo !== false,
+    situacion_revista: String(row.situacion_revista || '01'),
+    condicion: String(row.condicion || '01'),
+    actividad: row.actividad == null ? null : String(row.actividad),
+    modalidad: String(row.modalidad || '001'),
+    codigo_os: row.codigo_os == null ? null : String(row.codigo_os),
+    horas_trabajadas: num(row.horas_trabajadas),
+    extras: parseExtras(row.extras)
+  }
+}
+
+function mapFicha(row: Record<string, unknown>): RrhhSueldoFicha {
+  return {
+    id_usuario: num(row.id_usuario),
+    n_legajo: row.n_legajo == null ? null : num(row.n_legajo),
+    cuil: row.cuil == null ? null : String(row.cuil),
+    categoria: row.categoria == null ? null : String(row.categoria),
+    etiqueta_basico: row.etiqueta_basico == null ? null : String(row.etiqueta_basico),
+    sueldo_basico: row.sueldo_basico == null ? null : num(row.sueldo_basico),
+    adicional_antiguedad: row.adicional_antiguedad == null ? null : num(row.adicional_antiguedad),
+    antiguedad_reconocida: row.antiguedad_reconocida == null ? null : num(row.antiguedad_reconocida),
+    scvo: row.scvo == null ? null : num(row.scvo),
+    banco: row.banco == null ? null : String(row.banco),
+    cbu: row.cbu == null ? null : String(row.cbu),
+    forma_pago: row.forma_pago == null ? null : String(row.forma_pago),
+    conyuge: row.conyuge == null ? null : row.conyuge === true,
+    hijos: row.hijos == null ? null : num(row.hijos),
+    cct: row.cct == null ? null : row.cct !== false,
+    cct_codigo: row.cct_codigo == null ? null : String(row.cct_codigo),
+    cobertura_scvo: row.cobertura_scvo == null ? null : row.cobertura_scvo !== false,
+    situacion_revista: row.situacion_revista == null ? null : String(row.situacion_revista),
+    condicion: row.condicion == null ? null : String(row.condicion),
+    actividad: row.actividad == null ? null : String(row.actividad),
+    modalidad: row.modalidad == null ? null : String(row.modalidad),
+    codigo_os: row.codigo_os == null ? null : String(row.codigo_os)
+  }
+}
+
+export async function rrhhLibroSueldosObtener(periodo: string): Promise<{
+  success: boolean
+  data?: RrhhLibroSueldos | null
+  error?: string
+}> {
+  if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+  try {
+    const { data, error } = await supabase
+      .from('rrhh_libro_sueldos')
+      .select('*')
+      .eq('periodo', periodo)
+      .maybeSingle()
+    if (error) throw error
+    return { success: true, data: data ? mapLibro(data as Record<string, unknown>) : null }
+  } catch (e) {
+    return { success: false, error: err(e, 'Error al leer el libro de sueldos') }
+  }
+}
+
+export async function rrhhLibroSueldosUpsert(input: {
+  periodo: string
+  created_by?: number | null
+  patch?: Partial<RrhhLibroSueldos>
+}): Promise<{ success: boolean; data?: RrhhLibroSueldos; error?: string }> {
+  if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+  try {
+    const existing = await rrhhLibroSueldosObtener(input.periodo)
+    if (!existing.success) return { success: false, error: existing.error }
+    const payload: Record<string, unknown> = {
+      periodo: input.periodo,
+      updated_at: new Date().toISOString()
+    }
+    if (!existing.data && input.created_by != null) payload.created_by = input.created_by
+    const p = input.patch || {}
+    const keys: Array<keyof RrhhLibroSueldos> = [
+      'estado',
+      'empresa_nombre',
+      'empresa_domicilio',
+      'empresa_cuit',
+      'jurisdiccion',
+      'cct_default',
+      'art_codigo',
+      'scvo_cia',
+      'banco',
+      'fecha_pago',
+      'scvo_default',
+      'os_base_mult',
+      'nro_liquidacion',
+      'dias_base',
+      'tipo_empleador',
+      'codigo_actividad',
+      'codigo_localidad',
+      'codigo_os_default',
+      'importe_detraer',
+      'alicuotas',
+      'notas',
+      'id_lote_recibos'
+    ]
+    for (const k of keys) {
+      if (p[k] !== undefined) payload[k] = p[k]
+    }
+    const q = existing.data
+      ? supabase.from('rrhh_libro_sueldos').update(payload).eq('id', existing.data.id)
+      : supabase.from('rrhh_libro_sueldos').insert(payload)
+    const { data, error } = await q.select('*').single()
+    if (error) throw error
+    return { success: true, data: mapLibro(data as Record<string, unknown>) }
+  } catch (e) {
+    return { success: false, error: err(e, 'Error al guardar el libro de sueldos') }
+  }
+}
+
+export async function rrhhLibroSueldosItemsListar(idLibro: number): Promise<{
+  success: boolean
+  data?: RrhhLibroSueldosItem[]
+  error?: string
+}> {
+  if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+  try {
+    const { data, error } = await supabase
+      .from('rrhh_libro_sueldos_items')
+      .select('*')
+      .eq('id_libro', idLibro)
+      .order('n_legajo', { ascending: true })
+    if (error) throw error
+    return { success: true, data: (data || []).map((r) => mapItem(r as Record<string, unknown>)) }
+  } catch (e) {
+    return { success: false, error: err(e, 'Error al listar ítems del libro') }
+  }
+}
+
+export async function rrhhLibroSueldosItemsReemplazar(
+  idLibro: number,
+  items: Array<Omit<RrhhLibroSueldosItem, 'id' | 'id_libro'> & { id?: number; id_libro?: number }>
+): Promise<{ success: boolean; data?: RrhhLibroSueldosItem[]; error?: string }> {
+  if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+  try {
+    const rows = items.map((it) => ({
+      id_libro: idLibro,
+      id_usuario: it.id_usuario,
+      incluido: it.incluido,
+      n_legajo: it.n_legajo,
+      apellido_nombre: it.apellido_nombre,
+      cuil: it.cuil,
+      categoria: it.categoria,
+      fecha_ingreso: it.fecha_ingreso,
+      antiguedad_reconocida: it.antiguedad_reconocida,
+      anios_antiguedad: it.anios_antiguedad,
+      dias: it.dias,
+      etiqueta_basico: it.etiqueta_basico,
+      sueldo_basico: it.sueldo_basico,
+      adicional_antiguedad: it.adicional_antiguedad,
+      scvo: it.scvo,
+      banco: it.banco,
+      cbu: it.cbu,
+      forma_pago: it.forma_pago,
+      conyuge: it.conyuge,
+      hijos: it.hijos,
+      cct: it.cct,
+      cct_codigo: it.cct_codigo,
+      cobertura_scvo: it.cobertura_scvo,
+      situacion_revista: it.situacion_revista,
+      condicion: it.condicion,
+      actividad: it.actividad,
+      modalidad: it.modalidad,
+      codigo_os: it.codigo_os,
+      horas_trabajadas: it.horas_trabajadas,
+      extras: it.extras || [],
+      updated_at: new Date().toISOString()
+    }))
+    const { error: delErr } = await supabase.from('rrhh_libro_sueldos_items').delete().eq('id_libro', idLibro)
+    if (delErr) throw delErr
+    if (rows.length) {
+      const { error: insErr } = await supabase.from('rrhh_libro_sueldos_items').insert(rows)
+      if (insErr) throw insErr
+    }
+    return rrhhLibroSueldosItemsListar(idLibro)
+  } catch (e) {
+    return { success: false, error: err(e, 'Error al guardar ítems del libro') }
+  }
+}
+
+export async function rrhhSueldoFichasListar(): Promise<{
+  success: boolean
+  data?: RrhhSueldoFicha[]
+  error?: string
+}> {
+  if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+  try {
+    const { data, error } = await supabase.from('rrhh_sueldo_fichas').select('*')
+    if (error) throw error
+    return { success: true, data: (data || []).map((r) => mapFicha(r as Record<string, unknown>)) }
+  } catch (e) {
+    return { success: false, error: err(e, 'Error al listar fichas de sueldo') }
+  }
+}
+
+export async function rrhhSueldoFichasUpsert(fichas: RrhhSueldoFicha[]): Promise<{
+  success: boolean
+  error?: string
+}> {
+  if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+  if (!fichas.length) return { success: true }
+  try {
+    const { error } = await supabase.from('rrhh_sueldo_fichas').upsert(
+      fichas.map((f) => ({ ...f, updated_at: new Date().toISOString() })),
+      { onConflict: 'id_usuario' }
+    )
+    if (error) throw error
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: err(e, 'Error al guardar fichas de sueldo') }
   }
 }

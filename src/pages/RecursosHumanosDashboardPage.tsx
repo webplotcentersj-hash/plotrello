@@ -233,6 +233,15 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/libro-sueldos')}
+            >
+              <div className="rrhh-action-icon">📗</div>
+              <h3>Libro de sueldos</h3>
+              <p>Recibos LCT, PDF a empleados y TXT para ARCA / F.931</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/vacaciones')}
             >
               <div className="rrhh-action-icon">🏖️</div>

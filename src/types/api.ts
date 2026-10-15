@@ -478,6 +478,13 @@ export interface RrhhDocItem {
   nombre_usuario?: string
 }
 
+export type {
+  AlicuotasLct,
+  RrhhLibroSueldos,
+  RrhhLibroSueldosItem,
+  RrhhSueldoFicha
+} from '../utils/rrhhLibroSueldos'
+
 export interface RrhhClimaEncuesta {
   id: number
   titulo: string

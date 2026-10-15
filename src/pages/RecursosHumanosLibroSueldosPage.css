@@ -1,0 +1,171 @@
+.rrhh-libro-page {
+  max-width: 1480px;
+}
+
+.rrhh-libro-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.rrhh-libro-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.rrhh-libro-toolbar input,
+.rrhh-libro-toolbar select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #0f172a;
+  color: inherit;
+  min-width: 140px;
+}
+
+.rrhh-libro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rrhh-libro-note {
+  font-size: 0.88rem;
+  color: #94a3b8;
+  margin: 0 0 14px;
+}
+
+.rrhh-libro-note a {
+  color: #93c5fd;
+}
+
+.rrhh-libro-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .rrhh-libro-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rrhh-libro-table-wrap {
+  overflow: auto;
+  max-height: 64vh;
+}
+
+.rrhh-libro-table input[type='text'],
+.rrhh-libro-table input[type='number'],
+.rrhh-libro-table input[type='date'] {
+  width: 100%;
+  min-width: 72px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0f172a;
+  color: inherit;
+  font-size: 0.82rem;
+}
+
+.rrhh-libro-table tr.is-sel {
+  background: rgba(37, 99, 235, 0.18);
+}
+
+.rrhh-libro-preview {
+  overflow: auto;
+  background: #0b1220;
+  padding: 8px;
+  max-height: 80vh;
+}
+
+.rrhh-libro-preview .recibo-lct {
+  transform-origin: top left;
+}
+
+.rrhh-libro-offscreen {
+  position: fixed;
+  left: -4200px;
+  top: 0;
+  width: 1100px;
+  background: #fff;
+  z-index: -1;
+}
+
+.rrhh-libro-emp {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.rrhh-libro-emp label,
+.rrhh-libro-ali label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.rrhh-libro-emp input,
+.rrhh-libro-emp select,
+.rrhh-libro-ali input,
+.rrhh-libro-extras input,
+.rrhh-libro-extras select {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0f172a;
+  color: inherit;
+}
+
+.rrhh-libro-ali {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.rrhh-libro-extras {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-libro-extras-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rrhh-libro-extras-head h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.rrhh-libro-extra-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.6fr 0.8fr 0.7fr auto;
+  gap: 6px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.rrhh-libro-msg {
+  color: #6ee7b7;
+  font-size: 0.9rem;
+}
+
+.rrhh-libro-warn {
+  color: #fcd34d;
+  font-size: 0.88rem;
+}
