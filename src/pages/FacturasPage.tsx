@@ -1,11 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
 import type { FacturaVentaRecord } from '../types/api'
 import { formatFechaAr } from '../utils/afipFacturaUi'
+import { getArgentinaDateString } from '../utils/dateUtils'
 import { descargarPdfFacturaAfip } from '../services/afipApi'
 import { descargarFacturaAfipPdf } from '../utils/facturaAfipPdf'
 import './FacturasPage.css'
+
+const FACTURAS_POR_PAGINA = 15
+
+function diaEmision(factura: FacturaVentaRecord): string {
+  return String(factura.fecha_emision || factura.created_at || '').slice(0, 10)
+}
 
 export default function FacturasPage() {
   const navigate = useNavigate()
@@ -14,12 +21,61 @@ export default function FacturasPage() {
   const [facturas, setFacturas] = useState<FacturaVentaRecord[]>([])
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [pdfId, setPdfId] = useState<number | null>(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [pagina, setPagina] = useState(0)
   const [filtros, setFiltros] = useState({
     estado: searchParams.get('estado') || '',
     fechaDesde: '',
     fechaHasta: '',
     tipoComprobante: ''
   })
+  const hoy = getArgentinaDateString()
+
+  const facturasVisibles = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    const filtradas = !q
+      ? facturas
+      : facturas.filter((f) => {
+          const hay = [
+            f.numero_factura,
+            f.cliente_nombre,
+            f.cliente_dni_cuit,
+            f.cae,
+            f.numero_cae,
+            f.numero_op,
+            f.tipo_comprobante,
+            f.estado,
+            f.estado_afip,
+            String(f.total ?? '')
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+          return hay.includes(q)
+        })
+    return [...filtradas].sort((a, b) => {
+      const aHoy = diaEmision(a) === hoy ? 0 : 1
+      const bHoy = diaEmision(b) === hoy ? 0 : 1
+      if (aHoy !== bHoy) return aHoy - bHoy
+      const fa = diaEmision(a)
+      const fb = diaEmision(b)
+      if (fa !== fb) return fb.localeCompare(fa)
+      return String(b.created_at || '').localeCompare(String(a.created_at || ''))
+    })
+  }, [facturas, busqueda, hoy])
+
+  const totalPaginas = Math.max(1, Math.ceil(facturasVisibles.length / FACTURAS_POR_PAGINA))
+  const paginaActual = Math.min(pagina, totalPaginas - 1)
+  const facturasPagina = facturasVisibles.slice(
+    paginaActual * FACTURAS_POR_PAGINA,
+    paginaActual * FACTURAS_POR_PAGINA + FACTURAS_POR_PAGINA
+  )
+  const desde = facturasVisibles.length === 0 ? 0 : paginaActual * FACTURAS_POR_PAGINA + 1
+  const hasta = Math.min(facturasVisibles.length, (paginaActual + 1) * FACTURAS_POR_PAGINA)
+
+  useEffect(() => {
+    setPagina(0)
+  }, [busqueda, filtros])
 
   useEffect(() => {
     loadFacturas()
@@ -121,6 +177,14 @@ export default function FacturasPage() {
       </div>
 
       <div className="facturas-filters">
+        <input
+          type="search"
+          className="filter-input filter-input--search"
+          placeholder="Buscar por número, cliente, CUIT, CAE u OP…"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          autoComplete="off"
+        />
         <select
           value={filtros.estado}
           onChange={(e) => setFiltros({ ...filtros, estado: e.target.value })}
@@ -176,18 +240,24 @@ export default function FacturasPage() {
             </tr>
           </thead>
           <tbody>
-            {facturas.length === 0 ? (
+            {facturasPagina.length === 0 ? (
               <tr>
                 <td colSpan={8} className="empty-state">
-                  {errorCarga || 'No hay facturas que coincidan con los filtros'}
+                  {errorCarga ||
+                    (busqueda.trim()
+                      ? 'No hay facturas que coincidan con la búsqueda'
+                      : 'No hay facturas que coincidan con los filtros')}
                 </td>
               </tr>
             ) : (
-              facturas.map(factura => (
-                <tr key={factura.id}>
+              facturasPagina.map(factura => (
+                <tr key={factura.id} className={diaEmision(factura) === hoy ? 'is-hoy' : undefined}>
                   <td>{factura.numero_factura}</td>
                   <td>{factura.cliente_nombre}</td>
-                  <td>{formatFechaAr(factura.fecha_emision)}</td>
+                  <td>
+                    {formatFechaAr(factura.fecha_emision)}
+                    {diaEmision(factura) === hoy ? <span className="facturas-hoy-tag">Hoy</span> : null}
+                  </td>
                   <td>{factura.tipo_comprobante}</td>
                   <td>${factura.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                   <td>
@@ -232,6 +302,31 @@ export default function FacturasPage() {
             )}
           </tbody>
         </table>
+        {facturasVisibles.length > 0 ? (
+          <div className="facturas-pager">
+            <button
+              type="button"
+              className="facturas-pager__arrow"
+              disabled={paginaActual <= 0}
+              onClick={() => setPagina((p) => Math.max(0, p - 1))}
+              aria-label="Anterior"
+            >
+              ←
+            </button>
+            <span className="facturas-pager__info">
+              {desde}–{hasta} de {facturasVisibles.length} · pág. {paginaActual + 1}/{totalPaginas}
+            </span>
+            <button
+              type="button"
+              className="facturas-pager__arrow"
+              disabled={paginaActual >= totalPaginas - 1}
+              onClick={() => setPagina((p) => Math.min(totalPaginas - 1, p + 1))}
+              aria-label="Siguiente"
+            >
+              →
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   )

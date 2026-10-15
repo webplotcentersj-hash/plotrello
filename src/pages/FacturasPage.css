@@ -58,6 +58,7 @@
   gap: 15px;
   margin-bottom: 20px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .filter-select,
@@ -74,11 +75,73 @@
   max-width: 200px;
 }
 
+.filter-input--search {
+  flex: 2;
+  min-width: 260px;
+  max-width: 420px;
+}
+
+.facturas-table tr.is-hoy {
+  background: #fff7ed;
+}
+
+.facturas-hoy-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #f97316;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 .facturas-table-container {
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+}
+
+.facturas-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.facturas-pager__arrow {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 1.2rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.facturas-pager__arrow:hover:not(:disabled) {
+  background: #fff7ed;
+  border-color: #f97316;
+}
+
+.facturas-pager__arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.facturas-pager__info {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #334155;
 }
 
 .facturas-table {
@@ -104,6 +167,10 @@
 
 .facturas-table tr:hover {
   background: #f7fafc;
+}
+
+.facturas-table tr.is-hoy:hover {
+  background: #ffedd5;
 }
 
 .empty-state {
