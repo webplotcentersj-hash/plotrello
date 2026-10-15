@@ -17,11 +17,21 @@ export type VentaPagoLinea = {
   monto: number
 }
 
-/** Segundo medio en pago mixto: siempre Efectivo + uno de estos. */
-export const MIXTO_SEGUNDOS: Array<VentaPagoLinea['metodo']> = [
-  'Mercado Pago',
-  'Tarjeta',
-  'Transferencia'
+export type MixtoCombo = {
+  a: VentaPagoLinea['metodo']
+  b: VentaPagoLinea['metodo']
+  label: string
+}
+
+/** Combinaciones habituales de pago mixto. */
+export const MIXTO_COMBOS: MixtoCombo[] = [
+  { a: 'Efectivo', b: 'Mercado Pago', label: 'Efectivo + Mercado Pago' },
+  { a: 'Efectivo', b: 'Tarjeta', label: 'Efectivo + Tarjeta' },
+  { a: 'Efectivo', b: 'Transferencia', label: 'Efectivo + Transferencia' },
+  { a: 'Efectivo', b: 'Cheque', label: 'Efectivo + Cheque' },
+  { a: 'Tarjeta', b: 'Transferencia', label: 'Tarjeta + Transferencia' },
+  { a: 'Mercado Pago', b: 'Tarjeta', label: 'Mercado Pago + Tarjeta' },
+  { a: 'Mercado Pago', b: 'Transferencia', label: 'Mercado Pago + Transferencia' }
 ]
 
 export interface MedioPagoConfig {

@@ -169,61 +169,69 @@
 }
 
 .venta-pago-mixto {
+  position: relative;
+  z-index: 25;
   margin: 8px 0 16px;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(249, 115, 22, 0.35);
-  background: linear-gradient(160deg, rgba(249, 115, 22, 0.1), rgba(14, 165, 233, 0.08));
-  color: #0f172a;
+  padding: 18px;
+  border-radius: 18px;
+  border: 2px solid #fb923c;
+  background: linear-gradient(165deg, #1e3a8a 0%, #0f172a 52%, #7c2d12 100%);
+  color: #fff;
+  box-shadow: 0 16px 36px rgba(249, 115, 22, 0.28);
+  pointer-events: auto;
 }
 
 .venta-pago-mixto__title {
-  margin: 0 0 4px;
-  font-weight: 800;
-  font-size: 1.05rem;
-  color: #9a3412;
+  margin: 0 0 6px;
+  font-weight: 900;
+  font-size: 1.28rem;
+  letter-spacing: 0.02em;
+  color: #fdba74;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
 }
 
 .venta-pago-mixto__hint {
-  margin: 0 0 12px;
-  font-size: 0.9rem;
-  color: #475569;
-  line-height: 1.4;
+  margin: 0 0 14px;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  line-height: 1.45;
+  font-weight: 600;
 }
 
 .venta-pago-mixto__combo-label {
   margin: 0 0 8px;
   font-size: 0.78rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #9a3412;
+  color: #fdba74;
 }
 
 .venta-pago-mixto__combos {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 0 0 14px;
+  margin: 0 0 16px;
 }
 
 .venta-pago-mixto__combo {
   min-height: 48px;
-  padding: 10px 16px;
+  padding: 10px 14px;
   border-radius: 12px;
-  border: 2px solid #cbd5e1;
-  background: #fff;
-  color: #0f172a;
+  border: 2px solid #64748b;
+  background: #0f172a;
+  color: #f8fafc;
   font: inherit;
+  font-size: 0.92rem;
   font-weight: 800;
   cursor: pointer;
 }
 
 .venta-pago-mixto__combo.is-on {
-  border-color: #f97316;
-  background: #fff7ed;
-  color: #9a3412;
-  box-shadow: 0 6px 16px rgba(249, 115, 22, 0.2);
+  border-color: #fdba74;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(249, 115, 22, 0.4);
 }
 
 .venta-pago-mixto__combo:disabled {
@@ -241,11 +249,11 @@
   background: #fff;
   border-radius: 14px;
   padding: 12px;
-  border: 1px solid #e2e8f0;
+  border: 2px solid #e2e8f0;
 }
 
 .venta-pago-mixto__part--otro {
-  border-color: #7dd3fc;
+  border-color: #38bdf8;
   background: #f0f9ff;
 }
 
@@ -253,7 +261,20 @@
   display: block;
   font-weight: 800;
   margin-bottom: 6px;
-  color: #0f172a;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a;
+}
+
+.venta-pago-mixto__part .form-input {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  border: 2px solid #334155;
+  font-size: 1.2rem;
+  font-weight: 800;
+  pointer-events: auto !important;
+  user-select: text !important;
+  caret-color: #0f172a;
 }
 
 .venta-pago-mixto__part-note {
@@ -288,10 +309,11 @@
 
 .venta-pago-mixto__suma {
   font-weight: 800;
+  color: #e2e8f0;
 }
 
-.venta-pago-mixto__suma.is-ok { color: #047857; }
-.venta-pago-mixto__suma.is-off { color: #b45309; }
+.venta-pago-mixto__suma.is-ok { color: #86efac; }
+.venta-pago-mixto__suma.is-off { color: #fdba74; }
 
 @media (max-width: 720px) {
   .venta-pago-mixto__row {

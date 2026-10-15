@@ -40,7 +40,7 @@ import {
   listaFromMedioPago,
   mediosPagoActivos,
   montoLineaMetodo,
-  MIXTO_SEGUNDOS,
+  MIXTO_COMBOS,
   PAGO_MIXTO,
   resumenDetallePago,
   sumaLineasPago,
@@ -160,6 +160,8 @@ const VentaRapidaModal = ({
 
   const [condicionVenta, setCondicionVenta] = useState<MedioPagoCodigo>('Efectivo')
   const [detallePago, setDetallePago] = useState<VentaDetallePago>({})
+  const [mixtoTextoA, setMixtoTextoA] = useState('')
+  const [mixtoTextoB, setMixtoTextoB] = useState('')
   const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancariaRecord[]>([])
   const [showMpCheckout, setShowMpCheckout] = useState(false)
   const [faseCobro, setFaseCobro] = useState<'editar' | 'revisar'>('editar')
@@ -560,13 +562,14 @@ const VentaRapidaModal = ({
     { metodo: 'Efectivo', monto: 0 },
     { metodo: 'Mercado Pago', monto: 0 }
   ]
-  const mixtoEfectivo =
-    lineasMixto.find((l) => l.metodo === 'Efectivo') ?? { metodo: 'Efectivo' as const, monto: 0 }
-  const mixtoOtro =
-    lineasMixto.find((l) => l.metodo !== 'Efectivo') ?? {
-      metodo: 'Mercado Pago' as VentaPagoLinea['metodo'],
-      monto: 0
-    }
+  const mixtoLineaA = lineasMixto[0] ?? { metodo: 'Efectivo' as const, monto: 0 }
+  const mixtoLineaB = lineasMixto[1] ?? {
+    metodo: 'Mercado Pago' as VentaPagoLinea['metodo'],
+    monto: 0
+  }
+  const mixtoComboActivo =
+    MIXTO_COMBOS.find((c) => c.a === mixtoLineaA.metodo && c.b === mixtoLineaB.metodo) ??
+    MIXTO_COMBOS[0]
   const incluyeMp = incluyeMercadoPago(condicionVenta, detallePago)
   const montoMpCobrar = esMercadoPago(condicionVenta)
     ? totalVenta
@@ -574,45 +577,69 @@ const VentaRapidaModal = ({
 
   const redondearMonto = (n: number) => Math.max(0, Math.round(n * 100) / 100)
 
-  const setLineasMixto = (cash: number, otroMetodo: VentaPagoLinea['metodo'], otroMonto?: number) => {
-    const efectivo = Math.min(totalVenta, redondearMonto(cash))
-    const resto =
-      otroMonto == null
-        ? redondearMonto(totalVenta - efectivo)
-        : Math.min(totalVenta, redondearMonto(otroMonto))
-    const cashFinal = otroMonto == null ? efectivo : redondearMonto(totalVenta - resto)
-    setDetallePago((prev) => ({
-      ...prev,
-      lineas: [
-        { metodo: 'Efectivo', monto: cashFinal },
-        { metodo: otroMetodo, monto: resto }
-      ]
-    }))
+  const textoMontoMixto = (n: number) => (n > 0 ? String(n).replace('.', ',') : '')
+
+  const parseMontoMixto = (raw: string): number | null => {
+    const t = raw.trim().replace(/\s/g, '').replace(',', '.')
+    if (t === '' || t === '.') return 0
+    if (!/^\d*[.,]?\d{0,2}$/.test(raw.trim().replace(/\s/g, ''))) return null
+    const n = Number(t)
+    return Number.isFinite(n) ? n : null
+  }
+
+  const aplicarLineasMixto = (
+    lineaA: VentaPagoLinea,
+    lineaB: VentaPagoLinea,
+    editado: 'a' | 'b' | 'combo'
+  ) => {
+    let a = { ...lineaA, monto: redondearMonto(Math.max(0, lineaA.monto)) }
+    let b = { ...lineaB, monto: redondearMonto(Math.max(0, lineaB.monto)) }
+    if (totalVenta > 0 && editado === 'a') {
+      b = { ...b, monto: redondearMonto(Math.max(0, totalVenta - a.monto)) }
+    } else if (totalVenta > 0 && editado === 'b') {
+      a = { ...a, monto: redondearMonto(Math.max(0, totalVenta - b.monto)) }
+    } else if (totalVenta > 0 && editado === 'combo') {
+      b = { ...b, monto: redondearMonto(Math.max(0, totalVenta - a.monto)) }
+    }
+    setDetallePago((prev) => ({ ...prev, lineas: [a, b] }))
+    if (editado === 'a') setMixtoTextoB(textoMontoMixto(b.monto))
+    if (editado === 'b') setMixtoTextoA(textoMontoMixto(a.monto))
+    if (editado === 'combo') {
+      setMixtoTextoA(textoMontoMixto(a.monto))
+      setMixtoTextoB(textoMontoMixto(b.monto))
+    }
+  }
+
+  const onMontoMixtoChange = (lado: 'a' | 'b', texto: string) => {
+    if (lado === 'a') setMixtoTextoA(texto)
+    else setMixtoTextoB(texto)
+    const n = parseMontoMixto(texto)
+    if (n == null) return
+    if (lado === 'a') aplicarLineasMixto({ ...mixtoLineaA, monto: n }, mixtoLineaB, 'a')
+    else aplicarLineasMixto(mixtoLineaA, { ...mixtoLineaB, monto: n }, 'b')
   }
 
   useEffect(() => {
-    if (!esPagoMixto(condicionVenta)) return
+    if (!esPagoMixto(condicionVenta) || totalVenta <= 0) return
+    const a = detallePago.lineas?.[0]
+    const montoA = redondearMonto(Number(a?.monto) || 0)
+    const resto = redondearMonto(Math.max(0, totalVenta - montoA))
+    setMixtoTextoB(textoMontoMixto(resto))
     setDetallePago((prev) => {
       const lineas = prev.lineas ?? []
-      const cashLine = lineas.find((l) => l.metodo === 'Efectivo')
-      const otroLine = lineas.find((l) => l.metodo !== 'Efectivo')
-      const metodoOtro: VentaPagoLinea['metodo'] =
-        otroLine && otroLine.metodo !== 'Efectivo' ? otroLine.metodo : 'Mercado Pago'
-      const cash = Math.min(totalVenta, redondearMonto(Number(cashLine?.monto) || 0))
-      const resto = redondearMonto(totalVenta - cash)
+      const lineaA = lineas[0] ?? { metodo: 'Efectivo' as const, monto: 0 }
+      const lineaB = lineas[1] ?? { metodo: 'Mercado Pago' as VentaPagoLinea['metodo'], monto: 0 }
       if (
-        cashLine &&
-        otroLine &&
-        Math.abs((cashLine.monto || 0) - cash) < 0.009 &&
-        Math.abs((otroLine.monto || 0) - resto) < 0.009
+        Math.abs((lineaA.monto || 0) - montoA) < 0.009 &&
+        Math.abs((lineaB.monto || 0) - resto) < 0.009
       ) {
         return prev
       }
       return {
         ...prev,
         lineas: [
-          { metodo: 'Efectivo', monto: cash },
-          { metodo: metodoOtro, monto: resto }
+          { ...lineaA, monto: montoA },
+          { ...lineaB, monto: resto }
         ]
       }
     })
@@ -1278,6 +1305,8 @@ const VentaRapidaModal = ({
                 setFaseCobro('editar')
                 if (valor === PAGO_MIXTO) {
                   const total = calcularSubtotal()
+                  setMixtoTextoA('')
+                  setMixtoTextoB(total > 0 ? String(total).replace('.', ',') : '')
                   setDetallePago({
                     lineas: [
                       { metodo: 'Efectivo', monto: 0 },
@@ -1431,65 +1460,62 @@ const VentaRapidaModal = ({
 
           {esMixto ? (
             <div className="venta-pago-mixto">
-              <p className="venta-pago-mixto__title">Pago mixto: efectivo + otro medio</p>
+              <p className="venta-pago-mixto__title">Pago mixto</p>
               <p className="venta-pago-mixto__hint">
-                El efectivo queda fijo. Elegí con qué se paga el resto (Mercado Pago o tarjeta). Al cargar
-                un monto, el otro se completa para llegar al total.
+                Elegí la combinación y cargá un monto: el otro se completa solo. Ejemplos: $10.000
+                efectivo + resto Mercado Pago · $5.000 efectivo + tarjeta · tarjeta + transferencia.
               </p>
-              <p className="venta-pago-mixto__combo-label">Combinar efectivo con</p>
+              <p className="venta-pago-mixto__combo-label">Combinaciones</p>
               <div className="venta-pago-mixto__combos">
-                {MIXTO_SEGUNDOS.map((metodo) => (
+                {MIXTO_COMBOS.map((combo) => (
                   <button
-                    key={metodo}
+                    key={combo.label}
                     type="button"
-                    className={`venta-pago-mixto__combo${mixtoOtro.metodo === metodo ? ' is-on' : ''}`}
+                    className={`venta-pago-mixto__combo${
+                      mixtoComboActivo.a === combo.a && mixtoComboActivo.b === combo.b ? ' is-on' : ''
+                    }`}
                     disabled={showMpCheckout}
-                    onClick={() => setLineasMixto(mixtoEfectivo.monto || 0, metodo)}
+                    onClick={() => {
+                      aplicarLineasMixto(
+                        { metodo: combo.a, monto: mixtoLineaA.monto || 0 },
+                        { metodo: combo.b, monto: mixtoLineaB.monto || 0 },
+                        'combo'
+                      )
+                    }}
                   >
-                    {metodo === 'Mercado Pago' ? 'Efectivo + MP' : `Efectivo + ${metodo}`}
+                    {combo.label}
                   </button>
                 ))}
               </div>
               <div className="venta-pago-mixto__parts">
                 <div className="venta-pago-mixto__part">
-                  <label htmlFor="mixto-efectivo">Efectivo</label>
+                  <label htmlFor="mixto-efectivo">{mixtoLineaA.metodo}</label>
                   <input
                     id="mixto-efectivo"
                     className="form-input"
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
                     inputMode="decimal"
-                    placeholder="Cuánto en efectivo"
+                    autoComplete="off"
+                    placeholder="0,00"
                     disabled={showMpCheckout}
-                    value={mixtoEfectivo.monto || ''}
-                    onChange={(e) =>
-                      setLineasMixto(
-                        e.target.value === '' ? 0 : Number(e.target.value),
-                        mixtoOtro.metodo
-                      )
-                    }
+                    value={mixtoTextoA}
+                    onChange={(e) => onMontoMixtoChange('a', e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
                   />
                 </div>
                 <div className="venta-pago-mixto__part venta-pago-mixto__part--otro">
-                  <label htmlFor="mixto-otro">{mixtoOtro.metodo}</label>
+                  <label htmlFor="mixto-otro">{mixtoLineaB.metodo}</label>
                   <input
                     id="mixto-otro"
                     className="form-input"
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
                     inputMode="decimal"
+                    autoComplete="off"
                     placeholder="Resto"
                     disabled={showMpCheckout}
-                    value={mixtoOtro.monto || ''}
-                    onChange={(e) =>
-                      setLineasMixto(
-                        mixtoEfectivo.monto || 0,
-                        mixtoOtro.metodo,
-                        e.target.value === '' ? 0 : Number(e.target.value)
-                      )
-                    }
+                    value={mixtoTextoB}
+                    onChange={(e) => onMontoMixtoChange('b', e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
                   />
                   <span className="venta-pago-mixto__part-note">Se completa solo con el resto del total</span>
                 </div>
@@ -1755,13 +1781,15 @@ const VentaRapidaModal = ({
             <label>
               Comprobante de pago
               {(condicionVenta === 'Transferencia' ||
-                (esMixto && mixtoOtro.metodo === 'Transferencia')) &&
+                (esMixto &&
+                  (mixtoLineaA.metodo === 'Transferencia' || mixtoLineaB.metodo === 'Transferencia'))) &&
               configCondiciones.transferencia_requiere_comprobante
                 ? ' *'
                 : ' (opcional)'}
             </label>
             <p className="form-hint-comprobante">
-              {condicionVenta === 'Tarjeta' || (esMixto && mixtoOtro.metodo === 'Tarjeta')
+              {condicionVenta === 'Tarjeta' ||
+              (esMixto && (mixtoLineaA.metodo === 'Tarjeta' || mixtoLineaB.metodo === 'Tarjeta'))
                 ? 'Adjuntá el ticket o comprobante de la tarjeta. PDF o imagen, máximo 8 MB.'
                 : 'PDF o imagen del comprobante (transferencia, tarjeta, etc.). Máximo 8 MB.'}
             </p>
