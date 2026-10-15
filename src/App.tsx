@@ -35,6 +35,7 @@ const TotemDisenoBriefPage = lazy(() => import('./pages/TotemDisenoBriefPage'))
 const TotemAsesorTabletPage = lazy(() => import('./pages/TotemAsesorTabletPage'))
 const TotemDisenadorTabletPage = lazy(() => import('./pages/TotemDisenadorTabletPage'))
 const TotemPantallaPage = lazy(() => import('./pages/TotemPantallaPage'))
+const TotemSenaleticaPage = lazy(() => import('./pages/TotemSenaleticaPage'))
 const ClienteConsultaPage = lazy(() => import('./pages/ClienteConsultaPage'))
 const DashboardPantallasPage = lazy(() => import('./pages/DashboardPantallasPage'))
 const OpPublicPage = lazy(() => import('./pages/OpPublicPage'))
@@ -358,6 +359,14 @@ function AppInner() {
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando pantalla...</div>}>
                 <TotemPantallaPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/totem/senaletica"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando señalética...</div>}>
+                <TotemSenaleticaPage />
               </Suspense>
             }
           />

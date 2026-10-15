@@ -1,0 +1,939 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap');
+
+/* Señalética animada (tablet) — prefijo sen-. Solo transform/opacity para correr fluido en tablet. */
+
+.sen {
+  --sen-ink: #05070f;
+  --sen-text: #f4f7ff;
+  --sen-soft: rgba(244, 247, 255, 0.72);
+  --sen-c: #00aeef;
+  --sen-m: #ec008c;
+  --sen-y: #fff200;
+  --sen-pad: clamp(14px, 2.6vmin, 34px);
+  --sen-gap: clamp(10px, 2vmin, 26px);
+  --sen-radius: clamp(22px, 4vmin, 44px);
+  --sen-chev-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cpath d='M20 78 60 38l40 40' fill='none' stroke='%23000' stroke-width='14' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --sen-chev-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cpath d='M20 42 60 82l40-40' fill='none' stroke='%23000' stroke-width='14' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --sen-chev-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cpath d='M42 20 82 60 42 100' fill='none' stroke='%23000' stroke-width='14' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sen-gap);
+  padding: var(--sen-pad);
+  padding-top: max(var(--sen-pad), env(safe-area-inset-top));
+  padding-bottom: max(var(--sen-pad), env(safe-area-inset-bottom));
+  overflow: hidden;
+  color: var(--sen-text);
+  background: var(--sen-ink);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.sen *,
+.sen *::before,
+.sen *::after {
+  box-sizing: border-box;
+}
+
+/* :where() → especificidad 0, para no pisar el fondo de .sen-sign / .sen-fsbtn */
+:where(.sen) button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ───────── fondo: lavado de color, orbes CMYK, trama de impresión ───────── */
+
+.sen-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sen-wash {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.1s ease;
+  background:
+    radial-gradient(ellipse 70% 60% at 25% 35%, color-mix(in srgb, var(--bg) 42%, transparent), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 92% 92%, color-mix(in srgb, var(--bg) 28%, transparent), transparent 70%);
+}
+
+.sen-wash--intro {
+  background:
+    radial-gradient(ellipse 50% 45% at 12% 12%, rgba(0, 174, 239, 0.36), transparent 70%),
+    radial-gradient(ellipse 50% 45% at 92% 18%, rgba(236, 0, 140, 0.3), transparent 70%),
+    radial-gradient(ellipse 50% 45% at 80% 96%, rgba(255, 242, 0, 0.2), transparent 70%);
+}
+
+.sen-wash.is-on {
+  opacity: 1;
+}
+
+.sen-orb {
+  position: absolute;
+  width: 62vmin;
+  height: 62vmin;
+  border-radius: 50%;
+  opacity: 0.34;
+  will-change: transform;
+  animation: sen-drift 26s ease-in-out infinite alternate;
+}
+
+.sen-orb--c { top: -18%; left: -12%; background: radial-gradient(circle, var(--sen-c), transparent 68%); }
+.sen-orb--m { top: -10%; right: -16%; background: radial-gradient(circle, var(--sen-m), transparent 68%); animation-duration: 31s; animation-delay: -8s; }
+.sen-orb--y { bottom: -22%; right: 6%; opacity: 0.2; background: radial-gradient(circle, var(--sen-y), transparent 68%); animation-duration: 28s; animation-delay: -14s; }
+.sen-orb--k { bottom: -20%; left: -6%; width: 70vmin; height: 70vmin; opacity: 0.22; background: radial-gradient(circle, #7a77a3, transparent 68%); animation-duration: 34s; animation-delay: -4s; }
+
+@keyframes sen-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(8vmin, 6vmin, 0) scale(1.18); }
+}
+
+.sen-halftone {
+  position: absolute;
+  inset: -28px;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1.6px, transparent 2.2px);
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 25%, transparent 85%);
+  mask-image: radial-gradient(ellipse at 50% 50%, #000 25%, transparent 85%);
+  will-change: transform;
+  animation: sen-halftone 24s linear infinite;
+}
+
+@keyframes sen-halftone {
+  to { transform: translate3d(28px, 28px, 0); }
+}
+
+/* marcas de registro de imprenta en las esquinas */
+.sen-reg {
+  position: absolute;
+  width: clamp(22px, 3.4vmin, 38px);
+  height: clamp(22px, 3.4vmin, 38px);
+  opacity: 0.32;
+  background:
+    linear-gradient(#fff, #fff) center / 1px 100% no-repeat,
+    linear-gradient(#fff, #fff) center / 100% 1px no-repeat;
+}
+
+.sen-reg::after {
+  content: '';
+  position: absolute;
+  inset: 24%;
+  border: 1px solid #fff;
+  border-radius: 50%;
+}
+
+.sen-reg--tl { top: 6px; left: 6px; }
+.sen-reg--tr { top: 6px; right: 6px; }
+.sen-reg--bl { bottom: 6px; left: 6px; }
+.sen-reg--br { bottom: 6px; right: 6px; }
+
+/* ───────── barra superior ───────── */
+
+.sen-top {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sen-gap);
+  animation: sen-drop 0.8s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+}
+
+@keyframes sen-drop {
+  from { opacity: 0; transform: translateY(-24px); }
+}
+
+.sen-brand {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.8vmin, 20px);
+}
+
+.sen-brand img {
+  height: clamp(38px, 7.4vmin, 70px);
+  width: auto;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+}
+
+.sen-brand p {
+  margin: 0;
+}
+
+.sen-brand__kicker {
+  font-size: clamp(0.68rem, 1.5vmin, 0.95rem);
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #fb923c;
+}
+
+.sen-brand__title {
+  margin-top: 2px;
+  font-size: clamp(0.8rem, 2vmin, 1.3rem);
+  font-weight: 700;
+  color: var(--sen-soft);
+}
+
+.sen-clock {
+  font-size: clamp(1.5rem, 4.2vmin, 2.8rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.sen-fsbtn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: clamp(44px, 6vmin, 60px);
+  height: clamp(44px, 6vmin, 60px);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  opacity: 0.7;
+}
+
+.sen-fsbtn svg {
+  width: 52%;
+  height: 52%;
+}
+
+/* ───────── escena principal ───────── */
+
+.sen-main {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: var(--sen-gap);
+}
+
+.sen-stage {
+  position: relative;
+  min-height: 0;
+  border-radius: var(--sen-radius);
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+
+.sen-hero {
+  --m: clamp(84px, 15vmin, 160px);
+  --s: clamp(110px, 24vmin, 280px);
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  color: var(--fg);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--bg) 82%, #fff),
+    var(--bg) 52%,
+    color-mix(in srgb, var(--bg) 84%, #000)
+  );
+  animation: sen-reveal 1s cubic-bezier(0.7, 0, 0.2, 1) backwards;
+}
+
+.sen-hero--leaving {
+  z-index: 1;
+  animation: none;
+}
+
+@keyframes sen-reveal {
+  from { clip-path: circle(0% at 18% 42%); }
+  to { clip-path: circle(150% at 18% 42%); }
+}
+
+.sen-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 60% 45% at 12% 0%, rgba(255, 255, 255, 0.32), transparent 60%);
+}
+
+/* cinta transportadora de chevrones en la dirección de la franja */
+.sen-flow {
+  position: absolute;
+  inset: -120px;
+  background: var(--fg);
+  opacity: 0.12;
+  will-change: transform;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+}
+
+.sen-flow--primer-piso { -webkit-mask-image: var(--sen-chev-up); mask-image: var(--sen-chev-up); animation: sen-flow-up 2.2s linear infinite; }
+.sen-flow--planta-baja { -webkit-mask-image: var(--sen-chev-down); mask-image: var(--sen-chev-down); animation: sen-flow-down 2.2s linear infinite; }
+.sen-flow--adelante { -webkit-mask-image: var(--sen-chev-right); mask-image: var(--sen-chev-right); animation: sen-flow-right 2.2s linear infinite; }
+
+@keyframes sen-flow-up { to { transform: translate3d(0, -120px, 0); } }
+@keyframes sen-flow-down { to { transform: translate3d(0, 120px, 0); } }
+@keyframes sen-flow-right { to { transform: translate3d(120px, 0, 0); } }
+
+.sen-hero__inner {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sen-gap);
+  padding: clamp(18px, 4vmin, 56px);
+}
+
+.sen-hero__copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(8px, 1.7vmin, 20px);
+}
+
+/* medallón con icono flotante y ondas */
+.sen-medal {
+  position: relative;
+  width: var(--m);
+  height: var(--m);
+  flex: none;
+  display: grid;
+  place-items: center;
+  animation: sen-pop 0.9s cubic-bezier(0.2, 1.4, 0.4, 1) 0.25s backwards;
+}
+
+.sen-medal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--fg) 14%, transparent);
+  border: 3px solid color-mix(in srgb, var(--fg) 34%, transparent);
+}
+
+.sen-medal__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--fg);
+  opacity: 0;
+  animation: sen-ripple 2.7s ease-out infinite;
+  animation-delay: calc(var(--r) * 0.9s);
+}
+
+.sen-medal__ico {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  animation: sen-bob 2.4s ease-in-out infinite;
+}
+
+.sen-medal__ico svg {
+  width: 54%;
+  height: 54%;
+}
+
+@keyframes sen-pop {
+  from { opacity: 0; transform: scale(0.3) rotate(-12deg); }
+}
+
+@keyframes sen-ripple {
+  0% { opacity: 0.55; transform: scale(0.9); }
+  100% { opacity: 0; transform: scale(2); }
+}
+
+@keyframes sen-bob {
+  50% { transform: translateY(-8%) scale(1.05); }
+}
+
+.sen-eyebrow {
+  margin: 0;
+  font-size: clamp(0.78rem, 2vmin, 1.2rem);
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  opacity: 0.82;
+  animation: sen-fade-up 0.7s ease 0.45s backwards;
+}
+
+@keyframes sen-fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+}
+
+/* título con revelado palabra por palabra */
+.sen-title {
+  margin: 0;
+  font-size: clamp(1.7rem, 5.4vmin, 4.2rem);
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.sen-word-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding: 0.06em 0.03em 0.1em;
+  margin: -0.06em -0.03em -0.1em;
+}
+
+.sen-word {
+  display: inline-block;
+  animation: sen-word-in 0.85s cubic-bezier(0.2, 0.9, 0.2, 1) backwards;
+  animation-delay: calc(0.5s + var(--w) * 0.12s);
+}
+
+@keyframes sen-word-in {
+  from { opacity: 0; transform: translateY(118%) rotate(5deg); }
+}
+
+.sen-floor {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35em 1.1em;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: clamp(0.9rem, 2.3vmin, 1.5rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation:
+    sen-pop-badge 0.7s cubic-bezier(0.2, 1.5, 0.4, 1) 1.05s backwards,
+    sen-badge-pulse 1.8s ease-out 1.8s infinite;
+}
+
+@keyframes sen-pop-badge {
+  from { opacity: 0; transform: scale(0.2); }
+}
+
+@keyframes sen-badge-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fg) 55%, transparent); }
+  80%, 100% { box-shadow: 0 0 0 clamp(10px, 2vmin, 22px) transparent; }
+}
+
+.sen-detail {
+  margin: 0;
+  max-width: 36ch;
+  font-size: clamp(0.9rem, 2.2vmin, 1.35rem);
+  font-weight: 600;
+  line-height: 1.35;
+  opacity: 0.92;
+  animation: sen-fade-up 0.7s ease 0.95s backwards;
+}
+
+/* recorrido con punto caminante */
+.sen-route {
+  width: min(100%, 520px);
+  margin-top: clamp(2px, 0.8vmin, 10px);
+  animation: sen-fade-up 0.7s ease 1.15s backwards;
+}
+
+.sen-route svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.sen-route__track {
+  fill: none;
+  stroke: var(--fg);
+  stroke-opacity: 0.4;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2 16;
+  animation: sen-dash 1.1s linear infinite;
+}
+
+@keyframes sen-dash {
+  to { stroke-dashoffset: -18; }
+}
+
+.sen-route__start,
+.sen-route__end { fill: var(--fg); }
+.sen-route__end-dot { fill: var(--bg); }
+
+.sen-route__pulse {
+  fill: none;
+  stroke: var(--fg);
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sen-pin 1.8s ease-out infinite;
+}
+
+@keyframes sen-pin {
+  0% { opacity: 0.8; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(2.6); }
+}
+
+.sen-route__walker {
+  fill: var(--fg);
+  stroke: var(--bg);
+  stroke-width: 4;
+}
+
+.sen-route__labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: clamp(0.66rem, 1.6vmin, 0.95rem);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+/* flechón de tres chevrones: la ola de brillo corre hacia donde hay que ir */
+.sen-bigarrow {
+  width: var(--s);
+  height: var(--s);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2%;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.25));
+  animation: sen-fade-up 0.8s ease 0.7s backwards;
+}
+
+.sen-bigarrow--adelante { rotate: 90deg; }
+.sen-bigarrow--planta-baja { rotate: 180deg; }
+
+.sen-chev {
+  width: 100%;
+  height: 31%;
+  overflow: visible;
+  fill: none;
+  stroke: var(--fg);
+  stroke-width: 14;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: sen-chev 1.5s ease-in-out infinite;
+  animation-delay: calc(var(--k) * 0.22s);
+}
+
+@keyframes sen-chev {
+  0%, 100% { opacity: 0.2; transform: translateY(10%) scale(0.94); }
+  45% { opacity: 1; transform: translateY(-8%) scale(1.05); }
+}
+
+/* ───────── intro: ¿A dónde vas? ───────── */
+
+.sen-hero--intro {
+  background: linear-gradient(160deg, #161d3a, #070a16 70%);
+  color: var(--sen-text);
+}
+
+.sen-hero--intro::after {
+  background: radial-gradient(ellipse 60% 45% at 50% 0%, rgba(255, 255, 255, 0.1), transparent 60%);
+}
+
+.sen-intro {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.8vmin, 20px);
+  padding: clamp(18px, 4vmin, 56px);
+  text-align: center;
+}
+
+.sen-intro .sen-detail {
+  max-width: 30ch;
+}
+
+.sen-title--intro {
+  font-size: clamp(2rem, 7.4vmin, 5.6rem);
+  text-wrap: balance;
+}
+
+.sen-logo-ring {
+  position: relative;
+  width: clamp(110px, 21vmin, 220px);
+  height: clamp(110px, 21vmin, 220px);
+  display: grid;
+  place-items: center;
+  animation: sen-pop 1s cubic-bezier(0.2, 1.4, 0.4, 1) 0.2s backwards;
+}
+
+.sen-logo-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--sen-c), var(--sen-m), var(--sen-y), #fff, var(--sen-c));
+  will-change: transform;
+  animation: sen-spin 6s linear infinite;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+}
+
+.sen-logo-ring img {
+  position: relative;
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  animation: sen-bob 3s ease-in-out infinite;
+}
+
+@keyframes sen-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* barras CMYK que "pasan" como una pasada de impresión */
+.sen-bands {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  height: clamp(8px, 1.6vmin, 16px);
+}
+
+.sen-band {
+  flex: 1;
+  transform-origin: left;
+  animation: sen-band-in 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) backwards;
+  animation-delay: calc(0.3s + var(--i) * 0.18s);
+}
+
+.sen-band--c { background: var(--sen-c); }
+.sen-band--m { background: var(--sen-m); }
+.sen-band--y { background: var(--sen-y); }
+.sen-band--k { background: #fff; }
+
+@keyframes sen-band-in {
+  from { transform: scaleX(0); }
+}
+
+/* ───────── lista de franjas (idéntica al tótem, pero viva) ───────── */
+
+.sen-list {
+  position: relative;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: clamp(8px, 1.6vmin, 18px);
+}
+
+.sen-sign {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.8vmin, 22px);
+  padding: 0 clamp(12px, 2vmin, 26px) 0 clamp(10px, 1.6vmin, 20px);
+  border-radius: clamp(16px, 3vmin, 30px);
+  overflow: hidden;
+  text-align: left;
+  color: var(--fg);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bg) 86%, #fff), var(--bg));
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  opacity: 0.6;
+  filter: saturate(0.82);
+  transform: scale(0.97);
+  transition:
+    transform 0.55s cubic-bezier(0.2, 0.9, 0.25, 1.2),
+    opacity 0.5s ease,
+    filter 0.5s ease,
+    box-shadow 0.5s ease;
+  animation: sen-sign-in 0.85s cubic-bezier(0.2, 0.9, 0.25, 1.1) backwards;
+  animation-delay: calc(var(--i) * 0.12s + 0.3s);
+}
+
+@keyframes sen-sign-in {
+  from { opacity: 0; transform: translateX(14vmin) scale(0.9); }
+}
+
+.sen--intro .sen-sign,
+.sen-sign.is-active {
+  opacity: 1;
+  filter: none;
+}
+
+.sen-sign.is-active {
+  z-index: 3;
+  transform: scale(1.03);
+  box-shadow:
+    0 0 0 clamp(3px, 0.6vmin, 6px) color-mix(in srgb, var(--bg) 55%, #fff 25%),
+    0 0 clamp(30px, 6vmin, 70px) color-mix(in srgb, var(--bg) 70%, transparent),
+    0 16px 34px rgba(0, 0, 0, 0.45);
+}
+
+/* en la intro todas se encienden una tras otra */
+.sen--intro .sen-sign {
+  animation:
+    sen-sign-in 0.85s cubic-bezier(0.2, 0.9, 0.25, 1.1) calc(var(--i) * 0.12s + 0.3s) backwards,
+    sen-wave 1.3s ease-in-out calc(2s + var(--i) * 0.32s) 1;
+}
+
+@keyframes sen-wave {
+  45% { transform: scale(1.045); }
+}
+
+.sen-sign::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.42) 50%, transparent 62%);
+  transform: translateX(-130%);
+}
+
+.sen-sign.is-active::after {
+  animation: sen-shine 2.6s ease-in-out 0.7s infinite;
+}
+
+.sen--intro .sen-sign::after {
+  animation: sen-shine 1.6s ease-in-out calc(2s + var(--i) * 0.32s) 1;
+}
+
+@keyframes sen-shine {
+  0% { transform: translateX(-130%); }
+  60%, 100% { transform: translateX(130%); }
+}
+
+.sen-sign__ico {
+  flex: none;
+  width: clamp(44px, 7.2vmin, 84px);
+  height: clamp(44px, 7.2vmin, 84px);
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--fg) 14%, transparent);
+  border: 2px solid color-mix(in srgb, var(--fg) 26%, transparent);
+}
+
+.sen-sign__ico svg {
+  width: 58%;
+  height: 58%;
+}
+
+.sen-sign.is-active .sen-sign__ico {
+  animation: sen-wiggle 1.8s ease-in-out infinite;
+}
+
+@keyframes sen-wiggle {
+  0%, 60%, 100% { transform: rotate(0); }
+  70% { transform: rotate(-9deg) scale(1.08); }
+  80% { transform: rotate(8deg) scale(1.08); }
+  90% { transform: rotate(-4deg); }
+}
+
+.sen-sign__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sen-sign__text strong {
+  font-size: clamp(0.95rem, 2.5vmin, 1.9rem);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+
+.sen-sign__text small {
+  font-size: clamp(0.72rem, 1.7vmin, 1.1rem);
+  font-weight: 600;
+  line-height: 1.2;
+  opacity: 0.82;
+}
+
+.sen-sign__floor {
+  flex: none;
+  padding: 6px clamp(10px, 1.6vmin, 16px);
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: clamp(0.72rem, 1.7vmin, 1.05rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sen-sign__arrow {
+  position: relative;
+  flex: none;
+  width: clamp(44px, 7.2vmin, 84px);
+  height: clamp(44px, 7.2vmin, 84px);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fg);
+  color: var(--bg);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.sen-sign__arrow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--fg);
+  opacity: 0;
+}
+
+.sen-sign.is-active .sen-sign__arrow::before {
+  animation: sen-ripple 1.6s ease-out infinite;
+}
+
+.sen-sign__arrow svg {
+  width: 62%;
+  height: 62%;
+}
+
+.sen-sign--planta-baja .sen-sign__arrow svg { rotate: 180deg; animation: sen-nudge-down 1.3s ease-in-out infinite; }
+.sen-sign--adelante .sen-sign__arrow svg { rotate: 90deg; animation: sen-nudge-ahead 1.3s ease-in-out infinite; }
+.sen-sign--primer-piso .sen-sign__arrow svg { animation: sen-nudge-up 1.3s ease-in-out infinite; }
+
+.sen-sign.is-active .sen-sign__arrow svg { animation-duration: 0.8s; }
+
+@keyframes sen-nudge-down { 50% { translate: 0 18%; } }
+@keyframes sen-nudge-ahead { 50% { translate: 18% 0; } }
+@keyframes sen-nudge-up { 50% { translate: 0 -18%; } }
+
+/* barra de tiempo de la franja activa */
+.sen-sign__timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(4px, 0.8vmin, 8px);
+  background: var(--fg);
+  opacity: 0.5;
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: sen-fill var(--dur, 8s) linear forwards;
+}
+
+@keyframes sen-fill {
+  to { transform: scaleX(1); }
+}
+
+/* ───────── pie ───────── */
+
+.sen-foot {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sen-gap);
+  animation: sen-fade-up 0.8s ease 1s backwards;
+}
+
+.sen-pips {
+  display: flex;
+  align-items: center;
+}
+
+.sen-pip {
+  padding: clamp(6px, 1.2vmin, 12px) clamp(4px, 0.7vmin, 8px);
+}
+
+.sen-pip__dot {
+  display: block;
+  width: clamp(12px, 2vmin, 20px);
+  height: clamp(12px, 2vmin, 20px);
+  border-radius: 999px;
+  background: var(--c);
+  opacity: 0.4;
+  transition: width 0.55s cubic-bezier(0.2, 0.9, 0.25, 1.2), opacity 0.4s ease;
+}
+
+.sen-pip.is-on .sen-pip__dot {
+  width: clamp(38px, 7vmin, 76px);
+  opacity: 1;
+}
+
+.sen-hours {
+  margin: 0;
+  font-size: clamp(0.72rem, 1.7vmin, 1rem);
+  font-weight: 600;
+  color: var(--sen-soft);
+}
+
+.sen-hours b {
+  color: var(--sen-text);
+  font-weight: 800;
+}
+
+/* ───────── vertical (tablet en portrait) y pantallas chicas ───────── */
+
+@media (orientation: portrait) {
+  .sen-main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.05fr) minmax(0, 1fr);
+  }
+
+  .sen-hero {
+    --s: clamp(90px, 21vmin, 220px);
+  }
+}
+
+@media (max-width: 600px) {
+  .sen-brand__title,
+  .sen-hours {
+    display: none;
+  }
+
+  .sen-hero__inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sen-bigarrow {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    --s: 84px;
+  }
+}
+
+/* ───────── movimiento reducido: queda la señalética estática ───────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .sen *,
+  .sen *::before,
+  .sen *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .sen-flow,
+  .sen-route__walker {
+    display: none;
+  }
+}

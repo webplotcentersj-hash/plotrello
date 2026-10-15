@@ -20,13 +20,17 @@ import {
 import { TotemAutogestionPlotAiChat } from '@/components/ui/TotemAutogestionPlotAiChat'
 import { TotemKioskIcon, type TotemKioskIconName } from '../components/totem/TotemKioskIcons'
 import { requestTotemKioskFullscreen, useTotemKioskFullscreen } from '../hooks/useTotemKioskMode'
+import {
+  DIRECCION_DETALLE,
+  DIRECCION_TEXTO,
+  TOTEM_SECTORS_QUEHACER,
+  type SectorDirection
+} from '../constants/totemSectoresSenaletica'
 import './ClienteConsultaPage.css'
 import './TotemConsultaClientePage.css'
 import './TotemConsultaV2.css'
 
 const INACTIVITY_MS = 90000 // Sin tocar → pantalla en espera (modo kiosk)
-
-type SectorDirection = 'planta-baja' | 'adelante' | 'primer-piso'
 
 const TIPS: Array<{ icon: TotemKioskIconName; text: string }> = [
   { icon: 'search', text: 'Consultá tu pedido con OP, DNI, CUIT o CUIL' },
@@ -45,77 +49,6 @@ const MENSAJE_ETAPA = [
 ]
 
 const OP_MAX_DIGITOS = 11
-
-const DIRECCION_TEXTO: Record<SectorDirection, string> = {
-  'planta-baja': 'Seguí las flechas del piso hacia abajo',
-  adelante: 'Seguí hacia adelante',
-  'primer-piso': 'Subí por las escaleras'
-}
-
-/** Paleta CMYK de proceso (impresión) para la señalética del tótem. */
-const CMYK = {
-  C: { bg: '#00AEEF', text: '#0f172a' },
-  M: { bg: '#EC008C', text: '#ffffff' },
-  Y: { bg: '#FFF200', text: '#0f172a' },
-  K: { bg: '#231F20', text: '#ffffff' }
-} as const
-
-// Señalética: franjas horizontales; Diseño + Marketing → 1° piso (flecha arriba)
-const TOTEM_SECTORS_QUEHACER: Array<{
-  id: string
-  label: string
-  icon: TotemKioskIconName
-  sectorDestino: string
-  bg: string
-  textColor: string
-  direction: SectorDirection
-}> = [
-  {
-    id: 'presupuestos',
-    label: 'PRESUPUESTOS Y ASESORAMIENTO',
-    icon: 'presupuestos',
-    sectorDestino: 'Presupuestos y asesoramiento',
-    bg: CMYK.C.bg,
-    textColor: CMYK.C.text,
-    direction: 'planta-baja'
-  },
-  {
-    id: 'recepcion',
-    label: 'RECEPCIÓN DE PEDIDOS',
-    icon: 'recepcion',
-    sectorDestino: 'Recepción de pedidos',
-    bg: CMYK.Y.bg,
-    textColor: CMYK.Y.text,
-    direction: 'planta-baja'
-  },
-  {
-    id: 'diseno',
-    label: 'DISEÑO GRÁFICO Y MARKETING',
-    icon: 'diseno',
-    sectorDestino: 'Diseño gráfico y marketing',
-    bg: CMYK.M.bg,
-    textColor: CMYK.M.text,
-    direction: 'primer-piso'
-  },
-  {
-    id: 'caja',
-    label: 'ENTREGAS TALLER GRÁFICO',
-    icon: 'caja',
-    sectorDestino: 'Entregas Taller Gráfico',
-    bg: CMYK.K.bg,
-    textColor: CMYK.K.text,
-    direction: 'adelante'
-  },
-  {
-    id: 'base_operaciones',
-    label: 'ENTREGAS TALLER DE IMPRENTA',
-    icon: 'base_operaciones',
-    sectorDestino: 'Entregas taller de imprenta',
-    bg: '#F472B6',
-    textColor: '#0f172a',
-    direction: 'adelante'
-  }
-]
 
 function SectorDirectionArrows({ direction }: { direction: SectorDirection }) {
   if (direction === 'primer-piso') {
@@ -1037,11 +970,7 @@ const TotemConsultaClientePage = () => {
                           <SectorDirectionArrows direction={sector.direction} />
                         </div>
                         <p className="totem-direccion-modal-seguir">
-                          {sector.direction === 'primer-piso'
-                            ? 'Subí al 1° piso por las escaleras y seguí las flechas en el piso hasta llegar a tu destino.'
-                            : sector.direction === 'adelante'
-                              ? 'Seguí las flechas hacia adelante hasta llegar a tu destino.'
-                              : 'Seguí las flechas hacia abajo hasta llegar a tu destino.'}
+                          {DIRECCION_DETALLE[sector.direction]}
                         </p>
                         {sector.id === 'diseno' && (
                           <div className="totem-direccion-diseno-cta">
