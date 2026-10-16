@@ -11,6 +11,12 @@ export type TicketExtract = {
   moneda?: string | null
   metodo_pago?: string | null
   numero_comprobante?: string | null
+  cuit?: string | null
+  letra?: string | null
+  punto_venta?: number | null
+  iva_porcentaje?: number | null
+  tipo_comprobante?: string | null
+  cae?: string | null
   confidence?: number | null
   raw_text_hint?: string | null
 }

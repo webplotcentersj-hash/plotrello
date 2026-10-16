@@ -908,6 +908,237 @@
   color: #fff;
 }
 
+.erp-gastos-grid {
+  align-items: start;
+}
+
+.erp-gastos-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.erp-gastos-form-body {
+  margin-top: 14px;
+  display: grid;
+  gap: 14px;
+}
+
+.erp-gastos-fieldset {
+  margin: 0;
+  padding: 14px 14px 16px;
+  border: 1px solid var(--erp-line);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.28);
+}
+
+.erp-gastos-fieldset legend {
+  padding: 0 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--erp-muted);
+}
+
+.erp-gastos-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.erp-gastos-span2 {
+  grid-column: 1 / -1;
+}
+
+.erp-gastos-textarea {
+  resize: vertical;
+  min-height: 64px;
+  font-family: inherit;
+}
+
+.erp-gastos-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+}
+
+.erp-gastos-iva-hint {
+  color: var(--erp-muted);
+  font-weight: 500;
+}
+
+.erp-gastos-form-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.erp-gastos-extract {
+  margin-top: 4px;
+}
+
+.erp-gastos-extract__title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--erp-muted);
+  margin-bottom: 8px;
+}
+
+.erp-gastos-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.erp-gastos-chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--erp-line);
+  background: rgba(15, 23, 42, 0.7);
+  font-size: 0.78rem;
+  color: #e2e8f0;
+}
+
+.erp-gastos-chip strong {
+  color: var(--erp-muted);
+  font-weight: 700;
+}
+
+.erp-gastos-toolbar .erp-field--grow {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+.erp-row-hoy td {
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.erp-hoy-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.erp-cell-sub {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--erp-muted);
+}
+
+.erp-linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #38bdf8;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.erp-trazado {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--erp-line);
+  background: rgba(2, 6, 23, 0.42);
+}
+
+.erp-trazado__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.erp-trazado__head h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.erp-trazado-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0;
+}
+
+.erp-trazado-steps li {
+  position: relative;
+  padding: 10px 0 14px 22px;
+  border-left: 2px solid rgba(148, 163, 184, 0.28);
+  margin-left: 7px;
+}
+
+.erp-trazado-steps li:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+
+.erp-trazado-steps li::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 14px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #475569;
+  box-shadow: 0 0 0 3px rgba(2, 6, 23, 0.8);
+}
+
+.erp-trazado-steps li.is-done::before {
+  background: #34d399;
+}
+
+.erp-trazado-steps li.is-pending::before {
+  background: #fbbf24;
+}
+
+.erp-trazado-steps strong {
+  display: block;
+  color: #fff;
+  font-size: 0.86rem;
+}
+
+.erp-trazado-steps span {
+  display: block;
+  margin-top: 3px;
+  color: var(--erp-muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 720px) {
+  .erp-gastos-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-gastos-span2 {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 720px) {
   .erp-section {
     padding: 14px;

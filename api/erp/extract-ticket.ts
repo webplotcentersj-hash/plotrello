@@ -97,13 +97,26 @@ SCHEMA JSON:
   "moneda": string|null,
   "metodo_pago": string|null,
   "numero_comprobante": string|null,
+  "cuit": string|null,
+  "letra": string|null,
+  "punto_venta": number|null,
+  "iva_porcentaje": number|null,
+  "tipo_comprobante": string|null,
+  "cae": string|null,
   "confidence": number|null,
   "raw_text_hint": string|null
 }
 
 Categoria: intentá elegir una etiqueta corta tipo: Combustible, Limpieza, Insumos, Servicios, Repuestos, Transporte, Comida, Otros.
 Descripcion: una frase corta con lo principal (ej. "Nafta", "Insumos de oficina", "Service", etc.).
-numero_comprobante: punto de venta y número si se ve (ej. 0001-00001234), o el n° de recibo/ticket.`
+numero_comprobante: punto de venta y número si se ve (ej. 0001-00001234), o el n° de recibo/ticket.
+cuit: CUIT del emisor (11 dígitos) si se ve.
+letra: A, B o C si el comprobante lo indica.
+punto_venta: número de PV si se ve aparte.
+iva_porcentaje: 21, 10.5, 27, 0, etc. si se infiere.
+tipo_comprobante: Factura, Ticket, Recibo, Nota de Crédito o Nota de Débito.
+cae: código CAE/CAEA si aparece.
+El IVA extraído (campo iva) es el monto de IVA del comprobante, no el porcentaje.`
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
