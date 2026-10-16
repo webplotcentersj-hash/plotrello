@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import {
   buildMonthGrid,
+  clampFechaToYearMonth,
   dayHasActivity,
   filterFechasCalendario,
   labelMesAnio,
@@ -47,7 +48,13 @@ export default function CajaCalendarioAdmin({
 
   const cajaNombre = (slug: string) => cajas.find((c) => c.slug === slug)?.nombre ?? slug
 
-  const selectedDay = index[selectedFecha]
+  const goMonth = (delta: number) => {
+    const next = shiftYearMonth(yearMonth, delta)
+    onYearMonthChange(next)
+    onSelectFecha(clampFechaToYearMonth(selectedFecha, next))
+  }
+
+  const selectedDay = selectedFecha.startsWith(yearMonth) ? index[selectedFecha] : undefined
 
   return (
     <div className="caja-cc-card caja-cc-calendario">
@@ -60,7 +67,7 @@ export default function CajaCalendarioAdmin({
           <button
             type="button"
             className="btn-secondary btn-small"
-            onClick={() => onYearMonthChange(shiftYearMonth(yearMonth, -1))}
+            onClick={() => goMonth(-1)}
             aria-label="Mes anterior"
           >
             ‹
@@ -69,7 +76,7 @@ export default function CajaCalendarioAdmin({
           <button
             type="button"
             className="btn-secondary btn-small"
-            onClick={() => onYearMonthChange(shiftYearMonth(yearMonth, 1))}
+            onClick={() => goMonth(1)}
             aria-label="Mes siguiente"
           >
             ›

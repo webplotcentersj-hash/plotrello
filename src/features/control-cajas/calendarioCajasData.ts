@@ -5,6 +5,16 @@ import {
 } from './cajaDashboardData'
 import { fmtArs, fmtDateAr } from './format'
 import { matchSearchQuery } from './listFilters'
+
+export {
+  buildMonthGrid,
+  clampFechaToYearMonth,
+  daysInYearMonth,
+  labelMesAnio,
+  parseYearMonth,
+  shiftYearMonth,
+  yearMonthFromDate
+} from './calendarioCajasGrid'
 import type {
   CajaArqueo,
   CajaEgresoSolicitud,
@@ -164,58 +174,6 @@ export function buildCalendarioCajasIndex(
   }
 
   return index
-}
-
-export function parseYearMonth(ym: string): { year: number; month: number } {
-  const [y, m] = ym.split('-').map(Number)
-  return { year: y || new Date().getFullYear(), month: m || 1 }
-}
-
-export function yearMonthFromDate(fecha: string): string {
-  return fecha.slice(0, 7)
-}
-
-/** Celdas del mes (null = padding). Semana empieza lunes. */
-export function buildMonthGrid(year: number, month: number): (string | null)[] {
-  const daysInMonth = new Date(year, month, 0).getDate()
-  const firstDow = new Date(year, month - 1, 1).getDay()
-  const padStart = (firstDow + 6) % 7
-  const cells: (string | null)[] = []
-  for (let i = 0; i < padStart; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(month).padStart(2, '0')
-    const dd = String(d).padStart(2, '0')
-    cells.push(`${year}-${mm}-${dd}`)
-  }
-  while (cells.length % 7 !== 0) cells.push(null)
-  return cells
-}
-
-const MESES_ES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre'
-]
-
-export function labelMesAnio(year: number, month: number): string {
-  return `${MESES_ES[month - 1] ?? ''} ${year}`
-}
-
-export function shiftYearMonth(ym: string, delta: number): string {
-  const { year, month } = parseYearMonth(ym)
-  const d = new Date(year, month - 1 + delta, 1)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  return `${y}-${m}`
 }
 
 export function filterFechasCalendario(

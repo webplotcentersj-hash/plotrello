@@ -2983,7 +2983,7 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -2996,14 +2996,16 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .caja-dashboard-page .caja-cc-calendario-month {
-  min-width: 140px;
+  min-width: 11.5rem;
   text-align: center;
   font-size: 15px;
   color: #0f172a;
+  white-space: nowrap;
 }
 
 .caja-dashboard-page .caja-cc-calendario-search {
@@ -3067,6 +3069,7 @@
 .caja-dashboard-page .caja-cc-calendario-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(36px, 1fr));
+  grid-template-rows: repeat(6, minmax(44px, auto));
   gap: 4px;
 }
 
@@ -3090,7 +3093,8 @@
   border: none;
   background: transparent;
   cursor: default;
-  min-height: 0;
+  min-height: 44px;
+  pointer-events: none;
 }
 
 .caja-dashboard-page .caja-cc-cal-day:hover:not(.caja-cc-cal-day--pad) {
