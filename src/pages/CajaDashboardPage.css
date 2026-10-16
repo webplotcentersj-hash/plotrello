@@ -2954,6 +2954,26 @@
   outline-offset: 2px;
 }
 
+.caja-dashboard-page .caja-cc-hoy-acum {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: -4px 0 20px;
+}
+
+.caja-dashboard-page .caja-cc-hoy-acum-card {
+  padding: 14px 16px;
+  gap: 4px;
+}
+
+.caja-dashboard-page .caja-cc-hoy-acum-value {
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  line-height: 1.15;
+  color: #0f172a;
+}
+
 /* —— Calendario admin —— */
 .caja-dashboard-page .caja-cc-calendario {
   margin-bottom: 20px;

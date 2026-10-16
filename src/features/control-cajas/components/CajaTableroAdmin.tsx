@@ -21,6 +21,7 @@ import {
 } from '../cajaRepository'
 import type { CajaMovimiento, CajaRegistro, CajaTransferenciaLote } from '../types'
 import { resumenPorCajeroAdminDia } from '../cajaMenuOperativaData'
+import { ingresosAcumuladosHasta } from '../ingresosAcumulados'
 import {
   montoIngresoHeroDia,
   subtituloIngresoDia,
@@ -156,6 +157,20 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
     () => resumenAdminHoy(selectedFecha, lotes, planillas, egresos, cajas, movimientos),
     [selectedFecha, lotes, planillas, egresos, cajas, movimientos]
   )
+
+  const ingresosAcum = useMemo(
+    () => ingresosAcumuladosHasta(selectedFecha, planillas, movimientos),
+    [selectedFecha, planillas, movimientos]
+  )
+
+  const labelMesAcum = useMemo(() => {
+    const [y, m] = selectedFecha.split('-')
+    if (!y || !m) return selectedFecha.slice(0, 7)
+    const d = new Date(Date.UTC(Number(y), Number(m) - 1, 1))
+    const mes = new Intl.DateTimeFormat('es-AR', { month: 'long', timeZone: 'UTC' }).format(d)
+    const mesCap = mes ? mes.charAt(0).toUpperCase() + mes.slice(1) : mes
+    return `${mesCap} ${y}`
+  }, [selectedFecha])
 
   const alertasDobleFuente = useMemo(() => {
     return cajas
@@ -300,6 +315,30 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
                   Ver egresos
                 </button>
               )}
+            </div>
+          </div>
+
+          <div className="caja-cc-hoy-acum" aria-label="Ingresos acumulados">
+            <div className="caja-cc-hoy-hero-card ingreso caja-cc-hoy-acum-card">
+              <span className="caja-cc-hoy-hero-label">Ingresos semana</span>
+              <span className="caja-cc-hoy-acum-value">$ {fmtArs(ingresosAcum.semana)}</span>
+              <span className="caja-cc-hoy-hero-hint">
+                Lun {fmtDateAr(ingresosAcum.desdeSemana)} – {fmtDateAr(ingresosAcum.hasta)}
+              </span>
+            </div>
+            <div className="caja-cc-hoy-hero-card ingreso caja-cc-hoy-acum-card">
+              <span className="caja-cc-hoy-hero-label">Ingresos mes</span>
+              <span className="caja-cc-hoy-acum-value">$ {fmtArs(ingresosAcum.mes)}</span>
+              <span className="caja-cc-hoy-hero-hint">
+                {labelMesAcum} (al {fmtDateAr(ingresosAcum.hasta)})
+              </span>
+            </div>
+            <div className="caja-cc-hoy-hero-card ingreso caja-cc-hoy-acum-card">
+              <span className="caja-cc-hoy-hero-label">Ingresos año</span>
+              <span className="caja-cc-hoy-acum-value">$ {fmtArs(ingresosAcum.anio)}</span>
+              <span className="caja-cc-hoy-hero-hint">
+                {ingresosAcum.desdeAnio.slice(0, 4)} (al {fmtDateAr(ingresosAcum.hasta)})
+              </span>
             </div>
           </div>
 

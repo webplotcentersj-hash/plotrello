@@ -190,6 +190,14 @@ const MEDIOS_VACIO: MediosDiaTotales = {
   countIngresos: 0
 }
 
+function esIngresoCobrado(m: CajaMovimiento): boolean {
+  if (m.anulado) return false
+  if (m.tipo_movimiento !== 'ingreso') return false
+  // Traspasos / pases entre cajas no son cobros.
+  if (esPaseCierreTurno(m) || esTraspasoEntreCajas(m)) return false
+  return true
+}
+
 /** Ingresos del día (ventas PlotLab, planilla, comprobantes) agrupados por medio. */
 export function mediosIngresosDia(
   movimientos: CajaMovimiento[],
@@ -198,10 +206,7 @@ export function mediosIngresosDia(
 ): MediosDiaTotales {
   let acc = MEDIOS_VACIO
   for (const m of movimientos) {
-    if (m.fecha !== fecha || m.anulado) continue
-    if (m.tipo_movimiento !== 'ingreso') continue
-    // Traspasos / pases entre cajas no son cobros.
-    if (esPaseCierreTurno(m) || esTraspasoEntreCajas(m)) continue
+    if (m.fecha !== fecha || !esIngresoCobrado(m)) continue
     const med = mediosDesdeMovimiento(m, ventasMpPagadas)
     acc = sumarMedios(acc, { ...med, countIngresos: 1 })
   }
