@@ -305,6 +305,15 @@ function refVentaPlotLab(ventaId: number): string {
   return `PL-VENTA-${ventaId}`
 }
 
+export function refDevolucionVentaPlotLab(ventaId: number): string {
+  return `PL-DEVOL-${ventaId}`
+}
+
+export function esMovimientoDevolucionPlotLab(m: Pick<CajaMovimiento, 'observacion' | 'nro_comprobante' | 'tipo_movimiento'>): boolean {
+  if (m.tipo_movimiento && m.tipo_movimiento !== 'egreso') return false
+  return /PL-DEVOL-\d+/.test(`${m.observacion || ''} ${m.nro_comprobante || ''}`)
+}
+
 async function buscarMovimientoPlotLabPorRef(ref: string): Promise<CajaMovimiento | null> {
   const movs = await listMovimientos()
   return (
@@ -351,6 +360,10 @@ export async function syncDesdeVentaRecord(
     const cancelada =
       venta.estado_pago === 'Cancelado' || (Number(venta.valor_total) || 0) <= 0
     if (existente && cancelada) {
+      const yaDevuelto = await buscarMovimientoPlotLabPorRef(refDevolucionVentaPlotLab(venta.id))
+      if (yaDevuelto) {
+        return { ok: true, yaExistia: true, cajaSlug: existente.destino_slug }
+      }
       try {
         const actorId = opts?.actorId ?? titularId ?? existente.id_usuario ?? undefined
         if (actorId == null) {
@@ -565,6 +578,96 @@ export async function syncVentaPlotLabACaja(
     return { ok: true, movimiento: mov, cajaSlug, yaExistia: false }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Error al sincronizar venta con caja'
+    notifyCajaSync({ ok: false, message: msg })
+    return { ok: false, error: msg }
+  }
+}
+
+export type PlotLabDevolucionCajaInput = {
+  ventaId: number
+  numeroVenta?: string | null
+  clienteNombre: string
+  monto: number
+  metodoPago: MetodoPagoPlotLab
+  fecha: string
+  usuarioId?: number
+  usuarioNombre?: string
+  cajaSlug?: string
+  motivo?: string
+  mpPaymentId?: string | null
+}
+
+/** Egreso de caja por devolución de dinero (no anula el cobro original). */
+export async function syncDevolucionVentaPlotLabACaja(
+  input: PlotLabDevolucionCajaInput
+): Promise<PlotLabVentaCajaSyncResult> {
+  try {
+    const monto = Number(input.monto) || 0
+    if (monto <= 0) return { ok: false, error: 'Monto de devolución inválido' }
+
+    const medios = metodoPagoPlotLabAMedios(input.metodoPago, monto, 'Pagado')
+    if (!medios) return { ok: false, error: 'No se pudo armar el medio de la devolución' }
+
+    const ref = refDevolucionVentaPlotLab(input.ventaId)
+    const existente = await buscarMovimientoPlotLabPorRef(ref)
+
+    const usuarioNombre = input.usuarioNombre?.trim() || 'PlotLab'
+    const cajaCobro = input.cajaSlug?.trim() || ''
+    let cajaSlug = cajaCobro || (await resolverCajaSlugVenta(usuarioNombre, input.usuarioId))
+    if (!cajaCobro && input.usuarioId != null && input.usuarioId > 0) {
+      cajaSlug = cajaSlugForUsuario(input.usuarioId)
+    }
+    if (!cajaSlug) {
+      return { ok: false, error: 'No se pudo determinar la caja para devolver el dinero.' }
+    }
+
+    const actorId = input.usuarioId
+    if (actorId == null || actorId <= 0) {
+      return { ok: false, error: 'Sin usuario para registrar la devolución en caja.', omitido: true }
+    }
+
+    if (existente && !existente.anulado) {
+      const mismoMonto = Math.abs((Number(existente.monto_total) || 0) - monto) <= 0.02
+      if (mismoMonto) return { ok: true, yaExistia: true, cajaSlug: existente.origen_slug || cajaSlug }
+    }
+
+    const fecha = (input.fecha || getArgentinaDateString()).slice(0, 10)
+    const movBase = movimientoDesdeMedios(
+      {
+        fecha: existente?.fecha || fecha,
+        hora: existente?.hora || new Date().toTimeString().slice(0, 5),
+        caja_slug: cajaSlug,
+        tipo_movimiento: 'egreso',
+        categoria: 'Devolución',
+        comprobante: ref,
+        concepto: `Devolución ${input.clienteNombre}`.slice(0, 120),
+        tercero_nombre: input.clienteNombre,
+        medios,
+        observacion: `PlotLab devolución (${ref}) — ${input.metodoPago}${input.motivo ? ` · ${input.motivo}` : ''}${
+          input.mpPaymentId ? ` · MP ${input.mpPaymentId}` : ''
+        }`,
+        id_usuario: input.usuarioId ?? null,
+        usuario_nombre: usuarioNombre,
+        origen_importacion: 'plotlab_venta'
+      },
+      { origen_slug: cajaSlug, destino_slug: 'cliente' }
+    )
+
+    const mov = await saveMovimiento(
+      {
+        ...movBase,
+        id: existente?.id,
+        fecha: existente?.fecha || fecha,
+        cierre_id: existente?.cierre_id ?? null
+      },
+      { actor: { id: actorId } }
+    )
+
+    notificarCajaActualizada()
+    if (!existente) notifyCajaSync({ ok: true, message: mensajeSyncOk(cajaSlug, monto, 'Devolución') })
+    return { ok: true, movimiento: mov, cajaSlug, yaExistia: false }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Error al registrar devolución en caja'
     notifyCajaSync({ ok: false, message: msg })
     return { ok: false, error: msg }
   }

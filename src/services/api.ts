@@ -21500,7 +21500,11 @@ class ApiService {
     }
   }
 
-  async anularVentaConMotivo(idVenta: number, motivo: string): Promise<ApiResponse<boolean>> {
+  async anularVentaConMotivo(
+    idVenta: number,
+    motivo: string,
+    opts?: { sincronizarCaja?: boolean }
+  ): Promise<ApiResponse<boolean>> {
     if (!supabase) return { success: false, error: 'Supabase no inicializado' }
     const texto = motivo.trim()
     if (!texto) return { success: false, error: 'Escribí por qué se elimina la venta' }
@@ -21511,10 +21515,83 @@ class ApiService {
         p_motivo: texto
       })
       if (error) throw error
-      await this.sincronizarCajaTrasCambioVenta(idVenta)
+      if (opts?.sincronizarCaja !== false) {
+        await this.sincronizarCajaTrasCambioVenta(idVenta)
+      }
       return { success: true, data: true }
     } catch (error: any) {
       return { success: false, error: error.message || 'Error al eliminar la venta' }
+    }
+  }
+
+  async getFacturaAutorizadaPorVenta(
+    idVenta: number
+  ): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase
+        .from('facturas_venta')
+        .select('*, items:facturas_items(*)')
+        .eq('id_venta', idVenta)
+        .eq('estado_afip', 'Autorizada')
+        .like('tipo_comprobante', 'Factura%')
+        .neq('estado', 'Anulada')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) return { success: false, error: error.message }
+      if (!data) return { success: false, error: 'No hay factura AFIP autorizada para esta venta' }
+      return { success: true, data: data as import('../types/api').FacturaVentaRecord }
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al buscar la factura'
+      }
+    }
+  }
+
+  async ventaTieneNotaCreditoAutorizada(idVenta: number): Promise<boolean> {
+    if (!supabase) return false
+    try {
+      const { data } = await supabase
+        .from('facturas_venta')
+        .select('id')
+        .eq('id_venta', idVenta)
+        .eq('estado_afip', 'Autorizada')
+        .like('tipo_comprobante', 'Nota de Crédito%')
+        .limit(1)
+        .maybeSingle()
+      return Boolean(data?.id)
+    } catch {
+      return false
+    }
+  }
+
+  async devolverStockVentaCompleta(idVenta: number): Promise<ApiResponse<number>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data: items, error } = await supabase
+        .from('ventas_items')
+        .select('id, id_venta, id_articulo_stock, cantidad')
+        .eq('id_venta', idVenta)
+      if (error) throw error
+      let n = 0
+      for (const it of items || []) {
+        if (!it.id_articulo_stock || Number(it.cantidad) <= 0) continue
+        await this.devolverStockDeItemVenta({
+          id: Number(it.id),
+          id_venta: Number(it.id_venta),
+          id_articulo_stock: Number(it.id_articulo_stock),
+          cantidad: Number(it.cantidad)
+        })
+        n += 1
+      }
+      return { success: true, data: n }
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al devolver stock'
+      }
     }
   }
 

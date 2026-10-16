@@ -103,6 +103,10 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
       })
       if (r.sincronizadas > 0) {
         setSyncMsg(`${r.sincronizadas} venta(s) PlotLab sincronizada(s) al día.`)
+        void apiService.obtenerVentas(undefined, selectedFecha, selectedFecha).then((res) => {
+          if (cancelled) return
+          setVentasDia(res.success && res.data ? res.data : [])
+        })
       }
     })
     return () => {
@@ -119,7 +123,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
     return () => {
       cancelled = true
     }
-  }, [selectedFecha, refreshKey, movimientos])
+  }, [selectedFecha, refreshKey])
 
   const ventasMpPagadas = useMemo(() => ventasMpPagadasIds(ventasDia), [ventasDia])
 

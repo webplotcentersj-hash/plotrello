@@ -2133,3 +2133,63 @@
   border-color: rgba(129, 140, 248, 0.55);
   color: #e0e7ff;
 }
+
+.venta-devolucion-modal-backdrop {
+  z-index: 11000;
+}
+
+.caja-cc-modal.venta-devolucion-modal {
+  padding: 20px 22px 16px;
+  gap: 10px;
+  overflow: auto;
+}
+
+.venta-devolucion-modal h3 {
+  margin: 0 0 4px;
+}
+
+.venta-devolucion-modal .caja-cc-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.venta-devolucion-modal .caja-cc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.venta-devolucion-modal .caja-cc-field input,
+.venta-devolucion-modal .caja-cc-field textarea {
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.venta-devolucion-modal .caja-cc-field-hint,
+.venta-devolucion-modal .caja-cc-sub {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.venta-devolucion-modal .caja-cc-err {
+  color: #b91c1c;
+  font-size: 13px;
+  margin: 0;
+}
+
+.venta-devolucion-modal .caja-cc-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}

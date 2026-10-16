@@ -59,6 +59,11 @@ function totalesIngresosPlanilla(p: PlanillaCajaGuardada): number {
   return Number(p.totales?.ingresos_total) || 0
 }
 
+function esDevolucionPlotLab(m: CajaMovimiento): boolean {
+  if (m.anulado || m.tipo_movimiento !== 'egreso') return false
+  return /PL-DEVOL-\d+/.test(`${m.observacion || ''} ${m.nro_comprobante || ''}`)
+}
+
 function ingresosPorFechaRango(
   movimientos: CajaMovimiento[],
   desde: string,
@@ -67,6 +72,11 @@ function ingresosPorFechaRango(
   const map = new Map<string, number>()
   for (const m of movimientos) {
     if (!m.fecha || m.fecha < desde || m.fecha > hasta) continue
+    if (esDevolucionPlotLab(m)) {
+      const monto = montoVisibleMovimiento(m)
+      if (monto > 0) map.set(m.fecha, (map.get(m.fecha) || 0) - monto)
+      continue
+    }
     if (!esIngresoCobrado(m)) continue
     const monto = montoVisibleMovimiento(m)
     if (monto <= 0) continue
@@ -85,9 +95,9 @@ function sumarIngresosRango(
   const diasConMov = new Set<string>()
   for (const [fecha, monto] of porFecha) {
     if (fecha < desde || fecha > hasta) continue
-    if (monto <= 0) continue
+    if (monto === 0) continue
     total += monto
-    diasConMov.add(fecha)
+    if (monto > 0) diasConMov.add(fecha)
   }
   for (const p of planillas) {
     const fechas = fechasEnRangoPlanilla(p).filter((f) => f >= desde && f <= hasta)

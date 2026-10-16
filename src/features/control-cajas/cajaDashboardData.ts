@@ -505,6 +505,12 @@ export function resumenAdminHoy(
     (s, e) => s + (e.monto_efectivo || 0) + (e.monto_otros || 0),
     0
   )
+  for (const m of movimientos) {
+    if (m.fecha !== fecha || m.anulado) continue
+    if (m.tipo_movimiento !== 'egreso') continue
+    if (!/PL-DEVOL-\d+/.test(`${m.observacion || ''} ${m.nro_comprobante || ''}`)) continue
+    egresosHoy += Number(m.monto_total) || (m.efectivo || 0) + (m.otros || 0)
+  }
   if (egresosHoy <= 0) {
     for (const p of planillas) {
       if (planillaEnFecha(p, fecha)) {

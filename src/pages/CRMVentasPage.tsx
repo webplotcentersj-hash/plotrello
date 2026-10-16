@@ -43,6 +43,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
 import CajaCobroVentaModal from '../features/control-cajas/components/CajaCobroVentaModal'
+import VentaDevolucionModal from '../components/ventas/VentaDevolucionModal'
 import CajaSectionEgresos from '../features/control-cajas/components/CajaSectionEgresos'
 import CajaSectionHistorial from '../features/control-cajas/components/CajaSectionHistorial'
 import { resolveUsuarioCajaEtiqueta } from '../features/control-cajas/cajaUsuarioDisplay'
@@ -418,6 +419,7 @@ const CRMVentasPage = () => {
 
   // Ventas (solo CRM): ficha compacta + ampliar
   const [ventaModalId, setVentaModalId] = useState<number | null>(null)
+  const [devolucionVenta, setDevolucionVenta] = useState<Venta | null>(null)
   const [ventaCabeceraDraft, setVentaCabeceraDraft] = useState({
     cliente_nombre: '',
     cliente_telefono: '',
@@ -3546,17 +3548,31 @@ const CRMVentasPage = () => {
                     ➕ Agregar ítems
                   </button>
                   {ventaModal.estado_pago !== 'Cancelado' ? (
-                    <button
-                      type="button"
-                      className="btn-action venta-detail-btn-danger"
-                      disabled={ventaEditBusy}
-                      onClick={() => {
-                        setVentaMotivoAccion({ tipo: 'venta' })
-                        setVentaMotivoTexto('')
-                      }}
-                    >
-                      Eliminar venta
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="btn-action"
+                        disabled={ventaEditBusy || !usuario?.id}
+                        onClick={() => setDevolucionVenta(ventaModal)}
+                      >
+                        NC / Devolución
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-action venta-detail-btn-danger"
+                        disabled={ventaEditBusy}
+                        onClick={() => {
+                          if (ventaTieneFactura(ventaModal.id)) {
+                            setDevolucionVenta(ventaModal)
+                            return
+                          }
+                          setVentaMotivoAccion({ tipo: 'venta' })
+                          setVentaMotivoTexto('')
+                        }}
+                      >
+                        {ventaTieneFactura(ventaModal.id) ? 'Anular (NC)' : 'Eliminar venta'}
+                      </button>
+                    </>
                   ) : null}
                   <div className="export-dropdown" style={{ position: 'relative', display: 'inline-flex' }}>
                     <button
@@ -5167,6 +5183,21 @@ const CRMVentasPage = () => {
       )}
 
       {/* Modal Crear Presupuesto */}
+      {devolucionVenta && usuario?.id ? (
+        <VentaDevolucionModal
+          venta={devolucionVenta}
+          actorId={usuario.id}
+          actorNombre={nombreOperador}
+          esAdmin={isAdmin}
+          onClose={() => setDevolucionVenta(null)}
+          onDone={(mensaje) => {
+            alert(mensaje)
+            void refrescarVentaTrasCambio(devolucionVenta.id)
+            void loadData()
+          }}
+        />
+      ) : null}
+
       {cobroCajaModal && (
         <CajaCobroVentaModal
           venta={cobroCajaModal.venta}
