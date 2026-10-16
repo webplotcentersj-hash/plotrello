@@ -30,7 +30,7 @@ export function inferirAlicuotaIva(neto: number | null, iva: number | null): num
   const i = Number(iva) || 0
   if (i <= 0 || n <= 0) return 0
   const ratio = (i / n) * 100
-  let best = ALICUOTAS_IVA[0]
+  let best: number = ALICUOTAS_IVA[0]
   let dist = Math.abs(ratio - best)
   for (const a of ALICUOTAS_IVA) {
     const d = Math.abs(ratio - a)
