@@ -589,6 +589,25 @@ export async function listMovimientos(opts?: {
   return sortMovimientos(local)
 }
 
+/** Movimientos de un día (evita el tope de 1000 de `listMovimientos` al conciliar fechas viejas). */
+export async function listMovimientosPorFecha(fecha: string): Promise<CajaMovimiento[]> {
+  const dia = fecha.slice(0, 10)
+  const local = readLocal().movimientos.filter((m) => m.fecha === dia)
+
+  if (await checkRemote()) {
+    const { data, error } = await supabase!
+      .from('control_caja_movimientos')
+      .select('*')
+      .eq('fecha', dia)
+      .order('hora', { ascending: false })
+    if (!error && data) {
+      return mergeMovimientosLists(data.map(mapMovRow), local)
+    }
+  }
+
+  return sortMovimientos(local)
+}
+
 function numOrNull(v: unknown): number | null {
   if (v == null || v === '') return null
   const n = Number(v)

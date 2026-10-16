@@ -7,6 +7,13 @@ import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { getArgentinaDateString } from '../utils/dateUtils'
 import { gastoPuedeIrALibroIva, inferirAlicuotaIva, netoEIvaDesdeTotal } from '../utils/gastoIvaLibro'
 import { syncGastoALibroIva } from '../utils/syncGastoALibroIva'
+import {
+  gastoImportKey,
+  labelMesYm,
+  parseComprobantesComprasBuffer,
+  payloadGastoDesdeExcel,
+  type CompraExcelParseResult
+} from '../utils/parseComprobantesComprasExcel'
 import './ErpSectionPage.css'
 
 type GastosFilter = 'todo' | 'corrientes' | 'tickets'
@@ -189,6 +196,9 @@ export default function ErpGastosPage() {
   const [trazadoId, setTrazadoId] = useState<number | null>(null)
   const [syncingIva, setSyncingIva] = useState<number | null>(null)
   const [soloHoy, setSoloHoy] = useState(false)
+  const [mesFiltro, setMesFiltro] = useState('')
+  const [excelPreview, setExcelPreview] = useState<CompraExcelParseResult | null>(null)
+  const [excelImporting, setExcelImporting] = useState(false)
 
   const [form, setForm] = useState<GastoForm>(() => emptyForm())
 
@@ -201,7 +211,7 @@ export default function ErpGastosPage() {
         .from('erp_gastos')
         .select('*')
         .order('fecha_gasto', { ascending: false })
-        .limit(500)
+        .limit(2000)
       if (err) throw new Error(err.message)
       setRows((data as ErpGastoRow[]) || [])
     } catch (e) {
@@ -233,7 +243,7 @@ export default function ErpGastosPage() {
   const subtitle = useMemo(() => {
     if (filter === 'corrientes') return 'Gastos corrientes · Alta manual y control'
     if (filter === 'tickets') return 'Tickets · Carga con extracción automática'
-    return 'Gastos corrientes + tickets · Control, IVA y trazado'
+    return 'Gastos por mes · tickets, Excel AFIP e IVA al libro'
   }, [filter])
 
   const hoy = ymdToday()
@@ -242,6 +252,7 @@ export default function ErpGastosPage() {
     const q = buscar.trim().toLowerCase()
     let list = rows
     if (soloHoy) list = list.filter((r) => String(r.fecha_gasto).slice(0, 10) === hoy)
+    if (mesFiltro) list = list.filter((r) => String(r.fecha_gasto).slice(0, 7) === mesFiltro)
     if (fechaDesde) list = list.filter((r) => String(r.fecha_gasto).slice(0, 10) >= fechaDesde)
     if (fechaHasta) list = list.filter((r) => String(r.fecha_gasto).slice(0, 10) <= fechaHasta)
     if (categoriaFiltro) list = list.filter((r) => (r.categoria || '') === categoriaFiltro)
@@ -257,13 +268,35 @@ export default function ErpGastosPage() {
     return [...list].sort((a, b) => {
       const da = String(a.fecha_gasto || '').slice(0, 10)
       const db = String(b.fecha_gasto || '').slice(0, 10)
-      const aHoy = da === hoy ? 0 : 1
-      const bHoy = db === hoy ? 0 : 1
-      if (aHoy !== bHoy) return aHoy - bHoy
+      const ma = da.slice(0, 7)
+      const mb = db.slice(0, 7)
+      if (ma !== mb) return mb.localeCompare(ma)
+      if (da === hoy && db !== hoy) return -1
+      if (db === hoy && da !== hoy) return 1
       if (da !== db) return db.localeCompare(da)
       return (b.id || 0) - (a.id || 0)
     })
-  }, [rows, filter, fechaDesde, fechaHasta, categoriaFiltro, metodoFiltro, buscar, ivaFiltro, soloHoy, hoy])
+  }, [rows, filter, fechaDesde, fechaHasta, categoriaFiltro, metodoFiltro, buscar, ivaFiltro, soloHoy, mesFiltro, hoy])
+
+  const mesesDisponibles = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of rows) {
+      const ym = String(r.fecha_gasto || '').slice(0, 7)
+      if (ym) set.add(ym)
+    }
+    return [...set].sort((a, b) => b.localeCompare(a))
+  }, [rows])
+
+  const groupedByMes = useMemo(() => {
+    const map = new Map<string, ErpGastoRow[]>()
+    for (const r of filteredRows) {
+      const ym = String(r.fecha_gasto || '').slice(0, 7) || '—'
+      const list = map.get(ym)
+      if (list) list.push(r)
+      else map.set(ym, [r])
+    }
+    return [...map.entries()]
+  }, [filteredRows])
 
   const trazado = useMemo(
     () => (trazadoId != null ? rows.find((r) => r.id === trazadoId) ?? null : null),
@@ -486,6 +519,95 @@ export default function ErpGastosPage() {
     }
   }
 
+  const handleExcelFile = async (file?: File) => {
+    if (!file) return
+    setError(null)
+    try {
+      const parsed = parseComprobantesComprasBuffer(await file.arrayBuffer())
+      if (!parsed.rows.length) {
+        setExcelPreview(null)
+        setError(parsed.errors[0] || 'No se pudieron leer comprobantes del Excel.')
+        return
+      }
+      setExcelPreview(parsed)
+    } catch (e) {
+      setExcelPreview(null)
+      setError(e instanceof Error ? e.message : 'No se pudo leer el Excel.')
+    }
+  }
+
+  const confirmarImportExcel = async () => {
+    if (!supabase || !excelPreview?.rows.length) return
+    setExcelImporting(true)
+    setError(null)
+    try {
+      await supabase.from('erp_gastos_categorias').insert({ nombre: 'Compras AFIP' }).select().maybeSingle()
+      const existing = new Set(
+        rows.map((r) =>
+          gastoImportKey({
+            fecha: String(r.fecha_gasto).slice(0, 10),
+            proveedor_cuit: r.proveedor_cuit,
+            punto_venta: r.punto_venta,
+            numero_comprobante: r.numero_comprobante,
+            letra: r.letra
+          })
+        )
+      )
+      let ok = 0
+      let dup = 0
+      let libro = 0
+      let fail = 0
+      for (const r of excelPreview.rows) {
+        const key = gastoImportKey(r)
+        if (existing.has(key)) {
+          dup++
+          continue
+        }
+        const payload = payloadGastoDesdeExcel(r)
+        const { data, error: err } = await supabase.from('erp_gastos').insert(payload).select('id').single()
+        if (err || !data?.id) {
+          fail++
+          continue
+        }
+        existing.add(key)
+        ok++
+        const iva = Number(payload.iva)
+        if (gastoPuedeIrALibroIva(iva)) {
+          const sync = await syncGastoALibroIva({
+            gastoId: Number(data.id),
+            fecha: r.fecha,
+            proveedor: r.proveedor,
+            cuit: r.proveedor_cuit,
+            descripcion: String(payload.descripcion || r.proveedor),
+            total: Number(payload.total) || 0,
+            iva,
+            neto: Number(payload.neto),
+            numero_comprobante: r.numero_comprobante,
+            punto_venta: r.punto_venta,
+            letra: r.letra,
+            iva_porcentaje: r.iva_porcentaje,
+            tipo_comprobante: r.tipo_comprobante
+          })
+          if (sync.ok && !sync.omitido) libro++
+        }
+      }
+      setExcelPreview(null)
+      await reload()
+      await loadCategorias()
+      const meses = [...new Set(excelPreview.rows.map((r) => r.fecha.slice(0, 7)))].sort()
+      if (meses.length === 1) setMesFiltro(meses[0])
+      alert(
+        `Importados ${ok} comprobantes${meses.length ? ` (${meses.map(labelMesYm).join(', ')})` : ''}. Duplicados ${dup}. IVA al libro ${libro}.${
+          fail ? ` Errores ${fail}.` : ''
+        }`
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error importando Excel.')
+    } finally {
+      setExcelImporting(false)
+    }
+  }
+
   const extractChips = ticketExtract
     ? [
         ['Proveedor', ticketExtract.proveedor],
@@ -525,8 +647,7 @@ export default function ErpGastosPage() {
         <div className="erp-panel erp-gastos-form">
           <h2>Ingreso</h2>
           <p className="erp-muted">
-            Completá el gasto a mano o subí el ticket/factura: la IA rellena proveedor, CUIT, comprobante, neto e IVA. Si hay IVA, al
-            guardar entra al libro de compras.
+            Carga manual, ticket con IA o Excel de AFIP (Comprobantes de Compras). El IVA va al libro. El listado se agrupa por mes.
           </p>
 
           <div className="erp-gastos-tabs">
@@ -791,6 +912,87 @@ export default function ErpGastosPage() {
               </label>
             </fieldset>
 
+            <fieldset className="erp-gastos-fieldset">
+              <legend>Excel AFIP · otros meses</legend>
+              <p className="erp-muted" style={{ margin: '0 0 10px' }}>
+                Subí el Excel de <strong>Comprobantes de Compras</strong> (Fecha, Tipo, Punto de Venta, Número, CUIT, Denominación, Neto Gravado, IVA, Total). Se importan al mes de cada factura.
+              </p>
+              <label className="erp-ticket-upload">
+                Archivo .xls / .xlsx / .csv
+                <input
+                  type="file"
+                  accept=".xls,.xlsx,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+                  onChange={(e) => {
+                    void handleExcelFile(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              {excelPreview && (
+                <div className="erp-gastos-excel-preview">
+                  <div className="erp-gastos-extract__title">
+                    {excelPreview.titulo || 'Comprobantes de Compras'} · {excelPreview.rows.length} filas
+                    {excelPreview.skipped ? ` · ${excelPreview.skipped} omitidas` : ''}
+                  </div>
+                  <div className="erp-gastos-chips">
+                    {[...new Set(excelPreview.rows.map((r) => r.fecha.slice(0, 7)))]
+                      .sort()
+                      .map((ym) => {
+                        const delMes = excelPreview.rows.filter((r) => r.fecha.startsWith(ym))
+                        const tot = delMes.reduce((s, r) => s + (r.esNc ? -r.total : r.total), 0)
+                        return (
+                          <span key={ym} className="erp-gastos-chip">
+                            <strong>{labelMesYm(ym)}</strong> {delMes.length} · {money(tot)}
+                          </span>
+                        )
+                      })}
+                  </div>
+                  <div className="erp-table-wrap" style={{ marginTop: 10, maxHeight: 220, overflow: 'auto' }}>
+                    <table className="erp-table">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Proveedor</th>
+                          <th>Comprobante</th>
+                          <th>Neto</th>
+                          <th>IVA</th>
+                          <th>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {excelPreview.rows.slice(0, 12).map((r, i) => (
+                          <tr key={`${r.numero_comprobante}-${i}`}>
+                            <td>{r.fecha}</td>
+                            <td>
+                              {r.proveedor}
+                              {r.proveedor_cuit ? <div className="erp-cell-sub">{r.proveedor_cuit}</div> : null}
+                            </td>
+                            <td>
+                              {r.tipo_comprobante} {r.letra || ''} {r.numero_comprobante}
+                            </td>
+                            <td>{money(r.neto_gravado + r.no_gravado + r.exento)}</td>
+                            <td>{money(r.iva)}</td>
+                            <td>{money(r.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {excelPreview.rows.length > 12 ? (
+                    <p className="erp-muted">Mostrando 12 de {excelPreview.rows.length}.</p>
+                  ) : null}
+                  <div className="erp-gastos-form-actions" style={{ marginTop: 10 }}>
+                    <button type="button" className="btn-secondary" onClick={() => setExcelPreview(null)} disabled={excelImporting}>
+                      Descartar
+                    </button>
+                    <button type="button" className="btn-primary" onClick={() => void confirmarImportExcel()} disabled={excelImporting}>
+                      {excelImporting ? 'Importando…' : `Importar ${excelPreview.rows.length} comprobantes`}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </fieldset>
+
             <div className="erp-gastos-form-actions">
               <button
                 type="button"
@@ -897,8 +1099,27 @@ export default function ErpGastosPage() {
         <div className="erp-panel__head">
           <h2>Listado</h2>
           <p className="erp-panel__hint">
-            Primero las de hoy ({countHoy}). Buscá por proveedor, CUIT, comprobante o descripción.
+            Agrupado por mes. Hoy ({countHoy}) va primero dentro del mes actual. Buscá o filtrá, o importá Excel de otros períodos.
           </p>
+        </div>
+
+        <div className="erp-gastos-meses">
+          <button type="button" className={!mesFiltro ? 'btn-primary' : 'btn-secondary'} onClick={() => setMesFiltro('')}>
+            Todos los meses
+          </button>
+          {mesesDisponibles.map((ym) => {
+            const n = rows.filter((r) => String(r.fecha_gasto).slice(0, 7) === ym).length
+            return (
+              <button
+                key={ym}
+                type="button"
+                className={mesFiltro === ym ? 'btn-primary' : 'btn-secondary'}
+                onClick={() => setMesFiltro(mesFiltro === ym ? '' : ym)}
+              >
+                {labelMesYm(ym)} · {n}
+              </button>
+            )
+          })}
         </div>
 
         <div className="erp-toolbar erp-gastos-toolbar">
@@ -911,6 +1132,17 @@ export default function ErpGastosPage() {
               onChange={(e) => setBuscar(e.target.value)}
               placeholder="Proveedor, CUIT, ticket, n°…"
             />
+          </label>
+          <label className="erp-field">
+            <span className="erp-field__label">Mes</span>
+            <select className="erp-input" style={{ marginTop: 0 }} value={mesFiltro} onChange={(e) => setMesFiltro(e.target.value)}>
+              <option value="">Todos</option>
+              {mesesDisponibles.map((ym) => (
+                <option key={ym} value={ym}>
+                  {labelMesYm(ym)}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="erp-field">
             <span className="erp-field__label">Desde</span>
@@ -959,7 +1191,7 @@ export default function ErpGastosPage() {
           <button type="button" className={soloHoy ? 'btn-primary' : 'btn-secondary'} onClick={() => setSoloHoy((v) => !v)}>
             Hoy {countHoy}
           </button>
-          {(buscar || fechaDesde || fechaHasta || categoriaFiltro || metodoFiltro || ivaFiltro || soloHoy) && (
+          {(buscar || fechaDesde || fechaHasta || categoriaFiltro || metodoFiltro || ivaFiltro || soloHoy || mesFiltro) && (
             <button
               type="button"
               className="btn-secondary"
@@ -971,6 +1203,7 @@ export default function ErpGastosPage() {
                 setMetodoFiltro('')
                 setIvaFiltro('')
                 setSoloHoy(false)
+                setMesFiltro('')
               }}
             >
               Limpiar filtros
@@ -980,79 +1213,94 @@ export default function ErpGastosPage() {
 
         {loading ? (
           <p className="erp-muted">Cargando…</p>
-        ) : filteredRows.length === 0 ? (
+        ) : groupedByMes.length === 0 ? (
           <p className="erp-muted">Sin gastos con esos filtros.</p>
         ) : (
-          <div className="erp-table-wrap">
-            <table className="erp-table">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Proveedor</th>
-                  <th>Comprobante</th>
-                  <th>Categoría</th>
-                  <th>Descripción</th>
-                  <th>Total</th>
-                  <th>IVA</th>
-                  <th>Libro</th>
-                  <th>Ticket</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.slice(0, 160).map((r) => {
-                  const esHoy = String(r.fecha_gasto).slice(0, 10) === hoy
-                  const enLibro = !!r.id_factura_compra
-                  const puedeIva = gastoPuedeIrALibroIva(r.iva)
-                  return (
-                    <tr key={r.id} className={esHoy ? 'erp-row-hoy' : undefined}>
-                      <td>
-                        {String(r.fecha_gasto).slice(0, 10)}
-                        {esHoy ? <span className="erp-hoy-badge">Hoy</span> : null}
-                      </td>
-                      <td>
-                        <div>{r.proveedor || '—'}</div>
-                        {r.proveedor_cuit ? <div className="erp-cell-sub">{r.proveedor_cuit}</div> : null}
-                      </td>
-                      <td>{comprobanteLabel(r)}</td>
-                      <td>{r.categoria || '—'}</td>
-                      <td>{r.descripcion || '—'}</td>
-                      <td>{money(r.total)}</td>
-                      <td>{puedeIva ? money(r.iva) : '—'}</td>
-                      <td>
-                        {enLibro ? (
-                          <button type="button" className="erp-linkish" onClick={() => navigate('/erp/impuestos?tab=compras')}>
-                            #{r.id_factura_compra}
-                          </button>
-                        ) : puedeIva ? (
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            disabled={syncingIva === r.id}
-                            onClick={() => void enviarAlLibro(r)}
-                          >
-                            {syncingIva === r.id ? 'Enviando…' : 'Enviar'}
-                          </button>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td>{r.ticket_url ? <a href={r.ticket_url} target="_blank" rel="noreferrer">Abrir</a> : '—'}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className={trazadoId === r.id ? 'btn-primary' : 'btn-secondary'}
-                          onClick={() => setTrazadoId(trazadoId === r.id ? null : r.id)}
-                        >
-                          Trazado
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          groupedByMes.map(([ym, list]) => {
+            const totMes = list.reduce((s, r) => s + (Number(r.total) || 0), 0)
+            const ivaMes = list.reduce((s, r) => s + (Number(r.iva) || 0), 0)
+            return (
+              <section key={ym} className="erp-gastos-mes">
+                <div className="erp-gastos-mes__head">
+                  <h3>{labelMesYm(ym)}</h3>
+                  <span>
+                    {list.length} gastos · {money(totMes)}
+                    {Math.abs(ivaMes) > 0.009 ? ` · IVA ${money(ivaMes)}` : ''}
+                  </span>
+                </div>
+                <div className="erp-table-wrap">
+                  <table className="erp-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Proveedor</th>
+                        <th>Comprobante</th>
+                        <th>Categoría</th>
+                        <th>Descripción</th>
+                        <th>Total</th>
+                        <th>IVA</th>
+                        <th>Libro</th>
+                        <th>Ticket</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.slice(0, 200).map((r) => {
+                        const esHoy = String(r.fecha_gasto).slice(0, 10) === hoy
+                        const enLibro = !!r.id_factura_compra
+                        const puedeIva = gastoPuedeIrALibroIva(r.iva)
+                        return (
+                          <tr key={r.id} className={esHoy ? 'erp-row-hoy' : undefined}>
+                            <td>
+                              {String(r.fecha_gasto).slice(0, 10)}
+                              {esHoy ? <span className="erp-hoy-badge">Hoy</span> : null}
+                            </td>
+                            <td>
+                              <div>{r.proveedor || '—'}</div>
+                              {r.proveedor_cuit ? <div className="erp-cell-sub">{r.proveedor_cuit}</div> : null}
+                            </td>
+                            <td>{comprobanteLabel(r)}</td>
+                            <td>{r.categoria || '—'}</td>
+                            <td>{r.descripcion || '—'}</td>
+                            <td>{money(r.total)}</td>
+                            <td>{puedeIva ? money(r.iva) : '—'}</td>
+                            <td>
+                              {enLibro ? (
+                                <button type="button" className="erp-linkish" onClick={() => navigate('/erp/impuestos?tab=compras')}>
+                                  #{r.id_factura_compra}
+                                </button>
+                              ) : puedeIva ? (
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  disabled={syncingIva === r.id}
+                                  onClick={() => void enviarAlLibro(r)}
+                                >
+                                  {syncingIva === r.id ? 'Enviando…' : 'Enviar'}
+                                </button>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                            <td>{r.ticket_url ? <a href={r.ticket_url} target="_blank" rel="noreferrer">Abrir</a> : '—'}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className={trazadoId === r.id ? 'btn-primary' : 'btn-secondary'}
+                                onClick={() => setTrazadoId(trazadoId === r.id ? null : r.id)}
+                              >
+                                Trazado
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )
+          })
         )}
 
         {trazado && (
@@ -1067,7 +1315,12 @@ export default function ErpGastosPage() {
               <li className="is-done">
                 <strong>Carga</strong>
                 <span>
-                  {trazado.origen === 'ticket_ai' ? 'Ticket con IA' : 'Manual'} · {new Date(trazado.created_at).toLocaleString('es-AR')}
+                  {trazado.origen === 'ticket_ai'
+                    ? 'Ticket con IA'
+                    : trazado.origen === 'excel_afip'
+                      ? 'Excel AFIP'
+                      : 'Manual'}{' '}
+                  · {new Date(trazado.created_at).toLocaleString('es-AR')}
                 </span>
               </li>
               <li className={trazado.ticket_url ? 'is-done' : ''}>

@@ -1019,6 +1019,41 @@
   min-width: 180px;
 }
 
+.erp-gastos-meses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.erp-gastos-mes {
+  margin-top: 14px;
+}
+
+.erp-gastos-mes__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.erp-gastos-mes__head h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 0.98rem;
+}
+
+.erp-gastos-mes__head span {
+  font-size: 0.82rem;
+  color: var(--erp-muted);
+}
+
+.erp-gastos-excel-preview {
+  margin-top: 12px;
+}
+
 .erp-row-hoy td {
   background: rgba(251, 191, 36, 0.08);
 }

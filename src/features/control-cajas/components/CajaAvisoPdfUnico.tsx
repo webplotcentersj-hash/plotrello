@@ -3,7 +3,7 @@ type Props = {
   destinoLabel?: string
 }
 
-/** Indica que el PDF solo se sube desde un único lugar (Centro IA admin / menú). */
+/** Indica que el PDF se sube desde un único lugar (Movimientos admin). */
 export default function CajaAvisoPdfUnico({ onIr, destinoLabel = 'Menú' }: Props) {
   return (
     <div className="caja-cc-aviso-pdf-unico" role="note">

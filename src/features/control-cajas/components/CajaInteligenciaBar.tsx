@@ -36,7 +36,7 @@ export default function CajaInteligenciaBar({
       <span className="caja-cc-intel-bar-score">Salud {puntaje}</span>
       {topAlert ? <span className="caja-cc-intel-bar-msg">{topAlert}</span> : <span>Sin alertas críticas</span>}
       <button type="button" className="btn-link" onClick={() => onNavigate('centro_ia')}>
-        Centro IA →
+        Proyecciones →
       </button>
     </div>
   )

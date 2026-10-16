@@ -502,6 +502,27 @@ export function conciliacionAutomaticaDia(input: {
   })
 }
 
+export function cobrosPorCanalDia(
+  movimientos: CajaMovimiento[],
+  fecha: string,
+  canal: 'mercado_pago' | 'transferencia',
+  ventasMpPagadas?: ReadonlySet<number>
+): Array<{ mov: CajaMovimiento; monto: number }> {
+  const out: Array<{ mov: CajaMovimiento; monto: number }> = []
+  for (const m of movimientos) {
+    if (m.fecha !== fecha || !esIngresoCobrado(m)) continue
+    const med = mediosDesdeMovimiento(m, ventasMpPagadas)
+    const monto = canal === 'mercado_pago' ? med.mercado_pago : med.transferencia
+    if (monto > TOLERANCIA) out.push({ mov: m, monto })
+  }
+  return out.sort((a, b) => {
+    const ha = a.mov.hora || ''
+    const hb = b.mov.hora || ''
+    if (ha && hb && ha !== hb) return hb.localeCompare(ha)
+    return (b.mov.created_at || '').localeCompare(a.mov.created_at || '')
+  })
+}
+
 export function movimientosDelDia(
   movimientos: CajaMovimiento[],
   fecha: string

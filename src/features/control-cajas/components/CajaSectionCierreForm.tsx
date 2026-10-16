@@ -276,7 +276,7 @@ export default function CajaSectionCierreForm({
     const match = buscarPlanillaCaja(planillas, cajaSlug, fecha, caja?.nombre)
     if (!match) {
       setMsg(
-        'No hay planilla PDF para esta fecha/caja. Subila en Centro IA y volvé a precargar.'
+        'No hay planilla PDF para esta fecha/caja. Subila en Movimientos y volvé a precargar.'
       )
       return
     }
@@ -449,7 +449,7 @@ export default function CajaSectionCierreForm({
                 Egresos aprobados
               </button>
             </div>
-            {onIrSubirPdf ? <CajaAvisoPdfUnico onIr={onIrSubirPdf} destinoLabel="Centro IA" /> : null}
+            {onIrSubirPdf ? <CajaAvisoPdfUnico onIr={onIrSubirPdf} destinoLabel="Movimientos" /> : null}
             {planillaActiva && (
               <p className="caja-cc-help">
                 Planilla leída: <strong>{planillaActiva.archivo_nombre}</strong> —{' '}

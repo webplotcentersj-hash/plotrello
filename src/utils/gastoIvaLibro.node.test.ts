@@ -32,5 +32,6 @@ describe('netoEIvaDesdeTotal', () => {
   it('sin iva no va al libro', () => {
     assert.equal(gastoPuedeIrALibroIva(0), false)
     assert.equal(gastoPuedeIrALibroIva(16.72), true)
+    assert.equal(gastoPuedeIrALibroIva(-21), true)
   })
 })

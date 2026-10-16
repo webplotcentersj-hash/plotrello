@@ -56,7 +56,7 @@ export function netoEIvaDesdeTotal(total: number, iva: number | null, neto: numb
 }
 
 export function gastoPuedeIrALibroIva(iva: number | null | undefined): boolean {
-  return (Number(iva) || 0) > 0.009
+  return Math.abs(Number(iva) || 0) > 0.009
 }
 
 export function letraDesdeAlicuota(alic: number): 'A' | 'B' | 'C' {

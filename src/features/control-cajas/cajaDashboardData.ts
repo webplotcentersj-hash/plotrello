@@ -1,7 +1,6 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
-import { cierresEnFecha } from './cajaRepository'
+import type { SistemaDiaFuente } from './cajaConcilCanal'
 import { FONDO_CAJA_RECOMENDADO, fondoFijoEfectivo, requiereFondoMinimo } from './fondoCaja'
-import type { CajaRegistro } from './types'
 import type {
   CajaArqueo,
   CajaCierre,
@@ -10,9 +9,13 @@ import type {
   CajaDiferencia,
   CajaEgresoSolicitud,
   CajaMovimiento,
+  CajaRegistro,
   CajaTransferenciaLote,
   PlanillaCajaGuardada
 } from './types'
+
+export type { SistemaDiaFuente }
+export { sistemaBancoParaFecha, sistemaMpParaFecha } from './cajaConcilCanal'
 
 export type VentasDiaCanal = {
   ef: number
@@ -25,8 +28,6 @@ export type VentasDiaCanal = {
   cierres: number
   plotlab: number
 }
-
-export type SistemaDiaFuente = 'cierres' | 'planillas' | 'movimientos' | 'plotlab' | 'ninguno'
 
 export function mesArgentina(): string {
   return getArgentinaDateString().slice(0, 7)
@@ -75,83 +76,6 @@ function totalesPlanilla(p: PlanillaCajaGuardada) {
     cc: Number(t.ingresos_cta_cte) || 0,
     tot: Number(t.ingresos_total) || 0
   }
-}
-
-function movimientosPlotLabDelDia(
-  movimientos: CajaMovimiento[],
-  fecha: string,
-  pick: (m: CajaMovimiento) => number
-): number {
-  return movimientos
-    .filter(
-      (m) =>
-        m.fecha === fecha &&
-        !m.anulado &&
-        m.origen_importacion === 'plotlab_venta' &&
-        m.tipo_movimiento === 'ingreso'
-    )
-    .reduce((s, m) => s + pick(m), 0)
-}
-
-export function sistemaMpParaFecha(
-  fecha: string,
-  cierres: CajaCierre[],
-  planillas: PlanillaCajaGuardada[],
-  movimientos: CajaMovimiento[]
-): { valor: number; fuente: SistemaDiaFuente } {
-  const delCierre = cierresEnFecha(cierres, fecha).reduce(
-    (s, c) => s + (c.tarj_sist || 0) + (c.mp_qr || 0),
-    0
-  )
-  if (delCierre > 0) return { valor: delCierre, fuente: 'cierres' }
-
-  const delPlanilla = planillas
-    .filter((p) => planillaEnFecha(p, fecha))
-    .reduce((s, p) => s + totalesPlanilla(p).tj, 0)
-  if (delPlanilla > 0) return { valor: delPlanilla, fuente: 'planillas' }
-
-  const delMov = movimientos
-    .filter((m) => m.fecha === fecha && !m.anulado && m.tipo_movimiento === 'ingreso')
-    .reduce((s, m) => s + (m.tarjeta ?? 0), 0)
-  if (delMov > 0) {
-    const delPlotlab = movimientosPlotLabDelDia(movimientos, fecha, (m) => m.tarjeta ?? 0)
-    const fuente =
-      delPlotlab > 0 && Math.abs(delPlotlab - delMov) <= 0.02 ? 'plotlab' : 'movimientos'
-    return { valor: delMov, fuente }
-  }
-
-  return { valor: 0, fuente: 'ninguno' }
-}
-
-export function sistemaBancoParaFecha(
-  fecha: string,
-  cierres: CajaCierre[],
-  planillas: PlanillaCajaGuardada[],
-  movimientos: CajaMovimiento[]
-): { valor: number; fuente: SistemaDiaFuente } {
-  const delCierre = cierresEnFecha(cierres, fecha).reduce((s, c) => s + (c.trans || 0), 0)
-  if (delCierre > 0) return { valor: delCierre, fuente: 'cierres' }
-
-  const delPlanilla = planillas
-    .filter((p) => planillaEnFecha(p, fecha))
-    .reduce((s, p) => s + totalesPlanilla(p).tr, 0)
-  if (delPlanilla > 0) return { valor: delPlanilla, fuente: 'planillas' }
-
-  const delMov = movimientos
-    .filter((m) => m.fecha === fecha && !m.anulado && m.tipo_movimiento === 'ingreso')
-    .reduce((s, m) => s + (m.transferencia_bancaria ?? 0), 0)
-  if (delMov > 0) {
-    const delPlotlab = movimientosPlotLabDelDia(
-      movimientos,
-      fecha,
-      (m) => m.transferencia_bancaria ?? 0
-    )
-    const fuente =
-      delPlotlab > 0 && Math.abs(delPlotlab - delMov) <= 0.02 ? 'plotlab' : 'movimientos'
-    return { valor: delMov, fuente }
-  }
-
-  return { valor: 0, fuente: 'ninguno' }
 }
 
 function ingresosPlotLabDelDia(movimientos: CajaMovimiento[], fecha: string): VentasDiaCanal {

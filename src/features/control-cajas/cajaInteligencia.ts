@@ -147,7 +147,7 @@ export function analizarConcordancia(input: {
         dominio: 'mercado_pago',
         fecha,
         titulo: 'Falta conciliación Mercado Pago',
-        detalle: `Hay $${fmtArs(mpSistema)} en cierres (tarjeta sistema + MP/QR) pero no hay registro de conciliación MP para ${fecha}.`,
+        detalle: `Hay $${fmtArs(mpSistema)} en cobros Mercado Pago sin conciliación registrada para ${fecha}.`,
         accion: { label: 'Conciliar MP', section: 'concil_mp' }
       })
     }
@@ -158,8 +158,8 @@ export function analizarConcordancia(input: {
           severidad: 'warn',
           dominio: 'mercado_pago',
           fecha,
-          titulo: 'MP: sistema conciliación ≠ suma cierres',
-          detalle: `Conciliación MP sistema $${fmtArs(concMp.sistema)} vs cierres del día $${fmtArs(mpSistema)} (Δ $${fmtArs(difVsCierres)}).`,
+          titulo: 'MP: sistema conciliación ≠ cobros del día',
+          detalle: `Conciliación MP sistema $${fmtArs(concMp.sistema)} vs cobros MP del día $${fmtArs(mpSistema)} (Δ $${fmtArs(difVsCierres)}).`,
           accion: { label: 'Conciliar MP', section: 'concil_mp' }
         })
       }
@@ -182,7 +182,7 @@ export function analizarConcordancia(input: {
         dominio: 'banco',
         fecha,
         titulo: 'Falta conciliación bancaria',
-        detalle: `Transferencias en cierres: $${fmtArs(transSistema)} sin conciliación banco registrada.`,
+        detalle: `Transferencias del día: $${fmtArs(transSistema)} sin conciliación banco registrada.`,
         accion: { label: 'Conciliar banco', section: 'concil_banco' }
       })
     }

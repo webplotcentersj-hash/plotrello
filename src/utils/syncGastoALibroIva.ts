@@ -26,7 +26,11 @@ export async function syncGastoALibroIva(input: {
   if (!gastoPuedeIrALibroIva(input.iva)) {
     return { ok: true, omitido: true }
   }
-  const { neto, iva } = netoEIvaDesdeTotal(input.total, input.iva, input.neto)
+  const { neto, iva } = netoEIvaDesdeTotal(
+    Math.abs(Number(input.total) || 0),
+    input.iva == null ? null : Math.abs(Number(input.iva)),
+    input.neto == null ? null : Math.abs(Number(input.neto))
+  )
   if (iva <= 0.009) return { ok: true, omitido: true }
 
   const alic =

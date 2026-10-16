@@ -22,11 +22,9 @@ import CajaSectionDiferencias from './CajaSectionDiferencias'
 import CajaSectionVentasDiarias from './CajaSectionVentasDiarias'
 import CajaSectionConfig from './CajaSectionConfig'
 import CajaPlotAI from './CajaPlotAI'
-import CajaCentroInteligente from './CajaCentroInteligente'
-import CajaAvisoPdfUnico from './CajaAvisoPdfUnico'
 import CajaSubidaInteligente from './CajaSubidaInteligente'
 import CajaPlanillasRecibidasPanel from './CajaPlanillasRecibidasPanel'
-import CajaInteligenciaBar from './CajaInteligenciaBar'
+import CajaProyeccionVentas from './CajaProyeccionVentas'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 import CajaSidebarCajas, { CajaDetallePorCaja } from './CajaSidebarCajas'
 import type { PlanillaCajaParsed } from '../parsePlanillaCajaPdf'
@@ -35,7 +33,7 @@ import '../../../pages/CajaDashboardPage.css'
 const SECTION_TITLES: Record<CajaSectionId, string> = {
   menu: 'Menú',
   tablero_admin: 'Calendario de cajas',
-  centro_ia: 'Centro de inteligencia',
+  centro_ia: 'Proyecciones de venta',
   tablero: 'Tablero ERP',
   cierres_new: 'Nuevo cierre',
   cierres: 'Cierres',
@@ -232,10 +230,6 @@ export default function ControlCajasModule() {
     setMenuRefreshToken((t) => t + 1)
   }
 
-  const showIntelBar =
-    enVistaAdmin &&
-    (section === 'concil_mp' || section === 'concil_banco' || section === 'centro_ia')
-
   return (
     <div className="caja-dashboard-page caja-control-module">
       <header className="caja-header caja-cc-module-header">
@@ -343,15 +337,6 @@ export default function ControlCajasModule() {
               </button>
             </div>
           ) : null}
-          {showIntelBar && (
-            <CajaInteligenciaBar
-              isAdmin={isAdmin}
-              usuarioNombre={usuarioEtiqueta}
-              usuarioId={usuarioId}
-              onNavigate={goSection}
-            />
-          )}
-
           {showPageTitle && (
             <div className="caja-cc-page-head compact">
               <h2>{SECTION_TITLES[section]}</h2>
@@ -383,31 +368,7 @@ export default function ControlCajasModule() {
             />
           )}
 
-          {section === 'centro_ia' && enVistaAdmin && (
-            <>
-              <section className="caja-cc-planilla-hub" aria-label="Subir PDF del día">
-                <CajaSubidaInteligente
-                  usuarioNombre={usuarioEtiqueta}
-                  usuarioId={usuarioId}
-                  onNavigate={goSection}
-                  onPlanillaParsed={setPlanillaActiva}
-                  onImported={onPlanillaImportada}
-                  autoNavigate={false}
-                />
-                <CajaPlanillasRecibidasPanel
-                  titulo="Planillas recibidas de caja"
-                  onPlanillaLoaded={setPlanillaActiva}
-                />
-              </section>
-              <CajaCentroInteligente
-                isAdmin
-                usuarioNombre={usuarioEtiqueta}
-                usuarioId={usuarioId}
-                onNavigate={goSection}
-                planillaActiva={planillaActiva}
-              />
-            </>
-          )}
+          {section === 'centro_ia' && enVistaAdmin && <CajaProyeccionVentas />}
 
           {section === 'cierres_new' && enVistaAdmin && (
             <CajaSectionCierreForm
@@ -416,7 +377,7 @@ export default function ControlCajasModule() {
               usuarioId={usuarioId}
               planillaActiva={planillaActiva}
               onPlanillaParsed={setPlanillaActiva}
-              onIrSubirPdf={() => setSection('centro_ia')}
+              onIrSubirPdf={() => setSection('movimientos_admin')}
               onSaved={() => {
                 setEditCierreId(null)
                 setPlanillaActiva(null)
@@ -488,7 +449,21 @@ export default function ControlCajasModule() {
 
           {section === 'movimientos_admin' && enVistaAdmin && (
             <>
-              <CajaAvisoPdfUnico onIr={() => goSection('centro_ia')} destinoLabel="Centro IA" />
+              <section className="caja-cc-planilla-hub" aria-label="Importar PDF de planilla">
+                <CajaSubidaInteligente
+                  usuarioNombre={usuarioEtiqueta}
+                  usuarioId={usuarioId}
+                  onNavigate={goSection}
+                  onPlanillaParsed={setPlanillaActiva}
+                  onImported={onPlanillaImportada}
+                  autoNavigate={false}
+                  collapsible
+                />
+                <CajaPlanillasRecibidasPanel
+                  titulo="Planillas recibidas de caja"
+                  onPlanillaLoaded={setPlanillaActiva}
+                />
+              </section>
               <CajaSectionMovimientos
                 usuarioNombre={usuarioEtiqueta}
                 usuarioId={usuarioId}
