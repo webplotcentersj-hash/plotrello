@@ -650,7 +650,7 @@ export async function syncDevolucionVentaPlotLabACaja(
         usuario_nombre: usuarioNombre,
         origen_importacion: 'plotlab_venta'
       },
-      { origen_slug: cajaSlug, destino_slug: 'cliente' }
+      { origen_slug: cajaSlug, destino_slug: 'admin' }
     )
 
     const mov = await saveMovimiento(
