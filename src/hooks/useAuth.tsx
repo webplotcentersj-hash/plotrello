@@ -250,7 +250,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAsesorTecnico = usuarioTieneRol(usuario, 'asesor-tecnico')
     const isPresupuestos = usuarioTieneRol(usuario, 'presupuestos')
     const canAccessMostradorViews =
-      !!usuario && (isCajaOperativa || isPresupuestos || isDiseno || isAdmin)
+      !!usuario &&
+      (isCajaOperativa || isPresupuestos || isDiseno || isTallerImprenta || isAdmin)
     const canManageImpresoras =
       !!usuario && (usuarioTieneRol(usuario, 'taller-grafico') || isAdmin)
     const canManageCompras =

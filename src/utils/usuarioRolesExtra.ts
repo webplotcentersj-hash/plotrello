@@ -13,6 +13,11 @@ const ROLES_EXTRA_POR_LOGIN: Record<string, ReadonlyArray<UserRole>> = {
   'fvidela@plotcenter.com.ar': ['mostrador', 'caja']
 }
 
+/** El rol principal incluye estos otros (sin tocar el registro en DB). */
+const ROLES_INCLUIDOS_POR_PRINCIPAL: Partial<Record<UserRole, ReadonlyArray<UserRole>>> = {
+  imprenta: ['mostrador']
+}
+
 export function rolesExtraUsuario(
   usuario: Pick<UsuarioConRol, 'nombre'> | null | undefined
 ): ReadonlyArray<UserRole> {
@@ -26,7 +31,8 @@ export function usuarioTieneRol(
 ): boolean {
   if (!usuario) return false
   if (usuario.rol === rol) return true
-  return rolesExtraUsuario(usuario).includes(rol)
+  if (rolesExtraUsuario(usuario).includes(rol)) return true
+  return ROLES_INCLUIDOS_POR_PRINCIPAL[usuario.rol]?.includes(rol) ?? false
 }
 
 export function usuarioTieneAlgunRol(

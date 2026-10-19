@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 import {
   addDaysIso,
   construirProyeccionVentas,
+  dowIso,
   montoVentaCobrada,
   normalizeProducto
 } from './proyeccionVentas.ts'
@@ -24,13 +25,13 @@ describe('montoVentaCobrada', () => {
 })
 
 describe('construirProyeccionVentas', () => {
-  it('proyecta con estacionalidad de día y productos', () => {
+  it('proyecta con estacionalidad de día y productos con un mes', () => {
     const hoy = '2026-10-16'
     const ventas = []
-    for (let i = 0; i < 56; i++) {
-      const fecha = addDaysIso(hoy, -(55 - i))
-      const [y, m, d] = fecha.split('-').map(Number)
-      const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+    for (let i = 0; i < 30; i++) {
+      const fecha = addDaysIso(hoy, -(29 - i))
+      const dow = dowIso(fecha)
+      if (dow === 0) continue
       const total = dow === 5 ? 20000 : 10000
       ventas.push({
         fecha,
@@ -41,12 +42,31 @@ describe('construirProyeccionVentas', () => {
       })
     }
     const p = construirProyeccionVentas(ventas, hoy)
-    assert.ok(p.diasConDatos >= 50)
+    assert.ok(p.diasConDatos >= 20)
     assert.equal(p.mejorDia, 'viernes')
+    assert.notEqual(p.peorDia, 'domingo')
     assert.ok(p.prox7 > 0)
     assert.ok(p.mixProductos.some((x) => x.name.includes('Vinilo')))
     assert.ok(p.topProductosPrediccion[0]?.qtySemana > 0)
     assert.match(p.narrativa, /Predicción/)
+  })
+
+  it('no diluye el promedio con domingos y predice domingo en 0', () => {
+    const hoy = '2026-10-16'
+    const ventas = []
+    for (let i = 0; i < 30; i++) {
+      const fecha = addDaysIso(hoy, -(29 - i))
+      const total = dowIso(fecha) === 0 ? 80000 : 6000
+      ventas.push({ fecha, total, metodo: 'Efectivo', vendedor: 'Ana' })
+    }
+    const p = construirProyeccionVentas(ventas, hoy)
+    assert.ok(Math.abs(p.promedioDiario - 6000) < 1)
+    assert.notEqual(p.peorDia, 'domingo')
+    const domingosFuturos = p.serie.filter((s) => s.real == null && dowIso(s.fecha) === 0)
+    assert.ok(domingosFuturos.length >= 1)
+    for (const d of domingosFuturos) {
+      assert.equal(d.proyectado, 0)
+    }
   })
 })
 

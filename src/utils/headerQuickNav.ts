@@ -239,6 +239,24 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         href: '/taller-imprenta/panol',
         title: 'Pañol entregas Taller de Imprenta'
       })
+      if (ctx.canAccessMostradorViews && ctx.onNavigateToMostrador) {
+        push({
+          id: 'dashboard-mostrador',
+          label: 'Mostrador',
+          icon: '📋',
+          onClick: ctx.onNavigateToMostrador,
+          title: 'Dashboard Mostrador'
+        })
+      }
+      if (ctx.canManageCaja && ctx.onNavigateToCaja) {
+        push({
+          id: 'dashboard-caja',
+          label: 'Mi caja',
+          icon: '💰',
+          onClick: ctx.onNavigateToCaja,
+          title: 'Arqueo, cierre de turno y movimientos propios'
+        })
+      }
       break
     case 'instalaciones':
       push({

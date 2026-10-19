@@ -42,6 +42,10 @@ export type ProyeccionVentas = {
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'] as const
 const PIE_OTROS = 'Otros'
+/** Local cerrado: no entra al promedio ni a la predicción. */
+export const DOW_CERRADO = 0
+/** Ventana de promedios: un mes calendario de días. */
+export const LOOKBACK_PROYECCION = 30
 
 export function addDaysIso(fecha: string, delta: number): string {
   const [y, m, d] = fecha.split('-').map(Number)
@@ -53,6 +57,10 @@ export function addDaysIso(fecha: string, delta: number): string {
 export function dowIso(fecha: string): number {
   const [y, m, d] = fecha.split('-').map(Number)
   return new Date(Date.UTC(y, (m || 1) - 1, d || 1)).getUTCDay()
+}
+
+export function estaAbierto(fecha: string): boolean {
+  return dowIso(fecha) !== DOW_CERRADO
 }
 
 export function labelDiaCorto(fecha: string): string {
@@ -120,7 +128,7 @@ function coefVar(nums: number[]): number {
 export function construirProyeccionVentas(
   ventas: VentaProyInput[],
   hoy: string,
-  lookbackDays = 56
+  lookbackDays = LOOKBACK_PROYECCION
 ): ProyeccionVentas {
   const desde = addDaysIso(hoy, -(lookbackDays - 1))
   const porDia = new Map<string, number>()
@@ -132,6 +140,7 @@ export function construirProyeccionVentas(
   for (const v of ventas) {
     const f = String(v.fecha || '').slice(0, 10)
     if (!f || f < desde || f > hoy) continue
+    if (!estaAbierto(f)) continue
     const total = Number(v.total) || 0
     if (total <= 0) continue
     porDia.set(f, (porDia.get(f) || 0) + total)
@@ -150,39 +159,47 @@ export function construirProyeccionVentas(
     }
   }
 
-  const hist: number[] = []
+  const histAbiertos: number[] = []
+  const fechasLookback: string[] = []
   for (let i = 0; i < lookbackDays; i++) {
     const f = addDaysIso(desde, i)
-    hist.push(porDia.get(f) || 0)
+    fechasLookback.push(f)
+    if (!estaAbierto(f)) continue
+    histAbiertos.push(porDia.get(f) || 0)
   }
-  const diasConDatos = hist.filter((n) => n > 0).length
-  const totalHistorico = round2(hist.reduce((s, n) => s + n, 0))
-  const promedioDiario = diasConDatos ? round2(totalHistorico / Math.max(1, lookbackDays)) : 0
+  const diasAbiertos = histAbiertos.length
+  const diasConDatos = histAbiertos.filter((n) => n > 0).length
+  const totalHistorico = round2(histAbiertos.reduce((s, n) => s + n, 0))
+  const promedioDiario = diasAbiertos ? round2(totalHistorico / diasAbiertos) : 0
 
-  const last14 = hist.slice(-14)
-  const prev14 = hist.slice(-28, -14)
-  const avgLast = promedio(last14)
-  const avgPrev = promedio(prev14)
+  const lastAbiertos = histAbiertos.slice(-12)
+  const prevAbiertos = histAbiertos.slice(-24, -12)
+  const avgLast = promedio(lastAbiertos)
+  const avgPrev = promedio(prevAbiertos)
   const tendencia = avgPrev > 0.01 ? clamp(avgLast / avgPrev, 0.65, 1.5) : 1
   const tendenciaPct = round2((tendencia - 1) * 100)
 
   const weekdaySum = [0, 0, 0, 0, 0, 0, 0]
   const weekdayN = [0, 0, 0, 0, 0, 0, 0]
-  for (let i = 0; i < lookbackDays; i++) {
-    const f = addDaysIso(desde, i)
+  for (const f of fechasLookback) {
+    if (!estaAbierto(f)) continue
     const dow = dowIso(f)
     weekdaySum[dow] += porDia.get(f) || 0
     weekdayN[dow] += 1
   }
-  const weekdayAvg = weekdaySum.map((s, i) => (weekdayN[i] ? s / weekdayN[i] : promedioDiario))
+  const weekdayAvg = weekdaySum.map((s, i) => {
+    if (i === DOW_CERRADO) return 0
+    return weekdayN[i] ? s / weekdayN[i] : promedioDiario
+  })
   let mejor = 1
   let peor = 1
-  for (let i = 0; i < 7; i++) {
+  for (let i = 1; i <= 6; i++) {
     if (weekdayAvg[i] > weekdayAvg[mejor]) mejor = i
     if (weekdayAvg[i] < weekdayAvg[peor]) peor = i
   }
 
   const proyectarDia = (fecha: string): number => {
+    if (!estaAbierto(fecha)) return 0
     const base = weekdayAvg[dowIso(fecha)] || promedioDiario
     return round2(Math.max(0, base * tendencia))
   }
@@ -201,11 +218,12 @@ export function construirProyeccionVentas(
   prox30 = round2(prox30)
 
   const serie: DiaPunto[] = []
-  for (let i = 27; i >= 0; i--) {
+  const histSerie = Math.min(29, lookbackDays - 1)
+  for (let i = histSerie; i >= 0; i--) {
     const f = addDaysIso(hoy, -i)
     serie.push({
       fecha: f,
-      real: round2(porDia.get(f) || 0),
+      real: estaAbierto(f) ? round2(porDia.get(f) || 0) : 0,
       proyectado: null,
       label: labelDiaCorto(f)
     })
@@ -222,9 +240,9 @@ export function construirProyeccionVentas(
     })
   }
 
-  const cv = coefVar(hist.filter((n) => n > 0))
+  const cv = coefVar(histAbiertos.filter((n) => n > 0))
   const confianza: ProyeccionVentas['confianza'] =
-    diasConDatos >= 40 && cv < 0.7 ? 'alta' : diasConDatos >= 14 ? 'media' : 'baja'
+    diasConDatos >= 18 && cv < 0.7 ? 'alta' : diasConDatos >= 8 ? 'media' : 'baja'
 
   const mixProductos = mixProd.size ? topMix(mixProd) : []
   const topProductosPrediccion: TopProductoPred[] = [...mixProd.entries()]
@@ -232,7 +250,7 @@ export function construirProyeccionVentas(
     .slice(0, 6)
     .map(([name, monto]) => {
       const qty = mixQty.get(name) || 0
-      const weeks = Math.max(1, lookbackDays / 7)
+      const weeks = Math.max(1, diasAbiertos / 6)
       return {
         name,
         qtySemana: round2((qty / weeks) * tendencia),
@@ -284,10 +302,10 @@ function armarNarrativa(p: {
   confianza: ProyeccionVentas['confianza']
 }): string {
   if (p.diasConDatos < 3) {
-    return 'Todavía hay pocas ventas para proyectar. Cuando haya un par de semanas cobradas, acá se arma la predicción por día y por producto.'
+    return 'Todavía hay pocas ventas para proyectar. Con un mes de días abiertos (lunes a sábado) se arma la predicción por día y por producto.'
   }
   const t =
     p.tendenciaPct > 4 ? `va ${p.tendenciaPct.toFixed(0)}% arriba` : p.tendenciaPct < -4 ? `va ${Math.abs(p.tendenciaPct).toFixed(0)}% abajo` : 'está estable'
   const top = p.top ? ` Lo que más se está vendiendo: ${p.top}.` : ''
-  return `Promedio de los últimos dos meses: $${p.promedioDiario.toLocaleString('es-AR', { maximumFractionDigits: 0 })} por día. Los ${p.mejorDia} suelen ser los más fuertes y los ${p.peorDia} los más flojos. La tendencia ${t} respecto de las dos semanas anteriores. Predicción a 7 días: $${p.prox7.toLocaleString('es-AR', { maximumFractionDigits: 0 })}; a 14 días: $${p.prox14.toLocaleString('es-AR', { maximumFractionDigits: 0 })}. Confianza ${p.confianza}.${top}`
+  return `Promedio del último mes (días abiertos, local cerrado los domingo): $${p.promedioDiario.toLocaleString('es-AR', { maximumFractionDigits: 0 })} por día. Los ${p.mejorDia} suelen ser los más fuertes y los ${p.peorDia} los más flojos. La tendencia ${t} respecto de las dos semanas hábiles anteriores. Predicción a 7 días: $${p.prox7.toLocaleString('es-AR', { maximumFractionDigits: 0 })} (domingo en 0); a 14 días: $${p.prox14.toLocaleString('es-AR', { maximumFractionDigits: 0 })}. Confianza ${p.confianza}.${top}`
 }

@@ -22,6 +22,7 @@ import {
   addDaysIso,
   construirProyeccionVentas,
   fechaVentaIso,
+  LOOKBACK_PROYECCION,
   montoVentaCobrada,
   type ProyeccionVentas
 } from '../proyeccionVentas'
@@ -45,7 +46,7 @@ export default function CajaProyeccionVentas() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    const desde = addDaysIso(hoy, -89)
+    const desde = addDaysIso(hoy, -(LOOKBACK_PROYECCION - 1))
     void apiService.obtenerVentas(undefined, desde, hoy, 'todos').then((res) => {
       if (cancelled) return
       if (!res.success) {
@@ -121,8 +122,8 @@ export default function CajaProyeccionVentas() {
         <div>
           <h2>Proyección de ventas</h2>
           <p className="caja-cc-sub">
-            En base a lo cobrado (qué se vende, qué día y con qué medio). Predice los próximos días sin inventar
-            números: usa el promedio por día de la semana y la tendencia de las últimas dos semanas.
+            En base a un mes de lo cobrado (lunes a sábado; domingo el local no abre). Predice con el promedio
+            de cada día hábil y la tendencia de las últimas dos semanas abiertas.
           </p>
         </div>
       </div>
@@ -146,7 +147,7 @@ export default function CajaProyeccionVentas() {
           <strong>{money(predMonto)}</strong>
         </article>
         <article className="caja-cc-proy-kpi">
-          <span>Promedio diario</span>
+          <span>Promedio día abierto</span>
           <strong>{money(proy.promedioDiario)}</strong>
         </article>
         <article className="caja-cc-proy-kpi">
@@ -159,14 +160,14 @@ export default function CajaProyeccionVentas() {
         <article className={`caja-cc-proy-kpi ${confCls}`}>
           <span>Confianza</span>
           <strong>{proy.confianza}</strong>
-          <small>{proy.diasConDatos} días con venta</small>
+          <small>{proy.diasConDatos} días abiertos con venta</small>
         </article>
       </div>
 
       <div className="caja-cc-proy-narrativa">
         <p>{aiTxt || proy.narrativa}</p>
         <p className="caja-cc-proy-meta">
-          Mejor día: {proy.mejorDia} · Más flojo: {proy.peorDia}
+          Mejor día: {proy.mejorDia} · Más flojo: {proy.peorDia} · Domingo cerrado
         </p>
         <button type="button" className="btn-secondary btn-small" disabled={aiBusy} onClick={() => void pedirInsight()}>
           {aiBusy ? 'Pensando…' : 'Insight PlotAI'}
@@ -174,7 +175,7 @@ export default function CajaProyeccionVentas() {
       </div>
 
       <section className="caja-cc-card caja-cc-proy-chart">
-        <h3>Histórico 28 días y predicción 14</h3>
+        <h3>Histórico 1 mes y predicción 14 días</h3>
         <div className="caja-cc-proy-chart-wrap">
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={proy.serie} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>

@@ -157,7 +157,7 @@ const NotificationsDropdown = ({ onNotificationClick, workPoolScope }: Notificat
     if (!usuario?.id || workPoolScope) return
     const rol = (usuario.rol || '').toLowerCase().trim()
     const puedeCc =
-      ['administracion', 'gerencia', 'caja', 'mostrador', 'admin'].includes(rol) ||
+      ['administracion', 'gerencia', 'caja', 'mostrador', 'imprenta', 'admin'].includes(rol) ||
       Boolean(isAdmin)
     if (!puedeCc) return
     const key = `cc-venc-alertas:${usuario.id}:${new Date().toISOString().slice(0, 10)}`

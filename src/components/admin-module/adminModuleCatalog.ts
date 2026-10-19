@@ -100,7 +100,7 @@ export function canUserAccessModule(
     if (ADMIN_ROLES.includes(usuario)) return true
     if (module.roles === 'all') return true
     if (module.roles === 'admin') return false
-    return module.roles.includes(usuario)
+    return usuarioTieneAlgunRol({ nombre: '', rol: usuario }, module.roles)
   }
   if (ADMIN_ROLES.includes(usuario.rol)) return true
   if (module.roles === 'all') return true
