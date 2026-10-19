@@ -56,12 +56,14 @@ const FiltersBar = ({
     isAdmin,
     isDiseno,
     isTallerImprenta,
+    isTallerGrafico,
     canAccessMostradorViews,
     canManageCaja,
     usuario,
     nombreVisible
   } = useAuth()
-  const showAccionesMostrador = Boolean(usuario) && (canAccessMostradorViews || isTallerImprenta)
+  const showAccionesMostrador =
+    Boolean(usuario) && (canAccessMostradorViews || isTallerImprenta || isTallerGrafico)
   const [copiandoBrief, setCopiandoBrief] = useState(false)
   const [showVentaRapida, setShowVentaRapida] = useState(false)
 

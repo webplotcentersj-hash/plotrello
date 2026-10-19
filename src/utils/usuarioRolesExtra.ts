@@ -15,7 +15,8 @@ const ROLES_EXTRA_POR_LOGIN: Record<string, ReadonlyArray<UserRole>> = {
 
 /** El rol principal incluye estos otros (sin tocar el registro en DB). */
 const ROLES_INCLUIDOS_POR_PRINCIPAL: Partial<Record<UserRole, ReadonlyArray<UserRole>>> = {
-  imprenta: ['mostrador']
+  imprenta: ['mostrador'],
+  'taller-grafico': ['mostrador']
 }
 
 export function rolesExtraUsuario(
@@ -28,6 +29,7 @@ export function rolesExtraUsuario(
 function rolCanonico(rol: string | undefined | null): UserRole | '' {
   const r = String(rol || '').trim().toLowerCase()
   if (r === 'taller-imprenta' || r === 'taller_imprenta' || r === 'taller de imprenta') return 'imprenta'
+  if (r === 'taller_grafico' || r === 'taller grafico' || r === 'taller gráfico') return 'taller-grafico'
   return r as UserRole
 }
 

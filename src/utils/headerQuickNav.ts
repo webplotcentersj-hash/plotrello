@@ -54,6 +54,76 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
     if (!items.some((i) => i.id === item.id)) items.push(item)
   }
 
+  const pushAccionesMostrador = () => {
+    if (ctx.canAccessMostradorViews && ctx.onNavigateToMostrador) {
+      push({
+        id: 'dashboard-mostrador',
+        label: 'Mostrador',
+        icon: '📋',
+        onClick: ctx.onNavigateToMostrador,
+        title: 'Dashboard Mostrador'
+      })
+    }
+    if (ctx.canManageCaja && ctx.onNavigateToCaja) {
+      push({
+        id: 'dashboard-caja',
+        label: 'Caja',
+        icon: '💰',
+        onClick: ctx.onNavigateToCaja,
+        title: 'Arqueo, cierre de turno y movimientos propios'
+      })
+    }
+    push({
+      id: 'venta-rapida',
+      label: 'Venta',
+      icon: '💰',
+      href: ventasNuevaVenta(),
+      title: 'Venta rápida'
+    })
+    push({
+      id: 'cuenta-corriente',
+      label: 'CC',
+      icon: '📒',
+      href: CLIENTES_CUENTA_CORRIENTE,
+      title: 'Cuenta corriente'
+    })
+    push({
+      id: 'clientes-consulta',
+      label: 'Clientes',
+      icon: '👥',
+      href: CLIENTES_DASHBOARD,
+      title: 'Clientes'
+    })
+    push({
+      id: 'facturas-taller',
+      label: 'Facturar',
+      icon: '📄',
+      href: '/erp/facturas/nueva',
+      title: 'Emitir factura AFIP'
+    })
+    push({
+      id: 'presupuesto-venta',
+      label: 'Presupuesto',
+      icon: '📑',
+      href: `${VENTAS}?tab=presupuestos`,
+      title: 'Presupuestos de venta'
+    })
+    push({
+      id: 'ventas',
+      label: 'Ventas',
+      icon: '🧾',
+      href: VENTAS,
+      title: 'Listado de ventas'
+    })
+    push({
+      id: 'ficha-nueva',
+      label: '+ Ficha',
+      icon: '➕',
+      href: '/tablero',
+      title: 'Ir al tablero para cargar una ficha'
+    })
+  }
+
   if (rol === 'operario-diseno') {
     push({
       id: 'plot-design-externo',
@@ -225,6 +295,7 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         href: '/taller-grafico/dashboard',
         title: 'Kanban Taller Gráfico'
       })
+      pushAccionesMostrador()
       break
     case 'imprenta':
       push({
@@ -241,73 +312,7 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
         href: '/taller-imprenta/panol',
         title: 'Pañol entregas Taller de Imprenta'
       })
-      if (ctx.canAccessMostradorViews && ctx.onNavigateToMostrador) {
-        push({
-          id: 'dashboard-mostrador',
-          label: 'Mostrador',
-          icon: '📋',
-          onClick: ctx.onNavigateToMostrador,
-          title: 'Dashboard Mostrador'
-        })
-      }
-      if (ctx.canManageCaja && ctx.onNavigateToCaja) {
-        push({
-          id: 'dashboard-caja',
-          label: 'Caja',
-          icon: '💰',
-          onClick: ctx.onNavigateToCaja,
-          title: 'Arqueo, cierre de turno y movimientos propios'
-        })
-      }
-      push({
-        id: 'venta-rapida',
-        label: 'Venta',
-        icon: '💰',
-        href: ventasNuevaVenta(),
-        title: 'Venta rápida'
-      })
-      push({
-        id: 'cuenta-corriente',
-        label: 'CC',
-        icon: '📒',
-        href: CLIENTES_CUENTA_CORRIENTE,
-        title: 'Cuenta corriente'
-      })
-      push({
-        id: 'clientes-consulta',
-        label: 'Clientes',
-        icon: '👥',
-        href: CLIENTES_DASHBOARD,
-        title: 'Clientes'
-      })
-      push({
-        id: 'facturas-imprenta',
-        label: 'Facturar',
-        icon: '📄',
-        href: '/erp/facturas/nueva',
-        title: 'Emitir factura AFIP'
-      })
-      push({
-        id: 'presupuesto-venta',
-        label: 'Presupuesto',
-        icon: '📑',
-        href: `${VENTAS}?tab=presupuestos`,
-        title: 'Presupuestos de venta'
-      })
-      push({
-        id: 'ventas',
-        label: 'Ventas',
-        icon: '🧾',
-        href: VENTAS,
-        title: 'Listado de ventas'
-      })
-      push({
-        id: 'ficha-nueva',
-        label: '+ Ficha',
-        icon: '➕',
-        href: '/tablero',
-        title: 'Ir al tablero para cargar una ficha'
-      })
+      pushAccionesMostrador()
       break
     case 'instalaciones':
       push({

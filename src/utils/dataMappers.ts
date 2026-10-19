@@ -688,9 +688,9 @@ const SECTOR_TO_ROLES: Record<string, string[]> = {
   'Metalúrgica': ['metalurgica', 'taller'],
   'Finalizado en Taller': ['administracion', 'gerencia'],
   'Entregas taller de Imprenta': ['administracion', 'gerencia'],
-  'Almacén de Entrega': ['administracion', 'gerencia', 'mostrador', 'caja', 'imprenta'],
-  'Entregas taller gráfico': ['administracion', 'gerencia', 'mostrador', 'caja', 'imprenta'],
-  'Entregas taller grafico': ['administracion', 'gerencia', 'mostrador', 'caja', 'imprenta']
+  'Almacén de Entrega': ['administracion', 'gerencia', 'mostrador', 'caja', 'imprenta', 'taller-grafico'],
+  'Entregas taller gráfico': ['administracion', 'gerencia', 'mostrador', 'caja', 'imprenta', 'taller-grafico'],
+  'Entregas taller grafico': ['administracion', 'gerencia', 'mostrador', 'caja', 'imprenta', 'taller-grafico']
 }
 
 // Filtrar operarios según el sector de la ficha

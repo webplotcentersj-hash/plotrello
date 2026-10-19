@@ -15,7 +15,7 @@ const TODOS_LOS_SECTORES = [
 export const ROL_TO_SECTORES: Record<string, string[]> = {
   'diseno': ['Diseño Gráfico', 'Mostrador'],
   'imprenta': ['Taller de Imprenta', 'Mostrador'],
-  'taller-grafico': ['Taller Gráfico'],
+  'taller-grafico': ['Taller Gráfico', 'Mostrador'],
   'mostrador': ['Mostrador'],
   'caja': ['Caja'],
   'instalaciones': ['Instalaciones'],

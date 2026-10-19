@@ -5,6 +5,7 @@ export function puedeFinalizarViajeFlota(rol: string | undefined | null): boolea
     rol === 'caja' ||
     rol === 'mostrador' ||
     rol === 'imprenta' ||
+    rol === 'taller-grafico' ||
     rol === 'administracion' ||
     rol === 'gerencia'
   )

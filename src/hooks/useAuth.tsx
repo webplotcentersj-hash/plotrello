@@ -251,7 +251,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isPresupuestos = usuarioTieneRol(usuario, 'presupuestos')
     const canAccessMostradorViews =
       !!usuario &&
-      (isCajaOperativa || isPresupuestos || isDiseno || isTallerImprenta || isAdmin)
+      (isCajaOperativa ||
+        isPresupuestos ||
+        isDiseno ||
+        isTallerImprenta ||
+        isTallerGrafico ||
+        isAdmin)
     const canManageImpresoras =
       !!usuario && (usuarioTieneRol(usuario, 'taller-grafico') || isAdmin)
     const canManageCompras =
