@@ -52,7 +52,16 @@ const FiltersBar = ({
   compactPhone = false
 }: FiltersBarProps) => {
   const navigate = useNavigate()
-  const { isAdmin, isDiseno, canAccessMostradorViews, canManageCaja, usuario, nombreVisible } = useAuth()
+  const {
+    isAdmin,
+    isDiseno,
+    isTallerImprenta,
+    canAccessMostradorViews,
+    canManageCaja,
+    usuario,
+    nombreVisible
+  } = useAuth()
+  const showAccionesMostrador = Boolean(usuario) && (canAccessMostradorViews || isTallerImprenta)
   const [copiandoBrief, setCopiandoBrief] = useState(false)
   const [showVentaRapida, setShowVentaRapida] = useState(false)
 
@@ -81,6 +90,7 @@ const FiltersBar = ({
 
   if (compactPhone) {
     return (
+      <>
       <section className="filters-bar filters-bar--phone" aria-label="Filtros del tablero">
         <div className="filters-bar-phone-row search-filter">
           <input
@@ -100,7 +110,7 @@ const FiltersBar = ({
         )}
         {usuario && (
           <div className="filters-bar-phone-row filters-bar-phone-row--acciones">
-            {canAccessMostradorViews && (
+            {showAccionesMostrador && (
               <button
                 type="button"
                 className="venta-rapida-button filters-bar-phone-add"
@@ -110,7 +120,7 @@ const FiltersBar = ({
                 💰 Venta
               </button>
             )}
-            {canAccessMostradorViews && (
+            {showAccionesMostrador && (
               <button
                 type="button"
                 className="cc-button filters-bar-phone-add"
@@ -130,7 +140,7 @@ const FiltersBar = ({
                 Clientes
               </button>
             )}
-            {canAccessMostradorViews && (
+            {showAccionesMostrador && (
               <button
                 type="button"
                 className="factura-button filters-bar-phone-add"
@@ -156,7 +166,7 @@ const FiltersBar = ({
             >
               Ventas
             </button>
-            {(canManageCaja || canAccessMostradorViews) && (
+            {(canManageCaja || showAccionesMostrador) && (
               <button
                 type="button"
                 className="caja-button filters-bar-phone-add"
@@ -169,6 +179,16 @@ const FiltersBar = ({
           </div>
         )}
       </section>
+      {showVentaRapida && usuario && (
+        <VentaRapidaModal
+          uiVariant="mostrador"
+          usuarioId={usuario.id}
+          usuarioNombre={nombreVisible}
+          onClose={() => setShowVentaRapida(false)}
+          onSuccess={() => setShowVentaRapida(false)}
+        />
+      )}
+      </>
     )
   }
 
@@ -213,7 +233,7 @@ const FiltersBar = ({
         </div>
         <div className="filter-right-section">
           <div className="library-button-container">
-          {canAccessMostradorViews && usuario && (
+          {showAccionesMostrador && (
             <button
               type="button"
               className="venta-rapida-button"
@@ -223,7 +243,7 @@ const FiltersBar = ({
               💰 Venta
             </button>
           )}
-          {canAccessMostradorViews && usuario && (
+          {showAccionesMostrador && (
             <button
               type="button"
               className="cc-button"
@@ -243,7 +263,7 @@ const FiltersBar = ({
               Clientes
             </button>
           )}
-          {canAccessMostradorViews && usuario && (
+          {showAccionesMostrador && (
             <button
               type="button"
               className="factura-button"
@@ -273,7 +293,7 @@ const FiltersBar = ({
               Ventas
             </button>
           )}
-          {(canManageCaja || canAccessMostradorViews) && usuario && (
+          {(canManageCaja || showAccionesMostrador) && (
             <button
               type="button"
               className="caja-button"

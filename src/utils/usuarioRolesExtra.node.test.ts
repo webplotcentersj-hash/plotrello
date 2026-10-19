@@ -14,6 +14,12 @@ describe('imprenta incluye mostrador', () => {
     assert.equal(usuarioTieneAlgunRol(imprenta, ['mostrador', 'caja']), true)
   })
 
+  it('acepta alias taller-imprenta', () => {
+    const alias = { nombre: 'op@plotcenter.com.ar', rol: 'taller-imprenta' as 'imprenta' }
+    assert.equal(usuarioTieneRol(alias, 'imprenta'), true)
+    assert.equal(usuarioTieneRol(alias, 'mostrador'), true)
+  })
+
   it('opera caja como mostrador', () => {
     assert.equal(esUsuarioCajaOperativa('imprenta'), true)
   })

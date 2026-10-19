@@ -25,14 +25,22 @@ export function rolesExtraUsuario(
   return ROLES_EXTRA_POR_LOGIN[usuario.nombre.trim().toLowerCase()] ?? []
 }
 
+function rolCanonico(rol: string | undefined | null): UserRole | '' {
+  const r = String(rol || '').trim().toLowerCase()
+  if (r === 'taller-imprenta' || r === 'taller_imprenta' || r === 'taller de imprenta') return 'imprenta'
+  return r as UserRole
+}
+
 export function usuarioTieneRol(
   usuario: Pick<UsuarioConRol, 'nombre' | 'rol'> | null | undefined,
   rol: UserRole
 ): boolean {
   if (!usuario) return false
+  const principal = rolCanonico(usuario.rol)
+  if (principal === rol) return true
   if (usuario.rol === rol) return true
   if (rolesExtraUsuario(usuario).includes(rol)) return true
-  return ROLES_INCLUIDOS_POR_PRINCIPAL[usuario.rol]?.includes(rol) ?? false
+  return (principal ? ROLES_INCLUIDOS_POR_PRINCIPAL[principal] : undefined)?.includes(rol) ?? false
 }
 
 export function usuarioTieneAlgunRol(

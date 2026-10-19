@@ -1,6 +1,8 @@
 import type { Usuario } from '../hooks/useAuth'
 import { canVerActividadesOperarios } from '../features/work-pool/workPoolOperarioNotas'
 import { OPERARIO_EXTERNO_DASHBOARD } from '../features/work-pool/workPoolOperarioExterno'
+import { CLIENTES_CUENTA_CORRIENTE, CLIENTES_DASHBOARD } from './clientesRoutes'
+import { VENTAS, ventasNuevaVenta } from './ventasRoutes'
 
 export type HeaderQuickNavItem = {
   id: string
@@ -251,12 +253,61 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
       if (ctx.canManageCaja && ctx.onNavigateToCaja) {
         push({
           id: 'dashboard-caja',
-          label: 'Mi caja',
+          label: 'Caja',
           icon: '💰',
           onClick: ctx.onNavigateToCaja,
           title: 'Arqueo, cierre de turno y movimientos propios'
         })
       }
+      push({
+        id: 'venta-rapida',
+        label: 'Venta',
+        icon: '💰',
+        href: ventasNuevaVenta(),
+        title: 'Venta rápida'
+      })
+      push({
+        id: 'cuenta-corriente',
+        label: 'CC',
+        icon: '📒',
+        href: CLIENTES_CUENTA_CORRIENTE,
+        title: 'Cuenta corriente'
+      })
+      push({
+        id: 'clientes-consulta',
+        label: 'Clientes',
+        icon: '👥',
+        href: CLIENTES_DASHBOARD,
+        title: 'Clientes'
+      })
+      push({
+        id: 'facturas-imprenta',
+        label: 'Facturar',
+        icon: '📄',
+        href: '/erp/facturas/nueva',
+        title: 'Emitir factura AFIP'
+      })
+      push({
+        id: 'presupuesto-venta',
+        label: 'Presupuesto',
+        icon: '📑',
+        href: `${VENTAS}?tab=presupuestos`,
+        title: 'Presupuestos de venta'
+      })
+      push({
+        id: 'ventas',
+        label: 'Ventas',
+        icon: '🧾',
+        href: VENTAS,
+        title: 'Listado de ventas'
+      })
+      push({
+        id: 'ficha-nueva',
+        label: '+ Ficha',
+        icon: '➕',
+        href: '/tablero',
+        title: 'Ir al tablero para cargar una ficha'
+      })
       break
     case 'instalaciones':
       push({
