@@ -26,6 +26,9 @@ export type StatsEmpleadoAsistencia = {
   extra100: number
   costoExtra: number
   minutosTardeTotal: number
+  /** Días en que debía asistir (hasta hoy, sin justificados): con marca + ausencias + sin marca laborables. */
+  diasExigibles: number
+  /** Días puntuales / días exigibles. Quien casi no marca no puede dar 100%. */
   puntualidadPct: number
 }
 
@@ -102,6 +105,15 @@ function jornadaNormal(fecha: string, horario: HorarioFijoAsistencia | null, con
     }
   }
   return config.jornadaLunVie
+}
+
+/** Lun–Vie siempre; sábado solo si el horario fijo del empleado lo incluye; domingo nunca. */
+function esDiaLaborableEmpleado(fecha: string, horario: HorarioFijoAsistencia | null): boolean {
+  const [y, m, d] = fecha.split('-').map(Number)
+  const dow = new Date(y, m - 1, d).getDay()
+  if (dow === 0) return false
+  if (dow === 6) return horario?.trabajaSabado === true
+  return true
 }
 
 function redondearExtra(valor: number, paso: number): number {
@@ -275,15 +287,9 @@ export function detectarTardeMarcacion(
       if (real > limite) {
         return { tarde: true, minutos: real - esperada }
       }
+      // Entrada a horario: no heredar T de una novedad o tipo_registro viejos.
       return { tarde: false, minutos: 0 }
     }
-  }
-  if (novs.some((n) => n.codigo === 'tardanza')) {
-    const novT = novs.find((n) => n.codigo === 'tardanza')
-    return { tarde: true, minutos: novT?.duracion_minutos ?? 0 }
-  }
-  if (a.tipo_registro === 'tarde') {
-    return { tarde: true, minutos: 0 }
   }
   return { tarde: false, minutos: 0 }
 }
@@ -429,8 +435,7 @@ export function evaluarDiaAsistencia(params: {
     esAusenciaInjustificada = false
   }
 
-  const llegoTarde =
-    !esAusenciaInjustificada && !esJustificado && (tardeInfo.tarde || !!novTardanza)
+  const llegoTarde = !esAusenciaInjustificada && !esJustificado && tardeInfo.tarde
 
   const tieneMarca =
     !!a &&
@@ -454,7 +459,7 @@ export function evaluarDiaAsistencia(params: {
   return {
     extraDet,
     esTarde: llegoTarde,
-    minutosTarde: tardeInfo.minutos || novTardanza?.duracion_minutos || 0,
+    minutosTarde: tardeInfo.tarde ? tardeInfo.minutos || novTardanza?.duracion_minutos || 0 : 0,
     esAusenciaInjustificada,
     esJustificado,
     cuentaParaPuntualidad,
@@ -510,6 +515,7 @@ export function calcularStatsAsistencia(params: {
   }
 
   const stats: StatsEmpleadoAsistencia[] = []
+  const hoy = isoToArgentinaDateKey(new Date().toISOString())
 
   for (const id of ids) {
     let diasConEntrada = 0
@@ -522,6 +528,7 @@ export function calcularStatsAsistencia(params: {
     let extra50 = 0
     let extra100 = 0
     let minutosTardeTotal = 0
+    let faltasExigibles = 0
 
     for (const f of dias) {
       const a = porUsuarioDia.get(`${id}|${f}`)
@@ -543,6 +550,7 @@ export function calcularStatsAsistencia(params: {
 
       if (ev.esAusenciaInjustificada) {
         ausencias++
+        if (f <= hoy) faltasExigibles++
         continue
       }
       if (ev.esJustificado) {
@@ -558,11 +566,17 @@ export function calcularStatsAsistencia(params: {
         continue
       }
       if (ev.soloNovedadHorasExtra) continue
-      if (ev.esSinMarca) sinMarca++
+      if (ev.esSinMarca) {
+        sinMarca++
+        if (f <= hoy && esDiaLaborableEmpleado(f, horario)) faltasExigibles++
+      }
     }
 
-    const puntualidadPct = diasConEntrada
-      ? Math.round(((diasConEntrada - tardanzas) / diasConEntrada) * 100)
+    // Puntualidad sobre los días que debía asistir, no solo sobre los que marcó:
+    // 4 marcas puntuales en un mes de 20 días hábiles = 20%, no 100%.
+    const diasExigibles = diasConEntrada + faltasExigibles
+    const puntualidadPct = diasExigibles
+      ? Math.round((Math.max(0, diasConEntrada - tardanzas) / diasExigibles) * 100)
       : 0
 
     stats.push({
@@ -579,6 +593,7 @@ export function calcularStatsAsistencia(params: {
       extra100: round2(extra100),
       costoExtra: calcularCostoHorasExtra(extra50, extra100, valorHoraBase),
       minutosTardeTotal,
+      diasExigibles,
       puntualidadPct
     })
   }

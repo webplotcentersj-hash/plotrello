@@ -1150,7 +1150,8 @@ const AsistenciaTab = ({
       dias,
       horariosPorMes
     })
-    if (!pendientes.length) return
+    const hayObsoletas = novedades.some((n) => n.codigo === 'tardanza')
+    if (!pendientes.length && !hayObsoletas) return
     let cancelled = false
     syncNovedadesRef.current = true
     ;(async () => {
@@ -1162,7 +1163,7 @@ const AsistenciaTab = ({
           horariosPorMes,
           registradoPor: registradoPorId
         })
-        if (!cancelled && r.creadas > 0) onNovedadesActualizadas()
+        if (!cancelled && (r.creadas > 0 || r.eliminadas > 0)) onNovedadesActualizadas()
       } finally {
         syncNovedadesRef.current = false
       }
@@ -1534,15 +1535,14 @@ const AsistenciaTab = ({
     if (a) {
       const e = asistenciaHoraCorta(a.hora_entrada)
       const s = asistenciaHoraCorta(a.hora_salida)
-      const tardeNov = novs.find((n) => n.codigo === 'tardanza')
       return {
-        cls: `${ev.esTarde || a.tipo_registro === 'tarde' || tardeNov ? 'celda-tarde' : 'celda-ok'}${!s && e ? ' celda-sin-salida' : ''}${det.total > 0 ? ' celda-con-extra' : ''}`,
+        cls: `${ev.esTarde ? 'celda-tarde' : 'celda-ok'}${!s && e ? ' celda-sin-salida' : ''}${det.total > 0 ? ' celda-con-extra' : ''}`,
         contenido: (
           <>
             <span className="celda-h celda-h-entrada">{e || '—'}</span>
             <span className="celda-h celda-h-salida">{s || '—'}</span>
             {extraBadge(det.total)}
-            {(ev.esTarde || tardeNov) ? <span className="celda-nov-mini">T</span> : null}
+            {ev.esTarde ? <span className="celda-nov-mini">T</span> : null}
             {notaBadge(a.observaciones)}
           </>
         ),
@@ -1552,7 +1552,6 @@ const AsistenciaTab = ({
           acum > 0 ? `Acumulado: ${acum.toFixed(1)} hs` : '',
           ev.esTarde ? 'Tardanza (automática o novedad)' : '',
           a.observaciones,
-          tardeNov ? etiquetaCodigoRrhhNovedad(tardeNov.codigo) : '',
           'Clic para ver detalle'
         ]
           .filter(Boolean)
@@ -1580,7 +1579,7 @@ const AsistenciaTab = ({
           onClick: () => setNovedadDetalle(n)
         }
       }
-      if (ev.esTarde || n.codigo === 'tardanza') {
+      if (ev.esTarde) {
         return {
           cls: `celda-tarde celda-nov celda-nov--tardanza_retiro${extraNov > 0 ? ' celda-con-extra' : ''}`,
           contenido: (
@@ -2404,7 +2403,7 @@ const EstadisticasAsistenciaTab = ({
               <thead>
                 <tr>
                   <th>Empleado</th>
-                  <th>Días c/ entrada</th>
+                  <th>Días c/ marca / exigibles</th>
                   <th>Puntualidad</th>
                   <th>Tardanzas</th>
                   <th>Ausencias</th>
@@ -2421,7 +2420,9 @@ const EstadisticasAsistenciaTab = ({
                 {ranking.map((s) => (
                   <tr key={s.id}>
                     <td className="rrhh-stats-emp">{s.nombre}</td>
-                    <td>{s.diasConEntrada || '—'}</td>
+                    <td title="Días con marca / días que debía asistir (hasta hoy)">
+                      {s.diasConEntrada ? `${s.diasConEntrada} / ${s.diasExigibles}` : '—'}
+                    </td>
                     <td>
                       <span
                         className="rrhh-stats-pct"

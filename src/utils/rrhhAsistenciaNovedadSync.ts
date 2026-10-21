@@ -121,6 +121,48 @@ export function detectarNovedadesDesdeAsistencia(params: {
   return pendientes
 }
 
+function esTardanzaAutomatica(n: RrhhNovedad): boolean {
+  if (n.codigo !== 'tardanza' || n.firma_data_url) return false
+  const obs = (n.observaciones || '').toLowerCase()
+  return obs.includes('detectada automáticamente') || obs.includes('tablet · horario base')
+}
+
+/** Tardanzas auto que ya no aplican: la entrada quedó a horario. */
+export function detectarTardanzasObsoletas(params: {
+  asistencia: Asistencia[]
+  novedades: RrhhNovedad[]
+  dias: string[]
+  horariosPorMes?: Record<string, Record<number, HorarioFijoAsistencia>>
+  horarioFallback?: Record<number, HorarioFijoAsistencia>
+}): RrhhNovedad[] {
+  const { asistencia, novedades, dias, horariosPorMes = {}, horarioFallback } = params
+  const porUsuarioDia = new Map<string, Asistencia>()
+  for (const a of asistencia) {
+    porUsuarioDia.set(`${a.id_usuario}|${a.fecha.slice(0, 10)}`, a)
+  }
+
+  const out: RrhhNovedad[] = []
+  for (const n of novedades) {
+    if (!esTardanzaAutomatica(n)) continue
+    for (const f of dias) {
+      if (!novedadEnDia(n, f)) continue
+      const a = porUsuarioDia.get(`${n.id_usuario}|${f}`)
+      if (!a?.hora_entrada) continue
+      const horario = horariosPorMes[f.slice(0, 7)]?.[n.id_usuario] ?? horarioFallback?.[n.id_usuario] ?? null
+      const ev = evaluarDiaAsistencia({
+        idUsuario: n.id_usuario,
+        fecha: f,
+        asistencia: a,
+        novedades: [n],
+        horario
+      })
+      if (!ev.esTarde) out.push(n)
+      break
+    }
+  }
+  return out
+}
+
 function esErrorDuplicado(msg: string): boolean {
   return /duplicate|unique|uq_rrhh_novedades_tardanza/i.test(msg)
 }
@@ -132,7 +174,7 @@ export async function sincronizarNovedadesDesdeAsistencia(params: {
   horariosPorMes?: Record<string, Record<number, HorarioFijoAsistencia>>
   horarioFallback?: Record<number, HorarioFijoAsistencia>
   registradoPor: number
-}): Promise<{ creadas: number; omitidas: number; errores: number }> {
+}): Promise<{ creadas: number; omitidas: number; errores: number; eliminadas: number }> {
   // Releer novedades frescas del rango para no duplicar por estado React stale.
   let novedadesFresh = params.novedades
   if (params.dias.length) {
@@ -149,11 +191,27 @@ export async function sincronizarNovedadesDesdeAsistencia(params: {
     ...params,
     novedades: novedadesFresh
   })
-  if (!pendientes.length) return { creadas: 0, omitidas: 0, errores: 0 }
+  const obsoletas = detectarTardanzasObsoletas({
+    ...params,
+    novedades: novedadesFresh
+  })
 
   let creadas = 0
   let omitidas = 0
   let errores = 0
+  let eliminadas = 0
+
+  for (const n of obsoletas) {
+    const del = await apiService.rrhhNovedadEliminar(n.id)
+    if (del.success) {
+      eliminadas++
+      novedadesFresh = novedadesFresh.filter((x) => x.id !== n.id)
+    } else {
+      errores++
+    }
+  }
+
+  if (!pendientes.length) return { creadas: 0, omitidas: 0, errores, eliminadas }
   const creadasKeys = new Set<string>()
 
   for (const p of pendientes) {
@@ -213,5 +271,5 @@ export async function sincronizarNovedadesDesdeAsistencia(params: {
     }
   }
 
-  return { creadas, omitidas, errores }
+  return { creadas, omitidas, errores, eliminadas }
 }
