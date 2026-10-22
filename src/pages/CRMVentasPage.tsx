@@ -56,13 +56,11 @@ import VentasListaPreciosPanel from '../components/ventas/VentasListaPreciosPane
 import VentasOportunidadesChatLeads from '../components/ventas/VentasOportunidadesChatLeads'
 import VentasOportunidadesSugeridas from '../components/ventas/VentasOportunidadesSugeridas'
 import {
-  labelAjustesPreciosActivos,
   labelListaPrecio,
   LISTAS_PRECIO_VENTAS,
-  resolvePrecioLista,
+  resolvePrecioListaBruto,
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
-import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
 import { useConfigCondicionesVenta } from '../hooks/useConfigCondicionesVenta'
 import { esPagoMixto, mediosPagoActivos } from '../constants/ventasCondicionesPago'
 import {
@@ -503,7 +501,6 @@ const CRMVentasPage = () => {
   const [presupuestoCatalogoLoading, setPresupuestoCatalogoLoading] = useState(false)
   const [presupuestoBusquedaArticulo, setPresupuestoBusquedaArticulo] = useState('')
   const [presupuestoCategoriaArticulo, setPresupuestoCategoriaArticulo] = useState('todas')
-  const { ajustes: presupuestoAjustesPrecios } = useConfigAjustesPreciosVentas()
   const { config: presupuestoConfigCondiciones } = useConfigCondicionesVenta()
   const presupuestoMediosChecklist = useMemo(
     () => mediosPagoActivos(presupuestoConfigCondiciones).filter((m) => !esPagoMixto(m.codigo)),
@@ -922,7 +919,8 @@ const CRMVentasPage = () => {
         if (item.precioEditado) return item
         const art = matchArticuloCatalogo(item, presupuestoCatalogo)
         if (!art) return item
-        const precio = resolvePrecioLista(art, presupuestoListaActiva, presupuestoAjustesPrecios)
+        // Lista Flexxus ya trae IVA: no volver a sumar ajustes.
+        const precio = resolvePrecioListaBruto(art, presupuestoListaActiva)
         if (precio == null) return item
         const precioStr = String(precio)
         if (
@@ -943,7 +941,7 @@ const CRMVentasPage = () => {
       })
       return changed ? next : prev
     })
-  }, [presupuestoListaActiva, presupuestoAjustesPrecios, presupuestoCatalogo, presupuestoModalId, presupuestoModalLoading])
+  }, [presupuestoListaActiva, presupuestoCatalogo, presupuestoModalId, presupuestoModalLoading])
 
   const agregarArticuloPresupuestoDraft = useCallback(
     (articulo: ArticuloEmpresaRecord) => {
@@ -959,7 +957,7 @@ const CRMVentasPage = () => {
         alert('Este artículo ya está en la lista')
         return
       }
-      const precio = resolvePrecioLista(articulo, presupuestoListaActiva, presupuestoAjustesPrecios)
+      const precio = resolvePrecioListaBruto(articulo, presupuestoListaActiva)
       if (precio == null) {
         alert(`Este artículo no tiene precio en ${labelListaPrecio(presupuestoListaActiva)}.`)
         return
@@ -979,7 +977,7 @@ const CRMVentasPage = () => {
       ])
       setPresupuestoBusquedaArticulo('')
     },
-    [presupuestoAjustesPrecios, presupuestoItemsDraft, presupuestoListaActiva]
+    [presupuestoItemsDraft, presupuestoListaActiva]
   )
 
   useEffect(() => {
@@ -1060,7 +1058,7 @@ const CRMVentasPage = () => {
         if (!presupuestoCatalogo.length) return base
         const art = matchArticuloCatalogo(base, presupuestoCatalogo)
         if (!art) return base
-        const precio = resolvePrecioLista(art, lista, presupuestoAjustesPrecios)
+        const precio = resolvePrecioListaBruto(art, lista)
         if (precio == null) return base
         return {
           ...base,
@@ -1075,8 +1073,7 @@ const CRMVentasPage = () => {
     presupuestoModal,
     presupuestoModalLoading,
     presupuestoModalItems,
-    presupuestoCatalogo,
-    presupuestoAjustesPrecios
+    presupuestoCatalogo
   ])
 
   useEffect(() => {
@@ -4505,11 +4502,11 @@ const CRMVentasPage = () => {
 
                       <div className="presupuesto-detail-catalogo">
                         <p className="presupuesto-detail-catalogo__hint">
-                          Lista Flexxus · precios con{' '}
-                          <strong>{labelAjustesPreciosActivos(presupuestoAjustesPrecios)}</strong>
+                          Lista Flexxus · precios <strong>con IVA incluido</strong>
                           {presupuestoCabeceraDraft.tipo_lista_precio
                             ? ` · ${labelListaPrecio(presupuestoListaActiva)}`
                             : ' · Lista 1 (por defecto)'}
+                          {' '}· en el PDF se discrimina neto / IVA / total
                         </p>
                         <div className="lista-precios-filtros">
                           <input
@@ -4549,10 +4546,9 @@ const CRMVentasPage = () => {
                           ) : (
                             <div className="lista-precios-scroll">
                               {presupuestoArticulosFiltrados.slice(0, 80).map((articulo) => {
-                                const precio = resolvePrecioLista(
+                                const precio = resolvePrecioListaBruto(
                                   articulo,
-                                  presupuestoListaActiva,
-                                  presupuestoAjustesPrecios
+                                  presupuestoListaActiva
                                 )
                                 const yaAgregado = presupuestoItemsDraft.some(
                                   (it) =>

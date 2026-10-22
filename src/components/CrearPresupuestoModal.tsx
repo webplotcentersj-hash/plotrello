@@ -8,13 +8,11 @@ import type {
   OportunidadVenta
 } from '../types/api'
 import {
-  labelAjustesPreciosActivos,
   labelListaPrecio,
   LISTAS_PRECIO_VENTAS,
-  resolvePrecioLista,
+  resolvePrecioListaBruto,
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
-import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
 import { nombreCompletoCliente, nombreSinRepeticion } from '../utils/buscarClienteMatch'
 import { CONDICIONES_IVA_CLIENTE, type CondicionIvaCliente } from '../utils/afipFacturaUi'
 import {
@@ -78,7 +76,6 @@ const CrearPresupuestoModal = ({
   usuarioNombre,
   prefillDesdeOportunidad
 }: CrearPresupuestoModalProps) => {
-  const { ajustes: ajustesPrecios } = useConfigAjustesPreciosVentas()
   const { config: configCondiciones } = useConfigCondicionesVenta()
   const mediosChecklist = useMemo(
     () => mediosPagoActivos(configCondiciones).filter((m) => !esPagoMixto(m.codigo)),
@@ -257,7 +254,8 @@ const CrearPresupuestoModal = ({
         if (!item.id_articulo_empresa) return item
         const art = catalogoArticulos.find((a) => a.id === item.id_articulo_empresa)
         if (!art) return item
-        const precio = resolvePrecioLista(art, tipoListaPrecio, ajustesPrecios)
+        // Lista Flexxus ya trae IVA: no volver a sumar ajustes.
+        const precio = resolvePrecioListaBruto(art, tipoListaPrecio)
         if (precio == null) return item
         return {
           ...item,
@@ -267,7 +265,7 @@ const CrearPresupuestoModal = ({
         }
       })
     )
-  }, [tipoListaPrecio, catalogoArticulos, ajustesPrecios])
+  }, [tipoListaPrecio, catalogoArticulos])
 
   const guardarNuevoCliente = async () => {
     const nombre = nuevoCliente.nombre.trim()
@@ -318,7 +316,7 @@ const CrearPresupuestoModal = ({
       return
     }
 
-    const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+    const precio = resolvePrecioListaBruto(articulo, tipoListaPrecio)
     if (precio == null) {
       alert(`Este artículo no tiene precio en ${labelListaPrecio(tipoListaPrecio)}.`)
       return
@@ -779,7 +777,7 @@ const CrearPresupuestoModal = ({
             <div className="form-section">
               <h3>📦 Artículos — Lista Flexxus</h3>
               <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 12px' }}>
-                Precios con <strong>{labelAjustesPreciosActivos(ajustesPrecios)}</strong>
+                Precios de lista <strong>con IVA incluido</strong> (en el PDF se discrimina neto / IVA / total)
               </p>
 
               <div className="lista-selector-row">
@@ -832,7 +830,7 @@ const CrearPresupuestoModal = ({
                 ) : (
                   <div className="lista-precios-scroll">
                     {articulosFiltrados.slice(0, 80).map((articulo) => {
-                      const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+                      const precio = resolvePrecioListaBruto(articulo, tipoListaPrecio)
                       const yaAgregado = itemsPresupuesto.some(
                         (item) => item.id_articulo_empresa === articulo.id
                       )
