@@ -13,14 +13,14 @@ export const PLANILLA_H = 1920
 
 const MARGIN_X = 72
 const CONTENT_TOP = 360
-/** Límite del cuerpo: todo entra en 1 hoja, arriba del recuadro FORMAS DE PAGO. */
-const CONTENT_BOTTOM = 1565
-/** Primera línea de ítems dentro del recuadro FORMAS DE PAGO (plantilla 1080×1920). */
-const FORMAS_PAGO_Y0 = 1600
+/** Límite inferior del cuerpo (deja el pie decorativo de la planilla). */
+const CONTENT_BOTTOM = 1760
+/** Recuadro vacío de FORMAS DE PAGO en la plantilla (se tapa si dibujamos el checklist arriba). */
+const PLANTILLA_FORMAS_Y = 1540
+const PLANTILLA_FORMAS_H = 230
 const FORMAS_PAGO_X0 = 100
-const FORMAS_PAGO_COL2 = 560
-/** Separación vertical entre medios (compacta, sin amontonar). */
-const FORMAS_PAGO_LINE = 20
+const FORMAS_PAGO_COL2 = 420
+const FORMAS_PAGO_LINE = 18
 const FORMAS_PAGO_BOX = 11
 const ACCENT = { r: 234, g: 88, b: 12 }
 const INK = { r: 15, g: 23, b: 42 }
@@ -139,10 +139,23 @@ function pintarFondo(doc: jsPDF, fondo: string) {
   doc.addImage(fondo, 'JPEG', 0, 0, PLANILLA_W, PLANILLA_H)
 }
 
-/** Checklist de formas de pago: bien separadas dentro del recuadro de la planilla. */
-function pintarFormasPago(doc: jsPDF, formas: string[]) {
+/** Tapa el recuadro vacío de la plantilla para no dejar un hueco en blanco. */
+function taparRecuadroFormasPlantilla(doc: jsPDF) {
+  doc.setFillColor(255, 255, 255)
+  doc.rect(55, PLANTILLA_FORMAS_Y, PLANILLA_W - 110, PLANTILLA_FORMAS_H, 'F')
+}
+
+/** Checklist pegado al contenido (sin hueco hasta el pie de la planilla). */
+function pintarFormasPago(doc: jsPDF, formas: string[], yStart: number): number {
   const labels = formas.map((f) => f.trim()).filter(Boolean)
-  if (!labels.length) return
+  if (!labels.length) return yStart
+
+  let y = yStart
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(ACCENT.r, ACCENT.g, ACCENT.b)
+  doc.text('FORMAS DE PAGO', MARGIN_X, y)
+  y += 14
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
@@ -154,15 +167,17 @@ function pintarFormasPago(doc: jsPDF, formas: string[]) {
     const col = i < half ? 0 : 1
     const row = i < half ? i : i - half
     const x = col === 0 ? FORMAS_PAGO_X0 : FORMAS_PAGO_COL2
-    const y = FORMAS_PAGO_Y0 + row * FORMAS_PAGO_LINE
+    const yy = y + row * FORMAS_PAGO_LINE
     const box = FORMAS_PAGO_BOX
     doc.setLineWidth(1.2)
-    doc.rect(x, y - box + 2, box, box, 'S')
+    doc.rect(x, yy - box + 2, box, box, 'S')
     doc.setLineWidth(1.5)
-    doc.line(x + 2, y - 3, x + 4.5, y + 1)
-    doc.line(x + 4.5, y + 1, x + 9, y - 7)
-    doc.text(pdfText(label), x + box + 8, y)
+    doc.line(x + 2, yy - 3, x + 4.5, yy + 1)
+    doc.line(x + 4.5, yy + 1, x + 9, yy - 7)
+    doc.text(pdfText(label), x + box + 8, yy)
   })
+
+  return y + half * FORMAS_PAGO_LINE + 4
 }
 
 /**
@@ -211,8 +226,12 @@ export async function buildPresupuestoPlanillaPdf(
 
   const notasRaw = presupuesto.notas?.trim() || ''
   const tieneNotas = Boolean(notasRaw)
-  // Reserva fija del pie del cuerpo (totales + notas cortas) para calcular alto de filas.
-  const reserveFooter = blockH + 10 + (tieneNotas ? 28 : 0)
+  const formas = (presupuesto.formas_pago || []).map((f) => f.trim()).filter(Boolean)
+  const formasH = formas.length
+    ? 18 + Math.ceil(formas.length / 2) * FORMAS_PAGO_LINE + 8
+    : 0
+  // Reserva del pie del cuerpo (totales + notas + formas pegadas).
+  const reserveFooter = blockH + 10 + (tieneNotas ? 28 : 0) + formasH
   const headerH = 20
 
   let y = CONTENT_TOP
@@ -364,10 +383,16 @@ export async function buildPresupuestoPlanillaPdf(
     doc.setFontSize(9)
     doc.setTextColor(MUTED.r, MUTED.g, MUTED.b)
     doc.text(notasLines, MARGIN_X, y + 11)
+    y += 11 + notasLines.length * 11 + 6
+  } else {
+    y += 4
   }
 
-  const formas = (presupuesto.formas_pago || []).map((f) => f.trim()).filter(Boolean)
-  if (formas.length) pintarFormasPago(doc, formas)
+  if (formas.length) {
+    y = pintarFormasPago(doc, formas, y)
+    // Si el checklist quedó arriba, se tapa el recuadro vacío de la plantilla (evita el hueco).
+    if (y < PLANTILLA_FORMAS_Y - 8) taparRecuadroFormasPlantilla(doc)
+  }
 
   return doc
 }
