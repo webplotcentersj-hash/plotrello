@@ -35,6 +35,8 @@ import {
   enviarPresupuestoPorEmail,
   enviarPresupuestoPorWhatsapp
 } from '../utils/presupuestoVentaPdf'
+import { esPagoMixto, mediosPagoActivos } from '../constants/ventasCondicionesPago'
+import { useConfigCondicionesVenta } from '../hooks/useConfigCondicionesVenta'
 import './CrearPresupuestoModal.css'
 
 interface CrearPresupuestoModalProps {
@@ -77,6 +79,11 @@ const CrearPresupuestoModal = ({
   prefillDesdeOportunidad
 }: CrearPresupuestoModalProps) => {
   const { ajustes: ajustesPrecios } = useConfigAjustesPreciosVentas()
+  const { config: configCondiciones } = useConfigCondicionesVenta()
+  const mediosChecklist = useMemo(
+    () => mediosPagoActivos(configCondiciones).filter((m) => !esPagoMixto(m.codigo)),
+    [configCondiciones]
+  )
 
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clientesEncontrados, setClientesEncontrados] = useState<ClienteRecord[]>([])
@@ -97,7 +104,14 @@ const CrearPresupuestoModal = ({
   const [fechaVencimiento, setFechaVencimiento] = useState('')
   const [observacionesCliente, setObservacionesCliente] = useState('')
   const [observacionesInternas, setObservacionesInternas] = useState('')
+  const [formasPago, setFormasPago] = useState<string[]>([])
   const [estado, setEstado] = useState<'borrador' | 'enviado'>('borrador')
+
+  const toggleFormaPago = (codigo: string) => {
+    setFormasPago((prev) =>
+      prev.includes(codigo) ? prev.filter((c) => c !== codigo) : [...prev, codigo]
+    )
+  }
 
   const [busquedaArticulo, setBusquedaArticulo] = useState('')
   const [categoriaArticulo, setCategoriaArticulo] = useState('todas')
@@ -466,7 +480,8 @@ const CrearPresupuestoModal = ({
         observaciones_cliente: observacionesCliente || undefined,
         observaciones_internas: observacionesInternas || undefined,
         estado,
-        tipo_lista_precio: tipoListaPrecio
+        tipo_lista_precio: tipoListaPrecio,
+        formas_pago: formasPago
       })
 
       if (!presupuestoResponse.success || !presupuestoResponse.data) {
@@ -992,6 +1007,27 @@ const CrearPresupuestoModal = ({
                     <option value="borrador">Borrador</option>
                     <option value="enviado">Enviado</option>
                   </select>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Formas de pago (PDF)</label>
+                <p className="formas-pago-hint">
+                  Marcá las que querés ofrecer; aparecen en el recuadro del presupuesto.
+                </p>
+                <div className="formas-pago-checklist" role="group" aria-label="Formas de pago">
+                  {mediosChecklist.map((medio) => {
+                    const checked = formasPago.includes(medio.codigo)
+                    return (
+                      <label key={medio.codigo} className="formas-pago-check">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleFormaPago(medio.codigo)}
+                        />
+                        <span>{medio.label}</span>
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
               <div className="form-group">

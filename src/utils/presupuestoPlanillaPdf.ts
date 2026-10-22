@@ -13,7 +13,13 @@ export const PLANILLA_H = 1920
 
 const MARGIN_X = 72
 const CONTENT_TOP = 370
-const CONTENT_BOTTOM = 1780
+/** Deja libre el recuadro FORMAS DE PAGO de la planilla. */
+const CONTENT_BOTTOM = 1540
+/** Primera línea de ítems dentro del recuadro FORMAS DE PAGO (plantilla 1080×1920). */
+const FORMAS_PAGO_Y0 = 1598
+const FORMAS_PAGO_X0 = 95
+const FORMAS_PAGO_COL2 = 560
+const FORMAS_PAGO_LINE = 22
 const ACCENT = { r: 234, g: 88, b: 12 }
 const INK = { r: 15, g: 23, b: 42 }
 const MUTED = { r: 71, g: 85, b: 105 }
@@ -43,6 +49,8 @@ export type PresupuestoPlanillaPayload = {
   total: number
   notas?: string | null
   vendedor?: string | null
+  /** Etiquetas de medios de pago a marcar en el recuadro FORMAS DE PAGO. */
+  formas_pago?: string[] | null
 }
 
 /** Helvetica de jsPDF no soporta bien Unicode. */
@@ -118,6 +126,34 @@ async function cargarFondoPlanilla(): Promise<string> {
 
 function pintarFondo(doc: jsPDF, fondo: string) {
   doc.addImage(fondo, 'JPEG', 0, 0, PLANILLA_W, PLANILLA_H)
+}
+
+/** Checklist de formas de pago dentro del recuadro de la planilla. */
+function pintarFormasPago(doc: jsPDF, formas: string[]) {
+  const labels = formas.map((f) => f.trim()).filter(Boolean)
+  if (!labels.length) return
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(11)
+  doc.setTextColor(INK.r, INK.g, INK.b)
+  doc.setDrawColor(INK.r, INK.g, INK.b)
+  doc.setLineWidth(1.2)
+
+  const half = Math.ceil(labels.length / 2)
+  labels.forEach((label, i) => {
+    const col = i < half ? 0 : 1
+    const row = i < half ? i : i - half
+    const x = col === 0 ? FORMAS_PAGO_X0 : FORMAS_PAGO_COL2
+    const y = FORMAS_PAGO_Y0 + row * FORMAS_PAGO_LINE
+    const box = 11
+    doc.rect(x, y - box + 2, box, box, 'S')
+    // Check mark
+    doc.setLineWidth(1.6)
+    doc.line(x + 2, y - 3, x + 4.5, y + 1)
+    doc.line(x + 4.5, y + 1, x + 9, y - 7)
+    doc.setLineWidth(1.2)
+    doc.text(pdfText(label), x + box + 8, y)
+  })
 }
 
 function nuevaPagina(doc: jsPDF, fondo: string, esPrimera: boolean) {
@@ -299,6 +335,15 @@ export async function buildPresupuestoPlanillaPdf(
     doc.setFontSize(11)
     doc.setTextColor(MUTED.r, MUTED.g, MUTED.b)
     doc.text(notasLines, MARGIN_X, y)
+  }
+
+  const formas = (presupuesto.formas_pago || []).map((f) => f.trim()).filter(Boolean)
+  if (formas.length) {
+    const totalPages = doc.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i)
+      pintarFormasPago(doc, formas)
+    }
   }
 
   return doc

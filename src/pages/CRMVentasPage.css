@@ -1739,6 +1739,44 @@
   background: rgba(30, 41, 59, 0.45);
 }
 
+.venta-detail-modal .venta-detail-block--formas-pago {
+  border-color: rgba(251, 146, 60, 0.28);
+  background: rgba(154, 52, 18, 0.12);
+}
+
+.venta-detail-modal .venta-detail-block--formas-pago .venta-detail-block__text {
+  margin-bottom: 10px;
+  color: #cbd5e1;
+  white-space: normal;
+}
+
+.venta-detail-modal .formas-pago-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 10px;
+}
+
+.venta-detail-modal .formas-pago-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+}
+
+.venta-detail-modal .formas-pago-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #ea580c;
+  flex-shrink: 0;
+}
+
 .venta-detail-modal .venta-detail-block--notes-client {
   border-color: rgba(96, 165, 250, 0.22);
   background: rgba(30, 58, 138, 0.12);
@@ -1765,6 +1803,130 @@
 
 .presupuesto-detail-modal {
   max-width: min(820px, 96vw);
+}
+
+.presupuesto-detail-catalogo {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.presupuesto-detail-catalogo__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.presupuesto-detail-modal .lista-precios-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.presupuesto-detail-modal .lista-precios-filtros .venta-detail-input--wide {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.presupuesto-detail-modal .lista-precios-categoria {
+  flex: 0 1 180px;
+}
+
+.presupuesto-detail-modal .lista-precios-panel {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  overflow: hidden;
+}
+
+.presupuesto-detail-modal .lista-precios-scroll {
+  max-height: 220px;
+  overflow: auto;
+}
+
+.presupuesto-detail-modal .lista-precios-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.presupuesto-detail-modal .lista-precios-row:last-child {
+  border-bottom: 0;
+}
+
+.presupuesto-detail-modal .lista-precios-row:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.presupuesto-detail-modal .lista-precios-row:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.presupuesto-detail-modal .lista-precios-row--added {
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.presupuesto-detail-modal .lista-precios-row__codigo {
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.presupuesto-detail-modal .lista-precios-row__nombre {
+  min-width: 0;
+}
+
+.presupuesto-detail-modal .lista-precios-row__nombre-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.presupuesto-detail-modal .lista-precios-row__nombre-text {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.presupuesto-detail-modal .lista-precios-row__desc {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.presupuesto-detail-modal .lista-precios-row__precio {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #34d399;
+  white-space: nowrap;
+}
+
+.presupuesto-detail-modal .lista-precios-empty,
+.presupuesto-detail-modal .lista-precios-more {
+  margin: 0;
+  padding: 14px 12px;
+  font-size: 0.82rem;
+  color: #94a3b8;
 }
 
 .presupuesto-detail-loading {

@@ -1,6 +1,10 @@
 import type { PresupuestoVentaItemRecord, PresupuestoVentaRecord } from '../types/api'
 import { formatArgentinaDate } from './dateUtils'
 import { LISTAS_PRECIO_VENTAS, type TipoListaPrecioVentas } from '../constants/ventasListasPrecio'
+import {
+  DEFAULT_CONFIG_CONDICIONES_VENTA,
+  esPagoMixto
+} from '../constants/ventasCondicionesPago'
 import { unidadDesdeDescripcionItem } from './unidadPrecio'
 import {
   buildPresupuestoPlanillaPdf,
@@ -9,6 +13,15 @@ import {
   pdfText,
   type PresupuestoPlanillaPayload
 } from './presupuestoPlanillaPdf'
+
+function labelsFormasPagoPresupuesto(codigos: string[] | null | undefined): string[] {
+  if (!codigos?.length) return []
+  const medios = DEFAULT_CONFIG_CONDICIONES_VENTA.medios
+  return codigos
+    .map((c) => String(c || '').trim())
+    .filter((c) => c && !esPagoMixto(c))
+    .map((c) => medios.find((m) => m.codigo === c)?.label || c)
+}
 
 const EMPRESA_NOMBRE = 'PLOT CENTER S.R.L.'
 
@@ -52,7 +65,8 @@ function toPlanillaPayload(
     notas:
       presupuesto.observaciones_cliente?.trim() ||
       'Los precios pueden variar segun disponibilidad. Este presupuesto no constituye factura.',
-    vendedor: presupuesto.nombre_vendedor
+    vendedor: presupuesto.nombre_vendedor,
+    formas_pago: labelsFormasPagoPresupuesto(presupuesto.formas_pago)
   }
 }
 

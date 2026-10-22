@@ -26,6 +26,39 @@
   color: rgba(255, 255, 255, 0.85);
 }
 
+.presupuesto-venta-modal .formas-pago-hint {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.presupuesto-venta-modal .formas-pago-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px 12px;
+}
+
+.presupuesto-venta-modal .formas-pago-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
+
+.presupuesto-venta-modal .formas-pago-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #ea580c;
+  flex-shrink: 0;
+}
+
 .presupuesto-venta-modal .form-input,
 .presupuesto-venta-modal .form-select,
 .presupuesto-venta-modal .form-textarea,

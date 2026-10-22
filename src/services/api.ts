@@ -16020,6 +16020,7 @@ class ApiService {
     observaciones_internas?: string
     estado?: 'borrador' | 'enviado'
     tipo_lista_precio?: 'lista_1' | 'lista_2' | null
+    formas_pago?: string[]
   }): Promise<ApiResponse<PresupuestoVentaRecord>> {
     if (supabase) {
       try {
@@ -16038,7 +16039,8 @@ class ApiService {
           p_observaciones_cliente: params.observaciones_cliente || null,
           p_observaciones_internas: params.observaciones_internas || null,
           p_estado: params.estado || 'borrador',
-          p_tipo_lista_precio: params.tipo_lista_precio || null
+          p_tipo_lista_precio: params.tipo_lista_precio || null,
+          p_formas_pago: params.formas_pago?.length ? params.formas_pago : []
         })
 
         if (error) return { success: false, error: error.message }
@@ -16224,6 +16226,7 @@ class ApiService {
     observaciones_cliente?: string | null
     observaciones_internas?: string | null
     tipo_lista_precio?: 'lista_1' | 'lista_2' | null
+    formas_pago?: string[] | null
     items: Array<{
       id?: number
       descripcion: string
@@ -16251,7 +16254,8 @@ class ApiService {
         p_observaciones_cliente: params.observaciones_cliente ?? null,
         p_observaciones_internas: params.observaciones_internas ?? null,
         p_tipo_lista_precio: params.tipo_lista_precio || null,
-        p_items: params.items
+        p_items: params.items,
+        p_formas_pago: params.formas_pago ?? null
       })
       if (error) return { success: false, error: error.message }
       const detalle = await this.obtenerDetallePresupuestoVenta(params.id)

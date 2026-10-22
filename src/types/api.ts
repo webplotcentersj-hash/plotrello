@@ -944,6 +944,8 @@ export interface PresupuestoVentaRecord {
   cliente_empresa?: string | null
   cliente_direccion?: string | null
   tipo_lista_precio?: 'lista_1' | 'lista_2' | null
+  /** Códigos de medios de pago ofrecidos (checklist → PDF). */
+  formas_pago?: string[] | null
   created_at?: string
   updated_at?: string
 }

@@ -5,6 +5,7 @@ import { useCajaOperativa } from '../hooks/useCajaOperativa'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import type {
+  ArticuloEmpresaRecord,
   OportunidadVenta,
   OportunidadSugerida,
   Venta,
@@ -54,7 +55,16 @@ import VentaComprobantePagoDetalle from '../components/ventas/VentaComprobantePa
 import VentasListaPreciosPanel from '../components/ventas/VentasListaPreciosPanel'
 import VentasOportunidadesChatLeads from '../components/ventas/VentasOportunidadesChatLeads'
 import VentasOportunidadesSugeridas from '../components/ventas/VentasOportunidadesSugeridas'
-import { labelListaPrecio, LISTAS_PRECIO_VENTAS, type TipoListaPrecioVentas } from '../constants/ventasListasPrecio'
+import {
+  labelAjustesPreciosActivos,
+  labelListaPrecio,
+  LISTAS_PRECIO_VENTAS,
+  resolvePrecioLista,
+  type TipoListaPrecioVentas
+} from '../constants/ventasListasPrecio'
+import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
+import { useConfigCondicionesVenta } from '../hooks/useConfigCondicionesVenta'
+import { esPagoMixto, mediosPagoActivos } from '../constants/ventasCondicionesPago'
 import {
   descargarPresupuestoVentaPDF,
   enviarPresupuestoPorEmail,
@@ -63,6 +73,7 @@ import {
 import {
   clampDescuentoPct,
   descuentoPesosDesdePct,
+  etiquetaUnidadCorta,
   importeLineaVentaPct,
   porcentajeDesdeDescuentoPesos
 } from '../utils/unidadPrecio'
@@ -261,11 +272,43 @@ type PresupuestoItemDraft = {
   descuento: string
   codigo_articulo?: string | null
   id_articulo_stock?: number | null
+  id_articulo_empresa?: number | null
+  /** Si el usuario tocó el precio a mano, no recalcular al cambiar lista. */
+  precioEditado?: boolean
 }
 
 function parseDecimalDraft(raw: string): number {
   const n = Number(String(raw).replace(',', '.').trim())
   return Number.isFinite(n) ? n : 0
+}
+
+function descripcionEditableArticuloPresupuesto(articulo: ArticuloEmpresaRecord): string {
+  const nombre = (articulo.nombre || '').trim()
+  if (/\(\s*no usar\s*\)/i.test(nombre)) {
+    const desc = (articulo.descripcion || '').trim()
+    if (desc && !/\(\s*no usar\s*\)/i.test(desc)) return desc
+    return ''
+  }
+  return nombre
+}
+
+function matchArticuloCatalogo(
+  item: Pick<PresupuestoItemDraft, 'id_articulo_empresa' | 'id_articulo_stock' | 'codigo_articulo'>,
+  catalogo: ArticuloEmpresaRecord[]
+): ArticuloEmpresaRecord | undefined {
+  if (item.id_articulo_empresa) {
+    const byId = catalogo.find((a) => a.id === item.id_articulo_empresa)
+    if (byId) return byId
+  }
+  if (item.id_articulo_stock) {
+    const byStock = catalogo.find((a) => a.id_articulo_stock === item.id_articulo_stock)
+    if (byStock) return byStock
+  }
+  const codigo = (item.codigo_articulo || '').trim().toLowerCase()
+  if (codigo) {
+    return catalogo.find((a) => (a.codigo || '').trim().toLowerCase() === codigo)
+  }
+  return undefined
 }
 
 const CRMVentasPage = () => {
@@ -452,9 +495,20 @@ const CRMVentasPage = () => {
     fecha_vencimiento: '',
     observaciones_cliente: '',
     observaciones_internas: '',
-    tipo_lista_precio: '' as '' | TipoListaPrecioVentas
+    tipo_lista_precio: '' as '' | TipoListaPrecioVentas,
+    formas_pago: [] as string[]
   })
   const [presupuestoItemsDraft, setPresupuestoItemsDraft] = useState<PresupuestoItemDraft[]>([])
+  const [presupuestoCatalogo, setPresupuestoCatalogo] = useState<ArticuloEmpresaRecord[]>([])
+  const [presupuestoCatalogoLoading, setPresupuestoCatalogoLoading] = useState(false)
+  const [presupuestoBusquedaArticulo, setPresupuestoBusquedaArticulo] = useState('')
+  const [presupuestoCategoriaArticulo, setPresupuestoCategoriaArticulo] = useState('todas')
+  const { ajustes: presupuestoAjustesPrecios } = useConfigAjustesPreciosVentas()
+  const { config: presupuestoConfigCondiciones } = useConfigCondicionesVenta()
+  const presupuestoMediosChecklist = useMemo(
+    () => mediosPagoActivos(presupuestoConfigCondiciones).filter((m) => !esPagoMixto(m.codigo)),
+    [presupuestoConfigCondiciones]
+  )
 
   // PlotAI informe (solo modal Nueva/Editar Oportunidad)
   const [plotAiInforme, setPlotAiInforme] = useState<string>('')
@@ -804,7 +858,129 @@ const CRMVentasPage = () => {
     setPresupuestoModalLoading(false)
     setPresupuestoEditBusy(false)
     setPresupuestoItemsDraft([])
+    setPresupuestoBusquedaArticulo('')
+    setPresupuestoCategoriaArticulo('todas')
   }, [])
+
+  useEffect(() => {
+    if (presupuestoModalId == null) return
+    let cancelled = false
+    const run = async () => {
+      setPresupuestoCatalogoLoading(true)
+      try {
+        const response = await apiService.getArticulosEmpresa(undefined, false)
+        if (!cancelled && response.success && response.data) {
+          setPresupuestoCatalogo(response.data.filter((a) => a.activo && !a.codigo?.startsWith('ART-')))
+        }
+      } catch (error) {
+        console.error('Error cargando lista de precios del presupuesto:', error)
+      } finally {
+        if (!cancelled) setPresupuestoCatalogoLoading(false)
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [presupuestoModalId])
+
+  const presupuestoCategoriasArticulos = useMemo(() => {
+    const set = new Set<string>()
+    for (const a of presupuestoCatalogo) {
+      if (a.categoria?.trim()) set.add(a.categoria.trim())
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'))
+  }, [presupuestoCatalogo])
+
+  const presupuestoArticulosFiltrados = useMemo(() => {
+    const q = presupuestoBusquedaArticulo.trim().toLowerCase()
+    return presupuestoCatalogo.filter((a) => {
+      if (presupuestoCategoriaArticulo !== 'todas' && (a.categoria || '') !== presupuestoCategoriaArticulo) {
+        return false
+      }
+      if (!q) return true
+      const tokens = q.split(/\s+/).filter(Boolean)
+      const haystack = [a.nombre, a.codigo, a.descripcion, a.categoria]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return tokens.every((t) => haystack.includes(t))
+    })
+  }, [presupuestoCatalogo, presupuestoBusquedaArticulo, presupuestoCategoriaArticulo])
+
+  const presupuestoListaActiva = useMemo((): TipoListaPrecioVentas => {
+    return presupuestoCabeceraDraft.tipo_lista_precio === 'lista_2' ? 'lista_2' : 'lista_1'
+  }, [presupuestoCabeceraDraft.tipo_lista_precio])
+
+  useEffect(() => {
+    if (presupuestoModalId == null || presupuestoModalLoading) return
+    if (!presupuestoCatalogo.length) return
+    setPresupuestoItemsDraft((prev) => {
+      if (!prev.length) return prev
+      let changed = false
+      const next = prev.map((item) => {
+        if (item.precioEditado) return item
+        const art = matchArticuloCatalogo(item, presupuestoCatalogo)
+        if (!art) return item
+        const precio = resolvePrecioLista(art, presupuestoListaActiva, presupuestoAjustesPrecios)
+        if (precio == null) return item
+        const precioStr = String(precio)
+        if (
+          item.precio_unitario === precioStr &&
+          item.id_articulo_empresa === art.id &&
+          (item.codigo_articulo || null) === (art.codigo || item.codigo_articulo || null)
+        ) {
+          return item
+        }
+        changed = true
+        return {
+          ...item,
+          id_articulo_empresa: art.id,
+          id_articulo_stock: art.id_articulo_stock ?? item.id_articulo_stock ?? null,
+          codigo_articulo: art.codigo || item.codigo_articulo || null,
+          precio_unitario: precioStr
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [presupuestoListaActiva, presupuestoAjustesPrecios, presupuestoCatalogo, presupuestoModalId, presupuestoModalLoading])
+
+  const agregarArticuloPresupuestoDraft = useCallback(
+    (articulo: ArticuloEmpresaRecord) => {
+      if (
+        presupuestoItemsDraft.some(
+          (it) =>
+            it.id_articulo_empresa === articulo.id ||
+            (articulo.codigo &&
+              it.codigo_articulo &&
+              it.codigo_articulo.trim().toLowerCase() === articulo.codigo.trim().toLowerCase())
+        )
+      ) {
+        alert('Este artículo ya está en la lista')
+        return
+      }
+      const precio = resolvePrecioLista(articulo, presupuestoListaActiva, presupuestoAjustesPrecios)
+      if (precio == null) {
+        alert(`Este artículo no tiene precio en ${labelListaPrecio(presupuestoListaActiva)}.`)
+        return
+      }
+      setPresupuestoItemsDraft((prev) => [
+        ...prev,
+        {
+          key: `n-${Date.now()}-${articulo.id}`,
+          descripcion: descripcionEditableArticuloPresupuesto(articulo),
+          cantidad: '1',
+          precio_unitario: String(precio),
+          descuento: '',
+          codigo_articulo: articulo.codigo || null,
+          id_articulo_stock: articulo.id_articulo_stock ?? null,
+          id_articulo_empresa: articulo.id
+        }
+      ])
+      setPresupuestoBusquedaArticulo('')
+    },
+    [presupuestoAjustesPrecios, presupuestoItemsDraft, presupuestoListaActiva]
+  )
 
   useEffect(() => {
     if (presupuestoModalId == null) {
@@ -821,6 +997,11 @@ const CRMVentasPage = () => {
       if (cancelled) return
       if (detalle.success && detalle.data) {
         setPresupuestoModalItems(detalle.data.items)
+        setPresupuestos((prev) =>
+          prev.map((p) =>
+            p.id === presupuestoModalId ? { ...p, ...detalle.data!.presupuesto } : p
+          )
+        )
       } else {
         setPresupuestoModalItems([])
       }
@@ -850,28 +1031,53 @@ const CRMVentasPage = () => {
       tipo_lista_precio:
         presupuestoModal.tipo_lista_precio === 'lista_1' || presupuestoModal.tipo_lista_precio === 'lista_2'
           ? presupuestoModal.tipo_lista_precio
-          : ''
+          : '',
+      formas_pago: Array.isArray(presupuestoModal.formas_pago)
+        ? presupuestoModal.formas_pago.filter(Boolean)
+        : []
     })
+    const lista: TipoListaPrecioVentas =
+      presupuestoModal.tipo_lista_precio === 'lista_2' ? 'lista_2' : 'lista_1'
     setPresupuestoItemsDraft(
-      presupuestoModalItems.map((it) => ({
-        key: `p-${it.id}`,
-        id: it.id,
-        descripcion: it.descripcion || '',
-        cantidad: String(it.cantidad ?? ''),
-        precio_unitario: String(it.precio_unitario ?? ''),
-        descuento: (() => {
-          const pct = porcentajeDesdeDescuentoPesos(
-            Number(it.precio_unitario) || 0,
-            Number(it.cantidad) || 0,
-            Number(it.descuento) || 0
-          )
-          return pct > 0 ? String(pct) : ''
-        })(),
-        codigo_articulo: it.codigo_articulo,
-        id_articulo_stock: it.id_articulo_stock
-      }))
+      presupuestoModalItems.map((it) => {
+        const base: PresupuestoItemDraft = {
+          key: `p-${it.id}`,
+          id: it.id,
+          descripcion: it.descripcion || '',
+          cantidad: String(it.cantidad ?? ''),
+          precio_unitario: String(it.precio_unitario ?? ''),
+          descuento: (() => {
+            const pct = porcentajeDesdeDescuentoPesos(
+              Number(it.precio_unitario) || 0,
+              Number(it.cantidad) || 0,
+              Number(it.descuento) || 0
+            )
+            return pct > 0 ? String(pct) : ''
+          })(),
+          codigo_articulo: it.codigo_articulo,
+          id_articulo_stock: it.id_articulo_stock
+        }
+        if (!presupuestoCatalogo.length) return base
+        const art = matchArticuloCatalogo(base, presupuestoCatalogo)
+        if (!art) return base
+        const precio = resolvePrecioLista(art, lista, presupuestoAjustesPrecios)
+        if (precio == null) return base
+        return {
+          ...base,
+          id_articulo_empresa: art.id,
+          id_articulo_stock: art.id_articulo_stock ?? base.id_articulo_stock ?? null,
+          codigo_articulo: art.codigo || base.codigo_articulo || null,
+          precio_unitario: String(precio)
+        }
+      })
     )
-  }, [presupuestoModal, presupuestoModalLoading, presupuestoModalItems])
+  }, [
+    presupuestoModal,
+    presupuestoModalLoading,
+    presupuestoModalItems,
+    presupuestoCatalogo,
+    presupuestoAjustesPrecios
+  ])
 
   useEffect(() => {
     if (!crmBootstrapped) return
@@ -1286,6 +1492,7 @@ const CRMVentasPage = () => {
         observaciones_cliente: presupuestoCabeceraDraft.observaciones_cliente,
         observaciones_internas: presupuestoCabeceraDraft.observaciones_internas,
         tipo_lista_precio: presupuestoCabeceraDraft.tipo_lista_precio || null,
+        formas_pago: presupuestoCabeceraDraft.formas_pago,
         items
       })
       if (!res.success) {
@@ -4248,7 +4455,9 @@ const CRMVentasPage = () => {
                                       onChange={(e) =>
                                         setPresupuestoItemsDraft((prev) =>
                                           prev.map((it) =>
-                                            it.key === item.key ? { ...it, precio_unitario: e.target.value } : it
+                                            it.key === item.key
+                                              ? { ...it, precio_unitario: e.target.value, precioEditado: true }
+                                              : it
                                           )
                                         )
                                       }
@@ -4291,29 +4500,161 @@ const CRMVentasPage = () => {
                           })}
                         </ul>
                       ) : (
-                        <p className="venta-detail-block__text">Sin ítems. Agregá uno para armar el presupuesto.</p>
+                        <p className="venta-detail-block__text">Sin ítems. Buscá en la lista o agregá uno libre.</p>
                       )}
-                      <button
-                        type="button"
-                        className="btn-action"
-                        disabled={presupuestoEditBusy}
-                        onClick={() =>
-                          setPresupuestoItemsDraft((prev) => [
-                            ...prev,
-                            {
-                              key: `n-${Date.now()}`,
-                              descripcion: '',
-                              cantidad: '1',
-                              precio_unitario: '',
-                              descuento: ''
-                            }
-                          ])
-                        }
-                      >
-                        + Agregar ítem
-                      </button>
+
+                      <div className="presupuesto-detail-catalogo">
+                        <p className="presupuesto-detail-catalogo__hint">
+                          Lista Flexxus · precios con{' '}
+                          <strong>{labelAjustesPreciosActivos(presupuestoAjustesPrecios)}</strong>
+                          {presupuestoCabeceraDraft.tipo_lista_precio
+                            ? ` · ${labelListaPrecio(presupuestoListaActiva)}`
+                            : ' · Lista 1 (por defecto)'}
+                        </p>
+                        <div className="lista-precios-filtros">
+                          <input
+                            type="text"
+                            className="venta-detail-input venta-detail-input--wide"
+                            placeholder="Buscar por código, nombre o rubro…"
+                            value={presupuestoBusquedaArticulo}
+                            disabled={presupuestoEditBusy}
+                            onChange={(e) => setPresupuestoBusquedaArticulo(e.target.value)}
+                            autoComplete="off"
+                          />
+                          {presupuestoCategoriasArticulos.length > 0 ? (
+                            <select
+                              className="venta-detail-input lista-precios-categoria"
+                              value={presupuestoCategoriaArticulo}
+                              disabled={presupuestoEditBusy}
+                              onChange={(e) => setPresupuestoCategoriaArticulo(e.target.value)}
+                            >
+                              <option value="todas">Todos los rubros</option>
+                              {presupuestoCategoriasArticulos.map((cat) => (
+                                <option key={cat} value={cat}>
+                                  {cat}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
+                        </div>
+                        <div className="lista-precios-panel">
+                          {presupuestoCatalogoLoading ? (
+                            <p className="lista-precios-empty">Cargando catálogo…</p>
+                          ) : presupuestoArticulosFiltrados.length === 0 ? (
+                            <p className="lista-precios-empty">
+                              {presupuestoBusquedaArticulo.trim() || presupuestoCategoriaArticulo !== 'todas'
+                                ? 'Sin resultados. Probá con otras palabras o rubro.'
+                                : 'No hay artículos en la lista de precios.'}
+                            </p>
+                          ) : (
+                            <div className="lista-precios-scroll">
+                              {presupuestoArticulosFiltrados.slice(0, 80).map((articulo) => {
+                                const precio = resolvePrecioLista(
+                                  articulo,
+                                  presupuestoListaActiva,
+                                  presupuestoAjustesPrecios
+                                )
+                                const yaAgregado = presupuestoItemsDraft.some(
+                                  (it) =>
+                                    it.id_articulo_empresa === articulo.id ||
+                                    (!!articulo.codigo &&
+                                      !!it.codigo_articulo &&
+                                      it.codigo_articulo.trim().toLowerCase() ===
+                                        articulo.codigo.trim().toLowerCase())
+                                )
+                                return (
+                                  <button
+                                    key={articulo.id}
+                                    type="button"
+                                    className={`lista-precios-row${yaAgregado ? ' lista-precios-row--added' : ''}`}
+                                    disabled={presupuestoEditBusy || precio == null || yaAgregado}
+                                    onClick={() => agregarArticuloPresupuestoDraft(articulo)}
+                                  >
+                                    <span className="lista-precios-row__codigo" title={articulo.codigo || ''}>
+                                      {articulo.codigo || '—'}
+                                    </span>
+                                    <span
+                                      className="lista-precios-row__nombre"
+                                      title={articulo.descripcion?.trim() || articulo.nombre}
+                                    >
+                                      <span className="lista-precios-row__nombre-wrap">
+                                        <span className="lista-precios-row__nombre-text">{articulo.nombre}</span>
+                                        {articulo.descripcion?.trim() &&
+                                        articulo.descripcion.trim() !== articulo.nombre.trim() ? (
+                                          <span className="lista-precios-row__desc">{articulo.descripcion}</span>
+                                        ) : null}
+                                      </span>
+                                    </span>
+                                    <span className="lista-precios-row__precio">
+                                      {precio != null
+                                        ? `$${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })} / ${etiquetaUnidadCorta(articulo.unidad_medida)}`
+                                        : '—'}
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                              {presupuestoArticulosFiltrados.length > 80 ? (
+                                <p className="lista-precios-more">
+                                  Mostrando 80 de {presupuestoArticulosFiltrados.length}. Acotá la búsqueda
+                                  para ver más.
+                                </p>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-action"
+                          disabled={presupuestoEditBusy}
+                          onClick={() =>
+                            setPresupuestoItemsDraft((prev) => [
+                              ...prev,
+                              {
+                                key: `n-${Date.now()}`,
+                                descripcion: '',
+                                cantidad: '1',
+                                precio_unitario: '',
+                                descuento: '',
+                                precioEditado: true
+                              }
+                            ])
+                          }
+                        >
+                          + Ítem libre (sin lista)
+                        </button>
+                      </div>
                     </div>
                   )}
+
+                  <div className="venta-detail-block venta-detail-block--formas-pago">
+                    <h3 className="venta-detail-block__title">Formas de pago (PDF)</h3>
+                    <p className="venta-detail-block__text">
+                      Marcá las que querés ofrecer; se dibujan en el recuadro del presupuesto.
+                    </p>
+                    <div className="formas-pago-checklist" role="group" aria-label="Formas de pago">
+                      {presupuestoMediosChecklist.map((medio) => {
+                        const checked = presupuestoCabeceraDraft.formas_pago.includes(medio.codigo)
+                        return (
+                          <label key={medio.codigo} className="formas-pago-check">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={presupuestoEditBusy}
+                              onChange={() =>
+                                setPresupuestoCabeceraDraft((prev) => ({
+                                  ...prev,
+                                  formas_pago: checked
+                                    ? prev.formas_pago.filter((c) => c !== medio.codigo)
+                                    : [...prev.formas_pago, medio.codigo]
+                                }))
+                              }
+                            />
+                            <span>{medio.label}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
 
                   <div className="venta-detail-block venta-detail-block--notes venta-detail-block--notes-client">
                     <h3 className="venta-detail-block__title">Observaciones cliente</h3>
