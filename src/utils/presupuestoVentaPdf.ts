@@ -1,11 +1,15 @@
-import type { PresupuestoVentaItemRecord, PresupuestoVentaRecord } from '../types/api'
+import type {
+  ArticuloEmpresaRecord,
+  PresupuestoVentaItemRecord,
+  PresupuestoVentaRecord
+} from '../types/api'
 import { formatArgentinaDate } from './dateUtils'
 import {
   DEFAULT_AJUSTES_PRECIOS_VENTAS,
   desglosarImporteConAjustes,
   LISTAS_PRECIO_VENTAS,
   normalizarConfigAjustesPrecios,
-  totalPorcentajeAjustes,
+  resolvePrecioListaBruto,
   type ConfigAjustesPreciosVentas,
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
@@ -53,6 +57,56 @@ async function cargarAjustesPrecios(): Promise<ConfigAjustesPreciosVentas> {
   return DEFAULT_AJUSTES_PRECIOS_VENTAS
 }
 
+function matchCatalogo(
+  item: PresupuestoVentaItemRecord,
+  catalogo: ArticuloEmpresaRecord[]
+): ArticuloEmpresaRecord | undefined {
+  if (item.id_articulo_stock) {
+    const byStock = catalogo.find((a) => a.id_articulo_stock === item.id_articulo_stock)
+    if (byStock) return byStock
+  }
+  const codigo = (item.codigo_articulo || '').trim().toLowerCase()
+  if (codigo) {
+    return catalogo.find((a) => (a.codigo || '').trim().toLowerCase() === codigo)
+  }
+  return undefined
+}
+
+/**
+ * La lista Flexxus del presupuesto ya trae IVA. Si un ítem quedó guardado como
+ * lista × 1.21 (bug viejo), lo bajamos al precio de lista.
+ */
+function sanearItemsConIvaIncluido(
+  items: PresupuestoVentaItemRecord[],
+  catalogo: ArticuloEmpresaRecord[],
+  tipoLista: TipoListaPrecioVentas,
+  ivaPct: number
+): PresupuestoVentaItemRecord[] {
+  if (ivaPct <= 0 || !catalogo.length) return items
+  const factor = 1 + ivaPct / 100
+
+  return items.map((item) => {
+    const art = matchCatalogo(item, catalogo)
+    if (!art) return item
+    const lista = resolvePrecioListaBruto(art, tipoLista)
+    if (lista == null || lista <= 0) return item
+
+    const unit = Number(item.precio_unitario) || 0
+    const doble = round2(lista * factor)
+    const tol = Math.max(0.05, doble * 0.002)
+    // Solo corrige si claramente se le sumó IVA otra vez sobre la lista.
+    if (Math.abs(unit - doble) > tol) return item
+
+    const cant = Number(item.cantidad) || 0
+    const desc = Number(item.descuento) || 0
+    return {
+      ...item,
+      precio_unitario: lista,
+      precio_total: round2(Math.max(0, cant * lista - desc))
+    }
+  })
+}
+
 async function toPlanillaPayload(
   presupuesto: PresupuestoVentaRecord,
   items: PresupuestoVentaItemRecord[]
@@ -62,11 +116,32 @@ async function toPlanillaPayload(
     : formatArgentinaDate(new Date().toISOString())
 
   const ajustes = await cargarAjustesPrecios()
-  const total = Number(presupuesto.precio_total) || 0
-  const desglose = desglosarImporteConAjustes(total, ajustes)
-  const pctTotal = totalPorcentajeAjustes(ajustes)
-  const factor = pctTotal > 0 ? 1 + pctTotal / 100 : 1
-  const mostrarNetoEnLineas = desglose.iva > 0.009
+  const ivaPct = ajustes.iva_activo ? ajustes.iva_porcentaje : 0
+  const tipoLista: TipoListaPrecioVentas =
+    presupuesto.tipo_lista_precio === 'lista_2' ? 'lista_2' : 'lista_1'
+
+  let catalogo: ArticuloEmpresaRecord[] = []
+  try {
+    const cat = await apiService.getArticulosEmpresa(undefined, false)
+    if (cat.success && cat.data) catalogo = cat.data
+  } catch {
+    /* sin catálogo: no se puede sanear dobles */
+  }
+
+  const itemsOk = sanearItemsConIvaIncluido(items, catalogo, tipoLista, ivaPct)
+  // Importes ya incluyen IVA: el total del PDF es la suma (no se vuelve a sumar IVA).
+  const total = round2(
+    itemsOk.reduce((s, it) => s + (Number(it.precio_total) || 0), 0) ||
+      Number(presupuesto.precio_total) ||
+      0
+  )
+
+  // Solo discriminar (partir) el total con IVA; nunca calcular TOTAL = neto + IVA sumado.
+  const desglose = desglosarImporteConAjustes(total, {
+    ...ajustes,
+    // En presupuesto no reaplicamos recargos de venta: la lista ya es precio final.
+    recargos: []
+  })
 
   return {
     numero: presupuesto.numero_presupuesto,
@@ -83,26 +158,23 @@ async function toPlanillaPayload(
     lista_label: presupuesto.tipo_lista_precio
       ? `Lista: ${labelListaPrecioPdf(presupuesto.tipo_lista_precio)}`
       : null,
-    items: items.map((item) => {
-      const unit = Number(item.precio_unitario) || 0
-      const sub = Number(item.precio_total) || 0
-      return {
-        codigo: item.codigo_articulo,
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        unidad: unidadDesdeDescripcionItem(item.descripcion) ?? 'm2',
-        precio_unitario: mostrarNetoEnLineas ? round2(unit / factor) : unit,
-        subtotal: mostrarNetoEnLineas ? round2(sub / factor) : sub
-      }
-    }),
+    items: itemsOk.map((item) => ({
+      codigo: item.codigo_articulo,
+      descripcion: item.descripcion,
+      cantidad: item.cantidad,
+      unidad: unidadDesdeDescripcionItem(item.descripcion) ?? 'm2',
+      // Precio de lista con IVA incluido (tal cual cotizado).
+      precio_unitario: Number(item.precio_unitario) || 0,
+      subtotal: Number(item.precio_total) || 0
+    })),
     total,
     desglose:
-      desglose.iva > 0.009 || desglose.recargos.length
+      desglose.iva > 0.009
         ? {
             neto: desglose.neto,
             iva: desglose.iva,
             iva_porcentaje: desglose.iva_porcentaje,
-            recargos: desglose.recargos
+            recargos: []
           }
         : null,
     notas:

@@ -194,7 +194,6 @@ export async function buildPresupuestoPlanillaPdf(
   const desglose = presupuesto.desglose
   const mostrarIva = Boolean(desglose && desglose.iva > 0.009)
   const recargos = (desglose?.recargos || []).filter((r) => r.monto > 0.009)
-  const conIva = mostrarIva || recargos.length > 0
   const filasTotales =
     1 + (mostrarIva || recargos.length ? 1 : 0) + (mostrarIva ? 1 : 0) + recargos.length
   const blockH = Math.max(32, filasTotales * 14 + 12)
@@ -282,8 +281,9 @@ export async function buildPresupuestoPlanillaPdf(
   doc.text('Descripcion', colDesc, y + 10)
   doc.text('Cant.', colCant, y + 10, { align: 'right' })
   doc.text('Unidad', colMedida, y + 10, { align: 'right' })
-  doc.text(conIva ? 'P. neto' : 'P. unit.', colUnit, y + 10, { align: 'right' })
-  doc.text(conIva ? 'Neto' : 'Subtotal', colSub, y + 10, { align: 'right' })
+  // Los importes de línea ya incluyen IVA; el neto se ve solo en el pie.
+  doc.text('P. unit.', colUnit, y + 10, { align: 'right' })
+  doc.text('Importe', colSub, y + 10, { align: 'right' })
   y += headerH + 4
 
   doc.setFont('helvetica', 'normal')
