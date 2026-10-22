@@ -144,6 +144,42 @@ export function calcularAjustesPrecio(
   return { final, totalPorcentaje, desglose }
 }
 
+/**
+ * Parte un importe final (con IVA/recargos) en neto + IVA + recargos.
+ * Misma fórmula inversa de `calcularAjustesPrecio`.
+ */
+export function desglosarImporteConAjustes(
+  importeFinal: number,
+  config: ConfigAjustesPreciosVentas = DEFAULT_AJUSTES_PRECIOS_VENTAS
+): {
+  neto: number
+  iva: number
+  iva_porcentaje: number
+  recargos: DesgloseAjustePrecio[]
+  total: number
+} {
+  const total = round2(Number(importeFinal) || 0)
+  const pctIva = config.iva_activo && config.iva_porcentaje > 0 ? config.iva_porcentaje : 0
+  const recargosActivos = (config.recargos || []).filter((r) => r.activo && r.porcentaje > 0)
+  const pctRecargos = recargosActivos.reduce((s, r) => s + r.porcentaje, 0)
+  const pctTotal = pctIva + pctRecargos
+
+  if (total <= 0 || pctTotal <= 0) {
+    return { neto: total, iva: 0, iva_porcentaje: pctIva, recargos: [], total }
+  }
+
+  const neto = round2(total / (1 + pctTotal / 100))
+  const recargos: DesgloseAjustePrecio[] = recargosActivos.map((r) => ({
+    nombre: r.nombre,
+    porcentaje: r.porcentaje,
+    monto: round2(neto * (r.porcentaje / 100))
+  }))
+  const sumaRecargos = round2(recargos.reduce((s, r) => s + r.monto, 0))
+  const iva = pctIva > 0 ? round2(total - neto - sumaRecargos) : 0
+
+  return { neto, iva, iva_porcentaje: pctIva, recargos, total }
+}
+
 /** Precio de venta (neto + IVA y recargos globales). */
 export function resolvePrecioLista(
   articulo: Pick<

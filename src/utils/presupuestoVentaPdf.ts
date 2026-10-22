@@ -1,11 +1,20 @@
 import type { PresupuestoVentaItemRecord, PresupuestoVentaRecord } from '../types/api'
 import { formatArgentinaDate } from './dateUtils'
-import { LISTAS_PRECIO_VENTAS, type TipoListaPrecioVentas } from '../constants/ventasListasPrecio'
+import {
+  DEFAULT_AJUSTES_PRECIOS_VENTAS,
+  desglosarImporteConAjustes,
+  LISTAS_PRECIO_VENTAS,
+  normalizarConfigAjustesPrecios,
+  totalPorcentajeAjustes,
+  type ConfigAjustesPreciosVentas,
+  type TipoListaPrecioVentas
+} from '../constants/ventasListasPrecio'
 import {
   DEFAULT_CONFIG_CONDICIONES_VENTA,
   esPagoMixto
 } from '../constants/ventasCondicionesPago'
 import { unidadDesdeDescripcionItem } from './unidadPrecio'
+import apiService from '../services/api'
 import {
   buildPresupuestoPlanillaPdf,
   downloadPresupuestoPlanillaPdf,
@@ -25,18 +34,39 @@ function labelsFormasPagoPresupuesto(codigos: string[] | null | undefined): stri
 
 const EMPRESA_NOMBRE = 'PLOT CENTER S.R.L.'
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 function labelListaPrecioPdf(tipo: TipoListaPrecioVentas): string {
   const meta = LISTAS_PRECIO_VENTAS[tipo]
   return pdfText(`${meta.label} (${meta.subtitle})`)
 }
 
-function toPlanillaPayload(
+async function cargarAjustesPrecios(): Promise<ConfigAjustesPreciosVentas> {
+  try {
+    const res = await apiService.getConfiguracionPreciosVentas()
+    if (res.success && res.data) return normalizarConfigAjustesPrecios(res.data)
+  } catch {
+    /* fallback default */
+  }
+  return DEFAULT_AJUSTES_PRECIOS_VENTAS
+}
+
+async function toPlanillaPayload(
   presupuesto: PresupuestoVentaRecord,
   items: PresupuestoVentaItemRecord[]
-): PresupuestoPlanillaPayload {
+): Promise<PresupuestoPlanillaPayload> {
   const fechaCreacion = presupuesto.fecha_creacion
     ? formatArgentinaDate(presupuesto.fecha_creacion)
     : formatArgentinaDate(new Date().toISOString())
+
+  const ajustes = await cargarAjustesPrecios()
+  const total = Number(presupuesto.precio_total) || 0
+  const desglose = desglosarImporteConAjustes(total, ajustes)
+  const pctTotal = totalPorcentajeAjustes(ajustes)
+  const factor = pctTotal > 0 ? 1 + pctTotal / 100 : 1
+  const mostrarNetoEnLineas = desglose.iva > 0.009
 
   return {
     numero: presupuesto.numero_presupuesto,
@@ -53,18 +83,31 @@ function toPlanillaPayload(
     lista_label: presupuesto.tipo_lista_precio
       ? `Lista: ${labelListaPrecioPdf(presupuesto.tipo_lista_precio)}`
       : null,
-    items: items.map((item) => ({
-      codigo: item.codigo_articulo,
-      descripcion: item.descripcion,
-      cantidad: item.cantidad,
-      unidad: unidadDesdeDescripcionItem(item.descripcion) ?? 'm2',
-      precio_unitario: item.precio_unitario,
-      subtotal: item.precio_total
-    })),
-    total: presupuesto.precio_total || 0,
+    items: items.map((item) => {
+      const unit = Number(item.precio_unitario) || 0
+      const sub = Number(item.precio_total) || 0
+      return {
+        codigo: item.codigo_articulo,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        unidad: unidadDesdeDescripcionItem(item.descripcion) ?? 'm2',
+        precio_unitario: mostrarNetoEnLineas ? round2(unit / factor) : unit,
+        subtotal: mostrarNetoEnLineas ? round2(sub / factor) : sub
+      }
+    }),
+    total,
+    desglose:
+      desglose.iva > 0.009 || desglose.recargos.length
+        ? {
+            neto: desglose.neto,
+            iva: desglose.iva,
+            iva_porcentaje: desglose.iva_porcentaje,
+            recargos: desglose.recargos
+          }
+        : null,
     notas:
       presupuesto.observaciones_cliente?.trim() ||
-      'Los precios pueden variar segun disponibilidad. Este presupuesto no constituye factura.',
+      'Precios sujetos a disponibilidad. Este presupuesto no constituye factura.',
     vendedor: presupuesto.nombre_vendedor,
     formas_pago: labelsFormasPagoPresupuesto(presupuesto.formas_pago)
   }
@@ -75,14 +118,14 @@ export async function buildPresupuestoVentaPDF(
   presupuesto: PresupuestoVentaRecord,
   items: PresupuestoVentaItemRecord[]
 ) {
-  return buildPresupuestoPlanillaPdf(toPlanillaPayload(presupuesto, items))
+  return buildPresupuestoPlanillaPdf(await toPlanillaPayload(presupuesto, items))
 }
 
 export async function getPresupuestoVentaPdfBlob(
   presupuesto: PresupuestoVentaRecord,
   items: PresupuestoVentaItemRecord[]
 ): Promise<Blob> {
-  return getPresupuestoPlanillaPdfBlob(toPlanillaPayload(presupuesto, items))
+  return getPresupuestoPlanillaPdfBlob(await toPlanillaPayload(presupuesto, items))
 }
 
 export async function descargarPresupuestoVentaPDF(
@@ -90,7 +133,7 @@ export async function descargarPresupuestoVentaPDF(
   items: PresupuestoVentaItemRecord[]
 ): Promise<void> {
   const nombre = `${presupuesto.numero_presupuesto.replace(/\s+/g, '_')}.pdf`
-  await downloadPresupuestoPlanillaPdf(toPlanillaPayload(presupuesto, items), nombre)
+  await downloadPresupuestoPlanillaPdf(await toPlanillaPayload(presupuesto, items), nombre)
 }
 
 function telefonoWhatsapp(tel: string | null | undefined): string | null {

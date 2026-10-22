@@ -12,14 +12,16 @@ export const PLANILLA_W = 1080
 export const PLANILLA_H = 1920
 
 const MARGIN_X = 72
-const CONTENT_TOP = 370
-/** Deja libre el recuadro FORMAS DE PAGO de la planilla. */
-const CONTENT_BOTTOM = 1540
+const CONTENT_TOP = 360
+/** Límite del cuerpo: todo entra en 1 hoja, arriba del recuadro FORMAS DE PAGO. */
+const CONTENT_BOTTOM = 1565
 /** Primera línea de ítems dentro del recuadro FORMAS DE PAGO (plantilla 1080×1920). */
-const FORMAS_PAGO_Y0 = 1598
-const FORMAS_PAGO_X0 = 95
+const FORMAS_PAGO_Y0 = 1600
+const FORMAS_PAGO_X0 = 100
 const FORMAS_PAGO_COL2 = 560
-const FORMAS_PAGO_LINE = 22
+/** Separación vertical entre medios (compacta, sin amontonar). */
+const FORMAS_PAGO_LINE = 20
+const FORMAS_PAGO_BOX = 11
 const ACCENT = { r: 234, g: 88, b: 12 }
 const INK = { r: 15, g: 23, b: 42 }
 const MUTED = { r: 71, g: 85, b: 105 }
@@ -32,6 +34,13 @@ export type PresupuestoPlanillaItem = {
   unidad?: string | null
   precio_unitario: number
   subtotal: number
+}
+
+export type PresupuestoPlanillaDesglose = {
+  neto: number
+  iva: number
+  iva_porcentaje: number
+  recargos?: Array<{ nombre: string; porcentaje: number; monto: number }>
 }
 
 export type PresupuestoPlanillaPayload = {
@@ -47,6 +56,8 @@ export type PresupuestoPlanillaPayload = {
   lista_label?: string | null
   items: PresupuestoPlanillaItem[]
   total: number
+  /** Si viene, el PDF muestra Subtotal / IVA / TOTAL. */
+  desglose?: PresupuestoPlanillaDesglose | null
   notas?: string | null
   vendedor?: string | null
   /** Etiquetas de medios de pago a marcar en el recuadro FORMAS DE PAGO. */
@@ -128,7 +139,7 @@ function pintarFondo(doc: jsPDF, fondo: string) {
   doc.addImage(fondo, 'JPEG', 0, 0, PLANILLA_W, PLANILLA_H)
 }
 
-/** Checklist de formas de pago dentro del recuadro de la planilla. */
+/** Checklist de formas de pago: bien separadas dentro del recuadro de la planilla. */
 function pintarFormasPago(doc: jsPDF, formas: string[]) {
   const labels = formas.map((f) => f.trim()).filter(Boolean)
   if (!labels.length) return
@@ -137,7 +148,6 @@ function pintarFormasPago(doc: jsPDF, formas: string[]) {
   doc.setFontSize(11)
   doc.setTextColor(INK.r, INK.g, INK.b)
   doc.setDrawColor(INK.r, INK.g, INK.b)
-  doc.setLineWidth(1.2)
 
   const half = Math.ceil(labels.length / 2)
   labels.forEach((label, i) => {
@@ -145,25 +155,19 @@ function pintarFormasPago(doc: jsPDF, formas: string[]) {
     const row = i < half ? i : i - half
     const x = col === 0 ? FORMAS_PAGO_X0 : FORMAS_PAGO_COL2
     const y = FORMAS_PAGO_Y0 + row * FORMAS_PAGO_LINE
-    const box = 11
+    const box = FORMAS_PAGO_BOX
+    doc.setLineWidth(1.2)
     doc.rect(x, y - box + 2, box, box, 'S')
-    // Check mark
-    doc.setLineWidth(1.6)
+    doc.setLineWidth(1.5)
     doc.line(x + 2, y - 3, x + 4.5, y + 1)
     doc.line(x + 4.5, y + 1, x + 9, y - 7)
-    doc.setLineWidth(1.2)
     doc.text(pdfText(label), x + box + 8, y)
   })
 }
 
-function nuevaPagina(doc: jsPDF, fondo: string, esPrimera: boolean) {
-  if (!esPrimera) doc.addPage([PLANILLA_W, PLANILLA_H], 'p')
-  pintarFondo(doc, fondo)
-}
-
 /**
  * Genera el PDF de presupuesto sobre la planilla oficial PRESUPUESTO.pdf.
- * Misma plantilla para ventas, chat widget y /presupuesto.
+ * Una sola hoja: el cuerpo se comprime para no pasar al recuadro FORMAS DE PAGO.
  */
 export async function buildPresupuestoPlanillaPdf(
   presupuesto: PresupuestoPlanillaPayload
@@ -176,7 +180,7 @@ export async function buildPresupuestoPlanillaPdf(
     compress: true
   })
 
-  nuevaPagina(doc, fondo, true)
+  pintarFondo(doc, fondo)
 
   const right = PLANILLA_W - MARGIN_X
   const tableRight = right
@@ -187,87 +191,13 @@ export async function buildPresupuestoPlanillaPdf(
   const colDesc = MARGIN_X
   const colDescWidth = colCant - colDesc - 16
 
-  let y = CONTENT_TOP
-
-  // Meta (número / fechas) a la derecha, debajo del título de la planilla.
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(18)
-  doc.setTextColor(INK.r, INK.g, INK.b)
-  doc.text(pdfText(presupuesto.numero), right, y, { align: 'right' })
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(12)
-  doc.setTextColor(MUTED.r, MUTED.g, MUTED.b)
-  doc.text(pdfText(`Fecha: ${presupuesto.fecha}`), MARGIN_X, y)
-  y += 18
-  if (presupuesto.validez_hasta) {
-    doc.text(pdfText(`Valido hasta: ${presupuesto.validez_hasta}`), MARGIN_X, y)
-  }
-  if (presupuesto.lista_label) {
-    doc.text(pdfText(presupuesto.lista_label), right, y, { align: 'right' })
-  }
-  y += 28
-
-  // Cliente
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(13)
-  doc.setTextColor(ACCENT.r, ACCENT.g, ACCENT.b)
-  doc.text('CLIENTE', MARGIN_X, y)
-  y += 18
-
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.setTextColor(INK.r, INK.g, INK.b)
-  doc.text(pdfText(presupuesto.cliente_nombre || '-'), MARGIN_X, y)
-  y += 18
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(12)
-  doc.setTextColor(MUTED.r, MUTED.g, MUTED.b)
-  const clienteExtra = [
-    presupuesto.cliente_empresa ? `Empresa: ${presupuesto.cliente_empresa}` : '',
-    presupuesto.cliente_dni_cuit ? `DNI/CUIT: ${presupuesto.cliente_dni_cuit}` : '',
-    presupuesto.cliente_telefono ? `Tel / WhatsApp: ${presupuesto.cliente_telefono}` : '',
-    presupuesto.cliente_email ? `Email: ${presupuesto.cliente_email}` : '',
-    presupuesto.cliente_direccion ? `Direccion: ${presupuesto.cliente_direccion}` : ''
-  ].filter(Boolean)
-
-  for (const linea of clienteExtra) {
-    doc.text(pdfText(linea), MARGIN_X, y)
-    y += 16
-  }
-  y += 18
-
-  // Encabezado de tabla
-  const headerH = 28
-  const ensureSpace = (need: number) => {
-    if (y + need <= CONTENT_BOTTOM) return
-    nuevaPagina(doc, fondo, false)
-    y = CONTENT_TOP
-    // Mini cabecera en páginas siguientes
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(14)
-    doc.setTextColor(INK.r, INK.g, INK.b)
-    doc.text(pdfText(`PRESUPUESTO ${presupuesto.numero} (cont.)`), MARGIN_X, y)
-    y += 28
-  }
-
-  ensureSpace(headerH + 40)
-  doc.setFillColor(ACCENT.r, ACCENT.g, ACCENT.b)
-  doc.roundedRect(MARGIN_X - 8, y - 6, tableRight - MARGIN_X + 16, headerH, 8, 8, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(12)
-  doc.setTextColor(255, 255, 255)
-  doc.text('Descripcion', colDesc, y + 13)
-  doc.text('Cant.', colCant, y + 13, { align: 'right' })
-  doc.text('Unidad', colMedida, y + 13, { align: 'right' })
-  doc.text('P. unit.', colUnit, y + 13, { align: 'right' })
-  doc.text('Subtotal', colSub, y + 13, { align: 'right' })
-  y += headerH + 10
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(12)
-  doc.setTextColor(INK.r, INK.g, INK.b)
+  const desglose = presupuesto.desglose
+  const mostrarIva = Boolean(desglose && desglose.iva > 0.009)
+  const recargos = (desglose?.recargos || []).filter((r) => r.monto > 0.009)
+  const conIva = mostrarIva || recargos.length > 0
+  const filasTotales =
+    1 + (mostrarIva || recargos.length ? 1 : 0) + (mostrarIva ? 1 : 0) + recargos.length
+  const blockH = Math.max(32, filasTotales * 14 + 12)
 
   const items = presupuesto.items.length
     ? presupuesto.items
@@ -280,71 +210,164 @@ export async function buildPresupuestoPlanillaPdf(
         }
       ]
 
+  const notasRaw = presupuesto.notas?.trim() || ''
+  const tieneNotas = Boolean(notasRaw)
+  // Reserva fija del pie del cuerpo (totales + notas cortas) para calcular alto de filas.
+  const reserveFooter = blockH + 10 + (tieneNotas ? 28 : 0)
+  const headerH = 20
+
+  let y = CONTENT_TOP
+
+  // Meta en una/dos líneas.
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(15)
+  doc.setTextColor(INK.r, INK.g, INK.b)
+  doc.text(pdfText(presupuesto.numero), right, y, { align: 'right' })
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(MUTED.r, MUTED.g, MUTED.b)
+  const metaParts = [`Fecha: ${presupuesto.fecha}`]
+  if (presupuesto.validez_hasta) metaParts.push(`Valido: ${presupuesto.validez_hasta}`)
+  if (presupuesto.vendedor) metaParts.push(`Asesor: ${presupuesto.vendedor}`)
+  doc.text(pdfText(metaParts.join('  ·  ')), MARGIN_X, y)
+  y += 12
+  if (presupuesto.lista_label) {
+    doc.text(pdfText(presupuesto.lista_label), right, y, { align: 'right' })
+    y += 11
+  } else {
+    y += 4
+  }
+
+  // Cliente: nombre + una línea de contacto.
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(ACCENT.r, ACCENT.g, ACCENT.b)
+  doc.text('CLIENTE', MARGIN_X, y)
+  y += 11
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  doc.setTextColor(INK.r, INK.g, INK.b)
+  doc.text(pdfText(presupuesto.cliente_nombre || '-'), MARGIN_X, y)
+  y += 12
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(MUTED.r, MUTED.g, MUTED.b)
+  const contacto: string[] = []
+  if (presupuesto.cliente_empresa) contacto.push(presupuesto.cliente_empresa)
+  if (presupuesto.cliente_dni_cuit) contacto.push(`DNI/CUIT ${presupuesto.cliente_dni_cuit}`)
+  if (presupuesto.cliente_telefono) contacto.push(presupuesto.cliente_telefono)
+  if (presupuesto.cliente_email) contacto.push(presupuesto.cliente_email)
+  if (presupuesto.cliente_direccion) contacto.push(presupuesto.cliente_direccion)
+  if (contacto.length) {
+    const line = doc.splitTextToSize(pdfText(contacto.join('  ·  ')), tableRight - MARGIN_X) as string[]
+    doc.text(line.slice(0, 2), MARGIN_X, y)
+    y += Math.min(line.length, 2) * 11
+  }
+  y += 6
+
+  // Alto de fila: se ajusta para que ítems + totales + notas entren en la hoja.
+  const espacioItems = Math.max(80, CONTENT_BOTTOM - y - headerH - 8 - reserveFooter)
+  const rowH = Math.max(14, Math.min(20, Math.floor(espacioItems / items.length)))
+  const maxDescLines = rowH >= 18 ? 2 : 1
+  const itemFont = rowH >= 18 ? 10.5 : 9.5
+
+  doc.setFillColor(ACCENT.r, ACCENT.g, ACCENT.b)
+  doc.roundedRect(MARGIN_X - 8, y - 3, tableRight - MARGIN_X + 16, headerH, 5, 5, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(255, 255, 255)
+  doc.text('Descripcion', colDesc, y + 10)
+  doc.text('Cant.', colCant, y + 10, { align: 'right' })
+  doc.text('Unidad', colMedida, y + 10, { align: 'right' })
+  doc.text(conIva ? 'P. neto' : 'P. unit.', colUnit, y + 10, { align: 'right' })
+  doc.text(conIva ? 'Neto' : 'Subtotal', colSub, y + 10, { align: 'right' })
+  y += headerH + 4
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(itemFont)
+  doc.setTextColor(INK.r, INK.g, INK.b)
+
   for (const item of items) {
+    if (y + rowH > CONTENT_BOTTOM - reserveFooter) break
     const titulo = item.codigo
       ? `${item.codigo} — ${descripcionSinUnidad(item.descripcion)}`
       : descripcionSinUnidad(item.descripcion)
-    const lines = doc.splitTextToSize(pdfText(titulo), colDescWidth) as string[]
-    const rowH = Math.max(22, lines.length * 15 + 8)
-    ensureSpace(rowH + 8)
+    let lines = doc.splitTextToSize(pdfText(titulo), colDescWidth) as string[]
+    if (lines.length > maxDescLines) {
+      lines = lines.slice(0, maxDescLines)
+      const last = lines[maxDescLines - 1]
+      lines[maxDescLines - 1] = last.length > 3 ? `${last.slice(0, -3)}...` : `${last}...`
+    }
 
-    doc.text(lines, colDesc, y + 12)
-    doc.text(String(item.cantidad), colCant, y + 12, { align: 'right' })
-    doc.text(unidadEnPdf(item), colMedida, y + 12, { align: 'right' })
-    doc.text(formatArs(item.precio_unitario), colUnit, y + 12, { align: 'right' })
-    doc.text(formatArs(item.subtotal), colSub, y + 12, { align: 'right' })
+    doc.text(lines, colDesc, y + 9)
+    doc.text(String(item.cantidad), colCant, y + 9, { align: 'right' })
+    doc.text(unidadEnPdf(item), colMedida, y + 9, { align: 'right' })
+    doc.text(formatArs(item.precio_unitario), colUnit, y + 9, { align: 'right' })
+    doc.text(formatArs(item.subtotal), colSub, y + 9, { align: 'right' })
     y += rowH
     doc.setDrawColor(226, 232, 240)
-    doc.setLineWidth(0.8)
-    doc.line(MARGIN_X - 4, y, tableRight + 4, y)
-    y += 6
+    doc.setLineWidth(0.5)
+    doc.line(MARGIN_X - 4, y - 1, tableRight + 4, y - 1)
   }
 
-  // Total
-  ensureSpace(56)
-  y += 8
+  // Totales pegados al final del cuerpo (siempre en hoja 1).
+  y = Math.min(y + 4, CONTENT_BOTTOM - reserveFooter)
+
+  const boxLeft = colUnit - 50
+  const boxW = tableRight - boxLeft + 8
   doc.setFillColor(15, 23, 42)
-  doc.roundedRect(colUnit - 40, y - 8, tableRight - (colUnit - 40) + 8, 40, 10, 10, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(14)
-  doc.setTextColor(255, 255, 255)
-  doc.text('TOTAL', colUnit - 24, y + 18)
-  doc.setTextColor(255, 180, 120)
-  doc.setFontSize(16)
-  doc.text(formatArs(presupuesto.total), colSub - 8, y + 18, { align: 'right' })
-  y += 56
+  doc.roundedRect(boxLeft, y - 4, boxW, blockH, 6, 6, 'F')
 
-  if (presupuesto.vendedor) {
-    ensureSpace(24)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(11)
-    doc.setTextColor(MUTED.r, MUTED.g, MUTED.b)
-    doc.text(pdfText(`Asesor: ${presupuesto.vendedor}`), MARGIN_X, y)
-    y += 20
+  let ty = y + 9
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+
+  if (mostrarIva || recargos.length) {
+    doc.setTextColor(203, 213, 225)
+    doc.text('Subtotal', boxLeft + 12, ty)
+    doc.text(formatArs(desglose!.neto), colSub - 8, ty, { align: 'right' })
+    ty += 13
+
+    for (const r of recargos) {
+      doc.text(pdfText(`${r.nombre} (${r.porcentaje}%)`), boxLeft + 12, ty)
+      doc.text(formatArs(r.monto), colSub - 8, ty, { align: 'right' })
+      ty += 13
+    }
+
+    if (mostrarIva) {
+      doc.text(pdfText(`IVA ${desglose!.iva_porcentaje}%`), boxLeft + 12, ty)
+      doc.text(formatArs(desglose!.iva), colSub - 8, ty, { align: 'right' })
+      ty += 13
+    }
   }
 
-  if (presupuesto.notas?.trim()) {
-    const notasLines = doc.splitTextToSize(pdfText(presupuesto.notas), tableRight - MARGIN_X) as string[]
-    ensureSpace(notasLines.length * 14 + 28)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.setTextColor(255, 255, 255)
+  doc.text('TOTAL', boxLeft + 12, ty)
+  doc.setTextColor(255, 180, 120)
+  doc.setFontSize(13)
+  doc.text(formatArs(presupuesto.total), colSub - 8, ty, { align: 'right' })
+  y += blockH + 6
+
+  if (tieneNotas && y < CONTENT_BOTTOM - 16) {
+    const notasWidth = Math.max(160, boxLeft - MARGIN_X - 12)
+    const notasLines = (doc.splitTextToSize(pdfText(notasRaw), notasWidth) as string[]).slice(0, 2)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
+    doc.setFontSize(9)
     doc.setTextColor(ACCENT.r, ACCENT.g, ACCENT.b)
     doc.text('Notas', MARGIN_X, y)
-    y += 16
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(11)
+    doc.setFontSize(9)
     doc.setTextColor(MUTED.r, MUTED.g, MUTED.b)
-    doc.text(notasLines, MARGIN_X, y)
+    doc.text(notasLines, MARGIN_X, y + 11)
   }
 
   const formas = (presupuesto.formas_pago || []).map((f) => f.trim()).filter(Boolean)
-  if (formas.length) {
-    const totalPages = doc.getNumberOfPages()
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i)
-      pintarFormasPago(doc, formas)
-    }
-  }
+  if (formas.length) pintarFormasPago(doc, formas)
 
   return doc
 }
