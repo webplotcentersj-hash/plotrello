@@ -2,6 +2,7 @@ import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import type { Venta } from '../types/api'
 import {
+  type CondicionIvaCliente,
   inferirCondicionIva,
   inferirTipoFactura,
   normalizarCondicionIvaCliente,
@@ -20,10 +21,19 @@ export type ResultadoFacturaVenta = {
 
 export type EtapaEmision = 'comprobante' | 'arca' | 'cae'
 
+/** Datos del modal de venta que deben pisar lo inferido / lo del catálogo. */
+export type EmitirFacturaVentaOverrides = {
+  cliente_nombre?: string
+  cliente_dni_cuit?: string | null
+  cliente_direccion?: string | null
+  cliente_condicion_iva?: CondicionIvaCliente | '' | null
+}
+
 /** Crea y autoriza la factura AFIP de una venta. Un solo paso, sin formulario. */
 export async function emitirFacturaDesdeVenta(
   venta: Venta,
-  onEtapa?: (etapa: EtapaEmision) => void
+  onEtapa?: (etapa: EtapaEmision) => void,
+  overrides?: EmitirFacturaVentaOverrides
 ): Promise<ResultadoFacturaVenta> {
   onEtapa?.('comprobante')
   if (!supabase) {
@@ -55,9 +65,10 @@ export async function emitirFacturaDesdeVenta(
     }
   }
 
-  const cuit = (venta.cliente_dni_cuit || '').trim()
+  const cuit = String(overrides?.cliente_dni_cuit ?? venta.cliente_dni_cuit ?? '').trim()
   let condicion = inferirCondicionIva(cuit)
-  let direccion = venta.cliente_direccion?.trim() || null
+  let direccion =
+    String(overrides?.cliente_direccion ?? venta.cliente_direccion ?? '').trim() || null
   if (venta.id_cliente) {
     const cli = await apiService.getClientePorId(venta.id_cliente)
     if (cli.success && cli.data) {
@@ -66,6 +77,8 @@ export async function emitirFacturaDesdeVenta(
       if (!direccion) direccion = cli.data.direccion?.trim() || null
     }
   }
+  const condicionOverride = normalizarCondicionIvaCliente(overrides?.cliente_condicion_iva)
+  if (condicionOverride) condicion = condicionOverride
   const tipo = inferirTipoFactura(cuit, condicion, cfg.data.condicion_iva)
   const errorReceptor = validarReceptorComprobante(tipo, condicion, cuit)
   if (errorReceptor) return { ok: false, mensaje: errorReceptor }
@@ -88,11 +101,14 @@ export async function emitirFacturaDesdeVenta(
       return { ok: false, mensaje: 'La venta no tiene ítems con precio para facturar.' }
     }
 
+    const nombreCliente =
+      String(overrides?.cliente_nombre ?? venta.cliente_nombre ?? '').trim() || 'Consumidor Final'
+
     const creada = await apiService.crearFactura({
       tipo_comprobante: tipo,
       fecha_emision: getArgentinaDateString(),
       id_cliente: venta.id_cliente ?? null,
-      cliente_nombre: (venta.cliente_nombre || '').trim() || 'Consumidor Final',
+      cliente_nombre: nombreCliente,
       cliente_dni_cuit: cuit || null,
       cliente_direccion: direccion,
       cliente_condicion_iva: condicion,

@@ -22,6 +22,12 @@ import type {
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate, getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
 import { emitirFacturaDesdeVenta, type EtapaEmision, type ResultadoFacturaVenta } from '../utils/emitirFacturaDesdeVenta'
+import {
+  CONDICIONES_IVA_CLIENTE,
+  inferirCondicionIva,
+  normalizarCondicionIvaCliente,
+  type CondicionIvaCliente
+} from '../utils/afipFacturaUi'
 import EmisionFacturaOverlay from '../components/facturas/EmisionFacturaOverlay'
 import { nombreSinRepeticion } from '../utils/buscarClienteMatch'
 import {
@@ -466,6 +472,7 @@ const CRMVentasPage = () => {
     cliente_telefono: '',
     cliente_email: '',
     cliente_dni_cuit: '',
+    cliente_condicion_iva: 'Consumidor Final' as CondicionIvaCliente,
     observaciones: '',
     fecha_venta: ''
   })
@@ -666,11 +673,13 @@ const CRMVentasPage = () => {
 
   useEffect(() => {
     if (!ventaModal) return
+    const cuitInicial = ventaModal.cliente_dni_cuit || ''
     setVentaCabeceraDraft({
       cliente_nombre: ventaModal.cliente_nombre || '',
       cliente_telefono: ventaModal.cliente_telefono || '',
       cliente_email: ventaModal.cliente_email || '',
-      cliente_dni_cuit: ventaModal.cliente_dni_cuit || '',
+      cliente_dni_cuit: cuitInicial,
+      cliente_condicion_iva: inferirCondicionIva(cuitInicial),
       observaciones: ventaModal.observaciones || '',
       fecha_venta: isoToArgentinaDateKey(ventaModal.fecha_venta)
     })
@@ -687,6 +696,20 @@ const CRMVentasPage = () => {
         ])
       )
     )
+
+    let cancelled = false
+    const idCliente = ventaModal.id_cliente
+    if (idCliente) {
+      void apiService.getClientePorId(idCliente).then((cli) => {
+        if (cancelled || !cli.success || !cli.data) return
+        const iva = normalizarCondicionIvaCliente(cli.data.condicion_iva)
+        if (!iva) return
+        setVentaCabeceraDraft((prev) => ({ ...prev, cliente_condicion_iva: iva }))
+      })
+    }
+    return () => {
+      cancelled = true
+    }
   }, [ventaModalStamp])
 
   const refrescarVentaTrasCambio = async (ventaId: number) => {
@@ -706,12 +729,12 @@ const CRMVentasPage = () => {
     if (aud.success && aud.data) setVentaAuditoria(aud.data)
   }
 
-  const guardarCabeceraVentaDetalle = async () => {
-    if (!ventaModal || ventaModal.estado_pago === 'Cancelado') return
+  const guardarCabeceraVentaDetalle = async (): Promise<boolean> => {
+    if (!ventaModal || ventaModal.estado_pago === 'Cancelado') return false
     const nombre = ventaCabeceraDraft.cliente_nombre.trim()
     if (!nombre) {
       alert('El nombre del cliente es obligatorio')
-      return
+      return false
     }
     setVentaEditBusy(true)
     try {
@@ -724,9 +747,29 @@ const CRMVentasPage = () => {
         fecha_venta: ventaCabeceraDraft.fecha_venta
       })
       if (!r.success) throw new Error(r.error || 'No se pudo guardar')
+
+      if (ventaModal.id_cliente && usuario?.id) {
+        const iva = normalizarCondicionIvaCliente(ventaCabeceraDraft.cliente_condicion_iva)
+        const cliUp = await apiService.actualizarClienteDatos(
+          ventaModal.id_cliente,
+          {
+            condicion_iva: iva || ventaCabeceraDraft.cliente_condicion_iva,
+            dni_cuit: ventaCabeceraDraft.cliente_dni_cuit.trim() || undefined,
+            telefono: ventaCabeceraDraft.cliente_telefono.trim() || undefined,
+            email: ventaCabeceraDraft.cliente_email.trim() || undefined
+          },
+          usuario.id
+        )
+        if (!cliUp.success) {
+          console.warn('No se pudo guardar condición IVA del cliente:', cliUp.error)
+        }
+      }
+
       await refrescarVentaTrasCambio(ventaModal.id)
+      return true
     } catch (error: any) {
       alert(error.message || 'No se pudo guardar la venta')
+      return false
     } finally {
       setVentaEditBusy(false)
     }
@@ -2085,25 +2128,59 @@ const CRMVentasPage = () => {
     setMostrarModalEditarVenta(true)
   }
 
-  const emitirFacturaAfipDesdeVenta = async (venta: Venta) => {
+  const emitirFacturaAfipDesdeVenta = async (
+    venta: Venta,
+    opts?: { persistirCabeceraModal?: boolean }
+  ) => {
     if (facturandoAfipId != null) return
     setDropdownDocumentosAbierto(null)
-    setFacturandoAfipId(venta.id)
+
+    let ventaEmit = venta
+    let overrides:
+      | {
+          cliente_nombre?: string
+          cliente_dni_cuit?: string | null
+          cliente_condicion_iva?: CondicionIvaCliente | '' | null
+        }
+      | undefined
+
+    if (opts?.persistirCabeceraModal && ventaModalId === venta.id) {
+      const ok = await guardarCabeceraVentaDetalle()
+      if (!ok) return
+      ventaEmit = {
+        ...venta,
+        cliente_nombre: ventaCabeceraDraft.cliente_nombre.trim() || venta.cliente_nombre,
+        cliente_telefono: ventaCabeceraDraft.cliente_telefono.trim() || null,
+        cliente_email: ventaCabeceraDraft.cliente_email.trim() || null,
+        cliente_dni_cuit: ventaCabeceraDraft.cliente_dni_cuit.trim() || null
+      }
+      overrides = {
+        cliente_nombre: ventaEmit.cliente_nombre,
+        cliente_dni_cuit: ventaEmit.cliente_dni_cuit,
+        cliente_condicion_iva: ventaCabeceraDraft.cliente_condicion_iva
+      }
+    }
+
+    setFacturandoAfipId(ventaEmit.id)
     setEmisionAfip({
-      cliente: venta.cliente_nombre || 'Consumidor final',
-      total: Number(venta.valor_total) || 0,
+      cliente: ventaEmit.cliente_nombre || 'Consumidor final',
+      total: Number(ventaEmit.valor_total) || 0,
       etapa: 'comprobante',
       resultado: null
     })
     try {
-      const resultado = await emitirFacturaDesdeVenta(venta, (etapa) => {
-        setEmisionAfip((prev) => (prev ? { ...prev, etapa } : prev))
-      })
+      const resultado = await emitirFacturaDesdeVenta(
+        ventaEmit,
+        (etapa) => {
+          setEmisionAfip((prev) => (prev ? { ...prev, etapa } : prev))
+        },
+        overrides
+      )
       setEmisionAfip((prev) => (prev ? { ...prev, etapa: 'cae', resultado } : prev))
       if (resultado.ok) {
         setIdsVentasFacturadas((prev) => {
           const next = new Set(prev)
-          next.add(Number(venta.id))
+          next.add(Number(ventaEmit.id))
           return next
         })
         const sync = await apiService.listIdsVentasFacturadas()
@@ -3507,6 +3584,26 @@ const CRMVentasPage = () => {
                         }
                       />
                     </div>
+                    <div className="venta-compact-row">
+                      <span className="venta-compact-k">Cond. IVA</span>
+                      <select
+                        className="venta-detail-input"
+                        value={ventaCabeceraDraft.cliente_condicion_iva}
+                        disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                        onChange={(e) =>
+                          setVentaCabeceraDraft((prev) => ({
+                            ...prev,
+                            cliente_condicion_iva: e.target.value as CondicionIvaCliente
+                          }))
+                        }
+                      >
+                        {CONDICIONES_IVA_CLIENTE.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     {ventaModal.estado_pago !== 'Cancelado' ? (
                       <div className="venta-detail-save-row">
                         <button
@@ -3782,10 +3879,10 @@ const CRMVentasPage = () => {
                     <button
                       type="button"
                       className="btn-action"
-                      disabled={facturandoAfipId === ventaModal.id}
+                      disabled={facturandoAfipId === ventaModal.id || ventaEditBusy}
                       onClick={(e) => {
                         e.stopPropagation()
-                        void emitirFacturaAfipDesdeVenta(ventaModal)
+                        void emitirFacturaAfipDesdeVenta(ventaModal, { persistirCabeceraModal: true })
                       }}
                     >
                       {facturandoAfipId === ventaModal.id ? 'Emitiendo…' : 'Factura AFIP'}
@@ -3839,7 +3936,7 @@ const CRMVentasPage = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            void emitirFacturaAfipDesdeVenta(ventaModal)
+                            void emitirFacturaAfipDesdeVenta(ventaModal, { persistirCabeceraModal: true })
                           }}
                         >
                           🏛️ Factura AFIP
