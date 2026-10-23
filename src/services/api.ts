@@ -952,7 +952,9 @@ class ApiService {
             .order('id', { ascending: false })
             .limit(ORDENES_TABLERO_LIMIT)
           if (options?.soloActivasEnTablero) {
-            q = q.or('entregado.is.null,entregado.eq.false')
+            q = q
+              .or('entregado.is.null,entregado.eq.false')
+              .or('visible_en_tablero.is.null,visible_en_tablero.eq.true')
           }
           return withQueryTimeout(Promise.resolve(q), 'getOrdenes')
         }
