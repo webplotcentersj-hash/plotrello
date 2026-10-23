@@ -450,9 +450,9 @@ const EntregaPage = () => {
             </a>
             <button
               className="btn-secondary"
-              onClick={() => navigate('/mostrador/ordenes-listas')}
+              onClick={() => navigate('/')}
             >
-              ← Volver
+              ← Volver al tablero
             </button>
           </div>
         </div>

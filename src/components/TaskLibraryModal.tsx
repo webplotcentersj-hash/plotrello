@@ -749,12 +749,12 @@ const TaskLibraryModal = ({
       <div className="task-library-modal" onClick={(e) => e.stopPropagation()}>
         <div className="task-library-header">
           <div>
-            <h2>Bibliotecas de OPs - Filtros Avanzados</h2>
-            <p className="task-library-readonly-hint">
-              Búsqueda en toda la base (2+ caracteres) sin descargar todo; catálogo completo opcional. Desde el detalle
-              podés editar y guardar como en el tablero.
-              {dbTotalCount != null ? ` · ${dbTotalCount.toLocaleString('es-AR')} OP en base` : ''}
-            </p>
+            <h2>
+              Biblioteca de OPs
+              {dbTotalCount != null ? (
+                <span className="task-library-header-count"> · {dbTotalCount.toLocaleString('es-AR')} en base</span>
+              ) : null}
+            </h2>
           </div>
           <button type="button" className="task-library-close" onClick={onClose}>
             ✕
@@ -762,15 +762,37 @@ const TaskLibraryModal = ({
         </div>
 
         <div className="task-library-filters">
-          <div className="filter-row">
-            <div className="filter-field">
-              <label>Buscar</label>
+          <div className="task-library-search-row">
+            <div className="filter-field filter-field--search">
+              <label htmlFor="task-library-search">Buscar</label>
               <input
-                type="text"
-                placeholder="N° OP, cliente, #id… (busca en toda la base desde 2 caracteres)"
+                id="task-library-search"
+                type="search"
+                autoFocus
+                placeholder="N° OP, cliente, ID… (busca en toda la base desde 2 caracteres)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+            </div>
+            <div className="task-library-mode-toggle" role="tablist" aria-label="Biblioteca">
+              <button
+                type="button"
+                className={viewMode === 'activas' ? 'is-active' : ''}
+                onClick={() => setViewMode('activas')}
+              >
+                Activas ({filteredTasks.length})
+              </button>
+              <button
+                type="button"
+                className={viewMode === 'eliminadas' ? 'is-active' : ''}
+                onClick={() => setViewMode('eliminadas')}
+              >
+                Eliminadas ({elimAuditLoading ? '…' : `${eliminadasFichasCount} OP`})
+              </button>
+            </div>
+          </div>
+          {(serverSearchLoading || serverSearchError || (serverSearchActive && serverSearchTasks !== null)) && (
+            <div className="task-library-search-status">
               {serverSearchLoading && (
                 <span className="task-library-server-search-hint">Buscando en toda la base…</span>
               )}
@@ -789,17 +811,20 @@ const TaskLibraryModal = ({
                 </span>
               )}
             </div>
-            <div className="filter-field" style={{ maxWidth: 220 }}>
+          )}
+
+          <div className="filter-row filter-row--compact">
+            <div className="filter-field filter-field--narrow">
               <label>ID BD</label>
               <input
                 type="number"
                 inputMode="numeric"
-                placeholder="Ej. 1234"
+                placeholder="1234"
                 value={idBdQuery}
                 onChange={(e) => setIdBdQuery(e.target.value)}
               />
             </div>
-            <div className="filter-field" style={{ maxWidth: 280 }}>
+            <div className="filter-field">
               <label>Estado tablero</label>
               <select
                 value={selectedTableroEstado}
@@ -810,49 +835,24 @@ const TaskLibraryModal = ({
                 }
               >
                 <option value="todos">Todos</option>
-                <option value="visibles">Visibles en tablero</option>
-                <option value="ocultas">Ocultas en tablero</option>
-                <option value="entregadas">Entregadas / archivadas</option>
+                <option value="visibles">Visibles</option>
+                <option value="ocultas">Ocultas</option>
+                <option value="entregadas">Entregadas</option>
                 <option value="eliminadas">Eliminadas</option>
               </select>
             </div>
-            <div className="filter-field" style={{ maxWidth: 220 }}>
+            <div className="filter-field">
               <label>Orden</label>
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
-                <option value="updatedAt">Último movimiento</option>
-                <option value="createdAt">Fecha creación</option>
+                <option value="updatedAt">Último mov.</option>
+                <option value="createdAt">Creación</option>
                 <option value="idBd">ID BD</option>
               </select>
             </div>
-          </div>
-
-          <div className="filter-row" style={{ alignItems: 'flex-end' }}>
-            <div className="filter-field" style={{ flex: 1 }}>
-              <label>Biblioteca</label>
-              <div className="task-library-mode-toggle" role="tablist" aria-label="Biblioteca">
-                <button
-                  type="button"
-                  className={viewMode === 'activas' ? 'is-active' : ''}
-                  onClick={() => setViewMode('activas')}
-                >
-                  Activas ({filteredTasks.length})
-                </button>
-                <button
-                  type="button"
-                  className={viewMode === 'eliminadas' ? 'is-active' : ''}
-                  onClick={() => setViewMode('eliminadas')}
-                >
-                  Eliminadas ({elimAuditLoading ? '…' : `${eliminadasFichasCount} OP`})
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="filter-row">
             <div className="filter-field">
               <label>Sector</label>
               <select value={selectedSector} onChange={(e) => setSelectedSector(e.target.value)}>
-                <option value="todos">Todos los Sectores</option>
+                <option value="todos">Todos</option>
                 {(sectores ?? []).map((sector) => (
                   <option key={sector.id} value={sector.nombre}>
                     {sector.nombre}
@@ -860,11 +860,10 @@ const TaskLibraryModal = ({
                 ))}
               </select>
             </div>
-
             <div className="filter-field">
               <label>Operario</label>
               <select value={selectedOperario} onChange={(e) => setSelectedOperario(e.target.value)}>
-                <option value="todos">Todos los Operarios</option>
+                <option value="todos">Todos</option>
                 {teamMembers.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
@@ -872,11 +871,10 @@ const TaskLibraryModal = ({
                 ))}
               </select>
             </div>
-
             <div className="filter-field">
               <label>Estado</label>
               <select value={selectedEstado} onChange={(e) => setSelectedEstado(e.target.value)}>
-                <option value="todos">Todos los Estados</option>
+                <option value="todos">Todos</option>
                 {columns.map((column) => (
                   <option key={column.id} value={column.id}>
                     {column.label}
@@ -884,30 +882,27 @@ const TaskLibraryModal = ({
                 ))}
               </select>
             </div>
-
             <div className="filter-field">
               <label>Prioridad</label>
               <select
                 value={selectedPrioridad}
                 onChange={(e) => setSelectedPrioridad(e.target.value as Priority | 'todas')}
               >
-                <option value="todas">Todas las Prioridades</option>
+                <option value="todas">Todas</option>
                 <option value="alta">Alta</option>
                 <option value="media">Media</option>
                 <option value="baja">Baja</option>
               </select>
             </div>
-
             <div className="filter-field">
               <label>Complejidad</label>
               <select value={selectedComplejidad} onChange={(e) => setSelectedComplejidad(e.target.value)}>
-                <option value="todas">Todas las Complejidades</option>
+                <option value="todas">Todas</option>
                 <option value="alta">Alta</option>
                 <option value="media">Media</option>
                 <option value="baja">Baja</option>
               </select>
             </div>
-
             <div className="filter-field">
               <label>Reclamos</label>
               <select
@@ -919,42 +914,36 @@ const TaskLibraryModal = ({
                 <option value="sin">Sin reclamos</option>
               </select>
             </div>
-          </div>
-
-          <div className="filter-row">
-            <div className="filter-field">
-              <label>Fecha Desde</label>
+            <div className="filter-field filter-field--date">
+              <label>Desde</label>
               <input type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} />
             </div>
-
-            <div className="filter-field">
-              <label>Fecha Hasta</label>
+            <div className="filter-field filter-field--date">
+              <label>Hasta</label>
               <input type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} />
             </div>
-
-          </div>
-
-          <div className="filter-actions">
-            <button type="button" className="btn-limpiar" onClick={handleLimpiar}>
-              Limpiar filtros
-            </button>
-            <button
-              type="button"
-              className="btn-limpiar btn-catalogo-completo"
-              onClick={() => void handleRefreshCatalog()}
-              disabled={catalogLoading}
-              title="Descarga todas las OP en páginas livianas (sin m²), sin tope artificial. No afecta la carga del tablero."
-            >
-              {catalogLoading
-                ? catalogProgress != null
-                  ? catalogProgress.total != null
-                    ? `Cargando catálogo… ${catalogProgress.loaded.toLocaleString('es-AR')} / ${catalogProgress.total.toLocaleString('es-AR')}`
-                    : `Cargando catálogo… ${catalogProgress.loaded.toLocaleString('es-AR')}`
-                  : 'Cargando catálogo…'
-                : dbTotalCount != null
-                  ? `Actualizar catálogo completo (${dbTotalCount.toLocaleString('es-AR')} OP)`
-                  : 'Actualizar catálogo completo'}
-            </button>
+            <div className="filter-actions filter-actions--inline">
+              <button type="button" className="btn-limpiar" onClick={handleLimpiar}>
+                Limpiar
+              </button>
+              <button
+                type="button"
+                className="btn-limpiar btn-catalogo-completo"
+                onClick={() => void handleRefreshCatalog()}
+                disabled={catalogLoading}
+                title="Descarga todas las OP en páginas livianas (sin m²), sin tope artificial. No afecta la carga del tablero."
+              >
+                {catalogLoading
+                  ? catalogProgress != null
+                    ? catalogProgress.total != null
+                      ? `Catálogo… ${catalogProgress.loaded.toLocaleString('es-AR')}/${catalogProgress.total.toLocaleString('es-AR')}`
+                      : `Catálogo… ${catalogProgress.loaded.toLocaleString('es-AR')}`
+                    : 'Catálogo…'
+                  : dbTotalCount != null
+                    ? `Catálogo (${dbTotalCount.toLocaleString('es-AR')})`
+                    : 'Catálogo'}
+              </button>
+            </div>
           </div>
         </div>
 

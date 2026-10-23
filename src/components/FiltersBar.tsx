@@ -154,118 +154,138 @@ const FiltersBar = ({
           </div>
         </div>
         <div className="filter-right-section">
-          <div className="library-button-container">
-          {showAccionesMostrador && (
-            <button
-              type="button"
-              className="venta-rapida-button"
-              onClick={() => setShowVentaRapida(true)}
-              title="Registrar una venta sin salir del tablero (tecla V)"
-            >
-              💰 Venta
-            </button>
-          )}
-          {showAccionesMostrador && (
-            <button
-              type="button"
-              className="cc-button"
-              onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
-              title="Cuenta corriente de clientes"
-            >
-              CC
-            </button>
-          )}
-          {usuario && (
-            <button
-              type="button"
-              className="clientes-button"
-              onClick={() => navigate(CLIENTES_DASHBOARD)}
-              title="Buscar y editar clientes"
-            >
-              Clientes
-            </button>
-          )}
-          {showAccionesMostrador && (
-            <button
-              type="button"
-              className="factura-button"
-              onClick={() => navigate('/erp/facturas/nueva')}
-              title="Emitir factura electrónica AFIP"
-            >
-              Facturar
-            </button>
-          )}
-          {usuario && (
-            <button
-              type="button"
-              className="presupuesto-button"
-              onClick={() => navigate('/ventas?tab=presupuestos')}
-              title="Ver y crear presupuestos de venta"
-            >
-              Presupuesto
-            </button>
-          )}
-          {usuario && (
-            <button
-              type="button"
-              className="ventas-nav-button"
-              onClick={() => navigate(VENTAS)}
-              title="Pipeline y listado de ventas"
-            >
-              Ventas
-            </button>
-          )}
-          {(canManageCaja || showAccionesMostrador) && (
-            <button
-              type="button"
-              className="caja-button"
-              onClick={() => navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')}
-              title="Dashboard de caja"
-            >
-              Caja
-            </button>
-          )}
-          {onAddNewOrder && (
-            <button
-              type="button"
-              className="brand-button"
-              onClick={onAddNewOrder}
-              title="Agregar Ficha"
-            >
-              + Ficha
-            </button>
-          )}
-          {onOpenLibrary && (
-            <button
-              type="button"
-              className="library-button"
-              onClick={onOpenLibrary}
-              title="Bibliotecas de OPs"
-            >
-              🔍 Bibliotecas
-            </button>
-          )}
-          {onOptimizeSprint && (
-            <button
-              type="button"
-              className="brand-button"
-              onClick={onOptimizeSprint}
-              title="Optimizar Sprint"
-            >
-              ⚡ Sprint
-            </button>
-          )}
-          {(isAdmin || isDiseno) && (
-            <button
-              type="button"
-              className="brief-link-button"
-              onClick={handleGenerarBriefLink}
-              disabled={copiandoBrief}
-              title="Generar y copiar link del brief para enviar a clientes"
-            >
-              {copiandoBrief ? '⏳…' : '📋 Brief'}
-            </button>
-          )}
+          <div className="library-button-container" role="toolbar" aria-label="Acciones rápidas">
+            {(showAccionesMostrador || usuario || canManageCaja) && (
+              <div className="library-button-group" data-group="comercial">
+                {showAccionesMostrador && (
+                  <button
+                    type="button"
+                    className="venta-rapida-button"
+                    onClick={() => setShowVentaRapida(true)}
+                    title="Registrar una venta sin salir del tablero (tecla V)"
+                  >
+                    <span className="btn-ico" aria-hidden>
+                      💰
+                    </span>
+                    Venta
+                  </button>
+                )}
+                {showAccionesMostrador && (
+                  <button
+                    type="button"
+                    className="cc-button"
+                    onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
+                    title="Cuenta corriente de clientes"
+                  >
+                    CC
+                  </button>
+                )}
+                {usuario && (
+                  <button
+                    type="button"
+                    className="clientes-button"
+                    onClick={() => navigate(CLIENTES_DASHBOARD)}
+                    title="Buscar y editar clientes"
+                  >
+                    Clientes
+                  </button>
+                )}
+                {showAccionesMostrador && (
+                  <button
+                    type="button"
+                    className="factura-button"
+                    onClick={() => navigate('/erp/facturas/nueva')}
+                    title="Emitir factura electrónica AFIP"
+                  >
+                    Facturar
+                  </button>
+                )}
+                {usuario && (
+                  <button
+                    type="button"
+                    className="presupuesto-button"
+                    onClick={() => navigate('/ventas?tab=presupuestos')}
+                    title="Ver y crear presupuestos de venta"
+                  >
+                    Presupuesto
+                  </button>
+                )}
+                {usuario && (
+                  <button
+                    type="button"
+                    className="ventas-nav-button"
+                    onClick={() => navigate(VENTAS)}
+                    title="Pipeline y listado de ventas"
+                  >
+                    Ventas
+                  </button>
+                )}
+                {(canManageCaja || showAccionesMostrador) && (
+                  <button
+                    type="button"
+                    className="caja-button"
+                    onClick={() => navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')}
+                    title="Dashboard de caja"
+                  >
+                    Caja
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="library-button-group" data-group="tablero">
+              {onAddNewOrder && (
+                <button type="button" className="brand-button" onClick={onAddNewOrder} title="Agregar Ficha">
+                  <span className="btn-ico" aria-hidden>
+                    +
+                  </span>
+                  Ficha
+                </button>
+              )}
+              {onOpenLibrary && (
+                <button
+                  type="button"
+                  className="library-button"
+                  onClick={onOpenLibrary}
+                  title="Bibliotecas de OPs"
+                >
+                  <span className="btn-ico" aria-hidden>
+                    🔍
+                  </span>
+                  Bibliotecas
+                </button>
+              )}
+              {onOptimizeSprint && (
+                <button
+                  type="button"
+                  className="brand-button brand-button--sprint"
+                  onClick={onOptimizeSprint}
+                  title="Optimizar Sprint"
+                >
+                  <span className="btn-ico" aria-hidden>
+                    ⚡
+                  </span>
+                  Sprint
+                </button>
+              )}
+              {(isAdmin || isDiseno) && (
+                <button
+                  type="button"
+                  className="brief-link-button"
+                  onClick={handleGenerarBriefLink}
+                  disabled={copiandoBrief}
+                  title="Generar y copiar link del brief para enviar a clientes"
+                >
+                  {copiandoBrief ? '…' : (
+                    <>
+                      <span className="btn-ico" aria-hidden>
+                        📋
+                      </span>
+                      Brief
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
