@@ -21,9 +21,6 @@ const EMPTY_ACTIVITY: ActivityEvent[] = []
 
 const INITIAL_VISIBLE_TASKS = 8
 const LOAD_MORE_STEP = 12
-/** Finalizado / Almacén: mostrar de una las 50 (tope del Board). */
-const TERMINAL_COLUMN_IDS = new Set(['finalizado-taller', 'almacen-entrega'])
-const TERMINAL_INITIAL_VISIBLE = 50
 
 type ColumnProps = {
   column: ColumnConfig
@@ -78,19 +75,16 @@ const Column = ({
   railTarget = false
 }: ColumnProps) => {
   const { isAdmin } = useAuth()
-  const isTerminalColumn = TERMINAL_COLUMN_IDS.has(column.id)
-  const initialVisible = isTerminalColumn ? TERMINAL_INITIAL_VISIBLE : INITIAL_VISIBLE_TASKS
-  const [visibleLimit, setVisibleLimit] = useState(initialVisible)
+  const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_TASKS)
   const loadMoreLockRef = useRef(false)
 
   useEffect(() => {
     setVisibleLimit((prev) => {
-      if (tasks.length === 0) return initialVisible
-      if (isTerminalColumn) return Math.min(TERMINAL_INITIAL_VISIBLE, tasks.length)
+      if (tasks.length === 0) return INITIAL_VISIBLE_TASKS
       if (prev > tasks.length) return tasks.length
       return prev
     })
-  }, [tasks.length, initialVisible, isTerminalColumn])
+  }, [tasks.length])
 
   const loadMore = useCallback(() => {
     setVisibleLimit((v) => {

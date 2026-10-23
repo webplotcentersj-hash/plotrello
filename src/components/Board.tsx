@@ -86,10 +86,6 @@ const Board = ({
   }, [tasks, excludeHiddenFromKanban])
 
   const groupedByStatus = useMemo(() => {
-    /** Finalizado / Almacén: como entregadas — solo las 50 más recientes en el kanban. */
-    const TERMINAL_COLUMN_CAP = 50
-    const TERMINAL_STATUSES = new Set<TaskStatus>(['finalizado-taller', 'almacen-entrega'])
-
     const emptyGroups = columns.reduce<Record<string, Task[]>>((acc, column) => {
       acc[column.id] = []
       return acc
@@ -99,21 +95,6 @@ const Board = ({
       if (emptyGroups[task.status]) {
         emptyGroups[task.status].push(task)
       }
-    }
-
-    for (const status of TERMINAL_STATUSES) {
-      const list = emptyGroups[status]
-      if (!list || list.length <= TERMINAL_COLUMN_CAP) continue
-      emptyGroups[status] = [...list]
-        .sort((a, b) => {
-          const idA = Number(a.id) || 0
-          const idB = Number(b.id) || 0
-          if (idB !== idA) return idB - idA
-          const tA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
-          const tB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
-          return tB - tA
-        })
-        .slice(0, TERMINAL_COLUMN_CAP)
     }
 
     return emptyGroups

@@ -196,11 +196,10 @@ const ORDENES_TABLERO_LIMIT = 1200
 /** OP en reclamo activas se fusionan al tablero aunque queden fuera del tope por id. */
 const ORDENES_TABLERO_RECLAMO_LIMIT = 150
 /**
- * Almacén / Finalizado: tope chico (como “entregadas”) para no saturar el kanban.
- * Se pide 50 por estado (100 en total) y el Board también capea a 50 por columna.
+ * Ya no se fusionan cientos de OP de Almacén/Finalizado fuera del tope por id
+ * (antes ~800 y saturaban el kanban). Quedan las que entren en el tope principal.
+ * Entregadas: fusión chica solo para búsqueda reciente.
  */
-const ORDENES_TABLERO_ALMACEN_POR_ESTADO_LIMIT = 50
-/** Entregadas recientes para búsqueda / fusión; pocas en tablero. */
 const ORDENES_TABLERO_ENTREGADAS_LIMIT = 50
 /** Páginas para biblioteca (catálogo completo bajo demanda; no usa orden_lineas_m2). */
 const ORDENES_BIBLIOTECA_PAGE_SIZE = 400
@@ -1030,44 +1029,6 @@ class ApiService {
             }
           } catch (e) {
             console.warn('getOrdenes: no se pudieron fusionar reclamos al tablero', e)
-          }
-
-          // Almacén / Finalizado: solo las 50 más nuevas por estado (no saturar el kanban).
-          try {
-            const estadosTerminales = [
-              'Almacén de Entrega',
-              'Finalizado en Taller',
-              'Entregado o Instalado'
-            ] as const
-            const byId = new Map<number, (typeof normalizedData)[0]>()
-            for (const row of normalizedData) {
-              const id = Number((row as { id?: number }).id)
-              if (id > 0) byId.set(id, row)
-            }
-            for (const estado of estadosTerminales) {
-              const aq = sb
-                .from('ordenes_trabajo')
-                .select(ORDENES_TABLERO_SELECT)
-                .eq('estado', estado)
-                .or('eliminada.is.null,eliminada.eq.false')
-                .order('id', { ascending: false })
-                .limit(ORDENES_TABLERO_ALMACEN_POR_ESTADO_LIMIT)
-              const almacenRes = await withQueryTimeout(
-                Promise.resolve(aq),
-                `getOrdenes-almacen-${estado}`
-              )
-              if (almacenRes.error || !Array.isArray(almacenRes.data)) continue
-              for (const raw of almacenRes.data as Record<string, unknown>[]) {
-                const id = Number(raw.id)
-                if (!(id > 0) || byId.has(id)) continue
-                byId.set(id, normalizeOrdenListRow(raw))
-              }
-            }
-            normalizedData = [...byId.values()].sort(
-              (a, b) => Number((b as { id?: number }).id || 0) - Number((a as { id?: number }).id || 0)
-            )
-          } catch (e) {
-            console.warn('getOrdenes: no se pudieron fusionar almacén al tablero', e)
           }
 
           // Entregadas recientes (por id) aunque no entren en el tope de “solo activas”.
