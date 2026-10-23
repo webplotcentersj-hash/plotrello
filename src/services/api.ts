@@ -20907,27 +20907,48 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('facturas_venta')
-        .select('id_venta, estado, estado_afip')
+        .select('id_venta, estado, estado_afip, tipo_comprobante')
         .not('id_venta', 'is', null)
         .limit(5000)
       if (error) return { success: false, error: error.message }
       const wanted = idsVentas && idsVentas.length > 0
         ? new Set(idsVentas.map((id) => Number(id)).filter((id) => Number.isFinite(id)))
         : null
-      const ids = Array.from(
-        new Set(
-          (data || [])
-            .filter((f: { id_venta?: number | null; estado?: string | null; estado_afip?: string | null }) => {
-              const estado = String(f.estado || '').trim()
-              const afip = String(f.estado_afip || '').trim()
-              if (estado === 'Anulada' || afip === 'Anulada') return false
-              const id = Number(f.id_venta)
-              if (!Number.isFinite(id)) return false
-              return wanted ? wanted.has(id) : true
-            })
-            .map((f: { id_venta?: number | null }) => Number(f.id_venta))
+
+      type Row = {
+        id_venta?: number | null
+        estado?: string | null
+        estado_afip?: string | null
+        tipo_comprobante?: string | null
+      }
+      const byVenta = new Map<number, Row[]>()
+      for (const f of (data || []) as Row[]) {
+        const estado = String(f.estado || '').trim()
+        const afip = String(f.estado_afip || '').trim()
+        if (estado === 'Anulada' || afip === 'Anulada') continue
+        const id = Number(f.id_venta)
+        if (!Number.isFinite(id)) continue
+        if (wanted && !wanted.has(id)) continue
+        const list = byVenta.get(id) || []
+        list.push(f)
+        byVenta.set(id, list)
+      }
+
+      const ids: number[] = []
+      for (const [idVenta, rows] of byVenta) {
+        const tieneNc = rows.some(
+          (r) =>
+            String(r.tipo_comprobante || '').startsWith('Nota de Crédito') &&
+            String(r.estado_afip || '') === 'Autorizada'
         )
-      )
+        const tieneFaVigente = rows.some(
+          (r) =>
+            String(r.tipo_comprobante || '').startsWith('Factura') &&
+            String(r.estado_afip || '') === 'Autorizada' &&
+            !tieneNc
+        )
+        if (tieneFaVigente) ids.push(idVenta)
+      }
       return { success: true, data: ids }
     } catch (error: unknown) {
       return { success: false, error: error instanceof Error ? error.message : 'Error al listar facturas' }
@@ -22966,29 +22987,37 @@ class ApiService {
           return { success: false, error: 'No hay configuración AFIP activa' }
         }
 
-        // Una venta, una factura. El borrador se reutiliza; la autorizada no se duplica.
+        // Una venta, una factura vigente. NC autorizada anula la FA previa → se permite reemitir.
         if (factura.id_venta && String(factura.tipo_comprobante).startsWith('Factura')) {
-          const { data: existente, error: errorExistente } = await supabase
+          const { data: existentes, error: errorExistente } = await supabase
             .from('facturas_venta')
-            .select('id, numero_factura, estado_afip')
+            .select('id, numero_factura, estado_afip, tipo_comprobante')
             .eq('id_venta', factura.id_venta)
-            .like('tipo_comprobante', 'Factura%')
             .neq('estado', 'Anulada')
             .order('id', { ascending: false })
-            .limit(1)
-            .maybeSingle()
           if (errorExistente) return { success: false, error: errorExistente.message }
-          if (existente?.estado_afip === 'Autorizada') {
+          const rows = Array.isArray(existentes) ? existentes : []
+          const tieneNcAutorizada = rows.some(
+            (r) =>
+              String(r.tipo_comprobante || '').startsWith('Nota de Crédito') &&
+              String(r.estado_afip || '') === 'Autorizada'
+          )
+          const facturas = rows.filter((r) => String(r.tipo_comprobante || '').startsWith('Factura'))
+          const autorizadaVigente = facturas.find(
+            (r) => String(r.estado_afip || '') === 'Autorizada' && !tieneNcAutorizada
+          )
+          if (autorizadaVigente) {
             return {
               success: false,
-              error: `Esta venta ya tiene la factura ${existente.numero_factura} autorizada. Para anularla emití una nota de crédito.`
+              error: `Esta venta ya tiene la factura ${autorizadaVigente.numero_factura} autorizada. Para anularla emití una nota de crédito.`
             }
           }
-          if (existente?.id) {
+          const borrador = facturas.find((r) => String(r.estado_afip || '') !== 'Autorizada')
+          if (borrador?.id) {
             const { data: completa, error: errorCompleta } = await supabase
               .from('facturas_venta')
               .select('*, items:facturas_items(*)')
-              .eq('id', existente.id)
+              .eq('id', borrador.id)
               .single()
             if (errorCompleta) return { success: false, error: errorCompleta.message }
             return { success: true, data: completa as any }

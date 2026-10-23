@@ -45,25 +45,36 @@ export async function emitirFacturaDesdeVenta(
     return { ok: false, mensaje: cfg.error || 'Falta la configuración AFIP.' }
   }
 
-  const { data: existente, error: errorExistente } = await supabase
+  // Solo Facturas (no NC/ND). Si hay NC autorizada, la FA previa ya quedó anulada → se puede reemitir.
+  const { data: comprobantes, error: errorExistente } = await supabase
     .from('facturas_venta')
-    .select('id, numero_factura, estado_afip, cae')
+    .select('id, numero_factura, estado_afip, cae, tipo_comprobante, estado')
     .eq('id_venta', venta.id)
     .neq('estado', 'Anulada')
     .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle()
   if (errorExistente) return { ok: false, mensaje: errorExistente.message }
 
-  if (existente?.estado_afip === 'Autorizada') {
+  const rows = Array.isArray(comprobantes) ? comprobantes : []
+  const facturas = rows.filter((r) => String(r.tipo_comprobante || '').startsWith('Factura'))
+  const tieneNcAutorizada = rows.some(
+    (r) =>
+      String(r.tipo_comprobante || '').startsWith('Nota de Crédito') &&
+      String(r.estado_afip || '') === 'Autorizada'
+  )
+  const facturaAutorizadaVigente = facturas.find(
+    (r) => String(r.estado_afip || '') === 'Autorizada' && !tieneNcAutorizada
+  )
+  if (facturaAutorizadaVigente) {
     return {
       ok: true,
-      facturaId: existente.id,
-      numero: existente.numero_factura,
-      cae: existente.cae,
-      mensaje: `Esta venta ya tiene la factura ${existente.numero_factura}. Para anularla emití una nota de crédito.`
+      facturaId: facturaAutorizadaVigente.id,
+      numero: facturaAutorizadaVigente.numero_factura,
+      cae: facturaAutorizadaVigente.cae,
+      mensaje: `Esta venta ya tiene la factura ${facturaAutorizadaVigente.numero_factura}. Para anularla emití una nota de crédito.`
     }
   }
+  // Reutilizar borrador/pendiente de Factura si existe; nunca reusar una NC.
+  const existente = facturas.find((r) => String(r.estado_afip || '') !== 'Autorizada') ?? null
 
   const cuit = String(overrides?.cliente_dni_cuit ?? venta.cliente_dni_cuit ?? '').trim()
   let condicion = inferirCondicionIva(cuit)
