@@ -607,25 +607,72 @@
     align-items: stretch;
   }
 
-  .caja-dashboard-page .caja-header-actions {
-    justify-content: stretch;
-    display: flex;
-    flex-wrap: wrap;
+  .caja-dashboard-page .caja-header-content {
     gap: 8px;
   }
 
-  .caja-dashboard-page .caja-header-actions > * {
-    min-height: 44px;
-    flex: 1 1 calc(50% - 4px);
+  .caja-dashboard-page .caja-header-actions {
+    justify-content: stretch;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
   }
 
-  .caja-dashboard-page .caja-header-lead {
-    font-size: 0.82rem;
-    line-height: 1.35;
+  .caja-dashboard-page .caja-header-actions > * {
+    min-height: 42px;
+    flex: 1 1 auto;
+  }
+
+  .caja-dashboard-page .caja-header-action--desktop {
+    display: none !important;
+  }
+
+  .caja-dashboard-page .caja-cc-back-plotlab {
+    width: 100%;
+    font-weight: 700;
+  }
+
+  .caja-dashboard-page .caja-header-lead,
+  .caja-dashboard-page .caja-cc-storage-hint {
+    display: none;
   }
 
   .caja-dashboard-page .caja-header h1 {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
+    margin: 0;
+  }
+
+  .caja-dashboard-page .caja-cc-module-header {
+    padding: 10px 12px;
+  }
+
+  .caja-dashboard-page .caja-cc-role-banner {
+    padding: 8px 12px;
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  .caja-dashboard-page .caja-cc-vista-btn {
+    min-height: 36px;
+    padding: 6px 12px;
+  }
+
+  .caja-dashboard-page .caja-cc-field input,
+  .caja-dashboard-page .caja-cc-field select,
+  .caja-dashboard-page .caja-cc-field textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .caja-dashboard-page .caja-cc-field textarea {
+    min-height: 88px;
+  }
+
+  .caja-dashboard-page .btn-primary,
+  .caja-dashboard-page .btn-secondary,
+  .caja-dashboard-page .caja-cc-btn-primary,
+  .caja-dashboard-page .caja-cc-btn-secondary {
+    min-height: 44px;
   }
 
   .caja-dashboard-page .caja-stats-grid,
@@ -638,10 +685,30 @@
 
   .caja-dashboard-page .caja-cc-menu-estado-grid {
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .caja-dashboard-page .caja-cc-menu-estado-chip {
+    min-height: 52px;
+    padding: 10px 12px;
   }
 
   .caja-dashboard-page .caja-cc-menu-coherencia {
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .caja-dashboard-page .caja-cc-menu-resumen {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .caja-dashboard-page .caja-cc-menu-operativa .caja-cc-page-head--caja .caja-cc-sub {
+    font-size: 0.85rem;
+  }
+
+  .caja-dashboard-page .caja-cc-menu-progreso-pasos {
+    display: none;
   }
 
   .caja-dashboard-page .date-filters {
@@ -669,7 +736,7 @@
     min-height: 0;
   }
 
-  /* Sidebar → strip horizontal de secciones (no ocultar) */
+  /* Sidebar → chips horizontales (sin sticky: no pelea con el contenido) */
   .caja-dashboard-page .caja-cc-sidebar {
     display: flex;
     flex-direction: row;
@@ -681,11 +748,11 @@
     -webkit-overflow-scrolling: touch;
     border-right: none;
     border-bottom: 1px solid #e2e8f0;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: #fff;
-    position: sticky;
-    top: 0;
-    z-index: 8;
+    position: relative;
+    top: auto;
+    z-index: 1;
     scrollbar-width: none;
   }
 
@@ -701,11 +768,11 @@
 
   .caja-dashboard-page .caja-cc-nav-item {
     flex: 0 0 auto;
-    min-height: 44px;
-    padding: 8px 14px;
+    min-height: 40px;
+    padding: 6px 12px;
     white-space: nowrap;
     border-radius: 999px;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
   }
 
   .caja-dashboard-page .caja-cc-content {
@@ -714,37 +781,43 @@
   }
 
   .caja-dashboard-page .caja-cc-content-plotlab-bar {
-    top: 0;
+    position: static;
+    top: auto;
+    background: transparent;
+    padding: 0 0 8px;
   }
 
-  /* Pasos del menú operativa: grid táctil 2×2 / full-width */
+  /* Pasos: lista vertical legible (no grilla 2×2 apretada) */
   .caja-dashboard-page .caja-cc-menu-pasos {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 8px;
   }
 
   .caja-dashboard-page .caja-cc-menu-paso {
-    min-height: 72px;
-    padding: 12px;
-    flex-direction: column;
-    align-items: flex-start;
-    text-align: left;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    min-height: 56px;
+    padding: 12px 14px;
+    gap: 10px;
   }
 
-  .caja-dashboard-page .caja-cc-menu-paso-orden,
-  .caja-dashboard-page .caja-cc-menu-paso-arrow {
+  .caja-dashboard-page .caja-cc-menu-paso-orden {
     display: none;
   }
 
+  .caja-dashboard-page .caja-cc-menu-paso-arrow {
+    display: inline;
+  }
+
   .caja-dashboard-page .caja-cc-menu-paso-icon {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
   }
 
   .caja-dashboard-page .caja-cc-menu-paso-body span:not(.caja-cc-menu-paso-title-row) {
-    font-size: 0.72rem;
-    line-height: 1.3;
+    font-size: 0.78rem;
+    line-height: 1.35;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -762,39 +835,32 @@
     white-space: normal;
   }
 
-  /* Movimientos: filas tipo card */
+  /* Movimientos: card con monto a la derecha */
   .caja-dashboard-page .caja-cc-timeline-item,
   .caja-dashboard-page .caja-cc-timeline-item-clickable {
-    display: grid;
-    grid-template-columns: 36px 1fr;
-    grid-template-areas:
-      'icon body'
-      'icon end';
-    gap: 6px 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
     margin: 0 0 8px;
     padding: 12px;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
-    border-bottom: 1px solid #e2e8f0;
     background: #fff;
   }
 
-  .caja-dashboard-page .caja-cc-timeline-icon {
-    grid-area: icon;
-  }
-
   .caja-dashboard-page .caja-cc-timeline-body {
-    grid-area: body;
+    flex: 1;
     min-width: 0;
   }
 
   .caja-dashboard-page .caja-cc-timeline-end {
-    grid-area: end;
-    text-align: left;
+    flex: 0 0 auto;
+    text-align: right;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
   }
 
   .caja-dashboard-page .caja-cc-menu-movs-list li {
@@ -5211,10 +5277,9 @@
     overflow-y: hidden;
     border-right: none;
     border-bottom: 1px solid #e2e8f0;
-    padding: 10px 12px;
-    position: sticky;
-    top: 0;
-    z-index: 8;
+    padding: 8px 10px;
+    position: relative;
+    top: auto;
   }
 
   .caja-dashboard-page .caja-cc-nav-section,
@@ -5225,41 +5290,37 @@
 
   .caja-dashboard-page .caja-cc-nav-item {
     flex: 0 0 auto;
-    min-height: 44px;
-    padding: 8px 14px;
+    min-height: 40px;
+    padding: 6px 12px;
     white-space: nowrap;
     border-radius: 999px;
   }
 
   .caja-dashboard-page .caja-cc-menu-pasos {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 8px;
   }
 
   .caja-dashboard-page .caja-cc-menu-paso {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    grid-template-columns: none;
-    min-height: 72px;
-    padding: 12px;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    min-height: 56px;
+    padding: 12px 14px;
+    gap: 10px;
   }
 
-  .caja-dashboard-page .caja-cc-menu-paso-orden,
-  .caja-dashboard-page .caja-cc-menu-paso-arrow {
+  .caja-dashboard-page .caja-cc-menu-paso-orden {
     display: none;
   }
 
   .caja-dashboard-page .caja-cc-timeline-item,
   .caja-dashboard-page .caja-cc-timeline-item-clickable {
-    display: grid;
-    grid-template-columns: 36px 1fr;
-    grid-template-areas:
-      'icon body'
-      'icon end';
-    gap: 6px 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
     margin: 0 0 8px;
     padding: 12px;
     border: 1px solid #e2e8f0;
@@ -5267,17 +5328,14 @@
     background: #fff;
   }
 
-  .caja-dashboard-page .caja-cc-timeline-icon {
-    grid-area: icon;
-  }
-
   .caja-dashboard-page .caja-cc-timeline-body {
-    grid-area: body;
+    flex: 1;
+    min-width: 0;
   }
 
   .caja-dashboard-page .caja-cc-timeline-end {
-    grid-area: end;
-    text-align: left;
+    flex: 0 0 auto;
+    text-align: right;
   }
 
   .caja-cc-modal-backdrop,

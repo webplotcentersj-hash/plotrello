@@ -1511,7 +1511,7 @@ const BoardPage = ({
             <div className="board-phone-filter-strip" aria-live="polite">
               <div className="board-phone-filter-strip-count">
                 <strong>{filteredTasks.length}</strong>
-                <span> fichas visibles</span>
+                <span> fichas</span>
               </div>
               {phoneFilterChips.length > 0 ? (
                 <ul className="board-phone-filter-chips">
@@ -1521,9 +1521,7 @@ const BoardPage = ({
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="board-phone-filter-strip-hint">Mostrando el tablero completo (sin filtros).</p>
-              )}
+              ) : null}
             </div>
           )}
           <Board

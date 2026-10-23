@@ -1385,14 +1385,15 @@ a.header-user-chip--link:hover {
 }
 
 @media (max-width: 768px) {
+  /* Una sola fila: logo + Menú. Sin quick-nav ni widgets que roben altura. */
   .tp-header {
     position: sticky;
     top: 0;
     z-index: 80;
-    gap: 8px;
-    padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 10px
+    gap: 0;
+    padding: max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 8px
       max(10px, env(safe-area-inset-left));
-    border-radius: 0 0 14px 14px;
+    border-radius: 0 0 12px 12px;
   }
 
   .header-line {
@@ -1403,18 +1404,21 @@ a.header-user-chip--link:hover {
   }
 
   .header-brand {
-    gap: 8px;
+    gap: 0;
     min-width: 0;
     flex: 1 1 auto;
   }
 
   .header-logo {
-    height: 32px;
+    height: 28px;
   }
 
   .header-subtitle,
-  .header-eyebrow {
-    display: none;
+  .header-eyebrow,
+  .header-quick-nav,
+  .header-status-card,
+  .header-user-chip {
+    display: none !important;
   }
 
   .header-line-aside {
@@ -1425,94 +1429,87 @@ a.header-user-chip--link:hover {
     flex: 0 0 auto;
   }
 
-  .header-quick-nav {
-    position: relative;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    justify-content: flex-start;
-    -webkit-overflow-scrolling: touch;
-    gap: 8px;
-    padding: 6px 8px;
-    border-radius: 12px;
-    /* Hint de scroll a la derecha */
-    mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 28px), transparent 100%);
-    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 28px), transparent 100%);
-  }
-
-  .header-quick-nav-btn {
-    min-height: 44px;
-    padding: 8px 14px;
-    font-size: 0.78rem;
-  }
-
   .header-actions {
     width: auto;
     max-width: none;
     align-self: auto;
     justify-content: flex-end;
     flex-wrap: nowrap;
-    gap: 6px;
+    gap: 4px;
   }
 
-  .header-actions .actions-toggle,
-  .header-actions button {
-    min-height: 44px;
-    min-width: 44px;
+  .header-util-bar {
+    gap: 4px;
+    padding: 0;
   }
 
-  .header-status-card:not(.header-status-card--compact-phone) {
-    display: none;
-  }
-
-  .header-status-card--compact-phone {
-    display: inline-flex;
-    min-height: 44px;
-    padding: 4px 8px;
-  }
-
-  /* Móvil: barra compacta + menú desplegable */
   .header-util-bar .header-util-divider,
   .header-util-bar .notifications-dropdown,
-  .header-util-bar .admin-alert-button {
+  .header-util-bar .admin-alert-button,
+  .header-util-bar .header-util-btn--tema,
+  .header-util-bar .header-util-tools {
     display: none;
   }
 
-  .header-user-chip {
-    display: none;
+  .header-actions .actions-toggle {
+    min-height: 40px;
+    min-width: 40px;
+    padding: 8px 12px;
   }
 
+  .actions-toggle-label {
+    font-size: 0.8rem;
+  }
+
+  .header-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(0, 0, 0, 0.55);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Menú debajo del header, no sheet inferior */
   .actions-dropdown {
     position: fixed;
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));
-    top: auto;
-    bottom: max(12px, env(safe-area-inset-bottom));
+    top: max(56px, calc(env(safe-area-inset-top) + 48px));
+    bottom: auto;
     min-width: 0;
     max-width: none;
     width: auto;
     margin: 0;
-    border-radius: 16px;
+    border-radius: 14px;
     z-index: 120;
   }
 
   .actions-dropdown.open {
-    max-height: min(78vh, 640px);
+    max-height: min(72dvh, 580px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-  }
-
-  .actions-dropdown-grid {
-    grid-template-columns: 1fr;
   }
 
   .header-menu-tiles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+    padding: 10px 12px 14px;
   }
 
   .header-menu-tiles button,
-  .header-menu-tiles a {
-    min-height: 48px;
+  .header-menu-tiles a,
+  .header-menu-item--tile {
+    min-height: 56px;
+    border-radius: 12px;
+  }
+
+  .header-menu-item--tile .header-menu-label {
+    font-size: 0.82rem;
+    line-height: 1.2;
   }
 
   .actions-dropdown-head {
@@ -1521,11 +1518,17 @@ a.header-user-chip--link:hover {
     top: 0;
     z-index: 1;
     background: inherit;
+    padding: 12px 14px 10px;
   }
 
   .header-menu-search {
-    flex: 1 1 140px;
-    min-height: 44px;
+    flex: 1 1 100%;
+    min-height: 42px;
+  }
+
+  .header-menu-search input {
+    font-size: 16px;
+    min-height: 42px;
   }
 }
 

@@ -348,8 +348,11 @@ const Header = ({
   useEffect(() => {
     if (!actionsOpen) return
     setMenuQuery('')
-    const focusTimer = window.setTimeout(() => menuSearchRef.current?.focus(), 40)
-    const onDown = (event: MouseEvent) => {
+    // En teléfono no autofocus: el teclado tapa el menú.
+    const focusTimer = isPhoneChrome
+      ? undefined
+      : window.setTimeout(() => menuSearchRef.current?.focus(), 40)
+    const onDown = (event: MouseEvent | TouchEvent) => {
       if (!(event.target instanceof Node)) return
       if (!actionsRef.current?.contains(event.target)) setActionsOpen(false)
     }
@@ -362,22 +365,20 @@ const Header = ({
       setActionsOpen(false)
     }
     document.addEventListener('mousedown', onDown)
+    document.addEventListener('touchstart', onDown, { passive: true })
     document.addEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    if (isPhoneChrome) document.body.style.overflow = 'hidden'
     return () => {
-      window.clearTimeout(focusTimer)
+      if (focusTimer != null) window.clearTimeout(focusTimer)
       document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('touchstart', onDown)
       document.removeEventListener('keydown', onKey)
+      if (isPhoneChrome) document.body.style.overflow = prevOverflow
     }
-  }, [actionsOpen])
+  }, [actionsOpen, isPhoneChrome])
 
   const closeMenu = () => setActionsOpen(false)
-
-  const renderQuickNavBadge = (count: number) =>
-    count > 0 ? (
-      <span className="header-quick-nav-badge" title={`${count} novedad${count === 1 ? '' : 'es'}`}>
-        {count > 99 ? '99+' : count}
-      </span>
-    ) : null
 
   const renderMenuBadge = (count: number) =>
     count > 0 ? (
@@ -385,54 +386,6 @@ const Header = ({
         {count > 99 ? '99+' : count}
       </span>
     ) : null
-
-  const renderQuickNavItem = (item: HeaderQuickNavItem) => {
-    const btnClass = `header-quick-nav-btn${
-      item.id.startsWith('dashboard-') ? ' header-quick-nav-btn--primary' : ''
-    }${(item.badge ?? 0) > 0 ? ' header-quick-nav-btn--has-badge' : ''}`
-    const badge = renderQuickNavBadge(item.badge ?? 0)
-    const inner = (
-      <>
-        <span className="header-quick-nav-icon" aria-hidden>
-          {item.icon}
-        </span>
-        <span className="header-quick-nav-label">{item.label}</span>
-        {badge}
-      </>
-    )
-    if (item.href && item.external) {
-      return (
-        <a
-          key={item.id}
-          href={item.href}
-          className={btnClass}
-          title={item.title ?? item.label}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {inner}
-        </a>
-      )
-    }
-    if (item.href) {
-      return (
-        <Link key={item.id} to={item.href} className={btnClass} title={item.title ?? item.label}>
-          {inner}
-        </Link>
-      )
-    }
-    return (
-      <button
-        key={item.id}
-        type="button"
-        className={btnClass}
-        title={item.title ?? item.label}
-        onClick={() => item.onClick?.()}
-      >
-        {inner}
-      </button>
-    )
-  }
 
   const renderMenuItem = (item: HeaderQuickNavItem) => {
     const { glyph, tone } = glyphMetaForNavId(item.id)
@@ -498,6 +451,14 @@ const Header = ({
 
   return (
     <header className="tp-header">
+      {isPhoneChrome && actionsOpen ? (
+        <button
+          type="button"
+          className="header-menu-backdrop"
+          aria-label="Cerrar menú"
+          onClick={closeMenu}
+        />
+      ) : null}
       <div className="header-line">
         <div className="header-brand">
           {/* El logo trae el texto "Plot Lab": versión clara para noche, oscura para día. */}
@@ -517,16 +478,8 @@ const Header = ({
         </div>
         <div className="header-line-aside">
         <div className="header-actions" ref={actionsRef}>
-          {compactPhone && (
-            <div className="header-status-card header-status-card--compact-phone" aria-label="Hora y clima">
-              <ClockWidget compact />
-              <div className="header-status-divider" aria-hidden />
-              <WeatherWidget />
-            </div>
-          )}
-
           <div className="header-util-bar" role="toolbar" aria-label="Acciones rápidas">
-            {compactPhone && (
+            {!isPhoneChrome && compactPhone && (
               <>
                 <PwaUpdateButton className="header-util-btn header-util-btn--pwa" />
                 <span className="header-util-divider" aria-hidden />
@@ -658,12 +611,6 @@ const Header = ({
         </div>
         </div>
       </div>
-
-      {isPhoneChrome && quickNavItems.length > 0 ? (
-        <nav className="header-quick-nav" aria-label="Accesos de tu sector">
-          {quickNavItems.map(renderQuickNavItem)}
-        </nav>
-      ) : null}
 
       {!compactPhone && !isPhoneChrome && (
         <div className="header-stats header-stats--single">

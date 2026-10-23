@@ -249,15 +249,19 @@ export default function ControlCajasModule() {
           </div>
           <div className="caja-header-actions">
             <CajaVolverPlotLab />
-            <button type="button" className="btn-secondary" onClick={() => navigate(VENTAS)}>
+            <button type="button" className="btn-secondary caja-header-action--desktop" onClick={() => navigate(VENTAS)}>
               Ventas
             </button>
             {canAccessTotemImpresionPanel && (
-              <button type="button" className="btn-secondary" onClick={() => navigate('/impresoras/totem')}>
+              <button
+                type="button"
+                className="btn-secondary caja-header-action--desktop"
+                onClick={() => navigate('/impresoras/totem')}
+              >
                 Tótem
               </button>
             )}
-            <button type="button" className="btn-primary" onClick={() => navigate('/erp')}>
+            <button type="button" className="btn-primary caja-header-action--desktop" onClick={() => navigate('/erp')}>
               ERP
             </button>
           </div>

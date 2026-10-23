@@ -207,6 +207,8 @@ const TaskCardInner = ({
   const [contextMenu, setContextMenu] = useState<{ left: number; top: number } | null>(null)
   const [moveSheetOpen, setMoveSheetOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(true)
+  // Biblioteca (readOnly): siempre vista compacta como el kanban; el detalle abre en modal.
+  const showAsMinimized = isReadOnly || isMinimized
   const navigate = useNavigate()
   useUsuariosDisplay()
   const { nombreVisible, canManageImpresoras, isAdmin, canManageInstalaciones, canManageTallerImprenta, canManageMetalurgica } = useAuth()
@@ -499,7 +501,7 @@ const TaskCardInner = ({
             'presupuesto-en-espera': task.presupuestoEnEspera,
             'en-reclamo': task.enReclamo && !hideReclamoUI,
             'is-collapsed': !isExpanded,
-            'is-minimized': isMinimized,
+            'is-minimized': showAsMinimized,
             'is-new-move': isNewMove,
             'is-selected': isSelected,
             'is-drag-surface': isDragLightMode
@@ -509,24 +511,22 @@ const TaskCardInner = ({
           onClick={(e: MouseEvent<HTMLElement>) => {
             dndOnClick?.(e)
             if (e.defaultPrevented) return
-            if (isMinimized) {
-              toggleMinimized()
-              return
-            }
             if (isReadOnly && onInspectReadOnly) {
               if (Date.now() - getBoardDragEndedAt() > 420) {
                 onInspectReadOnly(task)
               }
               return
             }
-            if (!isReadOnly) {
-              onSelect?.(task.id)
-              if (
-                onViewTask &&
-                Date.now() - getBoardDragEndedAt() > 420
-              ) {
-                onViewTask(task)
-              }
+            if (isMinimized) {
+              toggleMinimized()
+              return
+            }
+            onSelect?.(task.id)
+            if (
+              onViewTask &&
+              Date.now() - getBoardDragEndedAt() > 420
+            ) {
+              onViewTask(task)
             }
           }}
           onContextMenuCapture={(e) => {
@@ -575,14 +575,28 @@ const TaskCardInner = ({
               )}
             </div>
           )}
-          {(isMinimized || isDragLightMode) && (
-            <div className="task-minimized-label" title={`#${task.opNumber} — ${task.title}`}>
+          {(showAsMinimized || isDragLightMode) && (
+            <div
+              className="task-minimized-label"
+              title={`${etiquetaOrden} #${displayNumeroOrden || task.opNumber} — ${task.title}`}
+            >
               {task.photoUrl && (
                 <span className="task-min-thumb" aria-hidden="true">
                   <img src={task.photoUrl} alt="" loading="lazy" />
                 </span>
               )}
-              <span className="task-min-op">#{task.opNumber}</span>
+              <span className="task-min-op" aria-label={`${etiquetaOrden} ${displayNumeroOrden || task.opNumber}`}>
+                {etiquetaOrden === 'Ficha' ? 'Ficha' : 'OP'} #{displayNumeroOrden || task.opNumber || '—'}
+              </span>
+              {isReadOnly && (
+                <span className="task-min-col" title="Columna / estado en el tablero">
+                  {(columns.length
+                    ? columns.find((c) => c.id === task.status)?.label
+                    : undefined) ||
+                    task.assignedSector ||
+                    String(task.status || '').replace(/-/g, ' ')}
+                </span>
+              )}
               {isReadOnly && task.visibleEnTablero === false && (
                 <span className="task-min-flag task-min-flag--hidden" title="Oculta en tablero (visible_en_tablero=false)">
                   Oculta
@@ -650,7 +664,7 @@ const TaskCardInner = ({
             </div>
           )}
           {/* Durante drag global: sin botones extra ni flechas (menos nodos y menos reconciliación) */}
-          {!isMinimized && !isDragLightMode && (
+          {!showAsMinimized && !isDragLightMode && (
             <button
               type="button"
               className="task-minimize-btn"
@@ -664,7 +678,7 @@ const TaskCardInner = ({
               ⊟
             </button>
           )}
-          {!isMinimized && !isDragLightMode && isNewMove && (
+          {!showAsMinimized && !isDragLightMode && isNewMove && (
             <span className="task-new-pill task-new-pill-floating">NEW</span>
           )}
           {!isDragLightMode && task.priority === 'alta' && (
@@ -690,7 +704,7 @@ const TaskCardInner = ({
               🔒
             </div>
           )}
-          {!isDragLightMode && !isMinimized && task.enReclamo && !hideReclamoUI && (
+          {!isDragLightMode && !showAsMinimized && task.enReclamo && !hideReclamoUI && (
             <div
               className="reclamo-indicator"
               title={
@@ -737,7 +751,7 @@ const TaskCardInner = ({
               </div>
             ) : null
           })()}
-          {!isMinimized && !isDragLightMode && (
+          {!showAsMinimized && !isDragLightMode && (
             <div className={clsx('task-toolbar', !onEdit && 'task-toolbar--no-edit')}>
               <div className="task-actions-extra" aria-label="Acciones secundarias">
             {explicitMoveSheet &&
@@ -919,13 +933,13 @@ const TaskCardInner = ({
               )}
             </div>
           )}
-          {!isMinimized && !isDragLightMode && task.photoUrl && (
+          {!showAsMinimized && !isDragLightMode && task.photoUrl && (
             <div className="task-photo">
               <img src={task.photoUrl} alt={`Trabajo ${task.title}`} loading="lazy" />
             </div>
           )}
 
-          {!isMinimized && !isDragLightMode && <div className="task-meta">
+          {!showAsMinimized && !isDragLightMode && <div className="task-meta">
             {/* Sector asignado al principio */}
             {task.assignedSector && (
               <div className="task-sector-header">
@@ -1191,7 +1205,7 @@ const TaskCardInner = ({
             )}
           </div>}
 
-          {!isMinimized && !isDragLightMode && <div className="task-body">
+          {!showAsMinimized && !isDragLightMode && <div className="task-body">
             <p className="task-description">{task.summary}</p>
 
             {/* Brief Público */}
@@ -1564,7 +1578,7 @@ const TaskCardInner = ({
             </div>
           </div>}
 
-          {!isMinimized && !isDragLightMode && <button
+          {!showAsMinimized && !isDragLightMode && <button
             type="button"
             className="task-toggle"
             onClick={(event) => {

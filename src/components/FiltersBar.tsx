@@ -92,105 +92,25 @@ const FiltersBar = ({
 
   if (compactPhone) {
     return (
-      <>
-      <section className="filters-bar filters-bar--phone" aria-label="Filtros del tablero">
-        <div className="filters-bar-phone-row search-filter">
-          <input
-            type="text"
-            placeholder={searchPlaceholder}
-            value={searchQuery}
-            onChange={(event) => onSearchChange(event.target.value)}
-            ref={searchInputRef}
-          />
-        </div>
-        {onAddNewOrder && (
-          <div className="filters-bar-phone-row">
+      <section className="filters-bar filters-bar--phone" aria-label="Buscar en el tablero">
+        <div className="filters-bar-phone-toolbar">
+          <div className="filters-bar-phone-row search-filter">
+            <input
+              type="search"
+              placeholder={searchPlaceholder}
+              value={searchQuery}
+              onChange={(event) => onSearchChange(event.target.value)}
+              ref={searchInputRef}
+              enterKeyHint="search"
+            />
+          </div>
+          {onAddNewOrder ? (
             <button type="button" className="brand-button filters-bar-phone-add" onClick={onAddNewOrder}>
-              + Agregar ficha
+              + Ficha
             </button>
-          </div>
-        )}
-        {usuario && (
-          <div className="filters-bar-phone-row filters-bar-phone-row--acciones">
-            {showAccionesMostrador && (
-              <button
-                type="button"
-                className="venta-rapida-button filters-bar-phone-add"
-                onClick={() => setShowVentaRapida(true)}
-                title="Venta (tecla V)"
-              >
-                💰 Venta
-              </button>
-            )}
-            {showAccionesMostrador && (
-              <button
-                type="button"
-                className="cc-button filters-bar-phone-add"
-                onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
-                title="Cuenta corriente"
-              >
-                CC
-              </button>
-            )}
-            {usuario && (
-              <button
-                type="button"
-                className="clientes-button filters-bar-phone-add"
-                onClick={() => navigate(CLIENTES_DASHBOARD)}
-                title="Buscar y editar clientes"
-              >
-                Clientes
-              </button>
-            )}
-            {showAccionesMostrador && (
-              <button
-                type="button"
-                className="factura-button filters-bar-phone-add"
-                onClick={() => navigate('/erp/facturas/nueva')}
-                title="Emitir factura electrónica"
-              >
-                Facturar
-              </button>
-            )}
-            <button
-              type="button"
-              className="presupuesto-button filters-bar-phone-add"
-              onClick={() => navigate('/ventas?tab=presupuestos')}
-              title="Ver y crear presupuestos de venta"
-            >
-              Presupuesto
-            </button>
-            <button
-              type="button"
-              className="ventas-nav-button filters-bar-phone-add"
-              onClick={() => navigate(VENTAS)}
-              title="Ir a Ventas"
-            >
-              Ventas
-            </button>
-            {(canManageCaja || showAccionesMostrador) && (
-              <button
-                type="button"
-                className="caja-button filters-bar-phone-add"
-                onClick={() => navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')}
-                title="Ir a Caja"
-              >
-                Caja
-              </button>
-            )}
-          </div>
-        )}
+          ) : null}
+        </div>
       </section>
-      {showVentaRapida && usuario && (
-        <VentaRapidaModal
-          uiVariant="mostrador"
-          usuarioId={usuario.id}
-          usuarioNombre={nombreVisible}
-          onClose={() => setShowVentaRapida(false)}
-          onSuccess={() => setShowVentaRapida(false)}
-        />
-      )}
-      </>
     )
   }
 

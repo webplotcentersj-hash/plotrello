@@ -1062,6 +1062,7 @@ const TaskLibraryModal = ({
                           index={index}
                           owner={owner}
                           sectores={sectores}
+                          columns={BOARD_COLUMNS}
                           isDraggable={false}
                           readOnly
                           onInspectReadOnly={openLibraryDetail}

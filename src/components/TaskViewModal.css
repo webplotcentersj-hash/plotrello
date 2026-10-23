@@ -758,6 +758,12 @@
     padding: 10px 14px;
   }
 
+  .task-view-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
   .task-view-body.modal-body,
   .task-view-modal .modal-body {
     flex: 1;
@@ -765,6 +771,20 @@
     -webkit-overflow-scrolling: touch;
     max-height: none !important;
     padding: 12px 14px max(16px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .task-view-chip-row {
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .task-view-chip {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  .task-view-op-pill {
+    padding: 6px 12px;
   }
 
   .task-view-kv-block {
