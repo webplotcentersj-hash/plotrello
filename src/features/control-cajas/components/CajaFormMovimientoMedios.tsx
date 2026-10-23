@@ -135,6 +135,7 @@ export default function CajaFormMovimientoMedios({
           <strong>Total</strong>
           <input
             type="number"
+            inputMode="decimal"
             step="0.01"
             value={medios.total || ''}
             onChange={(e) => setCampo('total', e.target.value)}
@@ -146,6 +147,7 @@ export default function CajaFormMovimientoMedios({
             {col.label}
             <input
               type="number"
+              inputMode="decimal"
               step="0.01"
               value={medios[col.key] || ''}
               onChange={(e) => setCampo(col.key, e.target.value)}

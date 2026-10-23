@@ -411,10 +411,10 @@
 
 /* Modo teléfono explícito (compactPhone): una columna, sin chips. */
 .filters-bar.filters-bar--phone {
-  gap: 10px;
-  padding: 12px 14px;
-  margin-top: 12px;
-  border-radius: 14px;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  border-radius: 12px;
 }
 
 .filters-bar--phone .filters-bar-phone-row {

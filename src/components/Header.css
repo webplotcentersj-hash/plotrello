@@ -1385,34 +1385,89 @@ a.header-user-chip--link:hover {
 }
 
 @media (max-width: 768px) {
+  .tp-header {
+    position: sticky;
+    top: 0;
+    z-index: 80;
+    gap: 8px;
+    padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 10px
+      max(10px, env(safe-area-inset-left));
+    border-radius: 0 0 14px 14px;
+  }
+
   .header-line {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .header-brand {
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .header-logo {
+    height: 32px;
+  }
+
+  .header-subtitle,
+  .header-eyebrow {
+    display: none;
   }
 
   .header-line-aside {
-    align-items: stretch;
-    width: 100%;
+    align-items: center;
+    width: auto;
     max-width: none;
+    margin-left: 0;
+    flex: 0 0 auto;
   }
 
   .header-quick-nav {
+    position: relative;
     flex-wrap: nowrap;
     overflow-x: auto;
     justify-content: flex-start;
     -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 12px;
+    /* Hint de scroll a la derecha */
+    mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 28px), transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 28px), transparent 100%);
+  }
+
+  .header-quick-nav-btn {
+    min-height: 44px;
+    padding: 8px 14px;
+    font-size: 0.78rem;
   }
 
   .header-actions {
-    width: 100%;
+    width: auto;
     max-width: none;
-    align-self: stretch;
+    align-self: auto;
     justify-content: flex-end;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    gap: 6px;
   }
 
-  .header-status-card {
+  .header-actions .actions-toggle,
+  .header-actions button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .header-status-card:not(.header-status-card--compact-phone) {
     display: none;
+  }
+
+  .header-status-card--compact-phone {
+    display: inline-flex;
+    min-height: 44px;
+    padding: 4px 8px;
   }
 
   /* Móvil: barra compacta + menú desplegable */
@@ -1427,12 +1482,23 @@ a.header-user-chip--link:hover {
   }
 
   .actions-dropdown {
-    left: 0;
-    right: 0;
+    position: fixed;
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    top: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
     min-width: 0;
     max-width: none;
-    width: calc(100vw - 24px);
-    margin: 0 auto;
+    width: auto;
+    margin: 0;
+    border-radius: 16px;
+    z-index: 120;
+  }
+
+  .actions-dropdown.open {
+    max-height: min(78vh, 640px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .actions-dropdown-grid {
@@ -1441,14 +1507,25 @@ a.header-user-chip--link:hover {
 
   .header-menu-tiles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .header-menu-tiles button,
+  .header-menu-tiles a {
+    min-height: 48px;
   }
 
   .actions-dropdown-head {
     flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: inherit;
   }
 
   .header-menu-search {
-    flex: 1 1 160px;
+    flex: 1 1 140px;
+    min-height: 44px;
   }
 }
 

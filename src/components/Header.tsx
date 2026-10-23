@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { buildHeaderQuickNavItems, type HeaderQuickNavItem } from '../utils/headerQuickNav'
+import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
 import { HeaderNavGlyph, glyphMetaForNavId } from './HeaderNavGlyph'
 import type { ActivityEvent, TeamMember } from '../types/board'
 import { useAuth } from '../hooks/useAuth'
@@ -104,6 +105,7 @@ const Header = ({
   const canAccessAsesorPresupuestos = isAdmin || isAsesorTecnico || isPresupuestos
   const canVerPanelActividadesOperarios = canVerActividadesOperarios(usuario)
   const quickNavBadges = useHeaderQuickNavBadges()
+  const isPhoneChrome = usePhoneBoardLayout()
   const [actionsOpen, setActionsOpen] = useState(false)
   const [menuQuery, setMenuQuery] = useState('')
   const actionsRef = useRef<HTMLDivElement>(null)
@@ -370,12 +372,67 @@ const Header = ({
 
   const closeMenu = () => setActionsOpen(false)
 
+  const renderQuickNavBadge = (count: number) =>
+    count > 0 ? (
+      <span className="header-quick-nav-badge" title={`${count} novedad${count === 1 ? '' : 'es'}`}>
+        {count > 99 ? '99+' : count}
+      </span>
+    ) : null
+
   const renderMenuBadge = (count: number) =>
     count > 0 ? (
       <span className="header-menu-badge" title={`${count} novedad${count === 1 ? '' : 'es'}`}>
         {count > 99 ? '99+' : count}
       </span>
     ) : null
+
+  const renderQuickNavItem = (item: HeaderQuickNavItem) => {
+    const btnClass = `header-quick-nav-btn${
+      item.id.startsWith('dashboard-') ? ' header-quick-nav-btn--primary' : ''
+    }${(item.badge ?? 0) > 0 ? ' header-quick-nav-btn--has-badge' : ''}`
+    const badge = renderQuickNavBadge(item.badge ?? 0)
+    const inner = (
+      <>
+        <span className="header-quick-nav-icon" aria-hidden>
+          {item.icon}
+        </span>
+        <span className="header-quick-nav-label">{item.label}</span>
+        {badge}
+      </>
+    )
+    if (item.href && item.external) {
+      return (
+        <a
+          key={item.id}
+          href={item.href}
+          className={btnClass}
+          title={item.title ?? item.label}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {inner}
+        </a>
+      )
+    }
+    if (item.href) {
+      return (
+        <Link key={item.id} to={item.href} className={btnClass} title={item.title ?? item.label}>
+          {inner}
+        </Link>
+      )
+    }
+    return (
+      <button
+        key={item.id}
+        type="button"
+        className={btnClass}
+        title={item.title ?? item.label}
+        onClick={() => item.onClick?.()}
+      >
+        {inner}
+      </button>
+    )
+  }
 
   const renderMenuItem = (item: HeaderQuickNavItem) => {
     const { glyph, tone } = glyphMetaForNavId(item.id)
@@ -602,7 +659,13 @@ const Header = ({
         </div>
       </div>
 
-      {!compactPhone && (
+      {isPhoneChrome && quickNavItems.length > 0 ? (
+        <nav className="header-quick-nav" aria-label="Accesos de tu sector">
+          {quickNavItems.map(renderQuickNavItem)}
+        </nav>
+      ) : null}
+
+      {!compactPhone && !isPhoneChrome && (
         <div className="header-stats header-stats--single">
           <div className="header-stat-card header-stat-card--spotlight">
             <HeaderSpotlightCard userId={usuario?.id} />

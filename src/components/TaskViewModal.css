@@ -711,9 +711,71 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .task-view-mega-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Full-screen sheet en teléfono */
+  .task-view-overlay.modal-overlay {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .task-view-modal.modal-content {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    max-height: 100dvh !important;
+    height: 100dvh;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .task-view-header-accent {
+    border-radius: 0;
+  }
+
+  .task-view-header-inner {
+    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .task-view-op-num {
+    font-size: 1.35rem;
+  }
+
+  .task-view-main-title {
+    font-size: 1.15rem;
+  }
+
+  .task-view-close {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 14px;
+  }
+
+  .task-view-body.modal-body,
+  .task-view-modal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: none !important;
+    padding: 12px 14px max(16px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .task-view-kv-block {
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border-radius: 12px;
+  }
+
+  .task-view-panel {
+    padding: 14px 16px;
+    border-radius: 12px;
   }
 }
 

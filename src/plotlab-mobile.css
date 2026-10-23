@@ -6,29 +6,29 @@
 
 @media (max-width: 768px) {
   .trello-plot-app {
-    padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
-      max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    padding: 8px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
+      max(10px, env(safe-area-inset-left));
     box-sizing: border-box;
   }
 
-  .tp-header {
-    padding: 14px 12px;
-    border-radius: 18px;
+  /* Header sticky ya aplica safe-area-top; evitar doble padding arriba */
+  .trello-plot-app:has(.tp-header) {
+    padding-top: 8px;
   }
 
   .tp-header h1 {
-    font-size: clamp(1.25rem, 5vw, 1.75rem);
+    font-size: clamp(1.15rem, 4.5vw, 1.5rem);
   }
 
   .board-panel {
-    padding: 12px;
-    border-radius: 16px;
+    padding: 10px;
+    border-radius: 14px;
   }
 
   .filters-bar {
-    padding: 14px;
-    margin-top: 16px;
-    border-radius: 16px;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 14px;
   }
 
   .library-button-container .brand-button,
@@ -36,10 +36,10 @@
   .library-button-container .brief-link-button {
     min-width: 0;
     width: 100%;
+    min-height: 44px;
   }
 
-  /* Un solo scroll horizontal: el carril es `.columns-grid`. Si el scroll vive en `.board-wrapper`
-   * pero el snap en el hijo, el gesto se siente “desfasado” (snap sin scrollport). */
+  /* Un solo scroll horizontal: el carril es `.columns-grid`. */
   .board-wrapper {
     overflow-x: visible;
     overflow-y: visible;
@@ -50,41 +50,76 @@
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: stretch;
-    gap: 12px;
+    gap: 10px;
     overflow-x: auto;
     overflow-y: hidden;
-    scroll-snap-type: x proximity;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 4px;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
     overscroll-behavior-y: auto;
-    padding-bottom: 10px;
+    padding-bottom: 8px;
     grid-template-columns: unset;
     min-height: 0;
   }
 
   .board-column {
-    flex: 0 0 min(88vw, 300px);
-    width: min(88vw, 300px);
-    min-width: min(88vw, 300px);
-    max-width: min(88vw, 300px);
-    min-height: 300px;
-    max-height: min(68vh, 520px);
-    padding: 14px;
-    border-radius: 14px;
-    scroll-snap-align: start;
+    flex: 0 0 min(86vw, 320px);
+    width: min(86vw, 320px);
+    min-width: min(86vw, 320px);
+    max-width: min(86vw, 320px);
+    min-height: 280px;
+    max-height: min(62vh, 500px);
+    padding: 10px;
+    border-radius: 12px;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+  }
+
+  .board-column .column-header {
+    padding: 6px 4px 8px;
+    margin-bottom: 6px;
+  }
+
+  .board-column .column-title {
+    font-size: 0.95rem;
+  }
+
+  /* Cards más densas pero legibles en teléfono */
+  .trello-plot-app--phone .task-card {
+    padding: 10px 11px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+
+  .trello-plot-app--phone .task-card .task-title,
+  .trello-plot-app--phone .task-card .task-min-op {
+    font-size: 0.92rem;
+    line-height: 1.25;
+  }
+
+  .trello-plot-app--phone .task-card .task-min-client,
+  .trello-plot-app--phone .task-card .task-client {
+    font-size: 0.8rem;
+    line-height: 1.3;
+  }
+
+  .trello-plot-app--phone .task-card .task-description {
+    font-size: 0.78rem;
+    line-height: 1.35;
+    max-height: 2.7em;
+    overflow: hidden;
   }
 
   .app-layout {
-    gap: 16px;
-    margin-top: 16px;
+    gap: 12px;
+    margin-top: 10px;
   }
 
-  /* Tablero principal con clase `trello-plot-app--phone`: sin estadísticas/actividad lateral */
   .trello-plot-app--phone .insights-panel {
     display: none;
   }
 
-  /* Una sola columna: si no, `app-layout--sidebar-compact` deja ~96px de hueco aunque el panel lateral esté oculto */
   .trello-plot-app--phone .app-layout {
     display: grid;
     grid-template-columns: 1fr !important;
@@ -92,8 +127,8 @@
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
-    margin-top: 12px;
-    gap: 10px;
+    margin-top: 8px;
+    gap: 8px;
   }
 
   .trello-plot-app--phone .board-panel {
@@ -103,52 +138,64 @@
     box-sizing: border-box;
   }
 
-  /* Resumen de filtros y conteo encima del kanban (solo tablero teléfono) */
+  /* Strip de filtros: una fila scrolleable + contador */
   .trello-plot-app--phone .board-phone-filter-strip {
-    margin: 0 0 12px;
-    padding: 12px 14px;
-    border-radius: 12px;
+    margin: 0 0 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
     background: rgba(0, 0, 0, 0.28);
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .trello-plot-app--phone .board-phone-filter-strip-count {
-    font-size: 0.95rem;
+    font-size: 0.88rem;
     color: var(--text-primary, #e2e8f0);
-    line-height: 1.35;
+    line-height: 1.3;
   }
 
   .trello-plot-app--phone .board-phone-filter-strip-count strong {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: #f8fafc;
   }
 
   .trello-plot-app--phone .board-phone-filter-chips {
     list-style: none;
-    margin: 10px 0 0;
+    margin: 8px 0 0;
     padding: 0;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .trello-plot-app--phone .board-phone-filter-chips::-webkit-scrollbar {
+    display: none;
   }
 
   .trello-plot-app--phone .board-phone-filter-chip {
-    font-size: 0.82rem;
-    line-height: 1.4;
-    color: rgba(226, 232, 240, 0.9);
-    padding: 6px 0 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    flex: 0 0 auto;
+    font-size: 0.75rem;
+    line-height: 1.25;
+    color: rgba(226, 232, 240, 0.95);
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    white-space: nowrap;
   }
 
   .trello-plot-app--phone .board-phone-filter-chip:first-child {
-    border-top: none;
-    padding-top: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 6px;
   }
 
   .trello-plot-app--phone .board-phone-filter-strip-hint {
-    margin: 8px 0 0;
-    font-size: 0.78rem;
+    margin: 6px 0 0;
+    font-size: 0.72rem;
     color: rgba(148, 163, 184, 0.95);
   }
 
@@ -159,12 +206,10 @@
     box-sizing: border-box;
   }
 
-  /* PlotAI flotante también en phone: overlay usable a pantalla completa */
   .trello-plot-app--phone .plotai-overlay {
     display: flex !important;
   }
 
-  /* Sin arrastre: menos animación y mejor toque (scroll vertical vs “tirar” la ficha) */
   .board-wrapper--no-drag .task-card,
   .board-wrapper--no-drag .task-card.is-drag-surface {
     transition: none !important;
@@ -176,4 +221,12 @@
     transition: border-color 0.12s ease, background 0.12s ease;
   }
 
+  /* Utilidad compartida para tablas en móvil */
+  .plotlab-table-scroll {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
 }

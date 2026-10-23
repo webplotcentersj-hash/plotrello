@@ -329,6 +329,7 @@ export default function CajaSectionEgresos({
             Monto ($) *
             <input
               type="number"
+              inputMode="decimal"
               min="0.01"
               step="0.01"
               value={montoEf}

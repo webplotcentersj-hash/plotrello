@@ -108,6 +108,7 @@ export default function CajaCobroVentaModal({
             Monto cobrado ahora
             <input
               type="number"
+              inputMode="decimal"
               min={0}
               step="0.01"
               value={monto}
