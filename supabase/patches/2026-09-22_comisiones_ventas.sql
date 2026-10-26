@@ -286,17 +286,12 @@ BEGIN
       monto_venta, monto_cobrado, base_monto, porcentaje, monto_devengado, estado, updated_at
     )
     SELECT
-      f.id_venta, f.numero_venta, f.id_vendedor, f.nombre_vendedor, f.fecha_venta, v_cfg.base,
+      f.id_venta, f.numero_venta, f.id_vendedor, f.nombre_vendedor, f.fecha_venta, 'total',
       f.monto_venta,
       f.cobrado_neto_nc,
-      CASE WHEN v_cfg.base = 'neto'
-        THEN round(f.cobrado_neto_nc / (1 + v_cfg.alicuota_iva / 100), 2)
-        ELSE round(f.cobrado_neto_nc, 2) END,
+      round(f.cobrado_neto_nc, 2),
       f.porcentaje,
-      round(
-        (CASE WHEN v_cfg.base = 'neto'
-          THEN f.cobrado_neto_nc / (1 + v_cfg.alicuota_iva / 100)
-          ELSE f.cobrado_neto_nc END) * f.porcentaje / 100, 2),
+      round(f.cobrado_neto_nc * f.porcentaje / 100, 2),
       CASE WHEN f.cancelada THEN 'anulada' ELSE 'pendiente' END,
       now()
     FROM calculo_final f
@@ -355,6 +350,7 @@ BEGIN
           'nombre_vendedor', COALESCE(cv.nombre_vendedor, 'Sin vendedor'),
           'ventas', count(*),
           'monto_venta', round(sum(cv.monto_venta), 2),
+          'monto_cobrado', round(sum(cv.monto_cobrado), 2),
           'base_monto', round(sum(cv.base_monto), 2),
           'devengado', round(sum(cv.monto_devengado), 2),
           'liquidado', round(sum(cv.monto_liquidado), 2),
@@ -365,14 +361,70 @@ BEGIN
         GROUP BY cv.id_vendedor, cv.nombre_vendedor
       ) s
     ), '[]'::jsonb),
-    'ventas', COALESCE((
-      SELECT jsonb_agg(to_jsonb(cv) ORDER BY cv.fecha_venta DESC, cv.id DESC)
+    'por_mes', COALESCE((
+      SELECT jsonb_agg(bloque ORDER BY bloque->>'mes' DESC)
       FROM (
-        SELECT * FROM public.comisiones_ventas c2
-        WHERE c2.fecha_venta BETWEEN p_desde AND p_hasta
+        SELECT jsonb_build_object(
+          'mes', to_char(date_trunc('month', cv.fecha_venta), 'YYYY-MM'),
+          'ventas', count(*),
+          'monto_venta', round(sum(cv.monto_venta), 2),
+          'monto_cobrado', round(sum(cv.monto_cobrado), 2),
+          'base_monto', round(sum(cv.base_monto), 2),
+          'devengado', round(sum(cv.monto_devengado), 2),
+          'liquidado', round(sum(cv.monto_liquidado), 2),
+          'pendiente', round(sum(cv.monto_devengado - cv.monto_liquidado), 2),
+          'vendedores', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+              'id_vendedor', s.id_vendedor,
+              'nombre_vendedor', COALESCE(s.nombre_vendedor, 'Sin vendedor'),
+              'ventas', s.ventas,
+              'monto_venta', s.monto_venta,
+              'monto_cobrado', s.monto_cobrado,
+              'base_monto', s.base_monto,
+              'devengado', s.devengado,
+              'liquidado', s.liquidado,
+              'pendiente', s.pendiente
+            ) ORDER BY s.nombre_vendedor)
+            FROM (
+              SELECT x.id_vendedor, x.nombre_vendedor,
+                count(*) AS ventas,
+                round(sum(x.monto_venta), 2) AS monto_venta,
+                round(sum(x.monto_cobrado), 2) AS monto_cobrado,
+                round(sum(x.base_monto), 2) AS base_monto,
+                round(sum(x.monto_devengado), 2) AS devengado,
+                round(sum(x.monto_liquidado), 2) AS liquidado,
+                round(sum(x.monto_devengado - x.monto_liquidado), 2) AS pendiente
+              FROM public.comisiones_ventas x
+              WHERE x.fecha_venta >= date_trunc('month', cv.fecha_venta)::date
+                AND x.fecha_venta < (date_trunc('month', cv.fecha_venta) + interval '1 month')::date
+                AND x.fecha_venta BETWEEN p_desde AND p_hasta
+              GROUP BY x.id_vendedor, x.nombre_vendedor
+            ) s
+          ), '[]'::jsonb)
+        ) AS bloque
+        FROM public.comisiones_ventas cv
+        WHERE cv.fecha_venta BETWEEN p_desde AND p_hasta
+        GROUP BY date_trunc('month', cv.fecha_venta)
+      ) meses
+    ), '[]'::jsonb),
+    'ventas', COALESCE((
+      SELECT jsonb_agg(
+        to_jsonb(c2) || jsonb_build_object(
+          'nombre_cliente', NULLIF(TRIM(CONCAT_WS(' ', cl.nombre, cl.apellido)), ''),
+          'estado_pago', v.estado_pago,
+          'metodo_pago', v.metodo_pago,
+          'monto_pagado', COALESCE(v.monto_pagado, 0)
+        )
         ORDER BY c2.fecha_venta DESC, c2.id DESC
-        LIMIT 500
-      ) cv
+      )
+      FROM (
+        SELECT * FROM public.comisiones_ventas
+        WHERE fecha_venta BETWEEN p_desde AND p_hasta
+        ORDER BY fecha_venta DESC, id DESC
+        LIMIT 4000
+      ) c2
+      LEFT JOIN public.ventas v ON v.id = c2.id_venta
+      LEFT JOIN public.clientes cl ON cl.id = v.id_cliente
     ), '[]'::jsonb),
     'pendiente_total', COALESCE((
       SELECT round(sum(monto_devengado - monto_liquidado), 2)

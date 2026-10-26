@@ -40,6 +40,84 @@
   overflow-y: auto;
 }
 
+.comisiones-estadisticas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 22px;
+  margin-top: 8px;
+}
+
+.comisiones-subtitulo {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.comisiones-ranking,
+.comisiones-cobro {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.comisiones-ranking__top,
+.comisiones-cobro li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.comisiones-ranking__top span,
+.comisiones-cobro li {
+  font-size: 0.82rem;
+}
+
+.comisiones-barra {
+  height: 8px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin: 4px 0;
+}
+
+.comisiones-barra > span {
+  display: block;
+  height: 100%;
+  background: #38bdf8;
+  border-radius: 99px;
+}
+
+.comisiones-barra__activa {
+  background: #34d399;
+}
+
+.comisiones-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 900px) {
+  .comisiones-estadisticas {
+    grid-template-columns: 1fr;
+  }
+}
+
+.comisiones-mes td {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: capitalize;
+}
+
+.comisiones-mes--activo td {
+  background: rgba(56, 189, 248, 0.16);
+}
+
 .comisiones-acciones {
   display: flex;
   gap: 8px;

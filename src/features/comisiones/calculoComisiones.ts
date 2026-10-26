@@ -7,14 +7,13 @@ export type BaseComision = 'neto' | 'total'
 export type MomentoComision = 'cobro' | 'venta' | 'factura'
 
 export const BASES: Array<{ value: BaseComision; label: string }> = [
-  { value: 'neto', label: 'Neto sin IVA' },
-  { value: 'total', label: 'Total con IVA' }
+  { value: 'total', label: 'Precio de venta' }
 ]
 
 export const MOMENTOS: Array<{ value: MomentoComision; label: string; ayuda: string }> = [
-  { value: 'cobro', label: 'Al cobrar', ayuda: 'Se devenga en proporción a lo cobrado de la venta' },
-  { value: 'venta', label: 'Al registrar la venta', ayuda: 'Se devenga por el total, esté cobrada o no' },
-  { value: 'factura', label: 'Al facturar', ayuda: 'Se devenga cuando la factura queda autorizada en AFIP' }
+  { value: 'cobro', label: 'Al cobrar', ayuda: 'Se devenga sobre el precio de venta, en proporción a lo cobrado' },
+  { value: 'venta', label: 'Al registrar la venta', ayuda: 'Se devenga sobre el precio de venta, esté cobrada o no' },
+  { value: 'factura', label: 'Al facturar', ayuda: 'Se devenga sobre el precio de venta cuando la factura queda autorizada en AFIP' }
 ]
 
 export function redondear2(n: number): number {
@@ -47,12 +46,9 @@ export function montoComisionable(venta: VentaParaComision, momento: MomentoComi
   return redondear2(Math.max(bruto - (Number(venta.notas_credito) || 0), 0))
 }
 
-/** Base comisionable: el neto saca el IVA del monto cobrado. */
-export function baseComisionable(monto: number, base: BaseComision, alicuotaIva: number): number {
-  if (base === 'total') return redondear2(monto)
-  const alicuota = Number(alicuotaIva)
-  const divisor = 1 + (Number.isFinite(alicuota) ? alicuota : 21) / 100
-  return redondear2(monto / divisor)
+/** La comisión se calcula sobre el precio de venta, sin descontar el IVA. */
+export function baseComisionable(monto: number, _base?: BaseComision, _alicuotaIva?: number): number {
+  return redondear2(monto)
 }
 
 export function comisionDeVenta(

@@ -6,6 +6,7 @@ import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
 import { descargarPdfFacturaAfip } from '../services/afipApi'
 import { descargarFacturaAfipPdf } from '../utils/facturaAfipPdf'
+import { generarFacturaRemitoPDF } from '../utils/crmExportUtils'
 import { buildWhatsappLink } from '../utils/whatsappLink'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import CuentaCorrienteScoreBadge from '../components/CuentaCorrienteScoreBadge'
@@ -118,6 +119,7 @@ export default function CuentaCorrientePerfilPage() {
   const [pagoOk, setPagoOk] = useState<string | null>(null)
   const [facturasPorVenta, setFacturasPorVenta] = useState<Map<number, FacturaVentaRecord>>(new Map())
   const [descargandoFacturaId, setDescargandoFacturaId] = useState<number | null>(null)
+  const [descargandoVentaId, setDescargandoVentaId] = useState<number | null>(null)
   const [telefonoCliente, setTelefonoCliente] = useState<string | null>(null)
 
   const esPagoMultiple = pagoMetodo === PAGO_MULTIPLE
@@ -235,6 +237,27 @@ export default function CuentaCorrientePerfilPage() {
       setError(ex instanceof Error ? ex.message : 'No se pudo descargar la factura')
     } finally {
       setDescargandoFacturaId(null)
+    }
+  }
+
+  const descargarPdfVenta = async (idVenta: number) => {
+    if (descargandoVentaId != null) return
+    setDescargandoVentaId(idVenta)
+    setError(null)
+    try {
+      const [ventaRes, itemsRes] = await Promise.all([
+        apiService.getVenta(idVenta),
+        apiService.getItemsVenta(idVenta)
+      ])
+      if (!ventaRes.success || !ventaRes.data) {
+        setError('No se pudo cargar la venta: ' + (ventaRes.error || 'desconocido'))
+        return
+      }
+      generarFacturaRemitoPDF({ ...ventaRes.data, items: itemsRes.data || [] }, 'factura')
+    } catch (ex) {
+      setError(ex instanceof Error ? ex.message : 'No se pudo descargar el PDF de la venta')
+    } finally {
+      setDescargandoVentaId(null)
     }
   }
 
@@ -724,7 +747,9 @@ export default function CuentaCorrientePerfilPage() {
                       mov={m}
                       factura={m.id_venta ? facturasPorVenta.get(m.id_venta) : undefined}
                       descargando={descargandoFacturaId != null}
+                      descargandoPdf={descargandoVentaId === m.id_venta}
                       onDescargarFactura={(factura) => void descargarFactura(factura)}
+                      onDescargarPdf={(idVenta) => void descargarPdfVenta(idVenta)}
                     />
                   ))}
                 </tbody>
@@ -779,7 +804,9 @@ export default function CuentaCorrientePerfilPage() {
                       venta={v}
                       factura={facturasPorVenta.get(v.id)}
                       descargando={descargandoFacturaId != null}
+                      descargandoPdf={descargandoVentaId === v.id}
                       onDescargarFactura={(factura) => void descargarFactura(factura)}
+                      onDescargarPdf={(idVenta) => void descargarPdfVenta(idVenta)}
                       onImputar={() => {
                         setPagoVentaId(String(v.id))
                         setPagoMonto(String(v.monto_pendiente ?? v.valor_total))
@@ -1078,16 +1105,41 @@ function FacturaVentaLinks({
   )
 }
 
+function VentaPdfLink({
+  idVenta,
+  descargando,
+  onDescargar
+}: {
+  idVenta: number
+  descargando: boolean
+  onDescargar: (idVenta: number) => void
+}) {
+  return (
+    <button
+      type="button"
+      className="cc-perfil-link cc-perfil-link--btn"
+      disabled={descargando}
+      onClick={() => onDescargar(idVenta)}
+    >
+      {descargando ? 'Generando PDF…' : 'Descargar PDF'}
+    </button>
+  )
+}
+
 function MovimientoRow({
   mov,
   factura,
   descargando,
-  onDescargarFactura
+  descargandoPdf,
+  onDescargarFactura,
+  onDescargarPdf
 }: {
   mov: CcCuentaMovimiento
   factura?: FacturaVentaRecord
   descargando: boolean
+  descargandoPdf: boolean
   onDescargarFactura: (factura: FacturaVentaRecord) => void
+  onDescargarPdf: (idVenta: number) => void
 }) {
   const tipoLabel =
     mov.tipo === 'venta'
@@ -1105,13 +1157,22 @@ function MovimientoRow({
       </td>
       <td>
         <div className="cc-perfil-concepto">
-          <span>{mov.concepto}</span>
-          {mov.tipo === 'venta' && (
-            <FacturaVentaLinks
-              factura={factura}
-              descargando={descargando}
-              onDescargar={onDescargarFactura}
-            />
+          {mov.tipo === 'venta' && mov.id_venta ? (
+            <Link to={`/ventas?ventaId=${mov.id_venta}`} className="cc-perfil-link">
+              {mov.concepto}
+            </Link>
+          ) : (
+            <span>{mov.concepto}</span>
+          )}
+          {mov.tipo === 'venta' && mov.id_venta && (
+            <span className="cc-perfil-comprobante-actions">
+              <VentaPdfLink idVenta={mov.id_venta} descargando={descargandoPdf} onDescargar={onDescargarPdf} />
+              <FacturaVentaLinks
+                factura={factura}
+                descargando={descargando}
+                onDescargar={onDescargarFactura}
+              />
+            </span>
           )}
         </div>
       </td>
@@ -1149,13 +1210,17 @@ function VentaRow({
   venta,
   factura,
   descargando,
+  descargandoPdf,
   onDescargarFactura,
+  onDescargarPdf,
   onImputar
 }: {
   venta: CcVentaResumen
   factura?: FacturaVentaRecord
   descargando: boolean
+  descargandoPdf: boolean
   onDescargarFactura: (factura: FacturaVentaRecord) => void
+  onDescargarPdf: (idVenta: number) => void
   onImputar: () => void
 }) {
   const pendiente =
@@ -1183,12 +1248,17 @@ function VentaRow({
       </td>
       <td>
         <div className="cc-perfil-concepto">
-          <span>{venta.numero_venta}</span>
-          <FacturaVentaLinks
-            factura={factura}
-            descargando={descargando}
-            onDescargar={onDescargarFactura}
-          />
+          <Link to={`/ventas?ventaId=${venta.id}`} className="cc-perfil-link">
+            {venta.numero_venta}
+          </Link>
+          <span className="cc-perfil-comprobante-actions">
+            <VentaPdfLink idVenta={venta.id} descargando={descargandoPdf} onDescargar={onDescargarPdf} />
+            <FacturaVentaLinks
+              factura={factura}
+              descargando={descargando}
+              onDescargar={onDescargarFactura}
+            />
+          </span>
         </div>
       </td>
       <td>

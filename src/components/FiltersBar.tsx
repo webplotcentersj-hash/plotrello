@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnConfig, Priority, TaskStatus } from '../types/board'
@@ -7,6 +7,7 @@ import { getApiService } from '../services/apiLoader'
 import { VENTAS } from '../utils/ventasRoutes'
 import { CLIENTES_CUENTA_CORRIENTE, CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
 import VentaRapidaModal from './VentaRapidaModal'
+import BuscadorPrecios from './BuscadorPrecios'
 import './FiltersBar.css'
 
 type FiltersBarProps = {
@@ -67,6 +68,95 @@ const FiltersBar = ({
     Boolean(usuario) && (canAccessMostradorViews || isTallerImprenta || isTallerGrafico)
   const [copiandoBrief, setCopiandoBrief] = useState(false)
   const [showVentaRapida, setShowVentaRapida] = useState(false)
+  const accionesRef = useRef({
+    navigate,
+    onAddNewOrder,
+    onOpenLibrary,
+    usuario,
+    showAccionesMostrador,
+    canManageCaja
+  })
+  accionesRef.current = {
+    navigate,
+    onAddNewOrder,
+    onOpenLibrary,
+    usuario,
+    showAccionesMostrador,
+    canManageCaja
+  }
+
+  useEffect(() => {
+    if (compactPhone) return
+    const pendiente = { tecla: '' as '' | 'c' | 'l', timer: 0 }
+
+    const limpiar = () => {
+      if (pendiente.timer) window.clearTimeout(pendiente.timer)
+      pendiente.tecla = ''
+      pendiente.timer = 0
+    }
+
+    const ir = (combo: string) => {
+      const a = accionesRef.current
+      if (!a.usuario) return
+      if (combo === 'cl') a.navigate(CLIENTES_DASHBOARD)
+      else if (combo === 'cc' && a.showAccionesMostrador) a.navigate(CLIENTES_CUENTA_CORRIENTE)
+      else if (combo === 'f' && a.showAccionesMostrador) a.navigate('/erp/facturas/nueva')
+      else if (combo === 'p') a.navigate('/ventas?tab=presupuestos')
+      else if (combo === 'cj' && (a.canManageCaja || a.showAccionesMostrador)) {
+        a.navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')
+      } else if (combo === 'b') a.onOpenLibrary?.()
+      else if (combo === 'lp') window.dispatchEvent(new Event('plotlab-abrir-precios'))
+    }
+
+    const onKey = (event: KeyboardEvent) => {
+      if (!accionesRef.current.usuario || event.defaultPrevented || event.repeat) return
+      if (event.altKey || event.ctrlKey || event.metaKey) return
+      const target = event.target as HTMLElement | null
+      if (target) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return
+      }
+      const key = event.key.toLowerCase()
+      if (key.length !== 1) return
+
+      if (pendiente.tecla) {
+        const combo = pendiente.tecla + key
+        limpiar()
+        if (combo === 'cl' || combo === 'cc' || combo === 'cj' || combo === 'lp') {
+          event.preventDefault()
+          event.stopPropagation()
+          ir(combo)
+          return
+        }
+      }
+
+      if (key === 'c' || key === 'l') {
+        event.preventDefault()
+        event.stopPropagation()
+        pendiente.tecla = key
+        pendiente.timer = window.setTimeout(() => {
+          const sola = pendiente.tecla
+          pendiente.tecla = ''
+          pendiente.timer = 0
+          if (sola === 'c') accionesRef.current.onAddNewOrder?.()
+          if (sola === 'l') accionesRef.current.onOpenLibrary?.()
+        }, 420)
+        return
+      }
+
+      if (key === 'f' || key === 'p' || key === 'b') {
+        event.preventDefault()
+        event.stopPropagation()
+        ir(key)
+      }
+    }
+
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      limpiar()
+    }
+  }, [compactPhone, isAdmin])
 
   const handleGenerarBriefLink = async () => {
     setCopiandoBrief(true)
@@ -129,6 +219,7 @@ const FiltersBar = ({
       </div>
 
       <div className="filter-grid">
+        <BuscadorPrecios />
         <div className="filter-control">
           <label>Prioridad</label>
           <div className="priority-group">
@@ -176,7 +267,7 @@ const FiltersBar = ({
                     type="button"
                     className="cc-button"
                     onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
-                    title="Cuenta corriente de clientes"
+                    title="Cuenta corriente de clientes (CC)"
                   >
                     CC
                   </button>
@@ -186,7 +277,7 @@ const FiltersBar = ({
                     type="button"
                     className="clientes-button"
                     onClick={() => navigate(CLIENTES_DASHBOARD)}
-                    title="Buscar y editar clientes"
+                    title="Buscar y editar clientes (CL)"
                   >
                     Clientes
                   </button>
@@ -196,7 +287,7 @@ const FiltersBar = ({
                     type="button"
                     className="factura-button"
                     onClick={() => navigate('/erp/facturas/nueva')}
-                    title="Emitir factura electrónica AFIP"
+                    title="Emitir factura electrónica AFIP (F)"
                   >
                     Facturar
                   </button>
@@ -206,7 +297,7 @@ const FiltersBar = ({
                     type="button"
                     className="presupuesto-button"
                     onClick={() => navigate('/ventas?tab=presupuestos')}
-                    title="Ver y crear presupuestos de venta"
+                    title="Ver y crear presupuestos de venta (P)"
                   >
                     Presupuesto
                   </button>
@@ -236,7 +327,7 @@ const FiltersBar = ({
                     type="button"
                     className="caja-button"
                     onClick={() => navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')}
-                    title="Dashboard de caja"
+                    title="Dashboard de caja (CJ)"
                   >
                     Caja
                   </button>
@@ -267,7 +358,7 @@ const FiltersBar = ({
                   type="button"
                   className="library-button"
                   onClick={onOpenLibrary}
-                  title="Bibliotecas de OPs"
+                  title="Bibliotecas de OPs (B)"
                 >
                   <span className="btn-ico" aria-hidden>
                     🔍

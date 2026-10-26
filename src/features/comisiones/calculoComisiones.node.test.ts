@@ -29,32 +29,32 @@ describe('monto comisionable según el momento', () => {
 })
 
 describe('base y comisión', () => {
-  it('el neto saca el IVA', () => {
-    assert.equal(baseComisionable(121000, 'neto', 21), 100000)
+  it('la base es el precio de venta, sin sacar el IVA', () => {
+    assert.equal(baseComisionable(121000, 'neto', 21), 121000)
     assert.equal(baseComisionable(121000, 'total', 21), 121000)
   })
 
-  it('comisión sobre el neto de una venta cobrada', () => {
+  it('comisión sobre el precio de una venta cobrada', () => {
     const r = comisionDeVenta(
       { valor_total: 121000, estado_pago: 'Pagado' },
-      { base: 'neto', momento: 'cobro', alicuotaIva: 21, porcentaje: 3 }
+      { base: 'total', momento: 'cobro', alicuotaIva: 21, porcentaje: 3 }
     )
-    assert.deepEqual(r, { comisionable: 121000, base_monto: 100000, comision: 3000 })
+    assert.deepEqual(r, { comisionable: 121000, base_monto: 121000, comision: 3630 })
   })
 
-  it('cobro parcial comisiona en proporción', () => {
+  it('cobro parcial comisiona en proporción al precio cobrado', () => {
     const r = comisionDeVenta(
       { valor_total: 121000, estado_pago: 'Parcial', monto_pagado: 60500 },
-      { base: 'neto', momento: 'cobro', alicuotaIva: 21, porcentaje: 3 }
+      { base: 'total', momento: 'cobro', alicuotaIva: 21, porcentaje: 3 }
     )
-    assert.equal(r.base_monto, 50000)
-    assert.equal(r.comision, 1500)
+    assert.equal(r.base_monto, 60500)
+    assert.equal(r.comision, 1815)
   })
 
   it('sin porcentaje configurado no hay comisión', () => {
     const r = comisionDeVenta(
       { valor_total: 121000, estado_pago: 'Pagado' },
-      { base: 'neto', momento: 'cobro', alicuotaIva: 21, porcentaje: 0 }
+      { base: 'total', momento: 'cobro', alicuotaIva: 21, porcentaje: 0 }
     )
     assert.equal(r.comision, 0)
   })

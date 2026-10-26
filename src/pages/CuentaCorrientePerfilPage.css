@@ -357,6 +357,8 @@
 .cc-perfil-link {
   color: #93c5fd;
   font-size: 0.8rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .cc-perfil-estado-pago--pendiente {

@@ -34,6 +34,10 @@ export type ComisionVenta = {
   monto_devengado: number
   monto_liquidado: number
   estado: 'pendiente' | 'parcial' | 'liquidada' | 'anulada'
+  nombre_cliente?: string | null
+  estado_pago?: string | null
+  metodo_pago?: string | null
+  monto_pagado?: number | null
 }
 
 export type ComisionResumenVendedor = {
@@ -41,10 +45,23 @@ export type ComisionResumenVendedor = {
   nombre_vendedor: string
   ventas: number
   monto_venta: number
+  monto_cobrado?: number
   base_monto: number
   devengado: number
   liquidado: number
   pendiente: number
+}
+
+export type ComisionMes = {
+  mes: string
+  ventas: number
+  monto_venta: number
+  monto_cobrado?: number
+  base_monto: number
+  devengado: number
+  liquidado: number
+  pendiente: number
+  vendedores: ComisionResumenVendedor[]
 }
 
 export type ComisionLiquidacion = {
@@ -110,10 +127,12 @@ export function recalcularComisiones(desde: string, hasta: string) {
 }
 
 export function listarComisiones(desde: string, hasta: string) {
-  return rpc<{ por_vendedor: ComisionResumenVendedor[]; ventas: ComisionVenta[]; pendiente_total: number }>(
-    'comisiones_listar',
-    { p_desde: desde, p_hasta: hasta }
-  )
+  return rpc<{
+    por_vendedor: ComisionResumenVendedor[]
+    por_mes: ComisionMes[]
+    ventas: ComisionVenta[]
+    pendiente_total: number
+  }>('comisiones_listar', { p_desde: desde, p_hasta: hasta })
 }
 
 export function listarLiquidaciones(limite = 24) {
