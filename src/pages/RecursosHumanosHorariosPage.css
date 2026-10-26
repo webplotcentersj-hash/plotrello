@@ -76,6 +76,15 @@
   flex-wrap: wrap;
 }
 
+.rrhh-filter-mes {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 .rrhh-filter-select,
 .rrhh-date-input {
   padding: 10px 12px;

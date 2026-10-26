@@ -49,8 +49,11 @@ export function exportarLiquidacionMensualXlsx(opts: {
       'HE 100% (hs)': f.extra100,
       'Precio hora': f.precioHora,
       'Sueldo base': f.sueldoBase,
-      'Sueldo en blanco': f.sueldoBlanco,
       'Sueldo sin declarar': f.sueldoSinDeclarar,
+      Ventas: f.ventas,
+      'Plata vendida': f.plataVendida,
+      'OPs que movió': f.opsMovidas,
+      Trabajos: f.trabajos,
       'Horas extra 50% $': f.importeExtra50,
       'Horas extra 100% $': f.importeExtra100,
       'Descuento faltas': f.descuentoFaltas,
@@ -90,8 +93,11 @@ export function exportarLiquidacionMensualXlsx(opts: {
       'HE 100% (hs)': tot.extra100,
       'Precio hora': '',
       'Sueldo base': filas.reduce((a, f) => a + f.sueldoBase, 0),
-      'Sueldo en blanco': filas.reduce((a, f) => a + f.sueldoBlanco, 0),
       'Sueldo sin declarar': filas.reduce((a, f) => a + f.sueldoSinDeclarar, 0),
+      Ventas: filas.reduce((a, f) => a + f.ventas, 0),
+      'Plata vendida': filas.reduce((a, f) => a + f.plataVendida, 0),
+      'OPs que movió': filas.reduce((a, f) => a + f.opsMovidas, 0),
+      Trabajos: filas.reduce((a, f) => a + f.trabajos, 0),
       'Horas extra 50% $': filas.reduce((a, f) => a + f.importeExtra50, 0),
       'Horas extra 100% $': filas.reduce((a, f) => a + f.importeExtra100, 0),
       'Descuento faltas': filas.reduce((a, f) => a + f.descuentoFaltas, 0),
@@ -142,7 +148,7 @@ export function exportarLiquidacionMensualXlsx(opts: {
     Concepto: c.nombre,
     Tipo: c.lado === 'aporte' ? 'Aporte del trabajador' : 'Contribución patronal',
     'Alícuota %': c.porcentaje,
-    'Base': 'Sueldo en blanco'
+    'Base': 'Sueldo base'
   }))
 
   const wb = XLSX.utils.book_new()
@@ -216,7 +222,7 @@ export function exportarLiquidacionMensualPdf(opts: {
   y += 5
   doc.setFontSize(8)
   doc.setTextColor(71, 85, 105)
-  doc.text('Los aportes y las contribuciones se calculan sobre el sueldo en blanco.', margen, y)
+  doc.text('Los aportes y las contribuciones se calculan sobre el sueldo base.', margen, y)
   y += 8
 
   titulo('Resumen', 13)
@@ -263,8 +269,11 @@ export function exportarLiquidacionMensualPdf(opts: {
 
     titulo('Haberes')
     fila('Sueldo base', `$ ${pesos(f.sueldoBase)}`)
-    fila('Sueldo base en blanco', `$ ${pesos(f.sueldoBlanco)}`)
     fila('Sueldo sin declarar', `$ ${pesos(f.sueldoSinDeclarar)}`)
+    fila('Ventas', String(f.ventas))
+    fila('Plata vendida', `$ ${pesos(f.plataVendida)}`)
+    fila('OPs que movió', String(f.opsMovidas))
+    fila('Trabajos en el tablero', String(f.trabajos))
     fila(`Horas extra 50% (${f.extra50.toFixed(1)} hs × $${pesos(f.precioHora)} × 1,5)`, `$ ${pesos(f.importeExtra50)}`)
     fila(`Horas extra 100% (${f.extra100.toFixed(1)} hs × $${pesos(f.precioHora)} × 2)`, `$ ${pesos(f.importeExtra100)}`)
     if (f.domingosVino > 0) {
@@ -274,14 +283,11 @@ export function exportarLiquidacionMensualPdf(opts: {
       fila(`Incluye feriado al doble (${f.horasFeriado.toFixed(1)} hs)`, `$ ${pesos(f.importeFeriado)}`)
     }
     fila('Total haberes', `$ ${pesos(f.haberes)}`, true)
-    if (f.baseDistinta) {
-      parrafo('El sueldo base no coincide con en blanco + sin declarar. El neto usa en blanco + sin declarar.')
-    }
 
     titulo('Descuentos del empleado')
     fila('Faltas (remuneración / 30 × días)', `$ ${pesos(f.descuentoFaltas)}`)
     fila('Tardanzas', `$ ${pesos(f.descuentoTardanzas)}`)
-    titulo('Aportes sobre el sueldo en blanco')
+    titulo('Aportes sobre el sueldo base')
     for (const c of f.aportes) fila(`${c.nombre} (${c.porcentaje}%)`, `$ ${pesos(c.importe)}`)
     fila('Total aportes', `$ ${pesos(f.totalAportes)}`, true)
 

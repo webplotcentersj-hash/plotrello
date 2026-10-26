@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import apiService from '../services/api'
 import type { Asistencia, RrhhNovedad, SolicitudPermiso, UsuarioRecord } from '../types/api'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
+import { supabase } from '../services/supabaseClient'
+import { idOperarioEfectivoHistorial } from '../features/work-pool/workPoolOperarioNotas'
 import {
   LS_VALOR_HORA_EXTRA,
   calcularStatsAsistencia,
@@ -102,6 +104,7 @@ export default function RrhhLiquidacionMensualTab({
   const [precioDefault, setPrecioDefault] = useState(leerPrecioDefault)
   const [abierto, setAbierto] = useState<number | null>(null)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
+  const [actividad, setActividad] = useState<Map<number, { ventas: number; plata: number; ops: number; trabajos: number }>>(new Map())
 
   const dias = useMemo(() => diasEntre(fechaDesde, fechaHasta), [fechaDesde, fechaHasta])
   const mesesEnPeriodo = useMemo(() => [...new Set(dias.map((d) => d.slice(0, 7)))], [dias])
@@ -142,6 +145,68 @@ export default function RrhhLiquidacionMensualTab({
       cancelado = true
     }
   }, [mesesEnPeriodo])
+
+  useEffect(() => {
+    let cancelado = false
+    void (async () => {
+      const [ventasRes, movRes] = await Promise.all([
+        apiService.obtenerVentas(undefined, fechaDesde, fechaHasta, 'todos'),
+        supabase
+          ? supabase
+              .from('historial_movimientos')
+              .select('id_orden, id_usuario, nombre_usuario')
+              .gte('timestamp', `${fechaDesde}T00:00:00-03:00`)
+              .lte('timestamp', `${fechaHasta}T23:59:59.999-03:00`)
+              .limit(8000)
+          : Promise.resolve({ data: [], error: null })
+      ])
+      if (cancelado) return
+      const acum = new Map<number, { ventas: number; plata: number; ops: Set<number>; trabajos: number }>()
+      const slot = (id: number) => {
+        let row = acum.get(id)
+        if (!row) {
+          row = { ventas: 0, plata: 0, ops: new Set(), trabajos: 0 }
+          acum.set(id, row)
+        }
+        return row
+      }
+      for (const venta of ventasRes.success ? ventasRes.data ?? [] : []) {
+        if (!venta.id_vendedor || venta.estado_pago === 'Cancelado') continue
+        const row = slot(venta.id_vendedor)
+        row.ventas += 1
+        row.plata += Number(venta.valor_total) || 0
+      }
+      for (const raw of movRes.data ?? []) {
+        const mov = {
+          id_orden: Number(raw.id_orden),
+          id_usuario: Number(raw.id_usuario),
+          nombre_usuario: (raw.nombre_usuario as string | null) ?? null,
+          timestamp: '',
+          estado_anterior: null,
+          estado_nuevo: null,
+          comentario: null
+        }
+        const id = idOperarioEfectivoHistorial(mov)
+        if (!id) continue
+        const row = slot(id)
+        row.trabajos += 1
+        if (mov.id_orden > 0) row.ops.add(mov.id_orden)
+      }
+      const out = new Map<number, { ventas: number; plata: number; ops: number; trabajos: number }>()
+      for (const [id, row] of acum) {
+        out.set(id, {
+          ventas: row.ventas,
+          plata: Math.round(row.plata * 100) / 100,
+          ops: row.ops.size,
+          trabajos: row.trabajos
+        })
+      }
+      setActividad(out)
+    })()
+    return () => {
+      cancelado = true
+    }
+  }, [fechaDesde, fechaHasta])
 
   const empleados = useMemo(() => {
     const lista = usuarioSeleccionado ? usuarios.filter((u) => u.id === usuarioSeleccionado) : usuarios
@@ -195,8 +260,13 @@ export default function RrhhLiquidacionMensualTab({
         fechaDesde,
         fechaHasta
       })
-    )
-  }, [listo, stats, empleados, nombres, montos, precioDefault, cargas, novedades, permisos, asistencia, horariosPorMes, dias, fechaDesde, fechaHasta])
+    ).map((fila) => {
+      const act = actividad.get(fila.id)
+      return act
+        ? { ...fila, ventas: act.ventas, plataVendida: act.plata, opsMovidas: act.ops, trabajos: act.trabajos }
+        : fila
+    })
+  }, [listo, stats, empleados, nombres, montos, precioDefault, cargas, novedades, permisos, asistencia, horariosPorMes, dias, fechaDesde, fechaHasta, actividad])
 
   const totales = useMemo(() => totalesLiquidacion(filas), [filas])
 
@@ -255,10 +325,10 @@ export default function RrhhLiquidacionMensualTab({
           </p>
         </div>
         <div className="rrhh-asistencia-actions">
-          <button type="button" className="btn-secondary rrhh-btn-oscuro" onClick={exportarPdf} disabled={!filas.length}>
-            PDF
+          <button type="button" className="liq-btn-pdf" onClick={exportarPdf} disabled={!filas.length}>
+            Descargar PDF
           </button>
-          <button type="button" className="btn-secondary rrhh-btn-oscuro" onClick={exportarExcel} disabled={!filas.length}>
+          <button type="button" className="liq-btn-excel" onClick={exportarExcel} disabled={!filas.length}>
             Excel
           </button>
         </div>
@@ -272,7 +342,7 @@ export default function RrhhLiquidacionMensualTab({
         </label>
         <details className="liq-cargas">
           <summary>Cargas sociales del mes</summary>
-          <p>Alícuotas de referencia del régimen general, sin reducción pyme. Se calculan sobre el sueldo en blanco. ART arranca en 0 para que cargues la de la empresa.</p>
+          <p>Alícuotas de referencia del régimen general, sin reducción pyme. Se calculan sobre el sueldo base. ART arranca en 0 para que cargues la de la empresa.</p>
           <div className="liq-cargas-grid">
             {cargas.map((c) => (
               <label key={c.id} className="liq-campo">
@@ -290,6 +360,10 @@ export default function RrhhLiquidacionMensualTab({
           <thead>
             <tr>
               <th>Empleado</th>
+              <th>Ventas</th>
+              <th>Plata</th>
+              <th>OPs</th>
+              <th>Trabajo</th>
               <th>Novedades</th>
               <th>Tardanzas</th>
               <th>Faltas</th>
@@ -298,7 +372,6 @@ export default function RrhhLiquidacionMensualTab({
               <th>HE 100%</th>
               <th>Precio hora</th>
               <th>Sueldo base</th>
-              <th>En blanco</th>
               <th>Sin declarar</th>
               <th>Neto</th>
             </tr>
@@ -313,8 +386,11 @@ export default function RrhhLiquidacionMensualTab({
                       <button type="button" className="liq-nombre" onClick={() => setAbierto(abierto === f.id ? null : f.id)}>
                         {f.nombre}
                       </button>
-                      {f.baseDistinta && <span className="liq-aviso">Base distinta a blanco + sin declarar</span>}
                     </td>
+                    <td>{f.ventas || '—'}</td>
+                    <td>{f.plataVendida ? formatArs(f.plataVendida) : '—'}</td>
+                    <td>{f.opsMovidas || '—'}</td>
+                    <td>{f.trabajos || '—'}</td>
                     <td>{f.novedades.length}</td>
                     <td>{f.tardanzas}{f.minutosTarde > 0 ? <span className="liq-sub"> {f.minutosTarde} min</span> : null}</td>
                     <td>{f.faltas}</td>
@@ -328,16 +404,13 @@ export default function RrhhLiquidacionMensualTab({
                       <Numero className="liq-num" value={m.sueldoBase} placeholder="0" onCommit={(n) => cambiarMonto(f.id, 'sueldoBase', String(n))} />
                     </td>
                     <td>
-                      <Numero className="liq-num" value={m.sueldoBlanco} placeholder="0" onCommit={(n) => cambiarMonto(f.id, 'sueldoBlanco', String(n))} />
-                    </td>
-                    <td>
                       <Numero className="liq-num" value={m.sueldoSinDeclarar} placeholder="0" onCommit={(n) => cambiarMonto(f.id, 'sueldoSinDeclarar', String(n))} />
                     </td>
                     <td className="liq-neto">{f.neto ? formatArs(f.neto) : '—'}</td>
                   </tr>
                   {abierto === f.id && (
                     <tr className="liq-detalle">
-                      <td colSpan={12}>
+                      <td colSpan={15}>
                         <div className="liq-detalle-grid">
                           <section>
                             <h3>Novedades</h3>
@@ -379,6 +452,8 @@ export default function RrhhLiquidacionMensualTab({
                           </section>
                           <section>
                             <h3>Haberes y descuentos</h3>
+                            <p>Ventas: {f.ventas}. Plata vendida: {formatArs(f.plataVendida)}.</p>
+                            <p>OPs que movió: {f.opsMovidas}. Movimientos de trabajo: {f.trabajos}.</p>
                             <p>Horas extra 50%: {formatArs(f.importeExtra50)}</p>
                             <p>Horas extra 100%: {formatArs(f.importeExtra100)}</p>
                             <p>Descuento faltas: {formatArs(f.descuentoFaltas)}</p>
@@ -408,13 +483,16 @@ export default function RrhhLiquidacionMensualTab({
             <tfoot>
               <tr>
                 <td>Total</td>
+                <td>{filas.reduce((a, f) => a + f.ventas, 0)}</td>
+                <td>{formatArs(filas.reduce((a, f) => a + f.plataVendida, 0))}</td>
+                <td>{filas.reduce((a, f) => a + f.opsMovidas, 0)}</td>
+                <td>{filas.reduce((a, f) => a + f.trabajos, 0)}</td>
                 <td>{filas.reduce((a, f) => a + f.novedades.length, 0)}</td>
                 <td>{totales.tardanzas}</td>
                 <td>{totales.faltas}</td>
                 <td>{totales.permisos}</td>
                 <td>{totales.extra50.toFixed(1)}</td>
                 <td>{totales.extra100.toFixed(1)}</td>
-                <td />
                 <td />
                 <td />
                 <td />

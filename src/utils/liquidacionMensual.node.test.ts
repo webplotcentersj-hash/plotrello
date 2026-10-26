@@ -32,12 +32,12 @@ describe('liquidación mensual', () => {
     assert.equal(descuentoPorFaltas(2, 300000, 1000), 20000)
   })
 
-  it('arma el neto con extras, faltas y aportes solo sobre el blanco', () => {
+  it('arma el neto con extras, faltas y aportes sobre el sueldo base', () => {
     const fila = armarLiquidacionEmpleado({
       id: 1,
       nombre: 'Ana',
       stats: stats({ ausencias: 1, tardanzas: 1, minutosTardeTotal: 60, extra50: 2, extra100: 1 }),
-      montos: { precioHora: 1000, sueldoBase: 300000, sueldoBlanco: 200000, sueldoSinDeclarar: 100000 },
+      montos: { precioHora: 1000, sueldoBase: 300000, sueldoBlanco: 0, sueldoSinDeclarar: 0 },
       precioHoraDefault: 0,
       cargas: CARGAS_SOCIALES_DEFAULT,
       novedades: [],
@@ -51,9 +51,9 @@ describe('liquidación mensual', () => {
     assert.equal(fila.importeExtra100, 2000)
     assert.equal(fila.descuentoFaltas, 10000)
     assert.equal(fila.descuentoTardanzas, 1000)
-    assert.equal(fila.totalAportes, 34000)
+    assert.equal(fila.totalAportes, 51000)
     assert.equal(fila.haberes, 305000)
-    assert.equal(fila.neto, 260000)
+    assert.equal(fila.neto, 243000)
     assert.equal(fila.contribuciones.find((c) => c.id === 'co-art')?.importe, 0)
     assert.ok(fila.totalContribuciones > 0)
   })

@@ -26,7 +26,7 @@ import {
   novedadEnDia
 } from '../utils/rrhhNovedadDates'
 import { etiquetaCodigoRrhhNovedad } from '../utils/rrhhNovedadCatalog'
-import { asistenciaHoraCorta } from '../utils/dateUtils'
+import { asistenciaHoraCorta, getArgentinaDateString } from '../utils/dateUtils'
 import {
   joinAsistenciaObservaciones,
   parseAsistenciaObservaciones,
@@ -105,6 +105,13 @@ const RecursosHumanosHorariosPage = () => {
       loadPermisos()
     }
   }, [activeTab, usuarioSeleccionado])
+
+  useEffect(() => {
+    if (activeTab !== 'liquidacion') return
+    const mes = getArgentinaDateString().slice(0, 7)
+    setFechaDesde(`${mes}-01`)
+    setFechaHasta(ultimoDiaMes(mes))
+  }, [activeTab])
 
   useEffect(() => {
     if (activeTab === 'asistencia' || activeTab === 'liquidacion') {
@@ -241,7 +248,7 @@ const RecursosHumanosHorariosPage = () => {
         </div>
 
         {/* Filtros */}
-        {(activeTab === 'asistencia' || activeTab === 'liquidacion') && (
+        {activeTab === 'asistencia' && (
         <div className="rrhh-filters-section">
           <select
             value={usuarioSeleccionado || ''}
@@ -250,7 +257,7 @@ const RecursosHumanosHorariosPage = () => {
           >
             <option value="">Todos los usuarios</option>
             {usuarios.map(u => (
-              <option key={u.id} value={u.id}>{u.nombre}</option>
+              <option key={u.id} value={u.id}>{etiquetaUsuarioNombre(u.nombre, u.id)}</option>
             ))}
           </select>
           <input
@@ -265,6 +272,47 @@ const RecursosHumanosHorariosPage = () => {
             onChange={(e) => setFechaHasta(e.target.value)}
             className="rrhh-date-input"
           />
+        </div>
+        )}
+
+        {activeTab === 'liquidacion' && (
+        <div className="rrhh-filters-section">
+          <label className="rrhh-filter-mes">
+            Mes
+            <input
+              type="month"
+              className="rrhh-date-input"
+              value={fechaDesde.slice(0, 7)}
+              onChange={(e) => {
+                const mes = e.target.value
+                if (!mes) return
+                setFechaDesde(`${mes}-01`)
+                setFechaHasta(ultimoDiaMes(mes))
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn-secondary rrhh-btn-oscuro"
+            onClick={() => {
+              const hoy = getArgentinaDateString()
+              const mes = hoy.slice(0, 7)
+              setFechaDesde(`${mes}-01`)
+              setFechaHasta(ultimoDiaMes(mes))
+            }}
+          >
+            Mes actual
+          </button>
+          <select
+            value={usuarioSeleccionado || ''}
+            onChange={(e) => setUsuarioSeleccionado(e.target.value ? parseInt(e.target.value) : null)}
+            className="rrhh-filter-select"
+          >
+            <option value="">Todos los empleados</option>
+            {usuarios.map(u => (
+              <option key={u.id} value={u.id}>{etiquetaUsuarioNombre(u.nombre, u.id)}</option>
+            ))}
+          </select>
         </div>
         )}
 

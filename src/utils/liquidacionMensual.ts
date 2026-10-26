@@ -69,6 +69,10 @@ export type LiquidacionEmpleado = {
   noTrabajaVino: number
   diasJustificados: number
   permisos: LineaPermisoLiquidacion[]
+  ventas: number
+  plataVendida: number
+  opsMovidas: number
+  trabajos: number
   extra50: number
   extra100: number
   precioHora: number
@@ -216,9 +220,7 @@ export function guardarMesLiquidacion(
 }
 
 export function remuneracionPactada(m: MontosLiquidacion): number {
-  const partes = m.sueldoBlanco + m.sueldoSinDeclarar
-  if (partes > 0) return round2(partes)
-  return round2(m.sueldoBase)
+  return round2(m.sueldoBase + m.sueldoSinDeclarar)
 }
 
 export function descuentoPorFaltas(faltas: number, remuneracion: number, precioHora: number): number {
@@ -355,14 +357,14 @@ export function armarLiquidacionEmpleado(params: {
   const minutosTarde = stats?.minutosTardeTotal ?? 0
   const descuentoFaltas = descuentoPorFaltas(faltas, remuneracion, precioHora)
   const descuentoTardanzas = descuentoPorTardanzas(minutosTarde, remuneracion, precioHora)
-  const blanco = params.montos.sueldoBlanco
+  const baseImponible = params.montos.sueldoBase
 
   const items = params.cargas.map((c) => ({
     id: c.id,
     nombre: c.nombre,
     lado: c.lado,
     porcentaje: c.porcentaje,
-    importe: round2(blanco * (c.porcentaje / 100))
+    importe: round2(baseImponible * (c.porcentaje / 100))
   }))
   const aportes = items.filter((c) => c.lado === 'aporte')
   const contribuciones = items.filter((c) => c.lado === 'contribucion')
@@ -399,8 +401,7 @@ export function armarLiquidacionEmpleado(params: {
       dias: p.dias_solicitados
     }))
 
-  const partes = round2(params.montos.sueldoBlanco + params.montos.sueldoSinDeclarar)
-  const baseDistinta = params.montos.sueldoBase > 0 && partes > 0 && Math.abs(partes - params.montos.sueldoBase) > 0.5
+  const baseDistinta = false
 
   return {
     id: params.id,
@@ -423,11 +424,15 @@ export function armarLiquidacionEmpleado(params: {
     noTrabajaVino,
     diasJustificados: stats?.justificados ?? 0,
     permisos,
+    ventas: 0,
+    plataVendida: 0,
+    opsMovidas: 0,
+    trabajos: 0,
     extra50,
     extra100,
     precioHora,
     sueldoBase: params.montos.sueldoBase,
-    sueldoBlanco: blanco,
+    sueldoBlanco: params.montos.sueldoBlanco,
     sueldoSinDeclarar: params.montos.sueldoSinDeclarar,
     importeExtra50,
     importeExtra100,
