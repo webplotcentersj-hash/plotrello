@@ -312,6 +312,8 @@ const BuscarClientePage = () => {
     setDraft(null)
   }
 
+  const buscando = debouncedTerm.length >= MIN_BUSQUEDA
+
   return (
     <div className="buscar-cliente-page">
       <header className="bc-header">

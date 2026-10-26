@@ -22,7 +22,7 @@ type Props = {
   sector: InventarioSectorId
 }
 
-const emptyItem = (sector: InventarioSectorId) => ({
+const emptyItem = () => ({
   categoria: '',
   marca: '',
   descripcion: '',
@@ -41,7 +41,7 @@ export default function SectorInventarioPage({ sector }: Props) {
   const [creating, setCreating] = useState(false)
   const [search, setSearch] = useState('')
   const [mensaje, setMensaje] = useState<string | null>(null)
-  const [nuevo, setNuevo] = useState(emptyItem(sector))
+  const [nuevo, setNuevo] = useState(emptyItem())
 
   const puedeVer =
     isAdmin ||
@@ -112,7 +112,7 @@ export default function SectorInventarioPage({ sector }: Props) {
       if (err) setError(err.message)
       else if (data) {
         setItems((prev) => [...prev, data as InventarioItem])
-        setNuevo(emptyItem(sector))
+        setNuevo(emptyItem())
         setMensaje('Insumo agregado.')
       }
     } finally {
