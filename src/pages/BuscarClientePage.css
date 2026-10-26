@@ -135,12 +135,19 @@
   gap: 8px;
 }
 
+.bc-cliente-item {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .bc-cliente-row {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 14px 16px;
   text-align: left;
   background: var(--bc-card);
@@ -151,6 +158,102 @@
   transition:
     border-color 0.2s,
     background 0.2s;
+}
+
+.bc-cliente-edit {
+  flex: none;
+  align-self: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  background: rgba(59, 130, 246, 0.16);
+  color: #dbeafe;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bc-cliente-edit:hover {
+  background: rgba(59, 130, 246, 0.32);
+}
+
+.bc-edit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.72);
+}
+
+.bc-edit {
+  width: min(640px, 100%);
+  max-height: min(88vh, 760px);
+  overflow: auto;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--bc-border);
+  background: #0f172a;
+  color: var(--bc-text);
+}
+
+.bc-edit__head,
+.bc-edit__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bc-edit__head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.bc-edit__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.bc-edit__wide {
+  grid-column: 1 / -1;
+}
+
+.bc-edit label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.bc-edit input,
+.bc-edit select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--bc-border);
+  background: rgba(15, 23, 42, 0.8);
+  color: #f8fafc;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.bc-edit__error {
+  margin: 0 0 12px;
+  color: #fca5a5;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .bc-edit__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .bc-cliente-row:hover {

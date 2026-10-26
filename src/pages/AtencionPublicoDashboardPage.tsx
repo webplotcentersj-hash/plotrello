@@ -7,7 +7,10 @@ import './AtencionPublicoDashboardPage.css'
 import AtencionSatisfaccionPanel from '../components/AtencionSatisfaccionPanel'
 import { buildWhatsappLink } from '../utils/whatsappLink'
 import { renderTextoConWhatsapp } from '../utils/renderTextoConWhatsapp'
-import { nombreClienteAtencionVisible } from '../utils/atencionClienteDisplay'
+import {
+  nombreClienteAtencionVisible,
+  telefonoWhatsappAtencionVisible
+} from '../utils/atencionClienteDisplay'
 import {
   buildEmbedPageSnippet,
   buildEmbedWidgetSnippet,
@@ -42,6 +45,13 @@ function mensajesSinLeer(c: Conversacion): number {
   if (c.visto_por_staff_at) return 0
   const hist = c.historial_mensajes ?? []
   return hist.filter((m) => m.role === 'user').length
+}
+
+function conversacionTieneWhatsapp(c: Conversacion | ConversacionDetalle): boolean {
+  return Boolean(
+    telefonoWhatsappAtencionVisible(c) ||
+      c.cliente_whatsapp_link?.includes('wa.me')
+  )
 }
 
 function tiempoRelativo(dateStr: string): string {
@@ -130,9 +140,10 @@ const AtencionPublicoDashboardPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { canAccessAtencionPublico, usuario } = useAuth()
-  const [activeTab, setActiveTab] = useState<'mensajes' | 'reclamos' | 'satisfaccion'>(() => {
+  const [activeTab, setActiveTab] = useState<'mensajes' | 'whatsapp' | 'reclamos' | 'satisfaccion'>(() => {
     try {
       const t = new URLSearchParams(window.location.search).get('tab')
+      if (t === 'whatsapp') return 'whatsapp'
       if (t === 'reclamos') return 'reclamos'
       if (t === 'satisfaccion') return 'satisfaccion'
     } catch {
@@ -140,6 +151,8 @@ const AtencionPublicoDashboardPage = () => {
     }
     return 'mensajes'
   })
+  /** Si true, al responder se guarda en el chat y se abre WhatsApp con el texto. */
+  const [replyViaWhatsapp, setReplyViaWhatsapp] = useState(false)
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([])
   const [reclamos, setReclamos] = useState<Reclamo[]>([])
   const [loadingConv, setLoadingConv] = useState(false)
@@ -303,7 +316,10 @@ const AtencionPublicoDashboardPage = () => {
     const sid = searchParams.get('solicitud_chat')
     const cid = searchParams.get('conversacion')
     const tab = searchParams.get('tab')
-    if (tab === 'reclamos') {
+    if (tab === 'whatsapp') {
+      setActiveTab('whatsapp')
+      setReplyViaWhatsapp(true)
+    } else if (tab === 'reclamos') {
       setActiveTab('reclamos')
     } else if (tab === 'satisfaccion') {
       setActiveTab('satisfaccion')
@@ -349,7 +365,8 @@ const AtencionPublicoDashboardPage = () => {
     setSolicitudChat(null)
   }
 
-  const openConversacion = (id: number) => {
+  const openConversacion = (id: number, opts?: { whatsapp?: boolean }) => {
+    setReplyViaWhatsapp(!!opts?.whatsapp || activeTab === 'whatsapp')
     setModalConversacionId(id)
   }
 
@@ -361,19 +378,29 @@ const AtencionPublicoDashboardPage = () => {
     setModalConversacionId(null)
     setConversacionDetalle(null)
     setReplyConversacionText('')
+    if (activeTab !== 'whatsapp') setReplyViaWhatsapp(false)
   }
 
-  const sendReplyConversacion = async () => {
+  const sendReplyConversacion = async (opts?: { viaWhatsapp?: boolean }) => {
     if (!conversacionDetalle || !replyConversacionText.trim() || sendingReplyConversacion) return
+    const texto = replyConversacionText.trim()
+    const viaWa = opts?.viaWhatsapp ?? replyViaWhatsapp
     setSendingReplyConversacion(true)
     try {
       const res = await apiService.addRespuestaConversacionAtencion(conversacionDetalle.id, {
         autor: usuario?.nombre || 'Equipo',
-        texto: replyConversacionText.trim()
+        texto
       })
       if (res.success) {
         setReplyConversacionText('')
         await loadConversacionDetalle(conversacionDetalle.id)
+        if (viaWa) {
+          const tel =
+            telefonoWhatsappAtencionVisible(conversacionDetalle) ||
+            conversacionDetalle.cliente_telefono
+          const wa = buildWhatsappLink(tel, texto)
+          if (wa) window.open(wa, '_blank', 'noopener,noreferrer')
+        }
       }
     } finally {
       setSendingReplyConversacion(false)
@@ -411,6 +438,35 @@ const AtencionPublicoDashboardPage = () => {
         (c.canal || '').toLowerCase().includes(qb)
     )
   }, [conversacionesBiblioteca, searchBiblioteca])
+
+  const conversacionesWhatsapp = useMemo(
+    () => conversaciones.filter(conversacionTieneWhatsapp),
+    [conversaciones]
+  )
+
+  const { whatsappHoy, whatsappBiblioteca } = useMemo(() => {
+    const hoy: Conversacion[] = []
+    const bib: Conversacion[] = []
+    for (const c of conversacionesWhatsapp) {
+      const match =
+        !q ||
+        nombreClienteAtencionVisible(c).toLowerCase().includes(q) ||
+        (c.cliente_email || '').toLowerCase().includes(q) ||
+        (c.cliente_telefono || '').includes(q.replace(/\D/g, '')) ||
+        (c.ultimo_mensaje_preview || '').toLowerCase().includes(q)
+      if (!match) continue
+      if (isToday(c.updated_at)) hoy.push(c)
+      else bib.push(c)
+    }
+    hoy.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    bib.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    return { whatsappHoy: hoy, whatsappBiblioteca: bib }
+  }, [conversacionesWhatsapp, q])
+
+  const whatsappSinLeer = useMemo(
+    () => conversacionesWhatsapp.filter((c) => !c.visto_por_staff_at).length,
+    [conversacionesWhatsapp]
+  )
 
   const reclamosFiltrados = useMemo(() => {
     let list = reclamos
@@ -479,7 +535,7 @@ const AtencionPublicoDashboardPage = () => {
             <div>
               <h1>Atención al público</h1>
               <p className="atencion-publico-subtitle">
-                Conversaciones del chat web, solicitudes de contacto, reclamos y encuestas de satisfacción.
+                Chat web, WhatsApp, solicitudes de contacto, reclamos y encuestas de satisfacción.
               </p>
             </div>
           </div>
@@ -610,9 +666,53 @@ const AtencionPublicoDashboardPage = () => {
                     {(!conversacionDetalle.historial_mensajes?.length && !conversacionDetalle.respuestas_staff?.length) && <p className="atencion-publico-empty">Sin mensajes.</p>}
                   </div>
                   <div className="atencion-publico-conversacion-reply">
-                    <label className="atencion-publico-reply-label">Responder al cliente</label>
-                    <textarea placeholder="Escribí tu respuesta..." value={replyConversacionText} onChange={(e) => setReplyConversacionText(e.target.value)} className="atencion-publico-reply-input" rows={3} disabled={sendingReplyConversacion} />
-                    <button type="button" className="atencion-publico-reply-send" onClick={sendReplyConversacion} disabled={sendingReplyConversacion || !replyConversacionText.trim()}>{sendingReplyConversacion ? 'Enviando...' : 'Enviar'}</button>
+                    <label className="atencion-publico-reply-label">
+                      {replyViaWhatsapp && conversacionTieneWhatsapp(conversacionDetalle)
+                        ? 'Responder por WhatsApp'
+                        : 'Responder al cliente'}
+                    </label>
+                    {replyViaWhatsapp && conversacionTieneWhatsapp(conversacionDetalle) ? (
+                      <p className="atencion-publico-reply-hint">
+                        Se guarda en el historial del chat y se abre WhatsApp con el mensaje listo para enviar.
+                      </p>
+                    ) : null}
+                    <textarea
+                      placeholder="Escribí tu respuesta..."
+                      value={replyConversacionText}
+                      onChange={(e) => setReplyConversacionText(e.target.value)}
+                      className="atencion-publico-reply-input"
+                      rows={3}
+                      disabled={sendingReplyConversacion}
+                    />
+                    <div className="atencion-publico-reply-actions">
+                      <button
+                        type="button"
+                        className="atencion-publico-reply-send"
+                        onClick={() =>
+                          void sendReplyConversacion({
+                            viaWhatsapp:
+                              replyViaWhatsapp && conversacionTieneWhatsapp(conversacionDetalle)
+                          })
+                        }
+                        disabled={sendingReplyConversacion || !replyConversacionText.trim()}
+                      >
+                        {sendingReplyConversacion
+                          ? 'Enviando...'
+                          : replyViaWhatsapp && conversacionTieneWhatsapp(conversacionDetalle)
+                            ? 'Enviar por WhatsApp'
+                            : 'Enviar'}
+                      </button>
+                      {!replyViaWhatsapp && conversacionTieneWhatsapp(conversacionDetalle) ? (
+                        <button
+                          type="button"
+                          className="atencion-publico-reply-send atencion-publico-reply-send--wa"
+                          onClick={() => void sendReplyConversacion({ viaWhatsapp: true })}
+                          disabled={sendingReplyConversacion || !replyConversacionText.trim()}
+                        >
+                          WhatsApp
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </>
               ) : (
@@ -632,6 +732,7 @@ const AtencionPublicoDashboardPage = () => {
               className={`atencion-publico-tab ${activeTab === 'mensajes' ? 'active' : ''}`}
               onClick={() => {
                 setActiveTab('mensajes')
+                setReplyViaWhatsapp(false)
                 setSearchParams((p) => {
                   p.delete('tab')
                   return p
@@ -639,6 +740,25 @@ const AtencionPublicoDashboardPage = () => {
               }}
             >
               💬 Mensajes y conversaciones
+            </button>
+            <button
+              type="button"
+              className={`atencion-publico-tab ${activeTab === 'whatsapp' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('whatsapp')
+                setReplyViaWhatsapp(true)
+                setSearchParams((p) => {
+                  p.set('tab', 'whatsapp')
+                  return p
+                })
+              }}
+            >
+              WhatsApp
+              {whatsappSinLeer > 0 ? (
+                <span className="atencion-publico-tab-badge" title="Sin leer">
+                  {whatsappSinLeer}
+                </span>
+              ) : null}
             </button>
             <button
               type="button"
@@ -667,6 +787,122 @@ const AtencionPublicoDashboardPage = () => {
               ⭐ Satisfacción cliente
             </button>
           </div>
+
+          {activeTab === 'whatsapp' && (
+            <div className="atencion-publico-content">
+              <p className="atencion-publico-whatsapp-intro">
+                Conversaciones con teléfono/WhatsApp. Respondé acá con la misma lógica del chat: se guarda
+                el historial y se abre WhatsApp para mandar el mensaje al cliente.
+              </p>
+              <div className="atencion-publico-search-row">
+                <input
+                  type="search"
+                  placeholder="Buscar por nombre, teléfono o mensaje..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="atencion-publico-search"
+                  aria-label="Buscar conversaciones de WhatsApp"
+                />
+              </div>
+              {loadingConv ? (
+                <div className="atencion-publico-loading">Cargando...</div>
+              ) : conversacionesWhatsapp.length === 0 ? (
+                <div className="atencion-publico-empty">
+                  <p>
+                    Todavía no hay conversaciones con WhatsApp. Cuando el cliente deja su número en el chat
+                    web o tótem, aparecen acá.
+                  </p>
+                </div>
+              ) : whatsappHoy.length === 0 && whatsappBiblioteca.length === 0 ? (
+                <div className="atencion-publico-empty">
+                  <p>No hay resultados para &quot;{searchQuery}&quot;.</p>
+                </div>
+              ) : (
+                <>
+                  {whatsappHoy.length > 0 && (
+                    <div className="atencion-publico-block">
+                      <h4 className="atencion-publico-block-title">
+                        <span className="atencion-publico-live-dot" aria-hidden /> Hoy
+                      </h4>
+                      <ul className="atencion-publico-list">
+                        {whatsappHoy.map((c) => {
+                          const tel = telefonoWhatsappAtencionVisible(c)
+                          return (
+                            <li
+                              key={c.id}
+                              className={`atencion-publico-list-item atencion-publico-list-item-clickable atencion-publico-list-item-live${(c.respuestas_staff?.length ?? 0) > 0 ? ' atencion-publico-list-item-staff' : ''}`}
+                              onClick={() => openConversacion(c.id, { whatsapp: true })}
+                              onKeyDown={(e) => e.key === 'Enter' && openConversacion(c.id, { whatsapp: true })}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              <div className="atencion-publico-item-header">
+                                <span className="atencion-publico-item-nombre">{nombreClienteAtencionVisible(c)}</span>
+                                {tel ? (
+                                  <span className="atencion-publico-badge atencion-publico-badge-wa">{tel}</span>
+                                ) : null}
+                                {!c.visto_por_staff_at && (
+                                  <span className="atencion-publico-badge atencion-publico-badge-no-leido" title="No abierto por el staff">
+                                    ● No leído{mensajesSinLeer(c) > 0 ? ` (${mensajesSinLeer(c)})` : ''}
+                                  </span>
+                                )}
+                                {clienteEnLinea(c.updated_at) && (
+                                  <span className="atencion-publico-badge atencion-publico-badge-online" title="Cliente activo recientemente">En línea</span>
+                                )}
+                                <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
+                              </div>
+                              {c.ultimo_mensaje_preview && (
+                                <p className="atencion-publico-item-preview">{c.ultimo_mensaje_preview}</p>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                  {whatsappBiblioteca.length > 0 && (
+                    <div className="atencion-publico-block atencion-publico-block-biblioteca">
+                      <h4 className="atencion-publico-block-title">
+                        Anteriores
+                        <span className="atencion-publico-block-count">({whatsappBiblioteca.length})</span>
+                      </h4>
+                      <ul className="atencion-publico-list">
+                        {whatsappBiblioteca.map((c) => {
+                          const tel = telefonoWhatsappAtencionVisible(c)
+                          return (
+                            <li
+                              key={c.id}
+                              className={`atencion-publico-list-item atencion-publico-list-item-clickable${(c.respuestas_staff?.length ?? 0) > 0 ? ' atencion-publico-list-item-staff' : ''}`}
+                              onClick={() => openConversacion(c.id, { whatsapp: true })}
+                              onKeyDown={(e) => e.key === 'Enter' && openConversacion(c.id, { whatsapp: true })}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              <div className="atencion-publico-item-header">
+                                <span className="atencion-publico-item-nombre">{nombreClienteAtencionVisible(c)}</span>
+                                {tel ? (
+                                  <span className="atencion-publico-badge atencion-publico-badge-wa">{tel}</span>
+                                ) : null}
+                                {!c.visto_por_staff_at && (
+                                  <span className="atencion-publico-badge atencion-publico-badge-no-leido" title="No abierto por el staff">
+                                    ● No leído{mensajesSinLeer(c) > 0 ? ` (${mensajesSinLeer(c)})` : ''}
+                                  </span>
+                                )}
+                                <span className="atencion-publico-item-time">{tiempoRelativo(c.updated_at)}</span>
+                              </div>
+                              {c.ultimo_mensaje_preview && (
+                                <p className="atencion-publico-item-preview">{c.ultimo_mensaje_preview}</p>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {activeTab === 'mensajes' && (
             <div className="atencion-publico-content">

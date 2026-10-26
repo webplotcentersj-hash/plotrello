@@ -31,6 +31,20 @@ const GestionStockPage = () => {
   const [loadingProveedores, setLoadingProveedores] = useState(false)
   
   const sectores = ['Todos', 'Gral', 'Imprenta', 'Mostrador', 'Taller', 'Compras']
+  const sectorIcono: Record<string, string> = {
+    Todos: '📦',
+    Gral: '📁',
+    Imprenta: '🖨️',
+    Mostrador: '🖥️',
+    Taller: '🔧',
+    Compras: '🛒'
+  }
+  const inventariosSector = [
+    { id: 'metal', label: 'Inventario Metalúrgica', icon: '⚙️', to: '/metalurgica/inventario' },
+    { id: 'tg', label: 'Inventario Taller Gráfico', icon: '🧴', to: '/taller-grafico/inventario' },
+    { id: 'ti', label: 'Inventario Taller de Imprenta', icon: '🖨️', to: '/taller-imprenta/inventario' },
+    { id: 'mostrador', label: 'Inventario Mostrador', icon: '🖥️', to: '/mostrador/inventario' }
+  ]
 
   useEffect(() => {
     if (authLoading) return
@@ -290,13 +304,19 @@ const GestionStockPage = () => {
                 className={`sector-btn ${filtroSector === sector ? 'active' : ''}`}
                 onClick={() => setFiltroSector(sector)}
               >
-                {sector === 'Todos' && '📦'}
-                {sector === 'Gral' && '📁'}
-                {sector === 'Imprenta' && '🖨️'}
-                {sector === 'Mostrador' && '🖥️'}
-                {sector === 'Taller' && '🔧'}
-                {sector === 'Compras' && '🛒'}
-                {sector}
+                {sectorIcono[sector]} {sector}
+              </button>
+            ))}
+          </div>
+          <div className="sector-buttons sector-buttons--inventarios">
+            {inventariosSector.map((inv) => (
+              <button
+                key={inv.id}
+                type="button"
+                className="sector-btn sector-btn--inventario"
+                onClick={() => navigate(inv.to)}
+              >
+                {inv.icon} {inv.label}
               </button>
             ))}
           </div>

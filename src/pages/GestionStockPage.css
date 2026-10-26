@@ -204,6 +204,21 @@
   box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
 }
 
+.sector-buttons--inventarios {
+  margin-top: 10px;
+}
+
+.sector-btn--inventario {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+  color: #d1fae5;
+}
+
+.sector-btn--inventario:hover {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: rgba(52, 211, 153, 0.7);
+}
+
 /* Tabla */
 .articulos-section {
   background: var(--surface-card);

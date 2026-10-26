@@ -1,8 +1,19 @@
 import { useState, useRef, useEffect, useCallback, type MouseEvent } from 'react'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import './TotemChatPage.css'
 import { consumeTotemSeedMessage } from '../utils/totemSeedMessage'
 import { plotLabApiUrl } from '../utils/plotLabApiOrigin'
 import TotemPlotAIRobotStage from '../components/totem/TotemPlotAIRobotStage'
+import {
+  MicIcon,
+  TotemFloatingTags,
+  TotemHeadline,
+  TotemTicker,
+  TotemTopBar,
+  TotemTypingDots,
+  TotemVoiceBars
+} from '../components/totem/TotemChatHud'
+import { SPRING, SPRING_SOFT, loop } from '../components/totem/totemMotion'
 import {
   beginTotemMediaOnGesture,
   isTotemFeatureAllowedByPolicy,
@@ -28,7 +39,44 @@ const IDLE_RESET_MS = 240_000
 
 type TotemState = 'idle' | 'greeting' | 'listening' | 'thinking' | 'speaking'
 
+/** Frases que el cliente puede tocar: arrancan el micrófono y PlotAI ya sabe de qué hablar. */
+const SUGGESTIONS = [
+  { icon: '💰', label: 'Precios de impresión', seed: 'Quiero saber los precios de impresión.' },
+  { icon: '🎨', label: 'Necesito un diseño', seed: 'Necesito un diseño gráfico.' },
+  { icon: '📦', label: 'Estado de mi pedido', seed: 'Quiero consultar el estado de mi pedido.' },
+  { icon: '🖨️', label: 'Imprimir un archivo', seed: 'Quiero imprimir un archivo.' }
+] as const
+
+const STATE_LABEL: Record<Exclude<TotemState, 'idle'>, string> = {
+  greeting: 'CONECTANDO...',
+  listening: 'TE ESCUCHO',
+  thinking: 'UN MOMENTO...',
+  speaking: 'HABLANDO CON VOS'
+}
+
+const DEMO_STATES: TotemState[] = ['idle', 'greeting', 'listening', 'thinking', 'speaking']
+const DEMO_TRANSCRIPT = [
+  { id: -2, who: 'cliente' as const, text: 'Hola, ¿cuánto sale imprimir un banner de dos por uno?' },
+  { id: -1, who: 'plotai' as const, text: '¡Hola! Claro, te ayudo con eso. ¿En qué material lo querés y lo necesitás con ojales?' }
+]
+
+/** Solo en desarrollo: ?robotdemo=listening|thinking|speaking fuerza la pantalla en ese estado. */
+function demoState(): TotemState | null {
+  if (!import.meta.env.DEV) return null
+  const v = new URLSearchParams(window.location.search).get('robotdemo')
+  return v && (DEMO_STATES as string[]).includes(v) ? (v as TotemState) : null
+}
+
 export default function TotemChatPage() {
+  // "user": si la pantalla tiene movimiento reducido, motion deja todo quieto.
+  return (
+    <MotionConfig reducedMotion="user">
+      <TotemChatScreen />
+    </MotionConfig>
+  )
+}
+
+function TotemChatScreen() {
   const [state, setState] = useState<TotemState>('idle')
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -538,11 +586,22 @@ export default function TotemChatPage() {
     resetToIdle()
   }
 
+  const handleSuggestion = (e: MouseEvent, seed: string) => {
+    e.stopPropagation()
+    pendingSeedRef.current = seed
+    handleTapStart()
+  }
+
+  // Solo para mirar la pantalla en cada estado sin hablar de verdad (?robotdemo=listening, etc.)
+  const demo = demoState()
+  const shown: TotemState = demo ?? state
+  const shownTranscript = demo && demo !== 'idle' && transcript.length === 0 ? DEMO_TRANSCRIPT : transcript
+
   return (
     <div
       ref={pageRef}
       className="totem-page"
-      data-state={state}
+      data-state={shown}
       data-live={liveActive ? 'on' : 'off'}
       data-proximity={proximityHint ? 'near' : 'far'}
       data-holo={holo.capable ? 'on' : 'off'}
@@ -576,6 +635,8 @@ export default function TotemChatPage() {
       <div className="totem-bg-glow" aria-hidden />
       <div className="totem-scanline" aria-hidden />
 
+      <TotemTopBar />
+
       <div className="totem-ui">
         <div className="totem-hero">
           <div className="totem-hero-ring totem-hero-ring--outer" aria-hidden />
@@ -588,67 +649,163 @@ export default function TotemChatPage() {
               onHoloChange={handleHoloChange}
             />
           </div>
+          {shown === 'idle' && !holo.active && <TotemFloatingTags />}
         </div>
 
         <div className="totem-panel">
-          <div className="totem-conversation-box">
-            <p className="totem-state totem-state--label">
-              {state === 'idle' && (proximityHint ? 'TE DETECTAMOS — ACTIVÁ EL MICRÓFONO' : 'TOCÁ ACTIVAR MICRÓFONO PARA HABLAR')}
-              {state === 'greeting' && 'CONECTANDO...'}
-              {state === 'listening' && 'TE ESCUCHO'}
-              {state === 'thinking' && 'UN MOMENTO...'}
-              {state === 'speaking' && 'HABLANDO CON VOS'}
-            </p>
-            {state === 'idle' && (
-              <button
-                type="button"
-                className={`totem-tap-cta${proximityHint ? ' totem-tap-cta--proximity' : ''}${micBlocked ? ' totem-tap-cta--blocked' : ''}`}
-                onClick={handleTapStartButton}
-              >
-                {micBlocked ? 'Reintentar micrófono' : 'Activar micrófono'}
-              </button>
-            )}
-            {state !== 'idle' && (
-              <button type="button" className="totem-end-cta" onClick={handleEndSession}>
-                Finalizar conversación
-              </button>
-            )}
-            {state === 'idle' && !cameraWarning && (
-              <p className="totem-idle-camera-hint">
-                {cameraReady
-                  ? proximityHint
-                    ? 'Estás cerca del tótem. Tocá el botón para hablar con PlotAI.'
-                    : 'Cámara activa: te avisamos cuando te acerques.'
-                  : 'Tocá «Activar micrófono» — Chrome pedirá permiso de micrófono y cámara.'}
-              </p>
-            )}
-            {state === 'idle' && cameraWarning && (
-              <p className="totem-camera-warn">{cameraWarning}</p>
-            )}
-            {state === 'speaking' && (
-              <p className="totem-barge-hint">Podés interrumpir hablando cuando quieras.</p>
-            )}
-            {contextHint && state !== 'idle' && (
-              <p className="totem-context-hint">{contextHint}</p>
-            )}
-          </div>
+          <motion.div
+            className="totem-conversation-box"
+            initial={{ opacity: 0, x: 70, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            transition={{ ...SPRING_SOFT, opacity: { duration: 0.5 }, delay: 0.4 }}
+          >
+            <AnimatePresence mode="wait">
+              {shown === 'idle' ? (
+                <motion.div
+                  key="idle"
+                  className="totem-idle"
+                  exit={{ opacity: 0, y: -12, transition: { duration: 0.18 } }}
+                >
+                  <motion.span
+                    className={`totem-eyebrow${proximityHint ? ' totem-eyebrow--near' : ''}`}
+                    initial={{ opacity: 0, x: -24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ ...SPRING_SOFT, opacity: { duration: 0.4 }, delay: 0.5 }}
+                  >
+                    {proximityHint ? 'Te detectamos — activá el micrófono' : 'Asistente virtual'}
+                  </motion.span>
 
-          {(state !== 'idle' || transcript.length > 0) && (
-            <div className="totem-transcript" role="log" aria-live="polite" aria-label="Conversación">
+                  <TotemHeadline line1="¡Hola!" line2="¿En qué te ayudo?" />
+
+                  <motion.p
+                    className="totem-lead"
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ ...SPRING_SOFT, opacity: { duration: 0.4 }, delay: 1 }}
+                  >
+                    Preguntame lo que necesites: precios, el estado de tu pedido o cómo imprimir.
+                  </motion.p>
+
+                  <motion.div
+                    className="totem-cta-row"
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ ...SPRING_SOFT, opacity: { duration: 0.4 }, delay: 1.1 }}
+                  >
+                    <button
+                      type="button"
+                      className={`totem-tap-cta${proximityHint ? ' totem-tap-cta--proximity' : ''}${micBlocked ? ' totem-tap-cta--blocked' : ''}`}
+                      onClick={handleTapStartButton}
+                    >
+                      <span className="totem-tap-cta__mic" aria-hidden>
+                        <motion.span
+                          style={{ display: 'grid' }}
+                          animate={{ rotate: [0, -14, 12, -6, 0], scale: [1, 1.12, 1.12, 1.04, 1] }}
+                          transition={loop(2.4, 0.9, 4.5)}
+                        >
+                          <MicIcon />
+                        </motion.span>
+                      </span>
+                      {micBlocked ? 'Reintentar micrófono' : 'Activar micrófono'}
+                      <motion.span
+                        className="totem-tap-cta__shine"
+                        aria-hidden
+                        style={{ skewX: -18 }}
+                        initial={{ x: '-160%' }}
+                        animate={{ x: ['-160%', '420%'] }}
+                        transition={loop(2, 1.2, 4.5)}
+                      />
+                    </button>
+                    {!cameraWarning && (
+                      <p className="totem-idle-camera-hint">
+                        {cameraReady
+                          ? proximityHint
+                            ? 'Estás cerca del tótem. Tocá el botón para hablar con PlotAI.'
+                            : 'Cámara activa: te avisamos cuando te acerques.'
+                          : 'Tocá «Activar micrófono» — Chrome pedirá permiso de micrófono y cámara.'}
+                      </p>
+                    )}
+                    {cameraWarning && <p className="totem-camera-warn">{cameraWarning}</p>}
+                  </motion.div>
+
+                  <p className="totem-chips-title">Probá preguntar</p>
+                  <div className="totem-chips">
+                    {SUGGESTIONS.map((s, i) => (
+                      <SuggestionChip
+                        key={s.label}
+                        icon={s.icon}
+                        label={s.label}
+                        index={i}
+                        onPick={(e) => handleSuggestion(e, s.seed)}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="active"
+                  className="totem-active"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12, transition: { duration: 0.18 } }}
+                  transition={{ ...SPRING_SOFT, opacity: { duration: 0.3 } }}
+                >
+                  <TotemVoiceBars state={shown} />
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={shown}
+                      className="totem-state totem-state--label"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {STATE_LABEL[shown]}
+                    </motion.p>
+                  </AnimatePresence>
+                  {shown === 'speaking' && (
+                    <p className="totem-barge-hint">Podés interrumpir hablando cuando quieras.</p>
+                  )}
+                  {contextHint && <p className="totem-context-hint">{contextHint}</p>}
+                  <button type="button" className="totem-end-cta" onClick={handleEndSession}>
+                    Finalizar conversación
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          {(shown !== 'idle' || shownTranscript.length > 0) && (
+            <motion.div
+              className="totem-transcript"
+              role="log"
+              aria-live="polite"
+              aria-label="Conversación"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...SPRING_SOFT, opacity: { duration: 0.35 } }}
+            >
               <div className="totem-transcript__head">Conversación</div>
               <div className="totem-transcript__list" ref={transcriptListRef}>
-                {transcript.length === 0 ? (
+                {shownTranscript.length === 0 ? (
                   <p className="totem-transcript__empty">Cuando hables, la charla va a aparecer acá.</p>
                 ) : (
-                  transcript.map((line) => (
-                    <div key={line.id} className={`totem-msg totem-msg--${line.who}`}>
+                  shownTranscript.map((line) => (
+                    <motion.div
+                      key={line.id}
+                      className={`totem-msg totem-msg--${line.who}`}
+                      initial={{ opacity: 0, y: 14, scale: 0.94 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ ...SPRING, opacity: { duration: 0.25 } }}
+                    >
                       <span className="totem-msg__who">{line.who === 'cliente' ? 'Vos' : 'PlotAI'}</span>
                       <p className="totem-msg__text">{line.text}</p>
-                    </div>
+                    </motion.div>
                   ))
                 )}
+                {shown === 'thinking' && <TotemTypingDots />}
               </div>
-            </div>
+            </motion.div>
           )}
 
           {generatedImageUrl && !holo.capable && (
@@ -668,6 +825,46 @@ export default function TotemChatPage() {
           )}
         </div>
       </div>
+
+      <TotemTicker />
     </div>
+  )
+}
+
+/** Sugerencia tocable. La demora de entrada se apaga después, para que el toque responda al instante. */
+function SuggestionChip({
+  icon,
+  label,
+  index,
+  onPick
+}: {
+  icon: string
+  label: string
+  index: number
+  onPick: (e: MouseEvent) => void
+}) {
+  const [entered, setEntered] = useState(false)
+  return (
+    <motion.button
+      type="button"
+      className="totem-chip"
+      initial={{ opacity: 0, y: 26, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ ...SPRING, opacity: { duration: 0.35 }, delay: entered ? 0 : 1.3 + index * 0.1 }}
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.94 }}
+      onAnimationComplete={() => setEntered(true)}
+      onClick={onPick}
+    >
+      <motion.span
+        className="totem-chip__ico"
+        aria-hidden
+        animate={{ rotate: [0, -12, 10, 0], y: [0, -3, 0] }}
+        transition={loop(3.5 + index * 0.7, 0.9, 7)}
+      >
+        {icon}
+      </motion.span>
+      {label}
+    </motion.button>
   )
 }

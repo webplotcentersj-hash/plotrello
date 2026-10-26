@@ -1,0 +1,283 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Share+Tech+Mono&display=swap');
+
+@property --hud-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.hud-clock {
+  --c-main: #22d3ee;
+  --c-soft: rgba(34, 211, 238, 0.55);
+  --c-dim: rgba(34, 211, 238, 0.16);
+  --c-hot: #f97316;
+  --hud-hm: clamp(2.1rem, 5vw, 3.4rem);
+  --hud-ring: clamp(52px, min(6vw, 9vh), 72px);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  box-sizing: border-box;
+  padding: clamp(10px, 1.6vh, 14px) clamp(16px, 2vw, 22px);
+  border-radius: 18px;
+  border: 1px solid var(--c-dim);
+  background: radial-gradient(120% 140% at 0% 0%, rgba(34, 211, 238, 0.14), transparent 55%),
+    radial-gradient(90% 120% at 100% 100%, rgba(249, 115, 22, 0.14), transparent 55%),
+    linear-gradient(160deg, rgba(8, 18, 32, 0.92), rgba(3, 8, 18, 0.88));
+  box-shadow: 0 0 26px rgba(34, 211, 238, 0.14), inset 0 0 28px rgba(34, 211, 238, 0.06);
+}
+
+/* Borde de luz que da la vuelta al panel. */
+.hud-clock::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--hud-angle),
+    transparent 0 62%,
+    rgba(34, 211, 238, 0.95) 80%,
+    #fff 86%,
+    transparent 92% 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: hud-clock-spin 5.5s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes hud-clock-spin {
+  to {
+    --hud-angle: 360deg;
+  }
+}
+
+/* Esquinas tipo mira. */
+.hud-clock__corners {
+  --k: var(--c-main);
+  position: absolute;
+  inset: 5px;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(var(--k), var(--k)) 0 0 / 12px 2px no-repeat,
+    linear-gradient(var(--k), var(--k)) 0 0 / 2px 12px no-repeat,
+    linear-gradient(var(--k), var(--k)) 100% 0 / 12px 2px no-repeat,
+    linear-gradient(var(--k), var(--k)) 100% 0 / 2px 12px no-repeat,
+    linear-gradient(var(--k), var(--k)) 0 100% / 12px 2px no-repeat,
+    linear-gradient(var(--k), var(--k)) 0 100% / 2px 12px no-repeat,
+    linear-gradient(var(--k), var(--k)) 100% 100% / 12px 2px no-repeat,
+    linear-gradient(var(--k), var(--k)) 100% 100% / 2px 12px no-repeat;
+  opacity: 0.75;
+  filter: drop-shadow(0 0 4px var(--c-main));
+}
+
+/* Líneas de escaneo + una barra de luz que baja despacio. */
+.hud-clock__scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px);
+}
+
+.hud-clock__scan::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 38%;
+  top: -40%;
+  background: linear-gradient(180deg, transparent, rgba(34, 211, 238, 0.13), transparent);
+  animation: hud-clock-sweep 4.6s ease-in-out infinite;
+}
+
+@keyframes hud-clock-sweep {
+  0% {
+    top: -40%;
+  }
+  60%,
+  100% {
+    top: 110%;
+  }
+}
+
+.hud-clock__body {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.8vh, 8px);
+}
+
+.hud-clock__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hud-clock__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: clamp(0.6rem, 0.95vw, 0.7rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--c-soft);
+}
+
+.hud-clock__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-hot);
+  box-shadow: 0 0 8px var(--c-hot), 0 0 14px var(--c-hot);
+  animation: hud-clock-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes hud-clock-pulse {
+  50% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+}
+
+.hud-clock__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(10px, 1.6vw, 18px);
+}
+
+.hud-clock__hm {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'Orbitron', system-ui, sans-serif;
+  font-size: var(--hud-hm);
+  font-weight: 800;
+  line-height: 1;
+  color: #e6fbff;
+  text-shadow: 0 0 6px rgba(34, 211, 238, 0.85), 0 0 18px rgba(34, 211, 238, 0.55),
+    0 0 38px rgba(34, 211, 238, 0.3);
+}
+
+/* Ancho fijo por dígito: el reloj no "baila" cuando cambia un 1 por un 8. */
+.hud-digit {
+  display: inline-block;
+  width: 0.78em;
+  text-align: center;
+  vertical-align: top;
+}
+
+.hud-digit__n {
+  display: inline-block;
+  animation: hud-digit-in 0.32s ease-out both;
+}
+
+@keyframes hud-digit-in {
+  from {
+    transform: translateY(-45%);
+    opacity: 0;
+    filter: blur(6px);
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.hud-clock__sep {
+  display: inline-block;
+  width: 0.42em;
+  text-align: center;
+  color: var(--c-hot);
+  text-shadow: 0 0 8px var(--c-hot), 0 0 20px rgba(249, 115, 22, 0.6);
+  transform: translateY(-0.04em);
+  animation: hud-clock-blink 1s steps(1, end) infinite;
+}
+
+@keyframes hud-clock-blink {
+  50% {
+    opacity: 0.12;
+  }
+}
+
+/* Anillo de segundos: 60 marcas que se encienden de a una. */
+.hud-clock__ring {
+  position: relative;
+  flex-shrink: 0;
+  width: var(--hud-ring);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+}
+
+.hud-clock__ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.hud-clock__tick {
+  stroke: rgba(34, 211, 238, 0.2);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  transition: stroke 0.25s ease;
+}
+
+.hud-clock__tick.is-major {
+  stroke: rgba(34, 211, 238, 0.4);
+  stroke-width: 2;
+}
+
+.hud-clock__tick.is-lit {
+  stroke: var(--c-main);
+  filter: drop-shadow(0 0 2px rgba(34, 211, 238, 0.9));
+}
+
+.hud-clock__tick.is-head {
+  stroke: #fff;
+  stroke-width: 2.6;
+  filter: drop-shadow(0 0 3px var(--c-hot)) drop-shadow(0 0 7px var(--c-hot));
+}
+
+.hud-clock__ss {
+  display: inline-flex;
+  font-family: 'Orbitron', system-ui, sans-serif;
+  font-size: calc(var(--hud-ring) * 0.28);
+  font-weight: 700;
+  line-height: 1;
+  color: #ffd9b8;
+  text-shadow: 0 0 6px rgba(249, 115, 22, 0.9), 0 0 16px rgba(249, 115, 22, 0.5);
+}
+
+.hud-clock__date {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: clamp(0.68rem, 1.15vw, 0.82rem);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-align: center;
+  color: rgba(186, 230, 253, 0.85);
+  padding-top: clamp(4px, 0.8vh, 7px);
+  border-top: 1px solid var(--c-dim);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-clock::before,
+  .hud-clock__scan::after,
+  .hud-clock__dot,
+  .hud-clock__sep,
+  .hud-digit__n {
+    animation: none;
+  }
+}

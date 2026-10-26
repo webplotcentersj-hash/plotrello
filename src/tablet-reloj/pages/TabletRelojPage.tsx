@@ -720,13 +720,13 @@ export default function TabletRelojPage() {
   return (
     <div
       ref={pageRef}
-      className={`tablet-reloj-page ${esKiosco ? 'tablet-reloj-page--kiosco' : ''}`}
+      className={`tablet-reloj-page ${esKiosco ? 'tablet-reloj-page--kiosco' : ''}${modo === 'facial' ? ' tablet-reloj-page--facial' : ''}`}
     >
       <header className="tablet-reloj-header">
         <div className="tablet-reloj-header-brand">
           <h1>Reloj Plot Lab</h1>
           <p className="tablet-reloj-sub" title="Hora de Argentina (Buenos Aires)">
-            {relojArgentina}
+            {modo === 'facial' ? 'Terminal biométrica · Reconocimiento facial' : relojArgentina}
           </p>
         </div>
         <div className="tablet-reloj-header-actions">

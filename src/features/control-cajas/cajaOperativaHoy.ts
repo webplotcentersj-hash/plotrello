@@ -2,9 +2,12 @@ import { getArgentinaDateString } from '../../utils/dateUtils'
 import { calcularTotalesCoherentesDia, contarPlanillasDelDia, type TotalesCajaDia } from './cajaCoherencia'
 import { obtenerCajaOperativa } from './cajaOperativa'
 import {
+  CONTEO_MOVIMIENTOS_VACIO,
+  contarMovimientosCaja,
   efectivoTeoricoDia,
   inferirTurnoActivo,
-  ultimosMovimientosDia
+  ultimosMovimientosDia,
+  type ConteoMovimientosCaja
 } from './cajaMenuOperativaData'
 import {
   listArqueos,
@@ -39,6 +42,8 @@ export type CajaEstadoOperativaHoy = {
   totalesDia: TotalesCajaDia | null
   resumenPlotlab: ResumenPlotlabVentasCaja | null
   ultimosMovimientos: CajaMovimiento[]
+  conteoMovimientosHoy: ConteoMovimientosCaja
+  conteoMovimientosHistorico: ConteoMovimientosCaja
   efectivoTeorico: number | null
   turnoActivo: string
 }
@@ -95,6 +100,10 @@ export async function loadEstadoOperativaHoy(
   const cajaRegistro = cajaSlug ? cajas.find((c) => c.slug === cajaSlug) ?? null : null
   const ultimosMovimientos =
     cajaSlug != null ? ultimosMovimientosDia(movimientos, fecha, cajaSlug, 8) : []
+  const conteoMovimientosHoy =
+    cajaSlug != null ? contarMovimientosCaja(movimientos, cajaSlug, fecha) : { ...CONTEO_MOVIMIENTOS_VACIO }
+  const conteoMovimientosHistorico =
+    cajaSlug != null ? contarMovimientosCaja(movimientos, cajaSlug, null) : { ...CONTEO_MOVIMIENTOS_VACIO }
   const efectivoTeorico =
     cajaRegistro != null
       ? efectivoTeoricoDia(movimientos, fecha, cajaRegistro, resumenPlotlab)
@@ -137,6 +146,8 @@ export async function loadEstadoOperativaHoy(
     totalesDia,
     resumenPlotlab,
     ultimosMovimientos,
+    conteoMovimientosHoy,
+    conteoMovimientosHistorico,
     efectivoTeorico,
     turnoActivo
   }

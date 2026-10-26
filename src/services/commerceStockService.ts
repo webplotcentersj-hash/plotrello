@@ -74,6 +74,84 @@ export async function obtenerStockArticulo(
   return { success: true, data: data as ArticuloStock }
 }
 
+async function descontarCantidadDeStock(args: {
+  idStock: number
+  cantidad: number
+  codigo?: string | null
+  descripcion?: string | null
+  nombreProducto: string
+  canal: CanalComercial
+  numeroReferencia?: string | null
+  idPedidoCliente?: number | null
+  idVenta?: number | null
+  idOrdenTrabajo?: number | null
+  permitirStockNegativo?: boolean
+}): Promise<{ success: boolean; data?: DescontarStockComercialResult; error?: string }> {
+  if (!supabase || !stockSupabase) {
+    return { success: false, error: 'Conexión a bases de datos no disponible' }
+  }
+  if (args.cantidad <= 0) {
+    return { success: true, data: { aplicado: false, motivo: 'Cantidad cero' } }
+  }
+
+  const stockRes = await obtenerStockArticulo(args.idStock)
+  if (!stockRes.success || !stockRes.data) {
+    return { success: false, error: stockRes.error || 'No se pudo leer stock' }
+  }
+
+  const articuloStock = stockRes.data
+  const cantidadAnterior = articuloStock.stock ?? 0
+  if (cantidadAnterior < args.cantidad && !args.permitirStockNegativo) {
+    return {
+      success: false,
+      error: `Stock insuficiente para "${articuloStock.descripcion || args.nombreProducto}" (disponible: ${cantidadAnterior}, requerido: ${args.cantidad})`
+    }
+  }
+
+  const cantidadNueva = args.permitirStockNegativo
+    ? cantidadAnterior - args.cantidad
+    : Math.max(0, cantidadAnterior - args.cantidad)
+
+  const { error: updErr } = await stockSupabase
+    .from('articulos')
+    .update({ stock: cantidadNueva })
+    .eq('id', args.idStock)
+  if (updErr) return { success: false, error: updErr.message }
+
+  const { id: userId, nombre: userName } = getCurrentUser()
+  const ref = args.numeroReferencia ? ` · ${args.numeroReferencia}` : ''
+  const movimiento: Record<string, unknown> = {
+    id_articulo_stock: args.idStock,
+    codigo_articulo: articuloStock.codigo || args.codigo || null,
+    descripcion: articuloStock.descripcion || args.descripcion || args.nombreProducto,
+    tipo_movimiento: 'Venta',
+    cantidad: args.cantidad,
+    cantidad_anterior: cantidadAnterior,
+    cantidad_nueva: cantidadNueva,
+    motivo: `Venta canal ${args.canal}${ref} · producto ${args.nombreProducto}`,
+    id_orden_trabajo: args.idOrdenTrabajo ?? null,
+    id_usuario: userId || null,
+    nombre_usuario: userName
+  }
+  if (args.idPedidoCliente) movimiento.id_pedido_cliente = args.idPedidoCliente
+  if (args.idVenta) movimiento.id_venta = args.idVenta
+
+  const { error: movErr } = await supabase.from('stock_movimientos').insert(movimiento)
+  if (movErr) {
+    console.error('[descontarStockComercial] Movimiento no registrado:', movErr.message)
+  }
+
+  return {
+    success: true,
+    data: {
+      aplicado: true,
+      idArticuloStock: args.idStock,
+      cantidadDescontada: args.cantidad,
+      stockRestante: cantidadNueva
+    }
+  }
+}
+
 export async function descontarStockComercial(
   input: DescontarStockComercialInput
 ): Promise<{ success: boolean; data?: DescontarStockComercialResult; error?: string }> {
@@ -93,6 +171,48 @@ export async function descontarStockComercial(
   if (!ae) return { success: false, error: 'Artículo de catálogo no encontrado' }
 
   const articulo = ae as ArticuloEmpresaRecord
+  const modo = articulo.modo_venta || 'ambos'
+  const modoCompra = modo === 'compra' || modo === 'ambos'
+
+  const { data: comps } = await supabase
+    .from('articulos_empresa_composicion')
+    .select('id_articulo_stock, cantidad, codigo_stock, descripcion_stock')
+    .eq('id_articulo', articulo.id)
+
+  if (comps && comps.length) {
+    if (!modoCompra) {
+      return {
+        success: true,
+        data: { aplicado: false, motivo: 'El producto no es venta tipo compra' }
+      }
+    }
+    let ultimo: DescontarStockComercialResult | undefined
+    for (const comp of comps) {
+      const factor = Number((comp as { cantidad?: number }).cantidad) > 0
+        ? Number((comp as { cantidad?: number }).cantidad)
+        : 1
+      const res = await descontarCantidadDeStock({
+        idStock: Number((comp as { id_articulo_stock: number }).id_articulo_stock),
+        cantidad: cantidadStockADescontar(input.cantidadVendida, factor),
+        codigo: (comp as { codigo_stock?: string | null }).codigo_stock,
+        descripcion: (comp as { descripcion_stock?: string | null }).descripcion_stock,
+        nombreProducto: articulo.nombre,
+        canal: input.canal,
+        numeroReferencia: input.numeroReferencia,
+        idPedidoCliente: input.idPedidoCliente,
+        idVenta: input.idVenta,
+        idOrdenTrabajo: input.idOrdenTrabajo,
+        permitirStockNegativo: input.permitirStockNegativo
+      })
+      if (!res.success) return res
+      if (res.data?.aplicado) ultimo = res.data
+    }
+    return {
+      success: true,
+      data: ultimo ?? { aplicado: false, motivo: 'La composición no tiene cantidades' }
+    }
+  }
+
   if (!articuloEmpresaPermiteDescontarStock(articulo)) {
     return {
       success: true,
@@ -109,71 +229,19 @@ export async function descontarStockComercial(
     articulo.unidades_por_venta
   )
 
-  if (cantidadADescontar <= 0) {
-    return { success: true, data: { aplicado: false, motivo: 'Cantidad cero' } }
-  }
-
-  const stockRes = await obtenerStockArticulo(idStock)
-  if (!stockRes.success || !stockRes.data) {
-    return { success: false, error: stockRes.error || 'No se pudo leer stock' }
-  }
-
-  const articuloStock = stockRes.data
-  const cantidadAnterior = articuloStock.stock ?? 0
-
-  if (cantidadAnterior < cantidadADescontar && !input.permitirStockNegativo) {
-    return {
-      success: false,
-      error: `Stock insuficiente para "${articulo.nombre}" (disponible: ${cantidadAnterior}, requerido: ${cantidadADescontar})`
-    }
-  }
-
-  const cantidadNueva = input.permitirStockNegativo
-    ? cantidadAnterior - cantidadADescontar
-    : Math.max(0, cantidadAnterior - cantidadADescontar)
-
-  const { error: updErr } = await stockSupabase
-    .from('articulos')
-    .update({ stock: cantidadNueva })
-    .eq('id', idStock)
-
-  if (updErr) return { success: false, error: updErr.message }
-
-  const { id: userId, nombre: userName } = getCurrentUser()
-  const ref = input.numeroReferencia ? ` · ${input.numeroReferencia}` : ''
-  const motivo = `Venta canal ${input.canal}${ref}`
-
-  const movimiento: Record<string, unknown> = {
-    id_articulo_stock: idStock,
-    codigo_articulo: articuloStock.codigo || articulo.codigo || null,
-    descripcion: articuloStock.descripcion || articulo.nombre,
-    tipo_movimiento: 'Venta',
+  return descontarCantidadDeStock({
+    idStock,
     cantidad: cantidadADescontar,
-    cantidad_anterior: cantidadAnterior,
-    cantidad_nueva: cantidadNueva,
-    motivo,
-    id_orden_trabajo: input.idOrdenTrabajo ?? null,
-    id_usuario: userId || null,
-    nombre_usuario: userName
-  }
-
-  if (input.idPedidoCliente) movimiento.id_pedido_cliente = input.idPedidoCliente
-  if (input.idVenta) movimiento.id_venta = input.idVenta
-
-  const { error: movErr } = await supabase.from('stock_movimientos').insert(movimiento)
-  if (movErr) {
-    console.error('[descontarStockComercial] Movimiento no registrado:', movErr.message)
-  }
-
-  return {
-    success: true,
-    data: {
-      aplicado: true,
-      idArticuloStock: idStock,
-      cantidadDescontada: cantidadADescontar,
-      stockRestante: cantidadNueva
-    }
-  }
+    codigo: articulo.codigo,
+    descripcion: articulo.nombre,
+    nombreProducto: articulo.nombre,
+    canal: input.canal,
+    numeroReferencia: input.numeroReferencia,
+    idPedidoCliente: input.idPedidoCliente,
+    idVenta: input.idVenta,
+    idOrdenTrabajo: input.idOrdenTrabajo,
+    permitirStockNegativo: input.permitirStockNegativo
+  })
 }
 
 export async function aplicarStockDesdePedidoCliente(
@@ -209,7 +277,6 @@ export async function aplicarStockDesdePedidoCliente(
       .from('stock_movimientos')
       .select('id', { count: 'exact', head: true })
       .eq('id_pedido_cliente', idPedido)
-      .lt('cantidad', 0)
     if (!movErr && (count ?? 0) > 0) {
       return { success: true, descontados: 0, errores: [] }
     }

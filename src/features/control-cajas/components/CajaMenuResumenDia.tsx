@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { fmtArs } from '../format'
 import {
   etiquetaMedioMovimiento,
   esSalidaDeCaja,
   horaMovimiento,
   montoMovimientoLista,
-  progresoDiaCaja
+  progresoDiaCaja,
+  type ConteoMovimientosCaja
 } from '../cajaMenuOperativaData'
 import type { CajaEstadoOperativaHoy } from '../cajaOperativaHoy'
 import type { CajaSectionId } from '../types'
@@ -24,13 +26,109 @@ type EstadoChip = {
   tipo: 'ok' | 'pendiente' | 'alerta' | 'neutral'
 }
 
+function etiquetaConteo(n: number): string {
+  return n === 1 ? '1 movimiento' : `${n} movimientos`
+}
+
+function FilasConteo({ conteo }: { conteo: ConteoMovimientosCaja }) {
+  return (
+    <ul className="caja-cc-menu-caja-stats">
+      <li>
+        <span>Ingresos</span>
+        <strong>
+          {conteo.ingresos} · $ {fmtArs(conteo.ingresosMonto)}
+        </strong>
+      </li>
+      <li>
+        <span>Egresos</span>
+        <strong>
+          {conteo.egresos} · $ {fmtArs(conteo.egresosMonto)}
+        </strong>
+      </li>
+      <li>
+        <span>Traspasos</span>
+        <strong>{conteo.traspasos}</strong>
+      </li>
+      <li>
+        <span>Ajustes</span>
+        <strong>{conteo.ajustes}</strong>
+      </li>
+      {conteo.otros > 0 ? (
+        <li>
+          <span>Otros</span>
+          <strong>{conteo.otros}</strong>
+        </li>
+      ) : null}
+      <li className="caja-cc-menu-caja-stats-total">
+        <span>Total</span>
+        <strong>{conteo.total}</strong>
+      </li>
+    </ul>
+  )
+}
+
+function BotonCaja({
+  hoy,
+  historico,
+  onVerMovimientos
+}: {
+  hoy: ConteoMovimientosCaja
+  historico: ConteoMovimientosCaja
+  onVerMovimientos: () => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [conHistorico, setConHistorico] = useState(false)
+
+  return (
+    <div className={`caja-cc-menu-caja${abierto ? ' is-open' : ''}`}>
+      <button
+        type="button"
+        className="caja-cc-menu-caja-btn"
+        aria-expanded={abierto}
+        onClick={() => setAbierto((v) => !v)}
+      >
+        <span className="caja-cc-menu-caja-btn-title">Caja</span>
+        <span className="caja-cc-menu-caja-btn-count">{etiquetaConteo(hoy.total)} hoy</span>
+        <span className="caja-cc-menu-caja-btn-chevron" aria-hidden>
+          {abierto ? '▼' : '▶'}
+        </span>
+      </button>
+      {abierto ? (
+        <div className="caja-cc-menu-caja-panel">
+          <p className="caja-cc-menu-caja-panel-title">Hoy</p>
+          <FilasConteo conteo={hoy} />
+          <label className="caja-cc-menu-caja-historico">
+            <input
+              type="checkbox"
+              checked={conHistorico}
+              onChange={(e) => setConHistorico(e.target.checked)}
+            />
+            Incluir histórico
+          </label>
+          {conHistorico ? (
+            <>
+              <p className="caja-cc-menu-caja-panel-title">
+                Histórico · {etiquetaConteo(historico.total)}
+              </p>
+              <FilasConteo conteo={historico} />
+            </>
+          ) : null}
+          <button type="button" className="btn-link" onClick={onVerMovimientos}>
+            Ver movimientos →
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function chipsDesdeEstado(estado: CajaEstadoOperativaHoy): EstadoChip[] {
-  const movsHoy = estado.ultimosMovimientos.length
+  const movsHoy = estado.conteoMovimientosHoy.total
   const chips: EstadoChip[] = [
     {
       section: 'historial',
       label: 'Movimientos',
-      valor: movsHoy > 0 ? `${movsHoy}+ hoy` : 'Ver del día',
+      valor: movsHoy > 0 ? `${movsHoy} hoy` : 'Ver del día',
       tipo: movsHoy > 0 ? 'ok' : 'neutral'
     },
     {
@@ -127,6 +225,14 @@ export default function CajaMenuResumenDia({ estado, cargando, enVivo, onNavigat
           ))}
         </ul>
       </div>
+
+      {estado.cajaSlug ? (
+        <BotonCaja
+          hoy={estado.conteoMovimientosHoy}
+          historico={estado.conteoMovimientosHistorico}
+          onVerMovimientos={() => onNavigate('historial')}
+        />
+      ) : null}
 
       {estado.cajaNombre ? (
         <CajaPlotlabVentasPanel

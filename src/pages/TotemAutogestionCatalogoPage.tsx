@@ -20,8 +20,8 @@ import {
   writeTotemCart
 } from './totemAutogestionCart'
 
-/** Mismo catálogo que el portal de clientes (`visible_portal`). */
-const CANAL_CATALOGO = 'portal' as const
+/** Productos marcados `visible_totem` en la lista de precios. */
+const CANAL_CATALOGO = 'totem' as const
 
 type CategoriaConConteo = {
   nombre: string

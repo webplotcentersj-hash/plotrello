@@ -912,11 +912,37 @@
   align-items: start;
 }
 
+.erp-gastos-grid--solo-form {
+  grid-template-columns: minmax(0, 760px);
+}
+
 .erp-gastos-tabs {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
   margin-top: 12px;
+}
+
+.erp-gastos-tabs__stats {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(167, 139, 250, 0.45);
+  background: rgba(124, 58, 237, 0.16);
+  color: #ede9fe;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.erp-gastos-tabs__stats.is-open {
+  background: #7c3aed;
+  color: #fff;
+  border-color: #7c3aed;
 }
 
 .erp-gastos-form-body {
@@ -1026,28 +1052,193 @@
   margin: 0 0 12px;
 }
 
+.erp-gastos-meses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .erp-gastos-mes {
-  margin-top: 14px;
+  margin-top: 0;
+  border: 1px solid var(--erp-line);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.28);
+  overflow: hidden;
 }
 
 .erp-gastos-mes__head {
+  width: 100%;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
 }
 
-.erp-gastos-mes__head h3 {
-  margin: 0;
-  color: #fff;
+.erp-gastos-mes.is-open .erp-gastos-mes__head {
+  border-bottom: 1px solid var(--erp-line);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.erp-gastos-mes__head strong {
   font-size: 0.98rem;
 }
 
 .erp-gastos-mes__head span {
+  margin-left: auto;
   font-size: 0.82rem;
   color: var(--erp-muted);
+}
+
+.erp-gastos-mes__mark,
+.erp-gastos-collapse__mark,
+.erp-gastos-drop__mark {
+  width: 1.1rem;
+  color: #a78bfa;
+  font-size: 0.75rem;
+}
+
+.erp-gastos-mes .erp-table-wrap {
+  margin: 0;
+}
+
+.erp-gastos-kpis {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.erp-gastos-kpis .erp-kpi-value {
+  font-size: 1.02rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.erp-gastos-collapse {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.erp-gastos-collapse__title {
+  font-size: 1.08rem;
+  font-weight: 800;
+}
+
+.erp-gastos-collapse__meta {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--erp-muted);
+}
+
+.erp-gastos-listado__body {
+  margin-top: 14px;
+}
+
+.erp-gastos-drop {
+  border: 1px solid var(--erp-line);
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.28);
+  overflow: hidden;
+}
+
+.erp-gastos-drop--ticket {
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+.erp-gastos-drop--excel {
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+.erp-gastos-drop__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.erp-gastos-drop--ticket .erp-gastos-drop__head {
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.erp-gastos-drop--excel .erp-gastos-drop__head {
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.erp-gastos-drop__head strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.erp-gastos-drop__head small {
+  display: block;
+  margin-top: 2px;
+  color: var(--erp-muted);
+  font-size: 0.78rem;
+}
+
+.erp-gastos-drop__body {
+  display: grid;
+  gap: 12px;
+  padding: 12px 14px 14px;
+}
+
+.erp-gastos-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 18px 14px;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.45);
+  text-align: center;
+  cursor: pointer;
+}
+
+.erp-gastos-drop--ticket .erp-gastos-upload {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(251, 191, 36, 0.06);
+}
+
+.erp-gastos-drop--excel .erp-gastos-upload {
+  border-color: rgba(52, 211, 153, 0.55);
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.erp-gastos-upload strong {
+  color: #fff;
+  font-size: 0.92rem;
+}
+
+.erp-gastos-upload span {
+  color: var(--erp-muted);
+  font-size: 0.78rem;
+}
+
+.erp-gastos-upload input[type='file'] {
+  margin-top: 8px;
 }
 
 .erp-gastos-excel-preview {

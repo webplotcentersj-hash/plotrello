@@ -26,6 +26,38 @@ import './BuscarClientePage.css'
 
 const MIN_BUSQUEDA = 1
 
+const CONDICIONES_IVA_CLIENTE = [
+  'Responsable Inscripto',
+  'Monotributista',
+  'Exento',
+  'Consumidor Final',
+  'No Responsable'
+] as const
+
+type ClienteDraft = {
+  nombre: string
+  apellido: string
+  empresa: string
+  dni_cuit: string
+  telefono: string
+  email: string
+  direccion: string
+  condicion_iva: string
+}
+
+function draftFromCliente(c: ClienteRecord): ClienteDraft {
+  return {
+    nombre: c.nombre || '',
+    apellido: c.apellido || '',
+    empresa: c.empresa || '',
+    dni_cuit: c.dni_cuit || '',
+    telefono: c.telefono || '',
+    email: c.email || '',
+    direccion: c.direccion || '',
+    condicion_iva: c.condicion_iva || ''
+  }
+}
+
 type ClienteEnriquecido = ClienteRecord & {
   esVIP?: boolean
   preferencias?: string | null
@@ -83,7 +115,7 @@ function OrdenFichaBuscar({
 
 const BuscarClientePage = () => {
   const navigate = useNavigate()
-  const { canAccessMostradorViews } = useAuth()
+  const { canAccessMostradorViews, usuario } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedTerm, setDebouncedTerm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -94,6 +126,10 @@ const BuscarClientePage = () => {
   const [vistaOrdenes, setVistaOrdenes] = useState<'activas' | 'todas'>('activas')
   const [duplicadosRelacionados, setDuplicadosRelacionados] = useState<ClienteRecord[]>([])
   const [loadingDuplicados, setLoadingDuplicados] = useState(false)
+  const [editando, setEditando] = useState<ClienteRecord | null>(null)
+  const [draft, setDraft] = useState<ClienteDraft | null>(null)
+  const [guardandoCliente, setGuardandoCliente] = useState(false)
+  const [errorEdicion, setErrorEdicion] = useState<string | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedTerm(searchTerm.trim()), 280)
@@ -221,7 +257,60 @@ const BuscarClientePage = () => {
     }
   }
 
-  const buscando = debouncedTerm.length >= MIN_BUSQUEDA
+  const abrirEdicion = (cliente: ClienteRecord) => {
+    setEditando(cliente)
+    setDraft(draftFromCliente(cliente))
+    setErrorEdicion(null)
+  }
+
+  const cerrarEdicion = () => {
+    if (guardandoCliente) return
+    setEditando(null)
+    setDraft(null)
+    setErrorEdicion(null)
+  }
+
+  const aplicarClienteActualizado = (actualizado: ClienteRecord) => {
+    setClientesEncontrados((prev) => prev.map((c) => (c.id === actualizado.id ? { ...c, ...actualizado } : c)))
+    setClienteSeleccionado((prev) => (prev && prev.id === actualizado.id ? { ...prev, ...actualizado } : prev))
+    setDuplicadosRelacionados((prev) => prev.map((c) => (c.id === actualizado.id ? { ...c, ...actualizado } : c)))
+  }
+
+  const guardarEdicion = async () => {
+    if (!editando || !draft) return
+    if (!draft.nombre.trim()) {
+      setErrorEdicion('El nombre no puede quedar vacío.')
+      return
+    }
+    if (!usuario?.id) {
+      setErrorEdicion('Sesión inválida: recargá e intentá de nuevo.')
+      return
+    }
+    setGuardandoCliente(true)
+    setErrorEdicion(null)
+    const res = await apiService.actualizarClienteDatos(
+      editando.id,
+      {
+        nombre: draft.nombre.trim(),
+        apellido: draft.apellido.trim() || undefined,
+        empresa: draft.empresa.trim() || undefined,
+        dni_cuit: draft.dni_cuit.trim() || undefined,
+        telefono: draft.telefono.trim() || undefined,
+        email: draft.email.trim() || undefined,
+        direccion: draft.direccion.trim() || undefined,
+        condicion_iva: draft.condicion_iva.trim() || undefined
+      },
+      usuario.id
+    )
+    setGuardandoCliente(false)
+    if (!res.success || !res.data) {
+      setErrorEdicion(res.error || 'No se pudo guardar el cliente.')
+      return
+    }
+    aplicarClienteActualizado(res.data)
+    setEditando(null)
+    setDraft(null)
+  }
 
   return (
     <div className="buscar-cliente-page">
@@ -285,7 +374,7 @@ const BuscarClientePage = () => {
         {buscando && !clienteSeleccionado && clientesEncontrados.length > 0 && (
           <ul className="bc-clientes-list">
             {clientesEncontrados.map((cliente) => (
-              <li key={cliente.id}>
+              <li key={cliente.id} className="bc-cliente-item">
                 <button
                   type="button"
                   className="bc-cliente-row"
@@ -299,6 +388,14 @@ const BuscarClientePage = () => {
                     {cliente.dni_cuit && <span>{cliente.dni_cuit}</span>}
                     {cliente.telefono && <span>{cliente.telefono}</span>}
                   </span>
+                </button>
+                <button
+                  type="button"
+                  className="bc-cliente-edit"
+                  onClick={() => abrirEdicion(cliente)}
+                  aria-label={`Editar ${nombreCompletoCliente(cliente)}`}
+                >
+                  Editar
                 </button>
               </li>
             ))}
@@ -431,6 +528,13 @@ const BuscarClientePage = () => {
                 <button
                   type="button"
                   className="bc-btn bc-btn--secondary"
+                  onClick={() => abrirEdicion(clienteSeleccionado)}
+                >
+                  Editar datos
+                </button>
+                <button
+                  type="button"
+                  className="bc-btn bc-btn--secondary"
                   onClick={() => navigate(clientesPerfil(clienteSeleccionado.id))}
                 >
                   Ver ficha completa
@@ -509,6 +613,103 @@ const BuscarClientePage = () => {
           </section>
         )}
       </main>
+      {editando && draft && (
+        <div className="bc-edit-overlay" role="presentation" onClick={cerrarEdicion}>
+          <form
+            className="bc-edit"
+            role="dialog"
+            aria-labelledby="bc-edit-title"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault()
+              void guardarEdicion()
+            }}
+          >
+            <header className="bc-edit__head">
+              <h2 id="bc-edit-title">Editar cliente</h2>
+              <button type="button" className="bc-btn bc-btn--ghost bc-btn--sm" onClick={cerrarEdicion}>
+                Cerrar
+              </button>
+            </header>
+            <div className="bc-edit__grid">
+              <label>
+                Nombre
+                <input
+                  value={draft.nombre}
+                  onChange={(e) => setDraft({ ...draft, nombre: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Apellido
+                <input
+                  value={draft.apellido}
+                  onChange={(e) => setDraft({ ...draft, apellido: e.target.value })}
+                />
+              </label>
+              <label className="bc-edit__wide">
+                Empresa
+                <input
+                  value={draft.empresa}
+                  onChange={(e) => setDraft({ ...draft, empresa: e.target.value })}
+                />
+              </label>
+              <label>
+                DNI / CUIT
+                <input
+                  value={draft.dni_cuit}
+                  onChange={(e) => setDraft({ ...draft, dni_cuit: e.target.value })}
+                />
+              </label>
+              <label>
+                Teléfono
+                <input
+                  value={draft.telefono}
+                  onChange={(e) => setDraft({ ...draft, telefono: e.target.value })}
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={draft.email}
+                  onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                />
+              </label>
+              <label>
+                Condición IVA
+                <select
+                  value={draft.condicion_iva}
+                  onChange={(e) => setDraft({ ...draft, condicion_iva: e.target.value })}
+                >
+                  <option value="">Sin definir</option>
+                  {CONDICIONES_IVA_CLIENTE.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="bc-edit__wide">
+                Dirección
+                <input
+                  value={draft.direccion}
+                  onChange={(e) => setDraft({ ...draft, direccion: e.target.value })}
+                />
+              </label>
+            </div>
+            {errorEdicion && <p className="bc-edit__error">{errorEdicion}</p>}
+            <div className="bc-edit__actions">
+              <button type="button" className="bc-btn bc-btn--ghost" onClick={cerrarEdicion} disabled={guardandoCliente}>
+                Cancelar
+              </button>
+              <button type="submit" className="bc-btn bc-btn--primary" disabled={guardandoCliente || !draft.nombre.trim()}>
+                {guardandoCliente ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

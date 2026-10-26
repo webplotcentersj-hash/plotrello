@@ -117,7 +117,9 @@
 .library-button-container .factura-button,
 .library-button-container .presupuesto-button,
 .library-button-container .ventas-nav-button,
-.library-button-container .caja-button {
+.library-button-container .caja-button,
+.library-button-container .compras-button,
+.library-button-container .erp-button {
   height: 34px;
   min-width: 0;
   padding: 0 12px;
@@ -152,7 +154,9 @@
 .library-button-container .factura-button:hover,
 .library-button-container .presupuesto-button:hover,
 .library-button-container .ventas-nav-button:hover,
-.library-button-container .caja-button:hover {
+.library-button-container .caja-button:hover,
+.library-button-container .compras-button:hover,
+.library-button-container .erp-button:hover {
   transform: translateY(-1px);
   box-shadow:
     0 6px 14px rgba(0, 0, 0, 0.28),
@@ -168,7 +172,9 @@
 .library-button-container .factura-button:active,
 .library-button-container .presupuesto-button:active,
 .library-button-container .ventas-nav-button:active,
-.library-button-container .caja-button:active {
+.library-button-container .caja-button:active,
+.library-button-container .compras-button:active,
+.library-button-container .erp-button:active {
   transform: translateY(0);
 }
 
@@ -284,6 +290,26 @@
 }
 
 .library-button-container .caja-button:hover {
+  filter: brightness(1.07);
+}
+
+.library-button-container .compras-button {
+  background: linear-gradient(145deg, #86efac, #22c55e 55%, #15803d);
+  color: #052e16;
+  border: 1px solid rgba(220, 252, 231, 0.4);
+}
+
+.library-button-container .compras-button:hover {
+  filter: brightness(1.07);
+}
+
+.library-button-container .erp-button {
+  background: linear-gradient(145deg, #c4b5fd, #7c3aed 55%, #6d28d9);
+  color: #f5f3ff;
+  border: 1px solid rgba(237, 233, 254, 0.35);
+}
+
+.library-button-container .erp-button:hover {
   filter: brightness(1.07);
 }
 

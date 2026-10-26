@@ -117,7 +117,7 @@ export default function TotemAutogestionCheckoutPage() {
   }
 
   const validarCarrito = async (): Promise<string | null> => {
-    const catalogo = await apiService.getCatalogoComercial({ canal: 'portal', limite: 500 })
+    const catalogo = await apiService.getCatalogoComercial({ canal: 'totem', limite: 500 })
     if (!catalogo.success || !catalogo.data) {
       return catalogo.error || 'No se pudo validar el catálogo.'
     }

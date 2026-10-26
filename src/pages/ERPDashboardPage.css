@@ -575,10 +575,35 @@
   background: var(--erp-surface);
 }
 
+.erp-recent-section__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
 .erp-recent-section h2 {
-  margin: 0 0 16px;
+  margin: 0;
   color: #fff;
   font-size: 1.25rem;
+}
+
+.erp-recent-section__meta {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--erp-muted);
+}
+
+.erp-recent-section.is-open .erp-table {
+  margin-top: 16px;
 }
 
 .erp-table {

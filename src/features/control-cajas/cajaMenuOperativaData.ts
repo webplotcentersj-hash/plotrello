@@ -1,5 +1,6 @@
 import { getArgentinaTime } from '../../utils/dateUtils'
-import { calcularTotalesCoherentesDia } from './cajaCoherencia'
+import { calcularTotalesCoherentesDia, deduplicarMovimientos } from './cajaCoherencia'
+import { esPaseCierreTurno, esTraspasoEntreCajas } from './movimientoCaja'
 import { calcularTeoricoFisicoCaja } from './arqueoCalculations'
 import { fondoFijoEfectivo, requiereFondoMinimo } from './fondoCaja'
 import {
@@ -247,6 +248,68 @@ export function conteosPorCajaOperativa(input: {
       }
     })
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+}
+
+export type ConteoMovimientosCaja = {
+  total: number
+  ingresos: number
+  ingresosMonto: number
+  egresos: number
+  egresosMonto: number
+  traspasos: number
+  ajustes: number
+  otros: number
+}
+
+export const CONTEO_MOVIMIENTOS_VACIO: ConteoMovimientosCaja = {
+  total: 0,
+  ingresos: 0,
+  ingresosMonto: 0,
+  egresos: 0,
+  egresosMonto: 0,
+  traspasos: 0,
+  ajustes: 0,
+  otros: 0
+}
+
+/** Cuenta todos los movimientos de la caja. Sin fecha, incluye el histórico. */
+export function contarMovimientosCaja(
+  movimientos: CajaMovimiento[],
+  cajaSlug: string,
+  fecha?: string | null
+): ConteoMovimientosCaja {
+  if (!cajaSlug) return { ...CONTEO_MOVIMIENTOS_VACIO }
+  const delCaja = movimientos.filter((m) => {
+    if (m.anulado) return false
+    if (fecha && m.fecha !== fecha) return false
+    return m.destino_slug === cajaSlug || m.origen_slug === cajaSlug
+  })
+  const unicos = deduplicarMovimientos(delCaja)
+  const conteo = { ...CONTEO_MOVIMIENTOS_VACIO, total: unicos.length }
+
+  for (const m of unicos) {
+    const monto = m.monto_total ?? (m.efectivo || 0) + (m.otros || 0)
+    if (esPaseCierreTurno(m) || esTraspasoEntreCajas(m)) {
+      conteo.traspasos += 1
+      continue
+    }
+    if (m.tipo_movimiento === 'ajuste') {
+      conteo.ajustes += 1
+      continue
+    }
+    const tipo = m.tipo_movimiento ?? (m.destino_slug === cajaSlug ? 'ingreso' : 'egreso')
+    if (tipo === 'ingreso' && m.destino_slug === cajaSlug) {
+      conteo.ingresos += 1
+      conteo.ingresosMonto += monto
+    } else if (tipo === 'egreso' && m.origen_slug === cajaSlug) {
+      conteo.egresos += 1
+      conteo.egresosMonto += monto
+    } else {
+      conteo.otros += 1
+    }
+  }
+
+  return conteo
 }
 
 export function montoMovimientoLista(m: CajaMovimiento): number {

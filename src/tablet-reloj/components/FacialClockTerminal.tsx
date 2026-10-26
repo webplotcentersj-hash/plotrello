@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertCircle,
   Camera,
-  Clock,
   Loader2,
   RefreshCw,
   ShieldCheck,
   Volume2,
   VolumeX
 } from 'lucide-react'
+import HudClock from '../../components/HudClock'
 import {
   fotoEmpleadoUrl,
   fetchFacialIndiceRelojTablet,
@@ -16,7 +16,7 @@ import {
   type EmpleadoRelojTablet,
   type MarcacionTabletResult
 } from '../services/relojTabletApi'
-import { horaMarcacionTabletDisplay } from '../../utils/dateUtils'
+import { ARGENTINA_TIMEZONE, horaMarcacionTabletDisplay } from '../../utils/dateUtils'
 import { playMarcacionSound, speakMarcacionExito, cancelMarcacionSpeech } from '../utils/tabletRelojKiosk'
 import './FacialClockTerminal.css'
 
@@ -528,11 +528,6 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     }
   }, [isCapturing, cooldown, camaraLista, galleryReady, galleryCount, handleRecognize])
 
-  const horaStr = clock.toLocaleTimeString('es-AR', {
-    hour12: false,
-    timeZone: 'America/Argentina/Buenos_Aires'
-  })
-
   const canScan = camaraLista && galleryReady && !isCapturing && cooldown === 0 && galleryCount > 0
 
   const marcarLabel = (() => {
@@ -544,64 +539,149 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     return 'Marcar ahora'
   })()
 
+  const marcarListo = canScan && !cameraError
+
+  const viewportState = [
+    camaraLista && !cameraError ? ' facial-clock-viewport--live' : '',
+    cameraError ? ' facial-clock-viewport--err' : '',
+    isCapturing ? ' facial-clock-viewport--scan' : '',
+    !isCapturing && result ? (result.recognized ? ' facial-clock-viewport--ok' : ' facial-clock-viewport--fail') : ''
+  ].join('')
+
+  const engineTone = engineError ? 'err' : galleryReady ? 'ok' : 'load'
+
   return (
     <div className="facial-clock">
-      <div className="facial-clock-top">
-        <div className="facial-clock-top__row">
-          <button
-            type="button"
-            className={`facial-clock-btn facial-clock-btn--cam${camaraLista && !cameraError ? ' facial-clock-btn--cam-ok' : ''}`}
-            disabled={cameraOpening}
-            onClick={() => {
-              autoRetryRef.current = 0
-              void startCamera()
-            }}
-          >
-            {cameraOpening ? (
-              <Loader2 size={16} className="facial-clock-spin" />
-            ) : (
-              <RefreshCw size={16} />
-            )}
-            {cameraOpening ? 'Abriendo…' : camaraLista && !cameraError ? 'Reintentar cámara' : 'Activar cámara'}
-          </button>
-          <div className="facial-clock-time">
-            <Clock size={12} />
-            <span>{horaStr}</span>
+      <div className="facial-clock-side">
+        <div className="facial-clock-top">
+          <HudClock
+            now={clock}
+            timeZone={ARGENTINA_TIMEZONE}
+            label="Hora oficial"
+            className="facial-clock-hud"
+          />
+
+          <div className="facial-clock-top__row">
+            <button
+              type="button"
+              className={`facial-clock-btn facial-clock-btn--cam${camaraLista && !cameraError ? ' facial-clock-btn--cam-ok' : ''}`}
+              disabled={cameraOpening}
+              onClick={() => {
+                autoRetryRef.current = 0
+                void startCamera()
+              }}
+            >
+              {cameraOpening ? (
+                <Loader2 size={16} className="facial-clock-spin" />
+              ) : (
+                <RefreshCw size={16} />
+              )}
+              {cameraOpening ? 'Abriendo…' : camaraLista && !cameraError ? 'Reintentar cámara' : 'Activar cámara'}
+            </button>
+            <span className={`facial-clock-chip facial-clock-chip--${engineTone}`} title={engineError || engineStatus}>
+              <i />
+              <span>{engineStatus}</span>
+            </span>
+            <button
+              type="button"
+              className="facial-clock-icon-btn"
+              onClick={() => setSoundEnabled((v) => !v)}
+              title={soundEnabled ? 'Silenciar' : 'Activar sonido'}
+            >
+              {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            </button>
           </div>
+
           <button
             type="button"
-            className="facial-clock-icon-btn"
-            onClick={() => setSoundEnabled((v) => !v)}
-            title={soundEnabled ? 'Silenciar' : 'Activar sonido'}
+            className={`facial-clock-btn facial-clock-btn--marcar${marcarListo ? ' facial-clock-btn--ready' : ''}`}
+            disabled={!canScan || !!cameraError}
+            onClick={() => void handleRecognize()}
           >
-            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            <Camera size={20} />
+            {marcarLabel}
           </button>
+
+          {cameraError ? (
+            <p className="facial-clock-top__err" role="alert">
+              {cameraError}
+            </p>
+          ) : null}
         </div>
 
-        <button
-          type="button"
-          className="facial-clock-btn facial-clock-btn--marcar"
-          disabled={!canScan || !!cameraError}
-          onClick={() => void handleRecognize()}
-        >
-          <Camera size={20} />
-          {marcarLabel}
-        </button>
-
-        {cameraError ? (
-          <p className="facial-clock-top__err" role="alert">
-            {cameraError}
-          </p>
+        {result ? (
+          <div
+            className={`facial-clock-result${result.recognized ? ' facial-clock-result--ok' : ' facial-clock-result--err'}`}
+          >
+            {result.recognized && result.data ? (
+              <>
+                <div className="facial-clock-result-photo">
+                  {result.foto ? (
+                    <img src={result.foto} alt="" />
+                  ) : (
+                    <div className="facial-clock-result-fallback">✓</div>
+                  )}
+                  <span className="facial-clock-result-check">
+                    <ShieldCheck size={12} />
+                  </span>
+                </div>
+                <div className="facial-clock-result-text">
+                  <span className="facial-clock-pill">
+                    {result.data.tipo === 'entrada' ? 'Entrada OK' : 'Salida OK'}
+                    {result.confianza != null ? ` · ${Math.round(result.confianza)}%` : ''}
+                  </span>
+                  <h3>{result.data.nombre || result.empleado?.nombre_completo}</h3>
+                  <p>{horaMarcacionTabletDisplay(result.data)} · Argentina</p>
+                  {result.data.tipo === 'entrada' && result.data.tarde ? (
+                    <p className="facial-clock-late">Tardanza: {result.data.minutos_tarde} min</p>
+                  ) : null}
+                  {result.message ? <p className="facial-clock-msg">{result.message}</p> : null}
+                  {result.confianza != null ? (
+                    <div className="facial-clock-conf" aria-hidden>
+                      <span style={{ width: `${Math.max(0, Math.min(100, result.confianza))}%` }} />
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="facial-clock-result-icon">
+                  <AlertCircle size={22} />
+                </div>
+                <div className="facial-clock-result-text">
+                  <span className="facial-clock-pill facial-clock-pill--err">No reconocido</span>
+                  <h3>Acceso no registrado</h3>
+                  <p className="facial-clock-msg">{result.message}</p>
+                </div>
+              </>
+            )}
+          </div>
         ) : null}
       </div>
 
       <div className="facial-clock-stage">
-        <div
-          className={`facial-clock-viewport${camaraLista && !cameraError ? ' facial-clock-viewport--live' : ''}${cameraError ? ' facial-clock-viewport--err' : ''}`}
-        >
+        <div className={`facial-clock-viewport${viewportState}`}>
           <video ref={videoRef} autoPlay playsInline muted className="facial-clock-video" />
+          <div className="facial-clock-grid" aria-hidden />
           <div className="facial-clock-frame" aria-hidden>
-            <div className="facial-clock-oval" />
+            <div className="facial-clock-reticle">
+              <svg className="facial-clock-reticle__svg" viewBox="0 0 100 130" preserveAspectRatio="none">
+                <ellipse className="facial-clock-ring facial-clock-ring--a" cx="50" cy="65" rx="49" ry="64" />
+                <ellipse className="facial-clock-ring facial-clock-ring--b" cx="50" cy="65" rx="45.5" ry="60" />
+              </svg>
+              <div className="facial-clock-oval">
+                <span className="facial-clock-scanline" />
+              </div>
+              <span className="facial-clock-tick facial-clock-tick--t" />
+              <span className="facial-clock-tick facial-clock-tick--b" />
+              <span className="facial-clock-tick facial-clock-tick--l" />
+              <span className="facial-clock-tick facial-clock-tick--r" />
+              {!isCapturing && result ? (
+                <span className="facial-clock-stamp">
+                  {result.recognized ? <ShieldCheck size={64} /> : <AlertCircle size={64} />}
+                </span>
+              ) : null}
+            </div>
             <span className="facial-clock-guide">
               {cameraError
                 ? 'Cámara no disponible'
@@ -616,6 +696,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
                         : 'Alineá tu rostro'}
             </span>
           </div>
+          <span className="facial-clock-brackets" aria-hidden />
           <div className="facial-clock-badges">
             {camaraLista && !galleryReady && !cameraError ? (
               <span className="facial-clock-badge facial-clock-badge--scan">{engineStatus}</span>
@@ -642,50 +723,6 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
           ) : null}
         </div>
       </div>
-
-      {result ? (
-        <div
-          className={`facial-clock-result${result.recognized ? ' facial-clock-result--ok' : ' facial-clock-result--err'}`}
-        >
-          {result.recognized && result.data ? (
-            <>
-              <div className="facial-clock-result-photo">
-                {result.foto ? (
-                  <img src={result.foto} alt="" />
-                ) : (
-                  <div className="facial-clock-result-fallback">✓</div>
-                )}
-                <span className="facial-clock-result-check">
-                  <ShieldCheck size={12} />
-                </span>
-              </div>
-              <div className="facial-clock-result-text">
-                <span className="facial-clock-pill">
-                  {result.data.tipo === 'entrada' ? 'Entrada OK' : 'Salida OK'}
-                  {result.confianza != null ? ` · ${Math.round(result.confianza)}%` : ''}
-                </span>
-                <h3>{result.data.nombre || result.empleado?.nombre_completo}</h3>
-                <p>{horaMarcacionTabletDisplay(result.data)} · Argentina</p>
-                {result.data.tipo === 'entrada' && result.data.tarde ? (
-                  <p className="facial-clock-late">Tardanza: {result.data.minutos_tarde} min</p>
-                ) : null}
-                {result.message ? <p className="facial-clock-msg">{result.message}</p> : null}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="facial-clock-result-icon">
-                <AlertCircle size={22} />
-              </div>
-              <div className="facial-clock-result-text">
-                <span className="facial-clock-pill facial-clock-pill--err">No reconocido</span>
-                <h3>Acceso no registrado</h3>
-                <p className="facial-clock-msg">{result.message}</p>
-              </div>
-            </>
-          )}
-        </div>
-      ) : null}
     </div>
   )
 }

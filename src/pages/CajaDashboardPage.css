@@ -4105,6 +4105,98 @@
   border-left: 4px solid #eab308;
 }
 
+.caja-dashboard-page .caja-cc-egreso-list,
+.ventas-caja-embed .caja-cc-egreso-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha,
+.ventas-caja-embed .caja-cc-egreso-ficha {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha-head,
+.ventas-caja-embed .caja-cc-egreso-ficha-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha-concepto,
+.ventas-caja-embed .caja-cc-egreso-ficha-concepto {
+  font-weight: 600;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha-side,
+.ventas-caja-embed .caja-cc-egreso-ficha-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha-monto,
+.ventas-caja-embed .caja-cc-egreso-ficha-monto {
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha-grid,
+.ventas-caja-embed .caja-cc-egreso-ficha-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha-grid dt,
+.ventas-caja-embed .caja-cc-egreso-ficha-grid dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  margin: 0;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha-grid dd,
+.ventas-caja-embed .caja-cc-egreso-ficha-grid dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha-wide,
+.ventas-caja-embed .caja-cc-egreso-ficha-wide {
+  grid-column: 1 / -1;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha-id,
+.ventas-caja-embed .caja-cc-egreso-ficha-id {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.caja-dashboard-page .caja-cc-egreso-ficha-actions,
+.ventas-caja-embed .caja-cc-egreso-ficha-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .caja-dashboard-page .caja-cc-row-cuadre-bad {
   background: #fef2f2;
 }
@@ -4240,6 +4332,90 @@
   border: 1px solid #e2e8f0;
   color: #64748b;
   font-size: 14px;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja {
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 0;
+  background: #eef2ff;
+  color: #1e1b4b;
+  cursor: pointer;
+  text-align: left;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja-btn-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja-btn-count {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3730a3;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja-btn-chevron {
+  color: #6366f1;
+  font-size: 12px;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja-panel {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja-panel-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja-stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja-stats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja-stats-total {
+  padding-top: 6px;
+  border-top: 1px solid #e2e8f0;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.caja-dashboard-page .caja-cc-menu-caja-historico {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
 }
 
 .caja-dashboard-page .caja-cc-menu-resumen .caja-cc-plotlab-ventas {

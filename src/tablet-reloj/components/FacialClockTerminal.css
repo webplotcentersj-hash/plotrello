@@ -1,9 +1,13 @@
 .facial-clock {
+  --fc-cyan: 34, 211, 238;
   --fc-orange: #eb671b;
-  --fc-orange-soft: rgba(235, 103, 27, 0.18);
-  --fc-bg: #07080f;
-  --fc-panel: #0f1420;
-  --fc-border: rgba(255, 255, 255, 0.1);
+  --fc-ok: 52, 211, 153;
+  --fc-err: 251, 113, 133;
+  --fc-bg: #040711;
+  --fc-panel: #070c18;
+  --fc-border: rgba(34, 211, 238, 0.16);
+  --fc-mono: 'Share Tech Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --fc-display: 'Orbitron', system-ui, sans-serif;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -12,32 +16,49 @@
   overflow: hidden;
   background: var(--fc-panel);
   border: 1px solid var(--fc-border);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 60px rgba(34, 211, 238, 0.07);
 }
 
-.facial-clock-chrome {
-  display: none;
+/* En vertical la columna "side" se disuelve: reloj/controles arriba, cámara al medio, resultado abajo. */
+.facial-clock-side {
+  display: contents;
 }
 
+.facial-clock-top {
+  order: 0;
+}
+
+.facial-clock-stage {
+  order: 1;
+}
+
+.facial-clock-result {
+  order: 2;
+}
+
+/* ───────── Controles ───────── */
 .facial-clock-top {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 14px 10px;
-  background: #05070d;
+  padding: 12px 14px 12px;
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.05), transparent), #050914;
   border-bottom: 1px solid var(--fc-border);
   flex-shrink: 0;
   z-index: 6;
 }
 
-.facial-clock-top__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.facial-clock-top .hud-clock {
+  width: 100%;
+  --hud-hm: clamp(2.6rem, 11vw, 4.2rem);
+  --hud-ring: clamp(64px, 15vw, 92px);
 }
 
-.facial-clock-top__row .facial-clock-time {
-  margin-left: auto;
+.facial-clock-top__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .facial-clock-top__err {
@@ -51,167 +72,156 @@
   padding: 8px 10px;
 }
 
+.facial-clock-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.facial-clock-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .facial-clock-btn--cam {
-  flex-shrink: 0;
-  color: #fff;
-  background: #1e293b;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  padding: 10px 14px;
-  font-size: 0.8rem;
+  flex: 1 1 auto;
+  color: #cffafe;
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  padding: 9px 14px;
+  font-family: var(--fc-mono);
+  font-size: 0.74rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   border-radius: 12px;
 }
 
 .facial-clock-btn--cam-ok {
-  background: rgba(22, 163, 74, 0.22);
-  border-color: rgba(74, 222, 128, 0.4);
-  color: #bbf7d0;
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #a7f3d0;
 }
 
-.facial-clock-top .facial-clock-btn--marcar {
-  max-width: none;
-  width: 100%;
-  align-self: stretch;
-}
-
-.facial-clock-header {
-  display: none;
-}
-
-.facial-clock-toolbar {
-  display: none;
-}
-
-.facial-clock-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.facial-clock-chip {
+  flex: 1 1 170px;
+  order: 3;
   min-width: 0;
-}
-
-.facial-clock-brand-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  color: var(--fc-orange);
-  background: var(--fc-orange-soft);
-  border: 1px solid rgba(235, 103, 27, 0.35);
-  flex-shrink: 0;
-}
-
-.facial-clock-brand h2 {
-  margin: 0;
-  font-size: 0.92rem;
-  color: #f8fafc;
-}
-
-.facial-clock-brand p {
-  margin: 0;
-  font-size: 0.68rem;
-  color: #94a3b8;
-}
-
-.facial-clock-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.facial-clock-time {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: #0b1220;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
   border: 1px solid var(--fc-border);
-  color: #fff;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.78rem;
-  font-weight: 700;
+  background: rgba(2, 6, 14, 0.6);
+  font-family: var(--fc-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(165, 243, 252, 0.8);
 }
 
-.facial-clock-time svg {
-  color: var(--fc-orange);
+.facial-clock-chip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.facial-clock-chip i {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 8px #fbbf24;
+  animation: facial-clock-pulse 1.2s ease-in-out infinite;
+}
+
+.facial-clock-chip--ok i {
+  background: rgb(var(--fc-ok));
+  box-shadow: 0 0 8px rgb(var(--fc-ok));
+  animation: none;
+}
+
+.facial-clock-chip--err i {
+  background: rgb(var(--fc-err));
+  box-shadow: 0 0 8px rgb(var(--fc-err));
+  animation: none;
 }
 
 .facial-clock-icon-btn {
-  border: none;
-  background: transparent;
-  color: #94a3b8;
+  flex-shrink: 0;
+  border: 1px solid var(--fc-border);
+  background: rgba(34, 211, 238, 0.05);
+  color: #7dd3fc;
   padding: 8px;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
 }
 
 .facial-clock-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #e2e8f0;
+  background: rgba(34, 211, 238, 0.14);
+  color: #e0f7ff;
 }
 
-.facial-clock-toolbar {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--fc-border);
-  background: #05070d;
+.facial-clock-btn--marcar {
+  width: 100%;
+  min-height: 52px;
+  padding: 14px 24px;
+  border-radius: 16px;
+  overflow: hidden;
+  font-family: var(--fc-display);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, #f07a28 0%, #eb671b 45%, #d95a12 100%);
+  box-shadow:
+    0 8px 22px rgba(235, 103, 27, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.14) inset;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
-.facial-clock-auto-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: #0b1220;
-  border: 1px solid var(--fc-border);
+.facial-clock-btn--marcar:not(:disabled):active {
+  transform: scale(0.98);
 }
 
-.facial-clock-auto-row h4 {
-  margin: 0;
-  font-size: 0.78rem;
-  color: #e2e8f0;
+/* Listo para marcar: halo que respira y un destello que cruza el botón. */
+.facial-clock-btn--ready {
+  animation: facial-clock-glow 2.2s ease-in-out infinite;
 }
 
-.facial-clock-auto-row p {
-  margin: 2px 0 0;
-  font-size: 0.68rem;
-  color: #94a3b8;
-  line-height: 1.35;
-}
-
-.facial-clock-switch {
-  position: relative;
-  width: 40px;
-  height: 22px;
-  border-radius: 999px;
-  border: none;
-  background: #1e293b;
-  cursor: pointer;
-  flex-shrink: 0;
-  padding: 0;
-}
-
-.facial-clock-switch--on {
-  background: var(--fc-orange);
-}
-
-.facial-clock-switch-knob {
+.facial-clock-btn--ready::after {
+  content: '';
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform 0.2s ease;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  left: -50%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-18deg);
+  animation: facial-clock-sheen 3.4s ease-in-out infinite;
+  pointer-events: none;
 }
 
-.facial-clock-switch--on .facial-clock-switch-knob {
-  transform: translateX(18px);
+@media (min-width: 900px) {
+  .facial-clock-btn--marcar {
+    min-height: 56px;
+    font-size: 1.05rem;
+  }
 }
 
+/* ───────── Cámara / visor ───────── */
 .facial-clock-stage {
   flex: 1;
   min-height: 0;
@@ -219,12 +229,313 @@
   align-items: center;
   justify-content: center;
   padding: 12px;
-  background: var(--fc-bg);
+  background: radial-gradient(ellipse 80% 70% at 50% 50%, rgba(34, 211, 238, 0.07), transparent 70%), var(--fc-bg);
   position: relative;
 }
 
-.facial-clock-canvas {
+.facial-clock-viewport {
+  --fc-accent: var(--fc-cyan);
+  position: relative;
+  /* Ocupa el alto que deja el resto de la terminal (no scrollea): ancho = 3/4 del alto, con tope. */
+  height: 100%;
+  width: auto;
+  max-width: min(100%, 520px);
+  max-height: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  contain: layout paint;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.facial-clock-viewport--live {
+  border-color: rgba(var(--fc-accent), 0.45);
+  box-shadow: 0 0 0 1px rgba(var(--fc-accent), 0.12), 0 0 48px rgba(var(--fc-accent), 0.16);
+}
+
+.facial-clock-viewport--scan {
+  border-color: rgba(var(--fc-accent), 0.85);
+  box-shadow: 0 0 0 1px rgba(var(--fc-accent), 0.3), 0 0 64px rgba(var(--fc-accent), 0.32);
+}
+
+.facial-clock-viewport--ok {
+  --fc-accent: var(--fc-ok);
+  border-color: rgba(var(--fc-accent), 0.7);
+  box-shadow: 0 0 0 1px rgba(var(--fc-accent), 0.25), 0 0 64px rgba(var(--fc-accent), 0.3);
+}
+
+.facial-clock-viewport--fail {
+  --fc-accent: var(--fc-err);
+  border-color: rgba(var(--fc-accent), 0.7);
+  box-shadow: 0 0 0 1px rgba(var(--fc-accent), 0.25), 0 0 64px rgba(var(--fc-accent), 0.28);
+}
+
+.facial-clock-viewport--err {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.facial-clock-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  background: #0f172a;
+}
+
+/* Rejilla tenue hacia los bordes: no tapa la cara. */
+.facial-clock-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(rgba(var(--fc-accent), 0.1) 1px, transparent 1px) 0 0 / 34px 34px,
+    linear-gradient(90deg, rgba(var(--fc-accent), 0.1) 1px, transparent 1px) 0 0 / 34px 34px;
+  -webkit-mask-image: radial-gradient(ellipse 55% 55% at 50% 50%, transparent 55%, #000 100%);
+  mask-image: radial-gradient(ellipse 55% 55% at 50% 50%, transparent 55%, #000 100%);
+}
+
+.facial-clock-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, transparent 22%, transparent 72%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+.facial-clock-reticle {
+  position: relative;
+  width: min(62%, 230px);
+  aspect-ratio: 3 / 4;
+}
+
+.facial-clock-oval {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(var(--fc-accent), 0.85);
+  box-shadow: 0 0 18px rgba(var(--fc-accent), 0.45), inset 0 0 30px rgba(var(--fc-accent), 0.2);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.facial-clock-viewport--scan .facial-clock-oval {
+  animation: facial-clock-breathe 0.9s ease-in-out infinite;
+}
+
+/* Haz de escaneo: barre el óvalo de arriba a abajo. */
+.facial-clock-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -38%;
+  height: 38%;
   display: none;
+  background: linear-gradient(180deg, transparent, rgba(var(--fc-accent), 0.32));
+  border-bottom: 2px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 14px rgba(var(--fc-accent), 0.95), 0 6px 28px rgba(var(--fc-accent), 0.55);
+}
+
+.facial-clock-viewport--live .facial-clock-scanline {
+  display: block;
+  animation: facial-clock-scan 3.8s ease-in-out infinite;
+}
+
+.facial-clock-viewport--scan .facial-clock-scanline {
+  display: block;
+  animation: facial-clock-scan 1s linear infinite;
+}
+
+.facial-clock-viewport--ok .facial-clock-scanline,
+.facial-clock-viewport--fail .facial-clock-scanline {
+  display: none;
+}
+
+/* Aros de puntos que "caminan" alrededor del óvalo. */
+.facial-clock-reticle__svg {
+  position: absolute;
+  inset: -16px;
+  width: calc(100% + 32px);
+  height: calc(100% + 32px);
+  overflow: visible;
+}
+
+.facial-clock-ring {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke: rgba(var(--fc-accent), 0.6);
+  stroke-width: 1.5;
+}
+
+.facial-clock-ring--a {
+  stroke-dasharray: 10 8;
+  animation: facial-clock-march 2.4s linear infinite;
+}
+
+.facial-clock-ring--b {
+  stroke: rgba(var(--fc-accent), 0.28);
+  stroke-width: 1;
+  stroke-dasharray: 2 7;
+  animation: facial-clock-march 3.2s linear infinite reverse;
+}
+
+.facial-clock-viewport--scan .facial-clock-ring--a {
+  animation-duration: 0.7s;
+}
+
+.facial-clock-tick {
+  position: absolute;
+  background: rgba(var(--fc-accent), 0.95);
+  box-shadow: 0 0 8px rgba(var(--fc-accent), 0.9);
+}
+
+.facial-clock-tick--t,
+.facial-clock-tick--b {
+  left: 50%;
+  width: 2px;
+  height: 20px;
+  transform: translateX(-50%);
+}
+
+.facial-clock-tick--t {
+  top: -30px;
+}
+
+.facial-clock-tick--b {
+  bottom: -30px;
+}
+
+.facial-clock-tick--l,
+.facial-clock-tick--r {
+  top: 50%;
+  height: 2px;
+  width: 20px;
+  transform: translateY(-50%);
+}
+
+.facial-clock-tick--l {
+  left: -30px;
+}
+
+.facial-clock-tick--r {
+  right: -30px;
+}
+
+/* Sello de resultado en el centro del óvalo. */
+.facial-clock-stamp {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgb(var(--fc-accent));
+  filter: drop-shadow(0 0 14px rgba(var(--fc-accent), 0.9));
+  animation: facial-clock-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.facial-clock-guide {
+  position: absolute;
+  top: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 56px);
+  font-family: var(--fc-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #d3f9ff;
+  background: rgba(3, 8, 18, 0.72);
+  border: 1px solid rgba(var(--fc-accent), 0.45);
+  box-shadow: 0 0 14px rgba(var(--fc-accent), 0.2);
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Esquinas tipo mira en el visor. */
+.facial-clock-brackets {
+  --k: rgb(var(--fc-accent));
+  position: absolute;
+  inset: 10px;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(var(--k), var(--k)) 0 0 / 24px 2px no-repeat,
+    linear-gradient(var(--k), var(--k)) 0 0 / 2px 24px no-repeat,
+    linear-gradient(var(--k), var(--k)) 100% 0 / 24px 2px no-repeat,
+    linear-gradient(var(--k), var(--k)) 100% 0 / 2px 24px no-repeat,
+    linear-gradient(var(--k), var(--k)) 0 100% / 24px 2px no-repeat,
+    linear-gradient(var(--k), var(--k)) 0 100% / 2px 24px no-repeat,
+    linear-gradient(var(--k), var(--k)) 100% 100% / 24px 2px no-repeat,
+    linear-gradient(var(--k), var(--k)) 100% 100% / 2px 24px no-repeat;
+  filter: drop-shadow(0 0 5px rgba(var(--fc-accent), 0.8));
+}
+
+.facial-clock-badges {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  right: 22px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.facial-clock-badge {
+  font-family: var(--fc-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.facial-clock-badge--pause {
+  background: rgba(217, 119, 6, 0.92);
+}
+
+.facial-clock-badge--scan {
+  background: rgba(8, 145, 178, 0.92);
+  animation: facial-clock-pulse 1.2s ease-in-out infinite;
+}
+
+.facial-clock-busy {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(3, 7, 16, 0.9);
+  color: #cffafe;
+  text-align: center;
+  padding: 16px;
+}
+
+.facial-clock-busy p {
+  margin: 0;
+  font-family: var(--fc-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.facial-clock-spin {
+  color: rgb(var(--fc-cyan));
+  animation: facial-clock-spin 0.9s linear infinite;
 }
 
 .facial-clock-empty {
@@ -251,27 +562,20 @@
   width: 100%;
   max-width: none;
   height: 100%;
+  box-sizing: border-box;
   justify-content: center;
   border-radius: inherit;
-  background: rgba(15, 23, 42, 0.88);
+  background: rgba(8, 12, 24, 0.9);
   pointer-events: none;
-}
-
-.facial-clock-empty--overlay h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #fecaca;
-}
-
-.facial-clock-empty--warn {
-  background: rgba(120, 53, 15, 0.28);
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  color: #fde68a;
 }
 
 .facial-clock-empty h3 {
   margin: 0;
-  font-size: 0.95rem;
+  font-family: var(--fc-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fecaca;
 }
 
 .facial-clock-empty p {
@@ -281,277 +585,94 @@
   opacity: 0.95;
 }
 
-.facial-clock-viewport {
-  position: relative;
-  width: min(100%, 480px);
-  aspect-ratio: 3 / 4;
-  max-height: min(62vh, 560px);
-  border-radius: 22px;
-  overflow: hidden;
-  background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  contain: layout paint;
-}
-
-.facial-clock-viewport--live {
-  border-color: rgba(74, 222, 128, 0.4);
-  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.15), 0 0 48px rgba(74, 222, 128, 0.12);
-}
-
-.facial-clock-viewport--err {
-  border-color: rgba(248, 113, 113, 0.35);
-}
-
-.facial-clock-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scaleX(-1);
-  background: #0f172a;
-}
-
-.facial-clock-frame {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.18) 0%, transparent 20%, transparent 75%, rgba(0, 0, 0, 0.35) 100%);
-}
-
-.facial-clock-oval {
-  width: min(62%, 220px);
-  aspect-ratio: 3 / 4;
-  border-radius: 50%;
-  border: 2px dashed rgba(235, 103, 27, 0.7);
-  background: transparent;
-}
-
-.facial-clock-guide {
-  position: absolute;
-  top: 14%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #fdba74;
-  background: rgba(5, 7, 13, 0.75);
-  border: 1px solid rgba(235, 103, 27, 0.35);
-  padding: 4px 10px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.facial-clock-badges {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  pointer-events: none;
-}
-
-.facial-clock-badge {
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #fff;
-  padding: 4px 8px;
-  border-radius: 8px;
-}
-
-.facial-clock-badge--auto {
-  background: rgba(235, 103, 27, 0.92);
-}
-
-.facial-clock-badge--pause {
-  background: rgba(217, 119, 6, 0.92);
-}
-
-.facial-clock-badge--scan {
-  background: rgba(22, 163, 74, 0.92);
-  animation: facial-clock-pulse 1.2s ease-in-out infinite;
-}
-
-.facial-clock-busy {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: rgba(5, 7, 13, 0.88);
-  color: #fff;
-  text-align: center;
-  padding: 16px;
-}
-
-.facial-clock-busy p {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.facial-clock-spin {
-  color: var(--fc-orange);
-  animation: facial-clock-spin 0.9s linear infinite;
-}
-
-.facial-clock-footer {
-  display: none;
-}
-
-.facial-clock-footer-hint {
-  margin: 0;
-  font-size: 0.78rem;
-  color: #94a3b8;
-}
-
-.facial-clock-footer p {
-  margin: 0;
-  font-size: 0.75rem;
-  color: #94a3b8;
-}
-
-.facial-clock-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: none;
-  cursor: pointer;
-  border-radius: 999px;
-  padding: 12px 22px;
-  font-weight: 700;
-  font-size: 0.88rem;
-}
-
-.facial-clock-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.facial-clock-btn--primary {
-  width: 100%;
-  color: #fff;
-  background: linear-gradient(135deg, #f07a28 0%, #eb671b 50%, #d95a12 100%);
-}
-
-.facial-clock-btn--ghost {
-  color: #fdba74;
-  background: #0b1220;
-  border: 1px solid rgba(235, 103, 27, 0.35);
-  padding: 8px 14px;
-  font-size: 0.75rem;
-}
-
-.facial-clock-btn--marcar {
-  width: 100%;
-  max-width: 420px;
-  align-self: center;
-  min-height: 52px;
-  padding: 14px 24px;
-  border-radius: 16px;
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: #fff;
-  background: linear-gradient(135deg, #f07a28 0%, #eb671b 45%, #d95a12 100%);
-  box-shadow:
-    0 8px 22px rgba(235, 103, 27, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.12) inset;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
-}
-
-.facial-clock-btn--marcar:not(:disabled):active {
-  transform: scale(0.98);
-}
-
-@media (min-width: 900px) {
-  .facial-clock-btn--marcar {
-    min-height: 56px;
-    font-size: 1.1rem;
-    padding: 14px 28px;
-  }
-}
-
+/* ───────── Resultado ───────── */
 .facial-clock-result {
+  position: relative;
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: flex-start;
-  padding: 12px 14px 14px;
+  padding: 14px 16px 16px;
   border-top: 1px solid var(--fc-border);
-  background: #05070d;
-  max-height: 30%;
-  overflow: auto;
+  background: #050914;
+  overflow: hidden;
+  animation: facial-clock-rise 0.4s ease-out both;
+}
+
+.facial-clock-result::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: rgb(var(--fc-ok));
+  box-shadow: 0 0 14px rgb(var(--fc-ok));
 }
 
 .facial-clock-result--ok {
-  background: linear-gradient(180deg, rgba(6, 78, 59, 0.22), #05070d);
+  border-top-color: rgba(var(--fc-ok), 0.4);
+  background: radial-gradient(120% 180% at 0% 0%, rgba(var(--fc-ok), 0.16), transparent 62%), #050914;
 }
 
 .facial-clock-result--err {
-  background: linear-gradient(180deg, rgba(127, 29, 29, 0.22), #05070d);
+  border-top-color: rgba(var(--fc-err), 0.4);
+  background: radial-gradient(120% 180% at 0% 0%, rgba(var(--fc-err), 0.16), transparent 62%), #050914;
+}
+
+.facial-clock-result--err::before {
+  background: rgb(var(--fc-err));
+  box-shadow: 0 0 14px rgb(var(--fc-err));
 }
 
 .facial-clock-result-photo {
   position: relative;
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
   flex-shrink: 0;
 }
 
 .facial-clock-result-photo img,
 .facial-clock-result-fallback {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
   object-fit: cover;
-  border: 2px solid rgba(74, 222, 128, 0.55);
+  border: 2px solid rgba(var(--fc-ok), 0.7);
+  box-shadow: 0 0 18px rgba(var(--fc-ok), 0.35);
 }
 
 .facial-clock-result-fallback {
   display: grid;
   place-items: center;
-  background: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
-  font-size: 1.2rem;
+  background: rgba(var(--fc-ok), 0.16);
+  color: rgb(var(--fc-ok));
+  font-size: 1.4rem;
   font-weight: 800;
 }
 
 .facial-clock-result-check {
   position: absolute;
-  right: -4px;
-  bottom: -4px;
-  width: 18px;
-  height: 18px;
+  right: -5px;
+  bottom: -5px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #16a34a;
+  background: #10b981;
   color: #fff;
   display: grid;
   place-items: center;
-  border: 2px solid #05070d;
+  border: 2px solid #050914;
 }
 
 .facial-clock-result-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  color: #fb7185;
-  background: rgba(244, 63, 94, 0.12);
-  border: 1px solid rgba(244, 63, 94, 0.25);
+  color: rgb(var(--fc-err));
+  background: rgba(var(--fc-err), 0.12);
+  border: 1px solid rgba(var(--fc-err), 0.3);
   flex-shrink: 0;
 }
 
@@ -561,34 +682,37 @@
 }
 
 .facial-clock-result-text h3 {
-  margin: 4px 0 2px;
-  font-size: 0.95rem;
+  margin: 6px 0 3px;
+  font-family: var(--fc-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   color: #f8fafc;
 }
 
 .facial-clock-result-text p {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: #94a3b8;
 }
 
 .facial-clock-pill {
   display: inline-block;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-family: var(--fc-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #4ade80;
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: rgb(var(--fc-ok));
+  background: rgba(var(--fc-ok), 0.12);
+  border: 1px solid rgba(var(--fc-ok), 0.35);
   border-radius: 8px;
-  padding: 2px 8px;
+  padding: 2px 9px;
 }
 
 .facial-clock-pill--err {
-  color: #fb7185;
-  background: rgba(244, 63, 94, 0.12);
-  border-color: rgba(244, 63, 94, 0.3);
+  color: rgb(var(--fc-err));
+  background: rgba(var(--fc-err), 0.12);
+  border-color: rgba(var(--fc-err), 0.35);
 }
 
 .facial-clock-late {
@@ -602,6 +726,25 @@
   color: #cbd5e1 !important;
 }
 
+/* Barra de confianza del reconocimiento. */
+.facial-clock-conf {
+  margin-top: 8px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.facial-clock-conf span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(var(--fc-cyan)), rgb(var(--fc-ok)));
+  box-shadow: 0 0 10px rgba(var(--fc-ok), 0.8);
+  animation: facial-clock-fill 0.8s ease-out both;
+}
+
+/* ───────── Animaciones ───────── */
 @keyframes facial-clock-spin {
   to {
     transform: rotate(360deg);
@@ -614,7 +757,131 @@
     opacity: 1;
   }
   50% {
-    opacity: 0.65;
+    opacity: 0.45;
+  }
+}
+
+@keyframes facial-clock-scan {
+  from {
+    top: -38%;
+  }
+  to {
+    top: 100%;
+  }
+}
+
+@keyframes facial-clock-march {
+  to {
+    stroke-dashoffset: -72;
+  }
+}
+
+@keyframes facial-clock-breathe {
+  50% {
+    box-shadow: 0 0 34px rgba(var(--fc-accent), 0.85), inset 0 0 44px rgba(var(--fc-accent), 0.4);
+  }
+}
+
+@keyframes facial-clock-glow {
+  50% {
+    box-shadow:
+      0 8px 34px rgba(235, 103, 27, 0.7),
+      0 0 0 1px rgba(255, 255, 255, 0.22) inset;
+  }
+}
+
+@keyframes facial-clock-sheen {
+  0%,
+  55% {
+    left: -50%;
+  }
+  100% {
+    left: 130%;
+  }
+}
+
+@keyframes facial-clock-pop {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes facial-clock-rise {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes facial-clock-fill {
+  from {
+    width: 0 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .facial-clock-ring,
+  .facial-clock-scanline,
+  .facial-clock-oval,
+  .facial-clock-btn--ready,
+  .facial-clock-btn--ready::after,
+  .facial-clock-stamp,
+  .facial-clock-result,
+  .facial-clock-conf span,
+  .facial-clock-chip i {
+    animation: none !important;
+  }
+}
+
+/* ───────── Tablet apaisada: columna de control a la izquierda, cámara grande a la derecha ───────── */
+@media (min-width: 900px) and (min-aspect-ratio: 1/1) {
+  .facial-clock {
+    flex-direction: row;
+  }
+
+  .facial-clock-side {
+    display: flex;
+    flex-direction: column;
+    width: clamp(340px, 36vw, 460px);
+    flex-shrink: 0;
+    min-height: 0;
+    border-right: 1px solid var(--fc-border);
+    background: #050914;
+  }
+
+  .facial-clock-top {
+    flex: 1;
+    justify-content: center;
+    gap: 14px;
+    padding: 18px 18px;
+    border-bottom: none;
+  }
+
+  .facial-clock-top .hud-clock {
+    --hud-hm: clamp(3rem, 5.4vw, 4.8rem);
+    --hud-ring: clamp(76px, 9vw, 112px);
+  }
+
+  .facial-clock-result {
+    border-top: 1px solid var(--fc-border);
+  }
+
+  .facial-clock-stage {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .facial-clock-viewport {
+    max-width: 100%;
   }
 }
 
@@ -623,17 +890,13 @@
     min-height: 0;
   }
 
-  .facial-clock-viewport {
-    max-height: 52vh;
-  }
-
   .facial-clock-top {
-    padding: 10px 12px 8px;
+    padding: 10px 12px 10px;
     gap: 8px;
   }
 
   .facial-clock-btn--marcar {
     min-height: 48px;
-    font-size: 1rem;
+    font-size: 0.92rem;
   }
 }

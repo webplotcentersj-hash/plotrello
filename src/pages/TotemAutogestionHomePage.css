@@ -121,8 +121,17 @@
   gap: clamp(16px, 2.2vw, 24px);
 }
 
+/* El slot lo mueve motion (salto periódico); la tarjeta llena el hueco de la grilla. */
+.totem-auto-slot {
+  display: flex;
+  min-width: 0;
+}
+
 .totem-auto-tile {
   position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -138,7 +147,8 @@
     linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04)) border-box;
   backdrop-filter: blur(14px);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  /* transform lo anima motion: una transición CSS acá lo haría "arrastrar". */
+  transition: box-shadow 0.22s ease, border-color 0.22s ease;
 }
 
 .totem-auto-tile::after {
@@ -153,7 +163,6 @@
 }
 
 .totem-auto-tile:hover {
-  transform: translateY(-4px);
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
 }
 
@@ -161,8 +170,39 @@
   opacity: 1;
 }
 
-.totem-auto-tile:active {
-  transform: translateY(-1px) scale(0.992);
+/* Flecha "entrar" en la esquina; la empuja motion hacia la derecha. */
+.totem-auto-go {
+  position: absolute;
+  right: clamp(18px, 2.4vw, 26px);
+  bottom: clamp(18px, 2.4vw, 26px);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.totem-auto-go svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Banda de brillo que cruza la tarjeta de tanto en tanto. */
+.totem-auto-shine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.16) 50%, transparent 100%);
+}
+
+.totem-auto-ico {
+  display: inline-block;
 }
 
 .totem-auto-ico-ring {
@@ -207,6 +247,8 @@
   line-height: 1.45;
   color: var(--totem-text-soft);
   max-width: 42ch;
+  /* deja libre la flecha de la esquina */
+  padding-right: 56px;
 }
 
 .totem-auto-tile--op {

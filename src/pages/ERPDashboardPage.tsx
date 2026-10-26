@@ -163,6 +163,7 @@ export default function ERPDashboardPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [recientesOpen, setRecientesOpen] = useState(false)
   const [stats, setStats] = useState({
     facturasPendientes: 0,
     facturasEmitidas: 0,
@@ -447,8 +448,18 @@ export default function ERPDashboardPage() {
       </div>
 
       {stats.facturasRecientes.length > 0 && (
-        <section className="erp-recent-section">
-          <h2>Facturas recientes</h2>
+        <section className={`erp-recent-section${recientesOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="erp-recent-section__toggle"
+            aria-expanded={recientesOpen}
+            onClick={() => setRecientesOpen((v) => !v)}
+          >
+            <span aria-hidden>{recientesOpen ? '▼' : '▶'}</span>
+            <h2>Facturas recientes</h2>
+            <span className="erp-recent-section__meta">{stats.facturasRecientes.length} del mes</span>
+          </button>
+          {recientesOpen && (
           <div className="erp-table">
             <table>
               <thead>
@@ -481,6 +492,7 @@ export default function ERPDashboardPage() {
               </tbody>
             </table>
           </div>
+          )}
         </section>
       )}
     </div>

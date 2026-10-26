@@ -199,8 +199,21 @@ export default function ErpGastosPage() {
   const [mesFiltro, setMesFiltro] = useState('')
   const [excelPreview, setExcelPreview] = useState<CompraExcelParseResult | null>(null)
   const [excelImporting, setExcelImporting] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(false)
+  const [listadoOpen, setListadoOpen] = useState(true)
+  const [ticketOpen, setTicketOpen] = useState(false)
+  const [excelOpen, setExcelOpen] = useState(false)
+  const [mesesForzados, setMesesForzados] = useState<Record<string, boolean>>({})
 
   const [form, setForm] = useState<GastoForm>(() => emptyForm())
+
+  useEffect(() => {
+    if (ticketPreview || ticketExtract) setTicketOpen(true)
+  }, [ticketPreview, ticketExtract])
+
+  useEffect(() => {
+    if (excelPreview) setExcelOpen(true)
+  }, [excelPreview])
 
   const reload = async () => {
     if (!supabase) return
@@ -308,6 +321,15 @@ export default function ErpGastosPage() {
     () => rows.filter((r) => String(r.fecha_gasto).slice(0, 10) === hoy).length,
     [rows, hoy]
   )
+  const mesActual = hoy.slice(0, 7)
+  const mesAbierto = (ym: string) => {
+    if (Object.prototype.hasOwnProperty.call(mesesForzados, ym)) return mesesForzados[ym]
+    if (mesFiltro) return ym === mesFiltro
+    return ym === mesActual
+  }
+  const toggleMes = (ym: string) => {
+    setMesesForzados((prev) => ({ ...prev, [ym]: !mesAbierto(ym) }))
+  }
 
   const kpis = useMemo(() => {
     const total = filteredRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0)
@@ -643,7 +665,7 @@ export default function ErpGastosPage() {
         </div>
       </div>
 
-      <div className="erp-section-grid erp-gastos-grid">
+      <div className={`erp-section-grid erp-gastos-grid${statsOpen ? '' : ' erp-gastos-grid--solo-form'}`}>
         <div className="erp-panel erp-gastos-form">
           <h2>Ingreso</h2>
           <p className="erp-muted">
@@ -663,6 +685,15 @@ export default function ErpGastosPage() {
             </button>
             <button type="button" className={filter === 'tickets' ? 'btn-primary' : 'btn-secondary'} onClick={() => setFilter('tickets')}>
               Tickets
+            </button>
+            <button
+              type="button"
+              className={`erp-gastos-tabs__stats${statsOpen ? ' is-open' : ''}`}
+              aria-expanded={statsOpen}
+              onClick={() => setStatsOpen((v) => !v)}
+            >
+              <span aria-hidden>{statsOpen ? '▼' : '▶'}</span>
+              Estadísticas
             </button>
           </div>
 
@@ -845,30 +876,39 @@ export default function ErpGastosPage() {
               </label>
             </fieldset>
 
-            <fieldset className="erp-gastos-fieldset">
-              <legend>Ticket / factura</legend>
-              <div className="erp-ticket-row">
-                <label className="erp-ticket-upload">
-                  Foto o PDF
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={(e) => {
-                      void handleTicketFile(e.target.files?.[0])
-                      e.target.value = ''
-                    }}
-                  />
-                </label>
-                <div className="erp-muted">
-                  {ticketUploading
-                    ? 'Subiendo…'
-                    : ticketExtracting
-                      ? 'Extrayendo datos…'
-                      : form.ticket_url
-                        ? 'Ticket cargado. Revisá los campos y guardá.'
-                        : 'Opcional. Si hay IVA, el libro se completa solo.'}
-                </div>
-              </div>
+            <section className={`erp-gastos-drop erp-gastos-drop--ticket${ticketOpen ? ' is-open' : ''}`}>
+              <button
+                type="button"
+                className="erp-gastos-drop__head"
+                aria-expanded={ticketOpen}
+                onClick={() => setTicketOpen((v) => !v)}
+              >
+                <span className="erp-gastos-drop__mark" aria-hidden>
+                  {ticketOpen ? '▼' : '▶'}
+                </span>
+                <span>
+                  <strong>Ticket / factura</strong>
+                  <small>Foto o PDF. Si hay IVA, el libro se completa solo.</small>
+                </span>
+              </button>
+              {ticketOpen && (
+              <div className="erp-gastos-drop__body">
+              <label className="erp-ticket-upload erp-gastos-upload">
+                <strong>{ticketUploading ? 'Subiendo…' : ticketExtracting ? 'Leyendo el comprobante…' : 'Soltá la foto o el PDF'}</strong>
+                <span>
+                  {form.ticket_url
+                    ? 'Ticket cargado. Revisá los campos y guardá.'
+                    : 'JPG, PNG o PDF'}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => {
+                    void handleTicketFile(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
+                />
+              </label>
 
               {ticketPreview && (
                 <div className="erp-ticket-preview">
@@ -910,15 +950,30 @@ export default function ErpGastosPage() {
                   placeholder="Notas internas, dominio, viaje, referencia…"
                 />
               </label>
-            </fieldset>
+              </div>
+              )}
+            </section>
 
-            <fieldset className="erp-gastos-fieldset">
-              <legend>Excel AFIP · otros meses</legend>
-              <p className="erp-muted" style={{ margin: '0 0 10px' }}>
-                Subí el Excel de <strong>Comprobantes de Compras</strong> (Fecha, Tipo, Punto de Venta, Número, CUIT, Denominación, Neto Gravado, IVA, Total). Se importan al mes de cada factura.
-              </p>
-              <label className="erp-ticket-upload">
-                Archivo .xls / .xlsx / .csv
+            <section className={`erp-gastos-drop erp-gastos-drop--excel${excelOpen ? ' is-open' : ''}`}>
+              <button
+                type="button"
+                className="erp-gastos-drop__head"
+                aria-expanded={excelOpen}
+                onClick={() => setExcelOpen((v) => !v)}
+              >
+                <span className="erp-gastos-drop__mark" aria-hidden>
+                  {excelOpen ? '▼' : '▶'}
+                </span>
+                <span>
+                  <strong>Excel AFIP · otros meses</strong>
+                  <small>Comprobantes de Compras. Cada factura entra en su mes.</small>
+                </span>
+              </button>
+              {excelOpen && (
+              <div className="erp-gastos-drop__body">
+              <label className="erp-ticket-upload erp-gastos-upload">
+                <strong>Subí el Excel de AFIP</strong>
+                <span>Fecha, tipo, punto de venta, número, CUIT, neto, IVA y total. .xls, .xlsx o .csv</span>
                 <input
                   type="file"
                   accept=".xls,.xlsx,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
@@ -991,7 +1046,9 @@ export default function ErpGastosPage() {
                   </div>
                 </div>
               )}
-            </fieldset>
+              </div>
+              )}
+            </section>
 
             <div className="erp-gastos-form-actions">
               <button
@@ -1015,9 +1072,10 @@ export default function ErpGastosPage() {
           </div>
         </div>
 
-        <div className="erp-panel">
+        {statsOpen && (
+        <div className="erp-panel erp-gastos-stats">
           <h2>Estadísticas</h2>
-          <div className="erp-kpi" style={{ marginBottom: 12 }}>
+          <div className="erp-kpi erp-gastos-kpis">
             <div className="erp-kpi-item">
               <div className="erp-kpi-value">{money(kpis.total)}</div>
               <div className="erp-kpi-label">Total (filtro)</div>
@@ -1093,15 +1151,27 @@ export default function ErpGastosPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
-      <div className="erp-panel">
-        <div className="erp-panel__head">
-          <h2>Listado</h2>
-          <p className="erp-panel__hint">
-            Agrupado por mes. Hoy ({countHoy}) va primero dentro del mes actual. Buscá o filtrá, o importá Excel de otros períodos.
-          </p>
-        </div>
+      <div className={`erp-panel erp-gastos-listado${listadoOpen ? ' is-open' : ''}`}>
+        <button
+          type="button"
+          className="erp-gastos-collapse"
+          aria-expanded={listadoOpen}
+          onClick={() => setListadoOpen((v) => !v)}
+        >
+          <span className="erp-gastos-collapse__mark" aria-hidden>
+            {listadoOpen ? '▼' : '▶'}
+          </span>
+          <span className="erp-gastos-collapse__title">Listado</span>
+          <span className="erp-gastos-collapse__meta">
+            {filteredRows.length} gastos
+            {countHoy > 0 ? ` · ${countHoy} hoy` : ''}
+          </span>
+        </button>
+        {listadoOpen && (
+        <div className="erp-gastos-listado__body">
 
         <div className="erp-gastos-meses">
           <button type="button" className={!mesFiltro ? 'btn-primary' : 'btn-secondary'} onClick={() => setMesFiltro('')}>
@@ -1216,18 +1286,29 @@ export default function ErpGastosPage() {
         ) : groupedByMes.length === 0 ? (
           <p className="erp-muted">Sin gastos con esos filtros.</p>
         ) : (
-          groupedByMes.map(([ym, list]) => {
+          <div className="erp-gastos-meses-list">
+          {groupedByMes.map(([ym, list]) => {
             const totMes = list.reduce((s, r) => s + (Number(r.total) || 0), 0)
             const ivaMes = list.reduce((s, r) => s + (Number(r.iva) || 0), 0)
+            const abierto = mesAbierto(ym)
             return (
-              <section key={ym} className="erp-gastos-mes">
-                <div className="erp-gastos-mes__head">
-                  <h3>{labelMesYm(ym)}</h3>
+              <section key={ym} className={`erp-gastos-mes${abierto ? ' is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="erp-gastos-mes__head"
+                  aria-expanded={abierto}
+                  onClick={() => toggleMes(ym)}
+                >
+                  <span className="erp-gastos-mes__mark" aria-hidden>
+                    {abierto ? '▼' : '▶'}
+                  </span>
+                  <strong>{labelMesYm(ym)}</strong>
                   <span>
                     {list.length} gastos · {money(totMes)}
                     {Math.abs(ivaMes) > 0.009 ? ` · IVA ${money(ivaMes)}` : ''}
                   </span>
-                </div>
+                </button>
+                {abierto && (
                 <div className="erp-table-wrap">
                   <table className="erp-table">
                     <thead>
@@ -1298,9 +1379,11 @@ export default function ErpGastosPage() {
                     </tbody>
                   </table>
                 </div>
+                )}
               </section>
             )
-          })
+          })}
+          </div>
         )}
 
         {trazado && (
@@ -1384,6 +1467,8 @@ export default function ErpGastosPage() {
             </ol>
             {trazado.observaciones ? <p className="erp-muted">Obs.: {trazado.observaciones}</p> : null}
           </div>
+        )}
+        </div>
         )}
       </div>
     </div>

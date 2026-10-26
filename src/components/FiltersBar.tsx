@@ -59,6 +59,7 @@ const FiltersBar = ({
     isTallerGrafico,
     canAccessMostradorViews,
     canManageCaja,
+    canManageCompras,
     usuario,
     nombreVisible
   } = useAuth()
@@ -220,6 +221,16 @@ const FiltersBar = ({
                     Ventas
                   </button>
                 )}
+                {canManageCompras && (
+                  <button
+                    type="button"
+                    className="compras-button"
+                    onClick={() => navigate('/compras/dashboard')}
+                    title="Pedidos y gestión de compras"
+                  >
+                    Compras
+                  </button>
+                )}
                 {(canManageCaja || showAccionesMostrador) && (
                   <button
                     type="button"
@@ -228,6 +239,16 @@ const FiltersBar = ({
                     title="Dashboard de caja"
                   >
                     Caja
+                  </button>
+                )}
+                {(isAdmin || showAccionesMostrador) && (
+                  <button
+                    type="button"
+                    className="erp-button"
+                    onClick={() => navigate('/erp')}
+                    title="Panel ERP"
+                  >
+                    ERP
                   </button>
                 )}
               </div>

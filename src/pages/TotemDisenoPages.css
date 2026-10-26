@@ -131,7 +131,17 @@
   margin: 0 auto;
 }
 
+/* El slot lo mueve motion (salto periódico); la tarjeta llena el hueco de la grilla. */
+.totem-diseno-home-slot {
+  display: flex;
+  min-width: 0;
+}
+
 .totem-diseno-home-tile {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -144,13 +154,48 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  /* transform lo anima motion: una transición CSS acá lo haría "arrastrar". */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .totem-diseno-home-tile:hover {
-  transform: translateY(-4px);
   border-color: rgba(56, 189, 248, 0.45);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Banda de brillo que cruza la tarjeta de tanto en tanto. */
+.totem-diseno-home-shine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 36%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.14) 50%, transparent 100%);
+}
+
+/* Flecha "entrar" en la esquina; la empuja motion hacia la derecha. */
+.totem-diseno-home-go {
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.totem-diseno-home-go svg {
+  width: 22px;
+  height: 22px;
+}
+
+.totem-diseno-home-alert__ico {
+  display: inline-block;
 }
 
 .totem-diseno-home-tile--brief {
@@ -162,6 +207,7 @@
 }
 
 .totem-diseno-home-tile-icon {
+  display: inline-block;
   font-size: 2rem;
 }
 
@@ -171,6 +217,8 @@
 }
 
 .totem-diseno-home-tile span:last-child {
+  /* deja libre la flecha de la esquina */
+  padding-right: 56px;
   color: var(--td-muted);
   font-size: 0.98rem;
   line-height: 1.4;

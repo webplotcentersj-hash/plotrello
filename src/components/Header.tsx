@@ -91,6 +91,7 @@ const Header = ({
     canAccessClientesConsulta,
     isTallerGrafico,
     isTallerImprenta,
+    isMostrador,
     isMetalurgica,
     canAccessTotemImpresionPanel,
     canManageWorkPool
@@ -265,6 +266,10 @@ const Header = ({
     }
     if ((isTallerImprenta || isAdmin) && !skip('panol-taller-imprenta') && !skip('panol-taller-imprenta-admin') && !skip('panol-taller-imprenta-gerencia')) {
       push({ id: 'panol-taller-imprenta', label: 'Pañol Imprenta', icon: '🧰', href: '/taller-imprenta/panol' })
+      push({ id: 'inventario-ti', label: 'Inventario Imprenta', icon: '🖨️', href: '/taller-imprenta/inventario' })
+    }
+    if (isMostrador || isAdmin || canManageCompras) {
+      push({ id: 'inventario-mostrador', label: 'Inventario Mostrador', icon: '🖥️', href: '/mostrador/inventario' })
     }
     if (onNavigateToFlota) {
       push({ id: 'flota', label: 'Flota', icon: '🚗', onClick: onNavigateToFlota })
@@ -314,6 +319,7 @@ const Header = ({
     onNavigateToAsesorPresupuestos,
     isTallerGrafico,
     isTallerImprenta,
+    isMostrador,
     onNavigateToFlota,
     onNavigateToERP,
     onNavigateToStats

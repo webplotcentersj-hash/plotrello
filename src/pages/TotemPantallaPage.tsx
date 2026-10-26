@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  AnimatePresence,
+  MotionConfig,
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+  type MotionStyle,
+  type Variants
+} from 'motion/react'
 import { supabase } from '../services/supabaseClient'
 import apiService from '../services/api'
+import HudClock from '../components/HudClock'
+import { EASE_IN_OUT, SPRING, SPRING_SOFT, loop } from '../components/totem/totemMotion'
 import { estiloSectorPorDestino, parsearNotasTotem } from '../utils/totemPantallaSectores'
 import './TotemPantallaPage.css'
 
@@ -58,31 +71,6 @@ function formatHora(iso: string): string {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false
-    })
-  } catch {
-    return ''
-  }
-}
-
-function formatReloj(d: Date): string {
-  try {
-    return d.toLocaleTimeString('es-AR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    })
-  } catch {
-    return '--:--:--'
-  }
-}
-
-function formatFecha(d: Date): string {
-  try {
-    return d.toLocaleDateString('es-AR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long'
     })
   } catch {
     return ''
@@ -162,12 +150,197 @@ function buildSlides(visitas: VisitaRow[], impresiones: ImpresionRow[]): Slide[]
   return slides
 }
 
-export default function TotemPantallaPage() {
+/** La tarjeta entra con resorte y va soltando sus líneas de a una; sale hacia arriba. */
+const CARD: Variants = {
+  hidden: { opacity: 0, scale: 0.88, y: 36 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { ...SPRING, opacity: { duration: 0.35 }, staggerChildren: 0.09, delayChildren: 0.15 }
+  },
+  exit: { opacity: 0, scale: 0.95, y: -20, transition: { duration: 0.28, ease: 'easeIn' } }
+}
+
+const LINE: Variants = {
+  hidden: { opacity: 0, y: 22 },
+  show: { opacity: 1, y: 0, transition: { ...SPRING_SOFT, opacity: { duration: 0.3 } } }
+}
+
+/** Para lo que tiene que "caer" con peso: el nombre y la insignia. */
+const POP: Variants = {
+  hidden: { opacity: 0, scale: 0.7 },
+  show: { opacity: 1, scale: 1, transition: { ...SPRING, opacity: { duration: 0.25 } } }
+}
+
+const cardVars = (v: Record<`--${string}`, string>) => v as unknown as MotionStyle
+
+/** Contador que "sube" hasta el valor nuevo y rebota al cambiar. */
+function CountUp({ value }: { value: number }) {
+  const reduce = useReducedMotion()
+  const mv = useMotionValue(reduce ? value : 0)
+  const text = useTransform(mv, (v) => String(Math.round(v)))
+
+  useEffect(() => {
+    if (reduce) {
+      mv.set(value)
+      return
+    }
+    const controls = animate(mv, value, { duration: 0.9, ease: 'easeOut' })
+    return () => controls.stop()
+  }, [value, reduce, mv])
+
+  return (
+    <motion.strong key={value} initial={{ scale: 1.45 }} animate={{ scale: 1 }} transition={SPRING}>
+      {text}
+    </motion.strong>
+  )
+}
+
+/** Una pasada de brillo al entrar la tarjeta. */
+function CardShine() {
+  return (
+    <span className="totem-pantalla-shine" aria-hidden>
+      <motion.span
+        className="totem-pantalla-shine__band"
+        style={{ skewX: -18 }}
+        initial={{ x: '-130%' }}
+        animate={{ x: '430%' }}
+        transition={{ duration: 1.5, delay: 0.9, ease: EASE_IN_OUT }}
+      />
+    </span>
+  )
+}
+
+function PantallaCard({ slide }: { slide: Slide }) {
+  if (slide.kind === 'visita') {
+    return (
+      <motion.article
+        className="totem-pantalla-card totem-pantalla-card--visita"
+        style={cardVars({ '--card-bg': slide.bg, '--card-fg': slide.textColor })}
+        variants={CARD}
+        initial="hidden"
+        animate="show"
+        exit="exit"
+      >
+        <CardShine />
+        <motion.p variants={LINE} className="totem-pantalla-card-tag">
+          Cliente en camino
+        </motion.p>
+        <motion.h2 variants={POP} className="totem-pantalla-card-name">
+          {slide.nombre}
+        </motion.h2>
+        <motion.p variants={LINE} className="totem-pantalla-card-sector">
+          <motion.span
+            className="totem-pantalla-arrow"
+            aria-hidden
+            animate={{ x: [0, 10, 0] }}
+            transition={{ duration: 1.1, repeat: Infinity, ease: EASE_IN_OUT }}
+          >
+            →
+          </motion.span>{' '}
+          {slide.sectorLabel}
+        </motion.p>
+        {slide.motivo && (
+          <motion.p variants={LINE} className="totem-pantalla-card-detail">
+            {slide.motivo}
+          </motion.p>
+        )}
+        <motion.p variants={LINE} className="totem-pantalla-card-time">
+          {slide.hora} hs
+        </motion.p>
+      </motion.article>
+    )
+  }
+
+  if (slide.kind === 'impresion') {
+    return (
+      <motion.article
+        className={`totem-pantalla-card totem-pantalla-card--impresion${slide.pagado ? ' totem-pantalla-card--pagado' : ''}`}
+        variants={CARD}
+        initial="hidden"
+        animate="show"
+        exit="exit"
+      >
+        <CardShine />
+        <motion.p variants={LINE} className="totem-pantalla-card-tag">
+          Pedido de impresión
+        </motion.p>
+        <motion.h2 variants={POP} className="totem-pantalla-card-name">
+          {slide.nombre}
+        </motion.h2>
+        <motion.p variants={LINE} className="totem-pantalla-card-sector">
+          {slide.hojas} hoja{slide.hojas === 1 ? '' : 's'} · {slide.tipo}
+        </motion.p>
+        {slide.numeroOp && (
+          <motion.p variants={LINE} className="totem-pantalla-card-detail">
+            OP {slide.numeroOp}
+          </motion.p>
+        )}
+        <motion.p variants={POP} className="totem-pantalla-card-badge">
+          {slide.pagado ? (
+            <motion.span
+              className="totem-pantalla-badge-ico"
+              aria-hidden
+              initial={{ scale: 0, rotate: -90 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ ...SPRING, delay: 0.7 }}
+            >
+              ✓
+            </motion.span>
+          ) : (
+            <motion.span
+              className="totem-pantalla-badge-ico"
+              aria-hidden
+              animate={{ rotate: [0, -16, 16, -8, 0] }}
+              transition={loop(1, 1.3, 3)}
+            >
+              ⏳
+            </motion.span>
+          )}{' '}
+          {slide.pagado ? 'Pagado — preparar impresión' : 'Pendiente de pago en caja'}
+        </motion.p>
+        <motion.p variants={LINE} className="totem-pantalla-card-time">
+          {slide.hora} hs
+        </motion.p>
+      </motion.article>
+    )
+  }
+
+  return (
+    <motion.article
+      className="totem-pantalla-card totem-pantalla-card--idle"
+      variants={CARD}
+      initial="hidden"
+      animate="show"
+      exit="exit"
+    >
+      <motion.div variants={POP}>
+        <motion.img
+          src={LOGO_URL}
+          alt=""
+          className="totem-pantalla-card-idle-logo"
+          animate={{ y: [0, -9, 0], rotate: [0, -4, 4, 0] }}
+          transition={{ duration: 4.2, repeat: Infinity, ease: EASE_IN_OUT }}
+        />
+      </motion.div>
+      <motion.h2 variants={LINE} className="totem-pantalla-card-name">
+        {slide.title}
+      </motion.h2>
+      <motion.p variants={LINE} className="totem-pantalla-card-detail">
+        {slide.subtitle}
+      </motion.p>
+    </motion.article>
+  )
+}
+
+function PantallaScreen() {
+  const reduceMotion = useReducedMotion()
   const [now, setNow] = useState(() => new Date())
   const [visitas, setVisitas] = useState<VisitaRow[]>([])
   const [impresiones, setImpresiones] = useState<ImpresionRow[]>([])
   const [slideIndex, setSlideIndex] = useState(0)
-  const [fade, setFade] = useState(true)
+  const [tick, setTick] = useState(0)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [temp, setTemp] = useState<number | null>(null)
   const [weatherDesc, setWeatherDesc] = useState('San Juan')
@@ -245,11 +418,8 @@ export default function TotemPantallaPage() {
   useEffect(() => {
     if (slides.length === 0) return
     const id = window.setInterval(() => {
-      setFade(false)
-      window.setTimeout(() => {
-        setSlideIndex((i) => (i + 1) % slides.length)
-        setFade(true)
-      }, 380)
+      setSlideIndex((i) => (i + 1) % slides.length)
+      setTick((t) => t + 1)
     }, ROTATE_MS)
     return () => window.clearInterval(id)
   }, [slides.length])
@@ -268,77 +438,93 @@ export default function TotemPantallaPage() {
         <span className="totem-pantalla-orb totem-pantalla-orb--3" />
       </div>
 
-      <header className="totem-pantalla-header">
+      <motion.header
+        className="totem-pantalla-header"
+        initial={{ opacity: 0, y: -36 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...SPRING_SOFT, opacity: { duration: 0.45 } }}
+      >
         <div className="totem-pantalla-brand">
-          <img src={LOGO_URL} alt="Plot Center" className="totem-pantalla-logo" />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.3, rotate: -28 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            transition={{ ...SPRING, opacity: { duration: 0.3 }, delay: 0.25 }}
+          >
+            <motion.img
+              src={LOGO_URL}
+              alt="Plot Center"
+              className="totem-pantalla-logo"
+              animate={{ rotate: [0, -9, 8, -4, 0], scale: [1, 1.1, 1.1, 1.04, 1] }}
+              transition={loop(5, 1.1, 10)}
+            />
+          </motion.div>
           <div>
-            <p className="totem-pantalla-kicker">Plot Center</p>
-            <h1 className="totem-pantalla-title">Mostrador en vivo</h1>
+            <motion.p
+              className="totem-pantalla-kicker"
+              initial={{ opacity: 0, x: -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ ...SPRING_SOFT, opacity: { duration: 0.4 }, delay: 0.35 }}
+            >
+              Plot Center
+            </motion.p>
+            <motion.h1
+              className="totem-pantalla-title"
+              initial={{ opacity: 0, x: -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ ...SPRING_SOFT, opacity: { duration: 0.4 }, delay: 0.43 }}
+            >
+              Mostrador en vivo
+            </motion.h1>
           </div>
         </div>
 
         <div className="totem-pantalla-meta">
-          <div className="totem-pantalla-clock" aria-live="polite">
-            <span className="totem-pantalla-clock-time">{formatReloj(now)}</span>
-            <span className="totem-pantalla-clock-date">{formatFecha(now)}</span>
-          </div>
-          <div className="totem-pantalla-weather" title={weatherDesc}>
-            <span className="totem-pantalla-weather-icon">{weatherIcon}</span>
+          <motion.div
+            className="totem-pantalla-clock"
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ ...SPRING, opacity: { duration: 0.4 }, delay: 0.45 }}
+          >
+            <HudClock now={now} />
+          </motion.div>
+          <motion.div
+            className="totem-pantalla-weather"
+            title={weatherDesc}
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ ...SPRING, opacity: { duration: 0.4 }, delay: 0.58 }}
+          >
+            <motion.span
+              className="totem-pantalla-weather-icon"
+              animate={{ y: [0, -4, 0], rotate: [0, -8, 8, 0] }}
+              transition={{ duration: 4.5, repeat: Infinity, ease: EASE_IN_OUT }}
+            >
+              {weatherIcon}
+            </motion.span>
             <span className="totem-pantalla-weather-temp">
               {temp != null ? `${temp}°C` : '—°C'}
             </span>
             <span className="totem-pantalla-weather-place">San Juan</span>
-          </div>
+          </motion.div>
         </div>
-      </header>
+      </motion.header>
 
       <main className="totem-pantalla-main">
-        <div className={`totem-pantalla-carousel${fade ? ' totem-pantalla-carousel--in' : ' totem-pantalla-carousel--out'}`}>
-          {current?.kind === 'visita' && (
-            <article
-              className="totem-pantalla-card totem-pantalla-card--visita"
-              style={{
-                ['--card-bg' as string]: current.bg,
-                ['--card-fg' as string]: current.textColor
-              }}
-            >
-              <p className="totem-pantalla-card-tag">Cliente en camino</p>
-              <h2 className="totem-pantalla-card-name">{current.nombre}</h2>
-              <p className="totem-pantalla-card-sector">→ {current.sectorLabel}</p>
-              {current.motivo && (
-                <p className="totem-pantalla-card-detail">{current.motivo}</p>
-              )}
-              <p className="totem-pantalla-card-time">{current.hora} hs</p>
-            </article>
-          )}
-
-          {current?.kind === 'impresion' && (
-            <article
-              className={`totem-pantalla-card totem-pantalla-card--impresion${current.pagado ? ' totem-pantalla-card--pagado' : ''}`}
-            >
-              <p className="totem-pantalla-card-tag">Pedido de impresión</p>
-              <h2 className="totem-pantalla-card-name">{current.nombre}</h2>
-              <p className="totem-pantalla-card-sector">
-                {current.hojas} hoja{current.hojas === 1 ? '' : 's'} · {current.tipo}
-              </p>
-              {current.numeroOp && (
-                <p className="totem-pantalla-card-detail">OP {current.numeroOp}</p>
-              )}
-              <p className="totem-pantalla-card-badge">
-                {current.pagado ? '✓ Pagado — preparar impresión' : '⏳ Pendiente de pago en caja'}
-              </p>
-              <p className="totem-pantalla-card-time">{current.hora} hs</p>
-            </article>
-          )}
-
-          {current?.kind === 'idle' && (
-            <article className="totem-pantalla-card totem-pantalla-card--idle">
-              <img src={LOGO_URL} alt="" className="totem-pantalla-card-idle-logo" />
-              <h2 className="totem-pantalla-card-name">{current.title}</h2>
-              <p className="totem-pantalla-card-detail">{current.subtitle}</p>
-            </article>
-          )}
+        <div className="totem-pantalla-carousel">
+          <AnimatePresence mode="wait">{current && <PantallaCard key={current.key} slide={current} />}</AnimatePresence>
         </div>
+
+        {!reduceMotion && (
+          <div className="totem-pantalla-timer" aria-hidden>
+            <motion.span
+              key={`${slides.length}-${tick}`}
+              className="totem-pantalla-timer__fill"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ duration: ROTATE_MS / 1000, ease: 'linear' }}
+            />
+          </div>
+        )}
 
         <div className="totem-pantalla-dots" aria-hidden>
           {slides.map((s, i) => (
@@ -350,15 +536,40 @@ export default function TotemPantallaPage() {
         </div>
       </main>
 
-      <footer className="totem-pantalla-footer">
+      <motion.footer
+        className="totem-pantalla-footer"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...SPRING_SOFT, opacity: { duration: 0.4 }, delay: 0.8 }}
+      >
         <span className="totem-pantalla-stat totem-pantalla-stat--visita">
-          <strong>{visitas.length}</strong> avisos tótem
+          <CountUp value={visitas.length} /> avisos tótem
         </span>
         <span className="totem-pantalla-stat totem-pantalla-stat--impresion">
-          <strong>{impresiones.length}</strong> impresiones en cola
+          <CountUp value={impresiones.length} /> impresiones en cola
         </span>
-        {loadError && <span className="totem-pantalla-footer-warn">{loadError}</span>}
-      </footer>
+        <AnimatePresence>
+          {loadError && (
+            <motion.span
+              className="totem-pantalla-footer-warn"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+            >
+              {loadError}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.footer>
     </div>
+  )
+}
+
+export default function TotemPantallaPage() {
+  // "user": si la pantalla tiene movimiento reducido, motion deja todo quieto.
+  return (
+    <MotionConfig reducedMotion="user">
+      <PantallaScreen />
+    </MotionConfig>
   )
 }

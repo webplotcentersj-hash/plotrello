@@ -15,6 +15,111 @@ import CajaCollapsibleCard, { CajaListSearch } from './CajaCollapsibleCard'
 import CajaVolverPlotLab from './CajaVolverPlotLab'
 import { LIST_PAGE_SIZE, matchSearchQuery } from '../listFilters'
 
+function fmtCuandoAr(iso?: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Buenos_Aires',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(d)
+}
+
+function estadoEgresoUi(s: CajaEgresoSolicitud): { label: string; tone: 'ok' | 'bad' | 'pen' } {
+  if (s.estado === 'rechazado') return { label: 'Rechazado', tone: 'bad' }
+  if (s.estado === 'aprobado' && s.url_ticket) return { label: 'Ejecutado', tone: 'ok' }
+  if (s.estado === 'aprobado') return { label: 'Aprobado · falta ticket', tone: 'pen' }
+  return { label: 'Pendiente de autorización', tone: 'pen' }
+}
+
+function textoMovimiento(s: CajaEgresoSolicitud): string {
+  if (s.id_movimiento) return s.id_movimiento
+  if (s.estado === 'aprobado') return 'Se descuenta cuando suban el ticket'
+  if (s.estado === 'rechazado') return 'No se generó'
+  return 'Espera autorización'
+}
+
+function EgresoFicha({
+  sol,
+  cajaNombre,
+  actions
+}: {
+  sol: CajaEgresoSolicitud
+  cajaNombre: string
+  actions?: React.ReactNode
+}) {
+  const est = estadoEgresoUi(sol)
+  const pedido = fmtCuandoAr(sol.created_at)
+  const resuelto = sol.estado !== 'pendiente' ? fmtCuandoAr(sol.updated_at) : null
+
+  return (
+    <article className="caja-cc-egreso-ficha">
+      <header className="caja-cc-egreso-ficha-head">
+        <div>
+          <div className="caja-cc-egreso-ficha-concepto">{sol.concepto}</div>
+          <div className="caja-cc-meta">
+            {cajaNombre} · {fmtDateAr(sol.fecha)}
+            {pedido ? ` · pedido ${pedido}` : ''}
+          </div>
+        </div>
+        <div className="caja-cc-egreso-ficha-side">
+          <div className="caja-cc-egreso-ficha-monto">$ {fmtArs(sol.monto_efectivo)}</div>
+          {sol.monto_otros > 0 && (
+            <div className="caja-cc-meta">Otros $ {fmtArs(sol.monto_otros)}</div>
+          )}
+          <span className={`caja-cc-badge ${est.tone}`}>{est.label}</span>
+        </div>
+      </header>
+      <dl className="caja-cc-egreso-ficha-grid">
+        <div>
+          <dt>Solicitó</dt>
+          <dd>{sol.solicitante_nombre?.trim() || '—'}</dd>
+        </div>
+        <div>
+          <dt>{sol.estado === 'rechazado' ? 'Rechazó' : 'Autorizó'}</dt>
+          <dd>
+            {sol.aprobador_nombre?.trim() || (sol.estado === 'pendiente' ? 'Pendiente' : '—')}
+            {resuelto ? ` · ${resuelto}` : ''}
+          </dd>
+        </div>
+        <div>
+          <dt>Ticket</dt>
+          <dd>
+            {sol.url_ticket ? (
+              <a href={sol.url_ticket} target="_blank" rel="noopener noreferrer">
+                Ver ticket
+              </a>
+            ) : sol.estado === 'aprobado' ? (
+              'Falta subir'
+            ) : (
+              '—'
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Movimiento</dt>
+          <dd className={sol.id_movimiento ? 'caja-cc-egreso-ficha-id' : undefined}>{textoMovimiento(sol)}</dd>
+        </div>
+        <div className="caja-cc-egreso-ficha-wide">
+          <dt>Observación</dt>
+          <dd>{sol.observacion?.trim() || 'Sin observación'}</dd>
+        </div>
+        {sol.motivo_rechazo?.trim() ? (
+          <div className="caja-cc-egreso-ficha-wide">
+            <dt>Motivo del rechazo</dt>
+            <dd>{sol.motivo_rechazo}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {actions ? <div className="caja-cc-egreso-ficha-actions">{actions}</div> : null}
+    </article>
+  )
+}
+
 type Props = {
   isAdmin: boolean
   usuarioNombre: string
@@ -191,17 +296,14 @@ export default function CajaSectionEgresos({
         s.solicitante_nombre,
         s.aprobador_nombre,
         s.observacion,
+        s.motivo_rechazo,
+        s.id_movimiento,
         fmtArs(s.monto_efectivo)
       ])
     })
   }, [lista, histSearch, histEstado, histDesde, histHasta, cajas, filtroCajaSlug])
 
   const historialVisible = historialFiltrado.slice(0, histLimit)
-
-  const estadoLabel = (s: CajaEgresoSolicitud) => {
-    if (s.estado === 'aprobado' && !s.url_ticket) return 'aprobado · falta ticket'
-    return s.estado
-  }
 
   const historialToolbar = (
     <div className="caja-cc-card-toolbar caja-cc-card-toolbar--stack">
@@ -355,70 +457,44 @@ export default function CajaSectionEgresos({
           <p className="caja-cc-help">
             Administración ya autorizó. Subí el ticket para ejecutar el egreso.
           </p>
-          <table className="caja-cc-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Concepto</th>
-                <th className="num">Monto</th>
-                <th>Autorizó</th>
-                <th>Ticket</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendientesTicket.map((s) => (
-                <tr key={s.id}>
-                  <td>{fmtDateAr(s.fecha)}</td>
-                  <td>{s.concepto}</td>
-                  <td className="num">$ {fmtArs(s.monto_efectivo)}</td>
-                  <td>{s.aprobador_nombre ?? '—'}</td>
-                  <td>
-                    <label className="caja-cc-file-inline">
-                      <input
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
-                        disabled={subiendoTicket || saving}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0]
-                          void subirTicketOperador(s, f)
-                          e.target.value = ''
-                        }}
-                      />
-                      {ticketParaId === s.id && subiendoTicket
-                        ? 'Subiendo…'
-                        : 'Elegir ticket'}
-                    </label>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="caja-cc-egreso-list">
+            {pendientesTicket.map((s) => (
+              <EgresoFicha
+                key={s.id}
+                sol={s}
+                cajaNombre={cajaNombre(s.caja_slug)}
+                actions={
+                  <label className="caja-cc-file-inline">
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+                      disabled={subiendoTicket || saving}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        void subirTicketOperador(s, f)
+                        e.target.value = ''
+                      }}
+                    />
+                    {ticketParaId === s.id && subiendoTicket ? 'Subiendo…' : 'Elegir ticket'}
+                  </label>
+                }
+              />
+            ))}
+          </div>
         </div>
       )}
 
       {isAdmin && pendientes.length > 0 && (
         <div className="caja-cc-card caja-cc-egreso-pendientes">
           <h3>Pendientes de autorización ({pendientes.length})</h3>
-          <table className="caja-cc-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Caja</th>
-                <th>Concepto</th>
-                <th className="num">Monto</th>
-                <th>Solicitó</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {pendientes.map((s) => (
-                <tr key={s.id}>
-                  <td>{fmtDateAr(s.fecha)}</td>
-                  <td>{cajaNombre(s.caja_slug)}</td>
-                  <td>{s.concepto}</td>
-                  <td className="num">$ {fmtArs(s.monto_efectivo)}</td>
-                  <td>{s.solicitante_nombre ?? '—'}</td>
-                  <td className="caja-cc-actions-cell">
+          <div className="caja-cc-egreso-list">
+            {pendientes.map((s) => (
+              <EgresoFicha
+                key={s.id}
+                sol={s}
+                cajaNombre={cajaNombre(s.caja_slug)}
+                actions={
+                  <>
                     <button
                       type="button"
                       className="btn-small"
@@ -435,45 +511,29 @@ export default function CajaSectionEgresos({
                     >
                       Rechazar
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </>
+                }
+              />
+            ))}
+          </div>
         </div>
       )}
 
       {isAdmin && pendientesTicket.length > 0 && (
         <div className="caja-cc-card">
           <h3>Esperando ticket del operador ({pendientesTicket.length})</h3>
-          <table className="caja-cc-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Caja</th>
-                <th>Concepto</th>
-                <th className="num">Monto</th>
-                <th>Solicitó</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendientesTicket.map((s) => (
-                <tr key={s.id}>
-                  <td>{fmtDateAr(s.fecha)}</td>
-                  <td>{cajaNombre(s.caja_slug)}</td>
-                  <td>{s.concepto}</td>
-                  <td className="num">$ {fmtArs(s.monto_efectivo)}</td>
-                  <td>{s.solicitante_nombre ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="caja-cc-egreso-list">
+            {pendientesTicket.map((s) => (
+              <EgresoFicha key={s.id} sol={s} cajaNombre={cajaNombre(s.caja_slug)} />
+            ))}
+          </div>
         </div>
       )}
 
       <CajaCollapsibleCard
         title="Historial"
         count={historialFiltrado.length}
+        defaultOpen
         toolbar={historialToolbar}
         bodyClassName="caja-cc-card-body-scroll"
       >
@@ -485,59 +545,10 @@ export default function CajaSectionEgresos({
           </p>
         ) : (
           <>
-            <div className="caja-cc-table-scroll">
-              <table className="caja-cc-table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Caja</th>
-                    <th>Concepto</th>
-                    <th className="num">Monto</th>
-                    <th>Ticket</th>
-                    <th>Estado</th>
-                    <th>Trazabilidad</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historialVisible.map((s) => (
-                    <tr key={s.id}>
-                      <td>{fmtDateAr(s.fecha)}</td>
-                      <td>{cajaNombre(s.caja_slug)}</td>
-                      <td>{s.concepto}</td>
-                      <td className="num">$ {fmtArs(s.monto_efectivo)}</td>
-                      <td>
-                        {s.url_ticket ? (
-                          <a href={s.url_ticket} target="_blank" rel="noopener noreferrer">
-                            Ver
-                          </a>
-                        ) : s.estado === 'aprobado' ? (
-                          'Pendiente'
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td>
-                        <span
-                          className={`caja-cc-badge ${
-                            s.estado === 'aprobado' && s.url_ticket
-                              ? 'ok'
-                              : s.estado === 'rechazado'
-                                ? 'bad'
-                                : 'pen'
-                          }`}
-                        >
-                          {estadoLabel(s)}
-                        </span>
-                      </td>
-                      <td className="caja-cc-meta">
-                        {s.solicitante_nombre}
-                        {s.aprobador_nombre ? ` → ${s.aprobador_nombre}` : ''}
-                        {s.id_movimiento ? ` · mov ${s.id_movimiento.slice(0, 8)}` : ''}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="caja-cc-egreso-list">
+              {historialVisible.map((s) => (
+                <EgresoFicha key={s.id} sol={s} cajaNombre={cajaNombre(s.caja_slug)} />
+              ))}
             </div>
             {historialFiltrado.length > histLimit && (
               <button
