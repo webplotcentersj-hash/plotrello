@@ -59,9 +59,10 @@ import {
 import { detectarNovedadesDesdeAsistencia, sincronizarNovedadesDesdeAsistencia } from '../utils/rrhhAsistenciaNovedadSync'
 import RelojTabletMarcacionesTab from '../components/RelojTabletMarcacionesTab'
 import RelojFacialTab from '../components/RelojFacialTab'
+import RrhhLiquidacionMensualTab from '../components/RrhhLiquidacionMensualTab'
 import './RecursosHumanosHorariosPage.css'
 
-type TabType = 'horarios' | 'permisos' | 'asistencia' | 'estadisticas' | 'tablet-reloj' | 'reloj-facial'
+type TabType = 'horarios' | 'permisos' | 'asistencia' | 'estadisticas' | 'tablet-reloj' | 'reloj-facial' | 'liquidacion'
 
 const RecursosHumanosHorariosPage = () => {
   const navigate = useNavigate()
@@ -100,13 +101,13 @@ const RecursosHumanosHorariosPage = () => {
   }, [canManageRecursosHumanos, navigate, authLoading])
 
   useEffect(() => {
-    if (activeTab === 'permisos') {
+    if (activeTab === 'permisos' || activeTab === 'liquidacion') {
       loadPermisos()
     }
   }, [activeTab, usuarioSeleccionado])
 
   useEffect(() => {
-    if (activeTab === 'asistencia') {
+    if (activeTab === 'asistencia' || activeTab === 'liquidacion') {
       loadAsistencia()
       loadNovedades()
     }
@@ -214,6 +215,12 @@ const RecursosHumanosHorariosPage = () => {
             ✅ Asistencia
           </button>
           <button
+            className={`rrhh-tab ${activeTab === 'liquidacion' ? 'active' : ''}`}
+            onClick={() => setActiveTab('liquidacion')}
+          >
+            🧾 Liquidación mensual
+          </button>
+          <button
             className={`rrhh-tab ${activeTab === 'estadisticas' ? 'active' : ''}`}
             onClick={() => setActiveTab('estadisticas')}
           >
@@ -234,7 +241,7 @@ const RecursosHumanosHorariosPage = () => {
         </div>
 
         {/* Filtros */}
-        {activeTab === 'asistencia' && (
+        {(activeTab === 'asistencia' || activeTab === 'liquidacion') && (
         <div className="rrhh-filters-section">
           <select
             value={usuarioSeleccionado || ''}
@@ -310,6 +317,18 @@ const RecursosHumanosHorariosPage = () => {
             </div>
             <TurnosDiaPanel usuarios={usuarios} permisos={permisos} />
           </div>
+        )}
+
+        {activeTab === 'liquidacion' && (
+          <RrhhLiquidacionMensualTab
+            asistencia={asistencia}
+            novedades={novedades}
+            permisos={permisos}
+            usuarios={usuarios}
+            usuarioSeleccionado={usuarioSeleccionado}
+            fechaDesde={fechaDesde}
+            fechaHasta={fechaHasta}
+          />
         )}
 
         {activeTab === 'asistencia' && (

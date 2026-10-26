@@ -1,6 +1,7 @@
 import type { Asistencia, RrhhNovedad } from '../types/api'
 import { CONFIG_CALCULO_DEFAULT, horarioSabadoEfectivo, type ConfigCalculo } from '../services/relojBiometricoService'
 import { asistenciaHoraCorta, isoToArgentinaDateKey } from './dateUtils'
+import { esFeriado } from './feriadosArgentina'
 import { esDiaHabil, novedadEnDia } from './rrhhNovedadDates'
 
 export type HorarioFijoAsistencia = {
@@ -116,6 +117,15 @@ function esDiaLaborableEmpleado(fecha: string, horario: HorarioFijoAsistencia | 
   return true
 }
 
+function horasTrabajadasDe(a: Asistencia): number {
+  if (a.horas_trabajadas != null && a.horas_trabajadas > 0) return a.horas_trabajadas
+  if (!a.hora_entrada || !a.hora_salida) return 0
+  const entrada = new Date(a.hora_entrada).getTime()
+  const salida = new Date(a.hora_salida).getTime()
+  if (!Number.isFinite(entrada) || !Number.isFinite(salida) || salida <= entrada) return 0
+  return Math.round(((salida - entrada) / 3_600_000) * 100) / 100
+}
+
 function redondearExtra(valor: number, paso: number): number {
   if (paso <= 0) return Math.round(valor * 100) / 100
   return Math.round(valor / paso) * paso
@@ -146,19 +156,20 @@ export function calcularHorasExtraDiaDetalle(
     return { extra50: round2(extra50), extra100: round2(extra100), total: round2(extra50 + extra100) }
   }
 
-  const horasTrabajadas = a.horas_trabajadas ?? 0
+  const horasTrabajadas = horasTrabajadasDe(a)
   if (horasTrabajadas <= 0) {
     return { extra50: round2(extra50), extra100: round2(extra100), total: round2(extra50 + extra100) }
   }
 
-  const normal = jornadaNormal(fecha, horario, config)
+  const feriado = esFeriado(fecha)
+  const normal = feriado ? 0 : jornadaNormal(fecha, horario, config)
   const bruto = horasTrabajadas - normal
   const marcExtra = bruto <= 0 ? 0 : redondearExtra(bruto, config.redondeoExtra)
 
   if (marcExtra > 0) {
     const [y, m, d] = fecha.split('-').map(Number)
     const dow = new Date(y, m - 1, d).getDay()
-    if (dow === 0) extra100 += marcExtra
+    if (dow === 0 || feriado) extra100 += marcExtra
     else extra50 += marcExtra
   }
 
@@ -547,6 +558,8 @@ export function calcularStatsAsistencia(params: {
       extra50 += ev.extraDet.extra50
       extra100 += ev.extraDet.extra100
       totalHoras += ev.horasTrabajadas
+
+      if (esFeriado(f) || !esDiaLaborableEmpleado(f, horario)) continue
 
       if (ev.esAusenciaInjustificada) {
         ausencias++

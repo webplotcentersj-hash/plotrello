@@ -1,0 +1,147 @@
+.liq-controles {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.liq-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.liq-campo input,
+.liq-num {
+  width: 120px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 0.85rem;
+  color-scheme: dark;
+}
+
+.liq-campo span {
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.liq-cargas {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.liq-cargas summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.liq-cargas p {
+  margin: 8px 0 0;
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.liq-cargas-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-top: 12px;
+}
+
+.liq-scroll {
+  overflow-x: auto;
+}
+
+.liq-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  min-width: 980px;
+}
+
+.liq-tabla th,
+.liq-tabla td {
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.liq-tabla th {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.liq-nombre {
+  background: none;
+  border: 0;
+  color: #93c5fd;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.liq-aviso {
+  display: block;
+  margin-top: 2px;
+  color: #fbbf24;
+  font-size: 0.68rem;
+  white-space: normal;
+}
+
+.liq-sub {
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.liq-neto {
+  font-weight: 700;
+  color: #6ee7b7;
+}
+
+.liq-detalle td {
+  white-space: normal;
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.liq-detalle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.liq-detalle h3 {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  color: #e2e8f0;
+}
+
+.liq-detalle p,
+.liq-detalle li {
+  margin: 0 0 4px;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+}
+
+.liq-detalle ul {
+  margin: 0 0 8px;
+  padding-left: 16px;
+}
+
+.liq-tabla tfoot td {
+  font-weight: 700;
+  color: #f8fafc;
+}
