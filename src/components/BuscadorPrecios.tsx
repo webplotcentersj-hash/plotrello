@@ -27,7 +27,6 @@ function pesos(n: number): string {
 export default function BuscadorPrecios() {
   const [abierto, setAbierto] = useState(false)
   const [consulta, setConsulta] = useState('')
-  const [rubro, setRubro] = useState('todos')
   const [lista, setLista] = useState<TipoListaPrecioVentas>('lista_1')
   const [articulos, setArticulos] = useState<ArticuloEmpresaRecord[]>([])
   const [ajustes, setAjustes] = useState<ConfigAjustesPreciosVentas>(DEFAULT_AJUSTES_PRECIOS_VENTAS)
@@ -78,20 +77,10 @@ export default function BuscadorPrecios() {
     return () => window.removeEventListener('keydown', onKey)
   }, [abierto])
 
-  const rubros = useMemo(() => {
-    const set = new Set<string>()
-    for (const articulo of articulos) {
-      const nombre = articulo.categoria?.trim()
-      if (nombre) set.add(nombre)
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, 'es'))
-  }, [articulos])
-
   const resultados = useMemo(() => {
     const q = sinAcentos(consulta.trim())
     const tokens = q.split(/\s+/).filter(Boolean)
     const filtrados = articulos.filter((articulo) => {
-      if (rubro !== 'todos' && (articulo.categoria?.trim() || '') !== rubro) return false
       if (tokens.length === 0) return true
       const texto = sinAcentos(
         [articulo.codigo, articulo.nombre, articulo.descripcion, articulo.categoria].filter(Boolean).join(' ')
@@ -106,7 +95,7 @@ export default function BuscadorPrecios() {
         if (pa !== pb) return pa - pb
         return a.articulo.nombre.localeCompare(b.articulo.nombre, 'es')
       })
-  }, [ajustes, articulos, consulta, lista, rubro])
+  }, [ajustes, articulos, consulta, lista])
 
   const meta = LISTAS_PRECIO_VENTAS[lista]
 
@@ -115,12 +104,13 @@ export default function BuscadorPrecios() {
       <div className="buscador-precios-slot">
         <label className="buscador-precios-slot__label" htmlFor="buscador-precios">
           Precios
+          <kbd>R</kbd>
         </label>
         <input
           id="buscador-precios"
           type="search"
           className="buscador-precios-slot__input"
-          placeholder="LP · Buscar precio por código, nombre o rubro…"
+          placeholder="Buscar precio por código o nombre…"
           value={consulta}
           onChange={(event) => {
             setConsulta(event.target.value)
@@ -175,22 +165,6 @@ export default function BuscadorPrecios() {
                     </button>
                   ))}
                 </div>
-              </div>
-
-              <div className="buscador-precios__rubros">
-                <button type="button" className={rubro === 'todos' ? 'is-on' : ''} onClick={() => setRubro('todos')}>
-                  Todos
-                </button>
-                {rubros.map((nombre) => (
-                  <button
-                    key={nombre}
-                    type="button"
-                    className={rubro === nombre ? 'is-on' : ''}
-                    onClick={() => setRubro(nombre)}
-                  >
-                    {nombre}
-                  </button>
-                ))}
               </div>
 
               <p className="buscador-precios__cuenta">

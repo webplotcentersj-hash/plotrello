@@ -33,6 +33,16 @@ type FiltersBarProps = {
   compactPhone?: boolean
 }
 
+function Atajo({ teclas }: { teclas: string }) {
+  return (
+    <span className="btn-atajo" aria-hidden>
+      {teclas.split('').map((tecla, index) => (
+        <kbd key={`${tecla}-${index}`}>{tecla.toUpperCase()}</kbd>
+      ))}
+    </span>
+  )
+}
+
 const FiltersBar = ({
   searchQuery,
   onSearchChange,
@@ -87,25 +97,18 @@ const FiltersBar = ({
 
   useEffect(() => {
     if (compactPhone) return
-    const pendiente = { tecla: '' as '' | 'c' | 'l', timer: 0 }
 
-    const limpiar = () => {
-      if (pendiente.timer) window.clearTimeout(pendiente.timer)
-      pendiente.tecla = ''
-      pendiente.timer = 0
-    }
-
-    const ir = (combo: string) => {
+    const ir = (key: string) => {
       const a = accionesRef.current
       if (!a.usuario) return
-      if (combo === 'cl') a.navigate(CLIENTES_DASHBOARD)
-      else if (combo === 'cc' && a.showAccionesMostrador) a.navigate(CLIENTES_CUENTA_CORRIENTE)
-      else if (combo === 'f' && a.showAccionesMostrador) a.navigate('/erp/facturas/nueva')
-      else if (combo === 'p') a.navigate('/ventas?tab=presupuestos')
-      else if (combo === 'cj' && (a.canManageCaja || a.showAccionesMostrador)) {
+      if (key === 'e') a.navigate(CLIENTES_DASHBOARD)
+      else if (key === 'u' && a.showAccionesMostrador) a.navigate(CLIENTES_CUENTA_CORRIENTE)
+      else if (key === 'f' && a.showAccionesMostrador) a.navigate('/erp/facturas/nueva')
+      else if (key === 'p') a.navigate('/ventas?tab=presupuestos')
+      else if (key === 'j' && (a.canManageCaja || a.showAccionesMostrador)) {
         a.navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')
-      } else if (combo === 'b') a.onOpenLibrary?.()
-      else if (combo === 'lp') window.dispatchEvent(new Event('plotlab-abrir-precios'))
+      } else if (key === 'b') a.onOpenLibrary?.()
+      else if (key === 'r') window.dispatchEvent(new Event('plotlab-abrir-precios'))
     }
 
     const onKey = (event: KeyboardEvent) => {
@@ -117,38 +120,10 @@ const FiltersBar = ({
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return
       }
       const key = event.key.toLowerCase()
-      if (key.length !== 1) return
-
-      if (pendiente.tecla) {
-        const combo = pendiente.tecla + key
-        limpiar()
-        if (combo === 'cl' || combo === 'cc' || combo === 'cj' || combo === 'lp') {
-          event.preventDefault()
-          event.stopPropagation()
-          ir(combo)
-          return
-        }
-      }
-
-      if (key === 'c' || key === 'l') {
-        event.preventDefault()
-        event.stopPropagation()
-        pendiente.tecla = key
-        pendiente.timer = window.setTimeout(() => {
-          const sola = pendiente.tecla
-          pendiente.tecla = ''
-          pendiente.timer = 0
-          if (sola === 'c') accionesRef.current.onAddNewOrder?.()
-          if (sola === 'l') accionesRef.current.onOpenLibrary?.()
-        }, 420)
-        return
-      }
-
-      if (key === 'f' || key === 'p' || key === 'b') {
-        event.preventDefault()
-        event.stopPropagation()
-        ir(key)
-      }
+      if (key.length !== 1 || !'eufpjbr'.includes(key)) return
+      event.preventDefault()
+      event.stopPropagation()
+      ir(key)
     }
 
     window.addEventListener('keydown', onKey, true)
@@ -254,12 +229,13 @@ const FiltersBar = ({
                     type="button"
                     className="venta-rapida-button"
                     onClick={() => setShowVentaRapida(true)}
-                    title="Registrar una venta sin salir del tablero (tecla V)"
+                    title="Registrar una venta sin salir del tablero"
                   >
                     <span className="btn-ico" aria-hidden>
                       💰
                     </span>
                     Venta
+                    <Atajo teclas="v" />
                   </button>
                 )}
                 {showAccionesMostrador && (
@@ -267,9 +243,10 @@ const FiltersBar = ({
                     type="button"
                     className="cc-button"
                     onClick={() => navigate(CLIENTES_CUENTA_CORRIENTE)}
-                    title="Cuenta corriente de clientes (CC)"
+                    title="Cuenta corriente de clientes"
                   >
                     CC
+                    <Atajo teclas="u" />
                   </button>
                 )}
                 {usuario && (
@@ -277,9 +254,10 @@ const FiltersBar = ({
                     type="button"
                     className="clientes-button"
                     onClick={() => navigate(CLIENTES_DASHBOARD)}
-                    title="Buscar y editar clientes (CL)"
+                    title="Buscar y editar clientes"
                   >
                     Clientes
+                    <Atajo teclas="e" />
                   </button>
                 )}
                 {showAccionesMostrador && (
@@ -287,9 +265,10 @@ const FiltersBar = ({
                     type="button"
                     className="factura-button"
                     onClick={() => navigate('/erp/facturas/nueva')}
-                    title="Emitir factura electrónica AFIP (F)"
+                    title="Emitir factura electrónica AFIP"
                   >
                     Facturar
+                    <Atajo teclas="f" />
                   </button>
                 )}
                 {usuario && (
@@ -297,9 +276,10 @@ const FiltersBar = ({
                     type="button"
                     className="presupuesto-button"
                     onClick={() => navigate('/ventas?tab=presupuestos')}
-                    title="Ver y crear presupuestos de venta (P)"
+                    title="Ver y crear presupuestos de venta"
                   >
                     Presupuesto
+                    <Atajo teclas="p" />
                   </button>
                 )}
                 {usuario && (
@@ -327,9 +307,10 @@ const FiltersBar = ({
                     type="button"
                     className="caja-button"
                     onClick={() => navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')}
-                    title="Dashboard de caja (CJ)"
+                    title="Dashboard de caja"
                   >
                     Caja
+                    <Atajo teclas="j" />
                   </button>
                 )}
                 {(isAdmin || showAccionesMostrador) && (
@@ -351,6 +332,7 @@ const FiltersBar = ({
                     +
                   </span>
                   Ficha
+                  <Atajo teclas="c" />
                 </button>
               )}
               {onOpenLibrary && (
@@ -358,12 +340,13 @@ const FiltersBar = ({
                   type="button"
                   className="library-button"
                   onClick={onOpenLibrary}
-                  title="Bibliotecas de OPs (B)"
+                  title="Bibliotecas de OPs"
                 >
                   <span className="btn-ico" aria-hidden>
                     🔍
                   </span>
                   Bibliotecas
+                  <Atajo teclas="b" />
                 </button>
               )}
               {onOptimizeSprint && (

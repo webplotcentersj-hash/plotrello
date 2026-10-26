@@ -6,12 +6,27 @@
 }
 
 .buscador-precios-slot__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   flex: 0 0 auto;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #a7f3d0;
+}
+
+.buscador-precios-slot__label kbd {
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(167, 243, 208, 0.35);
+  background: rgba(167, 243, 208, 0.12);
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
 }
 
 .buscador-precios-slot__input {
@@ -116,8 +131,7 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
-.buscador-precios__listas button,
-.buscador-precios__rubros button {
+.buscador-precios__listas button {
   border: 0;
   background: transparent;
   color: #cbd5e1;
@@ -126,23 +140,10 @@
   cursor: pointer;
 }
 
-.buscador-precios__listas button.is-on,
-.buscador-precios__rubros button.is-on {
+.buscador-precios__listas button.is-on {
   background: #10b981;
   color: #052e16;
   font-weight: 700;
-}
-
-.buscador-precios__rubros {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.buscador-precios__rubros button {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .buscador-precios__cuenta,
