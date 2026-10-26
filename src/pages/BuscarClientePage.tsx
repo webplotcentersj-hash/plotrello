@@ -628,7 +628,12 @@ const BuscarClientePage = () => {
             }}
           >
             <header className="bc-edit__head">
-              <h2 id="bc-edit-title">Editar cliente</h2>
+              <div>
+                <h2 id="bc-edit-title">Editar cliente</h2>
+                <p className="bc-edit__hint">
+                  El nombre, el teléfono y el resto de los datos se copian a las órdenes, ventas, facturas y presupuestos de este cliente.
+                </p>
+              </div>
               <button type="button" className="bc-btn bc-btn--ghost bc-btn--sm" onClick={cerrarEdicion}>
                 Cerrar
               </button>
