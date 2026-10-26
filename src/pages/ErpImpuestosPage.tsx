@@ -18,6 +18,39 @@ function proveedorNombreDesdePedido(p: PedidoCompra): string {
   return ''
 }
 
+type CompraExtras = {
+  no_gravado: number
+  exento: number
+  percepcion_iva: number
+  percepcion_otros_nac: number
+  percepcion_iibb: number
+  percepcion_municipal: number
+  impuestos_internos: number
+  otros_tributos: number
+}
+
+const COMPRA_EXTRAS_VACIOS: CompraExtras = {
+  no_gravado: 0,
+  exento: 0,
+  percepcion_iva: 0,
+  percepcion_otros_nac: 0,
+  percepcion_iibb: 0,
+  percepcion_municipal: 0,
+  impuestos_internos: 0,
+  otros_tributos: 0
+}
+
+const COMPRA_EXTRAS_CAMPOS: Array<[keyof CompraExtras, string]> = [
+  ['percepcion_iva', 'Percepción IVA'],
+  ['percepcion_iibb', 'Percepción IIBB'],
+  ['percepcion_municipal', 'Percepción municipal'],
+  ['percepcion_otros_nac', 'Otras percepciones nacionales'],
+  ['no_gravado', 'No gravado'],
+  ['exento', 'Exento'],
+  ['impuestos_internos', 'Impuestos internos'],
+  ['otros_tributos', 'Otros tributos']
+]
+
 function matchProveedorSelectId(proveedores: any[], nombre: string): string {
   const n = nombre.trim().toLowerCase()
   if (!n) return ''
@@ -120,6 +153,7 @@ export default function ErpImpuestosPage() {
     descuento: number
     iva_porcentaje: number
   }>>([])
+  const [compraExtras, setCompraExtras] = useState<CompraExtras>(COMPRA_EXTRAS_VACIOS)
   const [vinculoPedidoId, setVinculoPedidoId] = useState<number | null>(null)
   const [vinculoCxpId, setVinculoCxpId] = useState<number | null>(null)
   const [prefillBanner, setPrefillBanner] = useState<string | null>(null)
@@ -614,7 +648,8 @@ export default function ErpImpuestosPage() {
         items: compraItems,
         observaciones: compraForm.observaciones?.trim() || null,
         id_pedido_compra: vinculoPedidoId,
-        id_cuenta_por_pagar: vinculoCxpId
+        id_cuenta_por_pagar: vinculoCxpId,
+        extras: compraExtras
       })
       if (!r.success) {
         alert('Error guardando compra: ' + (r.error || 'desconocido'))
@@ -622,6 +657,7 @@ export default function ErpImpuestosPage() {
       }
       alert('Comprobante de compra guardado.')
       setCompraForm((p) => ({ ...p, numero_comprobante: '', proveedor_nombre: '', proveedor_cuit: '', observaciones: '' }))
+      setCompraExtras(COMPRA_EXTRAS_VACIOS)
       setCompraItems([])
       setVinculoPedidoId(null)
       setVinculoCxpId(null)
@@ -662,6 +698,12 @@ export default function ErpImpuestosPage() {
         <div className="erp-section-actions">
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp')}>
             ← Contable
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/impuestos/liquidacion')}>
+            Liquidación IVA / Libro IVA Digital
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/impuestos/retenciones')}>
+            Retenciones y percepciones
           </button>
           <button type="button" className="btn-primary" onClick={() => navigate('/erp/configuracion-afip')}>
             Configuración AFIP
@@ -836,6 +878,27 @@ export default function ErpImpuestosPage() {
               />
             </label>
           </div>
+
+          <details style={{ marginBottom: 12 }}>
+            <summary className="erp-muted" style={{ cursor: 'pointer' }}>
+              Percepciones y otros conceptos (para el Libro IVA Digital)
+            </summary>
+            <div className="erp-toolbar" style={{ marginTop: 10 }}>
+              {COMPRA_EXTRAS_CAMPOS.map(([campo, etiqueta]) => (
+                <label key={campo} className="erp-field">
+                  <span className="erp-field__label">{etiqueta}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={compraExtras[campo] || ''}
+                    onChange={(e) => setCompraExtras((x) => ({ ...x, [campo]: Math.max(0, Number(e.target.value) || 0) }))}
+                  />
+                </label>
+              ))}
+            </div>
+            <p className="erp-muted">Se suman al total del comprobante. Requiere haber ejecutado el patch contable avanzado.</p>
+          </details>
 
           <div className="erp-section-actions" style={{ marginBottom: 12 }}>
             <button type="button" className="btn-secondary" onClick={addCompraItem} disabled={savingCompra}>

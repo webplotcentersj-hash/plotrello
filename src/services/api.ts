@@ -22866,6 +22866,20 @@ class ApiService {
     observaciones?: string | null
     id_pedido_compra?: number | null
     id_cuenta_por_pagar?: number | null
+    /** Conceptos del Libro IVA Digital (positivos). Solo se guardan los que tienen valor. */
+    extras?: Partial<
+      Record<
+        | 'no_gravado'
+        | 'exento'
+        | 'percepcion_iva'
+        | 'percepcion_otros_nac'
+        | 'percepcion_iibb'
+        | 'percepcion_municipal'
+        | 'impuestos_internos'
+        | 'otros_tributos',
+        number
+      >
+    > | null
   }): Promise<ApiResponse<import('../types/api').FacturaCompraRecord>> {
     if (supabase) {
       try {
@@ -22901,12 +22915,19 @@ class ApiService {
           }
         })
 
-        const total = subtotal + ivaTotal
+        const extrasConValor = Object.fromEntries(
+          Object.entries(input.extras ?? {})
+            .map(([k, v]) => [k, Math.round(Math.abs(Number(v) || 0) * 100) / 100] as const)
+            .filter(([, v]) => v > 0)
+        )
+        const extrasTotal = Object.values(extrasConValor).reduce((s, v) => s + v, 0)
+        const total = subtotal + ivaTotal + sign * extrasTotal
         const numeroFactura = `${String(input.punto_venta).padStart(4, '0')}-${String(input.numero_comprobante).padStart(8, '0')}`
 
         const { data: factura, error } = await supabase
           .from('facturas_compra')
           .insert({
+            ...extrasConValor,
             tipo_comprobante: input.tipo_comprobante,
             letra: input.letra,
             punto_venta: input.punto_venta,

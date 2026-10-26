@@ -187,6 +187,9 @@ export default function AsientosContablesPage() {
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp/facturas')}>
             Facturas
           </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/asientos/herramientas')}>
+            Modelos, importar, inflación
+          </button>
           <button type="button" className="btn-primary" onClick={handleSyncManual} disabled={syncing}>
             {syncing ? 'Sincronizando…' : '↻ Sincronizar'}
           </button>

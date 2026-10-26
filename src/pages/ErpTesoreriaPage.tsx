@@ -221,6 +221,15 @@ export default function ErpTesoreriaPage() {
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp/tesoreria/cuentas')}>
             Cuentas bancarias
           </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/tesoreria/cheques')}>
+            Cheques
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/tesoreria/cobradores')}>
+            Cobradores
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/tesoreria/consolidadas')}>
+            Ctas. ctes. consolidadas
+          </button>
         </div>
       </header>
 

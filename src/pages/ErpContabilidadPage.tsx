@@ -91,6 +91,12 @@ export default function ErpContabilidadPage() {
             <button type="button" className="btn-primary" onClick={() => navigate('/erp/contabilidad/reportes')}>
               Reportes contables
             </button>
+            <button type="button" className="btn-primary" onClick={() => navigate('/erp/contabilidad/periodos')}>
+              Períodos y cierres
+            </button>
+            <button type="button" className="btn-primary" onClick={() => navigate('/erp/asientos/herramientas')}>
+              Asientos modelo / importar / inflación
+            </button>
             <button type="button" className="btn-primary" onClick={() => navigate('/erp/reportes')}>
               Reportes
             </button>
