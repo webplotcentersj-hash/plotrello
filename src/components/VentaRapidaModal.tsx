@@ -912,11 +912,31 @@ const VentaRapidaModal = ({
         throw new Error(ventaResponse.error || 'Error al crear venta')
       }
 
+      const ventaData = ventaResponse.data
+      for (const item of itemsVenta) {
+        if (item.id_articulo_stock) continue
+        const idEmpresa = item.id_articulo_empresa
+        if (!idEmpresa) continue
+        const stockRes = await apiService.descontarStockComercialArticulo({
+          idArticuloEmpresa: idEmpresa,
+          cantidadVendida: item.cantidad,
+          canal: 'mostrador',
+          idVenta: ventaData.id,
+          numeroReferencia: ventaData.numero_venta,
+          permitirStockNegativo: true
+        })
+        if (!stockRes.success || stockRes.data?.aplicado === false) {
+          console.warn(
+            'No se descontó stock de',
+            item.codigo_articulo || item.descripcion,
+            stockRes.error || stockRes.data?.motivo
+          )
+        }
+      }
+
       if (esCuentaCorriente && clienteFinal.id) {
         void apiService.calcularScoringCuentaCorriente(clienteFinal.id, usuarioId)
       }
-
-      const ventaData = ventaResponse.data
 
       if (prefillDesdePresupuesto?.presupuesto.id) {
         const vinculo = await apiService.vincularPresupuestoVentaAVenta(

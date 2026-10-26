@@ -3,6 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CLIENTES_CUENTA_CORRIENTE, clientesPerfil } from '../utils/clientesRoutes'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import { supabase } from '../services/supabaseClient'
+import { descargarPdfFacturaAfip } from '../services/afipApi'
+import { descargarFacturaAfipPdf } from '../utils/facturaAfipPdf'
+import { buildWhatsappLink } from '../utils/whatsappLink'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import CuentaCorrienteScoreBadge from '../components/CuentaCorrienteScoreBadge'
 import CuentaCorrienteScoringPanel from '../components/CuentaCorrienteScoringPanel'
@@ -12,7 +16,8 @@ import type {
   CcCuentaMovimiento,
   CcPerfilCliente,
   CcVentaResumen,
-  CuentaBancariaRecord
+  CuentaBancariaRecord,
+  FacturaVentaRecord
 } from '../types/api'
 import { TIPO_CLIENTE_CC_LABELS, labelCondicionIva } from '../constants/cuentaCorriente'
 import {
@@ -111,6 +116,9 @@ export default function CuentaCorrientePerfilPage() {
   const [subiendoComprobante, setSubiendoComprobante] = useState(false)
   const [guardandoPago, setGuardandoPago] = useState(false)
   const [pagoOk, setPagoOk] = useState<string | null>(null)
+  const [facturasPorVenta, setFacturasPorVenta] = useState<Map<number, FacturaVentaRecord>>(new Map())
+  const [descargandoFacturaId, setDescargandoFacturaId] = useState<number | null>(null)
+  const [telefonoCliente, setTelefonoCliente] = useState<string | null>(null)
 
   const esPagoMultiple = pagoMetodo === PAGO_MULTIPLE
   const esMp = esMercadoPago(pagoMetodo)
@@ -152,9 +160,36 @@ export default function CuentaCorrientePerfilPage() {
       if (!res.success) throw new Error(res.error || 'Error al cargar')
       if (!res.data) throw new Error('Cliente sin cuenta corriente')
       setPerfil(res.data)
+      try {
+        const [facRes, cliRes] = await Promise.all([
+          apiService.getFacturas({ id_cliente: idCliente }),
+          supabase
+            ? supabase.from('clientes_publico').select('telefono').eq('id', idCliente).maybeSingle()
+            : Promise.resolve({ data: null as { telefono?: string | null } | null })
+        ])
+        const porVenta = new Map<number, FacturaVentaRecord>()
+        for (const factura of facRes.success && facRes.data ? facRes.data : []) {
+          if (!factura.id_venta || factura.estado === 'Anulada') continue
+          if (!String(factura.tipo_comprobante).startsWith('Factura')) continue
+          const previa = porVenta.get(factura.id_venta)
+          const autorizada = factura.estado_afip === 'Autorizada'
+          const previaAutorizada = previa?.estado_afip === 'Autorizada'
+          if (!previa || (autorizada && !previaAutorizada) || (autorizada === previaAutorizada && factura.id > previa.id)) {
+            porVenta.set(factura.id_venta, factura)
+          }
+        }
+        setFacturasPorVenta(porVenta)
+        const tel = (cliRes.data as { telefono?: string | null } | null)?.telefono
+        setTelefonoCliente(tel?.trim() || null)
+      } catch {
+        setFacturasPorVenta(new Map())
+        setTelefonoCliente(null)
+      }
     } catch (ex) {
       setError(ex instanceof Error ? ex.message : 'Error de conexión')
       setPerfil(null)
+      setFacturasPorVenta(new Map())
+      setTelefonoCliente(null)
     } finally {
       setLoading(false)
       setSyncing(false)
@@ -174,6 +209,34 @@ export default function CuentaCorrientePerfilPage() {
 
   const nombre =
     perfil?.ficha.razon_social || perfil?.ficha.nombre || `Cliente #${idCliente}`
+
+  const whatsappHref = buildWhatsappLink(
+    perfil?.ficha.whatsapp || telefonoCliente,
+    `Hola ${nombre}, te escribimos de Plot Center por tu cuenta corriente.`
+  )
+
+  const descargarFactura = async (factura: FacturaVentaRecord) => {
+    if (descargandoFacturaId != null) return
+    setDescargandoFacturaId(factura.id)
+    setError(null)
+    try {
+      const response = await apiService.getFactura(factura.id)
+      if (!response.success || !response.data) {
+        setError('No se pudo cargar la factura: ' + (response.error || 'desconocido'))
+        return
+      }
+      const data = response.data
+      if (data.estado_afip === 'Autorizada' && (data.cae || data.numero_cae)) {
+        await descargarPdfFacturaAfip(data.id)
+      } else {
+        await descargarFacturaAfipPdf(data)
+      }
+    } catch (ex) {
+      setError(ex instanceof Error ? ex.message : 'No se pudo descargar la factura')
+    } finally {
+      setDescargandoFacturaId(null)
+    }
+  }
 
   const ventasPorVendedor = useMemo(() => {
     if (!perfil) return []
@@ -412,6 +475,20 @@ export default function CuentaCorrientePerfilPage() {
             </p>
           </div>
           <div className="cc-perfil-header__actions">
+            {whatsappHref && (
+              <a
+                className="cc-perfil-wa"
+                href={whatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Escribir por WhatsApp"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                </svg>
+                WhatsApp
+              </a>
+            )}
             <CcExportMenu
               label="Descargar"
               items={[
@@ -642,7 +719,13 @@ export default function CuentaCorrientePerfilPage() {
                 </thead>
                 <tbody>
                   {movimientosVista.map((m) => (
-                    <MovimientoRow key={m.id} mov={m} />
+                    <MovimientoRow
+                      key={m.id}
+                      mov={m}
+                      factura={m.id_venta ? facturasPorVenta.get(m.id_venta) : undefined}
+                      descargando={descargandoFacturaId != null}
+                      onDescargarFactura={(factura) => void descargarFactura(factura)}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -694,6 +777,9 @@ export default function CuentaCorrientePerfilPage() {
                     <VentaRow
                       key={v.id}
                       venta={v}
+                      factura={facturasPorVenta.get(v.id)}
+                      descargando={descargandoFacturaId != null}
+                      onDescargarFactura={(factura) => void descargarFactura(factura)}
                       onImputar={() => {
                         setPagoVentaId(String(v.id))
                         setPagoMonto(String(v.monto_pendiente ?? v.valor_total))
@@ -965,7 +1051,44 @@ function CcDocDownload({ label, url }: { label: string; url?: string | null }) {
   )
 }
 
-function MovimientoRow({ mov }: { mov: CcCuentaMovimiento }) {
+function FacturaVentaLinks({
+  factura,
+  descargando,
+  onDescargar
+}: {
+  factura?: FacturaVentaRecord
+  descargando: boolean
+  onDescargar: (factura: FacturaVentaRecord) => void
+}) {
+  if (!factura) return null
+  return (
+    <span className="cc-perfil-comprobante-actions">
+      <Link to={`/erp/facturas/${factura.id}`} className="cc-perfil-link">
+        Ver factura
+      </Link>
+      <button
+        type="button"
+        className="cc-perfil-link cc-perfil-link--btn"
+        disabled={descargando}
+        onClick={() => onDescargar(factura)}
+      >
+        Descargar factura
+      </button>
+    </span>
+  )
+}
+
+function MovimientoRow({
+  mov,
+  factura,
+  descargando,
+  onDescargarFactura
+}: {
+  mov: CcCuentaMovimiento
+  factura?: FacturaVentaRecord
+  descargando: boolean
+  onDescargarFactura: (factura: FacturaVentaRecord) => void
+}) {
   const tipoLabel =
     mov.tipo === 'venta'
       ? 'Venta'
@@ -980,7 +1103,18 @@ function MovimientoRow({ mov }: { mov: CcCuentaMovimiento }) {
       <td>
         <span className={`cc-perfil-tipo cc-perfil-tipo--${mov.tipo}`}>{tipoLabel}</span>
       </td>
-      <td>{mov.concepto}</td>
+      <td>
+        <div className="cc-perfil-concepto">
+          <span>{mov.concepto}</span>
+          {mov.tipo === 'venta' && (
+            <FacturaVentaLinks
+              factura={factura}
+              descargando={descargando}
+              onDescargar={onDescargarFactura}
+            />
+          )}
+        </div>
+      </td>
       <td>
         {mov.fecha_vencimiento
           ? new Date(mov.fecha_vencimiento + 'T12:00:00').toLocaleDateString('es-AR')
@@ -1013,9 +1147,15 @@ function MovimientoRow({ mov }: { mov: CcCuentaMovimiento }) {
 
 function VentaRow({
   venta,
+  factura,
+  descargando,
+  onDescargarFactura,
   onImputar
 }: {
   venta: CcVentaResumen
+  factura?: FacturaVentaRecord
+  descargando: boolean
+  onDescargarFactura: (factura: FacturaVentaRecord) => void
   onImputar: () => void
 }) {
   const pendiente =
@@ -1041,7 +1181,16 @@ function VentaRow({
           ? new Date(venta.fecha_venta + 'T12:00:00').toLocaleDateString('es-AR')
           : '—'}
       </td>
-      <td>{venta.numero_venta}</td>
+      <td>
+        <div className="cc-perfil-concepto">
+          <span>{venta.numero_venta}</span>
+          <FacturaVentaLinks
+            factura={factura}
+            descargando={descargando}
+            onDescargar={onDescargarFactura}
+          />
+        </div>
+      </td>
       <td>
         <span className="cc-perfil-vendedor" title={etiquetaUsuarioNombre(venta.nombre_vendedor, venta.id_vendedor ?? undefined)}>
           {etiquetaUsuarioNombre(venta.nombre_vendedor, venta.id_vendedor ?? undefined)}

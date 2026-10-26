@@ -58,6 +58,46 @@ export function cantidadStockADescontar(
   return Math.max(0, cantidadVendida) * factor
 }
 
+export async function buscarArticuloStockPorCodigo(codigo?: string | null): Promise<ArticuloStock | null> {
+  if (!stockSupabase) return null
+  const raw = String(codigo || '').trim()
+  if (!raw) return null
+  const variantes = [raw]
+  if (/^\d+$/.test(raw)) {
+    const sinCeros = raw.replace(/^0+/, '') || '0'
+    if (sinCeros !== raw) variantes.push(sinCeros)
+  }
+  for (const variante of variantes) {
+    const { data, error } = await stockSupabase
+      .from('articulos')
+      .select('*')
+      .eq('codigo', variante)
+      .limit(1)
+      .maybeSingle()
+    if (!error && data) return data as ArticuloStock
+  }
+  const { data } = await stockSupabase
+    .from('articulos')
+    .select('*')
+    .ilike('codigo', raw)
+    .limit(1)
+    .maybeSingle()
+  return (data as ArticuloStock) || null
+}
+
+async function buscarArticuloStockPorNombre(nombre?: string | null): Promise<ArticuloStock | null> {
+  if (!stockSupabase) return null
+  const raw = String(nombre || '').trim()
+  if (raw.length < 3) return null
+  const { data } = await stockSupabase
+    .from('articulos')
+    .select('*')
+    .ilike('descripcion', raw)
+    .limit(1)
+    .maybeSingle()
+  return (data as ArticuloStock) || null
+}
+
 export async function obtenerStockArticulo(
   idArticuloStock: number
 ): Promise<{ success: boolean; data?: ArticuloStock; error?: string }> {
@@ -214,13 +254,41 @@ export async function descontarStockComercial(
   }
 
   if (!articuloEmpresaPermiteDescontarStock(articulo)) {
-    return {
-      success: true,
-      data: {
-        aplicado: false,
-        motivo: 'El artículo no controla stock o no es venta tipo compra'
+    const modoCompraSuelto = modo === 'compra' || modo === 'ambos'
+    const porCodigo = modoCompraSuelto
+      ? (await buscarArticuloStockPorCodigo(articulo.codigo)) ||
+        (await buscarArticuloStockPorNombre(articulo.nombre))
+      : null
+    const idStock = articulo.id_articulo_stock || porCodigo?.id
+    if (!idStock || !modoCompraSuelto) {
+      return {
+        success: true,
+        data: {
+          aplicado: false,
+          motivo: 'El artículo no controla stock o no es venta tipo compra'
+        }
       }
     }
+    if (porCodigo && !articulo.id_articulo_stock) {
+      await supabase
+        .from('articulos_empresa')
+        .update({ id_articulo_stock: porCodigo.id, controla_stock: true })
+        .eq('id', articulo.id)
+        .is('id_articulo_stock', null)
+    }
+    return descontarCantidadDeStock({
+      idStock,
+      cantidad: cantidadStockADescontar(input.cantidadVendida, articulo.unidades_por_venta),
+      codigo: porCodigo?.codigo || articulo.codigo,
+      descripcion: porCodigo?.descripcion || articulo.nombre,
+      nombreProducto: articulo.nombre,
+      canal: input.canal,
+      numeroReferencia: input.numeroReferencia,
+      idPedidoCliente: input.idPedidoCliente,
+      idVenta: input.idVenta,
+      idOrdenTrabajo: input.idOrdenTrabajo,
+      permitirStockNegativo: input.permitirStockNegativo
+    })
   }
 
   const idStock = articulo.id_articulo_stock!

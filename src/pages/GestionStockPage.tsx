@@ -2,7 +2,12 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
+import {
+  mapaUnidadesLista1,
+  type UnidadLista1
+} from '../services/productoComposicionService'
 import type { ArticuloStock, Proveedor } from '../types/pedidos'
+import { etiquetaUnidadCorta, normalizarUnidadPrecio, UNIDADES_PRECIO } from '../utils/unidadPrecio'
 import './GestionStockPage.css'
 
 const GestionStockPage = () => {
@@ -29,6 +34,11 @@ const GestionStockPage = () => {
   const [filtroSector, setFiltroSector] = useState<string>('Todos')
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [loadingProveedores, setLoadingProveedores] = useState(false)
+  const [unidadesLista, setUnidadesLista] = useState<{
+    porCodigo: Map<string, UnidadLista1>
+    porStockId: Map<number, UnidadLista1>
+    porNombre: Map<string, UnidadLista1>
+  }>({ porCodigo: new Map(), porStockId: new Map(), porNombre: new Map() })
   
   const sectores = ['Todos', 'Gral', 'Imprenta', 'Mostrador', 'Taller', 'Compras']
   const sectorIcono: Record<string, string> = {
@@ -70,16 +80,20 @@ const GestionStockPage = () => {
     setLoading(true)
     try {
       const sectorFiltro = filtroSector === 'Todos' ? undefined : filtroSector
-      const response = await apiService.getArticulosStock(
-        busquedaDebounce.trim() || undefined,
-        mostrarStockBajo,
-        sectorFiltro
-      )
-      if (response.success && response.data) {
-        setArticulos(response.data)
+      const [articulosRes, unidades] = await Promise.all([
+        apiService.getArticulosStock(
+          busquedaDebounce.trim() || undefined,
+          mostrarStockBajo,
+          sectorFiltro
+        ),
+        mapaUnidadesLista1()
+      ])
+      setUnidadesLista(unidades)
+      if (articulosRes.success && articulosRes.data) {
+        setArticulos(articulosRes.data)
       } else {
-        console.error('Error cargando artículos:', response.error)
-        alert(`Error al cargar artículos: ${response.error}`)
+        console.error('Error cargando artículos:', articulosRes.error)
+        alert(`Error al cargar artículos: ${articulosRes.error}`)
         setArticulos([])
       }
     } catch (error) {
@@ -105,6 +119,24 @@ const GestionStockPage = () => {
     }
   }
 
+  const unidadListaDe = (articulo: { id?: number; codigo?: string | null; descripcion?: string | null }) => {
+    if (articulo.id && unidadesLista.porStockId.has(articulo.id)) {
+      return unidadesLista.porStockId.get(articulo.id)
+    }
+    const codigo = (articulo.codigo || '').trim().toLowerCase()
+    if (codigo) {
+      const porCodigo = unidadesLista.porCodigo.get(codigo)
+      if (porCodigo) return porCodigo
+      if (/^\d+$/.test(codigo)) {
+        const sinCeros = unidadesLista.porCodigo.get(codigo.replace(/^0+/, '') || '0')
+        if (sinCeros) return sinCeros
+      }
+    }
+    const nombre = (articulo.descripcion || '').trim().toLowerCase()
+    if (nombre) return unidadesLista.porNombre.get(nombre)
+    return undefined
+  }
+
   const abrirModalNuevo = () => {
     setArticuloEditando(null)
     setFormData({
@@ -112,7 +144,7 @@ const GestionStockPage = () => {
       descripcion: '',
       stock: 0,
       stock_minimo: 0,
-      unidad: 'unidad',
+      unidad: 'u',
       precio: 0,
       categoria: '',
       proveedor: '',
@@ -129,7 +161,9 @@ const GestionStockPage = () => {
       descripcion: articulo.descripcion,
       stock: articulo.stock || 0,
       stock_minimo: articulo.stock_minimo || 0,
-      unidad: articulo.unidad || 'unidad',
+      unidad: unidadListaDe(articulo)
+        ? normalizarUnidadPrecio(unidadListaDe(articulo)?.unidad)
+        : normalizarUnidadPrecio(articulo.unidad),
       precio: articulo.precio || 0,
       categoria: articulo.categoria || '',
       proveedor: articulo.proveedor || '',
@@ -150,10 +184,25 @@ const GestionStockPage = () => {
       return
     }
 
+    const unidadId = normalizarUnidadPrecio(formData.unidad)
+    const datosStock = { ...formData, unidad: etiquetaUnidadCorta(unidadId) }
+    const lista = unidadListaDe({
+      id: articuloEditando?.id,
+      codigo: formData.codigo
+    })
+
     try {
+      if (lista && normalizarUnidadPrecio(lista.unidad) !== unidadId) {
+        const unidadRes = await apiService.actualizarPreciosListaArticulo(lista.id, {
+          unidad_medida: unidadId
+        })
+        if (!unidadRes.success) {
+          alert(`No se pudo guardar la unidad en la lista 1: ${unidadRes.error}`)
+          return
+        }
+      }
       if (articuloEditando) {
-        // Actualizar artículo existente
-        const response = await apiService.actualizarArticuloStock(articuloEditando.id, formData)
+        const response = await apiService.actualizarArticuloStock(articuloEditando.id, datosStock)
         if (response.success) {
           alert('Artículo actualizado exitosamente')
           cerrarModal()
@@ -163,7 +212,7 @@ const GestionStockPage = () => {
         }
       } else {
         // Crear nuevo artículo
-        const response = await apiService.crearArticuloStock(formData)
+        const response = await apiService.crearArticuloStock(datosStock)
         if (response.success) {
           alert('Artículo creado exitosamente')
           cerrarModal()
@@ -339,8 +388,8 @@ const GestionStockPage = () => {
                   <th>Descripción</th>
                   <th>Stock</th>
                   <th>Stock Mínimo</th>
-                  <th>Unidad</th>
-                  <th>Precio</th>
+                  <th title="La misma unidad que en la lista de precios 1">Unidad</th>
+                  <th title="Precio de la lista 1">Lista 1</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -378,8 +427,12 @@ const GestionStockPage = () => {
                         />
                       </td>
                       <td>{stockMinimo}</td>
-                      <td>{articulo.unidad || 'unidad'}</td>
-                      <td>
+                      <td title="Lista de precios 1">
+                        {unidadListaDe(articulo)
+                          ? etiquetaUnidadCorta(unidadListaDe(articulo)?.unidad)
+                          : articulo.unidad || '—'}
+                      </td>
+                      <td title="Lista 1">
                         {articulo.precio
                           ? `$${articulo.precio.toFixed(2)}`
                           : '-'}
@@ -481,16 +534,20 @@ const GestionStockPage = () => {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Unidad:</label>
-                  <input
-                    type="text"
-                    value={formData.unidad}
+                  <label>Unidad (lista 1):</label>
+                  <select
+                    value={normalizarUnidadPrecio(formData.unidad)}
                     onChange={(e) => setFormData({ ...formData, unidad: e.target.value })}
-                    placeholder="unidad, kg, m, etc."
-                  />
+                  >
+                    {UNIDADES_PRECIO.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.cantidad}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="form-group">
-                  <label>Precio:</label>
+                  <label>Lista 1:</label>
                   <input
                     type="number"
                     min="0"

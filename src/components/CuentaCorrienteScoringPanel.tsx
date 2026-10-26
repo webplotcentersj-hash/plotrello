@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ClienteCuentaCorrienteRecord } from '../types/api'
 import apiService from '../services/api'
+import { useAuth } from '../hooks/useAuth'
+import { generateContent } from '../services/plotAIService'
 import {
   CC_SCORE_NIVEL_LABELS,
   formatLimiteCredito,
@@ -81,6 +83,11 @@ export default function CuentaCorrienteScoringPanel({
   const [notas, setNotas] = useState(record.score_notas_internas ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [analisis, setAnalisis] = useState('')
+  const [analisisLoading, setAnalisisLoading] = useState(false)
+  const [analisisError, setAnalisisError] = useState<string | null>(null)
+  const analisisPedido = useRef('')
+  const { nombreVisible, usuario } = useAuth()
 
   useEffect(() => {
     setLocal(record)
@@ -96,6 +103,91 @@ export default function CuentaCorrienteScoringPanel({
       : null
   const factores = parseFactores(local.score_detalle)
   const detalle = (local.score_detalle ?? {}) as { total_automatico?: number; ajuste_manual?: number }
+
+  const analizarScoring = useCallback(async () => {
+    if (local.score == null) return
+    setAnalisisError(null)
+    setAnalisis('')
+    setAnalisisLoading(true)
+    try {
+      const nombre =
+        local.razon_social || [local.nombre, local.apellido].filter(Boolean).join(' ') || 'Cliente'
+      const lineas = factores.map((f) => {
+        const det = detalleFactor(f)
+        const pts = `${(f.puntos ?? 0) > 0 ? '+' : ''}${f.puntos ?? 0}${f.max != null ? ` / ${f.max}` : ''}`
+        return `- ${f.label ?? f.id}: ${pts}${det ? ` (${det})` : ''}`
+      })
+      const notas = isAdmin && local.score_notas_internas?.trim() ? local.score_notas_internas.trim() : ''
+      const prompt = `Analizá el scoring interno de cuenta corriente de Plot Center. Respondé en español argentino, claro y breve, para quien decide si seguir vendiendo a cuenta. No inventes cifras que no estén en los datos. No cambies el score: explicalo.
+
+## Escala
+80–100 Excelente · 65–79 Bueno · 50–64 Regular · 35–49 Riesgo · 0–34 Crítico
+
+## Cliente
+- Nombre: ${nombre}
+- CUIT/DNI: ${local.cuit || '—'}
+- Condición IVA: ${local.condicion_iva || '—'}
+- Tipo: ${local.tipo_cliente === 'persona_fisica' ? 'Persona física' : 'Empresa'}
+- Estado de alta: ${local.estado}
+- Score: ${local.score} (${nivel ? CC_SCORE_NIVEL_LABELS[nivel] : 'sin nivel'})
+- Automático: ${detalle.total_automatico ?? '—'}
+- Ajuste manual: ${detalle.ajuste_manual ?? 0}
+- Límite sugerido: ${formatLimiteCredito(local.limite_credito_sugerido)}
+- Límite asignado: ${formatLimiteCredito(local.limite_credito)}
+${notas ? `- Notas internas: ${notas}` : ''}
+
+## Desglose
+${lineas.length ? lineas.join('\n') : 'Sin desglose'}
+
+## Pedido
+1) Qué significa este score en una o dos líneas.
+2) Qué factores lo sostienen y cuáles lo bajan.
+3) Si conviene seguir vendiendo a cuenta, con qué cuidado y respecto del límite.
+4) Tres acciones concretas para la cuenta (cobranza, documentación o límite).
+`
+      const text = await generateContent({
+        contents: prompt,
+        model: 'gemini-2.5-flash',
+        useCompleteContext: false,
+        useMemory: false,
+        learnFromResponse: false,
+        includeAppManual: false,
+        userName: nombreVisible || usuario?.nombre || 'Usuario'
+      })
+      setAnalisis(text.trim())
+    } catch (ex) {
+      setAnalisisError(ex instanceof Error ? ex.message : 'No se pudo analizar el scoring')
+    } finally {
+      setAnalisisLoading(false)
+    }
+  }, [
+    detalle.ajuste_manual,
+    detalle.total_automatico,
+    factores,
+    isAdmin,
+    local.apellido,
+    local.condicion_iva,
+    local.cuit,
+    local.estado,
+    local.limite_credito,
+    local.limite_credito_sugerido,
+    local.nombre,
+    local.razon_social,
+    local.score,
+    local.score_notas_internas,
+    local.tipo_cliente,
+    nivel,
+    nombreVisible,
+    usuario?.nombre
+  ])
+
+  useEffect(() => {
+    if (local.score == null) return
+    const key = `${record.id_cliente}:${local.score}:${local.score_actualizado_at ?? ''}`
+    if (analisisPedido.current === key) return
+    analisisPedido.current = key
+    void analizarScoring()
+  }, [analizarScoring, local.score, local.score_actualizado_at, record.id_cliente])
 
   const recalcular = async () => {
     setLoading(true)
@@ -207,8 +299,29 @@ export default function CuentaCorrienteScoringPanel({
                 })}
               </p>
             )}
+            {calculado && (
+              <button
+                type="button"
+                className="cc-btn cc-btn--secondary cc-scoring-plotai__btn"
+                disabled={analisisLoading}
+                onClick={() => void analizarScoring()}
+              >
+                {analisisLoading ? 'PlotAI está analizando…' : 'Analizar con PlotAI'}
+              </button>
+            )}
           </div>
         </div>
+
+        {(analisisLoading || analisis || analisisError) && (
+          <section className="cc-scoring-plotai" aria-live="polite">
+            <h3>Análisis PlotAI</h3>
+            {analisisError && <p className="cc-scoring-panel__error">{analisisError}</p>}
+            {analisisLoading && !analisis && (
+              <p className="cc-scoring-plotai__wait">Leyendo el score, el nivel y el desglose…</p>
+            )}
+            {analisis && <pre>{analisis}</pre>}
+          </section>
+        )}
 
         {factores.length > 0 && (
           <section className="cc-scoring-factores">

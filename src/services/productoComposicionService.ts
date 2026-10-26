@@ -22,6 +22,68 @@ export type MovimientoTrazado = {
   id_articulo_stock?: number
 }
 
+export type UnidadLista1 = { id: number; unidad: string }
+
+/** Unidad de la lista de precios 1, por código y por artículo de stock. */
+export async function mapaUnidadesLista1(): Promise<{
+  porCodigo: Map<string, UnidadLista1>
+  porStockId: Map<number, UnidadLista1>
+  porNombre: Map<string, UnidadLista1>
+}> {
+  const vacio = {
+    porCodigo: new Map<string, UnidadLista1>(),
+    porStockId: new Map<number, UnidadLista1>(),
+    porNombre: new Map<string, UnidadLista1>()
+  }
+  if (!supabase) return vacio
+  const { data, error } = await supabase
+    .from('articulos_empresa')
+    .select('id, codigo, nombre, unidad_medida, id_articulo_stock')
+    .eq('activo', true)
+  if (error || !data) return vacio
+
+  const porCodigo = new Map<string, UnidadLista1>()
+  const porStockId = new Map<number, UnidadLista1>()
+  const porNombre = new Map<string, UnidadLista1>()
+  const porId = new Map<number, UnidadLista1>()
+  const guardarCodigo = (codigo: string, item: UnidadLista1) => {
+    const base = codigo.trim().toLowerCase()
+    if (!base || porCodigo.has(base)) return
+    porCodigo.set(base, item)
+    if (/^\d+$/.test(base)) {
+      const sinCeros = base.replace(/^0+/, '') || '0'
+      if (!porCodigo.has(sinCeros)) porCodigo.set(sinCeros, item)
+    }
+  }
+  for (const row of data as Array<{
+    id: number
+    codigo: string | null
+    nombre: string | null
+    unidad_medida: string | null
+    id_articulo_stock: number | null
+  }>) {
+    const item = { id: row.id, unidad: row.unidad_medida || 'm2' }
+    porId.set(row.id, item)
+    if (row.codigo) guardarCodigo(row.codigo, item)
+    const nombre = (row.nombre || '').trim().toLowerCase()
+    if (nombre && !porNombre.has(nombre)) porNombre.set(nombre, item)
+    if (row.id_articulo_stock && !porStockId.has(row.id_articulo_stock)) {
+      porStockId.set(row.id_articulo_stock, item)
+    }
+  }
+
+  const comp = await listarComposicionProductos()
+  if (comp.success) {
+    for (const linea of comp.data) {
+      const padre = porId.get(linea.id_articulo)
+      if (padre && !porStockId.has(linea.id_articulo_stock)) {
+        porStockId.set(linea.id_articulo_stock, padre)
+      }
+    }
+  }
+  return { porCodigo, porStockId, porNombre }
+}
+
 export async function listarComposicionProductos(
   ids?: number[]
 ): Promise<{ success: boolean; data: ComponenteProducto[]; error?: string }> {
