@@ -16,14 +16,23 @@
 
 .liq-campo input,
 .liq-num {
-  width: 120px;
-  padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
+  width: 148px;
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
   background: #0f172a;
   color: #f8fafc;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
   color-scheme: dark;
+}
+
+.liq-num:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.7);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .liq-campo span {
@@ -59,6 +68,10 @@
 
 .liq-scroll {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 12px;
+  margin-inline: -4px;
+  padding-inline: 4px;
 }
 
 .liq-btn-pdf,
@@ -89,18 +102,52 @@
 
 .liq-tabla {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.82rem;
-  min-width: 1320px;
+  min-width: 1980px;
 }
 
 .liq-tabla th,
 .liq-tabla td {
-  padding: 8px 6px;
+  padding: 10px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
+  background: var(--bg-primary, #0b1220);
+}
+
+.liq-pct {
+  font-weight: 700;
+}
+
+/* Precio / sueldo / sin declarar / neto siempre visibles al scrollear */
+.liq-sticky {
+  position: sticky;
+  z-index: 2;
+}
+
+.liq-sticky-precio {
+  right: 404px;
+  min-width: 164px;
+  box-shadow: -8px 0 12px -10px rgba(0, 0, 0, 0.55);
+}
+
+.liq-sticky-sueldo {
+  right: 240px;
+  min-width: 164px;
+}
+
+.liq-sticky-sin {
+  right: 76px;
+  min-width: 164px;
+}
+
+.liq-sticky-neto {
+  right: 0;
+  min-width: 76px;
+  padding-right: 12px;
 }
 
 .liq-tabla th {
@@ -141,6 +188,16 @@
 .liq-detalle td {
   white-space: normal;
   background: rgba(15, 23, 42, 0.65);
+  position: static;
+  right: auto;
+  box-shadow: none;
+  min-width: 0;
+}
+
+.liq-detalle .liq-sticky {
+  position: static;
+  right: auto;
+  box-shadow: none;
 }
 
 .liq-detalle-grid {

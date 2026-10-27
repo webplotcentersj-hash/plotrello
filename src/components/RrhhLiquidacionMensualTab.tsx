@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import apiService from '../services/api'
 import type { Asistencia, RrhhNovedad, SolicitudPermiso, UsuarioRecord } from '../types/api'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
@@ -11,9 +11,12 @@ import {
   formatArs,
   type HorarioFijoAsistencia
 } from '../utils/asistenciaStats'
-import { exportarLiquidacionMensualPdf, exportarLiquidacionMensualXlsx } from '../utils/exportLiquidacionMensual'
+import { formatHoras } from '../services/relojBiometricoService'
+import { exportarLiquidacionMensualXlsx } from '../utils/exportLiquidacionMensual'
+import { exportarLiquidacionMensualPdf } from '../utils/exportLiquidacionMensualPdf'
 import {
   MONTOS_VACIOS,
+  PCT_ANTIGUEDAD_LEGAL_DEFAULT,
   armarLiquidacionEmpleado,
   cargarMesLiquidacion,
   guardarMesLiquidacion,
@@ -55,10 +58,22 @@ function Numero({
   const visible = value || mostrarCero ? String(value) : ''
   const [texto, setTexto] = useState(visible)
   const [foco, setFoco] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!foco) setTexto(visible)
   }, [visible, foco])
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    },
+    []
+  )
+
+  const guardar = (raw: string) => {
+    onCommit(aNumero(raw))
+  }
 
   return (
     <input
@@ -71,10 +86,19 @@ function Numero({
         setFoco(true)
         setTexto(visible)
       }}
-      onChange={(e) => setTexto(e.target.value)}
+      onChange={(e) => {
+        const next = e.target.value
+        setTexto(next)
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(() => guardar(next), 350)
+      }}
       onBlur={() => {
+        if (timerRef.current) {
+          clearTimeout(timerRef.current)
+          timerRef.current = null
+        }
         setFoco(false)
-        onCommit(aNumero(texto))
+        guardar(texto)
       }}
     />
   )
@@ -100,6 +124,7 @@ export default function RrhhLiquidacionMensualTab({
   const mes = mesDeFecha(fechaDesde)
   const [cargas, setCargas] = useState<CargaSocialDef[]>([])
   const [montos, setMontos] = useState<Record<number, MontosLiquidacion>>({})
+  const [pctAntiguedadLegal, setPctAntiguedadLegal] = useState(PCT_ANTIGUEDAD_LEGAL_DEFAULT)
   const [listo, setListo] = useState(false)
   const [precioDefault, setPrecioDefault] = useState(leerPrecioDefault)
   const [fechasIngreso, setFechasIngreso] = useState<Record<number, string | null>>({})
@@ -114,6 +139,7 @@ export default function RrhhLiquidacionMensualTab({
     const data = cargarMesLiquidacion(mes)
     setCargas(data.cargas)
     setMontos(data.montos)
+    setPctAntiguedadLegal(data.pctAntiguedadLegal)
     setListo(true)
   }, [mes])
 
@@ -269,6 +295,7 @@ export default function RrhhLiquidacionMensualTab({
         montos: montos[u.id] ?? MONTOS_VACIOS,
         precioHoraDefault: precioDefault,
         cargas,
+        pctAntiguedadLegal,
         novedades,
         permisos,
         asistencia,
@@ -283,7 +310,7 @@ export default function RrhhLiquidacionMensualTab({
         ? { ...fila, ventas: act.ventas, plataVendida: act.plata, opsMovidas: act.ops, trabajos: act.trabajos }
         : fila
     })
-  }, [listo, stats, empleados, nombres, fechasIngreso, montos, precioDefault, cargas, novedades, permisos, asistencia, horariosPorMes, dias, fechaDesde, fechaHasta, actividad])
+  }, [listo, stats, empleados, nombres, fechasIngreso, montos, precioDefault, cargas, pctAntiguedadLegal, novedades, permisos, asistencia, horariosPorMes, dias, fechaDesde, fechaHasta, actividad])
 
   const totales = useMemo(() => totalesLiquidacion(filas), [filas])
 
@@ -296,10 +323,15 @@ export default function RrhhLiquidacionMensualTab({
     return `${d.toLocaleDateString('es-AR')} – ${h.toLocaleDateString('es-AR')}`
   }, [fechaDesde, fechaHasta])
 
-  const persistir = (nextCargas: CargaSocialDef[], nextMontos: Record<number, MontosLiquidacion>) => {
+  const persistir = (
+    nextCargas: CargaSocialDef[],
+    nextMontos: Record<number, MontosLiquidacion>,
+    nextPct = pctAntiguedadLegal
+  ) => {
     setCargas(nextCargas)
     setMontos(nextMontos)
-    guardarMesLiquidacion(mes, nextCargas, nextMontos)
+    setPctAntiguedadLegal(nextPct)
+    guardarMesLiquidacion(mes, nextCargas, nextMontos, nextPct)
   }
 
   const cambiarMonto = (id: number, campo: keyof MontosLiquidacion, valor: string) => {
@@ -314,6 +346,12 @@ export default function RrhhLiquidacionMensualTab({
     )
   }
 
+  const cambiarPctAntiguedad = (valor: string) => {
+    const n = Number(String(valor).replace(',', '.'))
+    const pct = Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : PCT_ANTIGUEDAD_LEGAL_DEFAULT
+    persistir(cargas, montos, pct)
+  }
+
   const cambiarPrecioDefault = (valor: string) => {
     const n = aNumero(valor)
     setPrecioDefault(n)
@@ -325,7 +363,7 @@ export default function RrhhLiquidacionMensualTab({
   }
 
   const exportarPdf = () => {
-    exportarLiquidacionMensualPdf({ filas, fechaDesde, fechaHasta, periodoLabel })
+    void exportarLiquidacionMensualPdf({ filas, fechaDesde, fechaHasta, periodoLabel })
   }
 
   const exportarExcel = () => {
@@ -359,8 +397,17 @@ export default function RrhhLiquidacionMensualTab({
         </label>
         <details className="liq-cargas">
           <summary>Cargas sociales del mes</summary>
-          <p>Alícuotas de referencia del régimen general, sin reducción pyme. Se calculan sobre el sueldo base. ART arranca en 0 para que cargues la de la empresa.</p>
+          <p>
+            Alícuotas de referencia del régimen general, sin reducción pyme. Se calculan sobre el sueldo base + antigüedad
+            proporcional. ART arranca en 0 para que cargues la de la empresa. La antigüedad legal es % del sueldo base por
+            cada año cumplido; se prorratea según la fecha de ingreso y los días laborables que le corresponden.
+          </p>
           <div className="liq-cargas-grid">
+            <label className="liq-campo">
+              Antigüedad legal (por año)
+              <Numero mostrarCero value={pctAntiguedadLegal} onCommit={(n) => cambiarPctAntiguedad(String(n))} />
+              <span>% del sueldo base × años · proporcional a días que debía</span>
+            </label>
             {cargas.map((c) => (
               <label key={c.id} className="liq-campo">
                 {c.lado === 'aporte' ? 'Aporte' : 'Contribución'} · {c.nombre}
@@ -383,20 +430,29 @@ export default function RrhhLiquidacionMensualTab({
               <th>OPs</th>
               <th>Trabajo</th>
               <th>Novedades</th>
+              <th title="Días con marca / días que debía asistir (hasta hoy)">Días c/ marca / exigibles</th>
+              <th>Puntualidad</th>
               <th>Tardanzas</th>
-              <th>Faltas</th>
-              <th>Permisos</th>
+              <th>Ausencias</th>
+              <th>Justificados</th>
+              <th>Sin marca</th>
+              <th>Horas</th>
+              <th>Extra</th>
               <th>HE 50%</th>
               <th>HE 100%</th>
-              <th>Precio hora</th>
-              <th>Sueldo base</th>
-              <th>Sin declarar</th>
-              <th>Neto</th>
+              <th>Faltas</th>
+              <th>Permisos</th>
+              <th className="liq-sticky liq-sticky-precio">Precio hora</th>
+              <th className="liq-sticky liq-sticky-sueldo">Sueldo base</th>
+              <th className="liq-sticky liq-sticky-sin">Sin declarar</th>
+              <th className="liq-sticky liq-sticky-neto">Neto</th>
             </tr>
           </thead>
           <tbody>
             {filas.map((f) => {
               const m = montos[f.id] ?? MONTOS_VACIOS
+              const puntualColor =
+                f.puntualidadPct >= 90 ? '#16a34a' : f.puntualidadPct >= 70 ? '#d97706' : '#dc2626'
               return (
                 <Fragment key={f.id}>
                   <tr>
@@ -413,32 +469,57 @@ export default function RrhhLiquidacionMensualTab({
                     <td>{f.opsMovidas || '—'}</td>
                     <td>{f.trabajos || '—'}</td>
                     <td>{f.novedades.length}</td>
-                    <td>{f.tardanzas}{f.minutosTarde > 0 ? <span className="liq-sub"> {f.minutosTarde} min</span> : null}</td>
-                    <td>{f.faltas}</td>
-                    <td>{f.permisos.length}</td>
-                    <td>{f.extra50 > 0 ? f.extra50.toFixed(1) : '—'}</td>
-                    <td>{f.extra100 > 0 ? f.extra100.toFixed(1) : '—'}</td>
+                    <td title="Días con marca / días que debía asistir (hasta hoy)">
+                      {f.diasConEntrada ? `${f.diasConEntrada} / ${f.diasExigibles}` : '—'}
+                    </td>
                     <td>
+                      {f.diasConEntrada ? (
+                        <span className="liq-pct" style={{ color: puntualColor }}>
+                          {f.puntualidadPct}%
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>{f.tardanzas || '—'}{f.minutosTarde > 0 ? <span className="liq-sub"> {f.minutosTarde} min</span> : null}</td>
+                    <td>{f.ausencias || '—'}</td>
+                    <td>{f.diasJustificados || '—'}</td>
+                    <td>{f.sinMarca || '—'}</td>
+                    <td>{f.totalHoras ? f.totalHoras.toFixed(1) : '—'}</td>
+                    <td>{f.totalHorasExtra > 0 ? formatHoras(f.totalHorasExtra) : '—'}</td>
+                    <td>{f.extra50 > 0 ? `${f.extra50.toFixed(1)} hs` : '—'}</td>
+                    <td>{f.extra100 > 0 ? `${f.extra100.toFixed(1)} hs` : '—'}</td>
+                    <td>{f.faltas || '—'}</td>
+                    <td>{f.permisos.length || '—'}</td>
+                    <td className="liq-sticky liq-sticky-precio">
                       <Numero className="liq-num" value={m.precioHora} placeholder={precioDefault ? String(precioDefault) : '0'} onCommit={(n) => cambiarMonto(f.id, 'precioHora', String(n))} />
                     </td>
-                    <td>
+                    <td className="liq-sticky liq-sticky-sueldo">
                       <Numero className="liq-num" value={m.sueldoBase} placeholder="0" onCommit={(n) => cambiarMonto(f.id, 'sueldoBase', String(n))} />
                     </td>
-                    <td>
+                    <td className="liq-sticky liq-sticky-sin">
                       <Numero className="liq-num" value={m.sueldoSinDeclarar} placeholder="0" onCommit={(n) => cambiarMonto(f.id, 'sueldoSinDeclarar', String(n))} />
                     </td>
-                    <td className="liq-neto">{f.neto ? formatArs(f.neto) : '—'}</td>
+                    <td className="liq-sticky liq-sticky-neto liq-neto">{f.neto ? formatArs(f.neto) : '—'}</td>
                   </tr>
                   {abierto === f.id && (
                     <tr className="liq-detalle">
-                      <td colSpan={16}>
+                      <td colSpan={23}>
                         <div className="liq-detalle-grid">
                           <section>
                             <h3>Antigüedad</h3>
                             <p>
                               {f.fechaIngreso
-                                ? `Ingreso: ${f.fechaIngreso}. ${f.antiguedadLabel} al cierre del período.`
+                                ? `Ingreso: ${f.fechaIngreso}. ${f.antiguedadLabel} al cierre del período (${f.antiguedadAnios} año${f.antiguedadAnios === 1 ? '' : 's'}).`
                                 : 'Sin fecha de ingreso en el legajo.'}
+                            </p>
+                            <p>
+                              Legal {f.pctAntiguedadLegal}% × {f.antiguedadAnios} años → pleno {formatArs(f.adicionalAntiguedadCompleto)}.
+                            </p>
+                            <p>
+                              Proporcional: {f.diasDebia}/{f.diasLaborablesPeriodo} días laborables
+                              {f.factorProporcional < 1 ? ` (${Math.round(f.factorProporcional * 100)}%)` : ''} →{' '}
+                              {formatArs(f.adicionalAntiguedad)}.
                             </p>
                           </section>
                           <section>
@@ -460,9 +541,46 @@ export default function RrhhLiquidacionMensualTab({
                             {f.permisos.length === 0 ? <p>Sin permisos en el período.</p> : (
                               <ul>
                                 {f.permisos.map((p, i) => (
-                                  <li key={`${p.desde}-${i}`}>{p.desde} → {p.hasta} · {p.titulo}</li>
+                                  <li key={`${p.desde}-${i}`}>
+                                    {p.desde === p.hasta ? p.desde : `${p.desde} → ${p.hasta}`} · {p.tipo} · {p.titulo}
+                                    {p.dias != null ? ` · ${p.dias} días` : ''}
+                                    {p.detalle ? ` · ${p.detalle}` : ''}
+                                  </li>
                                 ))}
                               </ul>
+                            )}
+                          </section>
+                          <section>
+                            <h3>Asistencia</h3>
+                            <p>
+                              Días c/ marca / exigibles:{' '}
+                              {f.diasConEntrada ? `${f.diasConEntrada} / ${f.diasExigibles}` : '—'}
+                            </p>
+                            <p>Puntualidad: {f.diasConEntrada ? `${f.puntualidadPct}%` : '—'}</p>
+                            <p>Tardanzas: {f.tardanzas}{f.minutosTarde > 0 ? ` (${f.minutosTarde} min)` : ''}</p>
+                            <p>Ausencias: {f.ausencias}. Justificados: {f.diasJustificados}. Sin marca: {f.sinMarca}.</p>
+                            <p>
+                              Horas: {f.totalHoras ? f.totalHoras.toFixed(1) : '—'} · Extra:{' '}
+                              {f.totalHorasExtra > 0 ? formatHoras(f.totalHorasExtra) : '—'} · HE 50%:{' '}
+                              {f.extra50 > 0 ? `${f.extra50.toFixed(1)} hs` : '—'} · HE 100%:{' '}
+                              {f.extra100 > 0 ? `${f.extra100.toFixed(1)} hs` : '—'}
+                            </p>
+                          </section>
+                          <section>
+                            <h3>Faltas</h3>
+                            {f.fechasFaltas.length === 0 ? (
+                              <p>Sin faltas en el período.</p>
+                            ) : (
+                              <>
+                                <p>
+                                  {f.faltas} falta{f.faltas === 1 ? '' : 's'} · descuento {formatArs(f.descuentoFaltas)}
+                                </p>
+                                <ul>
+                                  {f.fechasFaltas.map((fecha) => (
+                                    <li key={fecha}>{fecha} — no asistió</li>
+                                  ))}
+                                </ul>
+                              </>
                             )}
                           </section>
                           <section>
@@ -483,6 +601,11 @@ export default function RrhhLiquidacionMensualTab({
                             <h3>Haberes y descuentos</h3>
                             <p>Ventas: {f.ventas}. Facturado: {formatArs(f.plataVendida)}.</p>
                             <p>OPs que movió: {f.opsMovidas}. Movimientos de trabajo: {f.trabajos}.</p>
+                            <p>
+                              Sueldo base proporcional: {formatArs(f.sueldoBase)}
+                              {f.factorProporcional < 1 ? ` (${Math.round(f.factorProporcional * 100)}%)` : ''}
+                            </p>
+                            <p>Antigüedad legal: {formatArs(f.adicionalAntiguedad)}</p>
                             <p>Horas extra 50%: {formatArs(f.importeExtra50)}</p>
                             <p>Horas extra 100%: {formatArs(f.importeExtra100)}</p>
                             <p>Descuento faltas: {formatArs(f.descuentoFaltas)}</p>
@@ -518,15 +641,24 @@ export default function RrhhLiquidacionMensualTab({
                 <td>{filas.reduce((a, f) => a + f.opsMovidas, 0)}</td>
                 <td>{filas.reduce((a, f) => a + f.trabajos, 0)}</td>
                 <td>{filas.reduce((a, f) => a + f.novedades.length, 0)}</td>
-                <td>{totales.tardanzas}</td>
-                <td>{totales.faltas}</td>
-                <td>{totales.permisos}</td>
-                <td>{totales.extra50.toFixed(1)}</td>
-                <td>{totales.extra100.toFixed(1)}</td>
-                <td />
-                <td />
-                <td />
-                <td className="liq-neto">{formatArs(totales.neto)}</td>
+                <td>
+                  {totales.diasConEntrada} / {totales.diasExigibles}
+                </td>
+                <td>{totales.puntualidadPromedio ? `${totales.puntualidadPromedio}%` : '—'}</td>
+                <td>{totales.tardanzas || '—'}</td>
+                <td>{totales.ausencias || '—'}</td>
+                <td>{totales.justificados || '—'}</td>
+                <td>{totales.sinMarca || '—'}</td>
+                <td>{totales.totalHoras ? totales.totalHoras.toFixed(1) : '—'}</td>
+                <td>{totales.totalHorasExtra > 0 ? formatHoras(totales.totalHorasExtra) : '—'}</td>
+                <td>{totales.extra50 > 0 ? `${totales.extra50.toFixed(1)} hs` : '—'}</td>
+                <td>{totales.extra100 > 0 ? `${totales.extra100.toFixed(1)} hs` : '—'}</td>
+                <td>{totales.faltas || '—'}</td>
+                <td>{totales.permisos || '—'}</td>
+                <td className="liq-sticky liq-sticky-precio" />
+                <td className="liq-sticky liq-sticky-sueldo" />
+                <td className="liq-sticky liq-sticky-sin" />
+                <td className="liq-sticky liq-sticky-neto liq-neto">{formatArs(totales.neto)}</td>
               </tr>
             </tfoot>
           )}
