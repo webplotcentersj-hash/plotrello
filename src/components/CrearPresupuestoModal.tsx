@@ -8,8 +8,11 @@ import type {
   OportunidadVenta
 } from '../types/api'
 import {
+  esClienteIvaExento,
   labelListaPrecio,
   LISTAS_PRECIO_VENTAS,
+  marcarObservacionesPreciosSinIva,
+  precioListaParaPresupuesto,
   resolvePrecioListaBruto,
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
@@ -116,6 +119,7 @@ const CrearPresupuestoModal = ({
   const [loadingCatalogo, setLoadingCatalogo] = useState(false)
   const [itemsPresupuesto, setItemsPresupuesto] = useState<ItemPresupuesto[]>([])
   const [tipoListaPrecio, setTipoListaPrecio] = useState<TipoListaPrecioVentas>('lista_1')
+  const [sacarIva, setSacarIva] = useState(false)
 
   const [guardando, setGuardando] = useState(false)
   const [presupuestoCreado, setPresupuestoCreado] = useState<PresupuestoVentaRecord | null>(null)
@@ -247,6 +251,16 @@ const CrearPresupuestoModal = ({
     })
   }, [catalogoArticulos, busquedaArticulo, categoriaArticulo])
 
+  const condicionIvaActiva: string =
+    (clienteSeleccionado?.condicion_iva as string) ||
+    (crearNuevoCliente ? nuevoCliente.condicion_iva : '') ||
+    ''
+  const clienteExento = esClienteIvaExento(condicionIvaActiva)
+
+  useEffect(() => {
+    if (clienteExento) setSacarIva(true)
+  }, [clienteExento])
+
   useEffect(() => {
     if (itemsPresupuesto.length === 0 || catalogoArticulos.length === 0) return
     setItemsPresupuesto((prev) =>
@@ -254,8 +268,9 @@ const CrearPresupuestoModal = ({
         if (!item.id_articulo_empresa) return item
         const art = catalogoArticulos.find((a) => a.id === item.id_articulo_empresa)
         if (!art) return item
-        // Lista Flexxus ya trae IVA: no volver a sumar ajustes.
-        const precio = resolvePrecioListaBruto(art, tipoListaPrecio)
+        // Lista Flexxus trae IVA incluido; si «sacar IVA» o cliente exento → neto.
+        const bruto = resolvePrecioListaBruto(art, tipoListaPrecio)
+        const precio = precioListaParaPresupuesto(bruto, sacarIva)
         if (precio == null) return item
         return {
           ...item,
@@ -265,7 +280,8 @@ const CrearPresupuestoModal = ({
         }
       })
     )
-  }, [tipoListaPrecio, catalogoArticulos])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar lista / IVA / catálogo
+  }, [tipoListaPrecio, catalogoArticulos, sacarIva])
 
   const guardarNuevoCliente = async () => {
     const nombre = nuevoCliente.nombre.trim()
@@ -316,7 +332,8 @@ const CrearPresupuestoModal = ({
       return
     }
 
-    const precio = resolvePrecioListaBruto(articulo, tipoListaPrecio)
+    const bruto = resolvePrecioListaBruto(articulo, tipoListaPrecio)
+    const precio = precioListaParaPresupuesto(bruto, sacarIva)
     if (precio == null) {
       alert(`Este artículo no tiene precio en ${labelListaPrecio(tipoListaPrecio)}.`)
       return
@@ -476,7 +493,7 @@ const CrearPresupuestoModal = ({
         items: itemsParaAPI,
         fecha_vencimiento: fechaVencimiento || undefined,
         observaciones_cliente: observacionesCliente || undefined,
-        observaciones_internas: observacionesInternas || undefined,
+        observaciones_internas: marcarObservacionesPreciosSinIva(observacionesInternas, sacarIva),
         estado,
         tipo_lista_precio: tipoListaPrecio,
         formas_pago: formasPago
@@ -776,9 +793,29 @@ const CrearPresupuestoModal = ({
 
             <div className="form-section">
               <h3>📦 Artículos — Lista Flexxus</h3>
-              <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 12px' }}>
-                Precios de lista <strong>con IVA incluido</strong> (en el PDF se discrimina neto / IVA / total)
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 8px' }}>
+                {sacarIva ? (
+                  <>
+                    Precios de lista <strong>sin IVA</strong> (neto). El PDF no discrimina IVA.
+                  </>
+                ) : (
+                  <>
+                    Precios de lista <strong>con IVA incluido</strong> (en el PDF se discrimina neto / IVA / total)
+                  </>
+                )}
               </p>
+              <label className="formas-pago-check" style={{ marginBottom: 12 }}>
+                <input
+                  type="checkbox"
+                  checked={sacarIva}
+                  disabled={clienteExento}
+                  onChange={(e) => setSacarIva(e.target.checked)}
+                />
+                <span>
+                  Sacar el IVA de los precios
+                  {clienteExento ? ' (automático: cliente Exento)' : ''}
+                </span>
+              </label>
 
               <div className="lista-selector-row">
                 {(Object.keys(LISTAS_PRECIO_VENTAS) as TipoListaPrecioVentas[]).map((lista) => (
@@ -830,7 +867,10 @@ const CrearPresupuestoModal = ({
                 ) : (
                   <div className="lista-precios-scroll">
                     {articulosFiltrados.slice(0, 80).map((articulo) => {
-                      const precio = resolvePrecioListaBruto(articulo, tipoListaPrecio)
+                      const precio = precioListaParaPresupuesto(
+                        resolvePrecioListaBruto(articulo, tipoListaPrecio),
+                        sacarIva
+                      )
                       const yaAgregado = itemsPresupuesto.some(
                         (item) => item.id_articulo_empresa === articulo.id
                       )

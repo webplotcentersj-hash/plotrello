@@ -64,6 +64,9 @@ import VentasOportunidadesSugeridas from '../components/ventas/VentasOportunidad
 import {
   labelListaPrecio,
   LISTAS_PRECIO_VENTAS,
+  marcarObservacionesPreciosSinIva,
+  precioListaParaPresupuesto,
+  presupuestoTienePreciosSinIva,
   resolvePrecioListaBruto,
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
@@ -508,6 +511,7 @@ const CRMVentasPage = () => {
   const [presupuestoCatalogoLoading, setPresupuestoCatalogoLoading] = useState(false)
   const [presupuestoBusquedaArticulo, setPresupuestoBusquedaArticulo] = useState('')
   const [presupuestoCategoriaArticulo, setPresupuestoCategoriaArticulo] = useState('todas')
+  const [presupuestoSacarIva, setPresupuestoSacarIva] = useState(false)
   const { config: presupuestoConfigCondiciones } = useConfigCondicionesVenta()
   const presupuestoMediosChecklist = useMemo(
     () => mediosPagoActivos(presupuestoConfigCondiciones).filter((m) => !esPagoMixto(m.codigo)),
@@ -962,8 +966,9 @@ const CRMVentasPage = () => {
         if (item.precioEditado) return item
         const art = matchArticuloCatalogo(item, presupuestoCatalogo)
         if (!art) return item
-        // Lista Flexxus ya trae IVA: no volver a sumar ajustes.
-        const precio = resolvePrecioListaBruto(art, presupuestoListaActiva)
+        // Lista Flexxus trae IVA incluido; opcionalmente se cotiza en neto.
+        const bruto = resolvePrecioListaBruto(art, presupuestoListaActiva)
+        const precio = precioListaParaPresupuesto(bruto, presupuestoSacarIva)
         if (precio == null) return item
         const precioStr = String(precio)
         if (
@@ -984,7 +989,13 @@ const CRMVentasPage = () => {
       })
       return changed ? next : prev
     })
-  }, [presupuestoListaActiva, presupuestoCatalogo, presupuestoModalId, presupuestoModalLoading])
+  }, [
+    presupuestoListaActiva,
+    presupuestoCatalogo,
+    presupuestoModalId,
+    presupuestoModalLoading,
+    presupuestoSacarIva
+  ])
 
   const agregarArticuloPresupuestoDraft = useCallback(
     (articulo: ArticuloEmpresaRecord) => {
@@ -1000,7 +1011,10 @@ const CRMVentasPage = () => {
         alert('Este artículo ya está en la lista')
         return
       }
-      const precio = resolvePrecioListaBruto(articulo, presupuestoListaActiva)
+      const precio = precioListaParaPresupuesto(
+        resolvePrecioListaBruto(articulo, presupuestoListaActiva),
+        presupuestoSacarIva
+      )
       if (precio == null) {
         alert(`Este artículo no tiene precio en ${labelListaPrecio(presupuestoListaActiva)}.`)
         return
@@ -1020,7 +1034,7 @@ const CRMVentasPage = () => {
       ])
       setPresupuestoBusquedaArticulo('')
     },
-    [presupuestoItemsDraft, presupuestoListaActiva]
+    [presupuestoItemsDraft, presupuestoListaActiva, presupuestoSacarIva]
   )
 
   useEffect(() => {
@@ -1077,6 +1091,7 @@ const CRMVentasPage = () => {
         ? presupuestoModal.formas_pago.filter(Boolean)
         : []
     })
+    setPresupuestoSacarIva(presupuestoTienePreciosSinIva(presupuestoModal.observaciones_internas))
     const lista: TipoListaPrecioVentas =
       presupuestoModal.tipo_lista_precio === 'lista_2' ? 'lista_2' : 'lista_1'
     setPresupuestoItemsDraft(
@@ -1530,7 +1545,10 @@ const CRMVentasPage = () => {
         cliente_direccion: presupuestoCabeceraDraft.cliente_direccion.trim() || null,
         fecha_vencimiento: presupuestoCabeceraDraft.fecha_vencimiento || null,
         observaciones_cliente: presupuestoCabeceraDraft.observaciones_cliente,
-        observaciones_internas: presupuestoCabeceraDraft.observaciones_internas,
+        observaciones_internas: marcarObservacionesPreciosSinIva(
+          presupuestoCabeceraDraft.observaciones_internas,
+          presupuestoSacarIva
+        ),
         tipo_lista_precio: presupuestoCabeceraDraft.tipo_lista_precio || null,
         formas_pago: presupuestoCabeceraDraft.formas_pago,
         items
@@ -1555,7 +1573,13 @@ const CRMVentasPage = () => {
     } finally {
       setPresupuestoEditBusy(false)
     }
-  }, [actorPresupuesto, presupuestoCabeceraDraft, presupuestoItemsDraft, presupuestoModal])
+  }, [
+    actorPresupuesto,
+    presupuestoCabeceraDraft,
+    presupuestoItemsDraft,
+    presupuestoModal,
+    presupuestoSacarIva
+  ])
 
   // Filtros oportunidades
   useEffect(() => {
@@ -4599,12 +4623,24 @@ const CRMVentasPage = () => {
 
                       <div className="presupuesto-detail-catalogo">
                         <p className="presupuesto-detail-catalogo__hint">
-                          Lista Flexxus · precios <strong>con IVA incluido</strong>
+                          Lista Flexxus · precios{' '}
+                          <strong>{presupuestoSacarIva ? 'sin IVA (neto)' : 'con IVA incluido'}</strong>
                           {presupuestoCabeceraDraft.tipo_lista_precio
                             ? ` · ${labelListaPrecio(presupuestoListaActiva)}`
                             : ' · Lista 1 (por defecto)'}
-                          {' '}· en el PDF se discrimina neto / IVA / total
+                          {presupuestoSacarIva
+                            ? ' · el PDF no discrimina IVA'
+                            : ' · en el PDF se discrimina neto / IVA / total'}
                         </p>
+                        <label className="formas-pago-check" style={{ marginBottom: 10 }}>
+                          <input
+                            type="checkbox"
+                            checked={presupuestoSacarIva}
+                            disabled={presupuestoEditBusy}
+                            onChange={(e) => setPresupuestoSacarIva(e.target.checked)}
+                          />
+                          <span>Sacar el IVA de los precios</span>
+                        </label>
                         <div className="lista-precios-filtros">
                           <input
                             type="text"
@@ -4643,9 +4679,9 @@ const CRMVentasPage = () => {
                           ) : (
                             <div className="lista-precios-scroll">
                               {presupuestoArticulosFiltrados.slice(0, 80).map((articulo) => {
-                                const precio = resolvePrecioListaBruto(
-                                  articulo,
-                                  presupuestoListaActiva
+                                const precio = precioListaParaPresupuesto(
+                                  resolvePrecioListaBruto(articulo, presupuestoListaActiva),
+                                  presupuestoSacarIva
                                 )
                                 const yaAgregado = presupuestoItemsDraft.some(
                                   (it) =>

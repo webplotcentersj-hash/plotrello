@@ -9,6 +9,7 @@ import {
   desglosarImporteConAjustes,
   LISTAS_PRECIO_VENTAS,
   normalizarConfigAjustesPrecios,
+  presupuestoTienePreciosSinIva,
   resolvePrecioListaBruto,
   type ConfigAjustesPreciosVentas,
   type TipoListaPrecioVentas
@@ -128,8 +129,12 @@ async function toPlanillaPayload(
     /* sin catálogo: no se puede sanear dobles */
   }
 
-  const itemsOk = sanearItemsConIvaIncluido(items, catalogo, tipoLista, ivaPct)
-  // Importes ya incluyen IVA: el total del PDF es la suma (no se vuelve a sumar IVA).
+  const preciosSinIva = presupuestoTienePreciosSinIva(presupuesto.observaciones_internas)
+  // Si ya se sacó el IVA, no re-sanear ni discriminar (los importes ya son netos).
+  const itemsOk = preciosSinIva
+    ? items
+    : sanearItemsConIvaIncluido(items, catalogo, tipoLista, ivaPct)
+  // Importes: con IVA incluido (default) o netos si se marcó «sacar IVA» / cliente exento.
   const total = round2(
     itemsOk.reduce((s, it) => s + (Number(it.precio_total) || 0), 0) ||
       Number(presupuesto.precio_total) ||
@@ -137,11 +142,13 @@ async function toPlanillaPayload(
   )
 
   // Solo discriminar (partir) el total con IVA; nunca calcular TOTAL = neto + IVA sumado.
-  const desglose = desglosarImporteConAjustes(total, {
-    ...ajustes,
-    // En presupuesto no reaplicamos recargos de venta: la lista ya es precio final.
-    recargos: []
-  })
+  const desglose = preciosSinIva
+    ? null
+    : desglosarImporteConAjustes(total, {
+        ...ajustes,
+        // En presupuesto no reaplicamos recargos de venta: la lista ya es precio final.
+        recargos: []
+      })
 
   return {
     numero: presupuesto.numero_presupuesto,
@@ -169,7 +176,7 @@ async function toPlanillaPayload(
     })),
     total,
     desglose:
-      desglose.iva > 0.009
+      desglose && desglose.iva > 0.009
         ? {
             neto: desglose.neto,
             iva: desglose.iva,

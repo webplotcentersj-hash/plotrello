@@ -24,6 +24,50 @@ export const DEFAULT_AJUSTES_PRECIOS_VENTAS: ConfigAjustesPreciosVentas = {
   recargos: []
 }
 
+/** Marcador en observaciones_internas: precios guardados ya sin IVA. */
+export const PRESUPUESTO_PRECIOS_SIN_IVA_TAG = '[precios_sin_iva]'
+
+export function esClienteIvaExento(condicion: string | null | undefined): boolean {
+  return (condicion || '').toLowerCase().includes('exento')
+}
+
+/** Precio de lista con IVA incluido → neto. */
+export function quitarIvaDePrecio(
+  precioConIva: number,
+  ivaPct: number = DEFAULT_AJUSTES_PRECIOS_VENTAS.iva_porcentaje
+): number {
+  const p = Number(precioConIva) || 0
+  if (p <= 0) return 0
+  if (!(ivaPct > 0)) return round2(p)
+  return round2(p / (1 + ivaPct / 100))
+}
+
+export function precioListaParaPresupuesto(
+  precioListaConIva: number | null | undefined,
+  sacarIva: boolean,
+  ivaPct: number = DEFAULT_AJUSTES_PRECIOS_VENTAS.iva_porcentaje
+): number | null {
+  if (precioListaConIva == null || !(Number(precioListaConIva) > 0)) return null
+  const bruto = Number(precioListaConIva)
+  return sacarIva ? quitarIvaDePrecio(bruto, ivaPct) : round2(bruto)
+}
+
+export function marcarObservacionesPreciosSinIva(
+  obs: string | null | undefined,
+  sinIva: boolean
+): string | undefined {
+  const bare = String(obs || '')
+    .replace(/\[precios_sin_iva\]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!sinIva) return bare || undefined
+  return bare ? `${PRESUPUESTO_PRECIOS_SIN_IVA_TAG} ${bare}` : PRESUPUESTO_PRECIOS_SIN_IVA_TAG
+}
+
+export function presupuestoTienePreciosSinIva(obsInternas: string | null | undefined): boolean {
+  return /\[precios_sin_iva\]/i.test(String(obsInternas || ''))
+}
+
 export const LISTAS_PRECIO_VENTAS: Record<
   TipoListaPrecioVentas,
   { id: TipoListaPrecioVentas; label: string; subtitle: string; accent: string }
