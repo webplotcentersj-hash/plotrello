@@ -810,10 +810,37 @@
 }
 
 .tablet-reloj-page--kiosco .tablet-reloj-header {
-  padding: 10px 16px;
+  padding: 4px 10px;
+  min-height: 0;
+  gap: 6px 10px;
   background: rgba(7, 8, 15, 0.55);
   backdrop-filter: blur(12px);
   border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.tablet-reloj-page--kiosco .tablet-reloj-header h1 {
+  font-size: 0.95rem;
+}
+
+.tablet-reloj-page--kiosco .tablet-reloj-sub {
+  margin: 1px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.tablet-reloj-page--kiosco .tablet-reloj-header-actions {
+  gap: 4px;
+}
+
+.tablet-reloj-page--kiosco .tablet-reloj-btn-ghost {
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  border-radius: 8px;
+}
+
+.tablet-reloj-page--kiosco .tablet-reloj-btn-icon {
+  padding: 5px 8px;
+  min-width: 30px;
 }
 
 .tablet-reloj-kiosco {
@@ -846,9 +873,9 @@
 
 .tablet-reloj-page--facial .tablet-reloj-header h1 {
   font-family: 'Orbitron', system-ui, sans-serif;
-  font-size: clamp(1rem, 2.2vw, 1.4rem);
+  font-size: clamp(0.78rem, 1.5vw, 0.98rem);
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   background: linear-gradient(90deg, #e6fbff, #22d3ee 60%, #eb671b);
   -webkit-background-clip: text;
@@ -874,7 +901,7 @@
 
 .tablet-reloj-page.tablet-reloj-page--facial .tablet-reloj-kiosco {
   min-height: 0;
-  padding: 12px 14px 14px;
+  padding: 6px 8px 8px;
 }
 
 .tablet-reloj-kiosco-video-wrap {

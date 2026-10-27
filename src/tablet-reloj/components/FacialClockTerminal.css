@@ -40,18 +40,47 @@
 .facial-clock-top {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px 12px;
+  gap: 6px;
+  padding: 8px 10px 8px;
   background: linear-gradient(180deg, rgba(34, 211, 238, 0.05), transparent), #050914;
   border-bottom: 1px solid var(--fc-border);
   flex-shrink: 0;
   z-index: 6;
 }
 
-.facial-clock-top .hud-clock {
+.facial-clock-top .hud-clock.facial-clock-hud {
   width: 100%;
-  --hud-hm: clamp(2.6rem, 11vw, 4.2rem);
-  --hud-ring: clamp(64px, 15vw, 92px);
+  --hud-hm: clamp(1.55rem, 5.2vw, 2.15rem);
+  --hud-ring: clamp(38px, 7vw, 48px);
+  padding: 6px 12px 7px;
+  border-radius: 12px;
+  gap: 0;
+}
+
+.facial-clock-top .facial-clock-hud .hud-clock__body {
+  gap: 2px;
+}
+
+.facial-clock-top .facial-clock-hud .hud-clock__top {
+  margin-bottom: 0;
+}
+
+.facial-clock-top .facial-clock-hud .hud-clock__label {
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+}
+
+.facial-clock-top .facial-clock-hud .hud-clock__row {
+  gap: 10px;
+}
+
+.facial-clock-top .facial-clock-hud .hud-clock__date {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  padding-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .facial-clock-top__row {
@@ -96,13 +125,14 @@
   color: #cffafe;
   background: rgba(34, 211, 238, 0.08);
   border: 1px solid rgba(34, 211, 238, 0.35);
-  padding: 9px 14px;
+  padding: 6px 10px;
   font-family: var(--fc-mono);
-  font-size: 0.74rem;
+  font-size: 0.66rem;
   font-weight: 400;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  border-radius: 12px;
+  border-radius: 9px;
+  min-height: 32px;
 }
 
 .facial-clock-btn--cam-ok {
@@ -163,9 +193,11 @@
   border: 1px solid var(--fc-border);
   background: rgba(34, 211, 238, 0.05);
   color: #7dd3fc;
-  padding: 8px;
-  border-radius: 12px;
+  padding: 5px;
+  border-radius: 9px;
   cursor: pointer;
+  min-height: 32px;
+  min-width: 32px;
 }
 
 .facial-clock-icon-btn:hover {
@@ -175,19 +207,19 @@
 
 .facial-clock-btn--marcar {
   width: 100%;
-  min-height: 52px;
-  padding: 14px 24px;
-  border-radius: 16px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 10px;
   overflow: hidden;
   font-family: var(--fc-display);
-  font-size: 0.98rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fff;
   background: linear-gradient(135deg, #f07a28 0%, #eb671b 45%, #d95a12 100%);
   box-shadow:
-    0 8px 22px rgba(235, 103, 27, 0.4),
+    0 6px 16px rgba(235, 103, 27, 0.35),
     0 0 0 1px rgba(255, 255, 255, 0.14) inset;
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
@@ -216,8 +248,8 @@
 
 @media (min-width: 900px) {
   .facial-clock-btn--marcar {
-    min-height: 56px;
-    font-size: 1.05rem;
+    min-height: 38px;
+    font-size: 0.8rem;
   }
 }
 
@@ -236,18 +268,24 @@
 .facial-clock-viewport {
   --fc-accent: var(--fc-cyan);
   position: relative;
-  /* Ocupa el alto que deja el resto de la terminal (no scrollea): ancho = 3/4 del alto, con tope. */
+  /* Visor grande: llena el stage con tope amplio. */
   height: 100%;
-  width: auto;
-  max-width: min(100%, 520px);
+  width: min(100%, calc(100% * 3 / 4));
+  max-width: min(100%, 760px);
   max-height: 100%;
   aspect-ratio: 3 / 4;
-  border-radius: 22px;
+  border-radius: 18px;
   overflow: hidden;
   background: #000;
   border: 1px solid rgba(255, 255, 255, 0.1);
   contain: layout paint;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.35s ease;
+}
+
+.facial-clock-viewport--ok-fade {
+  --fc-accent: var(--fc-cyan);
+  border-color: rgba(var(--fc-cyan), 0.45);
+  box-shadow: 0 0 0 1px rgba(var(--fc-cyan), 0.12), 0 0 48px rgba(var(--fc-cyan), 0.16);
 }
 
 .facial-clock-viewport--live {
@@ -589,9 +627,9 @@
 .facial-clock-result {
   position: relative;
   display: flex;
-  gap: 14px;
+  gap: 8px;
   align-items: flex-start;
-  padding: 14px 16px 16px;
+  padding: 8px 10px 9px;
   border-top: 1px solid var(--fc-border);
   background: #050914;
   overflow: hidden;
@@ -626,19 +664,19 @@
 
 .facial-clock-result-photo {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
 }
 
 .facial-clock-result-photo img,
 .facial-clock-result-fallback {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   object-fit: cover;
   border: 2px solid rgba(var(--fc-ok), 0.7);
-  box-shadow: 0 0 18px rgba(var(--fc-ok), 0.35);
+  box-shadow: 0 0 12px rgba(var(--fc-ok), 0.3);
 }
 
 .facial-clock-result-fallback {
@@ -851,7 +889,7 @@
   .facial-clock-side {
     display: flex;
     flex-direction: column;
-    width: clamp(340px, 36vw, 460px);
+    width: clamp(280px, 26vw, 340px);
     flex-shrink: 0;
     min-height: 0;
     border-right: 1px solid var(--fc-border);
@@ -860,15 +898,15 @@
 
   .facial-clock-top {
     flex: 1;
-    justify-content: center;
-    gap: 14px;
-    padding: 18px 18px;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 8px 8px;
     border-bottom: none;
   }
 
-  .facial-clock-top .hud-clock {
-    --hud-hm: clamp(3rem, 5.4vw, 4.8rem);
-    --hud-ring: clamp(76px, 9vw, 112px);
+  .facial-clock-top .hud-clock.facial-clock-hud {
+    --hud-hm: clamp(1.45rem, 2.4vw, 1.95rem);
+    --hud-ring: clamp(36px, 4.2vw, 46px);
   }
 
   .facial-clock-result {
@@ -878,10 +916,14 @@
   .facial-clock-stage {
     flex: 1;
     min-width: 0;
+    padding: 10px;
   }
 
   .facial-clock-viewport {
+    width: auto;
+    height: 100%;
     max-width: 100%;
+    max-height: 100%;
   }
 }
 
@@ -896,7 +938,7 @@
   }
 
   .facial-clock-btn--marcar {
-    min-height: 48px;
-    font-size: 0.92rem;
+    min-height: 36px;
+    font-size: 0.78rem;
   }
 }

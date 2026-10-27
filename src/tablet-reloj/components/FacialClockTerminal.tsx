@@ -150,6 +150,22 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     return () => window.clearInterval(t)
   }, [cooldown])
 
+  /** Tras marcar OK: el verde del visor se va rápido y el panel de resultado se limpia. */
+  const [okFlashDone, setOkFlashDone] = useState(false)
+  useEffect(() => {
+    if (!result?.recognized) {
+      setOkFlashDone(false)
+      return
+    }
+    setOkFlashDone(false)
+    const fadeGreen = window.setTimeout(() => setOkFlashDone(true), 900)
+    const clearResult = window.setTimeout(() => setResult(null), 2600)
+    return () => {
+      window.clearTimeout(fadeGreen)
+      window.clearTimeout(clearResult)
+    }
+  }, [result])
+
   const releaseStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => {
       try {
@@ -545,7 +561,9 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
     camaraLista && !cameraError ? ' facial-clock-viewport--live' : '',
     cameraError ? ' facial-clock-viewport--err' : '',
     isCapturing ? ' facial-clock-viewport--scan' : '',
-    !isCapturing && result ? (result.recognized ? ' facial-clock-viewport--ok' : ' facial-clock-viewport--fail') : ''
+    !isCapturing && result && !result.recognized ? ' facial-clock-viewport--fail' : '',
+    !isCapturing && result?.recognized && !okFlashDone ? ' facial-clock-viewport--ok' : '',
+    !isCapturing && result?.recognized && okFlashDone ? ' facial-clock-viewport--ok-fade' : ''
   ].join('')
 
   const engineTone = engineError ? 'err' : galleryReady ? 'ok' : 'load'
@@ -676,7 +694,7 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
               <span className="facial-clock-tick facial-clock-tick--b" />
               <span className="facial-clock-tick facial-clock-tick--l" />
               <span className="facial-clock-tick facial-clock-tick--r" />
-              {!isCapturing && result ? (
+              {!isCapturing && result && !(result.recognized && okFlashDone) ? (
                 <span className="facial-clock-stamp">
                   {result.recognized ? <ShieldCheck size={64} /> : <AlertCircle size={64} />}
                 </span>
