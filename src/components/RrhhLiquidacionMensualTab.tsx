@@ -25,6 +25,7 @@ import {
   type CargaSocialDef,
   type MontosLiquidacion
 } from '../utils/liquidacionMensual'
+import { filtrarUsuariosLiquidacionMensual } from '../utils/rrhhUsuariosExcluidos'
 import './RrhhLiquidacionMensualTab.css'
 
 function leerPrecioDefault(): number {
@@ -251,7 +252,8 @@ export default function RrhhLiquidacionMensualTab({
   }, [fechaDesde, fechaHasta])
 
   const empleados = useMemo(() => {
-    const lista = usuarioSeleccionado ? usuarios.filter((u) => u.id === usuarioSeleccionado) : usuarios
+    const base = filtrarUsuariosLiquidacionMensual(usuarios)
+    const lista = usuarioSeleccionado ? base.filter((u) => u.id === usuarioSeleccionado) : base
     return [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
   }, [usuarios, usuarioSeleccionado])
 

@@ -16,6 +16,17 @@ const LOGINS_GENERICOS_RRHH = new Set([
   'rrhh'
 ])
 
+/**
+ * Cuentas concretas que no se liquidan (dirección / gerentes),
+ * sin importar el rol del usuario en el sistema.
+ */
+const LOGINS_SIN_LIQUIDACION = new Set([
+  'dalvarado',
+  'dalvarado1',
+  'mtoledo',
+  'ralvarez'
+])
+
 export function normalizarLoginUsuario(nombre: string): string {
   return String(nombre ?? '').trim().toLowerCase()
 }
@@ -42,6 +53,27 @@ export function filtrarUsuariosRrhhOperarios<T extends { nombre: string; email?:
   usuarios: T[]
 ): T[] {
   return usuarios.filter((u) => !esUsuarioRrhhExcluido(u))
+}
+
+/** true si es una de las cuentas fijas fuera de liquidación (dalvarado, Magali, Rosa, etc.). */
+export function esUsuarioExcluidoLiquidacion(usuario: {
+  nombre: string
+  email?: string | null
+}): boolean {
+  if (esUsuarioRrhhExcluido(usuario)) return true
+  const candidatos = [usuario.nombre, usuario.email].filter(Boolean) as string[]
+  for (const c of candidatos) {
+    const raw = normalizarLoginUsuario(c)
+    const local = raw.includes('@') ? raw.split('@')[0]! : raw
+    if (LOGINS_SIN_LIQUIDACION.has(raw) || LOGINS_SIN_LIQUIDACION.has(local)) return true
+  }
+  return false
+}
+
+export function filtrarUsuariosLiquidacionMensual<
+  T extends { nombre: string; email?: string | null }
+>(usuarios: T[]): T[] {
+  return usuarios.filter((u) => !esUsuarioExcluidoLiquidacion(u))
 }
 
 export function idsUsuariosGenericosRrhh(
