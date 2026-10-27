@@ -102,6 +102,7 @@ export default function RrhhLiquidacionMensualTab({
   const [montos, setMontos] = useState<Record<number, MontosLiquidacion>>({})
   const [listo, setListo] = useState(false)
   const [precioDefault, setPrecioDefault] = useState(leerPrecioDefault)
+  const [fechasIngreso, setFechasIngreso] = useState<Record<number, string | null>>({})
   const [abierto, setAbierto] = useState<number | null>(null)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
   const [actividad, setActividad] = useState<Map<number, { ventas: number; plata: number; ops: number; trabajos: number }>>(new Map())
@@ -115,6 +116,21 @@ export default function RrhhLiquidacionMensualTab({
     setMontos(data.montos)
     setListo(true)
   }, [mes])
+
+  useEffect(() => {
+    let cancelado = false
+    void apiService.obtenerLegajosBasico().then((res) => {
+      if (cancelado || !res.success || !res.data) return
+      const map: Record<number, string | null> = {}
+      for (const [id, leg] of Object.entries(res.data)) {
+        map[Number(id)] = leg.fecha_ingreso ? String(leg.fecha_ingreso).slice(0, 10) : null
+      }
+      setFechasIngreso(map)
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelado = false
@@ -248,6 +264,7 @@ export default function RrhhLiquidacionMensualTab({
       armarLiquidacionEmpleado({
         id: u.id,
         nombre: nombres.get(u.id) || u.nombre,
+        fechaIngreso: fechasIngreso[u.id] ?? null,
         stats: porId.get(u.id) ?? null,
         montos: montos[u.id] ?? MONTOS_VACIOS,
         precioHoraDefault: precioDefault,
@@ -266,7 +283,7 @@ export default function RrhhLiquidacionMensualTab({
         ? { ...fila, ventas: act.ventas, plataVendida: act.plata, opsMovidas: act.ops, trabajos: act.trabajos }
         : fila
     })
-  }, [listo, stats, empleados, nombres, montos, precioDefault, cargas, novedades, permisos, asistencia, horariosPorMes, dias, fechaDesde, fechaHasta, actividad])
+  }, [listo, stats, empleados, nombres, fechasIngreso, montos, precioDefault, cargas, novedades, permisos, asistencia, horariosPorMes, dias, fechaDesde, fechaHasta, actividad])
 
   const totales = useMemo(() => totalesLiquidacion(filas), [filas])
 
@@ -360,8 +377,9 @@ export default function RrhhLiquidacionMensualTab({
           <thead>
             <tr>
               <th>Empleado</th>
+              <th>Antigüedad</th>
               <th>Ventas</th>
-              <th>Plata</th>
+              <th>Facturado</th>
               <th>OPs</th>
               <th>Trabajo</th>
               <th>Novedades</th>
@@ -387,6 +405,9 @@ export default function RrhhLiquidacionMensualTab({
                         {f.nombre}
                       </button>
                     </td>
+                    <td title={f.fechaIngreso ? `Ingreso ${f.fechaIngreso}` : undefined}>
+                      {f.antiguedadMeses != null ? f.antiguedadLabel : '—'}
+                    </td>
                     <td>{f.ventas || '—'}</td>
                     <td>{f.plataVendida ? formatArs(f.plataVendida) : '—'}</td>
                     <td>{f.opsMovidas || '—'}</td>
@@ -410,8 +431,16 @@ export default function RrhhLiquidacionMensualTab({
                   </tr>
                   {abierto === f.id && (
                     <tr className="liq-detalle">
-                      <td colSpan={15}>
+                      <td colSpan={16}>
                         <div className="liq-detalle-grid">
+                          <section>
+                            <h3>Antigüedad</h3>
+                            <p>
+                              {f.fechaIngreso
+                                ? `Ingreso: ${f.fechaIngreso}. ${f.antiguedadLabel} al cierre del período.`
+                                : 'Sin fecha de ingreso en el legajo.'}
+                            </p>
+                          </section>
                           <section>
                             <h3>Novedades</h3>
                             {f.novedades.length === 0 ? <p>Sin novedades.</p> : (
@@ -452,7 +481,7 @@ export default function RrhhLiquidacionMensualTab({
                           </section>
                           <section>
                             <h3>Haberes y descuentos</h3>
-                            <p>Ventas: {f.ventas}. Plata vendida: {formatArs(f.plataVendida)}.</p>
+                            <p>Ventas: {f.ventas}. Facturado: {formatArs(f.plataVendida)}.</p>
                             <p>OPs que movió: {f.opsMovidas}. Movimientos de trabajo: {f.trabajos}.</p>
                             <p>Horas extra 50%: {formatArs(f.importeExtra50)}</p>
                             <p>Horas extra 100%: {formatArs(f.importeExtra100)}</p>
@@ -483,6 +512,7 @@ export default function RrhhLiquidacionMensualTab({
             <tfoot>
               <tr>
                 <td>Total</td>
+                <td />
                 <td>{filas.reduce((a, f) => a + f.ventas, 0)}</td>
                 <td>{formatArs(filas.reduce((a, f) => a + f.plataVendida, 0))}</td>
                 <td>{filas.reduce((a, f) => a + f.opsMovidas, 0)}</td>

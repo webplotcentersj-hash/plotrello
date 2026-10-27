@@ -9,6 +9,8 @@ import {
   type HorarioFijoAsistencia,
   type StatsEmpleadoAsistencia
 } from './asistenciaStats'
+import { fmtAntiguedad } from './rrhhDesvinculacionesStats'
+import { antiguedadMesesAlPeriodo } from './rrhhLibroSueldos'
 
 export type MontosLiquidacion = {
   precioHora: number
@@ -51,6 +53,10 @@ export type LineaPermisoLiquidacion = {
 export type LiquidacionEmpleado = {
   id: number
   nombre: string
+  fechaIngreso: string | null
+  antiguedadMeses: number | null
+  antiguedadAnios: number
+  antiguedadLabel: string
   novedades: LineaNovedadLiquidacion[]
   tardanzas: number
   minutosTarde: number
@@ -279,6 +285,7 @@ function esJustificadoDia(a: Asistencia | undefined, novs: RrhhNovedad[]): boole
 export function armarLiquidacionEmpleado(params: {
   id: number
   nombre: string
+  fechaIngreso?: string | null
   stats: StatsEmpleadoAsistencia | null
   montos: MontosLiquidacion
   precioHoraDefault: number
@@ -291,6 +298,13 @@ export function armarLiquidacionEmpleado(params: {
   asistencia?: Asistencia[]
   horariosPorMes?: Record<string, Record<number, HorarioFijoAsistencia>>
 }): LiquidacionEmpleado {
+  const periodo = params.fechaHasta.slice(0, 7)
+  const fechaIngreso = params.fechaIngreso?.slice(0, 10) || null
+  const tieneIngreso = Boolean(fechaIngreso && /^\d{4}-\d{2}-\d{2}$/.test(fechaIngreso))
+  const antiguedadMeses = tieneIngreso ? antiguedadMesesAlPeriodo(fechaIngreso, periodo) : null
+  const antiguedadAnios = antiguedadMeses != null ? Math.floor(antiguedadMeses / 12) : 0
+  const antiguedadLabel = fmtAntiguedad(antiguedadMeses)
+
   const precioHora = params.montos.precioHora > 0 ? params.montos.precioHora : params.precioHoraDefault
   const remuneracion = remuneracionPactada(params.montos)
   const stats = params.stats
@@ -406,6 +420,10 @@ export function armarLiquidacionEmpleado(params: {
   return {
     id: params.id,
     nombre: params.nombre,
+    fechaIngreso,
+    antiguedadMeses,
+    antiguedadAnios,
+    antiguedadLabel,
     novedades,
     tardanzas: stats?.tardanzas ?? 0,
     minutosTarde,

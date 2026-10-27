@@ -63,36 +63,28 @@
 
 .liq-btn-pdf,
 .liq-btn-excel {
-  border: 0;
-  border-radius: 12px;
-  padding: 10px 18px;
-  font-weight: 800;
-  font-size: 0.92rem;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
-  letter-spacing: 0.01em;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
-.liq-btn-pdf {
-  color: #fff;
-  background: linear-gradient(135deg, #f43f5e 0%, #f97316 55%, #facc15 100%);
-  box-shadow: 0 8px 20px rgba(244, 63, 94, 0.35);
-}
-
-.liq-btn-pdf:hover:not(:disabled) {
-  filter: brightness(1.06);
-}
-
-.liq-btn-excel {
-  color: #052e16;
-  background: linear-gradient(135deg, #4ade80, #22c55e);
-  box-shadow: 0 8px 18px rgba(34, 197, 94, 0.28);
+.liq-btn-pdf:hover:not(:disabled),
+.liq-btn-excel:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.98);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #f8fafc;
 }
 
 .liq-btn-pdf:disabled,
 .liq-btn-excel:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 .liq-tabla {
