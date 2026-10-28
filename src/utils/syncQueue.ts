@@ -45,7 +45,7 @@ export type VentaRapidaPayload = {
     cliente_direccion?: string
     valor_total: number
     metodo_pago?: string
-    estado_pago?: string
+    estado_pago?: 'Cancelado' | 'Pendiente' | 'Parcial' | 'Pagado'
     fecha_venta?: string
     id_vendedor: number
     nombre_vendedor: string

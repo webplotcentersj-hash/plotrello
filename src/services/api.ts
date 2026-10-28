@@ -14422,7 +14422,7 @@ class ApiService {
       if (!incluirInactivos) rows = rows.filter((r) => r.activo)
       if (canal && COLUMNA_VISIBILIDAD_POR_CANAL[canal]) {
         const col = COLUMNA_VISIBILIDAD_POR_CANAL[canal]
-        rows = rows.filter((r) => Boolean((r as Record<string, unknown>)[col]))
+        rows = rows.filter((r) => Boolean(r[col]))
       } else if (visibleClientes !== undefined) {
         rows = rows.filter((r) => Boolean(r.visible_clientes) === visibleClientes)
       }

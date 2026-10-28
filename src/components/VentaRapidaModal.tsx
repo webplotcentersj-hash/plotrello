@@ -899,7 +899,7 @@ const VentaRapidaModal = ({
       const obsBase = observaciones ? `Prioridad: ${prioridad}. ${observaciones}` : `Prioridad: ${prioridad}`
       const observacionesFinal = detalleResumen ? `${obsBase}\nPago: ${detalleResumen}` : obsBase
       const metodoPagoFinal: MedioPagoCodigo = esMixto ? PAGO_MIXTO : condicionVenta
-      const estadoPagoInicial =
+      const estadoPagoInicial: 'Pendiente' | 'Pagado' =
         esCuentaCorriente || incluyeMp ? 'Pendiente' : 'Pagado'
 
       const ventaInput = {
