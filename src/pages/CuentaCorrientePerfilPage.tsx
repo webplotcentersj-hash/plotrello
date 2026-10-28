@@ -18,7 +18,8 @@ import type {
   CcPerfilCliente,
   CcVentaResumen,
   CuentaBancariaRecord,
-  FacturaVentaRecord
+  FacturaVentaRecord,
+  ProveedorConFinanzas
 } from '../types/api'
 import { TIPO_CLIENTE_CC_LABELS, labelCondicionIva } from '../constants/cuentaCorriente'
 import {
@@ -57,11 +58,13 @@ import {
   downloadPerfilCsvPack
 } from '../utils/cuentaCorrienteExport'
 import CcExportMenu from '../components/CcExportMenu'
+import CcCompensacionProveedorPanel from '../components/CcCompensacionProveedorPanel'
 import CuentaCorrienteVencimientoAlertas from '../components/CuentaCorrienteVencimientoAlertas'
 import { abrirDocumentoCc, descargarDocumentoCc } from '../utils/ccDocumentos'
+import { pickProveedorVinculo } from '../utils/ccCompensacionProveedor'
 import './CuentaCorrientePerfilPage.css'
 
-type TabId = 'cuenta' | 'ventas' | 'pago'
+type TabId = 'cuenta' | 'ventas' | 'pago' | 'compensacion'
 
 const PAGO_MULTIPLE = 'Pago múltiple'
 
@@ -121,6 +124,7 @@ export default function CuentaCorrientePerfilPage() {
   const [descargandoFacturaId, setDescargandoFacturaId] = useState<number | null>(null)
   const [descargandoVentaId, setDescargandoVentaId] = useState<number | null>(null)
   const [telefonoCliente, setTelefonoCliente] = useState<string | null>(null)
+  const [proveedoresFinanzas, setProveedoresFinanzas] = useState<ProveedorConFinanzas[]>([])
 
   const esPagoMultiple = pagoMetodo === PAGO_MULTIPLE
   const esMp = esMercadoPago(pagoMetodo)
@@ -143,6 +147,14 @@ export default function CuentaCorrientePerfilPage() {
       if (res.success && res.data) setCuentasBancarias(res.data)
     })()
   }, [])
+
+  useEffect(() => {
+    void (async () => {
+      const res = await apiService.getProveedoresConFinanzas()
+      if (res.success && res.data) setProveedoresFinanzas(res.data)
+      else setProveedoresFinanzas([])
+    })()
+  }, [idCliente])
 
   const cargarPerfil = useCallback(async (syncPrimero = false) => {
     if (!Number.isFinite(idCliente) || idCliente <= 0) {
@@ -475,6 +487,7 @@ export default function CuentaCorrientePerfilPage() {
 
   const ficha = perfil.ficha
   const res = perfil.resumen
+  const proveedorVinculo = pickProveedorVinculo(proveedoresFinanzas, ficha.cuit)
 
   return (
     <div className="cc-perfil-page">
@@ -554,6 +567,25 @@ export default function CuentaCorrientePerfilPage() {
                       `${nombre.replace(/\s+/g, '-').slice(0, 40)}-intereses.csv`,
                       buildInteresesCsvRows(res.intereses_devengados)
                     )
+                },
+                {
+                  id: 'comps',
+                  label: 'Solo compensaciones — CSV',
+                  onClick: () => {
+                    const comps = perfil.movimientos.filter((m) => {
+                      const meta = (m.metadata || {}) as Record<string, unknown>
+                      return (
+                        meta.compensacion === true ||
+                        String(m.metodo_pago || '')
+                          .toLowerCase()
+                          .includes('compensaci')
+                      )
+                    })
+                    downloadCsv(
+                      `${nombre.replace(/\s+/g, '-').slice(0, 40)}-compensaciones.csv`,
+                      buildMovimientosCsvRows(comps)
+                    )
+                  }
                 }
               ]}
             />
@@ -567,6 +599,18 @@ export default function CuentaCorrientePerfilPage() {
             />
             <button type="button" className="cc-btn cc-btn--secondary" onClick={() => setShowScoring(true)}>
               Scoring
+            </button>
+            <button
+              type="button"
+              className="cc-btn cc-btn--secondary"
+              onClick={() => setTab('compensacion')}
+              title={
+                proveedorVinculo
+                  ? `Compensar con proveedor ${proveedorVinculo.nombre}`
+                  : 'Compensar si también es proveedor (mismo CUIT)'
+              }
+            >
+              Compensar proveedor
             </button>
             <button
               type="button"
@@ -685,11 +729,22 @@ export default function CuentaCorrientePerfilPage() {
         />
       )}
 
+      {tab === 'cuenta' && proveedorVinculo ? (
+        <button
+          type="button"
+          className="cc-comp-banner"
+          onClick={() => setTab('compensacion')}
+        >
+          También es proveedor <strong>{proveedorVinculo.nombre}</strong> · ver saldos y compensar
+        </button>
+      ) : null}
+
       <nav className="cc-perfil-tabs" role="tablist">
         {(
           [
             ['cuenta', 'Estado de cuenta'],
             ['ventas', `Ventas CC (${perfil.ventas_cc.length})`],
+            ['compensacion', proveedorVinculo ? 'Compensar proveedor' : 'Cliente / proveedor'],
             ['pago', 'Registrar pago']
           ] as const
         ).map(([id, label]) => (
@@ -709,7 +764,7 @@ export default function CuentaCorrientePerfilPage() {
       {tab === 'cuenta' && (
         <section className="cc-perfil-section">
           <div className="cc-perfil-section__head">
-            <h2>Libro de cuenta (automático)</h2>
+            <h2>Libro de cuenta · facturas AFIP</h2>
             <button
               type="button"
               className="cc-btn cc-btn--secondary cc-btn--sm"
@@ -720,8 +775,9 @@ export default function CuentaCorrientePerfilPage() {
             </button>
           </div>
           <p className="cc-perfil-section__hint">
-            Cada venta en cuenta corriente genera un cargo; cada pago registrado con comprobante genera
-            un crédito. El saldo se actualiza solo.
+            Los cargos son las <strong>facturas AFIP</strong> (y ventas CC) vinculadas a este cliente;
+            cada pago o compensación genera un crédito. El saldo se actualiza solo. Descargá el PDF
+            AFIP desde la fila cuando esté autorizada.
           </p>
           {movimientosVista.length === 0 ? (
             <p className="cc-perfil-empty">Sin movimientos aún.</p>
@@ -1040,6 +1096,30 @@ export default function CuentaCorrientePerfilPage() {
         </section>
       )}
 
+      {tab === 'compensacion' && usuario?.id && (
+        <section className="cc-perfil-section" id="cc-compensacion">
+          <CcCompensacionProveedorPanel
+            idCliente={idCliente}
+            cuitCliente={ficha.cuit}
+            saldoCliente={res.saldo_actual}
+            proveedores={proveedoresFinanzas}
+            usuarioId={usuario.id}
+            usuarioNombre={etiquetaUsuarioNombre(usuario.nombre, usuario.id)}
+            onDone={() => {
+              void cargarPerfil(false)
+              void apiService.getProveedoresConFinanzas().then((r) => {
+                if (r.success && r.data) setProveedoresFinanzas(r.data)
+              })
+            }}
+            onError={(msg) => setError(msg)}
+            onOk={(msg) => {
+              setPagoOk(msg)
+              setTab('cuenta')
+            }}
+          />
+        </section>
+      )}
+
       {showScoring && usuario?.id && (
         <CuentaCorrienteScoringPanel
           record={ficha}
@@ -1078,6 +1158,12 @@ function CcDocDownload({ label, url }: { label: string; url?: string | null }) {
   )
 }
 
+function etiquetaFacturaAfip(f: FacturaVentaRecord): string {
+  const pv = String(f.punto_venta ?? 0).padStart(4, '0')
+  const n = String(f.numero_comprobante ?? 0).padStart(8, '0')
+  return `${f.tipo_comprobante} ${pv}-${n}`
+}
+
 function FacturaVentaLinks({
   factura,
   descargando,
@@ -1088,18 +1174,20 @@ function FacturaVentaLinks({
   onDescargar: (factura: FacturaVentaRecord) => void
 }) {
   if (!factura) return null
+  const autorizada = factura.estado_afip === 'Autorizada'
   return (
     <span className="cc-perfil-comprobante-actions">
       <Link to={`/erp/facturas/${factura.id}`} className="cc-perfil-link">
-        Ver factura
+        Ver AFIP
       </Link>
       <button
         type="button"
         className="cc-perfil-link cc-perfil-link--btn"
         disabled={descargando}
         onClick={() => onDescargar(factura)}
+        title={autorizada ? 'PDF factura AFIP autorizada' : 'PDF / borrador de factura'}
       >
-        Descargar factura
+        {descargando ? 'Descargando…' : autorizada ? 'PDF AFIP' : 'PDF factura'}
       </button>
     </span>
   )
@@ -1141,37 +1229,68 @@ function MovimientoRow({
   onDescargarFactura: (factura: FacturaVentaRecord) => void
   onDescargarPdf: (idVenta: number) => void
 }) {
+  const esCargoVenta = mov.tipo === 'venta'
+  const tieneFacturaAfip = Boolean(factura)
   const tipoLabel =
-    mov.tipo === 'venta'
-      ? 'Venta'
-      : mov.tipo === 'pago'
-        ? 'Pago'
-        : mov.tipo === 'interes'
-          ? 'Interés'
-          : 'Ajuste'
+    esCargoVenta && tieneFacturaAfip
+      ? 'Factura AFIP'
+      : esCargoVenta
+        ? 'Venta CC'
+        : mov.tipo === 'pago'
+          ? String(mov.metodo_pago || '')
+              .toLowerCase()
+              .includes('compensaci')
+            ? 'Compensación'
+            : 'Pago'
+          : mov.tipo === 'interes'
+            ? 'Interés'
+            : 'Ajuste'
+  const conceptoPrincipal = factura ? etiquetaFacturaAfip(factura) : mov.concepto
+  const cae = factura?.cae || factura?.numero_cae || null
   return (
-    <tr className={`cc-perfil-mov--${mov.tipo}`}>
+    <tr className={`cc-perfil-mov--${mov.tipo}${tieneFacturaAfip ? ' cc-perfil-mov--afip' : ''}`}>
       <td>{mov.fecha ? new Date(mov.fecha + 'T12:00:00').toLocaleDateString('es-AR') : '—'}</td>
       <td>
-        <span className={`cc-perfil-tipo cc-perfil-tipo--${mov.tipo}`}>{tipoLabel}</span>
+        <span
+          className={`cc-perfil-tipo cc-perfil-tipo--${mov.tipo}${tieneFacturaAfip ? ' cc-perfil-tipo--afip' : ''}`}
+        >
+          {tipoLabel}
+        </span>
+        {factura?.estado_afip ? (
+          <span
+            className={`cc-perfil-afip-estado cc-perfil-afip-estado--${String(factura.estado_afip).toLowerCase()}`}
+          >
+            {factura.estado_afip}
+          </span>
+        ) : null}
       </td>
       <td>
         <div className="cc-perfil-concepto">
-          {mov.tipo === 'venta' && mov.id_venta ? (
+          {factura ? (
+            <Link to={`/erp/facturas/${factura.id}`} className="cc-perfil-link cc-perfil-link--afip">
+              {conceptoPrincipal}
+            </Link>
+          ) : esCargoVenta && mov.id_venta ? (
             <Link to={`/ventas?ventaId=${mov.id_venta}`} className="cc-perfil-link">
-              {mov.concepto}
+              {conceptoPrincipal}
             </Link>
           ) : (
-            <span>{mov.concepto}</span>
+            <span>{conceptoPrincipal}</span>
           )}
-          {mov.tipo === 'venta' && mov.id_venta && (
+          {factura && mov.concepto && mov.concepto !== conceptoPrincipal ? (
+            <span className="cc-perfil-concepto__sub">{mov.concepto}</span>
+          ) : null}
+          {cae ? <span className="cc-perfil-concepto__cae">CAE {cae}</span> : null}
+          {esCargoVenta && mov.id_venta && (
             <span className="cc-perfil-comprobante-actions">
-              <VentaPdfLink idVenta={mov.id_venta} descargando={descargandoPdf} onDescargar={onDescargarPdf} />
               <FacturaVentaLinks
                 factura={factura}
                 descargando={descargando}
                 onDescargar={onDescargarFactura}
               />
+              {!factura ? (
+                <VentaPdfLink idVenta={mov.id_venta} descargando={descargandoPdf} onDescargar={onDescargarPdf} />
+              ) : null}
             </span>
           )}
         </div>

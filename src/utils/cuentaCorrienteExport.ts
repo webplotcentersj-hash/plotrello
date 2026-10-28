@@ -141,11 +141,21 @@ export function buildMovimientosCsvRows(movs: CcCuentaMovimiento[]): string[][] 
       'referencia',
       'metodo_pago',
       'notas',
-      'url_comprobante'
+      'url_comprobante',
+      'compensacion',
+      'id_proveedor',
+      'proveedor_nombre',
+      'id_movimiento_proveedor'
     ]
   ]
   const conSaldo = movimientosConSaldoCorrido(movs)
   for (const m of conSaldo) {
+    const meta = (m.metadata || {}) as Record<string, unknown>
+    const esComp =
+      meta.compensacion === true ||
+      String(m.metodo_pago || '')
+        .toLowerCase()
+        .includes('compensaci')
     rows.push([
       String(m.id),
       fechaIso(m.fecha),
@@ -159,7 +169,11 @@ export function buildMovimientosCsvRows(movs: CcCuentaMovimiento[]): string[][] 
       m.referencia ?? '',
       m.metodo_pago ?? '',
       m.notas ?? '',
-      m.url_comprobante ?? ''
+      m.url_comprobante ?? '',
+      esComp ? 'si' : '',
+      meta.id_proveedor != null ? String(meta.id_proveedor) : '',
+      meta.proveedor_nombre != null ? String(meta.proveedor_nombre) : '',
+      meta.id_movimiento_proveedor != null ? String(meta.id_movimiento_proveedor) : ''
     ])
   }
   return rows

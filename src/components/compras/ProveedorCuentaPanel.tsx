@@ -27,8 +27,35 @@ function fmtFecha(iso: string): string {
   return `${d}/${m}/${y}`
 }
 
+function fmtFechaHora(iso: string): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return fmtFecha(iso)
+  return d.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 function esPagoMov(r: MovimientoProveedorEnriquecido): boolean {
   return (Number(r.haber) || 0) > 0.009 || /pago/i.test(r.tipo_movimiento)
+}
+
+function etiquetaTipo(r: MovimientoProveedorEnriquecido): string {
+  const raw = (r.tipo_movimiento || '').trim()
+  if (esPagoMov(r)) return raw && !/^pago$/i.test(raw) ? raw : 'Pago'
+  if (/factura/i.test(raw)) return raw
+  if (/nota/i.test(raw)) return raw
+  return raw || 'Factura'
+}
+
+function csvEscape(v: string | number | null | undefined): string {
+  const s = v == null ? '' : String(v)
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  return s
 }
 
 export default function ProveedorCuentaPanel({
@@ -54,6 +81,7 @@ export default function ProveedorCuentaPanel({
   const [extracto, setExtracto] = useState<TicketExtract | null>(null)
   const [q, setQ] = useState('')
   const [filtro, setFiltro] = useState<'todos' | 'factura' | 'pago'>('todos')
+  const [ordenLibro, setOrdenLibro] = useState<'crono' | 'reciente'>('crono')
   const [adjuntandoId, setAdjuntandoId] = useState<number | null>(null)
 
   const load = useCallback(async () => {
@@ -85,17 +113,45 @@ export default function ProveedorCuentaPanel({
 
   const estado = estadoCuentaProveedor(saldo)
 
+  const resumen = useMemo(() => {
+    let totalDebe = 0
+    let totalHaber = 0
+    let facturas = 0
+    let pagos = 0
+    let conAdjunto = 0
+    for (const r of rows) {
+      totalDebe += Number(r.debe) || 0
+      totalHaber += Number(r.haber) || 0
+      if (esPagoMov(r)) pagos += 1
+      else facturas += 1
+      if (adjuntosDeMovimiento(r).length > 0) conAdjunto += 1
+    }
+    const ultimo = rows[rows.length - 1]
+    return {
+      totalDebe,
+      totalHaber,
+      facturas,
+      pagos,
+      conAdjunto,
+      sinAdjunto: rows.length - conAdjunto,
+      ultimoFecha: ultimo ? fmtFecha(ultimo.fecha_comprobante || ultimo.fecha_hora) : null
+    }
+  }, [rows])
+
   const visibles = useMemo(() => {
     const query = q.trim().toLowerCase()
-    return [...rows].reverse().filter((r) => {
+    const filtered = rows.filter((r) => {
       const pago = esPagoMov(r)
       if (filtro === 'factura' && pago) return false
       if (filtro === 'pago' && !pago) return false
       if (!query) return true
-      const hay = `${r.comprobante} ${r.tipo_movimiento} ${r.fecha_comprobante || ''}`.toLowerCase()
+      const hay =
+        `${r.id} ${r.comprobante} ${r.tipo_movimiento} ${r.fecha_comprobante || ''} ${r.fecha_hora} ${r.enlace_tipo || ''}`.toLowerCase()
       return hay.includes(query)
     })
-  }, [rows, q, filtro])
+    if (ordenLibro === 'reciente') return [...filtered].reverse()
+    return filtered
+  }, [rows, q, filtro, ordenLibro])
 
   const handleArchivos = async (files: File[]) => {
     setArchivos(files)
@@ -194,6 +250,53 @@ export default function ProveedorCuentaPanel({
     }
   }
 
+  const exportarCsv = () => {
+    const header = [
+      'id',
+      'fecha_comprobante',
+      'fecha_registro',
+      'tipo',
+      'comprobante',
+      'debe',
+      'haber',
+      'saldo',
+      'enlace_tipo',
+      'id_pago_proveedor',
+      'url_adjuntos'
+    ]
+    const lines = [header.join(',')]
+    for (const r of rows) {
+      const urls = adjuntosDeMovimiento(r)
+        .map((a) => a.url)
+        .join(' | ')
+      lines.push(
+        [
+          r.id,
+          (r.fecha_comprobante || '').slice(0, 10),
+          r.fecha_hora || '',
+          etiquetaTipo(r),
+          r.comprobante || '',
+          Number(r.debe) || 0,
+          Number(r.haber) || 0,
+          Number(r.saldo) || 0,
+          r.enlace_tipo || '',
+          r.id_pago_proveedor ?? '',
+          urls
+        ]
+          .map(csvEscape)
+          .join(',')
+      )
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    const slug = (proveedorNombre || `proveedor-${idProveedor}`).replace(/\s+/g, '-').slice(0, 40)
+    a.href = url
+    a.download = `${slug}-cuenta-${getArgentinaDateString()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (!idProveedor || idProveedor <= 0) {
     return (
       <div className="prov-cuenta">
@@ -212,11 +315,53 @@ export default function ProveedorCuentaPanel({
   return (
     <div className="prov-cuenta">
       <section className={`prov-cuenta__saldo prov-cuenta__saldo--${estado.cls}`}>
-        <span>Situación con {proveedorNombre || 'el proveedor'}</span>
-        <strong>{estado.frase}</strong>
-        <p>
-          {rows.length} movimiento{rows.length === 1 ? '' : 's'} · factura suma deuda · pago la baja
+        <div className="prov-cuenta__saldo-top">
+          <div>
+            <span>Situación con {proveedorNombre || 'el proveedor'}</span>
+            <strong>{estado.frase}</strong>
+          </div>
+          <button type="button" className="cp-btn cp-btn--secondary" onClick={exportarCsv} disabled={rows.length === 0}>
+            Exportar libro CSV
+          </button>
+        </div>
+        <p className="prov-cuenta__leyenda">
+          <strong>Debe</strong> = nos facturó (sube lo que le debemos). <strong>Haber</strong> = le
+          pagamos / compensación (baja la deuda). <strong>Saldo</strong> tras cada movimiento:{' '}
+          {estado.cls === 'deuda'
+            ? 'positivo = le debemos'
+            : estado.cls === 'favor'
+              ? 'negativo = a favor nuestro / nos debe'
+              : 'cero = al día'}
+          .
         </p>
+        <div className="prov-cuenta__kpis">
+          <article>
+            <em>Facturado (debe)</em>
+            <b>{moneyProveedor(resumen.totalDebe)}</b>
+            <small>{resumen.facturas} factura{resumen.facturas === 1 ? '' : 's'}</small>
+          </article>
+          <article>
+            <em>Pagado (haber)</em>
+            <b>{moneyProveedor(resumen.totalHaber)}</b>
+            <small>{resumen.pagos} pago{resumen.pagos === 1 ? '' : 's'}</small>
+          </article>
+          <article>
+            <em>Saldo actual</em>
+            <b>{moneyProveedor(saldo)}</b>
+            <small>{estado.label}</small>
+          </article>
+          <article>
+            <em>Trazabilidad</em>
+            <b>
+              {resumen.conAdjunto}/{rows.length}
+            </b>
+            <small>
+              con comprobante
+              {resumen.sinAdjunto > 0 ? ` · ${resumen.sinAdjunto} sin adjunto` : ''}
+              {resumen.ultimoFecha ? ` · último ${resumen.ultimoFecha}` : ''}
+            </small>
+          </article>
+        </div>
       </section>
 
       <form
@@ -226,6 +371,14 @@ export default function ProveedorCuentaPanel({
           void handleRegistrar()
         }}
       >
+        <header className="prov-cuenta__card-head">
+          <h3>Nuevo movimiento</h3>
+          <p>
+            {tipo === 'factura'
+              ? 'Suma al debe y aumenta lo que le debemos.'
+              : 'Suma al haber y reduce la deuda (pago o compensación).'}
+          </p>
+        </header>
         <div className="prov-cuenta__tipos" role="group" aria-label="Qué estás cargando">
           <button type="button" className={tipo === 'factura' ? 'is-on' : ''} onClick={() => setTipo('factura')}>
             Nos facturó
@@ -249,7 +402,7 @@ export default function ProveedorCuentaPanel({
             />
           </label>
           <label>
-            Fecha
+            Fecha comprobante
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
           </label>
           <label>
@@ -258,7 +411,7 @@ export default function ProveedorCuentaPanel({
               type="text"
               value={comprobante}
               onChange={(e) => setComprobante(e.target.value)}
-              placeholder={tipo === 'factura' ? '0001-00001234' : 'Recibo / transferencia'}
+              placeholder={tipo === 'factura' ? '0001-00001234' : 'Recibo / transferencia / COMP-…'}
             />
           </label>
         </div>
@@ -279,8 +432,8 @@ export default function ProveedorCuentaPanel({
           </strong>
           <span>
             {extracting
-              ? 'La IA está leyendo el comprobante, como en Gastos…'
-              : 'PDF o foto. La IA completa importe, fecha y número.'}
+              ? 'La IA está leyendo el comprobante…'
+              : 'PDF o foto. La IA completa importe, fecha y número. Queda vinculado al movimiento.'}
           </span>
           {archivos.length > 0 && !extracting && (
             <em>
@@ -322,93 +475,153 @@ export default function ProveedorCuentaPanel({
             : saving
               ? 'Guardando…'
               : tipo === 'factura'
-                ? 'Registrar deuda'
-                : 'Registrar pago'}
+                ? 'Registrar factura (debe)'
+                : 'Registrar pago (haber)'}
         </button>
       </form>
 
       {error && <p className="prov-cuenta__error">{error}</p>}
 
-      <div className="prov-cuenta__toolbar">
-        <input
-          type="search"
-          className="prov-cuenta__buscar"
-          placeholder="Buscar factura, recibo o fecha…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <div className="prov-cuenta__chips">
-          {(
-            [
-              ['todos', 'Todo'],
-              ['factura', 'Facturas'],
-              ['pago', 'Pagos']
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              className={filtro === key ? 'is-on' : ''}
-              onClick={() => setFiltro(key)}
-            >
-              {label}
-            </button>
-          ))}
+      <section className="prov-cuenta__libro">
+        <div className="prov-cuenta__libro-head">
+          <h3>Libro de cuenta</h3>
+          <p>
+            Cada fila deja saldo corrido. Buscá por n° de comprobante, tipo o ID de movimiento.
+          </p>
         </div>
-      </div>
 
-      {visibles.length === 0 ? (
-        <p className="prov-cuenta__vacio">
-          {rows.length === 0
-            ? `Todavía no hay movimientos. Cargá una factura de ${proveedorNombre || 'este proveedor'} o un pago.`
-            : 'Ningún movimiento coincide con la búsqueda.'}
-        </p>
-      ) : (
-        <ul className="prov-cuenta__lista">
-          {visibles.map((r) => {
-            const pago = esPagoMov(r)
-            const importe = pago ? Number(r.haber) || 0 : Number(r.debe) || 0
-            const adjuntos = adjuntosDeMovimiento(r)
-            return (
-              <li key={r.id} className={`prov-mov ${pago ? 'prov-mov--pago' : 'prov-mov--factura'}`}>
-                <div className="prov-mov__kind">{pago ? 'Pago' : 'Factura'}</div>
-                <div className="prov-mov__body">
-                  <strong>{r.comprobante || (pago ? 'Pago' : 'Factura')}</strong>
-                  <span>{fmtFecha(r.fecha_comprobante || r.fecha_hora)}</span>
-                  {adjuntos.length > 0 ? (
-                    <div className="prov-mov__files">
-                      {adjuntos.map((a) => (
-                        <a key={a.url} href={a.url} target="_blank" rel="noreferrer">
-                          {a.nombre || 'Ver archivo'}
-                        </a>
-                      ))}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="prov-mov__attach"
-                      disabled={adjuntandoId === r.id}
-                      onClick={() => {
-                        pendingAttachId.current = r.id
-                        attachRef.current?.click()
-                      }}
+        <div className="prov-cuenta__toolbar">
+          <input
+            type="search"
+            className="prov-cuenta__buscar"
+            placeholder="Buscar ID, factura, recibo, fecha…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <div className="prov-cuenta__chips">
+            {(
+              [
+                ['todos', 'Todo'],
+                ['factura', 'Facturas'],
+                ['pago', 'Pagos']
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                className={filtro === key ? 'is-on' : ''}
+                onClick={() => setFiltro(key)}
+              >
+                {label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className={ordenLibro === 'crono' ? 'is-on' : ''}
+              onClick={() => setOrdenLibro('crono')}
+              title="Más viejo → más nuevo (trazabilidad)"
+            >
+              Cronológico
+            </button>
+            <button
+              type="button"
+              className={ordenLibro === 'reciente' ? 'is-on' : ''}
+              onClick={() => setOrdenLibro('reciente')}
+            >
+              Más reciente
+            </button>
+          </div>
+        </div>
+
+        {visibles.length === 0 ? (
+          <p className="prov-cuenta__vacio">
+            {rows.length === 0
+              ? `Todavía no hay movimientos. Cargá una factura de ${proveedorNombre || 'este proveedor'} o un pago.`
+              : 'Ningún movimiento coincide con la búsqueda.'}
+          </p>
+        ) : (
+          <div className="prov-cuenta__tabla-wrap">
+            <table className="prov-cuenta__tabla-libro">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Comprobante</th>
+                  <th className="num">Debe</th>
+                  <th className="num">Haber</th>
+                  <th className="num">Saldo</th>
+                  <th>Comprobantes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibles.map((r) => {
+                  const pago = esPagoMov(r)
+                  const debe = Number(r.debe) || 0
+                  const haber = Number(r.haber) || 0
+                  const adjuntos = adjuntosDeMovimiento(r)
+                  return (
+                    <tr
+                      key={r.id}
+                      className={pago ? 'prov-cuenta__tr--pago' : 'prov-cuenta__tr--factura'}
                     >
-                      {adjuntandoId === r.id ? 'Subiendo…' : 'Adjuntar'}
-                    </button>
-                  )}
-                </div>
-                <div className="prov-mov__montos">
-                  <b>
-                    {pago ? '−' : '+'}
-                    {moneyProveedor(importe)}
-                  </b>
-                  <small>Saldo {moneyProveedor(Number(r.saldo) || 0)}</small>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+                      <td className="prov-cuenta__id" title={`Registro #${r.id}`}>
+                        #{r.id}
+                        {r.id_pago_proveedor ? (
+                          <small>pago #{r.id_pago_proveedor}</small>
+                        ) : null}
+                      </td>
+                      <td>
+                        <strong>{fmtFecha(r.fecha_comprobante || r.fecha_hora)}</strong>
+                        <small className="prov-cuenta__meta">reg. {fmtFechaHora(r.fecha_hora)}</small>
+                      </td>
+                      <td>
+                        <span className={`prov-mov__kind ${pago ? 'is-pago' : 'is-factura'}`}>
+                          {etiquetaTipo(r)}
+                        </span>
+                        {r.enlace_tipo ? (
+                          <small className="prov-cuenta__meta">enlace {r.enlace_tipo}</small>
+                        ) : null}
+                      </td>
+                      <td>
+                        <strong>{r.comprobante || '—'}</strong>
+                      </td>
+                      <td className="num">{debe > 0.009 ? moneyProveedor(debe) : '—'}</td>
+                      <td className="num">{haber > 0.009 ? moneyProveedor(haber) : '—'}</td>
+                      <td className="num">
+                        <strong>{moneyProveedor(Number(r.saldo) || 0)}</strong>
+                      </td>
+                      <td>
+                        {adjuntos.length > 0 ? (
+                          <div className="prov-mov__files">
+                            {adjuntos.map((a) => (
+                              <a key={a.url} href={a.url} target="_blank" rel="noreferrer">
+                                {a.nombre || 'Ver'}
+                              </a>
+                            ))}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="prov-mov__attach"
+                            disabled={adjuntandoId === r.id}
+                            onClick={() => {
+                              pendingAttachId.current = r.id
+                              attachRef.current?.click()
+                            }}
+                          >
+                            {adjuntandoId === r.id ? 'Subiendo…' : '+ Adjuntar'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <input
         ref={attachRef}

@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { ProveedorConFinanzas } from '../types/api'
-import type { Proveedor, ProveedorProducto } from '../types/pedidos'
+import type { ArticuloEmpresaRecord, ClienteRecord, ProveedorConFinanzas } from '../types/api'
+import type { ArticuloStock, Proveedor, ProveedorProducto } from '../types/pedidos'
 import ProveedorFinanzasHub from '../components/compras/ProveedorFinanzasHub'
 import {
   estadoCuentaProveedor,
@@ -11,7 +11,19 @@ import {
   moneyProveedor,
   saldoCuentaProveedor
 } from '../utils/proveedorCuenta'
+import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
 import './ProveedoresPage.css'
+
+type CatalogoProductoHit = {
+  key: string
+  origen: 'lista' | 'stock'
+  codigo: string
+  nombre: string
+  unidad: string
+  precio: number | null
+  stock: number | null
+  idRef: number
+}
 
 function displayNombre(p: ProveedorConFinanzas): string {
   return p.razon_social || p.nombre
@@ -21,6 +33,48 @@ function displayTelefono(p: ProveedorConFinanzas): string | null {
   const t = p.telefono?.trim()
   if (!t || t === '-') return null
   return t
+}
+
+function mapUnidadProveedor(raw: string | null | undefined): string {
+  const u = String(raw || '')
+    .trim()
+    .toLowerCase()
+  if (!u) return 'unidad'
+  if (u === 'kg' || u.includes('kilo')) return 'kg'
+  if (u === 'm2' || u.includes('m²') || u.includes('cuadrad')) return 'm2'
+  if (u === 'm3' || u.includes('cúbic') || u.includes('cubic')) return 'm3'
+  if (u === 'm' || u === 'mt' || u === 'metro') return 'm'
+  if (u === 'l' || u === 'lt' || u.includes('litro')) return 'l'
+  if (u.includes('caja')) return 'caja'
+  if (u.includes('pack') || u.includes('paquete')) return 'pack'
+  if (u.includes('unid') || u === 'u' || u === 'un') return 'unidad'
+  return 'unidad'
+}
+
+function hitDesdeEmpresa(a: ArticuloEmpresaRecord): CatalogoProductoHit {
+  return {
+    key: `lista-${a.id}`,
+    origen: 'lista',
+    codigo: (a.codigo || '').trim(),
+    nombre: (a.nombre || a.descripcion || a.codigo || `Artículo #${a.id}`).trim(),
+    unidad: mapUnidadProveedor(a.unidad_medida),
+    precio: a.precio_base != null ? Number(a.precio_base) : a.precio_lista_1 != null ? Number(a.precio_lista_1) : null,
+    stock: a.stock_disponible != null ? Number(a.stock_disponible) : null,
+    idRef: a.id
+  }
+}
+
+function hitDesdeStock(a: ArticuloStock): CatalogoProductoHit {
+  return {
+    key: `stock-${a.id}`,
+    origen: 'stock',
+    codigo: (a.codigo || '').trim(),
+    nombre: (a.descripcion || a.codigo || `Stock #${a.id}`).trim(),
+    unidad: mapUnidadProveedor(a.unidad),
+    precio: a.precio != null ? Number(a.precio) : null,
+    stock: a.stock != null ? Number(a.stock) : null,
+    idRef: a.id
+  }
 }
 
 const ProveedoresPage = () => {
@@ -61,6 +115,16 @@ const ProveedoresPage = () => {
   })
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'deuda' | 'aldia' | 'favor'>('todos')
+  const [directorioAbierto, setDirectorioAbierto] = useState(false)
+  const [clientesSugeridos, setClientesSugeridos] = useState<ClienteRecord[]>([])
+  const [buscandoClientes, setBuscandoClientes] = useState(false)
+  const [clienteVinculado, setClienteVinculado] = useState<ClienteRecord | null>(null)
+  const [clienteCcOk, setClienteCcOk] = useState<boolean | null>(null)
+  const [catalogoEmpresa, setCatalogoEmpresa] = useState<ArticuloEmpresaRecord[]>([])
+  const [productosCatalogoHits, setProductosCatalogoHits] = useState<CatalogoProductoHit[]>([])
+  const [buscandoProductoCatalogo, setBuscandoProductoCatalogo] = useState(false)
+  const [productoCatalogoElegido, setProductoCatalogoElegido] = useState<CatalogoProductoHit | null>(null)
+  const [busquedaProductoCatalogo, setBusquedaProductoCatalogo] = useState('')
 
   useEffect(() => {
     if (authLoading) return
@@ -96,7 +160,61 @@ const ProveedoresPage = () => {
     }
   }
 
+  const resetClienteVinculo = () => {
+    setClientesSugeridos([])
+    setClienteVinculado(null)
+    setClienteCcOk(null)
+    setBuscandoClientes(false)
+  }
+
+  const aplicarClienteComoProveedor = async (cliente: ClienteRecord) => {
+    const nombre = nombreCompletoCliente(cliente)
+    const razon = (cliente.empresa || nombre).trim()
+    setFormData((prev) => ({
+      ...prev,
+      nombre: nombre !== '—' ? nombre : prev.nombre,
+      razon_social: razon || prev.razon_social,
+      cuit: (cliente.dni_cuit || prev.cuit || '').trim(),
+      telefono: (cliente.telefono || prev.telefono || '').trim(),
+      email: (cliente.email || prev.email || '').trim(),
+      direccion: (cliente.direccion || prev.direccion || '').trim()
+    }))
+    setClienteVinculado(cliente)
+    setClientesSugeridos([])
+    setClienteCcOk(null)
+    try {
+      const hab = await apiService.clienteHabilitadoCuentaCorriente(cliente.id)
+      setClienteCcOk(hab.success ? Boolean(hab.data) : false)
+    } catch {
+      setClienteCcOk(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!mostrarModal) return
+    const q = formData.nombre.trim()
+    if (q.length < 2 || clienteVinculado) {
+      setClientesSugeridos([])
+      setBuscandoClientes(false)
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setBuscandoClientes(true)
+      void apiService.buscarClientes(q).then((res) => {
+        if (cancelled) return
+        setClientesSugeridos(res.success && res.data ? res.data.slice(0, 8) : [])
+        setBuscandoClientes(false)
+      })
+    }, 220)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [formData.nombre, mostrarModal, clienteVinculado])
+
   const handleAbrirModal = (proveedor?: Proveedor | ProveedorConFinanzas) => {
+    resetClienteVinculo()
     if (proveedor) {
       setModoEdicion(true)
       setProveedorSeleccionado(proveedor.id > 0 ? (proveedor as Proveedor) : null)
@@ -137,6 +255,7 @@ const ProveedoresPage = () => {
 
   const handleAltaDesdeListado = (p: ProveedorConFinanzas) => {
     setProveedorTrazado(null)
+    resetClienteVinculo()
     setModoEdicion(false)
     setProveedorSeleccionado(null)
     setFormData({
@@ -206,8 +325,90 @@ const ProveedoresPage = () => {
       tiempo_entrega_dias: '',
       observaciones: ''
     })
+    setProductoCatalogoElegido(null)
+    setProductosCatalogoHits([])
+    setBusquedaProductoCatalogo('')
     setMostrarModalNuevoProducto(true)
+    if (catalogoEmpresa.length === 0) {
+      void apiService.getArticulosEmpresa(undefined, false).then((res) => {
+        if (res.success && res.data) setCatalogoEmpresa(res.data)
+      })
+    }
   }
+
+  const aplicarProductoCatalogo = (hit: CatalogoProductoHit) => {
+    const origenLabel = hit.origen === 'lista' ? 'lista de precios' : 'stock'
+    setProductoCatalogoElegido(hit)
+    setProductosCatalogoHits([])
+    setBusquedaProductoCatalogo(hit.codigo || hit.nombre)
+    setFormDataProducto((prev) => ({
+      ...prev,
+      codigo_producto: hit.codigo || prev.codigo_producto,
+      descripcion: hit.nombre || prev.descripcion,
+      unidad: hit.unidad || prev.unidad,
+      precio_unitario:
+        hit.precio != null && Number.isFinite(hit.precio) ? String(hit.precio) : prev.precio_unitario,
+      stock_disponible:
+        hit.stock != null && Number.isFinite(hit.stock) ? String(hit.stock) : prev.stock_disponible,
+      observaciones: [
+        prev.observaciones.trim(),
+        `Desde ${origenLabel} #${hit.idRef}${hit.codigo ? ` (${hit.codigo})` : ''}`
+      ]
+        .filter(Boolean)
+        .join('\n')
+    }))
+  }
+
+  useEffect(() => {
+    if (!mostrarModalNuevoProducto) return
+    const q = busquedaProductoCatalogo.trim()
+    if (q.length < 2 || productoCatalogoElegido) {
+      setProductosCatalogoHits([])
+      setBuscandoProductoCatalogo(false)
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setBuscandoProductoCatalogo(true)
+      void (async () => {
+        const qLower = q.toLowerCase()
+        const fromLista = catalogoEmpresa
+          .filter((a) => {
+            const blob = `${a.codigo || ''} ${a.nombre || ''} ${a.descripcion || ''}`.toLowerCase()
+            return blob.includes(qLower)
+          })
+          .slice(0, 8)
+          .map(hitDesdeEmpresa)
+
+        const stockRes = await apiService.getArticulosStock(q)
+        if (cancelled) return
+        const fromStock = (stockRes.success && stockRes.data ? stockRes.data : [])
+          .slice(0, 8)
+          .map(hitDesdeStock)
+
+        const seen = new Set<string>()
+        const merged: CatalogoProductoHit[] = []
+        for (const hit of [...fromLista, ...fromStock]) {
+          const dedupe = `${hit.codigo}|${hit.nombre}`.toLowerCase()
+          if (seen.has(dedupe)) continue
+          seen.add(dedupe)
+          merged.push(hit)
+          if (merged.length >= 10) break
+        }
+        setProductosCatalogoHits(merged)
+        setBuscandoProductoCatalogo(false)
+      })()
+    }, 220)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [
+    busquedaProductoCatalogo,
+    mostrarModalNuevoProducto,
+    productoCatalogoElegido,
+    catalogoEmpresa
+  ])
 
   const handleGuardarProducto = async () => {
     if (!proveedorSeleccionado || !formDataProducto.descripcion.trim()) {
@@ -366,14 +567,39 @@ const ProveedoresPage = () => {
       </section>
 
       <section className="proveedores-section">
+        <button
+          type="button"
+          className={`prov-dir-toggle${directorioAbierto || Boolean(busqueda.trim()) ? ' is-open' : ''}`}
+          aria-expanded={directorioAbierto || Boolean(busqueda.trim())}
+          onClick={() => setDirectorioAbierto((v) => !v)}
+        >
+          <span className="prov-dir-toggle__label">
+            Directorio
+            <em>
+              {proveedoresFiltrados.length}{' '}
+              {proveedoresFiltrados.length === 1 ? 'resultado' : 'resultados'}
+            </em>
+          </span>
+          <span className="prov-dir-toggle__hint">
+            {directorioAbierto || busqueda.trim()
+              ? 'Colapsar lista'
+              : 'Expandir lista'}
+          </span>
+          <span className="prov-dir-toggle__chev" aria-hidden>
+            {directorioAbierto || busqueda.trim() ? '▴' : '▾'}
+          </span>
+        </button>
+
         {proveedoresFiltrados.length === 0 ? (
-          <div className="empty-state">
-            <p>No hay proveedores para mostrar</p>
-            <button className="btn-primary" onClick={() => handleAbrirModal()}>
-              Crear Primer Proveedor
-            </button>
-          </div>
-        ) : (
+          (directorioAbierto || busqueda.trim()) && (
+            <div className="empty-state">
+              <p>No hay proveedores para mostrar</p>
+              <button className="btn-primary" onClick={() => handleAbrirModal()}>
+                Crear Primer Proveedor
+              </button>
+            </div>
+          )
+        ) : directorioAbierto || busqueda.trim() ? (
           <ul className="prov-dir">
             {listaOrdenada.map((proveedor) => {
               const nombre = displayNombre(proveedor)
@@ -433,6 +659,10 @@ const ProveedoresPage = () => {
               )
             })}
           </ul>
+        ) : (
+          <p className="prov-dir-collapsed-hint">
+            Lista colapsada. Usá la búsqueda o expandí el directorio para ver las fichas.
+          </p>
         )}
       </section>
 
@@ -485,14 +715,65 @@ const ProveedoresPage = () => {
               <button className="btn-close" onClick={() => setMostrarModal(false)}>×</button>
             </div>
             <div className="modal-body">
-              <div className="form-group">
+              <div className="form-group prov-cliente-lookup">
                 <label>Nombre *</label>
                 <input
                   type="text"
                   value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  placeholder="Nombre del proveedor"
+                  onChange={(e) => {
+                    setClienteVinculado(null)
+                    setClienteCcOk(null)
+                    setFormData({ ...formData, nombre: e.target.value })
+                  }}
+                  placeholder="Escribí para buscar en clientes…"
+                  autoComplete="off"
                 />
+                <p className="prov-cliente-lookup__hint">
+                  Buscá del listado de clientes: se completa CUIT y datos. Si tiene cuenta corriente,
+                  después se puede compensar / descontar desde CC.
+                </p>
+                {buscandoClientes ? (
+                  <p className="prov-cliente-lookup__status">Buscando clientes…</p>
+                ) : null}
+                {clientesSugeridos.length > 0 ? (
+                  <ul className="prov-cliente-lookup__list" role="listbox">
+                    {clientesSugeridos.map((c) => (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => void aplicarClienteComoProveedor(c)}
+                        >
+                          <strong>{nombreCompletoCliente(c)}</strong>
+                          <span>
+                            {[c.empresa, c.dni_cuit ? `CUIT ${c.dni_cuit}` : null, c.telefono]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {clienteVinculado ? (
+                  <div
+                    className={`prov-cliente-lookup__badge${clienteCcOk ? ' is-cc' : ''}`}
+                  >
+                    {clienteCcOk
+                      ? `Vinculado a cliente #${clienteVinculado.id} con cuenta corriente — se podrá compensar por CUIT.`
+                      : `Datos tomados del cliente #${clienteVinculado.id}${
+                          clienteCcOk === false
+                            ? ' (sin CC habilitada; igual sirve el CUIT si la dan de alta después).'
+                            : ''
+                        }`}
+                    <button
+                      type="button"
+                      className="prov-cliente-lookup__clear"
+                      onClick={() => resetClienteVinculo()}
+                    >
+                      Quitar vínculo
+                    </button>
+                  </div>
+                ) : null}
               </div>
               <div className="form-row">
                 <div className="form-group">
@@ -678,12 +959,82 @@ const ProveedoresPage = () => {
               <button className="btn-close" onClick={() => setMostrarModalNuevoProducto(false)}>×</button>
             </div>
             <div className="modal-body">
+              <div className="form-group prov-prod-lookup">
+                <label>Buscar en nuestros productos</label>
+                <input
+                  type="search"
+                  value={busquedaProductoCatalogo}
+                  onChange={(e) => {
+                    setProductoCatalogoElegido(null)
+                    setBusquedaProductoCatalogo(e.target.value)
+                    setFormDataProducto((prev) => ({
+                      ...prev,
+                      codigo_producto: e.target.value
+                    }))
+                  }}
+                  placeholder="Código o nombre de lista de precios / stock…"
+                  autoComplete="off"
+                />
+                <p className="prov-prod-lookup__hint">
+                  Elegí un artículo existente o seguí escribiendo y completá abajo para agregar uno
+                  nuevo al proveedor.
+                </p>
+                {buscandoProductoCatalogo ? (
+                  <p className="prov-prod-lookup__status">Buscando en catálogo…</p>
+                ) : null}
+                {productosCatalogoHits.length > 0 ? (
+                  <ul className="prov-prod-lookup__list" role="listbox">
+                    {productosCatalogoHits.map((hit) => (
+                      <li key={hit.key}>
+                        <button type="button" onClick={() => aplicarProductoCatalogo(hit)}>
+                          <strong>
+                            {hit.codigo ? `${hit.codigo} · ` : ''}
+                            {hit.nombre}
+                          </strong>
+                          <span>
+                            {hit.origen === 'lista' ? 'Lista de precios' : 'Stock'}
+                            {hit.precio != null ? ` · ${moneyProveedor(hit.precio)}` : ''}
+                            {hit.stock != null ? ` · stock ${hit.stock}` : ''}
+                            {` · ${hit.unidad}`}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {productoCatalogoElegido ? (
+                  <div className="prov-prod-lookup__badge">
+                    Tomado de {productoCatalogoElegido.origen === 'lista' ? 'lista de precios' : 'stock'} #
+                    {productoCatalogoElegido.idRef}
+                    <button
+                      type="button"
+                      className="prov-prod-lookup__clear"
+                      onClick={() => {
+                        setProductoCatalogoElegido(null)
+                        setBusquedaProductoCatalogo('')
+                      }}
+                    >
+                      Seguir como nuevo
+                    </button>
+                  </div>
+                ) : busquedaProductoCatalogo.trim().length >= 2 &&
+                  !buscandoProductoCatalogo &&
+                  productosCatalogoHits.length === 0 ? (
+                  <p className="prov-prod-lookup__status">
+                    Sin coincidencias en catálogo — se agregará como producto nuevo del proveedor.
+                  </p>
+                ) : null}
+              </div>
               <div className="form-group">
                 <label>Código del Producto</label>
                 <input
                   type="text"
                   value={formDataProducto.codigo_producto}
-                  onChange={(e) => setFormDataProducto({ ...formDataProducto, codigo_producto: e.target.value })}
+                  onChange={(e) => {
+                    setProductoCatalogoElegido(null)
+                    setFormDataProducto({ ...formDataProducto, codigo_producto: e.target.value })
+                    setBusquedaProductoCatalogo(e.target.value)
+                  }}
                   placeholder="Código interno del producto"
                 />
               </div>

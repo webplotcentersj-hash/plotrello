@@ -6325,6 +6325,76 @@ class ApiService {
     }
   }
 
+  /**
+   * Compensa deuda del cliente (CC) contra lo que le debemos al mismo tercero como proveedor.
+   * RPC atómica: pago CC + pago en cuenta proveedor.
+   */
+  async registrarCompensacionCcProveedor(payload: {
+    id_cliente: number
+    id_proveedor: number
+    monto: number
+    fecha: string
+    id_usuario: number
+    actor_nombre?: string
+    notas?: string
+    url_comprobante?: string | null
+    referencia?: string
+  }): Promise<
+    ApiResponse<{
+      id_movimiento_cc: number
+      id_movimiento_proveedor: number
+      id_cliente: number
+      id_proveedor: number
+      monto: number
+      saldo_proveedor: number
+      referencia: string
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    try {
+      const { data, error } = await supabase.rpc('cc_compensar_con_proveedor', {
+        p_actor_id: payload.id_usuario,
+        p_id_cliente: payload.id_cliente,
+        p_id_proveedor: payload.id_proveedor,
+        p_monto: payload.monto,
+        p_fecha: payload.fecha,
+        p_notas: payload.notas ?? null,
+        p_url_comprobante: payload.url_comprobante?.trim() || null,
+        p_referencia: payload.referencia ?? null,
+        p_actor_nombre: payload.actor_nombre ?? null
+      })
+      if (error) return { success: false, error: error.message }
+      const row = (data ?? {}) as {
+        success?: boolean
+        error?: string
+        id_movimiento_cc?: number
+        id_movimiento_proveedor?: number
+        id_cliente?: number
+        id_proveedor?: number
+        monto?: number
+        saldo_proveedor?: number
+        referencia?: string
+      }
+      if (row.success === false) {
+        return { success: false, error: row.error || 'No se pudo registrar la compensación' }
+      }
+      return {
+        success: true,
+        data: {
+          id_movimiento_cc: Number(row.id_movimiento_cc) || 0,
+          id_movimiento_proveedor: Number(row.id_movimiento_proveedor) || 0,
+          id_cliente: Number(row.id_cliente) || payload.id_cliente,
+          id_proveedor: Number(row.id_proveedor) || payload.id_proveedor,
+          monto: Number(row.monto) || payload.monto,
+          saldo_proveedor: Number(row.saldo_proveedor) || 0,
+          referencia: String(row.referencia || '')
+        }
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error al registrar compensación' }
+    }
+  }
+
   async registrarPagoCuentaCorriente(payload: {
     id_cliente: number
     monto: number

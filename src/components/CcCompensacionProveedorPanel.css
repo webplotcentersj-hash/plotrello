@@ -1,0 +1,129 @@
+.cc-comp-panel {
+  margin: 16px 0 24px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  background: linear-gradient(145deg, rgba(30, 58, 138, 0.25), rgba(15, 23, 42, 0.6));
+}
+
+.cc-comp-panel--empty {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.cc-comp-panel--empty p,
+.cc-comp-panel__lead,
+.cc-comp-panel__hint {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.cc-comp-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.cc-comp-panel__head h2,
+.cc-comp-panel h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #e2e8f0;
+}
+
+.cc-comp-panel__lead {
+  margin-bottom: 14px;
+}
+
+.cc-comp-saldos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.cc-comp-saldos article {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cc-comp-saldos span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #94a3b8;
+}
+
+.cc-comp-saldos strong {
+  font-size: 0.98rem;
+  color: #f1f5f9;
+}
+
+.cc-comp-saldos__prov--deuda strong {
+  color: #fbbf24;
+}
+
+.cc-comp-saldos__prov--favor strong {
+  color: #4ade80;
+}
+
+.cc-comp-saldos__prov--ok strong {
+  color: #94a3b8;
+}
+
+.cc-comp-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+.cc-comp-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.cc-comp-form input[type='text'],
+.cc-comp-form input[type='date'] {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.cc-comp-form__full {
+  grid-column: 1 / -1;
+}
+
+.cc-comp-form__file {
+  font-size: 0.78rem;
+  color: #93c5fd;
+}
+
+.cc-comp-form__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .cc-comp-form {
+    grid-template-columns: 1fr;
+  }
+}

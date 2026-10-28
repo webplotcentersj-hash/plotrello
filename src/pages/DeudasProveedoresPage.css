@@ -351,7 +351,7 @@
 }
 
 .prov-cuenta {
-  max-width: 820px;
+  max-width: 980px;
   margin: 0 auto;
   padding: 8px 24px 32px;
   display: flex;
@@ -364,6 +364,14 @@
   border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.2);
   background: rgba(15, 23, 42, 0.7);
+}
+
+.prov-cuenta__saldo-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .prov-cuenta__saldo span {
@@ -381,12 +389,154 @@
   font-size: 1.35rem;
 }
 
-.prov-cuenta__saldo p {
+.prov-cuenta__saldo p,
+.prov-cuenta__leyenda {
   margin: 0;
   color: #94a3b8;
   font-size: 0.88rem;
   line-height: 1.4;
-  max-width: 40rem;
+  max-width: 48rem;
+}
+
+.prov-cuenta__leyenda {
+  margin-top: 8px;
+}
+
+.prov-cuenta__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.prov-cuenta__kpis article {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(2, 6, 23, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prov-cuenta__kpis em {
+  font-style: normal;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.prov-cuenta__kpis b {
+  font-size: 0.95rem;
+  color: #f1f5f9;
+}
+
+.prov-cuenta__kpis small {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.prov-cuenta__card-head {
+  margin-bottom: 10px;
+}
+
+.prov-cuenta__card-head h3,
+.prov-cuenta__libro-head h3 {
+  margin: 0 0 4px;
+  font-size: 0.98rem;
+  color: #e2e8f0;
+}
+
+.prov-cuenta__card-head p,
+.prov-cuenta__libro-head p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.prov-cuenta__libro {
+  margin-top: 4px;
+}
+
+.prov-cuenta__libro-head {
+  margin-bottom: 10px;
+}
+
+.prov-cuenta__tabla-wrap {
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  max-height: min(52vh, 520px);
+}
+
+.prov-cuenta__tabla-libro {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.prov-cuenta__tabla-libro th,
+.prov-cuenta__tabla-libro td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prov-cuenta__tabla-libro th {
+  position: sticky;
+  top: 0;
+  background: #0f172a;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  z-index: 1;
+}
+
+.prov-cuenta__tabla-libro .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.prov-cuenta__tabla-libro tbody tr:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.prov-cuenta__tr--factura td.num:nth-child(5) {
+  color: #fbbf24;
+}
+
+.prov-cuenta__tr--pago td.num:nth-child(6) {
+  color: #4ade80;
+}
+
+.prov-cuenta__id {
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: #93c5fd;
+}
+
+.prov-cuenta__id small,
+.prov-cuenta__meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.prov-mov__kind.is-factura {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.prov-mov__kind.is-pago {
+  background: rgba(74, 222, 128, 0.14);
+  color: #4ade80;
 }
 
 .prov-cuenta__saldo--deuda strong {
