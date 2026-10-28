@@ -28,6 +28,7 @@ import {
   etiquetaUnidadCorta,
   normalizarUnidadPrecio
 } from '../../utils/unidadPrecio'
+import { exportListaPreciosPdf, exportListaPreciosXlsx } from '../../utils/exportListaPrecios'
 import './VentasListaPreciosPanel.css'
 
 type CarritoLinea = VentasPresupuestoDraftItem & {
@@ -88,6 +89,7 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
   const [trazadoMovs, setTrazadoMovs] = useState<MovimientoTrazado[]>([])
   const [trazadoCargando, setTrazadoCargando] = useState(false)
   const [guardandoPrecio, setGuardandoPrecio] = useState(false)
+  const [exportando, setExportando] = useState<'pdf' | 'xlsx' | null>(null)
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -416,6 +418,49 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
 
   const metaLista = LISTAS_PRECIO_VENTAS[listaActiva]
 
+  const notaFiltrosExport = useMemo(() => {
+    const partes: string[] = []
+    if (categoria !== 'todas') partes.push(`Categoría: ${categoria}`)
+    if (busqueda.trim()) partes.push(`Búsqueda: “${busqueda.trim()}”`)
+    return partes.length ? `Filtros: ${partes.join(' · ')}` : undefined
+  }, [busqueda, categoria])
+
+  const optsExport = useCallback(
+    () => ({
+      articulos: articulosFiltrados,
+      lista: listaActiva,
+      ajustes,
+      notaFiltros: notaFiltrosExport
+    }),
+    [articulosFiltrados, listaActiva, ajustes, notaFiltrosExport]
+  )
+
+  const descargarPdf = async () => {
+    if (exportando) return
+    setExportando('pdf')
+    try {
+      await exportListaPreciosPdf(optsExport())
+    } catch (ex) {
+      console.error(ex)
+      alert(ex instanceof Error ? ex.message : 'No se pudo generar el PDF')
+    } finally {
+      setExportando(null)
+    }
+  }
+
+  const descargarExcel = () => {
+    if (exportando) return
+    setExportando('xlsx')
+    try {
+      exportListaPreciosXlsx(optsExport())
+    } catch (ex) {
+      console.error(ex)
+      alert(ex instanceof Error ? ex.message : 'No se pudo generar el Excel')
+    } finally {
+      setExportando(null)
+    }
+  }
+
   return (
     <div className="vlp-panel">
       <header className="vlp-head">
@@ -452,6 +497,24 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
               </button>
             )
           })}
+        </div>
+        <div className="vlp-export-actions">
+          <button
+            type="button"
+            className="vlp-btn vlp-btn--export-pdf"
+            disabled={loading || !!exportando || articulosFiltrados.length === 0}
+            onClick={() => void descargarPdf()}
+          >
+            {exportando === 'pdf' ? 'Generando PDF…' : `PDF · ${metaLista.label}`}
+          </button>
+          <button
+            type="button"
+            className="vlp-btn vlp-btn--export-xlsx"
+            disabled={loading || !!exportando || articulosFiltrados.length === 0}
+            onClick={descargarExcel}
+          >
+            {exportando === 'xlsx' ? 'Generando Excel…' : `Excel · ${metaLista.label}`}
+          </button>
         </div>
       </header>
 

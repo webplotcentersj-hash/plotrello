@@ -25,6 +25,25 @@
   margin-top: 14px;
 }
 
+.vlp-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.vlp-btn--export-pdf {
+  background: linear-gradient(135deg, #ea580c, #f97316);
+  border-color: rgba(251, 146, 60, 0.55);
+  color: #fff7ed;
+}
+
+.vlp-btn--export-xlsx {
+  background: linear-gradient(135deg, #047857, #10b981);
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #ecfdf5;
+}
+
 .vlp-lista-btn {
   display: flex;
   flex-direction: column;

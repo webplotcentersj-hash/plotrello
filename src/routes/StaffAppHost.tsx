@@ -227,6 +227,8 @@ export default function StaffAppHost() {
   const silentReloadAgainRef = useRef(false)
   const ordenBroadcastRefreshTimerRef = useRef<number | null>(null)
   const lastOrdenesFingerprintRef = useRef<string | null>(null)
+  /** Entrega procesada fuera del tablero: al volver, forzar refetch. */
+  const pendingEntregaReloadRef = useRef(false)
   const pageVisibleRef = useRef(typeof document !== 'undefined' ? !document.hidden : true)
 
   // Manual PlotAI: no bloquear primer paint (idle o timeout corto).
@@ -500,13 +502,28 @@ export default function StaffAppHost() {
 
   useEffect(() => {
     if (!boardSyncActive) return
+    if (pendingEntregaReloadRef.current) {
+      pendingEntregaReloadRef.current = false
+      lastOrdenesFingerprintRef.current = null
+    }
     void loadRemoteData()
   }, [boardSyncActive, loadRemoteData])
 
-  // Tras procesar entrega (mostrador/tablet): refrescar tablero por si el realtime llega tarde
+  // Tras procesar entrega (mostrador/tablet): sacar la ficha ya y refrescar
   useEffect(() => {
-    const onOrdenEntregada = () => {
-      if (!boardSyncActiveRef.current) return
+    const onOrdenEntregada = (event: Event) => {
+      const ordenId = (event as CustomEvent<{ ordenId?: number }>).detail?.ordenId
+      if (ordenId != null) {
+        const taskId = String(ordenId)
+        startTransition(() => {
+          setTasks((prev) => prev.filter((task) => task.id !== taskId))
+        })
+      }
+      lastOrdenesFingerprintRef.current = null
+      if (!boardSyncActiveRef.current) {
+        pendingEntregaReloadRef.current = true
+        return
+      }
       void loadRemoteData({ silent: true })
     }
     window.addEventListener('plotrello-orden-entregada', onOrdenEntregada)

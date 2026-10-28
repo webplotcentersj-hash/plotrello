@@ -43,7 +43,8 @@ import {
   parseTaskIdToOrdenId,
   taskToOrdenPayload,
   mapStatusToEstado,
-  mapEstadoToStatus
+  mapEstadoToStatus,
+  isTaskHiddenFromKanban
 } from '../utils/dataMappers'
 import { recordTiposImpresionUsados } from '../utils/opImpresionRecientes'
 import { mergeEspejoSiblingTask } from '../utils/opEspejoSectores'
@@ -338,9 +339,8 @@ const BoardPage = ({
     }
 
     return tasks.filter((task) => {
-      if (task.ordenEliminada) return false
-      if (task.visibleEnTablero === false) return false
-      // Entregadas sí se muestran (quedan en Almacén / buscador); solo se ocultan eliminadas u ocultas.
+      // Entregadas / ocultas / eliminadas → biblioteca, no kanban
+      if (isTaskHiddenFromKanban(task)) return false
 
       const matchesStatus = statusFocus.length === 0 || statusFocus.includes(task.status)
       const matchesPriority = priorityFilter === 'todas' || task.priority === priorityFilter
@@ -1538,6 +1538,7 @@ const BoardPage = ({
             onSelectTask={setSelectedTaskId}
             onViewTask={handleViewTask}
             disableDrag={isPhoneBoard}
+            excludeHiddenFromKanban
             scrollToColumn={columnScroll}
             sidePanel={
               !isPhoneBoard ? (

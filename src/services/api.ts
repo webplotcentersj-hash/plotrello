@@ -200,7 +200,6 @@ const ORDENES_TABLERO_RECLAMO_LIMIT = 150
  * (antes ~800 y saturaban el kanban). Quedan las que entren en el tope principal.
  * Entregadas: fusión chica solo para búsqueda reciente.
  */
-const ORDENES_TABLERO_ENTREGADAS_LIMIT = 50
 /** Páginas para biblioteca (catálogo completo bajo demanda; no usa orden_lineas_m2). */
 const ORDENES_BIBLIOTECA_PAGE_SIZE = 400
 const ORDENES_BIBLIOTECA_SEARCH_LIMIT = 50
@@ -1033,34 +1032,7 @@ class ApiService {
             console.warn('getOrdenes: no se pudieron fusionar reclamos al tablero', e)
           }
 
-          // Entregadas recientes (por id) aunque no entren en el tope de “solo activas”.
-          try {
-            let eq = sb
-              .from('ordenes_trabajo')
-              .select(ORDENES_TABLERO_SELECT)
-              .eq('entregado', true)
-              .or('eliminada.is.null,eliminada.eq.false')
-              .order('id', { ascending: false })
-              .limit(ORDENES_TABLERO_ENTREGADAS_LIMIT)
-            const entregadasRes = await withQueryTimeout(Promise.resolve(eq), 'getOrdenes-entregadas')
-            if (!entregadasRes.error && Array.isArray(entregadasRes.data) && entregadasRes.data.length) {
-              const byId = new Map<number, (typeof normalizedData)[0]>()
-              for (const row of normalizedData) {
-                const id = Number((row as { id?: number }).id)
-                if (id > 0) byId.set(id, row)
-              }
-              for (const raw of entregadasRes.data as Record<string, unknown>[]) {
-                const id = Number(raw.id)
-                if (!(id > 0) || byId.has(id)) continue
-                byId.set(id, normalizeOrdenListRow(raw))
-              }
-              normalizedData = [...byId.values()].sort(
-                (a, b) => Number((b as { id?: number }).id || 0) - Number((a as { id?: number }).id || 0)
-              )
-            }
-          } catch (e) {
-            console.warn('getOrdenes: no se pudieron fusionar entregadas al tablero', e)
-          }
+          // Entregadas van a biblioteca: no se vuelven a fusionar al kanban.
         }
 
         const { isOrdenVisibleOnTablero } = await import('../utils/dataMappers')

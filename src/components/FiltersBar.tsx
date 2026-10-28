@@ -183,7 +183,11 @@ const FiltersBar = ({
     <>
     <section className="filters-bar">
       <div className="search-filter">
+        <label className="search-filter__label" htmlFor="tablero-buscar">
+          Buscar
+        </label>
         <input
+          id="tablero-buscar"
           type="text"
           placeholder={searchPlaceholder}
           value={searchQuery}

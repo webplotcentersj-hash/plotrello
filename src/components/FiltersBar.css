@@ -29,14 +29,39 @@
   }
 }
 
+.search-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-filter__label {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a7f3d0;
+}
+
 .search-filter input {
+  flex: 1;
+  min-width: 0;
   width: 100%;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(11, 13, 23, 0.8);
-  color: var(--text-primary);
-  font-size: 1rem;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(6, 24, 18, 0.72);
+  color: #f8fafc;
+  font-size: 0.98rem;
+}
+
+.search-filter input:focus {
+  outline: none;
+  border-color: #34d399;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
 }
 
 .filter-grid {

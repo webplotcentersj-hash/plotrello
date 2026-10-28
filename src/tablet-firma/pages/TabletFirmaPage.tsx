@@ -298,7 +298,11 @@ export default function TabletFirmaPage() {
       }
 
       setSuccess(true)
-      window.dispatchEvent(new Event('plotrello-orden-entregada'))
+      window.dispatchEvent(
+        new CustomEvent('plotrello-orden-entregada', {
+          detail: { ordenId: orden.id }
+        })
+      )
       setTimeout(() => {
         navigate('/')
       }, 2000)

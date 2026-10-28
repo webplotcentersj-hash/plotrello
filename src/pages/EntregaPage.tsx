@@ -352,7 +352,9 @@ const EntregaPage = () => {
 
       setSuccess(true)
       // No descargar PDF aquí: solo el botón del banner de éxito (descarga manual).
-      window.dispatchEvent(new Event('plotrello-orden-entregada'))
+      window.dispatchEvent(
+        new CustomEvent('plotrello-orden-entregada', { detail: { ordenId: orden.id } })
+      )
     } catch (error) {
       console.error('Error marcando orden como entregada:', error)
       setErrors({ firma: 'Error inesperado al procesar la entrega' })
