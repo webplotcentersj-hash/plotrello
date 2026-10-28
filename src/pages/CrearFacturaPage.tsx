@@ -549,6 +549,14 @@ export default function CrearFacturaPage() {
 
       const facturaId = response.data.id
       if (emitirAlGuardar) {
+        const { isOnlineOnlyBlocked, MSG_SOLO_ONLINE } = await import('../utils/plotLabOffline')
+        if (isOnlineOnlyBlocked()) {
+          alert(
+            `La factura quedó en borrador.\n\n${MSG_SOLO_ONLINE}\n\nCuando haya red, abrila y autorizala en AFIP.`
+          )
+          navigate(`/erp/facturas/${facturaId}`)
+          return
+        }
         const emit = await apiService.emitirFactura(facturaId)
         if (!emit.success) {
           alert('La factura quedó en borrador: AFIP no la autorizó.\n\n' + (emit.error || 'desconocido'))
@@ -702,8 +710,16 @@ export default function CrearFacturaPage() {
               />
             </label>
             <label className="crear-factura-check">
-              <input type="checkbox" checked={emitirAlGuardar} onChange={(e) => setEmitirAlGuardar(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={emitirAlGuardar}
+                disabled={typeof navigator !== 'undefined' && navigator.onLine === false}
+                onChange={(e) => setEmitirAlGuardar(e.target.checked)}
+              />
               Autorizar en AFIP al guardar (con CAE genera CxC y asiento)
+              {typeof navigator !== 'undefined' && navigator.onLine === false
+                ? ' — solo online'
+                : ''}
             </label>
             <label className="crear-factura-check">
               <input

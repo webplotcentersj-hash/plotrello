@@ -58,3 +58,18 @@
   font-weight: 500;
   opacity: 0.9;
 }
+
+.plotlab-conn__conflict {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.plotlab-conn__link {
+  color: inherit;
+  opacity: 0.85;
+  text-decoration: underline;
+  font-weight: 600;
+}

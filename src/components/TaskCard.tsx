@@ -23,6 +23,7 @@ import HistorialEtapasTallerImprenta from './HistorialEtapasTallerImprenta'
 import EtapaImpresionDigitalSelector from './EtapaImpresionDigitalSelector'
 import EtapaMetalurgicaSelector from './EtapaMetalurgicaSelector'
 import HistorialEtapasMetalurgica from './HistorialEtapasMetalurgica'
+import { useIsOrdenPendingSync } from '../contexts/PendingTableroSyncContext'
 import './TaskCard.css'
 import Subtasks from './Subtasks'
 import ReclamoTriangleIcon from './ReclamoTriangleIcon'
@@ -263,6 +264,7 @@ const TaskCardInner = ({
   }, [moveSheetOpen])
 
   const ordenId = Number(task.id)
+  const pendingSync = useIsOrdenPendingSync(Number.isFinite(ordenId) ? ordenId : null)
   const hasOrdenId = !Number.isNaN(ordenId)
   const isTallerGrafico = task.assignedSector === 'Taller Gráfico' || task.status === 'taller-grafico'
   const isInstalaciones = task.assignedSector === 'Instalaciones' || task.status === 'instalaciones'
@@ -545,6 +547,11 @@ const TaskCardInner = ({
             )
           }}
         >
+          {pendingSync && (
+            <div className="task-card-sync-pending" title="Movimiento guardado sin red · se sincroniza al volver">
+              Sync pendiente
+            </div>
+          )}
           {task.ordenEliminada && (
             <div
               className="task-card-eliminada-strip"

@@ -17,8 +17,10 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
   const [saving, setSaving] = useState(false)
   const [savingTicket, setSavingTicket] = useState(false)
   const [ticketMode, setTicketMode] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
   const ticketRef = useRef<HTMLDivElement>(null)
+  const copyFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const etiqueta = labelOverride || (opNumber?.toUpperCase().startsWith('FICHA') ? 'Ficha' : 'OP')
   const displayNumero = (() => {
     if (etiqueta !== 'Ficha') return opNumber
@@ -64,8 +66,22 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
       document.documentElement.classList.remove('qr-printing-ticket')
       document.getElementById('qr-ticket-print-root')?.remove()
       document.getElementById('qr-ticket-page-style')?.remove()
+      if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current)
     }
   }, [])
+
+  const handleCopyLink = async () => {
+    if (!publicUrl) return
+    try {
+      await navigator.clipboard.writeText(publicUrl)
+      setLinkCopied(true)
+      if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current)
+      copyFeedbackTimer.current = setTimeout(() => setLinkCopied(false), 2000)
+    } catch (error) {
+      console.error('Error copiando enlace:', error)
+      alert('No se pudo copiar el enlace. Copialo a mano desde la URL de abajo.')
+    }
+  }
 
   const handleSavePDF = async () => {
     if (!printRef.current || !qrDataUrl) return
@@ -233,6 +249,32 @@ const QRPrintView = ({ opNumber, cliente, labelOverride, onClose }: QRPrintViewP
                       </p>
                       <div className="qr-print-footer-url-row">
                         <p className="footer-url">{publicUrl}</p>
+                        {publicUrl ? (
+                          <button
+                            type="button"
+                            className="btn-copy-link-compact qr-no-pdf"
+                            onClick={handleCopyLink}
+                            title="Copiar enlace"
+                            aria-label="Copiar enlace público"
+                          >
+                            {linkCopied ? (
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                                  <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                Copiado
+                              </>
+                            ) : (
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                  <rect x="9" y="9" width="13" height="13" rx="2" />
+                                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeLinecap="round" />
+                                </svg>
+                                Copiar
+                              </>
+                            )}
+                          </button>
+                        ) : null}
                         {whatsappShareUrl ? (
                           <a
                             href={whatsappShareUrl}

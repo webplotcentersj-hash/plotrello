@@ -1,6 +1,7 @@
 import type { ArticuloStock } from '../types/pedidos'
+import { plotLabOfflineDbSuffix } from './plotLabOffline'
+import { patchOfflineCacheMeta } from './plotLabOfflineMeta'
 
-const DB_NAME = 'plotlab_stock_v1'
 const STORE = 'snap'
 const KEY = 'articulos'
 const DB_VERSION = 1
@@ -8,13 +9,17 @@ const MAX_ROWS = 5000
 
 type Snapshot = { savedAt: number; rows: ArticuloStock[] }
 
+function dbName(): string {
+  return `plotlab_stock_${plotLabOfflineDbSuffix()}_v1`
+}
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') {
       reject(new Error('IndexedDB no disponible'))
       return
     }
-    const req = indexedDB.open(DB_NAME, DB_VERSION)
+    const req = indexedDB.open(dbName(), DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
       if (!db.objectStoreNames.contains(STORE)) {
@@ -35,11 +40,13 @@ function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
 
 export async function writeStockArticulosOfflineCache(rows: ArticuloStock[]): Promise<void> {
   if (typeof window === 'undefined' || !rows.length) return
-  const snap: Snapshot = { savedAt: Date.now(), rows: rows.slice(0, MAX_ROWS) }
+  const savedAt = Date.now()
+  const snap: Snapshot = { savedAt, rows: rows.slice(0, MAX_ROWS) }
   try {
     const db = await openDb()
     try {
       await reqToPromise(db.transaction(STORE, 'readwrite').objectStore(STORE).put(snap, KEY))
+      patchOfflineCacheMeta({ stockSavedAt: savedAt })
     } finally {
       db.close()
     }

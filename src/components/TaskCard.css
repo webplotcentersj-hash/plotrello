@@ -2377,6 +2377,22 @@ body.compact-mode .task-toolbar {
 }
 
 /* OP marcada como eliminada (borrado lógico; p. ej. vista previa en biblioteca) */
+.task-card-sync-pending {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 4;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #0f172a;
+  background: #fbbf24;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
 .task-card-eliminada-strip {
   display: flex;
   align-items: center;

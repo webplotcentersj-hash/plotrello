@@ -1,10 +1,15 @@
 import type { ClienteRecord } from '../types/api'
 import { clienteCoincideBusqueda } from './clienteDuplicados'
+import { plotLabOfflineDbSuffix } from './plotLabOffline'
+import { patchOfflineCacheMeta } from './plotLabOfflineMeta'
 
-const DB_NAME = 'plotlab_clientes_v1'
 const STORE = 'by_id'
 const DB_VERSION = 1
 const MAX_ROWS = 2500
+
+function dbName(): string {
+  return `plotlab_clientes_${plotLabOfflineDbSuffix()}_v1`
+}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -12,7 +17,7 @@ function openDb(): Promise<IDBDatabase> {
       reject(new Error('IndexedDB no disponible'))
       return
     }
-    const req = indexedDB.open(DB_NAME, DB_VERSION)
+    const req = indexedDB.open(dbName(), DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
       if (!db.objectStoreNames.contains(STORE)) {
@@ -47,6 +52,7 @@ export async function mergeClientesOfflineCache(rows: ClienteRecord[]): Promise<
         tx.oncomplete = () => resolve()
         tx.onerror = () => reject(tx.error || new Error('IDB tx'))
       })
+      patchOfflineCacheMeta({ clientesTouchedAt: Date.now() })
 
       const count = await reqToPromise(db.transaction(STORE, 'readonly').objectStore(STORE).count())
       if (count > MAX_ROWS) {

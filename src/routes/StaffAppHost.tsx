@@ -103,6 +103,7 @@ const ERPDashboardPage = lazy(() => import('../pages/ERPDashboardPage'))
 const FacturasPage = lazy(() => import('../pages/FacturasPage'))
 const FacturaDetallePage = lazy(() => import('../pages/FacturaDetallePage'))
 const CrearFacturaPage = lazy(() => import('../pages/CrearFacturaPage'))
+const OfflineDiagnosticoPage = lazy(() => import('../pages/OfflineDiagnosticoPage'))
 const CrearNotaPage = lazy(() => import('../pages/CrearNotaPage.tsx'))
 const AsientosContablesPage = lazy(() => import('../pages/AsientosContablesPage'))
 const ConfiguracionAFIPPage = lazy(() => import('../pages/ConfiguracionAFIPPage'))
@@ -170,7 +171,10 @@ import { historialToActivity } from '../utils/dataMappers'
 import { registerUsuariosLegajoDisplay } from '../utils/legajoDisplayRegistry'
 import { subscribeOrdenesBroadcast } from '../utils/ordenesBroadcast'
 import { routeNeedsBoardSync } from '../utils/boardRouteSync'
-import { readOrdenesTableroCacheAsync, writeOrdenesTableroCache } from '../utils/ordenesTableroCache'
+import {
+  readOrdenesTableroCacheAsync,
+  writeOrdenesTableroCacheAsync
+} from '../utils/ordenesTableroCache'
 import { ordenesTableroFingerprint, syncTasksFromOrdenesFetch, applyOrdenRealtimeBatch } from '../utils/syncTasksFromOrdenes'
 import {
   isMarcarEntregaPayload,
@@ -179,6 +183,11 @@ import {
   registerSyncHandler
 } from '../utils/syncQueue'
 import PlotLabConnectivityBanner from '../components/PlotLabConnectivityBanner'
+import { PendingTableroSyncProvider } from '../contexts/PendingTableroSyncContext'
+import { isPlotLabOfflinePartialEnabled } from '../utils/plotLabOffline'
+import { pushOfflineConflict } from '../utils/plotLabOfflineConflicts'
+import { clearPlotLabOfflineForCurrentUser } from '../utils/plotLabOfflineClear'
+import { patchOfflineCacheMeta } from '../utils/plotLabOfflineMeta'
 import { supabase } from '../services/supabaseClient'
 
 const DEFAULT_SECTORES: SectorRecord[] = [
@@ -254,6 +263,15 @@ export default function StaffAppHost() {
           return
         }
         if (estadoOrigen && estadoActual && estadoActual !== estadoOrigen) {
+          pushOfflineConflict({
+            kind: 'tablero_mover',
+            ordenId,
+            estadoOrigen,
+            estadoActual,
+            nuevoEstado,
+            applied: true
+          })
+          patchOfflineCacheMeta({ lastConflictAt: Date.now() })
           window.dispatchEvent(
             new CustomEvent('plotlab-sync-conflict', {
               detail: {
@@ -351,6 +369,15 @@ export default function StaffAppHost() {
     }
   }, [])
 
+  // Precarga idle de lista de precios + stock para lectura offline.
+  useEffect(() => {
+    let stop: (() => void) | undefined
+    void import('../utils/plotLabOfflinePrecache').then((m) => {
+      stop = m.schedulePlotLabOfflinePrecache()
+    })
+    return () => stop?.()
+  }, [])
+
   // Atajo global: V abre Venta rápida, excepto mientras el usuario está escribiendo.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -386,6 +413,7 @@ export default function StaffAppHost() {
 
 
   const handleLogout = () => {
+    void clearPlotLabOfflineForCurrentUser()
     clearPlotlabAuthStorage()
     flushSync(() => setUsuario(null))
     setTasks([])
@@ -406,19 +434,42 @@ export default function StaffAppHost() {
     if (!silent) {
       setDataLoading(true)
       setDataError(null)
+      // Pintar tablero desde IDB YA (antes de la red) para que un F5 offline no deje todo vacío.
+      if (isPlotLabOfflinePartialEnabled()) {
+        try {
+          const cachedEarly = await readOrdenesTableroCacheAsync()
+          if (cachedEarly?.length) {
+            const fp = ordenesTableroFingerprint(cachedEarly)
+            lastOrdenesFingerprintRef.current = fp
+            startTransition(() => {
+              setTasks((prev) => (prev.length === 0 ? syncTasksFromOrdenesFetch(prev, cachedEarly) : prev))
+            })
+          }
+        } catch {
+          /* sin caché */
+        }
+      }
     }
     try {
       if (!supabase) {
         if (!silent) {
           setDataLoading(false)
-          const errorMsg = 'Supabase no está configurado. Define las variables VITE_SUPABASE_* y vuelve a intentar.'
-          setDataError(errorMsg)
-          console.error('❌', errorMsg)
-          setTasks([])
-          setActivity([])
-          setTeamMembers([])
-          setSectores([])
-          setMateriales([])
+          const cached = await readOrdenesTableroCacheAsync()
+          if (cached?.length) {
+            startTransition(() => {
+              setTasks((prev) => syncTasksFromOrdenesFetch(prev, cached))
+            })
+            setDataError('Sin red · tablero desde caché local')
+          } else {
+            const errorMsg = 'Supabase no está configurado. Define las variables VITE_SUPABASE_* y vuelve a intentar.'
+            setDataError(errorMsg)
+            console.error('❌', errorMsg)
+            setTasks([])
+            setActivity([])
+            setTeamMembers([])
+            setSectores([])
+            setMateriales([])
+          }
         }
         return
       }
@@ -434,6 +485,27 @@ export default function StaffAppHost() {
           setDataLoading(false)
           console.error('❌', errorMsg)
         }
+        return
+      }
+
+      // Offline: no spamear red; quedarse con la caché ya hidratada.
+      if (
+        isPlotLabOfflinePartialEnabled() &&
+        typeof navigator !== 'undefined' &&
+        navigator.onLine === false
+      ) {
+        const cached = await readOrdenesTableroCacheAsync()
+        if (cached?.length) {
+          const fp = ordenesTableroFingerprint(cached)
+          lastOrdenesFingerprintRef.current = fp
+          startTransition(() => {
+            setTasks((prev) => syncTasksFromOrdenesFetch(prev, cached))
+          })
+          setDataError('Sin red · tablero desde caché local (movimientos se encolan)')
+        } else if (!silent) {
+          setDataError('Sin conexión y sin tablero en caché. Abrí online una vez para guardarlo.')
+        }
+        if (!silent) setDataLoading(false)
         return
       }
 
@@ -460,7 +532,7 @@ export default function StaffAppHost() {
             const fp = ordenesTableroFingerprint(ordenesResp.data)
             if (fp !== lastOrdenesFingerprintRef.current) {
               lastOrdenesFingerprintRef.current = fp
-              writeOrdenesTableroCache(ordenesResp.data)
+              void writeOrdenesTableroCacheAsync(ordenesResp.data)
               startTransition(() => {
                 setTasks((prev) => syncTasksFromOrdenesFetch(prev, ordenesResp.data!))
                 setDataError(null)
@@ -496,12 +568,14 @@ export default function StaffAppHost() {
         const fp = ordenesTableroFingerprint(ordenesResp.data)
         if (fp !== lastOrdenesFingerprintRef.current) {
           lastOrdenesFingerprintRef.current = fp
-          writeOrdenesTableroCache(ordenesResp.data)
+          await writeOrdenesTableroCacheAsync(ordenesResp.data)
           startTransition(() => {
             setTasks((prev) => syncTasksFromOrdenesFetch(prev, ordenesResp.data!))
             setDataError(null)
           })
         } else {
+          // Misma huella: igual reforzá el snapshot por si F5 llegó antes de grabar.
+          void writeOrdenesTableroCacheAsync(ordenesResp.data)
           setDataError(null)
         }
         if (import.meta.env.DEV) {
@@ -942,8 +1016,9 @@ function AppRoutes({
 
   return (
     <OperarioExternoGate>
+      <PendingTableroSyncProvider>
       <>
-      <PlotLabConnectivityBanner />
+      {isPlotLabOfflinePartialEnabled() ? <PlotLabConnectivityBanner /> : null}
       <Suspense fallback={null}>
         <TallerGraficoPedidoEntregaOverlay />
       </Suspense>
@@ -1688,9 +1763,18 @@ function AppRoutes({
         path="/erp/*"
         element={<Navigate to="/erp" replace />}
       />
+      <Route
+        path="/offline-diagnostico"
+        element={
+          <Suspense fallback={<div style={{ padding: 24 }}>Cargando diagnóstico…</div>}>
+            <OfflineDiagnosticoPage />
+          </Suspense>
+        }
+      />
     </Routes>
     </Suspense>
     </>
+      </PendingTableroSyncProvider>
     </OperarioExternoGate>
   )
 }

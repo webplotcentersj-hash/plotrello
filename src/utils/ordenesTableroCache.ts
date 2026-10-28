@@ -1,6 +1,10 @@
 import type { OrdenTrabajo } from '../types/api'
 import { isOrdenVisibleOnTablero } from './dataMappers'
-import { readOrdenesTableroIdb, writeOrdenesTableroIdb } from './ordenesTableroIdb'
+import {
+  patchOrdenEstadoInTableroIdb,
+  readOrdenesTableroIdb,
+  writeOrdenesTableroIdb
+} from './ordenesTableroIdb'
 
 const CACHE_KEY = 'plotrello_ordenes_tablero_v1'
 const MAX_AGE_MS = 1000 * 60 * 60 * 2
@@ -51,6 +55,19 @@ export function writeOrdenesTableroCache(rows: OrdenTrabajo[]): void {
   } else {
     window.setTimeout(persist, 0)
   }
+}
+
+/** Espera a que el snapshot IDB quede grabado (usar al cargar online). */
+export async function writeOrdenesTableroCacheAsync(rows: OrdenTrabajo[]): Promise<void> {
+  if (typeof window === 'undefined' || rows.length === 0) return
+  await writeOrdenesTableroIdb(rows)
+}
+
+export async function patchOrdenEstadoTableroCache(
+  ordenId: number,
+  nuevoEstado: string
+): Promise<void> {
+  await patchOrdenEstadoInTableroIdb(ordenId, nuevoEstado)
 }
 
 export function patchOrdenInTableroCache(orden: OrdenTrabajo): void {

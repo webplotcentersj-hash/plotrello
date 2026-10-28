@@ -346,11 +346,25 @@ const EntregaPage = () => {
     }
 
     const enqueueEntrega = async () => {
+      const { isPlotLabOfflinePartialEnabled } = await import('../utils/plotLabOffline')
+      if (!isPlotLabOfflinePartialEnabled()) {
+        throw new Error('Offline parcial desactivado. No se puede encolar la entrega.')
+      }
       const { syncQueueEnqueue } = await import('../utils/syncQueue')
       await syncQueueEnqueue('marcar_entrega', {
         ordenId: orden.id!,
         ...datosEntrega
       })
+      // Copia de firma en outbox de blobs (reintento / diagnóstico).
+      try {
+        const { blobOutboxEnqueue } = await import('../utils/plotLabBlobOutbox')
+        await blobOutboxEnqueue('entrega_firma', datosEntrega.firmaDataUrl, {
+          ordenId: orden.id,
+          entregadoA: datosEntrega.entregadoA
+        })
+      } catch {
+        /* optional */
+      }
       setSuccessQueuedOffline(true)
       setSuccess(true)
       window.dispatchEvent(

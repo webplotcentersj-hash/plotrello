@@ -799,6 +799,11 @@ const VentaRapidaModal = ({
 
     const offlineNow = typeof navigator !== 'undefined' && navigator.onLine === false
     if (offlineNow) {
+      const { isPlotLabOfflinePartialEnabled, MSG_SOLO_ONLINE } = await import('../utils/plotLabOffline')
+      if (!isPlotLabOfflinePartialEnabled()) {
+        alert(MSG_SOLO_ONLINE)
+        return
+      }
       if (incluyeMp) {
         alert('Sin conexión no se puede cobrar con Mercado Pago. Usá efectivo u otro medio, o esperá la red.')
         return

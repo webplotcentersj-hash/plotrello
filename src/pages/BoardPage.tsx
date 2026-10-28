@@ -581,6 +581,10 @@ const BoardPage = ({
       const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
       const estadoOrigen = mapStatusToEstado(taskSnapshot.status)
       const enqueueMove = async () => {
+        const { isPlotLabOfflinePartialEnabled } = await import('../utils/plotLabOffline')
+        if (!isPlotLabOfflinePartialEnabled()) {
+          throw new Error('Offline parcial desactivado (VITE_PLOTLAB_OFFLINE=0). No se puede encolar el movimiento.')
+        }
         const { syncQueueEnqueue } = await import('../utils/syncQueue')
         await syncQueueEnqueue('tablero_mover', {
           ordenId,
@@ -589,6 +593,10 @@ const BoardPage = ({
           taskId,
           estadoOrigen
         })
+        // Que el F5 offline no pierda la columna: parchear snapshot IndexedDB.
+        void import('../utils/ordenesTableroCache').then((m) =>
+          m.patchOrdenEstadoTableroCache(ordenId, nuevoEstado)
+        )
       }
       try {
         const offline = typeof navigator !== 'undefined' && navigator.onLine === false

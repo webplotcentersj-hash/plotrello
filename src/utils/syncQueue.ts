@@ -3,6 +3,9 @@
  * Jobs: reloj_marcar | tablero_mover | venta_rapida | marcar_entrega
  */
 
+import { plotLabOfflineDbSuffix } from './plotLabOffline'
+import { patchOfflineCacheMeta } from './plotLabOfflineMeta'
+
 export type SyncJobKind = 'reloj_marcar' | 'tablero_mover' | 'venta_rapida' | 'marcar_entrega'
 
 export type RelojMarcarPayload = {
@@ -85,9 +88,12 @@ export type SyncJob = {
   payload: SyncJobPayload
 }
 
-const DB_NAME = 'plotlab_sync_v1'
 const STORE = 'jobs'
 const DB_VERSION = 1
+
+function dbName(): string {
+  return `plotlab_sync_${plotLabOfflineDbSuffix()}_v1`
+}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -95,7 +101,7 @@ function openDb(): Promise<IDBDatabase> {
       reject(new Error('IndexedDB no disponible'))
       return
     }
-    const req = indexedDB.open(DB_NAME, DB_VERSION)
+    const req = indexedDB.open(dbName(), DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
       if (!db.objectStoreNames.contains(STORE)) {
@@ -238,8 +244,20 @@ export async function syncQueueFlush(): Promise<{ ok: number; failed: number; re
     flushing = false
   }
   const remaining = await syncQueueCount()
+  if (ok > 0) patchOfflineCacheMeta({ lastFlushAt: Date.now(), lastFlushOk: ok })
   notifySyncQueueChanged()
   return { ok, failed, remaining }
+}
+
+/** IDs de orden con movimiento pendiente (badge en fichas). */
+export async function syncQueuePendingOrdenIds(): Promise<number[]> {
+  const jobs = await syncQueueList()
+  const ids = new Set<number>()
+  for (const j of jobs) {
+    if (j.kind !== 'tablero_mover') continue
+    if (isTableroMoverPayload(j.payload)) ids.add(j.payload.ordenId)
+  }
+  return [...ids]
 }
 
 const LISTENERS = new Set<() => void>()
