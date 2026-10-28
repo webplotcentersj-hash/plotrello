@@ -693,7 +693,8 @@ export default function StaffAppHost() {
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [loadRemoteData])
 
-  // Al recuperar red: vaciar cola de movimientos y refrescar tablero.
+  // Al recuperar red / tras flush OK: vaciar cola y recién entonces refrescar tablero
+  // (evita que un reload paralelo pise movimientos aún no sincronizados).
   useEffect(() => {
     const onOnline = () => {
       void (async () => {
@@ -706,8 +707,16 @@ export default function StaffAppHost() {
         if (boardSyncActiveRef.current) void loadRemoteData({ silent: true })
       })()
     }
+    const onFlushed = (ev: Event) => {
+      const ok = (ev as CustomEvent<{ ok?: number }>).detail?.ok ?? 0
+      if (ok > 0 && boardSyncActiveRef.current) void loadRemoteData({ silent: true })
+    }
     window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
+    window.addEventListener('plotlab-sync-flushed', onFlushed)
+    return () => {
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('plotlab-sync-flushed', onFlushed)
+    }
   }, [loadRemoteData])
 
   useEffect(() => {

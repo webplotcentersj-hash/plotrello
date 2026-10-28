@@ -149,7 +149,27 @@ export async function syncQueueEnqueue(
   }
   const db = await openDb()
   try {
-    await reqToPromise(db.transaction(STORE, 'readwrite').objectStore(STORE).add(job))
+    const tx = db.transaction(STORE, 'readwrite')
+    const store = tx.objectStore(STORE)
+    // Misma OP movida varias veces offline: solo queda el destino final.
+    if (kind === 'tablero_mover' && isTableroMoverPayload(payload)) {
+      const existing = (await reqToPromise(store.getAll())) as SyncJob[]
+      for (const prev of existing) {
+        if (
+          prev.kind === 'tablero_mover' &&
+          isTableroMoverPayload(prev.payload) &&
+          prev.payload.ordenId === payload.ordenId
+        ) {
+          store.delete(prev.id)
+        }
+      }
+    }
+    store.add(job)
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error || new Error('Error encolando sync'))
+      tx.onabort = () => reject(tx.error || new Error('Transacción abortada'))
+    })
   } finally {
     db.close()
   }
@@ -210,43 +230,74 @@ export function registerSyncHandler(kind: SyncJobKind, handler: FlushHandler): v
   handlers.set(kind, handler)
 }
 
-let flushing = false
+type FlushResult = { ok: number; failed: number; remaining: number }
+
+/** Un solo flush en vuelo: callers concurrentes (online + banner) esperan el mismo. */
+let flushInFlight: Promise<FlushResult> | null = null
 
 /** Procesa la cola en orden. Devuelve cuántos jobs se enviaron OK. */
-export async function syncQueueFlush(): Promise<{ ok: number; failed: number; remaining: number }> {
-  if (flushing) return { ok: 0, failed: 0, remaining: await syncQueueCount() }
+export async function syncQueueFlush(): Promise<FlushResult> {
+  if (flushInFlight) return flushInFlight
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return { ok: 0, failed: 0, remaining: await syncQueueCount() }
   }
-  flushing = true
-  let ok = 0
-  let failed = 0
-  try {
-    const jobs = await syncQueueList()
-    for (const job of jobs) {
-      const handler = handlers.get(job.kind)
-      if (!handler) {
-        failed += 1
-        await syncQueueBumpAttempt(job.id, 'Sin handler registrado')
-        continue
+  flushInFlight = (async (): Promise<FlushResult> => {
+    let ok = 0
+    let failed = 0
+    try {
+      let jobs = await syncQueueList()
+
+      // Colapsar movimientos de la misma OP: solo el último destino se aplica.
+      const latestMoveId = new Map<number, string>()
+      for (const job of jobs) {
+        if (job.kind !== 'tablero_mover' || !isTableroMoverPayload(job.payload)) continue
+        latestMoveId.set(job.payload.ordenId, job.id)
       }
-      try {
-        await handler(job)
-        await syncQueueRemove(job.id)
-        ok += 1
-      } catch (e) {
-        failed += 1
-        await syncQueueBumpAttempt(job.id, e instanceof Error ? e.message : String(e))
-        if (!navigator.onLine) break
+      if (latestMoveId.size > 0) {
+        const drop: string[] = []
+        for (const job of jobs) {
+          if (job.kind !== 'tablero_mover' || !isTableroMoverPayload(job.payload)) continue
+          if (latestMoveId.get(job.payload.ordenId) !== job.id) drop.push(job.id)
+        }
+        for (const id of drop) {
+          await syncQueueRemove(id)
+        }
+        if (drop.length > 0) jobs = await syncQueueList()
+      }
+
+      for (const job of jobs) {
+        const handler = handlers.get(job.kind)
+        if (!handler) {
+          failed += 1
+          await syncQueueBumpAttempt(job.id, 'Sin handler registrado')
+          continue
+        }
+        try {
+          await handler(job)
+          await syncQueueRemove(job.id)
+          ok += 1
+        } catch (e) {
+          failed += 1
+          await syncQueueBumpAttempt(job.id, e instanceof Error ? e.message : String(e))
+          if (!navigator.onLine) break
+        }
+      }
+    } finally {
+      flushInFlight = null
+    }
+    const remaining = await syncQueueCount()
+    if (ok > 0) {
+      patchOfflineCacheMeta({ lastFlushAt: Date.now(), lastFlushOk: ok })
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('plotlab-sync-flushed', { detail: { ok, failed, remaining } })
+        )
       }
     }
-  } finally {
-    flushing = false
-  }
-  const remaining = await syncQueueCount()
-  if (ok > 0) patchOfflineCacheMeta({ lastFlushAt: Date.now(), lastFlushOk: ok })
-  notifySyncQueueChanged()
-  return { ok, failed, remaining }
+    notifySyncQueueChanged()
+    return { ok, failed, remaining }
+  })()
+  return flushInFlight
 }
 
 /** IDs de orden con movimiento pendiente (badge en fichas). */
