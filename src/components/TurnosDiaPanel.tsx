@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { addDays, format, getISOWeek, parseISO } from 'date-fns'
+import { addDays, endOfMonth, format, getISOWeek, parseISO, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { apiService } from '../services/api'
 import { horarioSabadoEfectivo, HORARIO_SABADO } from '../services/relojBiometricoService'
+import { listarRotacionesCompletas } from '../services/rrhhTurnosRotativosService'
 import type { SolicitudPermiso, UsuarioRecord } from '../types/api'
 import { getArgentinaDateString } from '../utils/dateUtils'
 import { permisoEnDia } from '../utils/rrhhNovedadDates'
+import { buildDiasCalendarioTurnos } from '../utils/rrhhTurnosCalendario'
+import {
+  resolverRotacionUsuario,
+  type RotacionAsignacion,
+  type RotacionPlantilla
+} from '../utils/rrhhTurnosRotativos'
 import PermisosAutorizadosCalendario from './PermisosAutorizadosCalendario'
+import TurnosCalendarioMes from './TurnosCalendarioMes'
+import TurnosRotativosPanel from './TurnosRotativosPanel'
 
 type HorarioFijo = {
   entrada: string
@@ -25,11 +34,12 @@ type TurnoDiaRow = {
   sector: string
   entrada: string
   salida: string
-  origen: 'fijo' | 'override' | 'intercambio'
+  origen: 'fijo' | 'override' | 'intercambio' | 'rotativo'
   permiso?: SolicitudPermiso
   sabadoModo: SabadoModo
   trabajaHoy: boolean
   motivoNoTrabaja?: string
+  rotacionEtiqueta?: string
 }
 
 function nombreDisplay(
@@ -81,23 +91,45 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
   const [swapping, setSwapping] = useState(false)
   const [showCalPermisos, setShowCalPermisos] = useState(false)
   const [guardandoSabado, setGuardandoSabado] = useState<number | null>(null)
+  const [mesCal, setMesCal] = useState(() => getArgentinaDateString().slice(0, 7))
+  const [plantillas, setPlantillas] = useState<RotacionPlantilla[]>([])
+  const [asignaciones, setAsignaciones] = useState<RotacionAsignacion[]>([])
+  const [overridesMes, setOverridesMes] = useState<
+    Record<string, Record<number, { entrada: string; salida: string }>>
+  >({})
 
-  const mes = fecha.slice(0, 7)
   const dow = useMemo(() => {
     const [y, m, d] = fecha.split('-').map(Number)
     return new Date(y, m - 1, d).getDay()
   }, [fecha])
 
+  useEffect(() => {
+    setMesCal(fecha.slice(0, 7))
+  }, [fecha])
+
+  const reloadRotaciones = useCallback(async () => {
+    const r = await listarRotacionesCompletas()
+    if (r.error && /patch 2026-10-28/i.test(r.error)) {
+      setMsg(r.error)
+    }
+    setPlantillas(r.plantillas)
+    setAsignaciones(r.asignaciones)
+  }, [])
+
   const reload = useCallback(async () => {
     setCargando(true)
     setMsg(null)
     try {
-      const [rf, rl, rt, rs] = await Promise.all([
-        apiService.obtenerHorariosFijos(mes),
+      const mesInicio = format(startOfMonth(parseISO(`${mesCal}-01`)), 'yyyy-MM-dd')
+      const mesFin = format(endOfMonth(parseISO(`${mesCal}-01`)), 'yyyy-MM-dd')
+      const [rf, rl, rt, rs, rtMes] = await Promise.all([
+        apiService.obtenerHorariosFijos(mesCal),
         apiService.obtenerLegajosBasico(),
         apiService.obtenerTurnos(null, fecha, fecha),
-        apiService.obtenerSabadosMedio()
+        apiService.obtenerSabadosMedio(),
+        apiService.obtenerTurnos(null, mesInicio, mesFin)
       ])
+      await reloadRotaciones()
       if (rf.success && rf.data) setFijos(rf.data)
       else setFijos({})
       if (rl.success && rl.data) setLegajos(rl.data)
@@ -121,12 +153,25 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
         }
       }
       setOverrides(map)
+
+      const byFecha: typeof overridesMes = {}
+      if (rtMes.success && rtMes.data) {
+        for (const t of rtMes.data) {
+          const f = String(t.fecha).slice(0, 10)
+          if (!byFecha[f]) byFecha[f] = {}
+          byFecha[f][t.id_usuario] = {
+            entrada: String(t.hora_entrada || '').slice(0, 5),
+            salida: String(t.hora_salida || '').slice(0, 5)
+          }
+        }
+      }
+      setOverridesMes(byFecha)
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'No se pudieron cargar los turnos')
     } finally {
       setCargando(false)
     }
-  }, [fecha, mes])
+  }, [fecha, mesCal, reloadRotaciones])
 
   useEffect(() => {
     void reload()
@@ -151,9 +196,11 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
   }, [usuarios, legajos])
 
   const filas = useMemo((): TurnoDiaRow[] => {
+    const idsRot = asignaciones.filter((a) => a.activo).map((a) => a.id_usuario)
     const ids = new Set<number>([
       ...Object.keys(fijos).map(Number),
-      ...Object.keys(overrides).map(Number)
+      ...Object.keys(overrides).map(Number),
+      ...idsRot
     ])
     const rows: TurnoDiaRow[] = []
 
@@ -168,52 +215,63 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
 
       const modo = sabadoMedio[id] || 'todos'
       const permiso = permisosPorUsuario.get(id)
+      const rot = resolverRotacionUsuario(plantillas, asignaciones, id, fecha)
 
       let trabajaHoy = false
       let motivoNoTrabaja: string | undefined
       let entrada = ''
       let salida = ''
       let origen: TurnoDiaRow['origen'] = 'fijo'
+      let rotacionEtiqueta: string | undefined
 
-      if (dow === 0) {
+      if (ov?.entrada && ov?.salida) {
+        trabajaHoy = true
+        entrada = ov.entrada
+        salida = ov.salida
+        origen = /intercambio/i.test(ov.obs || '') ? 'intercambio' : 'override'
+      } else if (rot) {
+        rotacionEtiqueta = `${rot.rotacionNombre} · ${rot.etiqueta}`
+        if (rot.esFranco) {
+          trabajaHoy = false
+          motivoNoTrabaja = `Franco rotativo (${rot.etiqueta})`
+          origen = 'rotativo'
+        } else if (rot.entrada && rot.salida) {
+          trabajaHoy = true
+          entrada = rot.entrada
+          salida = rot.salida
+          origen = 'rotativo'
+        } else {
+          trabajaHoy = false
+          motivoNoTrabaja = `Rotativo sin horario (${rot.etiqueta})`
+          origen = 'rotativo'
+        }
+      } else if (dow === 0) {
         trabajaHoy = false
         motivoNoTrabaja = 'Domingo'
       } else if (dow === 6) {
-        if (!fijo?.trabajaSabado && !ov) {
+        if (!fijo?.trabajaSabado) {
           trabajaHoy = false
           motivoNoTrabaja = 'No trabaja sábados'
-        } else if (fijo?.trabajaSabado && !correspondeSabado(modo, fecha) && !ov) {
+        } else if (fijo.trabajaSabado && !correspondeSabado(modo, fecha)) {
           trabajaHoy = false
           motivoNoTrabaja =
             modo === 'par' ? 'Sábado por medio (semana impar)' : 'Sábado por medio (semana par)'
         } else {
           trabajaHoy = true
-          if (ov?.entrada && ov?.salida) {
-            entrada = ov.entrada
-            salida = ov.salida
-            origen = /intercambio/i.test(ov.obs || '') ? 'intercambio' : 'override'
-          } else {
-            const sab = horarioSabadoEfectivo(fijo) || HORARIO_SABADO
-            entrada = sab.entrada
-            salida = sab.salida
-            origen = 'fijo'
-          }
-        }
-      } else {
-        if (!fijo && !ov) continue
-        trabajaHoy = true
-        if (ov?.entrada && ov?.salida) {
-          entrada = ov.entrada
-          salida = ov.salida
-          origen = /intercambio/i.test(ov.obs || '') ? 'intercambio' : 'override'
-        } else if (fijo) {
-          entrada = fijo.entrada
-          salida = fijo.salida
+          const sab = horarioSabadoEfectivo(fijo) || HORARIO_SABADO
+          entrada = sab.entrada
+          salida = sab.salida
           origen = 'fijo'
         }
+      } else {
+        if (!fijo) continue
+        trabajaHoy = true
+        entrada = fijo.entrada
+        salida = fijo.salida
+        origen = 'fijo'
       }
 
-      if (!trabajaHoy && !permiso && !fijo && !ov) continue
+      if (!trabajaHoy && !permiso && !fijo && !ov && !rot) continue
 
       rows.push({
         idUsuario: id,
@@ -225,7 +283,8 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
         permiso,
         sabadoModo: modo,
         trabajaHoy,
-        motivoNoTrabaja
+        motivoNoTrabaja,
+        rotacionEtiqueta
       })
     }
 
@@ -234,7 +293,33 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
       if (a.entrada !== b.entrada) return a.entrada.localeCompare(b.entrada)
       return a.nombre.localeCompare(b.nombre, 'es')
     })
-  }, [fijos, overrides, usuarios, legajos, sabadoMedio, permisosPorUsuario, dow, fecha, idsActivos])
+  }, [
+    fijos,
+    overrides,
+    usuarios,
+    legajos,
+    sabadoMedio,
+    permisosPorUsuario,
+    dow,
+    fecha,
+    idsActivos,
+    plantillas,
+    asignaciones
+  ])
+
+  const diasCalendario = useMemo(() => {
+    const ids = Array.from(idsActivos)
+    return buildDiasCalendarioTurnos({
+      mesIso: mesCal,
+      idsUsuarios: ids,
+      fijos,
+      overridesByFecha: overridesMes,
+      sabadoMedio,
+      permisos,
+      plantillas,
+      asignaciones
+    })
+  }, [mesCal, idsActivos, fijos, overridesMes, sabadoMedio, permisos, plantillas, asignaciones])
 
   const trabajando = filas.filter((f) => f.trabajaHoy && !f.permiso)
   const conPermiso = filas.filter((f) => f.permiso)
@@ -315,6 +400,32 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
 
   return (
     <div className="rrhh-turnos-dia">
+      <TurnosCalendarioMes
+        mesIso={mesCal}
+        fechaSeleccionada={fecha}
+        dias={diasCalendario}
+        onCambiarMes={(m) => {
+          setMesCal(m)
+          const day = fecha.slice(8, 10)
+          try {
+            const end = endOfMonth(parseISO(`${m}-01`))
+            const maxDay = Number(format(end, 'd'))
+            const d = Math.min(Number(day) || 1, maxDay)
+            setFecha(`${m}-${String(d).padStart(2, '0')}`)
+          } catch {
+            setFecha(`${m}-01`)
+          }
+        }}
+        onElegirDia={setFecha}
+      />
+
+      <TurnosRotativosPanel
+        usuarios={usuarios}
+        plantillas={plantillas}
+        asignaciones={asignaciones}
+        onChanged={() => void reload()}
+      />
+
       <div className="rrhh-turnos-dia-nav">
         <button
           type="button"
@@ -371,8 +482,9 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
           </button>
         </div>
         <p className="rrhh-turnos-help">
-          El intercambio aplica solo a este día (queda guardado en la base). Los horarios fijos (Lun–Vie / Sáb 9–14) no
-          cambian. Los sábados por medio también se guardan en la base.
+          El intercambio aplica solo a este día (queda guardado en la base). Los horarios fijos (Lun–Vie / Sáb) no
+          cambian. Si hay rotativo o ajuste del día, la tablet/reloj usa esa entrada esperada (misma regla que
+          Horarios reloj → columna Hoy).
         </p>
       </div>
 
@@ -418,6 +530,10 @@ export default function TurnosDiaPanel({ usuarios, permisos }: Props) {
                     <span className="rrhh-turnos-chip">Intercambio</span>
                   ) : f.origen === 'override' ? (
                     <span className="rrhh-turnos-chip">Ajuste día</span>
+                  ) : f.origen === 'rotativo' ? (
+                    <span className="rrhh-turnos-chip rrhh-turnos-chip--rot">
+                      {f.rotacionEtiqueta || 'Rotativo'}
+                    </span>
                   ) : null}
                 </>
               ) : (

@@ -35,6 +35,8 @@ import {
 import {
   buildExtraAcumuladoPorEmpleado,
   calcularStatsAsistencia,
+  horarioEsperadoDesdeCtx,
+  type HorarioEsperadoCtx,
   diasEntre,
   evaluarDiaAsistencia,
   formatArs,
@@ -56,6 +58,7 @@ import {
   horarioSabadoEfectivo,
   HORARIO_SABADO
 } from '../services/relojBiometricoService'
+import { resolverHorarioEsperadoDia } from '../utils/rrhhHorarioEsperadoDia'
 import { detectarNovedadesDesdeAsistencia, sincronizarNovedadesDesdeAsistencia } from '../utils/rrhhAsistenciaNovedadSync'
 import RelojTabletMarcacionesTab from '../components/RelojTabletMarcacionesTab'
 import RelojFacialTab from '../components/RelojFacialTab'
@@ -359,7 +362,7 @@ const RecursosHumanosHorariosPage = () => {
             <div className="rrhh-section-header">
               <h2>Turnos del día</h2>
               <p className="rrhh-section-sub">
-                Horarios de hoy (o el día elegido), permisos e intercambio de turnos. Los sábados son 9–14 por
+                Calendario mensual, turnos fijos, rotativos, permisos e intercambios. Los sábados son 9–14 por
                 defecto (hay excepciones, p. ej. 6:30–13); algunos vienen sábados por medio.
               </p>
             </div>
@@ -657,6 +660,16 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado }: {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
+  const [plantillasRot, setPlantillasRot] = useState<
+    import('../utils/rrhhTurnosRotativos').RotacionPlantilla[]
+  >([])
+  const [asignacionesRot, setAsignacionesRot] = useState<
+    import('../utils/rrhhTurnosRotativos').RotacionAsignacion[]
+  >([])
+  const [overridesHoy, setOverridesHoy] = useState<
+    Record<number, { entrada: string; salida: string }>
+  >({})
+  const hoyIso = getArgentinaDateString()
 
   // Legajos: una sola vez.
   useEffect(() => {
@@ -669,19 +682,35 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado }: {
     }
   }, [])
 
-  // Horarios fijos del mes seleccionado.
+  // Horarios fijos del mes seleccionado + rotativos (coherencia con tablet / Turnos).
   useEffect(() => {
     let cancelado = false
     setCargandoFijos(true)
-    apiService.obtenerHorariosFijos(mes).then((rf) => {
+    void Promise.all([
+      apiService.obtenerHorariosFijos(mes),
+      import('../services/rrhhTurnosRotativosService').then((m) => m.listarRotacionesCompletas()),
+      apiService.obtenerTurnos(null, hoyIso, hoyIso)
+    ]).then(([rf, rot, rt]) => {
       if (cancelado) return
       setFijos(rf.success && rf.data ? rf.data : {})
+      setPlantillasRot(rot.plantillas)
+      setAsignacionesRot(rot.asignaciones)
+      const ov: Record<number, { entrada: string; salida: string }> = {}
+      if (rt.success && rt.data) {
+        for (const t of rt.data) {
+          ov[t.id_usuario] = {
+            entrada: String(t.hora_entrada || '').slice(0, 5),
+            salida: String(t.hora_salida || '').slice(0, 5)
+          }
+        }
+      }
+      setOverridesHoy(ov)
       setCargandoFijos(false)
     })
     return () => {
       cancelado = true
     }
-  }, [mes])
+  }, [mes, hoyIso])
 
   const upsertFijo = async (
     idUsuario: number,
@@ -879,6 +908,8 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado }: {
           no hubo cambios). Editá y guardá para definir un horario nuevo a partir del mes seleccionado. Columna{' '}
           <strong>Sáb</strong>: si está marcada, trabaja sábado (por defecto 9–14). Podés cargar otro rango
           (ej. Claudia 6:30–13). Si no marca, el sábado es todo extra.
+          La columna <strong>Hoy</strong> es lo que usa la tablet/reloj hoy: rotativo o ajuste del día pisan el
+          fijo (misma regla que en Turnos).
         </p>
         <div className="rrhh-fijos-tabla-wrap">
           <table className="rrhh-fijos-tabla">
@@ -887,6 +918,7 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado }: {
                 <th>Empleado</th>
                 <th>Área</th>
                 <th>Horario fijo</th>
+                <th title="Entrada esperada hoy (tablet / facial)">Hoy</th>
                 <th>Jornada (hs)</th>
                 <th title="Trabaja sábado. Default 9–14; se puede personalizar.">Sáb</th>
                 <th>Legajo</th>
@@ -900,6 +932,22 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado }: {
                 const tieneHorario = !!(f?.entrada && f?.salida)
                 const trabajaSab = tieneHorario && f?.trabajaSabado !== false
                 const sab = horarioSabadoEfectivo(f)
+                const hoyEsp = resolverHorarioEsperadoDia({
+                  fechaIso: hoyIso,
+                  idUsuario: u.id,
+                  fijo: f
+                    ? {
+                        entrada: f.entrada,
+                        salida: f.salida,
+                        trabajaSabado: f.trabajaSabado,
+                        sabadoEntrada: f.sabadoEntrada,
+                        sabadoSalida: f.sabadoSalida
+                      }
+                    : null,
+                  override: overridesHoy[u.id] || null,
+                  plantillas: plantillasRot,
+                  asignaciones: asignacionesRot
+                })
                 return (
                   <tr key={u.id} className={f?.entrada ? '' : 'rrhh-fijos-row-sin'}>
                     <td>
@@ -919,6 +967,25 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado }: {
                         guardando={guardandoFijo === u.id}
                         onGuardar={guardarFijo}
                       />
+                    </td>
+                    <td className="rrhh-fijos-hoy">
+                      {hoyEsp.esFranco || !hoyEsp.entrada ? (
+                        <span className="rrhh-fijos-hoy-off" title={hoyEsp.etiqueta || 'Franco'}>
+                          —
+                        </span>
+                      ) : (
+                        <span
+                          className={`rrhh-fijos-hoy-val rrhh-fijos-hoy-val--${hoyEsp.origen}`}
+                          title={hoyEsp.etiqueta || hoyEsp.origen}
+                        >
+                          {hoyEsp.entrada}–{hoyEsp.salida}
+                          {hoyEsp.origen === 'rotativo' ? (
+                            <small> rot.</small>
+                          ) : hoyEsp.origen === 'override' ? (
+                            <small> aj.</small>
+                          ) : null}
+                        </span>
+                      )}
                     </td>
                     <td>
                       <JornadaCell
@@ -1139,6 +1206,7 @@ const AsistenciaTab = ({
   const [editOk, setEditOk] = useState(false)
   const [deletingAsistencia, setDeletingAsistencia] = useState(false)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
+  const [horarioEsperadoCtx, setHorarioEsperadoCtx] = useState<HorarioEsperadoCtx | null>(null)
   const [legajos, setLegajos] = useState<Record<number, { nombre: string; apellido: string }>>({})
   const syncNovedadesRef = useRef(false)
   const [valorHora, setValorHora] = useState<number>(() => {
@@ -1209,13 +1277,44 @@ const AsistenciaTab = ({
     }
   }, [mesesEnPeriodo])
 
+  // Rotativos + ajustes de turno del período (misma regla que tablet / columna Hoy).
+  useEffect(() => {
+    let cancelado = false
+    void Promise.all([
+      import('../services/rrhhTurnosRotativosService').then((m) => m.listarRotacionesCompletas()),
+      apiService.obtenerTurnos(null, fechaDesde, fechaHasta)
+    ]).then(([rot, rt]) => {
+      if (cancelado) return
+      const overridesPorUsuarioDia: Record<string, { entrada: string; salida: string }> = {}
+      if (rt.success && rt.data) {
+        for (const t of rt.data) {
+          const f = String(t.fecha || '').slice(0, 10)
+          if (!f) continue
+          overridesPorUsuarioDia[`${t.id_usuario}|${f}`] = {
+            entrada: String(t.hora_entrada || '').slice(0, 5),
+            salida: String(t.hora_salida || '').slice(0, 5)
+          }
+        }
+      }
+      setHorarioEsperadoCtx({
+        plantillas: rot.plantillas,
+        asignaciones: rot.asignaciones,
+        overridesPorUsuarioDia
+      })
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [fechaDesde, fechaHasta])
+
   useEffect(() => {
     if (!registradoPorId || !asistencia.length || syncNovedadesRef.current) return
     const pendientes = detectarNovedadesDesdeAsistencia({
       asistencia,
       novedades,
       dias,
-      horariosPorMes
+      horariosPorMes,
+      horarioEsperadoCtx
     })
     const hayObsoletas = novedades.some((n) => n.codigo === 'tardanza')
     if (!pendientes.length && !hayObsoletas) return
@@ -1228,6 +1327,7 @@ const AsistenciaTab = ({
           novedades,
           dias,
           horariosPorMes,
+          horarioEsperadoCtx,
           registradoPor: registradoPorId
         })
         if (!cancelled && (r.creadas > 0 || r.eliminadas > 0)) onNovedadesActualizadas()
@@ -1238,7 +1338,15 @@ const AsistenciaTab = ({
     return () => {
       cancelled = true
     }
-  }, [asistencia, novedades, dias, horariosPorMes, registradoPorId, onNovedadesActualizadas])
+  }, [
+    asistencia,
+    novedades,
+    dias,
+    horariosPorMes,
+    horarioEsperadoCtx,
+    registradoPorId,
+    onNovedadesActualizadas
+  ])
 
   const nombres = useMemo(() => {
     const m = new Map<number, string>()
@@ -1302,9 +1410,10 @@ const AsistenciaTab = ({
         dias,
         nombres,
         horariosPorMes,
-        valorHoraBase: valorHora
+        valorHoraBase: valorHora,
+        horarioEsperadoCtx
       }),
-    [asistenciaActiva, novedadesActivas, dias, nombres, horariosPorMes, valorHora]
+    [asistenciaActiva, novedadesActivas, dias, nombres, horariosPorMes, valorHora, horarioEsperadoCtx]
   )
 
   const statsPorEmpleado = useMemo(() => new Map(statsLista.map((s) => [s.id, s])), [statsLista])
@@ -1315,9 +1424,10 @@ const AsistenciaTab = ({
         asistencia: asistenciaActiva,
         novedades: novedadesActivas,
         dias,
-        horariosPorMes
+        horariosPorMes,
+        horarioEsperadoCtx
       }),
-    [asistenciaActiva, novedadesActivas, dias, horariosPorMes]
+    [asistenciaActiva, novedadesActivas, dias, horariosPorMes, horarioEsperadoCtx]
   )
 
   const periodoLabel = useMemo(() => {
@@ -1525,12 +1635,14 @@ const AsistenciaTab = ({
     const novs = novedadesPorUsuarioDia.get(`${empId}|${f}`) ?? []
     const finde = !esDiaHabil(f)
     const horario = horariosPorMes[f.slice(0, 7)]?.[empId] ?? null
+    const horarioEsperado = horarioEsperadoDesdeCtx(empId, f, horario, horarioEsperadoCtx)
     const ev = evaluarDiaAsistencia({
       idUsuario: empId,
       fecha: f,
       asistencia: a,
       novedades: novs,
-      horario
+      horario,
+      horarioEsperado
     })
     const det = ev.extraDet
 
@@ -2016,6 +2128,7 @@ const EstadisticasAsistenciaTab = ({
   const [novedades, setNovedades] = useState<RrhhNovedad[]>([])
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
   const [horarioFallback, setHorarioFallback] = useState<Record<number, HorarioFijoAsistencia>>({})
+  const [horarioEsperadoCtx, setHorarioEsperadoCtx] = useState<HorarioEsperadoCtx | null>(null)
   const [legajos, setLegajos] = useState<Record<number, { nombre: string; apellido: string }>>({})
   const [cargando, setCargando] = useState(true)
   const [valorHora, setValorHora] = useState<number>(() => {
@@ -2100,8 +2213,10 @@ const EstadisticasAsistenciaTab = ({
       }),
       apiService.obtenerLegajosBasico(),
       horariosPromise,
-      tabletPromise
-    ]).then(([ra, rn, rl, rhMap, tabletRows]) => {
+      tabletPromise,
+      import('../services/rrhhTurnosRotativosService').then((m) => m.listarRotacionesCompletas()),
+      apiService.obtenerTurnos(null, desde, hasta)
+    ]).then(([ra, rn, rl, rhMap, tabletRows, rot, rt]) => {
       if (cancelado) return
       const baseAsis = ra.success && ra.data ? ra.data : []
       setAsistencia(mergeTabletMarcacionesIntoAsistencia(baseAsis, tabletRows))
@@ -2137,6 +2252,22 @@ const EstadisticasAsistenciaTab = ({
         setHorariosPorMes(mapMes)
         setHorarioFallback(fb)
       }
+      const overridesPorUsuarioDia: Record<string, { entrada: string; salida: string }> = {}
+      if (rt.success && rt.data) {
+        for (const t of rt.data) {
+          const f = String(t.fecha || '').slice(0, 10)
+          if (!f) continue
+          overridesPorUsuarioDia[`${t.id_usuario}|${f}`] = {
+            entrada: String(t.hora_entrada || '').slice(0, 5),
+            salida: String(t.hora_salida || '').slice(0, 5)
+          }
+        }
+      }
+      setHorarioEsperadoCtx({
+        plantillas: rot.plantillas,
+        asignaciones: rot.asignaciones,
+        overridesPorUsuarioDia
+      })
       setCargando(false)
     })
 
@@ -2189,9 +2320,21 @@ const EstadisticasAsistenciaTab = ({
       horariosPorMes,
       horarioFallback,
       idsConHorario,
-      valorHoraBase: valorHora
+      valorHoraBase: valorHora,
+      horarioEsperadoCtx
     })
-  }, [asistencia, novedades, dias, nombres, horariosPorMes, horarioFallback, idsConHorario, valorHora, usuarios])
+  }, [
+    asistencia,
+    novedades,
+    dias,
+    nombres,
+    horariosPorMes,
+    horarioFallback,
+    idsConHorario,
+    valorHora,
+    usuarios,
+    horarioEsperadoCtx
+  ])
 
   const rankingExtra = useMemo(
     () => [...stats].filter((s) => s.totalHorasExtra > 0).sort((a, b) => b.totalHorasExtra - a.totalHorasExtra),

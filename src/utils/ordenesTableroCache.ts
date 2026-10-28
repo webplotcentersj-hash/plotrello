@@ -1,9 +1,10 @@
 import type { OrdenTrabajo } from '../types/api'
 import { isOrdenVisibleOnTablero } from './dataMappers'
+import { readOrdenesTableroIdb, writeOrdenesTableroIdb } from './ordenesTableroIdb'
 
 const CACHE_KEY = 'plotrello_ordenes_tablero_v1'
 const MAX_AGE_MS = 1000 * 60 * 60 * 2
-/** Evita parsear megabytes en el hilo principal tras imports masivos de OPs. */
+/** localStorage legacy desactivado (pesado); la fuente offline es IndexedDB. */
 const CACHE_DISABLED = true
 
 type Payload = { savedAt: number; rows: OrdenTrabajo[] }
@@ -23,8 +24,17 @@ export function readOrdenesTableroCache(): OrdenTrabajo[] | null {
   }
 }
 
+/** Lectura async del snapshot IndexedDB (preferir esto offline). */
+export async function readOrdenesTableroCacheAsync(): Promise<OrdenTrabajo[] | null> {
+  return readOrdenesTableroIdb()
+}
+
 export function writeOrdenesTableroCache(rows: OrdenTrabajo[]): void {
-  if (CACHE_DISABLED || typeof window === 'undefined' || rows.length === 0) return
+  if (typeof window === 'undefined' || rows.length === 0) return
+  // Siempre persistir en IDB para hidratar el tablero sin red.
+  void writeOrdenesTableroIdb(rows)
+
+  if (CACHE_DISABLED) return
   const visible = rows.filter((row) => isOrdenVisibleOnTablero(row))
   if (visible.length === 0) return
 

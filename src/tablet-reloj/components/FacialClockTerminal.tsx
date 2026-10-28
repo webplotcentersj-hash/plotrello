@@ -12,6 +12,7 @@ import HudClock from '../../components/HudClock'
 import {
   fotoEmpleadoUrl,
   fetchFacialIndiceRelojTablet,
+  ensureRelojSyncHandlerRegistered,
   marcarRelojTablet,
   type EmpleadoRelojTablet,
   type MarcacionTabletResult
@@ -138,6 +139,10 @@ export default function FacialClockTerminal({ empleados, onMarked }: FacialClock
   const [galleryReady, setGalleryReady] = useState(false)
   const [engineError, setEngineError] = useState('')
   const [galleryCount, setGalleryCount] = useState(0)
+
+  useEffect(() => {
+    ensureRelojSyncHandlerRegistered()
+  }, [])
 
   useEffect(() => {
     const t = window.setInterval(() => setClock(new Date()), 1000)

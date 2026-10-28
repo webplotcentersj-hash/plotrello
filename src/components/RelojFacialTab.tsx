@@ -522,7 +522,10 @@ export default function RelojFacialTab({ onVerAuditoria, onIrAHorarios }: RelojF
       <div className="reloj-facial-howto">
         <h4>Cómo usarlo</h4>
         <ol>
-          <li>Configurá el horario fijo en <strong>Horarios reloj</strong>.</li>
+          <li>
+            Configurá el horario fijo en <strong>Horarios reloj</strong>. Si el empleado tiene turno rotativo o
+            ajuste del día (pestaña Turnos), la tablet usa esa entrada esperada.
+          </li>
           <li>
             Sumá fotos extra a quienes se confunden (Ivero/Lolmos, etc.) y tocá{' '}
             <strong>Indexar rostros</strong>.

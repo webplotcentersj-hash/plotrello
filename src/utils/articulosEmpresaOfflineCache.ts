@@ -1,0 +1,74 @@
+import type { ArticuloEmpresaRecord } from '../types/api'
+
+const DB_NAME = 'plotlab_articulos_v1'
+const STORE = 'snap'
+const KEY = 'catalogo'
+const DB_VERSION = 1
+const MAX_ROWS = 4000
+
+type Snapshot = { savedAt: number; rows: ArticuloEmpresaRecord[] }
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      reject(new Error('IndexedDB no disponible'))
+      return
+    }
+    const req = indexedDB.open(DB_NAME, DB_VERSION)
+    req.onupgradeneeded = () => {
+      const db = req.result
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE)
+      }
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error || new Error('IDB articulos'))
+  })
+}
+
+function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error || new Error('IDB request'))
+  })
+}
+
+export async function writeArticulosEmpresaOfflineCache(
+  rows: ArticuloEmpresaRecord[]
+): Promise<void> {
+  if (typeof window === 'undefined' || !rows.length) return
+  const trimmed = rows.slice(0, MAX_ROWS)
+  const snap: Snapshot = { savedAt: Date.now(), rows: trimmed }
+  try {
+    const db = await openDb()
+    try {
+      await reqToPromise(db.transaction(STORE, 'readwrite').objectStore(STORE).put(snap, KEY))
+    } finally {
+      db.close()
+    }
+  } catch {
+    /* quota */
+  }
+}
+
+export async function readArticulosEmpresaOfflineCache(
+  maxAgeMs = 1000 * 60 * 60 * 24 * 7
+): Promise<ArticuloEmpresaRecord[] | null> {
+  if (typeof window === 'undefined') return null
+  try {
+    const db = await openDb()
+    let snap: Snapshot | undefined
+    try {
+      snap = (await reqToPromise(db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY))) as
+        | Snapshot
+        | undefined
+    } finally {
+      db.close()
+    }
+    if (!snap?.savedAt || !Array.isArray(snap.rows) || !snap.rows.length) return null
+    if (Date.now() - snap.savedAt > maxAgeMs) return null
+    return snap.rows
+  } catch {
+    return null
+  }
+}

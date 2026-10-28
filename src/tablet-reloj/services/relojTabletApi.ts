@@ -1,5 +1,12 @@
 import { plotLabFetch } from '../../utils/plotLabApiOrigin'
 import { getMarcacionTimestamptzIso } from '../../utils/dateUtils'
+import {
+  isLikelyNetworkError,
+  isRelojMarcarPayload,
+  registerSyncHandler,
+  syncQueueEnqueue,
+  type SyncJob
+} from '../../utils/syncQueue'
 import { getDispositivoId } from '../utils/tabletRelojKiosk'
 
 const STORAGE_KEY = 'reloj_tablet_api_key'
@@ -101,12 +108,29 @@ async function parseApiJson<T>(resp: Response): Promise<T> {
 }
 
 export async function fetchEmpleadosRelojTablet(): Promise<EmpleadoRelojTablet[]> {
-  const resp = await plotLabFetch('/api/plotai/reloj-tablet-empleados', { headers: headers() })
-  const json = await parseApiJson<{ success?: boolean; empleados?: EmpleadoRelojTablet[]; error?: string }>(resp)
-  if (!resp.ok || !json.success) {
-    throw new Error(json.error || 'No se pudo cargar empleados')
+  try {
+    const resp = await plotLabFetch('/api/plotai/reloj-tablet-empleados', { headers: headers() })
+    const json = await parseApiJson<{ success?: boolean; empleados?: EmpleadoRelojTablet[]; error?: string }>(resp)
+    if (!resp.ok || !json.success) {
+      throw new Error(json.error || 'No se pudo cargar empleados')
+    }
+    const list = json.empleados ?? []
+    try {
+      localStorage.setItem('reloj_tablet_empleados_cache_v1', JSON.stringify(list))
+    } catch {
+      /* quota */
+    }
+    return list
+  } catch (e) {
+    if (!isLikelyNetworkError(e)) throw e
+    try {
+      const raw = localStorage.getItem('reloj_tablet_empleados_cache_v1')
+      if (raw) return JSON.parse(raw) as EmpleadoRelojTablet[]
+    } catch {
+      /* ignore */
+    }
+    throw e
   }
-  return json.empleados ?? []
 }
 
 type FacialIndicePayload = {
@@ -291,7 +315,7 @@ export async function marcarAutoRelojTablet(selfieDataUrl: string): Promise<{
   }
 }
 
-export async function marcarRelojTablet(opts: {
+async function marcarRelojTabletOnline(opts: {
   idUsuario: number
   selfieDataUrl?: string
   confianza?: number
@@ -322,6 +346,124 @@ export async function marcarRelojTablet(opts: {
     throw new Error(json.error || 'No se pudo registrar la marcación')
   }
   return json.data
+}
+
+function tipoHintOffline(idUsuario: number): 'entrada' | 'salida' {
+  try {
+    const raw = localStorage.getItem('reloj_tablet_empleados_cache_v1')
+    if (!raw) return 'entrada'
+    const list = JSON.parse(raw) as EmpleadoRelojTablet[]
+    const emp = list.find((e) => e.id_usuario === idUsuario)
+    if (emp?.entrada_hoy && !emp.salida_hoy) return 'salida'
+  } catch {
+    /* ignore */
+  }
+  return 'entrada'
+}
+
+function nombreHintOffline(idUsuario: number): string {
+  try {
+    const raw = localStorage.getItem('reloj_tablet_empleados_cache_v1')
+    if (!raw) return `Usuario ${idUsuario}`
+    const list = JSON.parse(raw) as EmpleadoRelojTablet[]
+    const emp = list.find((e) => e.id_usuario === idUsuario)
+    if (emp?.nombre_completo) return emp.nombre_completo
+    if (emp) return `${emp.apellido || ''} ${emp.nombre || ''}`.trim() || emp.login
+  } catch {
+    /* ignore */
+  }
+  return `Usuario ${idUsuario}`
+}
+
+/** Marca en servidor; si no hay red, encola y confirma en local (sync al volver). */
+export async function marcarRelojTablet(opts: {
+  idUsuario: number
+  selfieDataUrl?: string
+  confianza?: number
+  detalle?: string
+  dispositivoId?: string
+  marcadoAt?: string
+  omitirFoto?: boolean
+}): Promise<MarcacionTabletResult> {
+  const marcadoAt = opts.marcadoAt ?? getMarcacionTimestamptzIso()
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+
+  if (!offline) {
+    try {
+      return await marcarRelojTabletOnline(opts)
+    } catch (e) {
+      if (!isLikelyNetworkError(e)) throw e
+    }
+  }
+
+  const tipo = tipoHintOffline(opts.idUsuario)
+  const nombre = nombreHintOffline(opts.idUsuario)
+  await syncQueueEnqueue('reloj_marcar', {
+    idUsuario: opts.idUsuario,
+    marcadoAt,
+    dispositivoId: opts.dispositivoId || getDispositivoId(),
+    detalle: opts.detalle || 'offline_queue',
+    omitirFoto: true,
+    tipoHint: tipo,
+    nombreHint: nombre
+  })
+
+  // Actualizar caché local de entrada/salida del día para la siguiente marca.
+  try {
+    const raw = localStorage.getItem('reloj_tablet_empleados_cache_v1')
+    if (raw) {
+      const list = JSON.parse(raw) as EmpleadoRelojTablet[]
+      const hora = new Date(marcadoAt).toLocaleTimeString('es-AR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'America/Argentina/Buenos_Aires'
+      })
+      const next = list.map((e) => {
+        if (e.id_usuario !== opts.idUsuario) return e
+        if (tipo === 'entrada') return { ...e, entrada_hoy: hora }
+        return { ...e, salida_hoy: hora }
+      })
+      localStorage.setItem('reloj_tablet_empleados_cache_v1', JSON.stringify(next))
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return {
+    id_usuario: opts.idUsuario,
+    nombre,
+    login: '',
+    tipo,
+    fecha: marcadoAt.slice(0, 10),
+    hora: marcadoAt,
+    hora_argentina: undefined,
+    tarde: false,
+    minutos_tarde: 0,
+    horas_trabajadas: null,
+    mensaje:
+      tipo === 'entrada'
+        ? 'Entrada guardada sin conexión · se sincroniza al volver la red'
+        : 'Salida guardada sin conexión · se sincroniza al volver la red'
+  }
+}
+
+let relojSyncHandlerReady = false
+
+export function ensureRelojSyncHandlerRegistered(): void {
+  if (relojSyncHandlerReady) return
+  relojSyncHandlerReady = true
+  registerSyncHandler('reloj_marcar', async (job: SyncJob) => {
+    if (!isRelojMarcarPayload(job.payload)) throw new Error('Payload reloj inválido')
+    const p = job.payload
+    await marcarRelojTabletOnline({
+      idUsuario: p.idUsuario,
+      marcadoAt: p.marcadoAt,
+      dispositivoId: p.dispositivoId,
+      detalle: p.detalle || 'sync_queue',
+      omitirFoto: true
+    })
+  })
 }
 
 export function fotoEmpleadoUrl(emp: EmpleadoRelojTablet): string | null {

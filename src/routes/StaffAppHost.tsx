@@ -170,8 +170,15 @@ import { historialToActivity } from '../utils/dataMappers'
 import { registerUsuariosLegajoDisplay } from '../utils/legajoDisplayRegistry'
 import { subscribeOrdenesBroadcast } from '../utils/ordenesBroadcast'
 import { routeNeedsBoardSync } from '../utils/boardRouteSync'
-import { writeOrdenesTableroCache } from '../utils/ordenesTableroCache'
+import { readOrdenesTableroCacheAsync, writeOrdenesTableroCache } from '../utils/ordenesTableroCache'
 import { ordenesTableroFingerprint, syncTasksFromOrdenesFetch, applyOrdenRealtimeBatch } from '../utils/syncTasksFromOrdenes'
+import {
+  isMarcarEntregaPayload,
+  isTableroMoverPayload,
+  isVentaRapidaPayload,
+  registerSyncHandler
+} from '../utils/syncQueue'
+import PlotLabConnectivityBanner from '../components/PlotLabConnectivityBanner'
 import { supabase } from '../services/supabaseClient'
 
 const DEFAULT_SECTORES: SectorRecord[] = [
@@ -230,6 +237,102 @@ export default function StaffAppHost() {
   /** Entrega procesada fuera del tablero: al volver, forzar refetch. */
   const pendingEntregaReloadRef = useRef(false)
   const pageVisibleRef = useRef(typeof document !== 'undefined' ? !document.hidden : true)
+
+  // Flush offline: reaplicar jobs encolados al volver la red.
+  useEffect(() => {
+    registerSyncHandler('tablero_mover', async (job) => {
+      if (!isTableroMoverPayload(job.payload)) throw new Error('Payload tablero_mover inválido')
+      const { ordenId, nuevoEstado, usuarioId, estadoOrigen } = job.payload
+      const api = await getApiService()
+
+      // Conflicto: otro cambió el estado mientras estábamos offline.
+      try {
+        const cur = await api.getOrden(ordenId)
+        const estadoActual =
+          cur.success && cur.data ? String(cur.data.estado || '') : ''
+        if (estadoActual && estadoActual === nuevoEstado) {
+          return
+        }
+        if (estadoOrigen && estadoActual && estadoActual !== estadoOrigen) {
+          window.dispatchEvent(
+            new CustomEvent('plotlab-sync-conflict', {
+              detail: {
+                kind: 'tablero_mover',
+                ordenId,
+                estadoOrigen,
+                estadoActual,
+                nuevoEstado
+              }
+            })
+          )
+        }
+      } catch {
+        /* seguir con move */
+      }
+
+      const resp = await api.moveOrden(ordenId, nuevoEstado, usuarioId)
+      if (!resp.success) throw new Error(resp.error || 'No se pudo sincronizar el movimiento')
+    })
+
+    registerSyncHandler('venta_rapida', async (job) => {
+      if (!isVentaRapidaPayload(job.payload)) throw new Error('Payload venta_rapida inválido')
+      const p = job.payload
+      const api = await getApiService()
+      const resp = await api.crearVentaConItems({
+        venta: p.venta as Parameters<typeof api.crearVentaConItems>[0]['venta'],
+        items: p.items
+      })
+      if (!resp.success || !resp.data) throw new Error(resp.error || 'No se pudo sincronizar la venta')
+
+      for (const row of p.stockEmpresa || []) {
+        const stockRes = await api.descontarStockComercialArticulo({
+          idArticuloEmpresa: row.idArticuloEmpresa,
+          cantidadVendida: row.cantidadVendida,
+          canal: 'mostrador',
+          idVenta: resp.data.id,
+          numeroReferencia: resp.data.numero_venta,
+          permitirStockNegativo: true
+        })
+        if (!stockRes.success) {
+          console.warn('Sync venta: stock empresa', stockRes.error)
+        }
+      }
+
+      if (p.presupuestoId) {
+        const vinculo = await api.vincularPresupuestoVentaAVenta(p.presupuestoId, resp.data.id, {
+          id: p.actorId,
+          nombre: p.actorNombre
+        })
+        if (!vinculo.success) {
+          console.warn('Sync venta: presupuesto', vinculo.error)
+        }
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('venta-creada', {
+          detail: { ventaId: resp.data.id, numeroVenta: resp.data.numero_venta, fromSyncQueue: true }
+        })
+      )
+    })
+
+    registerSyncHandler('marcar_entrega', async (job) => {
+      if (!isMarcarEntregaPayload(job.payload)) throw new Error('Payload marcar_entrega inválido')
+      const p = job.payload
+      const api = await getApiService()
+      const resp = await api.procesarEntrega(p.ordenId, {
+        firmaDataUrl: p.firmaDataUrl,
+        entregadoA: p.entregadoA,
+        dniRetira: p.dniRetira,
+        observaciones: p.observaciones,
+        usuarioId: p.usuarioId,
+        usuarioNombre: p.usuarioNombre
+      })
+      if (!resp.success) throw new Error(resp.error || 'No se pudo sincronizar la entrega')
+      window.dispatchEvent(
+        new CustomEvent('plotrello-orden-entregada', { detail: { ordenId: p.ordenId, fromSyncQueue: true } })
+      )
+    })
+  }, [])
 
   // Manual PlotAI: no bloquear primer paint (idle o timeout corto).
   useEffect(() => {
@@ -405,12 +508,22 @@ export default function StaffAppHost() {
           console.log('✅ Órdenes cargadas:', ordenesResp.data.length)
         }
       } else {
-        const errorMsg = formatSupabaseStatementTimeoutError(
-          ordenesResp.error || 'No se pudieron cargar las órdenes (Supabase no respondió)'
-        )
-        setDataError(errorMsg)
-        if (import.meta.env.DEV) {
-          console.error('❌ Error cargando órdenes:', errorMsg)
+        const cached = await readOrdenesTableroCacheAsync()
+        if (cached?.length) {
+          const fp = ordenesTableroFingerprint(cached)
+          lastOrdenesFingerprintRef.current = fp
+          startTransition(() => {
+            setTasks((prev) => syncTasksFromOrdenesFetch(prev, cached))
+          })
+          setDataError('Sin red · tablero desde caché local (movimientos se encolan)')
+        } else {
+          const errorMsg = formatSupabaseStatementTimeoutError(
+            ordenesResp.error || 'No se pudieron cargar las órdenes (Supabase no respondió)'
+          )
+          setDataError(errorMsg)
+          if (import.meta.env.DEV) {
+            console.error('❌ Error cargando órdenes:', errorMsg)
+          }
         }
       }
 
@@ -465,9 +578,15 @@ export default function StaffAppHost() {
     } catch (error: any) {
       console.error('❌ Error cargando datos desde Supabase:', error)
       const errorMessage = error?.message || 'Error desconocido'
-
-      // Detectar errores específicos
-      if (errorMessage.includes('Failed to fetch') || error?.name === 'TypeError') {
+      const cached = await readOrdenesTableroCacheAsync()
+      if (cached?.length) {
+        const fp = ordenesTableroFingerprint(cached)
+        lastOrdenesFingerprintRef.current = fp
+        startTransition(() => {
+          setTasks((prev) => syncTasksFromOrdenesFetch(prev, cached))
+        })
+        setDataError('Sin red · tablero desde caché local (movimientos se encolan)')
+      } else if (errorMessage.includes('Failed to fetch') || error?.name === 'TypeError') {
         setDataError(
           'Error de conexión: No se pudo conectar con Supabase. Verifica tu conexión a internet y que las variables VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY estén correctamente configuradas.'
         )
@@ -498,6 +617,23 @@ export default function StaffAppHost() {
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [loadRemoteData])
+
+  // Al recuperar red: vaciar cola de movimientos y refrescar tablero.
+  useEffect(() => {
+    const onOnline = () => {
+      void (async () => {
+        try {
+          const { syncQueueFlush } = await import('../utils/syncQueue')
+          await syncQueueFlush()
+        } catch {
+          /* ignore */
+        }
+        if (boardSyncActiveRef.current) void loadRemoteData({ silent: true })
+      })()
+    }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
   }, [loadRemoteData])
 
   useEffect(() => {
@@ -807,6 +943,7 @@ function AppRoutes({
   return (
     <OperarioExternoGate>
       <>
+      <PlotLabConnectivityBanner />
       <Suspense fallback={null}>
         <TallerGraficoPedidoEntregaOverlay />
       </Suspense>

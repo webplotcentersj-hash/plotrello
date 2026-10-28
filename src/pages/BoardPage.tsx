@@ -495,23 +495,43 @@ const BoardPage = ({
         setActionError('No se pudo validar la orden para mover a Instalaciones o Metalúrgica (foto real del lugar).')
         return
       }
-      try {
-        const archResp = await (await getApiService()).getArchivosOrden(ordenId)
-        const rows =
-          archResp.success && archResp.data
-            ? (archResp.data as Array<{ titulo?: string; url?: string }>)
-            : []
-        const tieneFoto =
-          taskPhotoUrlCountAsSitePhoto(taskBeforeMove.photoUrl) || archivosRowsHaveImage(rows)
-        if (!tieneFoto) {
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+      if (offline) {
+        if (!taskPhotoUrlCountAsSitePhoto(taskBeforeMove.photoUrl)) {
           setActionError(
-            'Instalaciones / Metalúrgica: hace falta una FOTO REAL DEL LUGAR (sitio físico), no solo PDF u otro archivo. Abrí la ficha con ✏️ y subí una imagen en adjuntos o en la portada.'
+            'Sin conexión: para Instalaciones/Metalúrgica la ficha necesita foto en portada (no se pueden chequear adjuntos offline).'
           )
           return
         }
-      } catch {
-        setActionError('No se pudieron verificar los adjuntos. Intentá de nuevo.')
-        return
+      } else {
+        try {
+          const archResp = await (await getApiService()).getArchivosOrden(ordenId)
+          const rows =
+            archResp.success && archResp.data
+              ? (archResp.data as Array<{ titulo?: string; url?: string }>)
+              : []
+          const tieneFoto =
+            taskPhotoUrlCountAsSitePhoto(taskBeforeMove.photoUrl) || archivosRowsHaveImage(rows)
+          if (!tieneFoto) {
+            setActionError(
+              'Instalaciones / Metalúrgica: hace falta una FOTO REAL DEL LUGAR (sitio físico), no solo PDF u otro archivo. Abrí la ficha con ✏️ y subí una imagen en adjuntos o en la portada.'
+            )
+            return
+          }
+        } catch (e) {
+          const { isLikelyNetworkError } = await import('../utils/syncQueue')
+          if (isLikelyNetworkError(e) && taskPhotoUrlCountAsSitePhoto(taskBeforeMove.photoUrl)) {
+            /* red caída: permitir con foto de portada */
+          } else if (isLikelyNetworkError(e)) {
+            setActionError(
+              'Sin conexión y sin foto en portada: no se puede mover a Instalaciones/Metalúrgica.'
+            )
+            return
+          } else {
+            setActionError('No se pudieron verificar los adjuntos. Intentá de nuevo.')
+            return
+          }
+        }
       }
     }
 
@@ -559,9 +579,36 @@ const BoardPage = ({
       )
 
       const usuarioId = Number(localStorage.getItem('usuario_id')) || 0
+      const estadoOrigen = mapStatusToEstado(taskSnapshot.status)
+      const enqueueMove = async () => {
+        const { syncQueueEnqueue } = await import('../utils/syncQueue')
+        await syncQueueEnqueue('tablero_mover', {
+          ordenId,
+          nuevoEstado,
+          usuarioId,
+          taskId,
+          estadoOrigen
+        })
+      }
       try {
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+        if (offline) {
+          await enqueueMove()
+          startTransition(() => {
+            setActionSuccess('Movimiento guardado sin conexión · se sincroniza al volver la red')
+          })
+          return
+        }
         const response = await (await getApiService()).moveOrden(ordenId, nuevoEstado, usuarioId)
         if (!response.success) {
+          const { isLikelyNetworkError } = await import('../utils/syncQueue')
+          if (isLikelyNetworkError(response.error)) {
+            await enqueueMove()
+            startTransition(() => {
+              setActionSuccess('Movimiento en cola (sin red) · se sincroniza al volver')
+            })
+            return
+          }
           setActionError(response.error || 'No se pudo actualizar la orden en Supabase.')
           setTasks((prev) =>
             prev.map((task) => {
@@ -631,6 +678,18 @@ const BoardPage = ({
         }
       } catch (err) {
         console.error('moveOrden inesperado:', err)
+        const { isLikelyNetworkError } = await import('../utils/syncQueue')
+        if (isLikelyNetworkError(err)) {
+          try {
+            await enqueueMove()
+            startTransition(() => {
+              setActionSuccess('Movimiento en cola (sin red) · se sincroniza al volver')
+            })
+            return
+          } catch {
+            /* fall through */
+          }
+        }
         setActionError(
           err instanceof Error
             ? `Error al mover la ficha: ${err.message}`

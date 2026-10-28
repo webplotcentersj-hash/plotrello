@@ -22,6 +22,7 @@ import {
   inferirCondicionIva,
   inferirTipoFactura,
   letraComprobante,
+  normalizarCondicionIvaCliente,
   tiposFacturaPermitidos,
   validarReceptorComprobante,
   type ConceptoAfip,
@@ -31,19 +32,6 @@ import {
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
 import { numeroALetras } from '../utils/crmExportUtils'
 import './CrearFacturaPage.css'
-
-const CONDICIONES_IVA: CondicionIvaCliente[] = [
-  'Consumidor Final',
-  'Responsable Inscripto',
-  'Monotributista',
-  'Exento',
-  'No Responsable'
-]
-
-function condicionIvaDeSistema(value: string | null | undefined): CondicionIvaCliente | '' {
-  const raw = String(value || '').trim()
-  return (CONDICIONES_IVA.find((c) => c.toLowerCase() === raw.toLowerCase()) || '') as CondicionIvaCliente | ''
-}
 
 /** Teléfono del encabezado de las facturas del sistema anterior. */
 const TELEFONO_FACTURA = '0264-4278026'
@@ -181,10 +169,13 @@ export default function CrearFacturaPage() {
 
   const seleccionarClienteSistema = (c: ClienteRecord) => {
     const nombre = (c.empresa || '').trim() || nombreCompletoCliente(c)
+    const condCliente = normalizarCondicionIvaCliente(c.condicion_iva)
+    // Condición IVA + tipo A/B/C al instante según ficha del cliente (o CUIT).
     aplicarCliente({
       nombre,
       dni_cuit: c.dni_cuit,
       direccion: c.direccion,
+      condicion_iva: condCliente || undefined,
       id_cliente: c.id
     })
     setClientesEncontrados([])
@@ -192,11 +183,13 @@ export default function CrearFacturaPage() {
       if (!r.success || !r.data) return
       const cc = r.data
       const domicilio = [cc.domicilio, cc.localidad, cc.provincia].filter(Boolean).join(', ')
+      const condCc = normalizarCondicionIvaCliente(cc.condicion_iva)
       aplicarCliente({
         nombre: (cc.razon_social || nombre).trim(),
         dni_cuit: cc.cuit || c.dni_cuit,
         direccion: domicilio || c.direccion,
-        condicion_iva: condicionIvaDeSistema(cc.condicion_iva) || undefined,
+        // Preferir CC si trae IVA; si no, no pisar lo ya inferido/cargado del cliente.
+        condicion_iva: condCc || condCliente || undefined,
         id_cliente: c.id
       })
     })

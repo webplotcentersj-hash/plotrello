@@ -34,6 +34,7 @@ const EntregaPage = () => {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<{ entregadoA?: string; firma?: string }>({})
   const [success, setSuccess] = useState(false)
+  const [successQueuedOffline, setSuccessQueuedOffline] = useState(false)
   const [firmaCargadaDesdeTablet, setFirmaCargadaDesdeTablet] = useState(false)
   const [pedidoTgLoading, setPedidoTgLoading] = useState(false)
   const [pedidoTgMsg, setPedidoTgMsg] = useState<string | null>(null)
@@ -334,18 +335,46 @@ const EntregaPage = () => {
     setSaving(true)
     setSuccess(false)
     setErrors({})
+
+    const datosEntrega = {
+      firmaDataUrl: firmaDataUrl!,
+      entregadoA: entregadoA.trim(),
+      dniRetira: dniRetira.trim() || undefined,
+      observaciones: observaciones.trim() || undefined,
+      usuarioId: usuario.id,
+      usuarioNombre: nombreVisible
+    }
+
+    const enqueueEntrega = async () => {
+      const { syncQueueEnqueue } = await import('../utils/syncQueue')
+      await syncQueueEnqueue('marcar_entrega', {
+        ordenId: orden.id!,
+        ...datosEntrega
+      })
+      setSuccessQueuedOffline(true)
+      setSuccess(true)
+      window.dispatchEvent(
+        new CustomEvent('plotrello-orden-entregada', {
+          detail: { ordenId: orden.id, queuedOffline: true }
+        })
+      )
+    }
     
     try {
-      const response = await apiService.procesarEntrega(orden.id!, {
-        firmaDataUrl: firmaDataUrl!,
-        entregadoA: entregadoA.trim(),
-        dniRetira: dniRetira.trim() || undefined,
-        observaciones: observaciones.trim() || undefined,
-        usuarioId: usuario.id,
-        usuarioNombre: nombreVisible
-      })
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+      if (offline) {
+        await enqueueEntrega()
+        return
+      }
+
+      const response = await apiService.procesarEntrega(orden.id!, datosEntrega)
 
       if (!response.success) {
+        const { isLikelyNetworkError } = await import('../utils/syncQueue')
+        if (isLikelyNetworkError(response.error)) {
+          await enqueueEntrega()
+          return
+        }
         setErrors({ firma: response.error || 'Error al procesar la entrega' })
         return
       }
@@ -357,6 +386,15 @@ const EntregaPage = () => {
       )
     } catch (error) {
       console.error('Error marcando orden como entregada:', error)
+      try {
+        const { isLikelyNetworkError } = await import('../utils/syncQueue')
+        if (isLikelyNetworkError(error)) {
+          await enqueueEntrega()
+          return
+        }
+      } catch {
+        /* fall through */
+      }
       setErrors({ firma: 'Error inesperado al procesar la entrega' })
     } finally {
       setSaving(false)
@@ -669,7 +707,10 @@ const EntregaPage = () => {
         {/* Mensaje de éxito y acciones posteriores */}
         {success && (
           <div className="success-banner success-banner-full">
-            <h3>✅ Orden entregada</h3>
+            <h3>
+              ✅ Orden entregada
+              {successQueuedOffline ? ' (pendiente de sync)' : ''}
+            </h3>
             <p>
               El comprobante PDF <strong>no</strong> se descarga solo. Si lo necesitás, tocá «Descargar Comprobante PDF» abajo.
               Podés notificar al cliente por WhatsApp si tiene número cargado.

@@ -797,6 +797,30 @@ const VentaRapidaModal = ({
       return
     }
 
+    const offlineNow = typeof navigator !== 'undefined' && navigator.onLine === false
+    if (offlineNow) {
+      if (incluyeMp) {
+        alert('Sin conexión no se puede cobrar con Mercado Pago. Usá efectivo u otro medio, o esperá la red.')
+        return
+      }
+      if (crearNuevoCliente) {
+        alert('Sin conexión no se puede dar de alta un cliente nuevo. Elegí uno existente o esperá la red.')
+        return
+      }
+      if (quiereCc) {
+        alert('Sin conexión no se puede vender a cuenta corriente. Usá un cobro simple o esperá la red.')
+        return
+      }
+      if (comprobanteArchivo) {
+        alert('Sin conexión no se puede adjuntar comprobante. Quitá el archivo o esperá la red.')
+        return
+      }
+      if (!clienteSeleccionado?.id) {
+        alert('Sin conexión necesitás un cliente ya cargado en el sistema.')
+        return
+      }
+    }
+
     if (faseCobro !== 'revisar') {
       setFaseCobro('revisar')
       return
@@ -878,37 +902,87 @@ const VentaRapidaModal = ({
       const estadoPagoInicial =
         esCuentaCorriente || incluyeMp ? 'Pendiente' : 'Pagado'
 
-      // Venta e ítems juntos: si algo falla, no queda una venta a medias con el total cambiado
-      const ventaResponse = await apiService.crearVentaConItems({
-        venta: {
-          cliente_nombre: clienteFinal.nombre,
-          cliente_telefono: clienteFinal.telefono || undefined,
-          cliente_email: clienteFinal.email || undefined,
-          cliente_dni_cuit: clienteFinal.dni_cuit || undefined,
-          cliente_empresa: clienteFinal.empresa || undefined,
-          cliente_direccion: direccionCliente || undefined,
-          valor_total: valorTotal,
-          metodo_pago: metodoPagoFinal,
-          estado_pago: estadoPagoInicial,
-          fecha_venta: fechaVenta,
-          id_vendedor: usuarioId,
-          nombre_vendedor: usuarioNombre,
-          id_cliente: clienteFinal.id || undefined,
-          observaciones: observacionesFinal,
-          detalle_pago: Object.keys(detallePagoFinal).length ? detallePagoFinal : null
-        },
-        items: itemsVenta.map((item) => ({
-          id_articulo_stock: item.id_articulo_stock ?? null,
-          codigo_articulo: item.codigo_articulo ?? null,
-          descripcion: `${item.descripcion.trim() || 'Ítem'} (${etiquetaUnidadCorta(item.unidad_medida)})`,
-          cantidad: item.cantidad,
-          precio_unitario: item.precio_unitario,
-          descuento: descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento),
-          observaciones: item.observaciones ?? null
+      const ventaInput = {
+        cliente_nombre: clienteFinal.nombre,
+        cliente_telefono: clienteFinal.telefono || undefined,
+        cliente_email: clienteFinal.email || undefined,
+        cliente_dni_cuit: clienteFinal.dni_cuit || undefined,
+        cliente_empresa: clienteFinal.empresa || undefined,
+        cliente_direccion: direccionCliente || undefined,
+        valor_total: valorTotal,
+        metodo_pago: metodoPagoFinal,
+        estado_pago: estadoPagoInicial,
+        fecha_venta: fechaVenta,
+        id_vendedor: usuarioId,
+        nombre_vendedor: usuarioNombre,
+        id_cliente: clienteFinal.id || undefined,
+        observaciones: observacionesFinal,
+        detalle_pago: Object.keys(detallePagoFinal).length ? detallePagoFinal : null
+      }
+      const itemsInput = itemsVenta.map((item) => ({
+        id_articulo_stock: item.id_articulo_stock ?? null,
+        codigo_articulo: item.codigo_articulo ?? null,
+        descripcion: `${item.descripcion.trim() || 'Ítem'} (${etiquetaUnidadCorta(item.unidad_medida)})`,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio_unitario,
+        descuento: descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento),
+        observaciones: item.observaciones ?? null
+      }))
+      const stockEmpresa = itemsVenta
+        .filter((item) => !item.id_articulo_stock && item.id_articulo_empresa)
+        .map((item) => ({
+          idArticuloEmpresa: item.id_articulo_empresa as number,
+          cantidadVendida: item.cantidad
         }))
-      })
+
+      const enqueueVentaOffline = async () => {
+        const { syncQueueEnqueue } = await import('../utils/syncQueue')
+        await syncQueueEnqueue('venta_rapida', {
+          venta: ventaInput,
+          items: itemsInput,
+          stockEmpresa: stockEmpresa.length ? stockEmpresa : undefined,
+          presupuestoId: prefillDesdePresupuesto?.presupuesto.id,
+          actorId: usuarioId,
+          actorNombre: usuarioNombre
+        })
+        alert('Venta guardada sin conexión · se sincroniza al volver la red')
+        onSuccess?.()
+        onClose()
+      }
+
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        await enqueueVentaOffline()
+        return
+      }
+
+      // Venta e ítems juntos: si algo falla, no queda una venta a medias con el total cambiado
+      let ventaResponse
+      try {
+        ventaResponse = await apiService.crearVentaConItems({
+          venta: ventaInput,
+          items: itemsInput
+        })
+      } catch (netErr) {
+        const { isLikelyNetworkError } = await import('../utils/syncQueue')
+        if (isLikelyNetworkError(netErr) && !incluyeMp && !quiereCc && !crearNuevoCliente && !comprobanteArchivo) {
+          await enqueueVentaOffline()
+          return
+        }
+        throw netErr
+      }
 
       if (!ventaResponse.success || !ventaResponse.data) {
+        const { isLikelyNetworkError } = await import('../utils/syncQueue')
+        if (
+          isLikelyNetworkError(ventaResponse.error) &&
+          !incluyeMp &&
+          !quiereCc &&
+          !crearNuevoCliente &&
+          !comprobanteArchivo
+        ) {
+          await enqueueVentaOffline()
+          return
+        }
         throw new Error(ventaResponse.error || 'Error al crear venta')
       }
 

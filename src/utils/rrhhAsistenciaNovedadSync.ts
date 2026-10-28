@@ -2,6 +2,8 @@ import type { Asistencia, RrhhNovedad, RrhhNovedadGrupo } from '../types/api'
 import apiService from '../services/api'
 import {
   evaluarDiaAsistencia,
+  horarioEsperadoDesdeCtx,
+  type HorarioEsperadoCtx,
   type HorarioFijoAsistencia
 } from './asistenciaStats'
 import { novedadEnDia } from './rrhhNovedadDates'
@@ -40,8 +42,16 @@ export function detectarNovedadesDesdeAsistencia(params: {
   dias: string[]
   horariosPorMes?: Record<string, Record<number, HorarioFijoAsistencia>>
   horarioFallback?: Record<number, HorarioFijoAsistencia>
+  horarioEsperadoCtx?: HorarioEsperadoCtx | null
 }): NovedadAsistenciaPendiente[] {
-  const { asistencia, novedades, dias, horariosPorMes = {}, horarioFallback } = params
+  const {
+    asistencia,
+    novedades,
+    dias,
+    horariosPorMes = {},
+    horarioFallback,
+    horarioEsperadoCtx
+  } = params
   const porUsuarioDia = new Map<string, Asistencia>()
   for (const a of asistencia) {
     porUsuarioDia.set(`${a.id_usuario}|${a.fecha.slice(0, 10)}`, a)
@@ -70,12 +80,15 @@ export function detectarNovedadesDesdeAsistencia(params: {
       const novs = novedadesPorUsuarioDia.get(`${id}|${f}`) ?? []
       const mes = f.slice(0, 7)
       const horario = horariosPorMes[mes]?.[id] ?? horarioFallback?.[id] ?? null
+      const horarioEsperado = horarioEsperadoDesdeCtx(id, f, horario, horarioEsperadoCtx)
+      if (horarioEsperado?.esFranco) continue
       const ev = evaluarDiaAsistencia({
         idUsuario: id,
         fecha: f,
         asistencia: a,
         novedades: novs,
-        horario
+        horario,
+        horarioEsperado
       })
 
       if (ev.esAusenciaInjustificada && !tieneNovedad(novedades, id, f, 'falta')) {
@@ -104,7 +117,7 @@ export function detectarNovedadesDesdeAsistencia(params: {
         if (keysPendientes.has(key)) continue
         keysPendientes.add(key)
         const entrada = asistenciaHoraCorta(a.hora_entrada) || '—'
-        const horarioEsp = horario?.entrada || '—'
+        const horarioEsp = horarioEsperado?.entrada || horario?.entrada || '—'
         const min = ev.minutosTarde
         pendientes.push({
           id_usuario: id,
@@ -134,8 +147,16 @@ export function detectarTardanzasObsoletas(params: {
   dias: string[]
   horariosPorMes?: Record<string, Record<number, HorarioFijoAsistencia>>
   horarioFallback?: Record<number, HorarioFijoAsistencia>
+  horarioEsperadoCtx?: HorarioEsperadoCtx | null
 }): RrhhNovedad[] {
-  const { asistencia, novedades, dias, horariosPorMes = {}, horarioFallback } = params
+  const {
+    asistencia,
+    novedades,
+    dias,
+    horariosPorMes = {},
+    horarioFallback,
+    horarioEsperadoCtx
+  } = params
   const porUsuarioDia = new Map<string, Asistencia>()
   for (const a of asistencia) {
     porUsuarioDia.set(`${a.id_usuario}|${a.fecha.slice(0, 10)}`, a)
@@ -149,12 +170,14 @@ export function detectarTardanzasObsoletas(params: {
       const a = porUsuarioDia.get(`${n.id_usuario}|${f}`)
       if (!a?.hora_entrada) continue
       const horario = horariosPorMes[f.slice(0, 7)]?.[n.id_usuario] ?? horarioFallback?.[n.id_usuario] ?? null
+      const horarioEsperado = horarioEsperadoDesdeCtx(n.id_usuario, f, horario, horarioEsperadoCtx)
       const ev = evaluarDiaAsistencia({
         idUsuario: n.id_usuario,
         fecha: f,
         asistencia: a,
         novedades: [n],
-        horario
+        horario,
+        horarioEsperado
       })
       if (!ev.esTarde) out.push(n)
       break
@@ -173,6 +196,7 @@ export async function sincronizarNovedadesDesdeAsistencia(params: {
   dias: string[]
   horariosPorMes?: Record<string, Record<number, HorarioFijoAsistencia>>
   horarioFallback?: Record<number, HorarioFijoAsistencia>
+  horarioEsperadoCtx?: HorarioEsperadoCtx | null
   registradoPor: number
 }): Promise<{ creadas: number; omitidas: number; errores: number; eliminadas: number }> {
   // Releer novedades frescas del rango para no duplicar por estado React stale.

@@ -3,6 +3,44 @@ import { CONFIG_CALCULO_DEFAULT, horarioSabadoEfectivo, type ConfigCalculo } fro
 import { asistenciaHoraCorta, isoToArgentinaDateKey } from './dateUtils'
 import { esFeriado } from './feriadosArgentina'
 import { esDiaHabil, novedadEnDia } from './rrhhNovedadDates'
+import { resolverHorarioEsperadoDia } from './rrhhHorarioEsperadoDia'
+import type { RotacionAsignacion, RotacionPlantilla } from './rrhhTurnosRotativos'
+
+/** Contexto opcional para alinear stats con tablet (override → rotativo → fijo). */
+export type HorarioEsperadoCtx = {
+  plantillas?: RotacionPlantilla[]
+  asignaciones?: RotacionAsignacion[]
+  /** Clave `${idUsuario}|YYYY-MM-DD` → entrada/salida del día (turnos / ajustes). */
+  overridesPorUsuarioDia?: Record<string, { entrada: string; salida: string }>
+}
+
+export function horarioEsperadoDesdeCtx(
+  idUsuario: number,
+  fecha: string,
+  horario: HorarioFijoAsistencia | null,
+  ctx?: HorarioEsperadoCtx | null
+): { entrada: string | null; salida: string | null; esFranco?: boolean } | null {
+  if (!ctx) return null
+  const ov = ctx.overridesPorUsuarioDia?.[`${idUsuario}|${fecha.slice(0, 10)}`]
+  const r = resolverHorarioEsperadoDia({
+    fechaIso: fecha,
+    fijo: horario
+      ? {
+          entrada: horario.entrada,
+          salida: horario.salida,
+          trabajaSabado: horario.trabajaSabado,
+          sabadoEntrada: horario.sabadoEntrada,
+          sabadoSalida: horario.sabadoSalida,
+          horas: horario.horas
+        }
+      : null,
+    override: ov || null,
+    plantillas: ctx.plantillas,
+    asignaciones: ctx.asignaciones,
+    idUsuario
+  })
+  return { entrada: r.entrada, salida: r.salida, esFranco: r.esFranco }
+}
 
 export type HorarioFijoAsistencia = {
   entrada: string
@@ -216,11 +254,20 @@ export function buildExtraAcumuladoPorEmpleado(params: {
   horariosPorMes?: Record<string, Record<number, HorarioFijoAsistencia>>
   horarioFallback?: Record<number, HorarioFijoAsistencia>
   config?: ConfigCalculo
+  horarioEsperadoCtx?: HorarioEsperadoCtx | null
 }): {
   porDia: Map<number, Map<string, ExtraDiaDetalle>>
   acumulado: Map<number, Map<string, number>>
 } {
-  const { asistencia, novedades, dias, horariosPorMes = {}, horarioFallback, config } = params
+  const {
+    asistencia,
+    novedades,
+    dias,
+    horariosPorMes = {},
+    horarioFallback,
+    config,
+    horarioEsperadoCtx
+  } = params
 
   const porUsuarioDia = new Map<string, Asistencia>()
   for (const a of asistencia) {
@@ -253,13 +300,15 @@ export function buildExtraAcumuladoPorEmpleado(params: {
       const a = porUsuarioDia.get(`${id}|${f}`)
       const novs = novedadesPorUsuarioDia.get(`${id}|${f}`) ?? []
       const horario = horarioParaMes(id, f, horariosPorMes, horarioFallback)
+      const horarioEsperado = horarioEsperadoDesdeCtx(id, f, horario, horarioEsperadoCtx)
       const ev = evaluarDiaAsistencia({
         idUsuario: id,
         fecha: f,
         asistencia: a,
         novedades: novs,
         horario,
-        config
+        config,
+        horarioEsperado
       })
       const det = ev.extraDet
       if (det.total > 0) mapDia.set(f, det)
@@ -419,17 +468,41 @@ export function evaluarDiaAsistencia(params: {
   novedades: RrhhNovedad[]
   horario: HorarioFijoAsistencia | null
   config?: ConfigCalculo
+  /** Misma prioridad que tablet: override → rotativo → fijo. */
+  horarioEsperado?: {
+    entrada: string | null
+    salida: string | null
+    esFranco?: boolean
+  } | null
 }): EvaluacionDiaAsistencia {
   const { idUsuario, fecha, asistencia: a, novedades: novs, horario, config = CONFIG_CALCULO_DEFAULT } = params
   const habil = esDiaHabil(fecha)
   const reg = a ?? asistenciaVacia(idUsuario, fecha)
-  const extraDet = calcularHorasExtraDiaDetalle(reg, fecha, horario, novs, config)
+  const horarioParaExtra =
+    params.horarioEsperado?.entrada && params.horarioEsperado?.salida
+      ? {
+          ...(horario || { entrada: '', salida: '', horas: null, trabajaSabado: true }),
+          entrada: params.horarioEsperado.entrada,
+          salida: params.horarioEsperado.salida
+        }
+      : horario
+  const extraDet = calcularHorasExtraDiaDetalle(reg, fecha, horarioParaExtra, novs, config)
 
   const novFalta = novs.find((n) => n.grupo === 'falta')
   const novLicencia = novs.find((n) => n.grupo === 'licencia')
   const novTardanza = novs.find((n) => n.codigo === 'tardanza')
   const novsHe = novs.filter((n) => n.grupo === 'horas_extra')
-  const horaEsp = horario?.entrada || null
+  // Sábado: usar entrada de sábado del fijo si no hay esperado explícito
+  let horaEsp = params.horarioEsperado?.entrada ?? null
+  if (horaEsp == null && horario) {
+    const [y, m, d] = fecha.split('-').map(Number)
+    const dow = new Date(y, m - 1, d).getDay()
+    if (dow === 6) {
+      horaEsp = horarioSabadoEfectivo(horario)?.entrada ?? null
+    } else if (dow !== 0) {
+      horaEsp = horario.entrada || null
+    }
+  }
   const tardeInfo = a
     ? detectarTardeMarcacion(a, novs, horaEsp)
     : { tarde: !!novTardanza, minutos: novTardanza?.duracion_minutos ?? 0 }
@@ -491,6 +564,7 @@ export function calcularStatsAsistencia(params: {
   idsConHorario?: number[]
   config?: ConfigCalculo
   valorHoraBase?: number
+  horarioEsperadoCtx?: HorarioEsperadoCtx | null
 }): StatsEmpleadoAsistencia[] {
   const {
     asistencia,
@@ -501,7 +575,8 @@ export function calcularStatsAsistencia(params: {
     horarioFallback,
     idsConHorario,
     config = CONFIG_CALCULO_DEFAULT,
-    valorHoraBase = 0
+    valorHoraBase = 0,
+    horarioEsperadoCtx
   } = params
 
   const ids = new Set<number>()
@@ -545,13 +620,15 @@ export function calcularStatsAsistencia(params: {
       const a = porUsuarioDia.get(`${id}|${f}`)
       const novs = novedadesPorUsuarioDia.get(`${id}|${f}`) ?? []
       const horario = horarioParaMes(id, f, horariosPorMes, horarioFallback)
+      const horarioEsperado = horarioEsperadoDesdeCtx(id, f, horario, horarioEsperadoCtx)
       const ev = evaluarDiaAsistencia({
         idUsuario: id,
         fecha: f,
         asistencia: a,
         novedades: novs,
         horario,
-        config
+        config,
+        horarioEsperado
       })
 
       totalHorasExtra += ev.extraDet.total
@@ -559,6 +636,7 @@ export function calcularStatsAsistencia(params: {
       extra100 += ev.extraDet.extra100
       totalHoras += ev.horasTrabajadas
 
+      if (horarioEsperado?.esFranco) continue
       if (esFeriado(f) || !esDiaLaborableEmpleado(f, horario)) continue
 
       if (ev.esAusenciaInjustificada) {

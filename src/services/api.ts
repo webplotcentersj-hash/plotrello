@@ -5436,20 +5436,31 @@ class ApiService {
     query: string,
     options?: { limit?: number }
   ): Promise<ApiResponse<ClienteRecord[]>> {
-    if (!supabase) {
-      return { success: false, error: 'No hay conexión a Supabase' }
+    const maxResultados = Math.min(Math.max(options?.limit ?? 50, 1), 150)
+    const queryTrimmed = query.trim()
+    if (!queryTrimmed) {
+      return { success: true, data: [] }
     }
 
-    const maxResultados = Math.min(Math.max(options?.limit ?? 50, 1), 150)
+    const fromOffline = async (): Promise<ApiResponse<ClienteRecord[]>> => {
+      const { buscarClientesOffline } = await import('../utils/clientesOfflineCache')
+      const data = await buscarClientesOffline(queryTrimmed, maxResultados)
+      if (data.length) return { success: true, data }
+      return { success: false, error: 'Sin conexión y sin clientes en caché local' }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return fromOffline()
+    }
+
+    if (!supabase) {
+      return fromOffline()
+    }
 
     try {
       const { tokenizarBusquedaCliente, clienteCoincideBusqueda } = await import(
         '../utils/clienteDuplicados'
       )
-      const queryTrimmed = query.trim()
-      if (!queryTrimmed) {
-        return { success: true, data: [] }
-      }
 
       const tokens = tokenizarBusquedaCliente(queryTrimmed)
       const limiteToken = Math.min(maxResultados + 40, 150)
@@ -5477,9 +5488,13 @@ class ApiService {
         .filter((c) => clienteCoincideBusqueda(c, queryTrimmed))
         .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))
 
-      return { success: true, data: filtrados.slice(0, maxResultados) }
+      const data = filtrados.slice(0, maxResultados)
+      void import('../utils/clientesOfflineCache').then((m) => m.mergeClientesOfflineCache(data))
+      return { success: true, data }
     } catch (error: any) {
       console.error('Error en buscarClientes:', error)
+      const offline = await fromOffline()
+      if (offline.success) return offline
       return { success: false, error: error.message || 'Error al buscar clientes' }
     }
   }
@@ -10472,8 +10487,31 @@ class ApiService {
   }
 
   async getArticulosStock(search?: string, stockBajo?: boolean, sector?: string): Promise<ApiResponse<ArticuloStock[]>> {
+    const cacheableFull =
+      !search?.trim() && !stockBajo && (!sector || sector === 'Todos')
+
+    const fromOffline = async (): Promise<ApiResponse<ArticuloStock[]>> => {
+      const { readStockArticulosOfflineCache, filterStockArticulosOffline } = await import(
+        '../utils/stockArticulosOfflineCache'
+      )
+      const cached = await readStockArticulosOfflineCache()
+      if (!cached?.length) {
+        return { success: false, error: 'Sin conexión y sin stock en caché local' }
+      }
+      return {
+        success: true,
+        data: filterStockArticulosOffline(cached, { search, stockBajo, sector })
+      }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return fromOffline()
+    }
+
     if (!stockSupabase) {
       console.warn('⚠️ No hay conexión a la base de datos de stock. Verifica VITE_STOCK_SUPABASE_URL y VITE_STOCK_SUPABASE_ANON_KEY')
+      const offline = await fromOffline()
+      if (offline.success) return offline
       return { success: false, error: 'No hay conexión a la base de datos de stock. Verifica las variables de entorno VITE_STOCK_SUPABASE_URL y VITE_STOCK_SUPABASE_ANON_KEY' }
     }
 
@@ -10511,6 +10549,8 @@ class ApiService {
 
       if (error) {
         console.error('❌ Error obteniendo artículos de stock:', error)
+        const offline = await fromOffline()
+        if (offline.success) return offline
         return { 
           success: false, 
           error: `Error al obtener artículos: ${error.message}. Código: ${error.code || 'N/A'}. Detalles: ${error.details || 'N/A'}` 
@@ -10540,12 +10580,20 @@ class ApiService {
         proveedor: art.proveedor || null,
         activo: art.activo !== null && art.activo !== undefined ? Boolean(art.activo) : true,
         sector: art.sector || 'Gral'
-      }))
+      })) as ArticuloStock[]
+
+      if (cacheableFull) {
+        void import('../utils/stockArticulosOfflineCache').then((m) =>
+          m.writeStockArticulosOfflineCache(articulosNormalizados)
+        )
+      }
 
       console.log(`✅ Artículos obtenidos: ${articulosNormalizados.length}`)
-      return { success: true, data: articulosNormalizados as ArticuloStock[] }
+      return { success: true, data: articulosNormalizados }
     } catch (error) {
       console.error('❌ Excepción al obtener artículos:', error)
+      const offline = await fromOffline()
+      if (offline.success) return offline
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Error desconocido al obtener artículos' 
@@ -14360,6 +14408,31 @@ class ApiService {
     incluirInactivos?: boolean,
     canal?: CanalComercialCatalogo
   ): Promise<ApiResponse<ArticuloEmpresaRecord[]>> {
+    const cacheableFull =
+      visibleClientes === undefined && !incluirInactivos && !canal
+
+    const fromOffline = async (): Promise<ApiResponse<ArticuloEmpresaRecord[]>> => {
+      const { readArticulosEmpresaOfflineCache } = await import(
+        '../utils/articulosEmpresaOfflineCache'
+      )
+      let rows = await readArticulosEmpresaOfflineCache()
+      if (!rows?.length) {
+        return { success: false, error: 'Sin conexión y sin lista de precios en caché' }
+      }
+      if (!incluirInactivos) rows = rows.filter((r) => r.activo)
+      if (canal && COLUMNA_VISIBILIDAD_POR_CANAL[canal]) {
+        const col = COLUMNA_VISIBILIDAD_POR_CANAL[canal]
+        rows = rows.filter((r) => Boolean((r as Record<string, unknown>)[col]))
+      } else if (visibleClientes !== undefined) {
+        rows = rows.filter((r) => Boolean(r.visible_clientes) === visibleClientes)
+      }
+      return { success: true, data: rows }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return fromOffline()
+    }
+
     if (supabase) {
       try {
         let query = supabase
@@ -14379,11 +14452,16 @@ class ApiService {
 
         const { data, error } = await query
 
-        if (error) return { success: false, error: error.message }
+        if (error) {
+          const offline = await fromOffline()
+          if (offline.success) return offline
+          return { success: false, error: error.message }
+        }
 
         const rows = (data || []) as ArticuloEmpresaRecord[]
+        let out = rows
         if (stockSupabase && rows.some((r) => r.id_articulo_stock)) {
-          const enriched = await Promise.all(
+          out = await Promise.all(
             rows.map(async (row) => {
               if (!row.id_articulo_stock) return row
               const st = await obtenerStockArticulo(row.id_articulo_stock)
@@ -14393,14 +14471,22 @@ class ApiService {
               }
             })
           )
-          return { success: true, data: enriched }
         }
 
-        return { success: true, data: rows }
+        if (cacheableFull) {
+          void import('../utils/articulosEmpresaOfflineCache').then((m) =>
+            m.writeArticulosEmpresaOfflineCache(out)
+          )
+        }
+        return { success: true, data: out }
       } catch (error) {
+        const offline = await fromOffline()
+        if (offline.success) return offline
         return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
       }
     }
+    const offline = await fromOffline()
+    if (offline.success) return offline
     return { success: false, error: 'No hay conexión a Supabase' }
   }
 
@@ -15014,20 +15100,43 @@ class ApiService {
   async getConfiguracionPreciosVentas(): Promise<
     ApiResponse<import('../constants/ventasListasPrecio').ConfigAjustesPreciosVentas>
   > {
-    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const fromOffline = async (): Promise<
+      ApiResponse<import('../constants/ventasListasPrecio').ConfigAjustesPreciosVentas>
+    > => {
+      const { readPreciosConfigOfflineCache } = await import('../utils/preciosConfigOfflineCache')
+      const cached = readPreciosConfigOfflineCache()
+      if (cached) return { success: true, data: cached }
+      const { DEFAULT_AJUSTES_PRECIOS_VENTAS } = await import('../constants/ventasListasPrecio')
+      return { success: true, data: DEFAULT_AJUSTES_PRECIOS_VENTAS }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return fromOffline()
+    }
+
+    if (!supabase) return fromOffline()
     try {
       const { data, error } = await supabase.rpc('get_configuracion_precios_ventas')
-      if (error) return { success: false, error: error.message }
+      if (error) {
+        const offline = await fromOffline()
+        if (offline.success) return offline
+        return { success: false, error: error.message }
+      }
       if (!data || typeof data !== 'object') {
         const { DEFAULT_AJUSTES_PRECIOS_VENTAS } = await import('../constants/ventasListasPrecio')
         return { success: true, data: DEFAULT_AJUSTES_PRECIOS_VENTAS }
       }
       const { normalizarConfigAjustesPrecios } = await import('../constants/ventasListasPrecio')
-      return {
-        success: true,
-        data: normalizarConfigAjustesPrecios(data as import('../constants/ventasListasPrecio').ConfigAjustesPreciosVentas)
-      }
+      const normalized = normalizarConfigAjustesPrecios(
+        data as import('../constants/ventasListasPrecio').ConfigAjustesPreciosVentas
+      )
+      void import('../utils/preciosConfigOfflineCache').then((m) =>
+        m.writePreciosConfigOfflineCache(normalized)
+      )
+      return { success: true, data: normalized }
     } catch (error) {
+      const offline = await fromOffline()
+      if (offline.success) return offline
       return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
     }
   }
@@ -15044,7 +15153,11 @@ class ApiService {
       })
       if (error) return { success: false, error: error.message }
       if (!data) return { success: false, error: 'No se recibió configuración guardada' }
-      return { success: true, data: normalizarConfigAjustesPrecios(data as typeof config) }
+      const saved = normalizarConfigAjustesPrecios(data as typeof config)
+      void import('../utils/preciosConfigOfflineCache').then((m) =>
+        m.writePreciosConfigOfflineCache(saved)
+      )
+      return { success: true, data: saved }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
     }
