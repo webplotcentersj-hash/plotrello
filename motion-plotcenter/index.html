@@ -393,6 +393,25 @@ build.via=root=>{
    <radialGradient id="c-halo"><stop offset="0" stop-color="#FFB27A" stop-opacity=".85"/><stop offset="1" stop-color="#EB671B" stop-opacity="0"/></radialGradient>
    <radialGradient id="c-haloI"><stop offset="0" stop-color="#a5b4fc" stop-opacity=".8"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></radialGradient>
    <radialGradient id="c-haloE"><stop offset="0" stop-color="#6ee7b7" stop-opacity=".8"/><stop offset="1" stop-color="#10b981" stop-opacity="0"/></radialGradient>
+   <linearGradient id="c-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b92ff"/><stop offset=".45" stop-color="#4f46e5"/><stop offset="1" stop-color="#2a2785"/></linearGradient>
+   <linearGradient id="c-body2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a82fb"/><stop offset="1" stop-color="#3b39b8"/></linearGradient>
+   <linearGradient id="c-glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b3170"/><stop offset="1" stop-color="#0a0c22"/></linearGradient>
+   <radialGradient id="c-redglow"><stop offset="0" stop-color="#ff2d55" stop-opacity=".7"/><stop offset="1" stop-color="#ff2d55" stop-opacity="0"/></radialGradient>
+   <g id="c-carart">
+     <ellipse cx="0" cy="4" rx="118" ry="12" fill="#000" opacity=".6"/><ellipse cx="0" cy="16" rx="160" ry="26" fill="url(#c-redglow)"/>
+     <rect x="-96" y="-36" width="30" height="36" rx="9" fill="#07070c"/><rect x="66" y="-36" width="30" height="36" rx="9" fill="#07070c"/>
+     <path d="M-100 -34 Q-103 -62 -87 -68 L-78 -70 H78 L87 -68 Q103 -62 100 -34 V-20 Q100 -10 90 -10 H-90 Q-100 -10 -100 -20 Z" fill="url(#c-body)"/>
+     <path d="M-80 -68 L-65 -105 Q-62 -112 -53 -112 H53 Q62 -112 65 -105 L80 -68 Z" fill="url(#c-body2)"/>
+     <path d="M-71 -73 L-58 -102 Q-56 -105 -51 -105 H51 Q56 -105 58 -102 L71 -73 Z" fill="url(#c-glass)"/>
+     <path d="M-50 -104 H-30 L-58 -74 H-70 Z" fill="#fff" opacity=".13"/><rect x="-26" y="-103" width="52" height="5" rx="2.5" fill="#ff2d55"/>
+     <rect x="-98" y="-63" width="58" height="19" rx="9" fill="#ff2d55"/><rect x="40" y="-63" width="58" height="19" rx="9" fill="#ff2d55"/>
+     <rect x="-90" y="-59" width="42" height="5" rx="2.5" fill="#ffb3c1"/><rect x="48" y="-59" width="42" height="5" rx="2.5" fill="#ffb3c1"/><rect x="-40" y="-57" width="80" height="6" rx="3" fill="#ff3b5f"/>
+     <rect x="-26" y="-46" width="52" height="18" rx="3" fill="#f4f4f8"/><text x="0" y="-33" text-anchor="middle" font-size="12" font-weight="800" fill="#1d2030">PLOT</text>
+     <rect x="-92" y="-26" width="184" height="15" rx="7" fill="#14163f"/><ellipse cx="-86" cy="-84" rx="10" ry="6" fill="#5b5ef0"/><ellipse cx="86" cy="-84" rx="10" ry="6" fill="#5b5ef0"/>
+     <path d="M-62 -111 Q0 -119 62 -111" stroke="#fff" stroke-opacity=".5" stroke-width="2" fill="none"/><path d="M-98 -64 Q0 -72 98 -64" stroke="#fff" stroke-opacity=".28" stroke-width="2" fill="none"/>
+     <path d="M100 -34 Q103 -62 87 -68" stroke="#ffb27a" stroke-opacity=".65" stroke-width="3" fill="none"/><path d="M80 -68 L65 -105" stroke="#ffb27a" stroke-opacity=".5" stroke-width="3"/>
+     <ellipse cx="-69" cy="-54" rx="60" ry="24" fill="url(#c-redglow)" opacity=".8"/><ellipse cx="69" cy="-54" rx="60" ry="24" fill="url(#c-redglow)" opacity=".8"/>
+   </g>
    <linearGradient id="c-pan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFEBDD"/><stop offset="1" stop-color="#FFB27A"/></linearGradient></defs>
    <rect width="820" height="800" fill="url(#c-sky)"/>
    <g id="c-stars"></g><g id="c-far" transform="translate(0 470)"></g><g id="c-near" transform="translate(0 470)"></g>
@@ -412,10 +431,10 @@ build.via=root=>{
      <rect x="682" y="510" width="16" height="190" fill="#1d2030"/><rect x="624" y="290" width="132" height="226" rx="20" fill="url(#c-pan)" stroke="#EB671B" stroke-width="5"/>
      <circle cx="690" cy="354" r="30" fill="#EB671B"/><text x="690" y="448" text-anchor="middle" font-size="34" font-weight="800" fill="#1a0e09">PLOT</text><rect x="650" y="468" width="80" height="8" rx="4" fill="#1a0e09" opacity=".35"/>
      <rect id="c-o3" x="624" y="290" width="132" height="226" rx="20" fill="#05050b" opacity=".86"/></g>
-   <g id="c-lb1" opacity="0"><rect x="85" y="312" width="240" height="62" rx="24" fill="#0E101A" stroke="#818cf8" stroke-width="2"/><text x="205" y="339" text-anchor="middle" font-size="21" font-weight="700" fill="#fff">Cartel municipal</text><text x="205" y="363" text-anchor="middle" font-size="18" font-weight="600" fill="#a5b4fc">150×112 cm</text></g>
-   <g id="c-lb2" opacity="0"><rect x="380" y="312" width="240" height="62" rx="24" fill="#0E101A" stroke="#34d399" stroke-width="2"/><text x="500" y="339" text-anchor="middle" font-size="21" font-weight="700" fill="#fff">Chupete estándar</text><text x="500" y="363" text-anchor="middle" font-size="18" font-weight="600" fill="#6ee7b7">104×142 cm</text></g>
-   <g id="c-lb3" opacity="0"><rect x="552" y="208" width="256" height="62" rx="24" fill="#0E101A" stroke="#ff8f4a" stroke-width="2"/><text x="680" y="235" text-anchor="middle" font-size="21" font-weight="700" fill="#fff">Chupete iluminado</text><text x="680" y="259" text-anchor="middle" font-size="18" font-weight="600" fill="#ffb27a">backlight · 104×142 cm</text></g>
-   <g id="c-carG" opacity="0"><ellipse id="c-cg" rx="60" ry="22" fill="url(#c-halo)"/><circle id="c-cl" r="5" fill="#fff"/><circle id="c-cr" r="5" fill="#fff"/></g>
+   <g id="c-lb1" opacity="0"><rect x="30" y="312" width="240" height="62" rx="24" fill="#0E101A" stroke="#818cf8" stroke-width="2"/><text x="150" y="339" text-anchor="middle" font-size="21" font-weight="700" fill="#fff">Cartel municipal</text><text x="150" y="363" text-anchor="middle" font-size="18" font-weight="600" fill="#a5b4fc">150×112 cm</text></g>
+   <g id="c-lb2" opacity="0"><rect x="415" y="312" width="220" height="62" rx="24" fill="#0E101A" stroke="#34d399" stroke-width="2"/><text x="525" y="339" text-anchor="middle" font-size="21" font-weight="700" fill="#fff">Chupete estándar</text><text x="525" y="363" text-anchor="middle" font-size="18" font-weight="600" fill="#6ee7b7">104×142 cm</text></g>
+   <g id="c-lb3" opacity="0"><rect x="565" y="208" width="250" height="62" rx="24" fill="#0E101A" stroke="#ff8f4a" stroke-width="2"/><text x="690" y="235" text-anchor="middle" font-size="21" font-weight="700" fill="#fff">Chupete iluminado</text><text x="690" y="259" text-anchor="middle" font-size="18" font-weight="600" fill="#ffb27a">backlight · 104×142 cm</text></g>
+   <g id="c-trail"></g><g id="c-carG" opacity="0"><use href="#c-carart"/></g>
    <text id="c-num" x="48" y="150" font-size="112" font-weight="800" fill="#fbbf24">0</text>
    <text x="52" y="196" font-size="24" font-weight="700" letter-spacing="5" fill="#e5e7f0">ESPACIOS EN LA RED</text></svg>`;
   const L=svcBuild(root,{kick:'Servicio 05 / 08',title:['Vía','Pública'],desc:'Cartelería de gran formato y concesión exclusiva en zonas estratégicas, con carteles municipales y chupetes.',chips:['Carteles municipales','Chupetes','Chupetes iluminados'],ac:C.o,acl:'#ff8f4a',chipCols:[C.indigo,C.emerald,C.o],art});
@@ -433,11 +452,14 @@ build.via=root=>{
   };
   city(far,'#0b0c17',70,170,40,80,11);city(near,'#11121f',40,110,50,90,23);
   stars.innerHTML=Array.from({length:40},()=>`<circle cx="${r()*820}" cy="${r()*300}" r="${.6+r()*1.2}" fill="#fff" opacity="${.2+r()*.6}"/>`).join('');
-  const lane=q(root,'#c-lane'),num=q(root,'#c-num'),carG=q(root,'#c-carG'),cg=q(root,'#c-cg'),cl=q(root,'#c-cl'),cr=q(root,'#c-cr');
+  const lane=q(root,'#c-lane'),num=q(root,'#c-num'),carG=q(root,'#c-carG'),trail=q(root,'#c-trail');
   const S=[1,2,3].map(i=>({o:q(root,'#c-o'+i),h:q(root,'#c-h'+i),lb:q(root,'#c-lb'+i)}));
   const g3=q(root,'#c-g3');
+  const TR=10;trail.innerHTML=Array.from({length:TR*2},()=>`<circle r="4" fill="#ff3b5f" opacity="0"/>`).join('');
+  const dots=[...trail.children];
+  const carPos=u=>{const y=lerp(782,498,Math.pow(u,1.45)),h=roadHalf(y);return{x:410+h*.5,y,s:h/250}};
   const flick=(x)=>x<.35?(Math.floor(x*40)%3===0?.25:1):1;
-  const roadHalf=y=>lerp(80,380,(y-470)/330);
+  const roadHalf=y=>lerp(40,260,(y-470)/330);
   return lt=>{
     L(lt);
     const grow=P(lt,.4,1.0,E.o4);far.setAttribute('transform',`translate(0 470) scale(1 ${grow})`);near.setAttribute('transform',`translate(0 470) scale(1 ${P(lt,.55,1.0,E.o4)})`);
@@ -452,10 +474,9 @@ build.via=root=>{
       op(s.o,.86*(1-f));op(s.h,f*.9);op(s.lb,P(lt,t0[i]+.35,.4));});
     op(g3,P(lt,2.5,.8)*.7);
     num.textContent=Math.round(120*P(lt,.8,2.2,E.o3));
-    const cp=P(lt,3.0,1.7,E.lin),y=470+Math.pow(cp,2.2)*320,z=(y-470)/330,cx=410+roadHalf(y)*.5;
-    op(carG,cp>0&&cp<1?clamp(cp*6)*clamp((1-cp)*6):0);
-    cg.setAttribute('cx',cx);cg.setAttribute('cy',y);cg.setAttribute('rx',30+z*130);cg.setAttribute('ry',12+z*40);
-    cl.setAttribute('cx',cx-6-z*34);cr.setAttribute('cx',cx+6+z*34);cl.setAttribute('cy',y);cr.setAttribute('cy',y);cl.setAttribute('r',2+z*8);cr.setAttribute('r',2+z*8);
+    const cu=P(lt,2.5,2.4,E.lin),cv=clamp((lt-2.4)/.3)*clamp((1-cu)*6),c=carPos(cu);
+    carG.setAttribute('transform',`translate(${c.x+Math.sin(lt*3)*c.s*1.5} ${c.y}) scale(${c.s})`);op(carG,cv);
+    dots.forEach((d,i)=>{const k=i%TR,uk=cu-(k+1)*.022;if(uk<0){op(d,0);return}const pk=carPos(uk),side=i<TR?-1:1;d.setAttribute('cx',pk.x+side*62*pk.s);d.setAttribute('cy',pk.y-52*pk.s);d.setAttribute('r',Math.max(.8,4.5*pk.s));op(d,cv*.75*(1-k/TR))});
   };
 };
 
