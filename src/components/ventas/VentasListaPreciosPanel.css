@@ -113,6 +113,35 @@
   margin-bottom: 12px;
 }
 
+.vlp-nuevo {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.vlp-nuevo__hint {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+
+.vlp-nuevo__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.vlp-nuevo__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .vlp-input,
 .vlp-select {
   padding: 8px 10px;

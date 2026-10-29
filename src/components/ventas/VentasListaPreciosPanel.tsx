@@ -90,6 +90,14 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
   const [trazadoCargando, setTrazadoCargando] = useState(false)
   const [guardandoPrecio, setGuardandoPrecio] = useState(false)
   const [exportando, setExportando] = useState<'pdf' | 'xlsx' | null>(null)
+  const [creandoItem, setCreandoItem] = useState(false)
+  const [guardandoNuevo, setGuardandoNuevo] = useState(false)
+  const [nuevoCodigo, setNuevoCodigo] = useState('')
+  const [nuevoNombre, setNuevoNombre] = useState('')
+  const [nuevoCategoria, setNuevoCategoria] = useState('')
+  const [nuevoPrecio1, setNuevoPrecio1] = useState('')
+  const [nuevoPrecio2, setNuevoPrecio2] = useState('')
+  const [nuevoUnidad, setNuevoUnidad] = useState('m2')
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -190,7 +198,91 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
     setCarrito((prev) => prev.filter((l) => l.key !== key))
   }
 
+  const resetFormNuevo = () => {
+    setNuevoCodigo('')
+    setNuevoNombre('')
+    setNuevoCategoria(categoria !== 'todas' ? categoria : '')
+    setNuevoPrecio1('')
+    setNuevoPrecio2('')
+    setNuevoUnidad('m2')
+  }
+
+  const abrirFormNuevo = () => {
+    setEditandoId(null)
+    resetFormNuevo()
+    setCreandoItem(true)
+  }
+
+  const parsePrecioInput = (s: string): number | null =>
+    s.trim() ? Number(s.replace(',', '.')) : null
+
+  const crearItemCatalogo = async () => {
+    const nombre = nuevoNombre.trim()
+    if (!nombre) {
+      alert('La descripción es obligatoria.')
+      return
+    }
+    const l1 = parsePrecioInput(nuevoPrecio1)
+    if (l1 == null || !(l1 >= 0)) {
+      alert('Indicá el precio de Lista 1 (neto Flexxus).')
+      return
+    }
+    setGuardandoNuevo(true)
+    try {
+      // Prefijo LP- para que no lo oculte el filtro de códigos ART- del catálogo.
+      const codigo =
+        nuevoCodigo.trim() || `LP-${Date.now().toString(36).toUpperCase()}`
+      const creado = await apiService.crearArticuloEmpresa({
+        codigo,
+        nombre,
+        categoria: nuevoCategoria.trim() || undefined,
+        precio_base: l1,
+        visible_clientes: false
+      })
+      if (!creado.success || !creado.data) {
+        throw new Error(creado.error || 'No se pudo crear el ítem')
+      }
+      const id = creado.data.id
+      const precios = await apiService.actualizarPreciosListaArticulo(id, {
+        nombre,
+        categoria: nuevoCategoria.trim() || null,
+        precio_lista_1: l1,
+        precio_lista_2: parsePrecioInput(nuevoPrecio2),
+        unidad_medida: normalizarUnidadPrecio(nuevoUnidad)
+      })
+      if (!precios.success || !precios.data) {
+        throw new Error(precios.error || 'Ítem creado, pero no se guardaron los precios de lista')
+      }
+      const comercio = await apiService.actualizarCamposComercioArticuloEmpresa(id, {
+        visible_portal: false,
+        visible_clientes: false,
+        visible_totem: false,
+        controla_stock: false
+      })
+      const articulo: ArticuloEmpresaRecord = {
+        ...creado.data,
+        ...precios.data,
+        ...(comercio.success && comercio.data ? comercio.data : {}),
+        activo: true
+      }
+      setArticulos((prev) => {
+        if (prev.some((a) => a.id === articulo.id)) {
+          return prev.map((a) => (a.id === articulo.id ? { ...a, ...articulo } : a))
+        }
+        return [articulo, ...prev]
+      })
+      setCreandoItem(false)
+      resetFormNuevo()
+      iniciarEdicionPrecios(articulo)
+    } catch (ex) {
+      alert(ex instanceof Error ? ex.message : 'Error al crear el ítem')
+    } finally {
+      setGuardandoNuevo(false)
+    }
+  }
+
   const iniciarEdicionPrecios = (articulo: ArticuloEmpresaRecord) => {
+    setCreandoItem(false)
     setEditandoId(articulo.id)
     setEditNombre(articulo.nombre)
     setEditCategoria(articulo.categoria || '')
@@ -335,13 +427,12 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
     }
     setGuardandoPrecio(true)
     try {
-      const parse = (s: string) => (s.trim() ? Number(s.replace(',', '.')) : null)
-      const l1 = parse(editPrecio1)
+      const l1 = parsePrecioInput(editPrecio1)
       const res = await apiService.actualizarPreciosListaArticulo(id, {
         nombre,
         categoria: editCategoria.trim() || null,
         precio_lista_1: l1,
-        precio_lista_2: parse(editPrecio2),
+        precio_lista_2: parsePrecioInput(editPrecio2),
         unidad_medida: normalizarUnidadPrecio(editUnidad)
       })
       if (!res.success || !res.data) throw new Error(res.error || 'No se guardó')
@@ -548,10 +639,108 @@ export default function VentasListaPreciosPanel({ onIrAPresupuesto }: Props) {
             >
               {vinculando ? 'Armando…' : 'Armar con stock del mismo código'}
             </button>
+            <button
+              type="button"
+              className="vlp-btn vlp-btn--primary"
+              onClick={abrirFormNuevo}
+              disabled={creandoItem}
+            >
+              + Nuevo ítem
+            </button>
             <button type="button" className="vlp-btn vlp-btn--ghost" onClick={() => void cargar()}>
               ↻
             </button>
           </div>
+
+          {creandoItem ? (
+            <div className="vlp-nuevo" role="form" aria-label="Nuevo ítem de lista de precios">
+              <p className="vlp-nuevo__hint">
+                Cualquier usuario puede crear ítems. Los precios son <strong>netos</strong> (sin IVA); la
+                tabla muestra el final con ajustes.
+              </p>
+              <div className="vlp-nuevo__grid">
+                <input
+                  className="vlp-input"
+                  value={nuevoCodigo}
+                  onChange={(e) => setNuevoCodigo(e.target.value)}
+                  placeholder="Código (opcional)"
+                  aria-label="Código"
+                  autoComplete="off"
+                />
+                <input
+                  className="vlp-input vlp-input--desc"
+                  value={nuevoNombre}
+                  onChange={(e) => setNuevoNombre(e.target.value)}
+                  placeholder="Descripción *"
+                  aria-label="Descripción"
+                  autoComplete="off"
+                />
+                <input
+                  className="vlp-input"
+                  value={nuevoCategoria}
+                  onChange={(e) => setNuevoCategoria(e.target.value)}
+                  placeholder="Rubro"
+                  aria-label="Rubro"
+                  list="vlp-rubros-sugeridos"
+                  autoComplete="off"
+                />
+                <datalist id="vlp-rubros-sugeridos">
+                  {categorias.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+                <input
+                  className="vlp-input vlp-input--sm"
+                  value={nuevoPrecio1}
+                  onChange={(e) => setNuevoPrecio1(e.target.value)}
+                  placeholder="L1 neto *"
+                  aria-label="Precio lista 1 neto"
+                  inputMode="decimal"
+                />
+                <input
+                  className="vlp-input vlp-input--sm"
+                  value={nuevoPrecio2}
+                  onChange={(e) => setNuevoPrecio2(e.target.value)}
+                  placeholder="L2 neto"
+                  aria-label="Precio lista 2 neto"
+                  inputMode="decimal"
+                />
+                <select
+                  className="vlp-select vlp-select--unidad"
+                  value={nuevoUnidad}
+                  onChange={(e) => setNuevoUnidad(e.target.value)}
+                  aria-label="Unidad de medida"
+                >
+                  {UNIDADES_PRECIO.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.cantidad}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="vlp-nuevo__actions">
+                <button
+                  type="button"
+                  className="vlp-btn vlp-btn--primary"
+                  disabled={guardandoNuevo}
+                  onClick={() => void crearItemCatalogo()}
+                >
+                  {guardandoNuevo ? 'Creando…' : 'Crear ítem'}
+                </button>
+                <button
+                  type="button"
+                  className="vlp-btn vlp-btn--ghost"
+                  disabled={guardandoNuevo}
+                  onClick={() => {
+                    setCreandoItem(false)
+                    resetFormNuevo()
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {loading ? (
             <p className="vlp-muted">Cargando catálogo…</p>
