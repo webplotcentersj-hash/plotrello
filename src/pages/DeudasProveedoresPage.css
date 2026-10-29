@@ -353,17 +353,39 @@
 .prov-cuenta {
   max-width: 980px;
   margin: 0 auto;
-  padding: 8px 24px 32px;
+  padding: 8px 24px 36px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .prov-cuenta__saldo {
-  padding: 16px 18px;
-  border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(15, 23, 42, 0.7);
+  position: relative;
+  overflow: hidden;
+  padding: 20px 20px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  background:
+    radial-gradient(ellipse 70% 80% at 100% 0%, rgba(249, 115, 22, 0.22), transparent 55%),
+    radial-gradient(ellipse 50% 60% at 0% 100%, rgba(59, 130, 246, 0.12), transparent 50%),
+    linear-gradient(165deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.92) 100%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.prov-cuenta__saldo::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #fb923c, #f97316 40%, #ea580c);
+}
+
+.prov-cuenta__saldo--favor::before {
+  background: linear-gradient(180deg, #4ade80, #16a34a);
+}
+
+.prov-cuenta__saldo--ok::before {
+  background: linear-gradient(180deg, #94a3b8, #64748b);
 }
 
 .prov-cuenta__saldo-top {
@@ -371,55 +393,265 @@
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 14px;
 }
 
-.prov-cuenta__saldo span {
+.prov-cuenta__hero {
+  min-width: min(100%, 280px);
+  flex: 1;
+}
+
+.prov-cuenta__eyebrow {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fdba74;
+  margin-bottom: 8px;
+}
+
+.prov-cuenta__pill {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
   letter-spacing: 0.04em;
-  color: #94a3b8;
+  text-transform: uppercase;
 }
 
-.prov-cuenta__saldo strong {
+.prov-cuenta__pill--deuda {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fcd34d;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.prov-cuenta__pill--favor {
+  background: rgba(74, 222, 128, 0.16);
+  color: #86efac;
+  border: 1px solid rgba(74, 222, 128, 0.35);
+}
+
+.prov-cuenta__pill--ok {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.prov-cuenta__hero-amount-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.prov-cuenta__hero-amount {
   display: block;
-  margin: 6px 0 8px;
-  font-size: 1.35rem;
-}
-
-.prov-cuenta__saldo p,
-.prov-cuenta__leyenda {
   margin: 0;
-  color: #94a3b8;
-  font-size: 0.88rem;
-  line-height: 1.4;
-  max-width: 48rem;
+  font-size: clamp(1.75rem, 3.5vw, 2.35rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: #fff7ed;
+  font-variant-numeric: tabular-nums;
 }
 
-.prov-cuenta__leyenda {
-  margin-top: 8px;
+.prov-cuenta__edit-saldo {
+  border: 1px solid rgba(253, 186, 116, 0.45);
+  background: rgba(249, 115, 22, 0.16);
+  color: #ffedd5;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.prov-cuenta__edit-saldo:hover {
+  background: rgba(249, 115, 22, 0.28);
+}
+
+.prov-cuenta__saldo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.prov-cuenta__saldo-edit {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 320px;
+}
+
+.prov-cuenta__saldo-edit label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fdba74;
+}
+
+.prov-cuenta__saldo-edit label span {
+  font-weight: 500;
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.prov-cuenta__saldo-edit input {
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(253, 186, 116, 0.45);
+  background: #0f172a;
+  color: #fff7ed;
+  padding: 8px 12px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+}
+
+.prov-cuenta__saldo-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.prov-cuenta__saldo-edit-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.prov-cuenta__saldo--deuda .prov-cuenta__hero-amount {
+  color: #fde68a;
+}
+
+.prov-cuenta__saldo--favor .prov-cuenta__hero-amount {
+  color: #bbf7d0;
+}
+
+.prov-cuenta__hero-frase {
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.prov-cuenta__origen {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.prov-cuenta__leyenda-chips {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.prov-cuenta__leyenda-chips li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.prov-cuenta__leyenda-chips strong {
+  display: block;
+  font-size: 0.78rem;
+  color: #f1f5f9;
+}
+
+.prov-cuenta__leyenda-chips em {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.3;
+}
+
+.prov-cuenta__chip-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.prov-cuenta__chip-dot--debe {
+  background: #fbbf24;
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2);
+}
+
+.prov-cuenta__chip-dot--haber {
+  background: #4ade80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.2);
+}
+
+.prov-cuenta__chip-dot--saldo {
+  background: #fb923c;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.22);
 }
 
 .prov-cuenta__kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 8px;
-  margin-top: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
 }
 
-.prov-cuenta__kpis article {
-  padding: 10px 12px;
-  border-radius: 10px;
+.prov-cuenta__kpi {
+  padding: 12px 14px;
+  border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(2, 6, 23, 0.35);
+  background: rgba(2, 6, 23, 0.45);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
-.prov-cuenta__kpis em {
+.prov-cuenta__kpi:hover {
+  transform: translateY(-1px);
+}
+
+.prov-cuenta__kpi--debe {
+  border-color: rgba(251, 191, 36, 0.28);
+  background: linear-gradient(160deg, rgba(251, 191, 36, 0.1), rgba(2, 6, 23, 0.4));
+}
+
+.prov-cuenta__kpi--haber {
+  border-color: rgba(74, 222, 128, 0.28);
+  background: linear-gradient(160deg, rgba(74, 222, 128, 0.1), rgba(2, 6, 23, 0.4));
+}
+
+.prov-cuenta__kpi--saldo {
+  border-color: rgba(249, 115, 22, 0.35);
+  background: linear-gradient(160deg, rgba(249, 115, 22, 0.14), rgba(2, 6, 23, 0.4));
+}
+
+.prov-cuenta__kpi--trace {
+  border-color: rgba(96, 165, 250, 0.28);
+  background: linear-gradient(160deg, rgba(59, 130, 246, 0.12), rgba(2, 6, 23, 0.4));
+}
+
+.prov-cuenta__kpi em {
   font-style: normal;
   font-size: 0.68rem;
   text-transform: uppercase;
@@ -427,47 +659,81 @@
   color: #94a3b8;
 }
 
-.prov-cuenta__kpis b {
-  font-size: 0.95rem;
-  color: #f1f5f9;
+.prov-cuenta__kpi b {
+  font-size: 1.05rem;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
 }
 
-.prov-cuenta__kpis small {
+.prov-cuenta__kpi--debe b {
+  color: #fde68a;
+}
+
+.prov-cuenta__kpi--haber b {
+  color: #86efac;
+}
+
+.prov-cuenta__kpi--saldo b {
+  color: #fdba74;
+}
+
+.prov-cuenta__kpi small {
   font-size: 0.72rem;
   color: #64748b;
 }
 
-.prov-cuenta__card-head {
-  margin-bottom: 10px;
+.prov-cuenta__card-head,
+.prov-cuenta__libro-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.prov-cuenta__step {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: linear-gradient(145deg, #fb923c, #ea580c);
+  color: #fff7ed;
+  font-size: 0.8rem;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
 }
 
 .prov-cuenta__card-head h3,
 .prov-cuenta__libro-head h3 {
   margin: 0 0 4px;
-  font-size: 0.98rem;
-  color: #e2e8f0;
+  font-size: 1.05rem;
+  color: #fff7ed;
+  letter-spacing: -0.01em;
 }
 
 .prov-cuenta__card-head p,
 .prov-cuenta__libro-head p {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: #94a3b8;
+  line-height: 1.35;
 }
 
 .prov-cuenta__libro {
-  margin-top: 4px;
-}
-
-.prov-cuenta__libro-head {
-  margin-bottom: 10px;
+  margin-top: 2px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.55);
 }
 
 .prov-cuenta__tabla-wrap {
   overflow: auto;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
   max-height: min(52vh, 520px);
+  background: rgba(2, 6, 23, 0.45);
 }
 
 .prov-cuenta__tabla-libro {
@@ -478,8 +744,8 @@
 
 .prov-cuenta__tabla-libro th,
 .prov-cuenta__tabla-libro td {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 11px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   text-align: left;
   vertical-align: top;
 }
@@ -487,11 +753,11 @@
 .prov-cuenta__tabla-libro th {
   position: sticky;
   top: 0;
-  background: #0f172a;
-  color: #94a3b8;
-  font-size: 0.7rem;
+  background: linear-gradient(180deg, #1e293b, #0f172a);
+  color: #fdba74;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   font-weight: 700;
   z-index: 1;
 }
@@ -502,8 +768,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.prov-cuenta__tabla-libro tbody tr:nth-child(even) {
+  background: rgba(30, 41, 59, 0.25);
+}
+
 .prov-cuenta__tabla-libro tbody tr:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: rgba(249, 115, 22, 0.1);
 }
 
 .prov-cuenta__tr--factura td.num:nth-child(5) {
@@ -529,6 +799,16 @@
   font-weight: 500;
 }
 
+.prov-mov__kind {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .prov-mov__kind.is-factura {
   background: rgba(251, 191, 36, 0.15);
   color: #fbbf24;
@@ -539,12 +819,10 @@
   color: #4ade80;
 }
 
-.prov-cuenta__saldo--deuda strong {
-  color: #fbbf24;
-}
-
-.prov-cuenta__saldo--favor strong {
-  color: #4ade80;
+@media (max-width: 720px) {
+  .prov-cuenta__leyenda-chips {
+    grid-template-columns: 1fr;
+  }
 }
 
 .prov-cuenta__form {
@@ -580,25 +858,36 @@
 }
 
 .prov-cuenta__tipos {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
 .prov-cuenta__tipos button {
-  min-height: 42px;
+  min-height: 44px;
   padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(15, 23, 42, 0.6);
-  color: #cbd5e1;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
   font-weight: 700;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.prov-cuenta__tipos button:hover {
+  color: #e2e8f0;
 }
 
 .prov-cuenta__tipos button.is-on {
-  border-color: rgba(249, 115, 22, 0.5);
-  background: rgba(249, 115, 22, 0.16);
-  color: #fdba74;
+  border-color: rgba(249, 115, 22, 0.45);
+  background: linear-gradient(145deg, rgba(249, 115, 22, 0.28), rgba(234, 88, 12, 0.18));
+  color: #ffedd5;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.25);
 }
 
 .prov-cuenta__error {
@@ -624,10 +913,20 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: rgba(15, 23, 42, 0.72);
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background:
+    linear-gradient(165deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.78));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+.prov-cuenta__card--factura {
+  border-color: rgba(251, 191, 36, 0.22);
+}
+
+.prov-cuenta__card--pago {
+  border-color: rgba(74, 222, 128, 0.22);
 }
 
 .prov-cuenta__grid {

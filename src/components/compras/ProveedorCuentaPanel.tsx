@@ -83,6 +83,9 @@ export default function ProveedorCuentaPanel({
   const [filtro, setFiltro] = useState<'todos' | 'factura' | 'pago'>('todos')
   const [ordenLibro, setOrdenLibro] = useState<'crono' | 'reciente'>('crono')
   const [adjuntandoId, setAdjuntandoId] = useState<number | null>(null)
+  const [editandoSaldo, setEditandoSaldo] = useState(false)
+  const [saldoEditDraft, setSaldoEditDraft] = useState('')
+  const [guardandoSaldo, setGuardandoSaldo] = useState(false)
 
   const load = useCallback(async () => {
     if (!idProveedor || idProveedor <= 0) {
@@ -127,16 +130,27 @@ export default function ProveedorCuentaPanel({
       if (adjuntosDeMovimiento(r).length > 0) conAdjunto += 1
     }
     const ultimo = rows[rows.length - 1]
+    const saldoActual =
+      ultimo != null
+        ? Number(ultimo.saldo) || 0
+        : saldoCuentaProveedor({ saldo_listado: saldoListado ?? null })
+    // Si no hay facturas en libro pero hay deuda de listado, igual se muestra.
+    const debeVisible =
+      totalDebe > 0.009 ? totalDebe : saldoActual > 0.009 ? saldoActual : 0
+    const debeSinFactura = totalDebe <= 0.009 && saldoActual > 0.009
     return {
       totalDebe,
       totalHaber,
+      debeVisible,
+      debeSinFactura,
+      origenSaldo: ultimo != null ? ('libro' as const) : ('listado' as const),
       facturas,
       pagos,
       conAdjunto,
       sinAdjunto: rows.length - conAdjunto,
       ultimoFecha: ultimo ? fmtFecha(ultimo.fecha_comprobante || ultimo.fecha_hora) : null
     }
-  }, [rows])
+  }, [rows, saldoListado])
 
   const visibles = useMemo(() => {
     const query = q.trim().toLowerCase()
@@ -191,6 +205,71 @@ export default function ProveedorCuentaPanel({
       out.push(up.data)
     }
     return out
+  }
+
+  const abrirEditarSaldo = () => {
+    setEditandoSaldo(true)
+    setSaldoEditDraft(String(Number(saldo.toFixed(2))))
+    setError(null)
+  }
+
+  const cancelarEditarSaldo = () => {
+    setEditandoSaldo(false)
+    setSaldoEditDraft('')
+  }
+
+  /** Ajusta el saldo con un movimiento trazable (factura o pago de diferencia). */
+  const guardarSaldoEditado = async () => {
+    if (!idProveedor || idProveedor <= 0) {
+      setError('Este proveedor todavía no tiene ficha.')
+      return
+    }
+    const nuevo = Number(String(saldoEditDraft).replace(',', '.'))
+    if (!Number.isFinite(nuevo)) {
+      setError('Indicá un saldo válido. Positivo = le debemos; negativo = a favor nuestro.')
+      return
+    }
+    const diff = Number((nuevo - saldo).toFixed(2))
+    if (Math.abs(diff) < 0.01) {
+      cancelarEditarSaldo()
+      return
+    }
+    const ok = window.confirm(
+      diff > 0
+        ? `Vas a subir la deuda en ${moneyProveedor(diff)} (ajuste como factura). ¿Continuar?`
+        : `Vas a bajar la deuda en ${moneyProveedor(Math.abs(diff))} (ajuste como “Le pagamos”). ¿Continuar?`
+    )
+    if (!ok) return
+
+    setGuardandoSaldo(true)
+    setError(null)
+    try {
+      const tipoAjuste: 'factura' | 'pago' = diff > 0 ? 'factura' : 'pago'
+      const r = await apiService.registrarEnCuentaProveedor({
+        id_proveedor: idProveedor,
+        tipo: tipoAjuste,
+        monto: Math.abs(diff),
+        fecha: getArgentinaDateString(),
+        comprobante: `AJUSTE-SALDO-${getArgentinaDateString()}`,
+        usuario: 'Ajuste manual de saldo'
+      })
+      if (!r.success) throw new Error(r.error || 'No se pudo ajustar el saldo')
+      setEditandoSaldo(false)
+      setSaldoEditDraft('')
+      if (tipoAjuste === 'pago') {
+        setTipo('pago')
+        setMonto('')
+        setComprobante('')
+      } else {
+        setTipo('factura')
+      }
+      await load()
+      onChanged?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo ajustar el saldo')
+    } finally {
+      setGuardandoSaldo(false)
+    }
   }
 
   const handleRegistrar = async () => {
@@ -316,41 +395,131 @@ export default function ProveedorCuentaPanel({
     <div className="prov-cuenta">
       <section className={`prov-cuenta__saldo prov-cuenta__saldo--${estado.cls}`}>
         <div className="prov-cuenta__saldo-top">
-          <div>
-            <span>Situación con {proveedorNombre || 'el proveedor'}</span>
-            <strong>{estado.frase}</strong>
+          <div className="prov-cuenta__hero">
+            <span className="prov-cuenta__eyebrow">Situación con {proveedorNombre || 'el proveedor'}</span>
+            <p className={`prov-cuenta__pill prov-cuenta__pill--${estado.cls}`}>{estado.label}</p>
+            {editandoSaldo ? (
+              <div className="prov-cuenta__saldo-edit">
+                <label>
+                  Nuevo saldo
+                  <span>(+ le debemos · − a favor nuestro)</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={saldoEditDraft}
+                    onChange={(e) => setSaldoEditDraft(e.target.value)}
+                    autoFocus
+                  />
+                </label>
+                <div className="prov-cuenta__saldo-edit-actions">
+                  <button
+                    type="button"
+                    className="cp-btn cp-btn--primary"
+                    disabled={guardandoSaldo}
+                    onClick={() => void guardarSaldoEditado()}
+                  >
+                    {guardandoSaldo ? 'Guardando…' : 'Guardar saldo'}
+                  </button>
+                  <button
+                    type="button"
+                    className="cp-btn cp-btn--ghost"
+                    disabled={guardandoSaldo}
+                    onClick={cancelarEditarSaldo}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                <p className="prov-cuenta__saldo-edit-hint">
+                  La diferencia se registra en el libro (factura o “Le pagamos”) con comprobante
+                  AJUSTE-SALDO, para que quede trazable.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="prov-cuenta__hero-amount-row">
+                  <strong className="prov-cuenta__hero-amount">{moneyProveedor(Math.abs(saldo))}</strong>
+                  <button
+                    type="button"
+                    className="prov-cuenta__edit-saldo"
+                    onClick={abrirEditarSaldo}
+                    title="Editar saldo"
+                  >
+                    Editar
+                  </button>
+                </div>
+                <p className="prov-cuenta__hero-frase">{estado.frase}</p>
+              </>
+            )}
+            <p className="prov-cuenta__origen">
+              Origen del saldo:{' '}
+              {resumen.origenSaldo === 'libro'
+                ? 'último movimiento del libro'
+                : 'listado de deudas (aún sin factura en el libro)'}
+            </p>
           </div>
-          <button type="button" className="cp-btn cp-btn--secondary" onClick={exportarCsv} disabled={rows.length === 0}>
-            Exportar libro CSV
-          </button>
+          <div className="prov-cuenta__saldo-actions">
+            <button
+              type="button"
+              className="cp-btn cp-btn--secondary"
+              onClick={() => {
+                setTipo('pago')
+                setEditandoSaldo(false)
+                document.querySelector('.prov-cuenta__card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+            >
+              Le pagamos
+            </button>
+            <button type="button" className="cp-btn cp-btn--secondary" onClick={exportarCsv} disabled={rows.length === 0}>
+              Exportar CSV
+            </button>
+          </div>
         </div>
-        <p className="prov-cuenta__leyenda">
-          <strong>Debe</strong> = nos facturó (sube lo que le debemos). <strong>Haber</strong> = le
-          pagamos / compensación (baja la deuda). <strong>Saldo</strong> tras cada movimiento:{' '}
-          {estado.cls === 'deuda'
-            ? 'positivo = le debemos'
-            : estado.cls === 'favor'
-              ? 'negativo = a favor nuestro / nos debe'
-              : 'cero = al día'}
-          .
-        </p>
+        <ul className="prov-cuenta__leyenda-chips" aria-label="Cómo leer la cuenta">
+          <li>
+            <span className="prov-cuenta__chip-dot prov-cuenta__chip-dot--debe" />
+            <div>
+              <strong>Debe</strong>
+              <em>Nos facturó · sube la deuda</em>
+            </div>
+          </li>
+          <li>
+            <span className="prov-cuenta__chip-dot prov-cuenta__chip-dot--haber" />
+            <div>
+              <strong>Haber</strong>
+              <em>Le pagamos / compensación · baja</em>
+            </div>
+          </li>
+          <li>
+            <span className="prov-cuenta__chip-dot prov-cuenta__chip-dot--saldo" />
+            <div>
+              <strong>Saldo</strong>
+              <em>{estado.cls === 'deuda' ? 'Positivo = le debemos' : estado.cls === 'favor' ? 'Negativo = a favor' : 'Cero = al día'}</em>
+            </div>
+          </li>
+        </ul>
         <div className="prov-cuenta__kpis">
-          <article>
-            <em>Facturado (debe)</em>
-            <b>{moneyProveedor(resumen.totalDebe)}</b>
-            <small>{resumen.facturas} factura{resumen.facturas === 1 ? '' : 's'}</small>
+          <article className="prov-cuenta__kpi prov-cuenta__kpi--debe">
+            <em>{resumen.debeSinFactura ? 'Deuda (sin factura)' : 'Facturado (debe)'}</em>
+            <b>{moneyProveedor(resumen.debeVisible)}</b>
+            <small>
+              {resumen.debeSinFactura
+                ? 'Del listado · cargá facturas para detallar'
+                : `${resumen.facturas} factura${resumen.facturas === 1 ? '' : 's'}`}
+            </small>
           </article>
-          <article>
+          <article className="prov-cuenta__kpi prov-cuenta__kpi--haber">
             <em>Pagado (haber)</em>
             <b>{moneyProveedor(resumen.totalHaber)}</b>
-            <small>{resumen.pagos} pago{resumen.pagos === 1 ? '' : 's'}</small>
+            <small>
+              {resumen.pagos} pago{resumen.pagos === 1 ? '' : 's'}
+            </small>
           </article>
-          <article>
+          <article className="prov-cuenta__kpi prov-cuenta__kpi--saldo">
             <em>Saldo actual</em>
             <b>{moneyProveedor(saldo)}</b>
             <small>{estado.label}</small>
           </article>
-          <article>
+          <article className="prov-cuenta__kpi prov-cuenta__kpi--trace">
             <em>Trazabilidad</em>
             <b>
               {resumen.conAdjunto}/{rows.length}
@@ -365,19 +534,22 @@ export default function ProveedorCuentaPanel({
       </section>
 
       <form
-        className="prov-cuenta__card"
+        className={`prov-cuenta__card prov-cuenta__card--${tipo}`}
         onSubmit={(e) => {
           e.preventDefault()
           void handleRegistrar()
         }}
       >
         <header className="prov-cuenta__card-head">
-          <h3>Nuevo movimiento</h3>
-          <p>
-            {tipo === 'factura'
-              ? 'Suma al debe y aumenta lo que le debemos.'
-              : 'Suma al haber y reduce la deuda (pago o compensación).'}
-          </p>
+          <span className="prov-cuenta__step">1</span>
+          <div>
+            <h3>Nuevo movimiento</h3>
+            <p>
+              {tipo === 'factura'
+                ? 'Suma al debe y aumenta lo que le debemos.'
+                : 'Suma al haber y reduce la deuda (pago o compensación).'}
+            </p>
+          </div>
         </header>
         <div className="prov-cuenta__tipos" role="group" aria-label="Qué estás cargando">
           <button type="button" className={tipo === 'factura' ? 'is-on' : ''} onClick={() => setTipo('factura')}>
@@ -484,10 +656,13 @@ export default function ProveedorCuentaPanel({
 
       <section className="prov-cuenta__libro">
         <div className="prov-cuenta__libro-head">
-          <h3>Libro de cuenta</h3>
-          <p>
-            Cada fila deja saldo corrido. Buscá por n° de comprobante, tipo o ID de movimiento.
-          </p>
+          <span className="prov-cuenta__step">2</span>
+          <div>
+            <h3>Libro de cuenta</h3>
+            <p>
+              Cada fila deja saldo corrido. Buscá por n° de comprobante, tipo o ID de movimiento.
+            </p>
+          </div>
         </div>
 
         <div className="prov-cuenta__toolbar">
