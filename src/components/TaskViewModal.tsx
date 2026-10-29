@@ -598,6 +598,7 @@ export default function TaskViewModal({
                   sinPago={viewTask.sinPago}
                   pagoCuentaCorriente={viewTask.pagoCuentaCorriente}
                   montoPagoParcial={viewTask.montoPagoParcial}
+                  montoSaldoPendiente={viewTask.montoSaldoPendiente}
                   className="task-view-chip task-view-chip--pagado"
                 />
                 {viewTask.entregado && <span className="task-view-chip task-view-chip--ok">Entregado</span>}

@@ -190,7 +190,7 @@ export { formatSupabaseStatementTimeoutError }
 
 /** Columnas para listado del tablero (sin `*` ni JSON pesado). */
 const ORDENES_TABLERO_SELECT =
-  'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,hora_estimada,marcada_pagada,sin_pago,pago_cuenta_corriente,monto_pago_parcial,fecha_ingreso,fecha_ultimo_movimiento,panol_slot,entregado,eliminada,visible_en_tablero,motivo_eliminacion,fecha_eliminacion,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final,numero_ficha_original,planilla_preliminar,ficha_tecnica_pdf_url,ficha_tecnica_cargada,ficha_tecnica_incompleta,presupuesto_enviado_cliente,presupuesto_armado,presupuesto_en_espera'
+  'id,numero_op,cliente,descripcion,estado,sector,sector_inicial,sectores,prioridad,complejidad,operario_asignado,nombre_creador,usuario_trabajando_nombre,etiquetas,materiales,fecha_creacion,fecha_entrega,hora_estimada,marcada_pagada,sin_pago,pago_cuenta_corriente,monto_pago_parcial,monto_saldo_pendiente,fecha_ingreso,fecha_ultimo_movimiento,panol_slot,entregado,eliminada,visible_en_tablero,motivo_eliminacion,fecha_eliminacion,es_duplicado,id_orden_original,foto_url,telefono_cliente,email_cliente,direccion_cliente,whatsapp_link,ubicacion_link,drive_link,op_bloqueada,espejo_sectores_op,dni_cuit,metros_cuadrados,tipo_impresion,es_ficha_no_op,en_reclamo,ubicacion_final,numero_ficha_original,planilla_preliminar,ficha_tecnica_pdf_url,ficha_tecnica_cargada,ficha_tecnica_incompleta,presupuesto_enviado_cliente,presupuesto_armado,presupuesto_en_espera'
 
 const ORDENES_TABLERO_LIMIT = 1200
 /** OP en reclamo activas se fusionan al tablero aunque queden fuera del tope por id. */
@@ -1527,6 +1527,12 @@ class ApiService {
                   postCreatePatch.monto_pago_parcial =
                     orden.monto_pago_parcial != null && Number(orden.monto_pago_parcial) > 0
                       ? Number(orden.monto_pago_parcial)
+                      : null
+                }
+                if ('monto_saldo_pendiente' in orden) {
+                  postCreatePatch.monto_saldo_pendiente =
+                    orden.monto_saldo_pendiente != null && Number(orden.monto_saldo_pendiente) > 0
+                      ? Number(orden.monto_saldo_pendiente)
                       : null
                 }
                 if ('hora_estimada' in orden) {
@@ -21593,6 +21599,125 @@ class ApiService {
       return { success: true, data: (data as import('../types/api').VentaAuditoria[]) ?? [] }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Error al leer auditoría' }
+    }
+  }
+
+  async listarCobrosVenta(
+    idVenta: number
+  ): Promise<ApiResponse<import('../types/api').VentaCobro[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('venta_listar_cobros', { p_id_venta: idVenta })
+      if (error) return { success: false, error: error.message }
+      const rows = Array.isArray(data) ? data : []
+      return { success: true, data: rows as import('../types/api').VentaCobro[] }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al listar cobros'
+      }
+    }
+  }
+
+  async registrarCobroVenta(input: {
+    id_venta: number
+    monto: number
+    fecha_pago?: string | null
+    metodo_pago?: string | null
+    caja_slug?: string | null
+    usuario_nombre?: string | null
+    observaciones?: string | null
+  }): Promise<
+    ApiResponse<{
+      cobro: import('../types/api').VentaCobro
+      venta: import('../types/api').Venta
+      cobros: import('../types/api').VentaCobro[]
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('venta_registrar_cobro', {
+        p_actor_id: this.requireComercialActorId(),
+        p_id_venta: input.id_venta,
+        p_monto: input.monto,
+        p_fecha_pago: input.fecha_pago || null,
+        p_metodo_pago: input.metodo_pago || null,
+        p_caja_slug: input.caja_slug || null,
+        p_usuario_nombre: input.usuario_nombre || null,
+        p_observaciones: input.observaciones || null
+      })
+      if (error) return { success: false, error: error.message }
+      const payload = data as {
+        cobro: import('../types/api').VentaCobro
+        venta: import('../types/api').Venta
+        cobros: import('../types/api').VentaCobro[]
+      }
+      try {
+        await supabase.rpc('ventas_registrar_cambio', {
+          p_actor_id: this.requireComercialActorId(),
+          p_id_venta: input.id_venta,
+          p_accion: 'registrar_cobro',
+          p_detalle: { cobro: payload.cobro, monto: input.monto }
+        })
+      } catch {
+        /* no bloquear */
+      }
+      return { success: true, data: payload }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al registrar cobro'
+      }
+    }
+  }
+
+  async actualizarCobroVenta(input: {
+    id_cobro: number
+    monto?: number | null
+    fecha_pago?: string | null
+    metodo_pago?: string | null
+    observaciones?: string | null
+    caja_slug?: string | null
+  }): Promise<
+    ApiResponse<{
+      cobro: import('../types/api').VentaCobro
+      venta: import('../types/api').Venta
+      cobros: import('../types/api').VentaCobro[]
+    }>
+  > {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase.rpc('venta_actualizar_cobro', {
+        p_actor_id: this.requireComercialActorId(),
+        p_id_cobro: input.id_cobro,
+        p_monto: input.monto ?? null,
+        p_fecha_pago: input.fecha_pago || null,
+        p_metodo_pago: input.metodo_pago ?? null,
+        p_observaciones: input.observaciones ?? null,
+        p_caja_slug: input.caja_slug ?? null
+      })
+      if (error) return { success: false, error: error.message }
+      const payload = data as {
+        cobro: import('../types/api').VentaCobro
+        venta: import('../types/api').Venta
+        cobros: import('../types/api').VentaCobro[]
+      }
+      try {
+        await supabase.rpc('ventas_registrar_cambio', {
+          p_actor_id: this.requireComercialActorId(),
+          p_id_venta: payload.cobro.id_venta,
+          p_accion: 'editar_cobro',
+          p_detalle: { cobro: payload.cobro }
+        })
+      } catch {
+        /* no bloquear */
+      }
+      return { success: true, data: payload }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al actualizar cobro'
+      }
     }
   }
 

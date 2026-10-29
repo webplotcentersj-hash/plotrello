@@ -759,11 +759,31 @@ body.compact-mode .task-toolbar {
   vertical-align: middle;
 }
 
+.task-pagada-pill--parcial-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
 .task-pagada-pill--parcial {
   color: #451a03;
   background: linear-gradient(135deg, #fbbf24, #f59e0b);
   border-color: rgba(180, 83, 9, 0.55);
   box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.25);
+}
+
+.task-pagada-pill--falta {
+  color: #fff7ed;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  border-color: rgba(153, 27, 27, 0.65);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.35);
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .task-pagada-pill--sin {

@@ -36,8 +36,10 @@ import {
   exportarOportunidadesPDF,
   exportarOportunidadesCSV,
   generarFacturaRemitoPDF,
-  generarPagarePDF
+  generarPagarePDF,
+  generarReciboCobrosVentaPDF
 } from '../utils/crmExportUtils'
+import VentaCobrosPanel from '../components/ventas/VentaCobrosPanel'
 import {
   fechaProximaAccionMasTemprana,
   oportunidadRequiereAtencionInmediata,
@@ -2376,29 +2378,44 @@ const CRMVentasPage = () => {
     }
   }
 
-  const confirmarCobroCaja = async (data: { cajaSlug: string; montoPagado?: number }) => {
+  const confirmarCobroCaja = async (data: {
+    cajaSlug: string
+    montoPagado?: number
+    fechaPago?: string
+    observaciones?: string
+  }) => {
     if (!cobroCajaModal) return
     const { venta, estadoDestino } = cobroCajaModal
-    const r = await apiService.actualizarVenta(venta.id, {
-      estado_pago: estadoDestino,
-      caja_slug_cobro: data.cajaSlug,
-      monto_pagado: estadoDestino === 'Parcial' ? data.montoPagado ?? null : venta.valor_total
+    const montoEsteCobro = Number(data.montoPagado) || 0
+    if (montoEsteCobro <= 0) throw new Error('Indicá el monto de este cobro')
+
+    const reg = await apiService.registrarCobroVenta({
+      id_venta: venta.id,
+      monto: montoEsteCobro,
+      fecha_pago: data.fechaPago || null,
+      metodo_pago: venta.metodo_pago || null,
+      caja_slug: data.cajaSlug,
+      usuario_nombre: nombreVisible || usuario?.nombre || null,
+      observaciones:
+        data.observaciones ||
+        (estadoDestino === 'Parcial' ? 'Cobro parcial' : 'Cobro saldo / total')
     })
-    if (!r.success) throw new Error(r.error || 'No se pudo actualizar la venta')
-    await forceResyncVenta(
-      {
-        ...venta,
-        estado_pago: estadoDestino,
-        caja_slug_cobro: data.cajaSlug,
-        monto_pagado: estadoDestino === 'Parcial' ? data.montoPagado : venta.valor_total
-      },
-      {
-        cajaSlug: data.cajaSlug,
-        actorId: usuario?.id,
-        actorNombre: nombreVisible || usuario?.nombre,
-        esAdmin: isAdmin
-      }
-    )
+    if (!reg.success || !reg.data) throw new Error(reg.error || 'No se pudo registrar el cobro')
+
+    const ventaAct = { ...venta, ...reg.data.venta, caja_slug_cobro: data.cajaSlug }
+    await forceResyncVenta(ventaAct, {
+      cajaSlug: data.cajaSlug,
+      actorId: usuario?.id,
+      actorNombre: nombreVisible || usuario?.nombre,
+      esAdmin: isAdmin
+    })
+
+    try {
+      await generarReciboCobrosVentaPDF(ventaAct, reg.data.cobros || [])
+    } catch (ex) {
+      console.warn('No se pudo generar PDF de cobros', ex)
+    }
+
     await loadData()
   }
 
@@ -3436,9 +3453,17 @@ const CRMVentasPage = () => {
           <div className="ventas-pipeline">
             {VENTA_PIPELINE_ESTADOS.map((estado) => {
               const columnVentas = ventasPorEstado[estado]
-              const columnTotal = columnVentas.reduce((sum, v) => sum + Number(v.valor_total || 0), 0)
+              const columnTotal = columnVentas.reduce((sum, v) => {
+                if (estado === 'Parcial') {
+                  return sum + (Number(v.monto_pagado) || 0)
+                }
+                return sum + Number(v.valor_total || 0)
+              }, 0)
               return (
-                <section key={estado} className="ventas-pipeline__col">
+                <section
+                  key={estado}
+                  className={`ventas-pipeline__col${estado === 'Parcial' ? ' ventas-pipeline__col--parcial' : ''}`}
+                >
                   <header className="ventas-pipeline__col-head">
                     <span
                       className="ventas-pipeline__dot"
@@ -3446,7 +3471,10 @@ const CRMVentasPage = () => {
                     />
                     <h3>{estado}</h3>
                     <span className="ventas-pipeline__count">{columnVentas.length}</span>
-                    <span className="ventas-pipeline__total">${columnTotal.toLocaleString()}</span>
+                    <span className="ventas-pipeline__total" title={estado === 'Parcial' ? 'Suma cobrada' : 'Total ventas'}>
+                      ${columnTotal.toLocaleString()}
+                      {estado === 'Parcial' ? ' cobrado' : ''}
+                    </span>
                   </header>
                   <div className="ventas-pipeline__cards">
                     {columnVentas.map((venta) => (
@@ -3457,13 +3485,23 @@ const CRMVentasPage = () => {
                           venta.estado_pago !== 'Cancelado' && !ventaTieneFactura(venta.id)
                             ? ' venta-pipeline-card--sin-factura'
                             : ''
-                        }`}
+                        }${venta.estado_pago === 'Parcial' ? ' venta-pipeline-card--parcial' : ''}`}
                         onClick={() => abrirVentaModal(venta.id)}
                       >
                         <div className="venta-pipeline-card__top">
                           <span className="venta-pipeline-card__client">{venta.cliente_nombre}</span>
                           <span className="venta-pipeline-card__amount">
-                            ${Number(venta.valor_total || 0).toLocaleString()}
+                            {venta.estado_pago === 'Parcial' ? (
+                              <>
+                                ${Number(venta.monto_pagado || 0).toLocaleString()}
+                                <small className="venta-pipeline-card__saldo">
+                                  {' '}
+                                  / ${Number(venta.valor_total || 0).toLocaleString()}
+                                </small>
+                              </>
+                            ) : (
+                              `$${Number(venta.valor_total || 0).toLocaleString()}`
+                            )}
                           </span>
                         </div>
                         <span className="venta-pipeline-card__num">{venta.numero_venta}</span>
@@ -3783,6 +3821,22 @@ const CRMVentasPage = () => {
                     />
                   ) : null}
 
+                  <VentaCobrosPanel
+                    venta={ventaModal}
+                    disabled={ventaModal.estado_pago === 'Cancelado' || ventaEditBusy}
+                    onVentaActualizada={(v) => {
+                      setVentas((prev) => prev.map((row) => (row.id === v.id ? { ...row, ...v } : row)))
+                      void forceResyncVenta(
+                        { ...ventaModal, ...v },
+                        {
+                          actorId: usuario?.id,
+                          actorNombre: nombreVisible || usuario?.nombre,
+                          esAdmin: isAdmin
+                        }
+                      )
+                    }}
+                  />
+
                   <div className="venta-detail-block venta-detail-block--notes">
                     <h3 className="venta-detail-block__title">Observaciones</h3>
                     <textarea
@@ -3967,6 +4021,18 @@ const CRMVentasPage = () => {
                           }}
                         >
                           🧾 Generar Factura (PDF)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void (async () => {
+                              const res = await apiService.listarCobrosVenta(ventaModal.id)
+                              await generarReciboCobrosVentaPDF(ventaModal, res.data || [])
+                              setDropdownDocumentosAbierto(null)
+                            })()
+                          }}
+                        >
+                          💳 PDF cobros / saldo
                         </button>
                         <button
                           type="button"

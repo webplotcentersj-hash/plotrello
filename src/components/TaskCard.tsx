@@ -619,6 +619,7 @@ const TaskCardInner = ({
                 sinPago={task.sinPago}
                 pagoCuentaCorriente={task.pagoCuentaCorriente}
                 montoPagoParcial={task.montoPagoParcial}
+                montoSaldoPendiente={task.montoSaldoPendiente}
               />
               <span className="task-min-sep">·</span>
               <span className="task-min-client">{task.title}</span>
@@ -1029,6 +1030,7 @@ const TaskCardInner = ({
                 sinPago={task.sinPago}
                 pagoCuentaCorriente={task.pagoCuentaCorriente}
                 montoPagoParcial={task.montoPagoParcial}
+                montoSaldoPendiente={task.montoSaldoPendiente}
               />
               {hasModifications && (
                 <span className="task-notification-bell" title="Hay modificaciones recientes">🔔</span>

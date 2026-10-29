@@ -65,6 +65,8 @@ export interface Task {
   pagoCuentaCorriente?: boolean
   /** Monto de seña / pago parcial (si aplica) */
   montoPagoParcial?: number | null
+  /** Saldo pendiente de cobro (pago parcial) */
+  montoSaldoPendiente?: number | null
   updatedAt: string
   impact: 'alta' | 'media' | 'low'
   clientPhone?: string

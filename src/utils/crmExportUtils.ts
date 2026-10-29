@@ -1,8 +1,151 @@
 import jsPDF from 'jspdf'
 import * as XLSX from 'xlsx'
-import type { Venta, OportunidadVenta } from '../types/api'
+import type { Venta, OportunidadVenta, VentaCobro } from '../types/api'
 import { formatArgentinaDate } from './dateUtils'
 import { valorPonderadoPipeline } from './crmVentasHelpers'
+import { cargarLogoPlotLabDataUrl } from './relojTabletTarjetaPdf'
+
+function fmtArsPdf(n: number): string {
+  return Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/**
+ * PDF resumen de cobros parciales: qué se pagó, fechas y saldo pendiente.
+ */
+export async function generarReciboCobrosVentaPDF(venta: Venta, cobros: VentaCobro[]): Promise<void> {
+  const logo = await cargarLogoPlotLabDataUrl()
+  const doc = new jsPDF('p', 'mm', 'a4')
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const margin = 18
+  let y = margin
+
+  const total = Number(venta.valor_total) || 0
+  const pagado = cobros.reduce((s, c) => s + (Number(c.monto) || 0), 0)
+  const saldo = Math.max(0, Math.round((total - pagado) * 100) / 100)
+
+  doc.setFillColor(15, 23, 42)
+  doc.rect(0, 0, pageWidth, 36, 'F')
+  doc.setFillColor(37, 99, 235)
+  doc.rect(0, 36, pageWidth, 2.2, 'F')
+
+  let textX = margin
+  if (logo?.dataUrl) {
+    const logoH = 14
+    const logoW = Math.min(42, logoH * (logo.aspect || 1.7))
+    try {
+      doc.addImage(logo.dataUrl, 'PNG', margin, 10, logoW, logoH)
+      textX = margin + logoW + 6
+    } catch {
+      /* logo opcional */
+    }
+  }
+
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.text('RESUMEN DE COBROS · PAGO PARCIAL', textX, 16)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(203, 213, 225)
+  doc.text('Plot Center · Plot Lab', textX, 22)
+  doc.setTextColor(255, 255, 255)
+  doc.text(`${venta.numero_venta || 'Sin N°'} · ${venta.cliente_nombre || ''}`, textX, 28)
+
+  y = 46
+  doc.setTextColor(15, 23, 42)
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Cliente', margin, y)
+  doc.setFont('helvetica', 'normal')
+  y += 6
+  doc.text(venta.cliente_nombre || '—', margin, y)
+  y += 5
+  if (venta.cliente_dni_cuit) {
+    doc.text(`CUIT/DNI: ${venta.cliente_dni_cuit}`, margin, y)
+    y += 5
+  }
+  if (venta.cliente_telefono) {
+    doc.text(`Tel: ${venta.cliente_telefono}`, margin, y)
+    y += 5
+  }
+  y += 4
+
+  doc.setFillColor(239, 246, 255)
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 22, 2, 2, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(30, 64, 175)
+  doc.text(`Total venta  $ ${fmtArsPdf(total)}`, margin + 4, y + 7)
+  doc.text(`Cobrado      $ ${fmtArsPdf(pagado)}`, margin + 4, y + 13)
+  doc.setTextColor(saldo > 0 ? 185 : 21, saldo > 0 ? 28 : 128, saldo > 0 ? 28 : 61)
+  doc.text(`Saldo        $ ${fmtArsPdf(saldo)}`, margin + 4, y + 19)
+  y += 30
+
+  doc.setTextColor(15, 23, 42)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text('Detalle de cobros', margin, y)
+  y += 6
+  doc.setDrawColor(148, 163, 184)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 6
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Fecha', margin, y)
+  doc.text('Medio', margin + 28, y)
+  doc.text('Caja', margin + 70, y)
+  doc.text('Monto', pageWidth - margin, y, { align: 'right' })
+  y += 5
+  doc.setFont('helvetica', 'normal')
+
+  if (!cobros.length) {
+    doc.setTextColor(100, 116, 139)
+    doc.text('Sin cobros registrados aún.', margin, y)
+    y += 8
+  }
+
+  for (const c of cobros) {
+    if (y > 270) {
+      doc.addPage()
+      y = margin
+    }
+    doc.setTextColor(15, 23, 42)
+    const fecha = c.fecha_pago ? formatArgentinaDate(c.fecha_pago) : '—'
+    doc.text(fecha, margin, y)
+    doc.text(String(c.metodo_pago || '—').slice(0, 18), margin + 28, y)
+    doc.text(String(c.caja_slug || '—').slice(0, 16), margin + 70, y)
+    doc.text(`$ ${fmtArsPdf(Number(c.monto) || 0)}`, pageWidth - margin, y, { align: 'right' })
+    y += 5
+    if (c.observaciones?.trim() || c.usuario_nombre) {
+      doc.setFontSize(8)
+      doc.setTextColor(100, 116, 139)
+      const meta = [c.usuario_nombre, c.observaciones?.trim()].filter(Boolean).join(' · ')
+      doc.text(meta.slice(0, 95), margin, y)
+      y += 4
+      doc.setFontSize(9)
+    }
+    y += 2
+  }
+
+  y += 8
+  doc.setDrawColor(37, 99, 235)
+  doc.setLineWidth(0.4)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 8
+  doc.setFontSize(9)
+  doc.setTextColor(71, 85, 105)
+  doc.setFont('helvetica', 'normal')
+  doc.text(
+    `Estado: ${venta.estado_pago || (saldo > 0 ? 'Parcial' : 'Pagado')} · Generado ${new Date().toLocaleString('es-AR')}`,
+    margin,
+    y
+  )
+  y += 5
+  doc.text('Documento editable/trazable desde Plot Lab · impacta control de cajas.', margin, y)
+
+  doc.save(`recibo-cobros-${venta.numero_venta || venta.id}.pdf`)
+}
 
 /**
  * Exporta ventas a PDF

@@ -5,9 +5,15 @@ export function resolveCobroOpEstado(task: {
   sinPago?: boolean
   pagoCuentaCorriente?: boolean
   montoPagoParcial?: number | null
+  montoSaldoPendiente?: number | null
 }): CobroOpEstado {
   if (task.marcadaPagada) return 'pagado'
-  if (task.montoPagoParcial != null && Number(task.montoPagoParcial) > 0) return 'parcial'
+  if (
+    (task.montoPagoParcial != null && Number(task.montoPagoParcial) > 0) ||
+    (task.montoSaldoPendiente != null && Number(task.montoSaldoPendiente) > 0)
+  ) {
+    return 'parcial'
+  }
   if (task.pagoCuentaCorriente) return 'cuenta_corriente'
   if (task.sinPago) return 'sin_pago'
   return 'ninguno'
@@ -27,19 +33,22 @@ export function formatMontoPagoParcial(n: number): string {
 
 export function cobroOpToTaskFields(
   estado: CobroOpEstado,
-  montoRaw: string
+  montoRaw: string,
+  saldoRaw?: string | number | null
 ): {
   marcadaPagada: boolean
   sinPago: boolean
   pagoCuentaCorriente: boolean
   montoPagoParcial: number | null
+  montoSaldoPendiente: number | null
 } {
   if (estado === 'pagado') {
     return {
       marcadaPagada: true,
       sinPago: false,
       pagoCuentaCorriente: false,
-      montoPagoParcial: null
+      montoPagoParcial: null,
+      montoSaldoPendiente: null
     }
   }
   if (estado === 'sin_pago') {
@@ -47,7 +56,8 @@ export function cobroOpToTaskFields(
       marcadaPagada: false,
       sinPago: true,
       pagoCuentaCorriente: false,
-      montoPagoParcial: null
+      montoPagoParcial: null,
+      montoSaldoPendiente: null
     }
   }
   if (estado === 'cuenta_corriente') {
@@ -55,22 +65,31 @@ export function cobroOpToTaskFields(
       marcadaPagada: false,
       sinPago: false,
       pagoCuentaCorriente: true,
-      montoPagoParcial: null
+      montoPagoParcial: null,
+      montoSaldoPendiente: null
     }
   }
   if (estado === 'parcial') {
+    const saldo =
+      typeof saldoRaw === 'number'
+        ? Number.isFinite(saldoRaw) && saldoRaw > 0
+          ? Math.round(saldoRaw)
+          : null
+        : parseMontoPagoParcial(String(saldoRaw || ''))
     return {
       marcadaPagada: false,
       sinPago: false,
       pagoCuentaCorriente: false,
-      montoPagoParcial: parseMontoPagoParcial(montoRaw)
+      montoPagoParcial: parseMontoPagoParcial(montoRaw),
+      montoSaldoPendiente: saldo
     }
   }
   return {
     marcadaPagada: false,
     sinPago: false,
     pagoCuentaCorriente: false,
-    montoPagoParcial: null
+    montoPagoParcial: null,
+    montoSaldoPendiente: null
   }
 }
 
@@ -79,18 +98,22 @@ export function cobroDesdeVenta(venta: {
   estado_pago?: string | null
   metodo_pago?: string | null
   valor_total?: number | null
-}): { estado: CobroOpEstado; monto: string } {
+  monto_pagado?: number | null
+}): { estado: CobroOpEstado; monto: string; saldo: string } {
   const metodo = String(venta.metodo_pago || '')
     .trim()
     .toLowerCase()
-  if (metodo === 'cuenta corriente') return { estado: 'cuenta_corriente', monto: '' }
-  if (venta.estado_pago === 'Pagado') return { estado: 'pagado', monto: '' }
+  if (metodo === 'cuenta corriente') return { estado: 'cuenta_corriente', monto: '', saldo: '' }
+  if (venta.estado_pago === 'Pagado') return { estado: 'pagado', monto: '', saldo: '' }
   if (venta.estado_pago === 'Parcial') {
-    const n = Number(venta.valor_total)
+    const total = Number(venta.valor_total) || 0
+    const pagado = Number(venta.monto_pagado) || 0
+    const saldo = Math.max(0, Math.round((total - pagado) * 100) / 100)
     return {
       estado: 'parcial',
-      monto: Number.isFinite(n) && n > 0 ? String(Math.round(n)) : ''
+      monto: pagado > 0 ? String(Math.round(pagado)) : '',
+      saldo: saldo > 0 ? String(Math.round(saldo)) : ''
     }
   }
-  return { estado: 'sin_pago', monto: '' }
+  return { estado: 'sin_pago', monto: '', saldo: '' }
 }

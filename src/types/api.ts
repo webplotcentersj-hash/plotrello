@@ -164,6 +164,8 @@ export interface OrdenTrabajo {
   pago_cuenta_corriente?: boolean | null
   /** Monto de seña / pago parcial */
   monto_pago_parcial?: number | null
+  /** Saldo que falta cobrar (pago parcial) */
+  monto_saldo_pendiente?: number | null
 }
 
 /** Fila listada en historial de fichas (asesor-presupuestos) */
@@ -2177,6 +2179,21 @@ export interface VentaItem {
   descuento?: number | null
   observaciones?: string | null
   created_at: string
+}
+
+/** Cobro parcial/trazable de una venta (ledger venta_cobros). */
+export interface VentaCobro {
+  id: number
+  id_venta: number
+  monto: number
+  fecha_pago: string
+  metodo_pago?: string | null
+  caja_slug?: string | null
+  id_usuario?: number | null
+  usuario_nombre?: string | null
+  observaciones?: string | null
+  created_at?: string
+  updated_at?: string
 }
 
 export interface VentaAuditoria {

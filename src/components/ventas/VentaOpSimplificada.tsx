@@ -227,7 +227,7 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
     const hora = normalizeHoraEstimada(horaEstimada)
     const primer = selectedSectores[0]
     const cobroVenta = cobroDesdeVenta(venta)
-    const cobro = cobroOpToTaskFields(cobroVenta.estado, cobroVenta.monto)
+    const cobro = cobroOpToTaskFields(cobroVenta.estado, cobroVenta.monto, cobroVenta.saldo)
     setGuardando(true)
     try {
       const ordenResponse = await apiService.createOrden({
@@ -254,7 +254,8 @@ export default function VentaOpSimplificada({ venta, creadorNombre, observacione
         marcada_pagada: cobro.marcadaPagada,
         sin_pago: cobro.sinPago,
         pago_cuenta_corriente: cobro.pagoCuentaCorriente,
-        monto_pago_parcial: cobro.montoPagoParcial
+        monto_pago_parcial: cobro.montoPagoParcial,
+        monto_saldo_pendiente: cobro.montoSaldoPendiente
       })
       if (!ordenResponse.success || !ordenResponse.data) {
         throw new Error(ordenResponse.error || 'No se pudo crear la OP')

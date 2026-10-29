@@ -6,6 +6,8 @@ type Props = {
   sinPago?: boolean
   pagoCuentaCorriente?: boolean
   montoPagoParcial?: number | null
+  /** Saldo que falta cobrar (pago parcial). */
+  montoSaldoPendiente?: number | null
   className?: string
   wrapClassName?: string
   /** Si true, muestra SIN PAGO cuando no hay pagado ni parcial ni CC */
@@ -18,6 +20,7 @@ export default function OpCobroPill({
   sinPago,
   pagoCuentaCorriente,
   montoPagoParcial,
+  montoSaldoPendiente,
   className = 'task-pagada-pill',
   wrapClassName,
   showWhenUnpaid = false
@@ -29,10 +32,22 @@ export default function OpCobroPill({
         PAGADA
       </span>
     )
-  } else if (montoPagoParcial != null && Number(montoPagoParcial) > 0) {
+  } else if (
+    (montoPagoParcial != null && Number(montoPagoParcial) > 0) ||
+    (montoSaldoPendiente != null && Number(montoSaldoPendiente) > 0)
+  ) {
+    const pagado = Number(montoPagoParcial) || 0
+    const falta = Number(montoSaldoPendiente) || 0
     pill = (
-      <span className={`${className} task-pagada-pill--parcial`} title="Pago parcial">
-        PARCIAL · {formatMontoPagoParcial(Number(montoPagoParcial))}
+      <span className={`${className} task-pagada-pill--parcial-wrap`} title="Pago parcial">
+        <span className={`${className} task-pagada-pill--parcial`}>
+          PARCIAL{pagado > 0 ? ` · ${formatMontoPagoParcial(pagado)}` : ''}
+        </span>
+        {falta > 0 ? (
+          <span className={`${className} task-pagada-pill--falta`} title="Saldo pendiente">
+            FALTA · {formatMontoPagoParcial(falta)}
+          </span>
+        ) : null}
       </span>
     )
   } else if (pagoCuentaCorriente) {

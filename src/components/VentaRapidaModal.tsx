@@ -162,6 +162,8 @@ const VentaRapidaModal = ({
   const [detallePago, setDetallePago] = useState<VentaDetallePago>({})
   const [mixtoTextoA, setMixtoTextoA] = useState('')
   const [mixtoTextoB, setMixtoTextoB] = useState('')
+  const [pagoParcialActivo, setPagoParcialActivo] = useState(false)
+  const [montoCobradoParcial, setMontoCobradoParcial] = useState('')
   const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancariaRecord[]>([])
   const [showMpCheckout, setShowMpCheckout] = useState(false)
   const [faseCobro, setFaseCobro] = useState<'editar' | 'revisar'>('editar')
@@ -904,8 +906,30 @@ const VentaRapidaModal = ({
       const obsBase = observaciones ? `Prioridad: ${prioridad}. ${observaciones}` : `Prioridad: ${prioridad}`
       const observacionesFinal = detalleResumen ? `${obsBase}\nPago: ${detalleResumen}` : obsBase
       const metodoPagoFinal: MedioPagoCodigo = esMixto ? PAGO_MIXTO : condicionVenta
-      const estadoPagoInicial: 'Pendiente' | 'Pagado' =
-        esCuentaCorriente || incluyeMp ? 'Pendiente' : 'Pagado'
+      const montoParcialNum = Number(String(montoCobradoParcial).replace(',', '.'))
+      const esParcialValido =
+        pagoParcialActivo &&
+        !esCuentaCorriente &&
+        !incluyeMp &&
+        Number.isFinite(montoParcialNum) &&
+        montoParcialNum > 0 &&
+        montoParcialNum < valorTotal - 0.009
+      if (pagoParcialActivo && !esParcialValido && !esCuentaCorriente && !incluyeMp) {
+        alert(
+          valorTotal <= 0
+            ? 'Agregá ítems antes de marcar pago parcial.'
+            : 'Indicá cuánto se cobra ahora (mayor a 0 y menor al total).'
+        )
+        setGuardando(false)
+        return
+      }
+      const estadoPagoInicial: 'Pendiente' | 'Parcial' | 'Pagado' = esCuentaCorriente
+        ? 'Pendiente'
+        : incluyeMp
+          ? 'Pendiente'
+          : esParcialValido
+            ? 'Parcial'
+            : 'Pagado'
 
       const ventaInput = {
         cliente_nombre: clienteFinal.nombre,
@@ -1082,7 +1106,47 @@ const VentaRapidaModal = ({
         return
       }
 
-      setVentaCreada(ventaMinima)
+      let ventaFinal: Venta = ventaMinima
+      if (esParcialValido) {
+        const reg = await apiService.registrarCobroVenta({
+          id_venta: ventaData.id,
+          monto: Math.round(montoParcialNum * 100) / 100,
+          fecha_pago: fechaVenta,
+          metodo_pago: metodoPagoFinal,
+          caja_slug: null,
+          usuario_nombre: usuarioNombre,
+          observaciones: 'Cobro parcial (venta rápida)'
+        })
+        if (!reg.success || !reg.data) {
+          await apiService.actualizarVenta(ventaData.id, {
+            estado_pago: 'Parcial',
+            monto_pagado: Math.round(montoParcialNum * 100) / 100
+          })
+          ventaFinal = {
+            ...ventaMinima,
+            estado_pago: 'Parcial',
+            monto_pagado: Math.round(montoParcialNum * 100) / 100
+          }
+        } else {
+          ventaFinal = {
+            ...ventaMinima,
+            ...reg.data.venta,
+            estado_pago: 'Parcial',
+            monto_pagado: Number(reg.data.venta.monto_pagado) || montoParcialNum
+          }
+        }
+        try {
+          const { forceResyncVenta } = await import('../features/control-cajas/plotlabVentaCajaSync')
+          await forceResyncVenta(ventaFinal, {
+            actorId: usuarioId,
+            actorNombre: usuarioNombre
+          })
+        } catch (syncErr) {
+          console.warn('Sync caja parcial venta rápida:', syncErr)
+        }
+      }
+
+      setVentaCreada(ventaFinal)
 
       if (comprobanteArchivo) {
         const compResp = await apiService.subirComprobantePagoVenta(ventaData.id, comprobanteArchivo)
@@ -1422,6 +1486,8 @@ const VentaRapidaModal = ({
                 }
                 if (valor === 'Cuenta Corriente') {
                   setEsCuentaCorriente(true)
+                  setPagoParcialActivo(false)
+                  setMontoCobradoParcial('')
                 } else if (esCuentaCorriente) {
                   setEsCuentaCorriente(false)
                   setClienteCcHabilitado(null)
@@ -1444,6 +1510,60 @@ const VentaRapidaModal = ({
                 ? 'Revisá el cobro y confirmá. Recién ahí se genera el QR. La factura AFIP la emitís después, si hace falta.'
                 : 'Revisá el cobro y confirmá. La factura la armás después, si hace falta.'}
             </p>
+
+            {!esCuentaCorriente && !incluyeMp ? (
+              <div className="venta-rapida-parcial">
+                <label className="venta-rapida-parcial__check">
+                  <input
+                    type="checkbox"
+                    checked={pagoParcialActivo}
+                    disabled={showMpCheckout}
+                    onChange={(e) => {
+                      setPagoParcialActivo(e.target.checked)
+                      setFaseCobro('editar')
+                      if (!e.target.checked) setMontoCobradoParcial('')
+                    }}
+                  />
+                  <span>Pago parcial</span>
+                </label>
+                {pagoParcialActivo ? (
+                  <div className="venta-rapida-parcial__body">
+                    <label>
+                      Cobra ahora
+                      <input
+                        type="number"
+                        className="form-input"
+                        inputMode="decimal"
+                        min={0}
+                        step="0.01"
+                        value={montoCobradoParcial}
+                        disabled={showMpCheckout}
+                        placeholder="0"
+                        onChange={(e) => setMontoCobradoParcial(e.target.value)}
+                      />
+                    </label>
+                    {(() => {
+                      const total = calcularSubtotal()
+                      const cobrado = Number(String(montoCobradoParcial).replace(',', '.')) || 0
+                      const falta = Math.max(0, Math.round((total - cobrado) * 100) / 100)
+                      return (
+                        <div className="venta-rapida-parcial__resumen" aria-live="polite">
+                          <span>
+                            Total <strong>$ {formatArs(total)}</strong>
+                          </span>
+                          <span className="venta-rapida-parcial__falta">
+                            Falta <strong>$ {formatArs(falta)}</strong>
+                          </span>
+                        </div>
+                      )
+                    })()}
+                    <p className="form-hint-comprobante">
+                      El saldo se arrastra a la OP con distintivo rojo «FALTA».
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
 
@@ -2147,13 +2267,23 @@ const VentaRapidaModal = ({
         <div className="venta-rapida-modal-footer">
           <div className="venta-rapida-footer-buttons">
           {ventaCreada && !showMpCheckout ? (
-            <OpCobroFooterChecks
-              estado={cobroDesdeVenta(ventaCreada).estado}
-              montoParcial={cobroDesdeVenta(ventaCreada).monto}
-              disabled
-              onEstadoChange={() => {}}
-              onMontoChange={() => {}}
-            />
+            (() => {
+              const cobro = cobroDesdeVenta(ventaCreada)
+              return (
+                <div className="venta-rapida-footer-cobro">
+                  <OpCobroFooterChecks
+                    estado={cobro.estado}
+                    montoParcial={cobro.monto}
+                    disabled
+                    onEstadoChange={() => {}}
+                    onMontoChange={() => {}}
+                  />
+                  {cobro.estado === 'parcial' && cobro.saldo ? (
+                    <span className="venta-rapida-footer-falta">Falta $ {cobro.saldo}</span>
+                  ) : null}
+                </div>
+              )
+            })()
           ) : (
             <span />
           )}

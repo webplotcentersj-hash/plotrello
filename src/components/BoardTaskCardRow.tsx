@@ -155,6 +155,7 @@ function BoardTaskCardLiteShell({
           sinPago={task.sinPago}
           pagoCuentaCorriente={task.pagoCuentaCorriente}
           montoPagoParcial={task.montoPagoParcial}
+          montoSaldoPendiente={task.montoSaldoPendiente}
         />
         <span className="task-min-sep">·</span>
         <span className="task-min-client">{task.title}</span>

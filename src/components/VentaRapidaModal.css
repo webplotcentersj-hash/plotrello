@@ -198,6 +198,51 @@
   line-height: 1.35;
 }
 
+.venta-rapida-parcial {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  background: rgba(37, 99, 235, 0.16);
+}
+
+.venta-rapida-parcial__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #dbeafe;
+  cursor: pointer;
+}
+
+.venta-rapida-parcial__body {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.venta-rapida-parcial__body label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #e2e8f0;
+}
+
+.venta-rapida-parcial__resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  font-size: 0.86rem;
+  color: #f8fafc;
+}
+
+.venta-rapida-parcial__falta {
+  color: #fecaca;
+  font-weight: 800;
+}
+
 .venta-cc-hint {
   margin-top: 10px;
   padding: 10px 12px;
@@ -792,6 +837,24 @@
   border-color: rgba(16, 185, 129, 0.4);
   font-size: 0.95rem;
   font-weight: 600;
+}
+
+.venta-rapida-footer-cobro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.venta-rapida-footer-falta {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #fff7ed;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
 }
 
 .venta-rapida-modal-footer .create-cobro-checks {

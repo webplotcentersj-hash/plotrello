@@ -509,6 +509,24 @@
   text-transform: uppercase;
 }
 
+.task-view-chip.task-pagada-pill--parcial-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.task-view-chip.task-pagada-pill--falta {
+  color: #fff7ed;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  border-color: rgba(153, 27, 27, 0.65);
+  font-weight: 800;
+}
+
 .task-view-chip.task-pagada-pill--parcial {
   border-color: rgba(251, 191, 36, 0.65);
   background: rgba(245, 158, 11, 0.28);

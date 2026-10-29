@@ -310,6 +310,10 @@ export const ordenToTask = (orden: OrdenTrabajo): Task => {
       const n = Number(orden.monto_pago_parcial)
       return Number.isFinite(n) && n > 0 ? n : null
     })(),
+    montoSaldoPendiente: (() => {
+      const n = Number(orden.monto_saldo_pendiente)
+      return Number.isFinite(n) && n > 0 ? n : null
+    })(),
     updatedAt: updatedArgentinaIso,
     impact: mapComplejidadToImpact(orden.complejidad),
     uiMovedAt: (() => {
@@ -466,6 +470,10 @@ export const taskToOrdenPayload = (task: Omit<Task, 'id'> | Task): Partial<Orden
     monto_pago_parcial:
       task.montoPagoParcial != null && Number(task.montoPagoParcial) > 0
         ? Number(task.montoPagoParcial)
+        : null,
+    monto_saldo_pendiente:
+      task.montoSaldoPendiente != null && Number(task.montoSaldoPendiente) > 0
+        ? Number(task.montoSaldoPendiente)
         : null,
     fecha_creacion: task.createdAt,
     fecha_ingreso: task.updatedAt,

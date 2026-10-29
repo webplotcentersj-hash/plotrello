@@ -1457,6 +1457,28 @@
   font-weight: 400;
 }
 
+.caja-cc-parcial-resumen {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  font-size: 12px;
+  color: #1e3a8a;
+}
+
+.caja-cc-parcial-resumen > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.caja-cc-parcial-resumen .caja-cc-saldo {
+  color: #b91c1c;
+}
+
 .caja-cc-modal .caja-cc-empty {
   color: #64748b;
 }

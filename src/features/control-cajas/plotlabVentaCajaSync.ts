@@ -403,12 +403,15 @@ export async function syncDesdeVentaRecord(
   }
 
   const metodo = normalizarMetodoPago(venta.metodo_pago)
+  const esParcial = venta.estado_pago === 'Parcial'
+  const montoSync = monto > 0 ? monto : venta.valor_total
   const r = await syncVentaPlotLabACaja({
-    tipo: 'venta',
+    // Parcial → categoría/concepto "Cobro" (misma ref PL-VENTA-{id}, monto = acumulado).
+    tipo: esParcial ? 'cobro' : 'venta',
     ventaId: venta.id,
     numeroVenta: venta.numero_venta,
     clienteNombre: venta.cliente_nombre,
-    monto: monto > 0 ? monto : venta.valor_total,
+    monto: montoSync,
     metodoPago: metodo,
     estadoPago: (venta.estado_pago as PlotLabVentaCajaSyncInput['estadoPago']) || 'Pagado',
     fecha: (venta.fecha_venta || getArgentinaDateString()).slice(0, 10),
@@ -491,10 +494,12 @@ export async function syncVentaPlotLabACaja(
 
     const fecha = (input.fecha || getArgentinaDateString()).slice(0, 10)
     const linea = mediosToPlanillaLinea(medios)
-    const concepto =
-      input.tipo === 'cobro'
-        ? `Cobro ${input.clienteNombre}`.slice(0, 120)
-        : `Venta ${input.clienteNombre}`.slice(0, 120)
+    const esPagoParcial = input.estadoPago === 'Parcial'
+    const concepto = (
+      input.tipo === 'cobro' || esPagoParcial
+        ? `${esPagoParcial ? 'PARCIAL ' : ''}Cobro ${input.clienteNombre}`
+        : `Venta ${input.clienteNombre}`
+    ).slice(0, 120)
 
     const esEfectivo = /efectivo/i.test(String(input.metodoPago))
     const recibido = Number(input.montoRecibido) || 0
@@ -520,7 +525,7 @@ export async function syncVentaPlotLabACaja(
         concepto,
         tercero_nombre: input.clienteNombre,
         medios,
-        observacion: `PlotLab ${input.tipo} (${ref}) — ${input.metodoPago}${trazaEfectivo}`,
+        observacion: `PlotLab ${esPagoParcial ? 'parcial' : input.tipo} (${ref}) — ${input.metodoPago}${trazaEfectivo}`,
         id_usuario: input.usuarioId ?? null,
         usuario_nombre: usuarioNombre,
         origen_importacion: 'plotlab_venta'
