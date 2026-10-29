@@ -65,11 +65,11 @@ import {
   labelListaPrecio,
   LISTAS_PRECIO_VENTAS,
   marcarObservacionesPreciosSinIva,
-  precioListaParaPresupuesto,
   presupuestoTienePreciosSinIva,
-  resolvePrecioListaBruto,
+  resolvePrecioParaPresupuesto,
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
+import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
 import { useConfigCondicionesVenta } from '../hooks/useConfigCondicionesVenta'
 import { esPagoMixto, mediosPagoActivos } from '../constants/ventasCondicionesPago'
 import {
@@ -512,6 +512,7 @@ const CRMVentasPage = () => {
   const [presupuestoBusquedaArticulo, setPresupuestoBusquedaArticulo] = useState('')
   const [presupuestoCategoriaArticulo, setPresupuestoCategoriaArticulo] = useState('todas')
   const [presupuestoSacarIva, setPresupuestoSacarIva] = useState(false)
+  const { ajustes: presupuestoAjustesPrecios } = useConfigAjustesPreciosVentas()
   const { config: presupuestoConfigCondiciones } = useConfigCondicionesVenta()
   const presupuestoMediosChecklist = useMemo(
     () => mediosPagoActivos(presupuestoConfigCondiciones).filter((m) => !esPagoMixto(m.codigo)),
@@ -966,9 +967,13 @@ const CRMVentasPage = () => {
         if (item.precioEditado) return item
         const art = matchArticuloCatalogo(item, presupuestoCatalogo)
         if (!art) return item
-        // Lista Flexxus trae IVA incluido; opcionalmente se cotiza en neto.
-        const bruto = resolvePrecioListaBruto(art, presupuestoListaActiva)
-        const precio = precioListaParaPresupuesto(bruto, presupuestoSacarIva)
+        // Misma fórmula que Lista de precios: neto Flexxus + IVA/recargos, o solo neto si «sacar IVA».
+        const precio = resolvePrecioParaPresupuesto(
+          art,
+          presupuestoListaActiva,
+          presupuestoSacarIva,
+          presupuestoAjustesPrecios
+        )
         if (precio == null) return item
         const precioStr = String(precio)
         if (
@@ -994,7 +999,8 @@ const CRMVentasPage = () => {
     presupuestoCatalogo,
     presupuestoModalId,
     presupuestoModalLoading,
-    presupuestoSacarIva
+    presupuestoSacarIva,
+    presupuestoAjustesPrecios
   ])
 
   const agregarArticuloPresupuestoDraft = useCallback(
@@ -1011,9 +1017,11 @@ const CRMVentasPage = () => {
         alert('Este artículo ya está en la lista')
         return
       }
-      const precio = precioListaParaPresupuesto(
-        resolvePrecioListaBruto(articulo, presupuestoListaActiva),
-        presupuestoSacarIva
+      const precio = resolvePrecioParaPresupuesto(
+        articulo,
+        presupuestoListaActiva,
+        presupuestoSacarIva,
+        presupuestoAjustesPrecios
       )
       if (precio == null) {
         alert(`Este artículo no tiene precio en ${labelListaPrecio(presupuestoListaActiva)}.`)
@@ -1034,7 +1042,7 @@ const CRMVentasPage = () => {
       ])
       setPresupuestoBusquedaArticulo('')
     },
-    [presupuestoItemsDraft, presupuestoListaActiva, presupuestoSacarIva]
+    [presupuestoItemsDraft, presupuestoListaActiva, presupuestoSacarIva, presupuestoAjustesPrecios]
   )
 
   useEffect(() => {
@@ -1116,14 +1124,16 @@ const CRMVentasPage = () => {
         if (!presupuestoCatalogo.length) return base
         const art = matchArticuloCatalogo(base, presupuestoCatalogo)
         if (!art) return base
-        const precio = resolvePrecioListaBruto(art, lista)
+        const sacarIva = presupuestoTienePreciosSinIva(presupuestoModal.observaciones_internas)
+        const precio = resolvePrecioParaPresupuesto(art, lista, sacarIva, presupuestoAjustesPrecios)
         if (precio == null) return base
         return {
           ...base,
           id_articulo_empresa: art.id,
           id_articulo_stock: art.id_articulo_stock ?? base.id_articulo_stock ?? null,
           codigo_articulo: art.codigo || base.codigo_articulo || null,
-          precio_unitario: String(precio)
+          // Conservar precio guardado del ítem; solo enriquecer ids de catálogo.
+          precio_unitario: base.precio_unitario || String(precio)
         }
       })
     )
@@ -1131,7 +1141,8 @@ const CRMVentasPage = () => {
     presupuestoModal,
     presupuestoModalLoading,
     presupuestoModalItems,
-    presupuestoCatalogo
+    presupuestoCatalogo,
+    presupuestoAjustesPrecios
   ])
 
   useEffect(() => {
@@ -4623,8 +4634,10 @@ const CRMVentasPage = () => {
 
                       <div className="presupuesto-detail-catalogo">
                         <p className="presupuesto-detail-catalogo__hint">
-                          Lista Flexxus · precios{' '}
-                          <strong>{presupuestoSacarIva ? 'sin IVA (neto)' : 'con IVA incluido'}</strong>
+                          Misma lista que precios ·{' '}
+                          <strong>
+                            {presupuestoSacarIva ? 'neto Flexxus (sin IVA/recargos)' : 'con IVA y recargos'}
+                          </strong>
                           {presupuestoCabeceraDraft.tipo_lista_precio
                             ? ` · ${labelListaPrecio(presupuestoListaActiva)}`
                             : ' · Lista 1 (por defecto)'}
@@ -4679,9 +4692,11 @@ const CRMVentasPage = () => {
                           ) : (
                             <div className="lista-precios-scroll">
                               {presupuestoArticulosFiltrados.slice(0, 80).map((articulo) => {
-                                const precio = precioListaParaPresupuesto(
-                                  resolvePrecioListaBruto(articulo, presupuestoListaActiva),
-                                  presupuestoSacarIva
+                                const precio = resolvePrecioParaPresupuesto(
+                                  articulo,
+                                  presupuestoListaActiva,
+                                  presupuestoSacarIva,
+                                  presupuestoAjustesPrecios
                                 )
                                 const yaAgregado = presupuestoItemsDraft.some(
                                   (it) =>

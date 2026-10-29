@@ -120,6 +120,7 @@ export interface Proveedor {
   nombre: string
   razon_social?: string | null
   cuit?: string | null
+  condicion_iva?: string | null
   contacto_nombre?: string | null
   telefono?: string | null
   email?: string | null

@@ -12813,6 +12813,7 @@ class ApiService {
     nombre: string
     razon_social?: string
     cuit?: string
+    condicion_iva?: string
     contacto_nombre?: string
     telefono?: string
     email?: string

@@ -12,10 +12,10 @@ import {
   labelListaPrecio,
   LISTAS_PRECIO_VENTAS,
   marcarObservacionesPreciosSinIva,
-  precioListaParaPresupuesto,
-  resolvePrecioListaBruto,
+  resolvePrecioParaPresupuesto,
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
+import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
 import { nombreCompletoCliente, nombreSinRepeticion } from '../utils/buscarClienteMatch'
 import { CONDICIONES_IVA_CLIENTE, type CondicionIvaCliente } from '../utils/afipFacturaUi'
 import {
@@ -120,6 +120,7 @@ const CrearPresupuestoModal = ({
   const [itemsPresupuesto, setItemsPresupuesto] = useState<ItemPresupuesto[]>([])
   const [tipoListaPrecio, setTipoListaPrecio] = useState<TipoListaPrecioVentas>('lista_1')
   const [sacarIva, setSacarIva] = useState(false)
+  const { ajustes } = useConfigAjustesPreciosVentas()
 
   const [guardando, setGuardando] = useState(false)
   const [presupuestoCreado, setPresupuestoCreado] = useState<PresupuestoVentaRecord | null>(null)
@@ -268,9 +269,8 @@ const CrearPresupuestoModal = ({
         if (!item.id_articulo_empresa) return item
         const art = catalogoArticulos.find((a) => a.id === item.id_articulo_empresa)
         if (!art) return item
-        // Lista Flexxus trae IVA incluido; si «sacar IVA» o cliente exento → neto.
-        const bruto = resolvePrecioListaBruto(art, tipoListaPrecio)
-        const precio = precioListaParaPresupuesto(bruto, sacarIva)
+        // Misma fórmula que Lista de precios: neto Flexxus + IVA/recargos, o solo neto si «sacar IVA».
+        const precio = resolvePrecioParaPresupuesto(art, tipoListaPrecio, sacarIva, ajustes)
         if (precio == null) return item
         return {
           ...item,
@@ -280,8 +280,8 @@ const CrearPresupuestoModal = ({
         }
       })
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar lista / IVA / catálogo
-  }, [tipoListaPrecio, catalogoArticulos, sacarIva])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar lista / IVA / catálogo / ajustes
+  }, [tipoListaPrecio, catalogoArticulos, sacarIva, ajustes])
 
   const guardarNuevoCliente = async () => {
     const nombre = nuevoCliente.nombre.trim()
@@ -332,8 +332,7 @@ const CrearPresupuestoModal = ({
       return
     }
 
-    const bruto = resolvePrecioListaBruto(articulo, tipoListaPrecio)
-    const precio = precioListaParaPresupuesto(bruto, sacarIva)
+    const precio = resolvePrecioParaPresupuesto(articulo, tipoListaPrecio, sacarIva, ajustes)
     if (precio == null) {
       alert(`Este artículo no tiene precio en ${labelListaPrecio(tipoListaPrecio)}.`)
       return
@@ -796,11 +795,11 @@ const CrearPresupuestoModal = ({
               <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 8px' }}>
                 {sacarIva ? (
                   <>
-                    Precios de lista <strong>sin IVA</strong> (neto). El PDF no discrimina IVA.
+                    Precios <strong>netos</strong> de lista Flexxus (sin IVA ni recargos). El PDF no discrimina IVA.
                   </>
                 ) : (
                   <>
-                    Precios de lista <strong>con IVA incluido</strong> (en el PDF se discrimina neto / IVA / total)
+                    Mismos precios que <strong>Lista de precios</strong> (neto + IVA/recargos). En el PDF se discrimina neto / IVA / total.
                   </>
                 )}
               </p>
@@ -867,9 +866,11 @@ const CrearPresupuestoModal = ({
                 ) : (
                   <div className="lista-precios-scroll">
                     {articulosFiltrados.slice(0, 80).map((articulo) => {
-                      const precio = precioListaParaPresupuesto(
-                        resolvePrecioListaBruto(articulo, tipoListaPrecio),
-                        sacarIva
+                      const precio = resolvePrecioParaPresupuesto(
+                        articulo,
+                        tipoListaPrecio,
+                        sacarIva,
+                        ajustes
                       )
                       const yaAgregado = itemsPresupuesto.some(
                         (item) => item.id_articulo_empresa === articulo.id

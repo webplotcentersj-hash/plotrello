@@ -31,7 +31,7 @@ export function esClienteIvaExento(condicion: string | null | undefined): boolea
   return (condicion || '').toLowerCase().includes('exento')
 }
 
-/** Precio de lista con IVA incluido → neto. */
+/** Precio con IVA incluido → neto (solo si el valor de origen ya traía IVA). */
 export function quitarIvaDePrecio(
   precioConIva: number,
   ivaPct: number = DEFAULT_AJUSTES_PRECIOS_VENTAS.iva_porcentaje
@@ -40,16 +40,6 @@ export function quitarIvaDePrecio(
   if (p <= 0) return 0
   if (!(ivaPct > 0)) return round2(p)
   return round2(p / (1 + ivaPct / 100))
-}
-
-export function precioListaParaPresupuesto(
-  precioListaConIva: number | null | undefined,
-  sacarIva: boolean,
-  ivaPct: number = DEFAULT_AJUSTES_PRECIOS_VENTAS.iva_porcentaje
-): number | null {
-  if (precioListaConIva == null || !(Number(precioListaConIva) > 0)) return null
-  const bruto = Number(precioListaConIva)
-  return sacarIva ? quitarIvaDePrecio(bruto, ivaPct) : round2(bruto)
 }
 
 export function marcarObservacionesPreciosSinIva(
@@ -236,6 +226,38 @@ export function resolvePrecioLista(
   const bruto = resolvePrecioListaBruto(articulo, lista)
   if (bruto == null) return null
   return calcularAjustesPrecio(bruto, ajustes).final
+}
+
+/**
+ * Precio de catálogo Flexxus para presupuesto / armado de venta.
+ * En DB el precio es NETO (igual que Lista de precios).
+ * - sacarIva=false → mismo final que la grilla (neto + IVA + recargos).
+ * - sacarIva=true  → neto de lista, sin IVA ni recargos.
+ */
+export function resolvePrecioParaPresupuesto(
+  articulo: Pick<ArticuloEmpresaRecord, 'precio_base' | 'precio_lista_1' | 'precio_lista_2'>,
+  lista: TipoListaPrecioVentas | NumeroListaPrecio,
+  sacarIva: boolean,
+  ajustes: ConfigAjustesPreciosVentas = DEFAULT_AJUSTES_PRECIOS_VENTAS
+): number | null {
+  if (sacarIva) return resolvePrecioListaBruto(articulo, lista)
+  return resolvePrecioLista(articulo, lista, ajustes)
+}
+
+/** @deprecated Usar `resolvePrecioParaPresupuesto`. El neto Flexxus no trae IVA incluido. */
+export function precioListaParaPresupuesto(
+  precioListaNeto: number | null | undefined,
+  sacarIva: boolean,
+  ivaPct: number = DEFAULT_AJUSTES_PRECIOS_VENTAS.iva_porcentaje
+): number | null {
+  if (precioListaNeto == null || !(Number(precioListaNeto) >= 0)) return null
+  const neto = Number(precioListaNeto)
+  if (sacarIva) return round2(neto)
+  return calcularAjustesPrecio(neto, {
+    iva_porcentaje: ivaPct,
+    iva_activo: ivaPct > 0,
+    recargos: []
+  }).final
 }
 
 export function labelAjustesPreciosActivos(config: ConfigAjustesPreciosVentas): string {

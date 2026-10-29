@@ -12,6 +12,11 @@ import {
   saldoCuentaProveedor
 } from '../utils/proveedorCuenta'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
+import {
+  CONDICIONES_IVA_CLIENTE,
+  inferirCondicionIva,
+  normalizarCondicionIvaCliente
+} from '../utils/afipFacturaUi'
 import './ProveedoresPage.css'
 
 type CatalogoProductoHit = {
@@ -103,6 +108,7 @@ const ProveedoresPage = () => {
     nombre: '',
     razon_social: '',
     cuit: '',
+    condicion_iva: '',
     contacto_nombre: '',
     telefono: '',
     email: '',
@@ -170,11 +176,16 @@ const ProveedoresPage = () => {
   const aplicarClienteComoProveedor = async (cliente: ClienteRecord) => {
     const nombre = nombreCompletoCliente(cliente)
     const razon = (cliente.empresa || nombre).trim()
+    const cuit = (cliente.dni_cuit || '').trim()
+    const iva =
+      normalizarCondicionIvaCliente(cliente.condicion_iva) ||
+      (cuit ? inferirCondicionIva(cuit) : '')
     setFormData((prev) => ({
       ...prev,
       nombre: nombre !== '—' ? nombre : prev.nombre,
       razon_social: razon || prev.razon_social,
-      cuit: (cliente.dni_cuit || prev.cuit || '').trim(),
+      cuit: cuit || prev.cuit,
+      condicion_iva: iva || prev.condicion_iva,
       telefono: (cliente.telefono || prev.telefono || '').trim(),
       email: (cliente.email || prev.email || '').trim(),
       direccion: (cliente.direccion || prev.direccion || '').trim()
@@ -222,6 +233,7 @@ const ProveedoresPage = () => {
         nombre: proveedor.nombre,
         razon_social: proveedor.razon_social || '',
         cuit: proveedor.cuit || '',
+        condicion_iva: normalizarCondicionIvaCliente(proveedor.condicion_iva) || proveedor.condicion_iva || '',
         contacto_nombre: proveedor.contacto_nombre || '',
         telefono: proveedor.telefono || '',
         email: proveedor.email || '',
@@ -239,6 +251,7 @@ const ProveedoresPage = () => {
         nombre: '',
         razon_social: '',
         cuit: '',
+        condicion_iva: '',
         contacto_nombre: '',
         telefono: '',
         email: '',
@@ -261,7 +274,8 @@ const ProveedoresPage = () => {
     setFormData({
       nombre: p.razon_social?.split(',')[0]?.trim() || p.nombre,
       razon_social: p.razon_social || p.nombre,
-      cuit: '',
+      cuit: p.cuit || '',
+      condicion_iva: normalizarCondicionIvaCliente(p.condicion_iva) || p.condicion_iva || '',
       contacto_nombre: '',
       telefono: p.telefono || '',
       email: '',
@@ -790,10 +804,34 @@ const ProveedoresPage = () => {
                   <input
                     type="text"
                     value={formData.cuit}
-                    onChange={(e) => setFormData({ ...formData, cuit: e.target.value })}
+                    onChange={(e) => {
+                      const cuit = e.target.value
+                      const ivaAuto =
+                        formData.condicion_iva ||
+                        (cuit.replace(/\D/g, '').length >= 11 ? inferirCondicionIva(cuit) : '')
+                      setFormData({
+                        ...formData,
+                        cuit,
+                        condicion_iva: formData.condicion_iva || ivaAuto
+                      })
+                    }}
                     placeholder="20-12345678-9"
                   />
                 </div>
+              </div>
+              <div className="form-group">
+                <label>Condición de IVA</label>
+                <select
+                  value={formData.condicion_iva}
+                  onChange={(e) => setFormData({ ...formData, condicion_iva: e.target.value })}
+                >
+                  <option value="">Seleccionar…</option>
+                  {CONDICIONES_IVA_CLIENTE.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="form-row">
                 <div className="form-group">
