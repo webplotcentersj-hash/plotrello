@@ -1,6 +1,12 @@
 import jsPDF from 'jspdf'
 import * as XLSX from 'xlsx'
-import type { Venta, OportunidadVenta, VentaCobro } from '../types/api'
+import type {
+  FacturaVentaRecord,
+  OportunidadVenta,
+  Venta,
+  VentaCobro,
+  VentaItem
+} from '../types/api'
 import { formatArgentinaDate } from './dateUtils'
 import { valorPonderadoPipeline } from './crmVentasHelpers'
 import { cargarLogoPlotLabDataUrl } from './relojTabletTarjetaPdf'
@@ -9,24 +15,80 @@ function fmtArsPdf(n: number): string {
   return Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function ensureSpace(
+  doc: jsPDF,
+  y: number,
+  need: number,
+  margin: number,
+  pageHeight: number
+): number {
+  if (y + need <= pageHeight - margin) return y
+  doc.addPage()
+  return margin
+}
+
+export type ReciboCobrosPdfExtras = {
+  items?: VentaItem[]
+  factura?: Pick<
+    FacturaVentaRecord,
+    | 'numero_factura'
+    | 'tipo_comprobante'
+    | 'punto_venta'
+    | 'numero_comprobante'
+    | 'cae'
+    | 'numero_cae'
+    | 'fecha_emision'
+    | 'estado_afip'
+    | 'estado'
+    | 'total'
+  > | null
+}
+
+function labelFactura(f: NonNullable<ReciboCobrosPdfExtras['factura']>): string {
+  if (f.numero_factura?.trim()) return f.numero_factura.trim()
+  const pv = Number(f.punto_venta) || 0
+  const nro = Number(f.numero_comprobante) || 0
+  if (pv > 0 || nro > 0) {
+    return `${String(pv).padStart(5, '0')}-${String(nro).padStart(8, '0')}`
+  }
+  return '—'
+}
+
 /**
- * PDF resumen de cobros parciales: qué se pagó, fechas y saldo pendiente.
+ * PDF resumen de cobros parciales: fechas, detalle de venta, factura y saldo.
  */
-export async function generarReciboCobrosVentaPDF(venta: Venta, cobros: VentaCobro[]): Promise<void> {
+export async function generarReciboCobrosVentaPDF(
+  venta: Venta,
+  cobros: VentaCobro[],
+  extras: ReciboCobrosPdfExtras = {}
+): Promise<void> {
   const logo = await cargarLogoPlotLabDataUrl()
   const doc = new jsPDF('p', 'mm', 'a4')
   const pageWidth = doc.internal.pageSize.getWidth()
-  const margin = 18
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 16
   let y = margin
 
+  const items = extras.items?.length ? extras.items : venta.items || []
+  const factura = extras.factura ?? null
   const total = Number(venta.valor_total) || 0
   const pagado = cobros.reduce((s, c) => s + (Number(c.monto) || 0), 0)
   const saldo = Math.max(0, Math.round((total - pagado) * 100) / 100)
+  const fechaVenta = venta.fecha_venta
+    ? formatArgentinaDate(venta.fecha_venta)
+    : '—'
+  const generado = new Date().toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 
   doc.setFillColor(15, 23, 42)
-  doc.rect(0, 0, pageWidth, 36, 'F')
+  doc.rect(0, 0, pageWidth, 38, 'F')
   doc.setFillColor(37, 99, 235)
-  doc.rect(0, 36, pageWidth, 2.2, 'F')
+  doc.rect(0, 38, pageWidth, 2.2, 'F')
 
   let textX = margin
   if (logo?.dataUrl) {
@@ -42,34 +104,91 @@ export async function generarReciboCobrosVentaPDF(venta: Venta, cobros: VentaCob
 
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(14)
-  doc.text('RESUMEN DE COBROS · PAGO PARCIAL', textX, 16)
+  doc.setFontSize(13)
+  doc.text('RESUMEN DE COBROS · PAGO PARCIAL', textX, 14)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(203, 213, 225)
-  doc.text('Plot Center · Plot Lab', textX, 22)
+  doc.text('Plot Center · Plot Lab', textX, 20)
   doc.setTextColor(255, 255, 255)
-  doc.text(`${venta.numero_venta || 'Sin N°'} · ${venta.cliente_nombre || ''}`, textX, 28)
+  doc.text(`Venta ${venta.numero_venta || '—'} · ${venta.cliente_nombre || ''}`, textX, 26)
+  doc.setFontSize(8)
+  doc.setTextColor(191, 219, 254)
+  doc.text(`Fecha venta: ${fechaVenta} · Emitido: ${generado}`, textX, 32)
 
-  y = 46
+  y = 48
   doc.setTextColor(15, 23, 42)
-  doc.setFontSize(11)
   doc.setFont('helvetica', 'bold')
-  doc.text('Cliente', margin, y)
-  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(11)
+  doc.text('Datos de la venta', margin, y)
   y += 6
-  doc.text(venta.cliente_nombre || '—', margin, y)
-  y += 5
-  if (venta.cliente_dni_cuit) {
-    doc.text(`CUIT/DNI: ${venta.cliente_dni_cuit}`, margin, y)
-    y += 5
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  const datosVenta: Array<[string, string]> = [
+    ['N° venta', venta.numero_venta || String(venta.id)],
+    ['Fecha', fechaVenta],
+    ['Estado pago', venta.estado_pago || '—'],
+    ['Método', venta.metodo_pago || '—'],
+    ['Vendedor', venta.nombre_vendedor || '—'],
+    ['OP', venta.numero_op || (venta.id_op ? String(venta.id_op) : '—')]
+  ]
+  if (factura) {
+    datosVenta.push(
+      ['Factura', `${factura.tipo_comprobante || 'Factura'} ${labelFactura(factura)}`],
+      [
+        'Factura fecha',
+        factura.fecha_emision ? formatArgentinaDate(factura.fecha_emision) : '—'
+      ]
+    )
+    const cae = factura.cae || factura.numero_cae
+    if (cae) datosVenta.push(['CAE', String(cae)])
+    if (factura.estado_afip) datosVenta.push(['AFIP', String(factura.estado_afip)])
+  } else {
+    datosVenta.push(['Factura', 'Sin factura AFIP vinculada'])
   }
-  if (venta.cliente_telefono) {
-    doc.text(`Tel: ${venta.cliente_telefono}`, margin, y)
-    y += 5
-  }
-  y += 4
 
+  const colW = (pageWidth - margin * 2) / 2
+  for (let i = 0; i < datosVenta.length; i += 2) {
+    y = ensureSpace(doc, y, 6, margin, pageHeight)
+    const left = datosVenta[i]
+    const right = datosVenta[i + 1]
+    doc.setFont('helvetica', 'bold')
+    doc.text(`${left[0]}:`, margin, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(left[1].slice(0, 40), margin + 28, y)
+    if (right) {
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${right[0]}:`, margin + colW, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(right[1].slice(0, 40), margin + colW + 28, y)
+    }
+    y += 5
+  }
+  y += 2
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text('Cliente', margin, y)
+  y += 5
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.text(venta.cliente_nombre || '—', margin, y)
+  y += 4.5
+  const clienteLines = [
+    venta.cliente_empresa ? `Empresa: ${venta.cliente_empresa}` : '',
+    venta.cliente_dni_cuit ? `CUIT/DNI: ${venta.cliente_dni_cuit}` : '',
+    venta.cliente_telefono ? `Tel: ${venta.cliente_telefono}` : '',
+    venta.cliente_email ? `Email: ${venta.cliente_email}` : '',
+    venta.cliente_direccion ? `Dirección: ${venta.cliente_direccion}` : ''
+  ].filter(Boolean)
+  for (const line of clienteLines) {
+    y = ensureSpace(doc, y, 5, margin, pageHeight)
+    doc.text(line.slice(0, 100), margin, y)
+    y += 4.5
+  }
+  y += 3
+
+  y = ensureSpace(doc, y, 26, margin, pageHeight)
   doc.setFillColor(239, 246, 255)
   doc.roundedRect(margin, y, pageWidth - margin * 2, 22, 2, 2, 'F')
   doc.setFont('helvetica', 'bold')
@@ -79,24 +198,69 @@ export async function generarReciboCobrosVentaPDF(venta: Venta, cobros: VentaCob
   doc.text(`Cobrado      $ ${fmtArsPdf(pagado)}`, margin + 4, y + 13)
   doc.setTextColor(saldo > 0 ? 185 : 21, saldo > 0 ? 28 : 128, saldo > 0 ? 28 : 61)
   doc.text(`Saldo        $ ${fmtArsPdf(saldo)}`, margin + 4, y + 19)
-  y += 30
+  y += 28
 
+  if (items.length > 0) {
+    y = ensureSpace(doc, y, 18, margin, pageHeight)
+    doc.setTextColor(15, 23, 42)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text('Detalle de la venta', margin, y)
+    y += 5
+    doc.setDrawColor(148, 163, 184)
+    doc.line(margin, y, pageWidth - margin, y)
+    y += 5
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Cant.', margin, y)
+    doc.text('Descripción', margin + 14, y)
+    doc.text('P. unit.', margin + 118, y)
+    doc.text('Total', pageWidth - margin, y, { align: 'right' })
+    y += 4
+    doc.setFont('helvetica', 'normal')
+    for (const item of items) {
+      y = ensureSpace(doc, y, 8, margin, pageHeight)
+      const cant = Number(item.cantidad) || 0
+      const pu = Number(item.precio_unitario) || 0
+      const lineTotal =
+        Number(item.precio_total) ||
+        Math.round((cant * pu - (Number(item.descuento) || 0)) * 100) / 100
+      const desc = String(item.descripcion || '—')
+      const descLines = doc.splitTextToSize(desc, 100) as string[]
+      doc.text(String(cant), margin, y)
+      doc.text(descLines[0] || '—', margin + 14, y)
+      doc.text(`$ ${fmtArsPdf(pu)}`, margin + 118, y)
+      doc.text(`$ ${fmtArsPdf(lineTotal)}`, pageWidth - margin, y, { align: 'right' })
+      y += 4
+      for (let i = 1; i < descLines.length && i < 3; i++) {
+        y = ensureSpace(doc, y, 5, margin, pageHeight)
+        doc.setTextColor(100, 116, 139)
+        doc.text(descLines[i], margin + 14, y)
+        doc.setTextColor(15, 23, 42)
+        y += 3.8
+      }
+      y += 1.5
+    }
+    y += 3
+  }
+
+  y = ensureSpace(doc, y, 18, margin, pageHeight)
   doc.setTextColor(15, 23, 42)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.text('Detalle de cobros', margin, y)
-  y += 6
+  y += 5
   doc.setDrawColor(148, 163, 184)
   doc.line(margin, y, pageWidth - margin, y)
-  y += 6
+  y += 5
 
-  doc.setFontSize(9)
+  doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
   doc.text('Fecha', margin, y)
   doc.text('Medio', margin + 28, y)
   doc.text('Caja', margin + 70, y)
   doc.text('Monto', pageWidth - margin, y, { align: 'right' })
-  y += 5
+  y += 4
   doc.setFont('helvetica', 'normal')
 
   if (!cobros.length) {
@@ -106,45 +270,83 @@ export async function generarReciboCobrosVentaPDF(venta: Venta, cobros: VentaCob
   }
 
   for (const c of cobros) {
-    if (y > 270) {
-      doc.addPage()
-      y = margin
-    }
+    y = ensureSpace(doc, y, 12, margin, pageHeight)
     doc.setTextColor(15, 23, 42)
     const fecha = c.fecha_pago ? formatArgentinaDate(c.fecha_pago) : '—'
     doc.text(fecha, margin, y)
     doc.text(String(c.metodo_pago || '—').slice(0, 18), margin + 28, y)
     doc.text(String(c.caja_slug || '—').slice(0, 16), margin + 70, y)
     doc.text(`$ ${fmtArsPdf(Number(c.monto) || 0)}`, pageWidth - margin, y, { align: 'right' })
-    y += 5
+    y += 4
     if (c.observaciones?.trim() || c.usuario_nombre) {
-      doc.setFontSize(8)
+      doc.setFontSize(7.5)
       doc.setTextColor(100, 116, 139)
       const meta = [c.usuario_nombre, c.observaciones?.trim()].filter(Boolean).join(' · ')
-      doc.text(meta.slice(0, 95), margin, y)
-      y += 4
-      doc.setFontSize(9)
+      doc.text(meta.slice(0, 110), margin, y)
+      y += 3.5
+      doc.setFontSize(8)
     }
-    y += 2
+    y += 1.5
   }
 
-  y += 8
+  if (venta.observaciones?.trim()) {
+    y = ensureSpace(doc, y, 16, margin, pageHeight)
+    y += 3
+    doc.setTextColor(15, 23, 42)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.text('Observaciones', margin, y)
+    y += 4
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    const obsLines = doc.splitTextToSize(venta.observaciones.trim(), pageWidth - margin * 2) as string[]
+    for (const line of obsLines.slice(0, 8)) {
+      y = ensureSpace(doc, y, 5, margin, pageHeight)
+      doc.text(line, margin, y)
+      y += 3.8
+    }
+  }
+
+  y = ensureSpace(doc, y, 18, margin, pageHeight)
+  y += 6
   doc.setDrawColor(37, 99, 235)
   doc.setLineWidth(0.4)
   doc.line(margin, y, pageWidth - margin, y)
-  y += 8
-  doc.setFontSize(9)
+  y += 6
+  doc.setFontSize(8)
   doc.setTextColor(71, 85, 105)
   doc.setFont('helvetica', 'normal')
   doc.text(
-    `Estado: ${venta.estado_pago || (saldo > 0 ? 'Parcial' : 'Pagado')} · Generado ${new Date().toLocaleString('es-AR')}`,
+    `Estado: ${venta.estado_pago || (saldo > 0 ? 'Parcial' : 'Pagado')} · Saldo pendiente $ ${fmtArsPdf(saldo)} · ${generado}`,
     margin,
     y
   )
-  y += 5
-  doc.text('Documento editable/trazable desde Plot Lab · impacta control de cajas.', margin, y)
+  y += 4
+  doc.text(
+    'Documento trazable desde Plot Lab · los cobros impactan control de cajas.',
+    margin,
+    y
+  )
 
   doc.save(`recibo-cobros-${venta.numero_venta || venta.id}.pdf`)
+}
+
+/** Carga ítems + factura y genera el PDF enriquecido. */
+export async function generarReciboCobrosVentaPDFCompleto(
+  venta: Venta,
+  cobros: VentaCobro[]
+): Promise<void> {
+  const api = (await import('../services/api')).default
+  const [itemsRes, factRes] = await Promise.all([
+    venta.items?.length
+      ? Promise.resolve({ success: true as const, data: venta.items })
+      : api.getItemsVenta(venta.id),
+    api.getFacturaPorVenta(venta.id)
+  ])
+  await generarReciboCobrosVentaPDF(venta, cobros, {
+    items: itemsRes.success ? itemsRes.data || [] : [],
+    factura: factRes.success ? factRes.data : null
+  })
 }
 
 /**

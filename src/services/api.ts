@@ -21828,6 +21828,35 @@ class ApiService {
     }
   }
 
+  /** Última factura de la venta (autorizada o no), excluye anuladas. */
+  async getFacturaPorVenta(
+    idVenta: number
+  ): Promise<ApiResponse<import('../types/api').FacturaVentaRecord>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const auth = await this.getFacturaAutorizadaPorVenta(idVenta)
+      if (auth.success && auth.data) return auth
+      const { data, error } = await supabase
+        .from('facturas_venta')
+        .select(
+          'id,numero_factura,tipo_comprobante,punto_venta,numero_comprobante,cae,numero_cae,fecha_emision,estado_afip,estado,total,id_venta'
+        )
+        .eq('id_venta', idVenta)
+        .neq('estado', 'Anulada')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) return { success: false, error: error.message }
+      if (!data) return { success: false, error: 'Sin factura vinculada a la venta' }
+      return { success: true, data: data as import('../types/api').FacturaVentaRecord }
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al buscar factura de la venta'
+      }
+    }
+  }
+
   async ventaTieneNotaCreditoAutorizada(idVenta: number): Promise<boolean> {
     if (!supabase) return false
     try {

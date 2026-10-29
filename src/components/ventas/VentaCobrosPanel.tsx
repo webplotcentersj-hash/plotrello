@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import apiService from '../../services/api'
 import type { Venta, VentaCobro } from '../../types/api'
-import { generarReciboCobrosVentaPDF } from '../../utils/crmExportUtils'
+import { generarReciboCobrosVentaPDFCompleto } from '../../utils/crmExportUtils'
 import { formatArgentinaDate } from '../../utils/dateUtils'
 import './VentaCobrosPanel.css'
 
@@ -85,7 +85,7 @@ export default function VentaCobrosPanel({ venta, disabled, onVentaActualizada }
   }
 
   const descargarPdf = () => {
-    void generarReciboCobrosVentaPDF(venta, cobros)
+    void generarReciboCobrosVentaPDFCompleto(venta, cobros)
   }
 
   if (venta.estado_pago !== 'Parcial' && venta.estado_pago !== 'Pagado' && cobros.length === 0) {

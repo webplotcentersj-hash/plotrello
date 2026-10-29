@@ -37,7 +37,7 @@ import {
   exportarOportunidadesCSV,
   generarFacturaRemitoPDF,
   generarPagarePDF,
-  generarReciboCobrosVentaPDF
+  generarReciboCobrosVentaPDFCompleto
 } from '../utils/crmExportUtils'
 import VentaCobrosPanel from '../components/ventas/VentaCobrosPanel'
 import {
@@ -2411,7 +2411,7 @@ const CRMVentasPage = () => {
     })
 
     try {
-      await generarReciboCobrosVentaPDF(ventaAct, reg.data.cobros || [])
+      await generarReciboCobrosVentaPDFCompleto(ventaAct, reg.data.cobros || [])
     } catch (ex) {
       console.warn('No se pudo generar PDF de cobros', ex)
     }
@@ -4027,7 +4027,7 @@ const CRMVentasPage = () => {
                           onClick={() => {
                             void (async () => {
                               const res = await apiService.listarCobrosVenta(ventaModal.id)
-                              await generarReciboCobrosVentaPDF(ventaModal, res.data || [])
+                              await generarReciboCobrosVentaPDFCompleto(ventaModal, res.data || [])
                               setDropdownDocumentosAbierto(null)
                             })()
                           }}
