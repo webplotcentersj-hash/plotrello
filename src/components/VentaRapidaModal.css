@@ -199,48 +199,263 @@
 }
 
 .venta-rapida-parcial {
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(96, 165, 250, 0.45);
-  background: rgba(37, 99, 235, 0.16);
+  margin-top: 12px;
+  padding: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(251, 191, 36, 0.18), transparent 55%),
+    linear-gradient(145deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.88));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.venta-rapida-parcial--on {
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.2),
+    0 10px 28px rgba(180, 83, 9, 0.18);
 }
 
 .venta-rapida-parcial__check {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  color: #dbeafe;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 14px 14px 16px;
   cursor: pointer;
+  user-select: none;
+}
+
+.venta-rapida-parcial__check > input[type='checkbox'] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.venta-rapida-parcial__switch {
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.venta-rapida-parcial__switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f8fafc;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease;
+}
+
+.venta-rapida-parcial__check > input:checked + .venta-rapida-parcial__switch {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  border-color: rgba(180, 83, 9, 0.55);
+}
+
+.venta-rapida-parcial__check > input:checked + .venta-rapida-parcial__switch::after {
+  transform: translateX(18px);
+}
+
+.venta-rapida-parcial__check > input:focus-visible + .venta-rapida-parcial__switch {
+  outline: 2px solid rgba(251, 191, 36, 0.75);
+  outline-offset: 2px;
+}
+
+.venta-rapida-parcial__check > input:disabled + .venta-rapida-parcial__switch {
+  opacity: 0.45;
+}
+
+.venta-rapida-parcial__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.venta-rapida-parcial__title {
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #fff7ed;
+  line-height: 1.2;
+}
+
+.venta-rapida-parcial__sub {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(254, 243, 199, 0.78);
+  line-height: 1.35;
+}
+
+.venta-rapida-parcial__badge {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #451a03;
+  background: linear-gradient(135deg, #fde68a, #fbbf24);
+  border: 1px solid rgba(180, 83, 9, 0.35);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.15);
 }
 
 .venta-rapida-parcial__body {
-  margin-top: 10px;
+  margin: 0;
+  padding: 0 14px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  border-top: 1px solid rgba(251, 191, 36, 0.18);
+  padding-top: 12px;
+  animation: venta-rapida-parcial-in 0.22s ease;
 }
 
-.venta-rapida-parcial__body label {
+@keyframes venta-rapida-parcial-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.venta-rapida-parcial__monto {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 0.85rem;
-  color: #e2e8f0;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+.venta-rapida-parcial__monto-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.venta-rapida-parcial__currency {
+  position: absolute;
+  left: 12px;
+  z-index: 1;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fbbf24;
+  pointer-events: none;
+}
+
+.venta-rapida-parcial__input {
+  width: 100%;
+  padding-left: 28px !important;
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em;
+  border-color: rgba(251, 191, 36, 0.4) !important;
+  background: rgba(2, 6, 23, 0.55) !important;
+}
+
+.venta-rapida-parcial__input:focus {
+  border-color: rgba(251, 191, 36, 0.75) !important;
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.18);
 }
 
 .venta-rapida-parcial__resumen {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 16px;
-  font-size: 0.86rem;
-  color: #f8fafc;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.venta-rapida-parcial__falta {
+.venta-rapida-parcial__chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  min-width: 0;
+}
+
+.venta-rapida-parcial__chip > span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.venta-rapida-parcial__chip > strong {
+  font-size: 0.92rem;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.venta-rapida-parcial__chip--ok {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(6, 78, 59, 0.35);
+}
+
+.venta-rapida-parcial__chip--ok > span {
+  color: #6ee7b7;
+}
+
+.venta-rapida-parcial__chip--ok > strong {
+  color: #a7f3d0;
+}
+
+.venta-rapida-parcial__chip--falta {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.4);
+}
+
+.venta-rapida-parcial__chip--falta > span {
+  color: #fca5a5;
+}
+
+.venta-rapida-parcial__chip--falta > strong {
   color: #fecaca;
-  font-weight: 800;
+}
+
+.venta-rapida-parcial__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(254, 243, 199, 0.72);
+}
+
+.venta-rapida-parcial__hint strong {
+  color: #fecaca;
+}
+
+@media (max-width: 560px) {
+  .venta-rapida-parcial__resumen {
+    grid-template-columns: 1fr;
+  }
+
+  .venta-rapida-parcial__badge {
+    display: none;
+  }
 }
 
 .venta-cc-hint {

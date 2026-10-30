@@ -1512,7 +1512,9 @@ const VentaRapidaModal = ({
             </p>
 
             {!esCuentaCorriente && !incluyeMp ? (
-              <div className="venta-rapida-parcial">
+              <div
+                className={`venta-rapida-parcial${pagoParcialActivo ? ' venta-rapida-parcial--on' : ''}`}
+              >
                 <label className="venta-rapida-parcial__check">
                   <input
                     type="checkbox"
@@ -1524,23 +1526,35 @@ const VentaRapidaModal = ({
                       if (!e.target.checked) setMontoCobradoParcial('')
                     }}
                   />
-                  <span>Pago parcial</span>
+                  <span className="venta-rapida-parcial__switch" aria-hidden />
+                  <span className="venta-rapida-parcial__copy">
+                    <span className="venta-rapida-parcial__title">Pago parcial</span>
+                    <span className="venta-rapida-parcial__sub">
+                      {pagoParcialActivo
+                        ? 'Indicá cuánto cobra ahora; el resto queda como saldo'
+                        : 'Seña o anticipo · el saldo queda marcado en la OP'}
+                    </span>
+                  </span>
+                  <span className="venta-rapida-parcial__badge">Parcial</span>
                 </label>
                 {pagoParcialActivo ? (
                   <div className="venta-rapida-parcial__body">
-                    <label>
-                      Cobra ahora
-                      <input
-                        type="number"
-                        className="form-input"
-                        inputMode="decimal"
-                        min={0}
-                        step="0.01"
-                        value={montoCobradoParcial}
-                        disabled={showMpCheckout}
-                        placeholder="0"
-                        onChange={(e) => setMontoCobradoParcial(e.target.value)}
-                      />
+                    <label className="venta-rapida-parcial__monto">
+                      <span>Cobra ahora</span>
+                      <div className="venta-rapida-parcial__monto-wrap">
+                        <span className="venta-rapida-parcial__currency">$</span>
+                        <input
+                          type="number"
+                          className="form-input venta-rapida-parcial__input"
+                          inputMode="decimal"
+                          min={0}
+                          step="0.01"
+                          value={montoCobradoParcial}
+                          disabled={showMpCheckout}
+                          placeholder="0,00"
+                          onChange={(e) => setMontoCobradoParcial(e.target.value)}
+                        />
+                      </div>
                     </label>
                     {(() => {
                       const total = calcularSubtotal()
@@ -1548,17 +1562,23 @@ const VentaRapidaModal = ({
                       const falta = Math.max(0, Math.round((total - cobrado) * 100) / 100)
                       return (
                         <div className="venta-rapida-parcial__resumen" aria-live="polite">
-                          <span>
-                            Total <strong>$ {formatArs(total)}</strong>
-                          </span>
-                          <span className="venta-rapida-parcial__falta">
-                            Falta <strong>$ {formatArs(falta)}</strong>
-                          </span>
+                          <div className="venta-rapida-parcial__chip">
+                            <span>Total</span>
+                            <strong>$ {formatArs(total)}</strong>
+                          </div>
+                          <div className="venta-rapida-parcial__chip venta-rapida-parcial__chip--ok">
+                            <span>Cobra</span>
+                            <strong>$ {formatArs(cobrado)}</strong>
+                          </div>
+                          <div className="venta-rapida-parcial__chip venta-rapida-parcial__chip--falta">
+                            <span>Falta</span>
+                            <strong>$ {formatArs(falta)}</strong>
+                          </div>
                         </div>
                       )
                     })()}
-                    <p className="form-hint-comprobante">
-                      El saldo se arrastra a la OP con distintivo rojo «FALTA».
+                    <p className="venta-rapida-parcial__hint">
+                      El saldo viaja a la OP con pastilla roja <strong>FALTA</strong>.
                     </p>
                   </div>
                 ) : null}

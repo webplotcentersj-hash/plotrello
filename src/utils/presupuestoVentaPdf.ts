@@ -10,7 +10,7 @@ import {
   LISTAS_PRECIO_VENTAS,
   normalizarConfigAjustesPrecios,
   presupuestoTienePreciosSinIva,
-  resolvePrecioListaBruto,
+  resolvePrecioLista,
   type ConfigAjustesPreciosVentas,
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
@@ -74,36 +74,41 @@ function matchCatalogo(
 }
 
 /**
- * La lista Flexxus del presupuesto ya trae IVA. Si un ítem quedó guardado como
- * lista × 1.21 (bug viejo), lo bajamos al precio de lista.
+ * Cotización correcta = precio de lista con IVA/recargos (igual que el modal).
+ * Solo corrige el bug viejo de doble IVA: unit ≈ finalLista × 1.21.
+ * No tocar si unit ya coincide con el final de lista (eso era el error del PDF).
  */
-function sanearItemsConIvaIncluido(
+function sanearItemsDobleIva(
   items: PresupuestoVentaItemRecord[],
   catalogo: ArticuloEmpresaRecord[],
   tipoLista: TipoListaPrecioVentas,
-  ivaPct: number
+  ajustes: ConfigAjustesPreciosVentas
 ): PresupuestoVentaItemRecord[] {
+  const ivaPct = ajustes.iva_activo ? ajustes.iva_porcentaje : 0
   if (ivaPct <= 0 || !catalogo.length) return items
   const factor = 1 + ivaPct / 100
 
   return items.map((item) => {
     const art = matchCatalogo(item, catalogo)
     if (!art) return item
-    const lista = resolvePrecioListaBruto(art, tipoLista)
-    if (lista == null || lista <= 0) return item
+    const finalLista = resolvePrecioLista(art, tipoLista, ajustes)
+    if (finalLista == null || finalLista <= 0) return item
 
     const unit = Number(item.precio_unitario) || 0
-    const doble = round2(lista * factor)
-    const tol = Math.max(0.05, doble * 0.002)
-    // Solo corrige si claramente se le sumó IVA otra vez sobre la lista.
-    if (Math.abs(unit - doble) > tol) return item
+    // Precio correcto (con IVA): no tocar.
+    const tolOk = Math.max(0.05, finalLista * 0.002)
+    if (Math.abs(unit - finalLista) <= tolOk) return item
+
+    const doble = round2(finalLista * factor)
+    const tolDoble = Math.max(0.05, doble * 0.002)
+    if (Math.abs(unit - doble) > tolDoble) return item
 
     const cant = Number(item.cantidad) || 0
     const desc = Number(item.descuento) || 0
     return {
       ...item,
-      precio_unitario: lista,
-      precio_total: round2(Math.max(0, cant * lista - desc))
+      precio_unitario: finalLista,
+      precio_total: round2(Math.max(0, cant * finalLista - desc))
     }
   })
 }
@@ -130,23 +135,24 @@ async function toPlanillaPayload(
   }
 
   const preciosSinIva = presupuestoTienePreciosSinIva(presupuesto.observaciones_internas)
-  // Si ya se sacó el IVA, no re-sanear ni discriminar (los importes ya son netos).
+  // Con IVA: mismos importes que el modal (lista + IVA/recargos). Solo se corrige doble IVA legado.
+  // Sin IVA: importes netos tal cual; no discriminar en el PDF.
   const itemsOk = preciosSinIva
     ? items
-    : sanearItemsConIvaIncluido(items, catalogo, tipoLista, ivaPct)
-  // Importes: con IVA incluido (default) o netos si se marcó «sacar IVA» / cliente exento.
+    : sanearItemsDobleIva(items, catalogo, tipoLista, ajustes)
   const total = round2(
     itemsOk.reduce((s, it) => s + (Number(it.precio_total) || 0), 0) ||
       Number(presupuesto.precio_total) ||
       0
   )
 
-  // Solo discriminar (partir) el total con IVA; nunca calcular TOTAL = neto + IVA sumado.
+  // Partir el total (ya con IVA) en neto / IVA para el pie; el TOTAL no cambia.
   const desglose = preciosSinIva
     ? null
     : desglosarImporteConAjustes(total, {
-        ...ajustes,
-        // En presupuesto no reaplicamos recargos de venta: la lista ya es precio final.
+        iva_porcentaje: ivaPct,
+        iva_activo: ivaPct > 0,
+        // Discriminación solo de IVA; los recargos ya van en el precio de línea.
         recargos: []
       })
 
