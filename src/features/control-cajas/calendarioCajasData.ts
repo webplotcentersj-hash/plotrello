@@ -58,11 +58,6 @@ function ensureDay(index: CalendarioCajasIndex, fecha: string): DiaCalendarioCaj
   return index[fecha]
 }
 
-function addCajaSlug(day: DiaCalendarioCaja, slug: string | null | undefined) {
-  if (!slug || day.cajasSlugs.includes(slug)) return
-  day.cajasSlugs.push(slug)
-}
-
 function bumpMap(map: Map<string, number>, key: string, delta: number) {
   if (!key || !delta) return
   map.set(key, (map.get(key) || 0) + delta)
