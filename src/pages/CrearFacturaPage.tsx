@@ -10,7 +10,7 @@ import {
   type TipoListaPrecioVentas
 } from '../constants/ventasListasPrecio'
 import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
-import { etiquetaUnidadCorta, precioUnitarioTrasDescuentoPesos } from '../utils/unidadPrecio'
+import { etiquetaUnidadCorta } from '../utils/unidadPrecio'
 import {
   CONCEPTOS_AFIP,
   calcularLineaItem,
@@ -62,6 +62,35 @@ function sonPesos(n: number) {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
+function brutoLineaItem(item: Pick<ItemRow, 'cantidad' | 'precio_unitario' | 'descuento'>): number {
+  return Math.max(
+    0,
+    Number(item.cantidad || 0) * Number(item.precio_unitario || 0) - Number(item.descuento || 0)
+  )
+}
+
+/** Reparte un descuento general en pesos sobre las líneas (proporcional al neto de cada una). */
+function itemsConDescuentoGeneral(items: ItemRow[], descuentoGeneral: number): ItemRow[] {
+  const global = Math.max(0, Number(descuentoGeneral) || 0)
+  if (global <= 0 || items.length === 0) return items
+  const brutos = items.map((item) => brutoLineaItem(item))
+  const totalBruto = brutos.reduce((s, n) => s + n, 0)
+  if (totalBruto <= 0) return items
+  const toApply = Math.min(global, totalBruto)
+  let assigned = 0
+  return items.map((item, idx) => {
+    const share =
+      idx === items.length - 1
+        ? Math.round((toApply - assigned) * 100) / 100
+        : Math.round((toApply * (brutos[idx] / totalBruto)) * 100) / 100
+    assigned = Math.round((assigned + share) * 100) / 100
+    return {
+      ...item,
+      descuento: Math.round((Number(item.descuento || 0) + share) * 100) / 100
+    }
+  })
+}
+
 export default function CrearFacturaPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -102,6 +131,8 @@ export default function CrearFacturaPage() {
   })
 
   const [items, setItems] = useState<ItemRow[]>([])
+  /** Descuento de toda la factura (en pesos); se reparte entre ítems al calcular/guardar. */
+  const [descuentoGeneral, setDescuentoGeneral] = useState(0)
   const { ajustes: ajustesPrecios } = useConfigAjustesPreciosVentas()
   const [catalogoArticulos, setCatalogoArticulos] = useState<ArticuloEmpresaRecord[]>([])
   const [loadingCatalogo, setLoadingCatalogo] = useState(false)
@@ -228,6 +259,7 @@ export default function CrearFacturaPage() {
       // No se copia la fecha de la venta: AFIP rechaza comprobantes con más de 5 días de diferencia.
       // Los precios de la venta son finales (lo que pagó el cliente): IVA incluido.
       setPreciosConIva(true)
+      setDescuentoGeneral(0)
       const itemsResponse = await apiService.getItemsVenta(ventaId)
       if (itemsResponse.success && itemsResponse.data?.length) {
         setItems(
@@ -235,12 +267,8 @@ export default function CrearFacturaPage() {
             codigo: item.codigo_articulo || '',
             descripcion: item.descripcion,
             cantidad: item.cantidad,
-            precio_unitario: precioUnitarioTrasDescuentoPesos(
-              Number(item.precio_unitario),
-              Number(item.cantidad),
-              Number(item.descuento) || 0
-            ),
-            descuento: 0,
+            precio_unitario: Number(item.precio_unitario) || 0,
+            descuento: Math.max(0, Number(item.descuento) || 0),
             iva_porcentaje: 21
           }))
         )
@@ -439,7 +467,27 @@ export default function CrearFacturaPage() {
   const handleUpdateItem = (index: number, field: keyof ItemRow, value: string | number) => {
     setItems((prev) => {
       const next = [...prev]
-      next[index] = { ...next[index], [field]: value }
+      const row = { ...next[index], [field]: value }
+      if (field === 'descuento' || field === 'cantidad' || field === 'precio_unitario') {
+        const maxDesc = Math.max(0, Number(row.cantidad || 0) * Number(row.precio_unitario || 0))
+        row.descuento = Math.min(Math.max(0, Number(row.descuento) || 0), maxDesc)
+      }
+      next[index] = row
+      return next
+    })
+  }
+
+  /** Descuento en % sobre cantidad × precio → se guarda en pesos (como espera AFIP). */
+  const handleUpdateDescuentoPct = (index: number, pctRaw: number) => {
+    setItems((prev) => {
+      const next = [...prev]
+      const row = next[index]
+      const bruto = Math.max(0, Number(row.cantidad || 0) * Number(row.precio_unitario || 0))
+      const pct = Math.min(100, Math.max(0, Number(pctRaw) || 0))
+      next[index] = {
+        ...row,
+        descuento: Math.round(((bruto * pct) / 100) * 100) / 100
+      }
       return next
     })
   }
@@ -454,7 +502,26 @@ export default function CrearFacturaPage() {
     () => ({ preciosConIva: preciosConIva && !esFacturaC, sinIva: esFacturaC }),
     [preciosConIva, esFacturaC]
   )
-  const totales = useMemo(() => calcularTotalesFactura(items, opcionesCalculo), [items, opcionesCalculo])
+  const brutoItemsTrasLinea = useMemo(
+    () => items.reduce((s, it) => s + brutoLineaItem(it), 0),
+    [items]
+  )
+  const descuentoGeneralEfectivo = useMemo(
+    () => Math.min(Math.max(0, Number(descuentoGeneral) || 0), brutoItemsTrasLinea),
+    [descuentoGeneral, brutoItemsTrasLinea]
+  )
+  const itemsParaFactura = useMemo(
+    () => itemsConDescuentoGeneral(items, descuentoGeneralEfectivo),
+    [items, descuentoGeneralEfectivo]
+  )
+  const totales = useMemo(
+    () => calcularTotalesFactura(itemsParaFactura, opcionesCalculo),
+    [itemsParaFactura, opcionesCalculo]
+  )
+  const descuentoGeneralPct =
+    brutoItemsTrasLinea > 0
+      ? Math.round((descuentoGeneralEfectivo / brutoItemsTrasLinea) * 10000) / 100
+      : 0
 
   // Si la configuración del emisor no admite la letra elegida, pasar a la que corresponde
   useEffect(() => {
@@ -493,6 +560,19 @@ export default function CrearFacturaPage() {
     }
     if (items.some((item) => !item.descripcion.trim() || item.precio_unitario <= 0 || item.cantidad <= 0)) {
       alert('Todos los ítems deben tener descripción, cantidad y precio válidos.')
+      return
+    }
+    if (
+      items.some((item) => {
+        const bruto = Number(item.cantidad || 0) * Number(item.precio_unitario || 0)
+        return Number(item.descuento || 0) > bruto + 0.009
+      })
+    ) {
+      alert('El descuento de un ítem no puede superar cantidad × precio.')
+      return
+    }
+    if (descuentoGeneralEfectivo > brutoItemsTrasLinea + 0.009) {
+      alert('El descuento general no puede superar el total de los ítems.')
       return
     }
     if (!tiposPermitidos.includes(formData.tipo_comprobante)) {
@@ -534,7 +614,7 @@ export default function CrearFacturaPage() {
         id_op: op?.id || venta?.id_op || null,
         numero_op: op?.numero_op || venta?.numero_op || null,
         id_venta: venta?.id || null,
-        items,
+        items: itemsParaFactura,
         precios_con_iva: opcionesCalculo.preciosConIva,
         concepto: formData.concepto,
         fecha_servicio_desde: servicioDesde,
@@ -944,46 +1024,151 @@ export default function CrearFacturaPage() {
                       onChange={(e) => handleUpdateItem(index, 'descripcion', e.target.value)}
                     />
                     <div className="crear-factura-item-edit__nums">
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        title={item.unidad_medida ? `Cantidad (${etiquetaUnidadCorta(item.unidad_medida)})` : 'Cantidad'}
-                        value={item.cantidad}
-                        onChange={(e) => handleUpdateItem(index, 'cantidad', parseFloat(e.target.value) || 0)}
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        title="Precio unitario"
-                        value={item.precio_unitario}
-                        onChange={(e) => handleUpdateItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
-                      />
-                      <select
-                        value={esFacturaC ? 0 : item.iva_porcentaje}
-                        disabled={esFacturaC}
-                        title={esFacturaC ? 'La Factura C no discrimina IVA' : 'Alícuota IVA'}
-                        onChange={(e) => handleUpdateItem(index, 'iva_porcentaje', parseFloat(e.target.value) || 0)}
-                      >
-                        {esFacturaC ? (
-                          <option value={0}>Sin IVA</option>
-                        ) : (
-                          <>
-                            <option value={21}>IVA 21%</option>
-                            <option value={10.5}>IVA 10,5%</option>
-                            <option value={27}>IVA 27%</option>
-                            <option value={0}>IVA 0%</option>
-                          </>
-                        )}
-                      </select>
+                      <label className="crear-factura-item-edit__field">
+                        <span>Cant.</span>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          title={item.unidad_medida ? `Cantidad (${etiquetaUnidadCorta(item.unidad_medida)})` : 'Cantidad'}
+                          value={item.cantidad}
+                          onChange={(e) => handleUpdateItem(index, 'cantidad', parseFloat(e.target.value) || 0)}
+                        />
+                      </label>
+                      <label className="crear-factura-item-edit__field">
+                        <span>Precio</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          title="Precio unitario"
+                          value={item.precio_unitario}
+                          onChange={(e) => handleUpdateItem(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
+                        />
+                      </label>
+                      <label className="crear-factura-item-edit__field">
+                        <span>Desc. $</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          title="Descuento en pesos sobre la línea"
+                          value={item.descuento > 0 ? item.descuento : ''}
+                          placeholder="0"
+                          onChange={(e) =>
+                            handleUpdateItem(index, 'descuento', parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </label>
+                      <label className="crear-factura-item-edit__field">
+                        <span>Desc. %</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          title="Descuento porcentual (se convierte a pesos)"
+                          value={(() => {
+                            const bruto = Number(item.cantidad || 0) * Number(item.precio_unitario || 0)
+                            if (bruto <= 0 || !(item.descuento > 0)) return ''
+                            return Math.round((item.descuento / bruto) * 10000) / 100
+                          })()}
+                          placeholder="0"
+                          onChange={(e) => handleUpdateDescuentoPct(index, parseFloat(e.target.value) || 0)}
+                        />
+                      </label>
+                      <label className="crear-factura-item-edit__field">
+                        <span>IVA</span>
+                        <select
+                          value={esFacturaC ? 0 : item.iva_porcentaje}
+                          disabled={esFacturaC}
+                          title={esFacturaC ? 'La Factura C no discrimina IVA' : 'Alícuota IVA'}
+                          onChange={(e) => handleUpdateItem(index, 'iva_porcentaje', parseFloat(e.target.value) || 0)}
+                        >
+                          {esFacturaC ? (
+                            <option value={0}>Sin IVA</option>
+                          ) : (
+                            <>
+                              <option value={21}>21%</option>
+                              <option value={10.5}>10,5%</option>
+                              <option value={27}>27%</option>
+                              <option value={0}>0%</option>
+                            </>
+                          )}
+                        </select>
+                      </label>
                       <button type="button" className="btn-remove-item" onClick={() => handleRemoveItem(index)} aria-label="Quitar">
                         ✕
                       </button>
                     </div>
+                    {item.descuento > 0 ? (
+                      <p className="crear-factura-item-edit__descHint">
+                        Línea con descuento {pesos(item.descuento)}
+                        {(() => {
+                          const bruto = Number(item.cantidad || 0) * Number(item.precio_unitario || 0)
+                          if (bruto <= 0) return null
+                          const pct = Math.round((item.descuento / bruto) * 10000) / 100
+                          return ` (${pct.toLocaleString('es-AR', { maximumFractionDigits: 2 })}%)`
+                        })()}
+                      </p>
+                    ) : null}
                   </div>
                 ))
               )}
+            </div>
+
+            <div className="crear-factura-descuento-general">
+              <strong>Descuento general</strong>
+              <p className="crear-factura-muted">
+                Se aplica a toda la factura (además de los descuentos por ítem).
+              </p>
+              <div className="crear-factura-descuento-general__row">
+                <label className="crear-factura-item-edit__field">
+                  <span>Desc. $</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={descuentoGeneral > 0 ? descuentoGeneral : ''}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const n = parseFloat(e.target.value) || 0
+                      setDescuentoGeneral(Math.max(0, Math.min(n, brutoItemsTrasLinea || n)))
+                    }}
+                  />
+                </label>
+                <label className="crear-factura-item-edit__field">
+                  <span>Desc. %</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={descuentoGeneralPct > 0 ? descuentoGeneralPct : ''}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const pct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0))
+                      const pesosDesc =
+                        Math.round(((brutoItemsTrasLinea * pct) / 100) * 100) / 100
+                      setDescuentoGeneral(pesosDesc)
+                    }}
+                  />
+                </label>
+                <div className="crear-factura-descuento-general__resumen" aria-live="polite">
+                  {descuentoGeneralEfectivo > 0 ? (
+                    <>
+                      −{pesos(descuentoGeneralEfectivo)}
+                      {descuentoGeneralPct > 0
+                        ? ` · ${descuentoGeneralPct.toLocaleString('es-AR', {
+                            maximumFractionDigits: 2
+                          })}%`
+                        : ''}
+                    </>
+                  ) : (
+                    'Sin descuento general'
+                  )}
+                </div>
+              </div>
             </div>
           </section>
 
@@ -1094,14 +1279,14 @@ export default function CrearFacturaPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.length === 0 ? (
+                {itemsParaFactura.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="afip-comprobante__empty">
                       Sin ítems cargados
                     </td>
                   </tr>
                 ) : (
-                  items.map((item, idx) => {
+                  itemsParaFactura.map((item, idx) => {
                     const linea = calcularLineaItem(item, opcionesCalculo)
                     const importeLinea = letra === 'A' ? linea.neto : linea.total
                     const factorIva = 1 + linea.alicuota / 100
@@ -1140,14 +1325,22 @@ export default function CrearFacturaPage() {
                 </div>
                 <div>
                   <span>
-                    Descuento:{' '}
-                    {(totales.subtotal + totales.descuento > 0
-                      ? (totales.descuento / (totales.subtotal + totales.descuento)) * 100
-                      : 0
-                    ).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-                    %
+                    Descuento
+                    {(() => {
+                      const bruto = items.reduce(
+                        (s, it) => s + Number(it.cantidad || 0) * Number(it.precio_unitario || 0),
+                        0
+                      )
+                      if (!(totales.descuento > 0) || bruto <= 0) return ': 0,00 %'
+                      const pct = (totales.descuento / bruto) * 100
+                      return `: ${pct.toLocaleString('es-AR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })} %`
+                    })()}
+                    {descuentoGeneralEfectivo > 0 ? ' (incl. general)' : ''}
                   </span>
-                  <span />
+                  <span>{pesos(totales.descuento)}</span>
                 </div>
                 <div>
                   <span>Subtotal:</span>

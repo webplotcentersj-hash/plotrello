@@ -475,8 +475,89 @@
 
 .crear-factura-item-edit__nums {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.1fr) minmax(0, 0.95fr) minmax(0, 0.85fr) minmax(0, 0.9fr) auto;
   gap: 6px;
+  align-items: end;
+}
+
+.crear-factura-item-edit__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.crear-factura-item-edit__field > span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.crear-factura-item-edit__descHint {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fbbf24;
+}
+
+.crear-factura-descuento-general {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crear-factura-descuento-general > strong {
+  font-size: 0.92rem;
+  color: #fde68a;
+}
+
+.crear-factura-descuento-general .crear-factura-muted {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.crear-factura-descuento-general__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.crear-factura-descuento-general__row input {
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--cf-line);
+  background: rgba(15, 23, 42, 0.8);
+  color: var(--cf-ink);
+  font-size: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.crear-factura-descuento-general__resumen {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+@media (max-width: 720px) {
+  .crear-factura-descuento-general__row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .crear-factura-descuento-general__resumen {
+    grid-column: 1 / -1;
+  }
 }
 
 .crear-factura-actions {
@@ -731,6 +812,10 @@
 
   .crear-factura-item-edit__nums {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .crear-factura-item-edit__nums .btn-remove-item {
+    grid-column: 1 / -1;
   }
 }
 
