@@ -24,6 +24,8 @@ export type PrintPagePreview = {
   label: string
   sourceIndex: number
   pageInSource: number
+  /** Tipo del archivo de origen (el editor de fotos solo se ofrece en imágenes). */
+  kind?: PrintDocumentKind
 }
 
 export type PrintDocumentAnalysis = {
@@ -300,7 +302,7 @@ async function analyzeSingleSource(
     const color = await detectColorFromPreviewUrl(previewUrl)
     return {
       kind: 'image',
-      pages: [{ previewUrl, color, label: labelBase, sourceIndex, pageInSource: 1 }]
+      pages: [{ previewUrl, color, label: labelBase, sourceIndex, pageInSource: 1, kind: 'image' }]
     }
   }
 
@@ -316,7 +318,8 @@ async function analyzeSingleSource(
         color,
         label: pageCount > 1 ? `${labelBase} · pág. ${p}` : labelBase,
         sourceIndex,
-        pageInSource: p
+        pageInSource: p,
+        kind: 'pdf'
       })
     }
     return { kind: 'pdf', pages }

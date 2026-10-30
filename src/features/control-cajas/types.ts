@@ -218,6 +218,7 @@ export type CajaSaludResumen = {
 export type CajaSectionId =
   | 'menu'
   | 'tablero_admin'
+  | 'informes_ventas'
   | 'centro_ia'
   | 'tablero'
   | 'cierres_new'

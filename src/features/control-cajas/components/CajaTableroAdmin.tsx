@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import apiService from '../../../services/api'
 import type { Venta } from '../../../types/api'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
@@ -38,10 +38,16 @@ import CajaMovimientosList from './CajaMovimientosList'
 type Props = {
   onCierreTurno: () => void
   onEgresos: () => void
+  onInformes?: (modo: 'semana' | 'mes') => void
   refreshKey?: number
 }
 
-export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey = 0 }: Props) {
+export default function CajaTableroAdmin({
+  onCierreTurno,
+  onEgresos,
+  onInformes,
+  refreshKey = 0
+}: Props) {
   const hoy = getArgentinaDateString()
   const [selectedFecha, setSelectedFecha] = useState(hoy)
   const [yearMonth, setYearMonth] = useState(() => yearMonthFromDate(hoy))
@@ -61,6 +67,9 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
   const [pdfBusy, setPdfBusy] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [ventasDia, setVentasDia] = useState<Venta[]>([])
+  /** Día de los paneles pesados: el calendario pinta el click al toque; el detalle alcanza después. */
+  const deferredFecha = useDeferredValue(selectedFecha)
+  const diaBusy = deferredFecha !== selectedFecha
 
   useEffect(() => {
     setLoading(true)
@@ -94,36 +103,32 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
     return () => window.removeEventListener('caja-datos-actualizados', onRefresh)
   }, [])
 
+  // Sync PlotLab solo del día de hoy (al entrar / refrescar). Navegar el calendario no debe
+  // re-sincronizar ventas día por día: eso hacía que cambiar de fecha se sienta trabado.
   useEffect(() => {
     let cancelled = false
-    void sincronizarVentasPlotLabRango(selectedFecha, selectedFecha).then((r) => {
-      if (cancelled || (r.sincronizadas === 0 && r.errores === 0)) return
+    void sincronizarVentasPlotLabRango(hoy, hoy).then((r) => {
+      if (cancelled || r.sincronizadas === 0) return
       void listMovimientos().then((m) => {
         if (!cancelled) setMovimientos(m)
       })
-      if (r.sincronizadas > 0) {
-        setSyncMsg(`${r.sincronizadas} venta(s) PlotLab sincronizada(s) al día.`)
-        void apiService.obtenerVentas(undefined, selectedFecha, selectedFecha).then((res) => {
-          if (cancelled) return
-          setVentasDia(res.success && res.data ? res.data : [])
-        })
-      }
+      setSyncMsg(`${r.sincronizadas} venta(s) PlotLab sincronizada(s) al día.`)
     })
     return () => {
       cancelled = true
     }
-  }, [selectedFecha, refreshKey])
+  }, [hoy, refreshKey])
 
   useEffect(() => {
     let cancelled = false
-    void apiService.obtenerVentas(undefined, selectedFecha, selectedFecha).then((res) => {
+    void apiService.obtenerVentas(undefined, deferredFecha, deferredFecha).then((res) => {
       if (cancelled) return
       setVentasDia(res.success && res.data ? res.data : [])
     })
     return () => {
       cancelled = true
     }
-  }, [selectedFecha, refreshKey])
+  }, [deferredFecha, refreshKey])
 
   const ventasMpPagadas = useMemo(() => ventasMpPagadasIds(ventasDia), [ventasDia])
 
@@ -133,55 +138,55 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
   )
 
   const mediosDia = useMemo(
-    () => mediosIngresosDia(movimientos, selectedFecha, ventasMpPagadas),
-    [movimientos, selectedFecha, ventasMpPagadas]
+    () => mediosIngresosDia(movimientos, deferredFecha, ventasMpPagadas),
+    [movimientos, deferredFecha, ventasMpPagadas]
   )
 
   const movsDia = useMemo(
-    () => movimientosDelDia(movimientos, selectedFecha),
-    [movimientos, selectedFecha]
+    () => movimientosDelDia(movimientos, deferredFecha),
+    [movimientos, deferredFecha]
   )
 
   const concilMpDia = useMemo(
-    () => concilMp.find((c) => c.fecha === selectedFecha) ?? null,
-    [concilMp, selectedFecha]
+    () => concilMp.find((c) => c.fecha === deferredFecha) ?? null,
+    [concilMp, deferredFecha]
   )
 
   const concilBancoDia = useMemo(
-    () => concilBanco.find((c) => c.fecha === selectedFecha) ?? null,
-    [concilBanco, selectedFecha]
+    () => concilBanco.find((c) => c.fecha === deferredFecha) ?? null,
+    [concilBanco, deferredFecha]
   )
 
   const resumenCajeros = useMemo(
-    () => resumenPorCajeroAdminDia(selectedFecha, cajas, movimientos, arqueos, lotes),
-    [selectedFecha, cajas, movimientos, arqueos, lotes]
+    () => resumenPorCajeroAdminDia(deferredFecha, cajas, movimientos, arqueos, lotes),
+    [deferredFecha, cajas, movimientos, arqueos, lotes]
   )
 
   const resumen = useMemo(
-    () => resumenAdminHoy(selectedFecha, lotes, planillas, egresos, cajas, movimientos),
-    [selectedFecha, lotes, planillas, egresos, cajas, movimientos]
+    () => resumenAdminHoy(deferredFecha, lotes, planillas, egresos, cajas, movimientos),
+    [deferredFecha, lotes, planillas, egresos, cajas, movimientos]
   )
 
   const ingresosAcum = useMemo(
-    () => ingresosAcumuladosHasta(selectedFecha, planillas, movimientos),
-    [selectedFecha, planillas, movimientos]
+    () => ingresosAcumuladosHasta(deferredFecha, planillas, movimientos),
+    [deferredFecha, planillas, movimientos]
   )
 
   const labelMesAcum = useMemo(() => {
-    const [y, m] = selectedFecha.split('-')
-    if (!y || !m) return selectedFecha.slice(0, 7)
+    const [y, m] = deferredFecha.split('-')
+    if (!y || !m) return deferredFecha.slice(0, 7)
     const d = new Date(Date.UTC(Number(y), Number(m) - 1, 1))
     const mes = new Intl.DateTimeFormat('es-AR', { month: 'long', timeZone: 'UTC' }).format(d)
     const mesCap = mes ? mes.charAt(0).toUpperCase() + mes.slice(1) : mes
     return `${mesCap} ${y}`
-  }, [selectedFecha])
+  }, [deferredFecha])
 
   const alertasDobleFuente = useMemo(() => {
     return cajas
       .filter((c) => c.activa && c.slug !== 'admin' && c.slug !== 'vuelto')
-      .map((c) => alertaDobleFuenteCaja(selectedFecha, c.slug, planillas, movimientos))
+      .map((c) => alertaDobleFuenteCaja(deferredFecha, c.slug, planillas, movimientos))
       .filter((a) => a.activa)
-  }, [selectedFecha, cajas, planillas, movimientos])
+  }, [deferredFecha, cajas, planillas, movimientos])
 
   const cajaNombre = (slug: string) => cajas.find((x) => x.slug === slug)?.nombre ?? slug
 
@@ -190,8 +195,8 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
       ? resumen.fondosOperativas.map((f) => `${f.nombre} $ ${fmtArs(f.monto)}`).join(' · ')
       : 'sin configurar'
 
-  const esHoy = selectedFecha === hoy
-  const tituloDia = esHoy ? `Hoy — ${fmtDateAr(selectedFecha)}` : fmtDateAr(selectedFecha)
+  const esHoy = deferredFecha === hoy
+  const tituloDia = esHoy ? `Hoy — ${fmtDateAr(deferredFecha)}` : fmtDateAr(deferredFecha)
   const ingresoHeroLabel = tituloIngresoDia(resumen, esHoy)
   const ingresoHeroHint = subtituloIngresoDia(resumen)
   const ingresoHeroMonto = montoIngresoHeroDia(resumen, mediosDia.total)
@@ -200,7 +205,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
     setPdfBusy(true)
     try {
       downloadInformeDiaCajaPdf({
-        fecha: selectedFecha,
+        fecha: deferredFecha,
         resumen,
         movimientos,
         cajas,
@@ -230,7 +235,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
         onSearchChange={setSearch}
       />
 
-      <div className="caja-cc-page-head">
+      <div className={`caja-cc-page-head${diaBusy ? ' is-day-pending' : ''}`}>
         <div>
           <h2>{tituloDia}</h2>
           <p className="caja-cc-sub">
@@ -240,6 +245,24 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
           </p>
         </div>
         <div className="caja-cc-page-head-actions">
+          {onInformes && (
+            <>
+              <button
+                type="button"
+                className="btn-secondary btn-small"
+                onClick={() => onInformes('semana')}
+              >
+                Informe semanal
+              </button>
+              <button
+                type="button"
+                className="btn-secondary btn-small"
+                onClick={() => onInformes('mes')}
+              >
+                Informe mensual
+              </button>
+            </>
+          )}
           <button type="button" className="btn-primary btn-small" disabled={pdfBusy} onClick={handlePdfDia}>
             {pdfBusy ? 'Generando planilla…' : 'Planilla PDF del día'}
           </button>
@@ -261,7 +284,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
       {loading ? (
         <p className="caja-cc-muted">Cargando movimientos del calendario…</p>
       ) : (
-        <>
+        <div className={`caja-cc-day-body${diaBusy ? ' is-day-pending' : ''}`}>
           <div className="caja-cc-hoy-hero">
             <div
               className="caja-cc-hoy-hero-card ingreso caja-cc-hoy-hero-card-clickable"
@@ -347,7 +370,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
           </div>
 
           <CajaDiaConciliacionPanel
-            fecha={selectedFecha}
+            fecha={deferredFecha}
             movimientos={movimientos}
             planillas={planillas}
             arqueos={arqueos}
@@ -360,7 +383,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
           {movsDia.length > 0 && (
             <div className="caja-cc-card caja-cc-card-collapsible is-open">
               <div className="caja-cc-card-collapsible-head caja-cc-movs-dia-head">
-                <h3>Movimientos del día — {fmtDateAr(selectedFecha)}</h3>
+                <h3>Movimientos del día — {fmtDateAr(deferredFecha)}</h3>
                 <span className="caja-cc-card-collapsible-badge">{movsDia.length}</span>
                 <button
                   type="button"
@@ -409,7 +432,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
 
           {resumen.cierresTurnoHoy.length > 0 && (
             <div className="caja-cc-card">
-              <h3>Cierres de turno — {fmtDateAr(selectedFecha)}</h3>
+              <h3>Cierres de turno — {fmtDateAr(deferredFecha)}</h3>
               <p className="caja-cc-help">Tocá una fila para ver planilla, comprobantes, hora y quién cerró.</p>
               <table className="caja-cc-table caja-cc-table-clickable">
                 <thead>
@@ -449,7 +472,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
                 Sin cierres de turno ni movimientos registrados para este día.
               </p>
             )}
-        </>
+        </div>
       )}
 
       {detalleLote && (
@@ -459,7 +482,7 @@ export default function CajaTableroAdmin({ onCierreTurno, onEgresos, refreshKey 
       {diaResumenTipo && (
         <CajaDiaResumenDetalleModal
           tipo={diaResumenTipo}
-          fecha={selectedFecha}
+          fecha={deferredFecha}
           esHoy={esHoy}
           resumen={resumen}
           planillas={planillas}

@@ -497,3 +497,395 @@
   color: var(--totem-text-muted, #94a3b8);
   padding: 8px;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Pulido visual del Monitor de impresión (misma estética, más vida)
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes tpm-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tpm-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tpm-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55), 0 0 10px #22c55e;
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0), 0 0 14px #22c55e;
+  }
+}
+
+@keyframes tpm-shimmer {
+  from {
+    background-position: -240px 0;
+  }
+  to {
+    background-position: calc(240px + 100%) 0;
+  }
+}
+
+@keyframes tpm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes tpm-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.totem-print-monitor {
+  position: relative;
+  gap: 16px;
+  padding: 20px;
+  border-color: rgba(167, 139, 250, 0.34);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(236, 72, 153, 0.14), transparent 46%),
+    radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.2), transparent 50%),
+    linear-gradient(165deg, rgba(167, 139, 250, 0.1) 0%, rgba(8, 10, 20, 0.6) 100%);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: tpm-rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.totem-print-monitor-kicker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.totem-print-monitor-kicker-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: tpm-pulse 2.2s ease-in-out infinite;
+}
+
+.totem-print-monitor-edited-badge {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: #1c1006;
+  background: linear-gradient(135deg, #fdba74, #fb923c);
+  animation: tpm-pop 0.3s ease both;
+}
+
+.totem-print-monitor-title {
+  font-size: 1.15rem;
+  line-height: 1.25;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.totem-print-monitor-range {
+  margin-top: 4px;
+  line-height: 1.45;
+  color: #d4c8ff;
+}
+
+.totem-print-monitor-bezel {
+  padding: 16px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%),
+    linear-gradient(180deg, #1e293b 0%, #0b1120 100%);
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.14), inset 0 2px 0 rgba(255, 255, 255, 0.09);
+  transition: box-shadow 0.3s ease;
+}
+
+.totem-print-monitor-led {
+  animation: tpm-pulse 2.2s ease-in-out infinite;
+}
+
+.totem-print-monitor-screen {
+  border-radius: 10px;
+  transition: box-shadow 0.3s ease, max-width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.totem-print-monitor-img {
+  animation: tpm-pop 0.35s ease both;
+}
+
+/* estado vacío */
+
+.totem-print-monitor--empty {
+  border-style: solid;
+  min-height: 300px;
+}
+
+.totem-print-monitor-mock {
+  gap: 6px;
+  border: 2px dashed rgba(99, 102, 241, 0.35);
+  border-radius: 8px;
+  background: repeating-linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0 12px, transparent 12px 24px);
+}
+
+.totem-print-monitor-mock-icon {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  margin-bottom: 4px;
+  border-radius: 20px;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.12);
+  animation: tpm-float 3.4s ease-in-out infinite;
+}
+
+.totem-print-monitor-mock-hint {
+  max-width: 22ch;
+  font-size: 0.86rem;
+}
+
+/* carga */
+
+.totem-print-monitor-state--loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #475569;
+  font-size: 0.88rem;
+}
+
+.totem-print-monitor-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 40%, #eef2f7 80%);
+  background-size: 240px 100%;
+  background-repeat: no-repeat;
+  background-color: #eef2f7;
+  animation: tpm-shimmer 1.3s linear infinite;
+}
+
+.totem-print-monitor-spinner {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 4px solid rgba(99, 102, 241, 0.2);
+  border-top-color: #6366f1;
+  animation: tpm-spin 0.8s linear infinite;
+}
+
+.totem-print-monitor-state--loading > span:last-child {
+  position: relative;
+}
+
+/* chips */
+
+.totem-print-monitor-meta {
+  gap: 8px;
+}
+
+.totem-print-monitor-chip {
+  padding: 7px 13px;
+  font-size: 0.82rem;
+  animation: tpm-pop 0.3s ease both;
+}
+
+.totem-print-monitor-overlay-tag {
+  backdrop-filter: blur(6px);
+}
+
+/* acciones de foto */
+
+.totem-print-monitor-photo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  animation: tpm-rise 0.4s 0.05s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.totem-print-monitor-photo-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 10px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(251, 146, 60, 0.5);
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.26), rgba(249, 115, 22, 0.1));
+  color: #fff7ed;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.16);
+  transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.totem-print-monitor-photo-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(249, 115, 22, 0.28);
+}
+
+.totem-print-monitor-photo-btn:active {
+  transform: scale(0.97);
+}
+
+.totem-print-monitor-photo-btn--ai {
+  border-color: rgba(196, 181, 253, 0.55);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.42), rgba(236, 72, 153, 0.3));
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(168, 85, 247, 0.22);
+}
+
+.totem-print-monitor-photo-btn--ai:hover {
+  box-shadow: 0 14px 32px rgba(168, 85, 247, 0.36);
+}
+
+.totem-print-monitor-photo-ico {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.totem-print-monitor-photo-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.totem-print-monitor-photo-copy strong {
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.totem-print-monitor-photo-copy small {
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.totem-print-monitor-photo-revert {
+  grid-column: 1 / -1;
+  min-height: 48px;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: rgba(241, 245, 255, 0.78);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.totem-print-monitor-photo-revert:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* miniaturas y controles de hojas, más cómodos para el dedo */
+
+.totem-print-monitor-file {
+  min-height: 44px;
+  padding: 9px 16px;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.totem-print-monitor-file:active {
+  transform: scale(0.96);
+}
+
+.totem-print-monitor-page-actions button {
+  min-height: 44px;
+  padding: 8px 16px;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.totem-print-monitor-page-actions button:active {
+  transform: scale(0.96);
+}
+
+.totem-print-monitor-thumb-wrap {
+  width: 78px;
+  animation: tpm-pop 0.3s ease both;
+}
+
+.totem-print-monitor-thumb {
+  width: 78px;
+  height: 104px;
+}
+
+.totem-print-monitor-thumb:hover {
+  transform: translateY(-2px);
+  border-color: rgba(196, 181, 253, 0.7);
+}
+
+.totem-print-monitor-page-toggle {
+  width: 34px;
+  height: 34px;
+  top: -9px;
+  right: -9px;
+  font-size: 0.95rem;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.totem-print-monitor-page-toggle:active {
+  transform: scale(0.88);
+}
+
+@media (max-width: 420px) {
+  .totem-print-monitor-photo {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .totem-print-monitor,
+  .totem-print-monitor-kicker-dot,
+  .totem-print-monitor-led,
+  .totem-print-monitor-img,
+  .totem-print-monitor-chip,
+  .totem-print-monitor-photo,
+  .totem-print-monitor-thumb-wrap,
+  .totem-print-monitor-mock-icon,
+  .totem-print-monitor-skeleton,
+  .totem-print-monitor-edited-badge {
+    animation: none;
+  }
+  .totem-print-monitor-spinner {
+    animation-duration: 1.8s;
+  }
+}

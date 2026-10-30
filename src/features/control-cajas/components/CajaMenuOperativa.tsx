@@ -34,7 +34,7 @@ const PASOS: Paso[] = [
     section: 'egresos',
     icon: '📤',
     label: 'Egresos',
-    descripcion: 'Pedí o seguí egresos de caja del día.'
+    descripcion: 'Cargá egresos con comprobante; se descuentan de tu caja.'
   },
   {
     orden: 4,

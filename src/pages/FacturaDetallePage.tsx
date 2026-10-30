@@ -7,7 +7,15 @@ import { conceptoLabel, formatFechaAr, hoyISO } from '../utils/afipFacturaUi'
 import { anularFacturaAfip } from '../utils/anularFacturaAfip'
 import { descargarPdfFacturaAfip } from '../services/afipApi'
 import { descargarFacturaAfipPdf } from '../utils/facturaAfipPdf'
+import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import './FacturaDetallePage.css'
+
+const formatMontoInput = (n: number) => {
+  if (!Number.isFinite(n) || n <= 0) return ''
+  return String(Math.round(n * 100) / 100)
+}
+
+const metodoAceptaComprobante = (m: string) => m === 'Transferencia' || m === 'Depósito'
 
 /** Mismo umbral que el servidor: un "Enviando" más viejo se considera colgado y se puede reintentar. */
 const ENVIO_AFIP_VENCIDO_MS = 3 * 60 * 1000
@@ -24,6 +32,8 @@ export default function FacturaDetallePage() {
   const [descargandoPdf, setDescargandoPdf] = useState(false)
   const [showCobro, setShowCobro] = useState(false)
   const [cuentas, setCuentas] = useState<any[]>([])
+  const [subiendoComprobante, setSubiendoComprobante] = useState(false)
+  const [comprobanteNombre, setComprobanteNombre] = useState('')
 
   const todayStr = useMemo(() => hoyISO(), [])
   type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
@@ -32,9 +42,44 @@ export default function FacturaDetallePage() {
     fecha_pago: todayStr,
     metodo_pago: 'Transferencia' as MetodoPago,
     numero_comprobante: '',
+    url_comprobante: '',
     id_cuenta_bancaria: '',
     observaciones: ''
   })
+
+  const abrirFormCobro = () => {
+    const pendiente = Number(cxc?.monto_pendiente || 0)
+    setCobroForm((p) => ({
+      ...p,
+      monto: formatMontoInput(pendiente),
+      fecha_pago: todayStr,
+      url_comprobante: '',
+      numero_comprobante: '',
+      observaciones: ''
+    }))
+    setComprobanteNombre('')
+    setShowCobro(true)
+  }
+
+  const handleAdjuntarComprobante = async (file: File | undefined) => {
+    if (!file || !factura) return
+    if (file.size > 8 * 1024 * 1024) {
+      alert('El comprobante no puede superar 8 MB.')
+      return
+    }
+    setSubiendoComprobante(true)
+    try {
+      const url = await uploadAttachmentAndGetUrl(file, `facturas/${factura.id}/cobros`)
+      setCobroForm((p) => ({ ...p, url_comprobante: url }))
+      setComprobanteNombre(file.name)
+    } catch (ex) {
+      alert(ex instanceof Error ? ex.message : 'No se pudo subir el comprobante.')
+      setCobroForm((p) => ({ ...p, url_comprobante: '' }))
+      setComprobanteNombre('')
+    } finally {
+      setSubiendoComprobante(false)
+    }
+  }
 
   useEffect(() => {
     if (id) {
@@ -180,14 +225,21 @@ export default function FacturaDetallePage() {
 
     setLoadingCobro(true)
     try {
+      const obsBase = cobroForm.observaciones?.trim() || ''
+      const obsConUrl =
+        cobroForm.url_comprobante && !obsBase.includes(cobroForm.url_comprobante)
+          ? [obsBase, `Comprobante: ${cobroForm.url_comprobante}`].filter(Boolean).join('\n')
+          : obsBase || null
+
       const r = await apiService.registrarCobro({
         id_cuenta_por_cobrar: cxc.id,
         monto,
         fecha_pago: cobroForm.fecha_pago,
         metodo_pago: cobroForm.metodo_pago,
         numero_comprobante: cobroForm.numero_comprobante?.trim() || null,
+        url_comprobante: cobroForm.url_comprobante?.trim() || null,
         id_cuenta_bancaria: cobroForm.id_cuenta_bancaria ? Number(cobroForm.id_cuenta_bancaria) : null,
-        observaciones: cobroForm.observaciones?.trim() || null
+        observaciones: obsConUrl
       })
       if (!r.success) {
         alert('Error registrando cobro: ' + (r.error || 'desconocido'))
@@ -212,7 +264,14 @@ export default function FacturaDetallePage() {
       alert('Cobro registrado.')
       await loadCxc(factura.id)
       setShowCobro(false)
-      setCobroForm((p) => ({ ...p, monto: '', numero_comprobante: '', observaciones: '' }))
+      setComprobanteNombre('')
+      setCobroForm((p) => ({
+        ...p,
+        monto: '',
+        numero_comprobante: '',
+        url_comprobante: '',
+        observaciones: ''
+      }))
     } catch (e) {
       alert('Error registrando cobro.')
       console.error(e)
@@ -431,7 +490,14 @@ export default function FacturaDetallePage() {
 
                 {cxc.monto_pendiente > 0 ? (
                   <div className="cobranza-actions">
-                    <button className="btn-primary" onClick={() => setShowCobro((s) => !s)} disabled={loadingCobro}>
+                    <button
+                      className="btn-primary"
+                      onClick={() => {
+                        if (showCobro) setShowCobro(false)
+                        else abrirFormCobro()
+                      }}
+                      disabled={loadingCobro}
+                    >
                       {showCobro ? 'Cancelar' : 'Registrar cobro'}
                     </button>
                   </div>
@@ -453,6 +519,13 @@ export default function FacturaDetallePage() {
                           value={cobroForm.monto}
                           onChange={(e) => setCobroForm((p) => ({ ...p, monto: e.target.value }))}
                         />
+                        <span className="cobranza-field-hint">
+                          Se completa con el pendiente ($
+                          {Number(cxc.monto_pendiente || 0).toLocaleString('es-AR', {
+                            minimumFractionDigits: 2
+                          })}
+                          ). Podés editarlo si es un cobro parcial.
+                        </span>
                       </div>
                       <div className="cobranza-field">
                         <label>Fecha *</label>
@@ -466,7 +539,9 @@ export default function FacturaDetallePage() {
                         <label>Método *</label>
                         <select
                           value={cobroForm.metodo_pago}
-                          onChange={(e) => setCobroForm((p) => ({ ...p, metodo_pago: e.target.value as any }))}
+                          onChange={(e) =>
+                            setCobroForm((p) => ({ ...p, metodo_pago: e.target.value as MetodoPago }))
+                          }
                         >
                           <option value="Transferencia">Transferencia</option>
                           <option value="Efectivo">Efectivo</option>
@@ -477,12 +552,12 @@ export default function FacturaDetallePage() {
                         </select>
                       </div>
                       <div className="cobranza-field">
-                        <label>Comprobante</label>
+                        <label>N° / referencia</label>
                         <input
                           type="text"
                           value={cobroForm.numero_comprobante}
                           onChange={(e) => setCobroForm((p) => ({ ...p, numero_comprobante: e.target.value }))}
-                          placeholder="N° / referencia"
+                          placeholder="N° de operación / referencia"
                         />
                       </div>
                       <div className="cobranza-field">
@@ -499,6 +574,43 @@ export default function FacturaDetallePage() {
                           ))}
                         </select>
                       </div>
+                      {metodoAceptaComprobante(cobroForm.metodo_pago) && (
+                        <div className="cobranza-field cobranza-field--full">
+                          <label>Adjuntar comprobante (PDF o imagen)</label>
+                          <div className="cobranza-comprobante">
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+                              disabled={subiendoComprobante || loadingCobro}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0]
+                                void handleAdjuntarComprobante(f)
+                                e.target.value = ''
+                              }}
+                            />
+                            {subiendoComprobante && <span className="cobranza-field-hint">Subiendo…</span>}
+                            {cobroForm.url_comprobante && (
+                              <div className="cobranza-comprobante__ok">
+                                <span>✓ {comprobanteNombre || 'Comprobante cargado'}</span>
+                                <a href={cobroForm.url_comprobante} target="_blank" rel="noopener noreferrer">
+                                  Ver
+                                </a>
+                                <button
+                                  type="button"
+                                  className="cobranza-comprobante__clear"
+                                  onClick={() => {
+                                    setCobroForm((p) => ({ ...p, url_comprobante: '' }))
+                                    setComprobanteNombre('')
+                                  }}
+                                  disabled={loadingCobro}
+                                >
+                                  Quitar
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <div className="cobranza-field cobranza-field--full">
                         <label>Observaciones</label>
                         <textarea
@@ -514,7 +626,11 @@ export default function FacturaDetallePage() {
                       <button className="btn-secondary" onClick={() => setShowCobro(false)} disabled={loadingCobro}>
                         Cancelar
                       </button>
-                      <button className="btn-primary" onClick={handleRegistrarCobro} disabled={loadingCobro}>
+                      <button
+                        className="btn-primary"
+                        onClick={handleRegistrarCobro}
+                        disabled={loadingCobro || subiendoComprobante}
+                      >
                         {loadingCobro ? 'Registrando…' : 'Confirmar cobro'}
                       </button>
                     </div>

@@ -32,6 +32,7 @@
     "test:facturacion": "npx tsx --test src/utils/afipFacturaUi.node.test.ts src/utils/facturaAfipPdf.node.test.ts src/utils/unidadPrecio.node.test.ts api/_lib/afip/mapFactura.node.test.ts api/_lib/afip/fechas.node.test.ts api/_lib/afip/client.node.test.ts api/_lib/afip/pdf.node.test.ts",
     "test:kpis": "npx tsx --test api/_lib/clasificacion/reglas.node.test.ts api/_lib/clasificacion/clasificar.node.test.ts",
     "test:contable": "npx tsx --test src/utils/libroIvaDigital.node.test.ts src/utils/erpContable.node.test.ts src/utils/asientoModelo.node.test.ts",
+    "test:foto-totem": "npx tsx --test src/utils/totemPhotoEdit.node.test.ts",
     "test:comisiones": "npx tsx --test src/features/comisiones/calculoComisiones.node.test.ts",
     "afip:cert-prod": "node --env-file=.env.local scripts/afip-create-cert-prod.mjs"
   },

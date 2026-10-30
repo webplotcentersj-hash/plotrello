@@ -11636,6 +11636,33 @@ class ApiService {
     }
   }
 
+  /** Sube la versión editada (recortada/ajustada/mejorada) de una imagen del tótem; es la que se imprime. */
+  async subirArchivoEditadoTotem(blob: Blob, nombreOriginal: string): Promise<ApiResponse<{ url: string; nombre: string; bytes: number }>> {
+    if (!supabase) return { success: false, error: 'No hay conexión a Supabase' }
+    const maxBytes = 25 * 1024 * 1024
+    if (blob.size > maxBytes) {
+      return { success: false, error: `La imagen editada supera ${maxBytes / (1024 * 1024)} MB` }
+    }
+    const baseName = nombreOriginal.replace(/\.[^/.]+$/, '').replace(/_editada$/i, '')
+    const safeBase = baseName.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 70) || 'imagen'
+    const nombre = `${safeBase}_editada.jpg`
+    const path = `totem-qr-uploads/editadas/${Date.now()}_${nombre}`
+    try {
+      const { error: uploadError } = await supabase.storage.from('archivos').upload(path, blob, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: 'image/jpeg'
+      })
+      if (uploadError) return { success: false, error: uploadError.message }
+      const { data: urlData } = supabase.storage.from('archivos').getPublicUrl(path)
+      const publicUrl = urlData?.publicUrl
+      if (!publicUrl) return { success: false, error: 'No se pudo obtener la URL pública del archivo' }
+      return { success: true, data: { url: publicUrl, nombre, bytes: blob.size } }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Error al subir la imagen editada' }
+    }
+  }
+
   async marcarPagoSolicitudImpresionTotem(
     solicitudId: number,
     usuarioId: number
@@ -24700,6 +24727,7 @@ class ApiService {
     fecha_pago: string
     metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
     numero_comprobante?: string | null
+    url_comprobante?: string | null
     id_cuenta_bancaria?: number | null
     observaciones?: string | null
   }): Promise<ApiResponse<import('../types/api').PagoCobroRecord>> {
@@ -24717,6 +24745,7 @@ class ApiService {
               fecha_pago: cobro.fecha_pago,
               metodo_pago: cobro.metodo_pago,
               numero_comprobante: cobro.numero_comprobante || null,
+              url_comprobante: cobro.url_comprobante || null,
               id_cuenta_bancaria: cobro.id_cuenta_bancaria || null,
               observaciones: cobro.observaciones || null,
               id_usuario: usuario?.id || null

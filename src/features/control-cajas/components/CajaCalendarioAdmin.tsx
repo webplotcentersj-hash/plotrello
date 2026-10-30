@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { getArgentinaDateString } from '../../../utils/dateUtils'
 import {
   buildMonthGrid,
@@ -26,7 +26,7 @@ type Props = {
   onSearchChange: (q: string) => void
 }
 
-export default function CajaCalendarioAdmin({
+function CajaCalendarioAdmin({
   yearMonth,
   onYearMonthChange,
   selectedFecha,
@@ -229,3 +229,5 @@ export default function CajaCalendarioAdmin({
     </div>
   )
 }
+
+export default memo(CajaCalendarioAdmin)

@@ -58,92 +58,92 @@ function drawTable(
   pageBottom: number,
   cols: TableCol[],
   rows: string[][],
-  opts?: { title?: string; fontSize?: number }
+  opts?: { title?: string; fontSize?: number; maxLines?: number }
 ): number {
   const fontSize = opts?.fontSize ?? 7
-  const rowH = 4.2
-  const headerH = 5
+  const maxLinesCap = opts?.maxLines ?? 1
+  /** Altura de línea en mm (jsPDF: pt * 0.3528 * lineHeightFactor). */
+  const lineH = Math.max(3.8, fontSize * 0.352778 * 1.35)
+  const padY = 1.4
+  const headerH = lineH + padY * 2
+  const totalW = cols.reduce((s, c) => s + c.width, 0)
 
-  const ensure = (need: number) => {
-    if (y + need > pageBottom) {
-      doc.addPage()
-      y = 12
-      if (opts?.title) {
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(9)
-        doc.text(pdfText(opts.title) + ' (cont.)', margin, y)
-        y += 5
-      }
-      drawHeader()
+  const ensure = (need: number, redrawHeader: boolean) => {
+    if (y + need <= pageBottom) return
+    doc.addPage()
+    y = 12
+    if (opts?.title) {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.text(pdfText(opts.title) + ' (cont.)', margin, y)
+      y += 5
     }
+    if (redrawHeader) drawHeader()
   }
 
   const drawHeader = () => {
+    doc.setFillColor(241, 245, 249)
+    doc.rect(margin, y, totalW, headerH, 'F')
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(fontSize)
-    doc.setFillColor(241, 245, 249)
-    const totalW = cols.reduce((s, c) => s + c.width, 0)
-    doc.rect(margin, y - 3.2, totalW, headerH, 'F')
     let x = margin
+    const textY = y + padY + lineH * 0.72
     for (const c of cols) {
-      doc.text(c.header, c.align === 'right' ? x + c.width - 1 : x + 0.5, y, {
+      doc.text(c.header, c.align === 'right' ? x + c.width - 1 : x + 0.5, textY, {
         align: c.align === 'right' ? 'right' : 'left'
       })
       x += c.width
     }
     y += headerH
+    doc.setDrawColor(203, 213, 225)
+    doc.setLineWidth(0.2)
+    doc.line(margin, y, margin + totalW, y)
     doc.setFont('helvetica', 'normal')
   }
 
   if (opts?.title) {
+    ensure(12, false)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.text(pdfText(opts.title), margin, y)
     y += 5
   }
 
-  ensure(headerH + rowH * 2)
+  ensure(headerH + lineH + padY * 2, false)
   drawHeader()
 
   for (const row of rows) {
-    ensure(rowH + 1)
-    let x = margin
+    doc.setFontSize(fontSize)
+    doc.setFont('helvetica', 'normal')
     let maxLines = 1
     const cellLines: string[][] = []
     row.forEach((cell, i) => {
       const w = (cols[i]?.width ?? 20) - 1.2
       const lines = doc.splitTextToSize(pdfText(cell), Math.max(8, w)) as string[]
-      cellLines.push(lines.slice(0, 2))
-      maxLines = Math.max(maxLines, Math.min(2, lines.length))
+      const capped = lines.slice(0, maxLinesCap)
+      cellLines.push(capped)
+      maxLines = Math.max(maxLines, capped.length)
     })
-    const h = Math.max(rowH, maxLines * 3.2)
-    if (y + h > pageBottom) {
-      doc.addPage()
-      y = 12
-      if (opts?.title) {
-        doc.setFont('helvetica', 'bold')
-        doc.setFontSize(9)
-        doc.text(pdfText(opts.title) + ' (cont.)', margin, y)
-        y += 5
-      }
-      drawHeader()
-    }
-    x = margin
-    doc.setFontSize(fontSize)
-    doc.setFont('helvetica', 'normal')
+    const contentH = maxLines * lineH
+    const rowH = contentH + padY * 2
+
+    ensure(rowH + 1, true)
+
+    const textY = y + padY + lineH * 0.72
+    let x = margin
     cellLines.forEach((lines, i) => {
       const col = cols[i]
       const align = col?.align === 'right' ? 'right' : 'left'
       const tx = align === 'right' ? x + (col?.width ?? 20) - 1 : x + 0.5
-      doc.text(lines, tx, y, { align })
+      doc.text(lines, tx, textY, { align, lineHeightFactor: 1.35 })
       x += col?.width ?? 20
     })
-    y += h
+    y += rowH
     doc.setDrawColor(226, 232, 240)
     doc.setLineWidth(0.1)
-    doc.line(margin, y - 1.2, margin + cols.reduce((s, c) => s + c.width, 0), y - 1.2)
+    doc.line(margin, y, margin + totalW, y)
   }
-  return y + 3
+  return y + 4
 }
 
 function montoMedio(

@@ -38,6 +38,8 @@ export type CajaEstadoOperativaHoy = {
   arqueoHecho: boolean
   cierreTurnoHecho: boolean
   egresosPendientes: number
+  /** Egresos del día ya ejecutados (con movimiento) en la caja. */
+  egresosEjecutadosHoy: number
   traspasosPendientes: number
   totalesDia: TotalesCajaDia | null
   resumenPlotlab: ResumenPlotlabVentasCaja | null
@@ -125,6 +127,14 @@ export async function loadEstadoOperativaHoy(
       (e.caja_slug === cajaSlug || e.solicitante_id === usuarioId)
   ).length
 
+  const egresosEjecutadosHoy = egresos.filter(
+    (e) =>
+      e.fecha === fecha &&
+      e.estado === 'aprobado' &&
+      !!e.id_movimiento &&
+      (e.caja_slug === cajaSlug || e.solicitante_id === usuarioId)
+  ).length
+
   const traspasosPendientes = traspasos.filter(
     (t) =>
       t.fecha === fecha &&
@@ -142,6 +152,7 @@ export async function loadEstadoOperativaHoy(
     arqueoHecho,
     cierreTurnoHecho,
     egresosPendientes,
+    egresosEjecutadosHoy,
     traspasosPendientes,
     totalesDia,
     resumenPlotlab,
@@ -178,7 +189,13 @@ export function estadoPasoMenu(
       if (estado.egresosPendientes > 0) {
         return { tipo: 'alerta', detalle: `${estado.egresosPendientes} egreso(s) pendiente(s)` }
       }
-      return { tipo: 'opcional', detalle: 'Sin egresos pendientes hoy' }
+      if (estado.egresosEjecutadosHoy > 0) {
+        return {
+          tipo: 'hecho',
+          detalle: `${estado.egresosEjecutadosHoy} egreso(s) descontado(s) hoy`
+        }
+      }
+      return { tipo: 'opcional', detalle: 'Registrá egresos con comprobante' }
     case 'traspasos':
       if (estado.traspasosPendientes > 0) {
         return { tipo: 'alerta', detalle: `${estado.traspasosPendientes} traspaso(s) por confirmar` }

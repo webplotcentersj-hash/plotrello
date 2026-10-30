@@ -1341,6 +1341,8 @@ export interface PagoCobroRecord {
   fecha_pago: string
   metodo_pago: 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
   numero_comprobante?: string | null
+  /** URL del comprobante adjunto (p. ej. transferencia). */
+  url_comprobante?: string | null
   id_cuenta_bancaria?: number | null
   id_asiento_contable?: number | null
   observaciones?: string | null

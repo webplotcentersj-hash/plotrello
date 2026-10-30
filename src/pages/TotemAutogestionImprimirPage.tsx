@@ -27,6 +27,7 @@ import {
   allPagesRange,
   buildJobsPayload,
   formatHojasResumen,
+  jobKeyFromArchivo,
   jobLabelCorto,
   normalizeCopias,
   quoteForJob,
@@ -42,6 +43,10 @@ import {
   type TotemPrintQuote
 } from '../services/totemPrintPricingService'
 import TotemPrintPreviewMonitor from '../components/totem/TotemPrintPreviewMonitor'
+import TotemPhotoEditor, {
+  type TotemPhotoEditorResult,
+  type TotemPhotoEditorTab
+} from '../components/totem/TotemPhotoEditor'
 import TotemMercadoPagoPayPanel from '../components/totem/TotemMercadoPagoPayPanel'
 import type { TotemImpresionCheckoutDraft } from '../services/totemMpApi'
 import { TotemKioskIcon } from '../components/totem/TotemKioskIcons'
@@ -61,6 +66,71 @@ const FORM_STAGES: { id: FormStage; n: number; label: string; hint: string }[] =
   { id: 'archivo', n: 2, label: 'Archivo', hint: 'Subilo con el celular' },
   { id: 'opciones', n: 3, label: 'Imprimir', hint: 'Papel, color y copias' }
 ]
+
+const PRINT_GUIDE: Record<
+  FormStage,
+  { title: string; cases: { label: string; text: string }[] }
+> = {
+  datos: {
+    title: 'Guía · Tus datos',
+    cases: [
+      {
+        label: 'Ya soy cliente',
+        text: 'Escribí tu nombre. Cuando aparezca la lista, tocá tu ficha: DNI y teléfono se completan solos.'
+      },
+      {
+        label: 'Primera vez / no aparezco',
+        text: 'Completá Nombre, DNI/CUIT y Teléfono a mano. No hace falta estar registrado.'
+      },
+      {
+        label: 'Me equivoqué de persona',
+        text: 'Tocá «Borrar datos del cliente» y volvé a buscar o a escribir los tuyos.'
+      }
+    ]
+  },
+  archivo: {
+    title: 'Guía · Archivo',
+    cases: [
+      {
+        label: 'El archivo está en el celular',
+        text: 'Abrí la cámara, escaneá el QR grande y subí el PDF o las fotos. La tablet se actualiza sola.'
+      },
+      {
+        label: 'Quiero agregar otro archivo',
+        text: 'Cuando ya haya uno recibido, tocá «Agregar más con otro QR» (hasta el máximo permitido).'
+      },
+      {
+        label: 'Me equivoqué de archivo',
+        text: 'Tocá «Quitar archivos y generar nuevo QR» y volvé a escanear.'
+      },
+      {
+        label: 'Indicaciones especiales',
+        text: 'En Descripción (opcional) anotá qué hojas van a color, B/N o qué no imprimir. Lo ve mostrador.'
+      }
+    ]
+  },
+  opciones: {
+    title: 'Guía · Cómo imprimir',
+    cases: [
+      {
+        label: 'Imprimir todo el archivo',
+        text: 'Dejá las hojas marcadas en la vista previa y elegí formato, papel y color.'
+      },
+      {
+        label: 'Solo algunas hojas',
+        text: 'En la vista previa, tocá las hojas que no querés: se desmarcan y no se cobran.'
+      },
+      {
+        label: 'Varias copias',
+        text: 'En «Copias» elegí ×2, ×3… Multiplica las hojas seleccionadas del archivo activo.'
+      },
+      {
+        label: 'Color o blanco y negro',
+        text: '«Automático» detecta del PDF. Si preferís, forzá «Todo a color» o «Todo B/N».'
+      }
+    ]
+  }
+}
 
 export default function TotemAutogestionImprimirPage() {
   const navigate = useNavigate()
@@ -83,6 +153,9 @@ export default function TotemAutogestionImprimirPage() {
   const [archivoNombre, setArchivoNombre] = useState('')
   const [descripcionImpresion, setDescripcionImpresion] = useState('')
   const [archivosCargados, setArchivosCargados] = useState<TotemArchivoItem[]>([])
+  /** Versiones editadas (recorte / ajustes / PlotAI) por URL del archivo original; son las que se imprimen. */
+  const [ediciones, setEdiciones] = useState<Record<string, TotemArchivoItem>>({})
+  const [editorFoto, setEditorFoto] = useState<{ index: number; tab: TotemPhotoEditorTab } | null>(null)
   const [printQuote, setPrintQuote] = useState<TotemPrintQuote | null>(null)
   const [printQuoteLoading, setPrintQuoteLoading] = useState(false)
   const [printQuoteError, setPrintQuoteError] = useState<string | null>(null)
@@ -134,12 +207,24 @@ export default function TotemAutogestionImprimirPage() {
 
   const dniDigits = useMemo(() => digitsOnly(clienteDni), [clienteDni])
 
-  const archivosActivos = useMemo(() => {
+  const archivosOriginales = useMemo(() => {
     if (origenArchivo === 'Pendrive') return pendriveArchivos
     if (origenArchivo === 'CelularQR' && archivosCargados.length > 0) return archivosCargados
     if (origenArchivo === 'Drive') return driveArchivos
     return []
   }, [origenArchivo, pendriveArchivos, archivosCargados, driveArchivos])
+
+  const conEdiciones = useCallback(
+    (lista: TotemArchivoItem[]) => lista.map((a) => ediciones[a.url] ?? a),
+    [ediciones]
+  )
+
+  const archivosActivos = useMemo(() => conEdiciones(archivosOriginales), [archivosOriginales, conEdiciones])
+
+  const editedSourceIndexes = useMemo(
+    () => archivosOriginales.flatMap((a, i) => (ediciones[a.url] ? [i] : [])),
+    [archivosOriginales, ediciones]
+  )
 
   const previewSources = useMemo(
     () => archivosActivos.map((a) => ({ source: a.url, name: a.nombre })),
@@ -186,6 +271,58 @@ export default function TotemAutogestionImprimirPage() {
     [activeJobIndex]
   )
 
+  const aplicarEdicionFoto = useCallback(
+    async (index: number, result: TotemPhotoEditorResult) => {
+      const original = archivosOriginales[index]
+      const actual = archivosActivos[index]
+      if (!original || !actual) throw new Error('No se encontró el archivo que estabas editando.')
+      const nombreBase =
+        original.nombre || (archivosOriginales.length === 1 ? archivoNombre.trim() : '') || actual.nombre || 'imagen'
+      const up = await apiService.subirArchivoEditadoTotem(result.blob, nombreBase)
+      if (!up.success || !up.data) {
+        throw new Error(up.error || 'No se pudo guardar la foto editada. Probá de nuevo.')
+      }
+      const item: TotemArchivoItem = { url: up.data.url, nombre: up.data.nombre, bytes: up.data.bytes }
+      // Conserva copias/papel/formato del archivo: el trabajo pasa a apuntar a la versión editada.
+      setPrintJobs((prev) =>
+        prev.map((j) =>
+          j.url === actual.url
+            ? { ...j, url: item.url, key: jobKeyFromArchivo(item, index), nombre: item.nombre }
+            : j
+        )
+      )
+      setEdiciones((prev) => ({ ...prev, [original.url]: item }))
+      setEditorFoto(null)
+    },
+    [archivosOriginales, archivosActivos, archivoNombre]
+  )
+
+  const revertirEdicionFoto = useCallback(
+    (index: number) => {
+      const original = archivosOriginales[index]
+      const actual = archivosActivos[index]
+      if (!original || !actual) return
+      setPrintJobs((prev) =>
+        prev.map((j) =>
+          j.url === actual.url
+            ? {
+                ...j,
+                url: original.url,
+                key: jobKeyFromArchivo(original, index),
+                nombre: original.nombre || j.nombre
+              }
+            : j
+        )
+      )
+      setEdiciones((prev) => {
+        const next = { ...prev }
+        delete next[original.url]
+        return next
+      })
+    },
+    [archivosOriginales, archivosActivos]
+  )
+
   const hojasTotalesSeleccionadas = useMemo(() => totalHojasSeleccionadas(printJobs), [printJobs])
 
   useEffect(() => {
@@ -209,6 +346,8 @@ export default function TotemAutogestionImprimirPage() {
     setArchivosCargados([])
     setPendriveArchivos([])
     setDriveArchivos([])
+    setEdiciones({})
+    setEditorFoto(null)
     qrArchivosAcumuladosRef.current = []
     setArchivoNombre('')
     setQrSesionCompleta(false)
@@ -773,14 +912,14 @@ export default function TotemAutogestionImprimirPage() {
     let nombreFinal = archivoNombre.trim()
 
     if (origenArchivo === 'Pendrive') {
-      urlFinal = buildTotemArchivoManifest(pendriveArchivos)
-      nombreFinal = summarizeTotemArchivoNombres(pendriveArchivos)
+      urlFinal = buildTotemArchivoManifest(conEdiciones(pendriveArchivos))
+      nombreFinal = summarizeTotemArchivoNombres(conEdiciones(pendriveArchivos))
     } else if (origenArchivo === 'CelularQR') {
-      urlFinal = buildTotemArchivoManifest(archivosCargados)
-      nombreFinal = summarizeTotemArchivoNombres(archivosCargados)
+      urlFinal = buildTotemArchivoManifest(conEdiciones(archivosCargados))
+      nombreFinal = summarizeTotemArchivoNombres(conEdiciones(archivosCargados))
     } else if (origenArchivo === 'Drive') {
-      urlFinal = buildTotemArchivoManifest(driveArchivos)
-      nombreFinal = summarizeTotemArchivoNombres(driveArchivos)
+      urlFinal = buildTotemArchivoManifest(conEdiciones(driveArchivos))
+      nombreFinal = summarizeTotemArchivoNombres(conEdiciones(driveArchivos))
     }
 
     if (!urlFinal) return null
@@ -867,7 +1006,7 @@ export default function TotemAutogestionImprimirPage() {
         <main className="totem-print-main">
           {step === 'form' && (
             <section className="totem-print-card">
-              <div className={`totem-print-body${formStage === 'opciones' ? ' totem-print-body--split' : ''}`}>
+              <div className="totem-print-body totem-print-body--split">
                 <div className="totem-print-grid">
                 {formStage === 'datos' && (
                 <>
@@ -1259,49 +1398,78 @@ export default function TotemAutogestionImprimirPage() {
                 )}
               </div>
 
-              <aside className={`totem-print-previewAside${formStage === 'opciones' ? '' : ' is-hidden'}`}>
-                <TotemPrintPreviewMonitor
-                  sources={previewSources}
-                  formatoImpresion={formatoImpresion}
-                  modoColor={modoColor}
-                  tipoPapel={tipoPapel}
-                  fazImpresion={fazImpresion}
-                  activeSourceIndex={activeJobIndex}
-                  onActiveSourceChange={setActiveJobIndex}
-                  selectedPages={activeJob?.hojasSeleccionadas}
-                  pageCountForActive={activeJob?.pageCount}
-                  copias={activeJob?.copias ?? 1}
-                  onTogglePage={(sourceIndex, pageInSource) => {
-                    setPrintJobs((prev) =>
-                      prev.map((j, i) =>
-                        i === sourceIndex
-                          ? {
-                              ...j,
-                              hojasSeleccionadas: togglePageInList(j.hojasSeleccionadas, pageInSource)
-                            }
-                          : j
-                      )
-                    )
-                    hojasEditadasManualRef.current = true
-                  }}
-                  onSelectAllPages={(sourceIndex) => {
-                    setPrintJobs((prev) =>
-                      prev.map((j, i) =>
-                        i === sourceIndex
-                          ? { ...j, hojasSeleccionadas: allPagesRange(Math.max(1, j.pageCount)) }
-                          : j
-                      )
-                    )
-                    hojasEditadasManualRef.current = true
-                  }}
-                  onClearPages={(sourceIndex) => {
-                    setPrintJobs((prev) =>
-                      prev.map((j, i) => (i === sourceIndex ? { ...j, hojasSeleccionadas: [] } : j))
-                    )
-                    hojasEditadasManualRef.current = true
-                  }}
-                  onAnalysis={handlePrintAnalysis}
-                />
+              <aside className="totem-print-sideCol">
+                <div
+                  className={`totem-print-guideAside totem-print-guideAside--${formStage}${
+                    formStage === 'opciones' ? ' totem-print-guideAside--compact' : ''
+                  }`}
+                  aria-label={PRINT_GUIDE[formStage].title}
+                >
+                  <p className="totem-print-guideAside__eyebrow">Instructivo</p>
+                  <h2 className="totem-print-guideAside__title">{PRINT_GUIDE[formStage].title}</h2>
+                  <ol className="totem-print-guideList">
+                    {PRINT_GUIDE[formStage].cases.map((c, i) => (
+                      <li key={c.label} className="totem-print-guideCase">
+                        <span className="totem-print-guideCase__n" aria-hidden>
+                          {i + 1}
+                        </span>
+                        <div className="totem-print-guideCase__body">
+                          <strong className="totem-print-guideCase__label">{c.label}</strong>
+                          <p className="totem-print-guideCase__text">{c.text}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                {formStage === 'opciones' && (
+                  <div className="totem-print-previewAside">
+                    <TotemPrintPreviewMonitor
+                      sources={previewSources}
+                      formatoImpresion={formatoImpresion}
+                      modoColor={modoColor}
+                      tipoPapel={tipoPapel}
+                      fazImpresion={fazImpresion}
+                      activeSourceIndex={activeJobIndex}
+                      onActiveSourceChange={setActiveJobIndex}
+                      selectedPages={activeJob?.hojasSeleccionadas}
+                      pageCountForActive={activeJob?.pageCount}
+                      copias={activeJob?.copias ?? 1}
+                      onEditImage={(sourceIndex, tab) => setEditorFoto({ index: sourceIndex, tab })}
+                      editedSourceIndexes={editedSourceIndexes}
+                      onRevertEdit={revertirEdicionFoto}
+                      onTogglePage={(sourceIndex, pageInSource) => {
+                        setPrintJobs((prev) =>
+                          prev.map((j, i) =>
+                            i === sourceIndex
+                              ? {
+                                  ...j,
+                                  hojasSeleccionadas: togglePageInList(j.hojasSeleccionadas, pageInSource)
+                                }
+                              : j
+                          )
+                        )
+                        hojasEditadasManualRef.current = true
+                      }}
+                      onSelectAllPages={(sourceIndex) => {
+                        setPrintJobs((prev) =>
+                          prev.map((j, i) =>
+                            i === sourceIndex
+                              ? { ...j, hojasSeleccionadas: allPagesRange(Math.max(1, j.pageCount)) }
+                              : j
+                          )
+                        )
+                        hojasEditadasManualRef.current = true
+                      }}
+                      onClearPages={(sourceIndex) => {
+                        setPrintJobs((prev) =>
+                          prev.map((j, i) => (i === sourceIndex ? { ...j, hojasSeleccionadas: [] } : j))
+                        )
+                        hojasEditadasManualRef.current = true
+                      }}
+                      onAnalysis={handlePrintAnalysis}
+                    />
+                  </div>
+                )}
               </aside>
               </div>
 
@@ -1368,6 +1536,18 @@ export default function TotemAutogestionImprimirPage() {
             </section>
           )}
         </main>
+
+        {editorFoto && archivosActivos[editorFoto.index] && (
+          <TotemPhotoEditor
+            key={archivosActivos[editorFoto.index].url}
+            src={archivosActivos[editorFoto.index].url}
+            name={archivosActivos[editorFoto.index].nombre}
+            formato={printJobs[editorFoto.index]?.formato ?? formatoImpresion}
+            initialTab={editorFoto.tab}
+            onClose={() => setEditorFoto(null)}
+            onApply={(result) => aplicarEdicionFoto(editorFoto.index, result)}
+          />
+        )}
       </div>
   )
 }

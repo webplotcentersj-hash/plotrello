@@ -9,6 +9,7 @@ import { resolveUsuarioCajaEtiqueta } from '../cajaUsuarioDisplay'
 import CajaMenuOperativa from './CajaMenuOperativa'
 import CajaSectionTablero from './CajaSectionTablero'
 import CajaTableroAdmin from './CajaTableroAdmin'
+import CajaInformesVentas from './CajaInformesVentas'
 import CajaSectionCierreForm from './CajaSectionCierreForm'
 import CajaSectionArqueo from './CajaSectionArqueo'
 import CajaSectionMovimientos from './CajaSectionMovimientos'
@@ -33,6 +34,7 @@ import '../../../pages/CajaDashboardPage.css'
 const SECTION_TITLES: Record<CajaSectionId, string> = {
   menu: 'Menú',
   tablero_admin: 'Calendario de cajas',
+  informes_ventas: 'Informes de ventas',
   centro_ia: 'Proyecciones de venta',
   tablero: 'Tablero ERP',
   cierres_new: 'Nuevo cierre',
@@ -101,6 +103,7 @@ export default function ControlCajasModule() {
   const [planillaActiva, setPlanillaActiva] = useState<PlanillaCajaParsed | null>(null)
   const [menuRefreshToken, setMenuRefreshToken] = useState(0)
   const [cajaSeleccionadaSlug, setCajaSeleccionadaSlug] = useState<string | null>(null)
+  const [informeModo, setInformeModo] = useState<'semana' | 'mes'>('semana')
 
   const nav = useMemo(() => (enVistaAdmin ? NAV_ADMIN : NAV_CAJA), [enVistaAdmin])
 
@@ -192,6 +195,7 @@ export default function ControlCajasModule() {
   const showPageTitle =
     section !== 'menu' &&
     section !== 'tablero_admin' &&
+    section !== 'informes_ventas' &&
     section !== 'centro_ia' &&
     section !== 'cierres_new' &&
     section !== 'cierres' &&
@@ -361,7 +365,15 @@ export default function ControlCajasModule() {
               refreshKey={refreshKey}
               onCierreTurno={() => setSection('cierre_turno')}
               onEgresos={() => setSection('egresos')}
+              onInformes={(modo) => {
+                setInformeModo(modo)
+                setSection('informes_ventas')
+              }}
             />
+          )}
+
+          {section === 'informes_ventas' && enVistaAdmin && (
+            <CajaInformesVentas key={informeModo} modoInicial={informeModo} />
           )}
 
           {section === 'caja_detalle' && enVistaAdmin && cajaSeleccionadaSlug && (

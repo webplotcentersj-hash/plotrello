@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCajaOperativa } from '../../../hooks/useCajaOperativa'
 import {
   adjuntarTicketEgresoSolicitud,
-  createEgresoSolicitud,
   listCajas,
   listEgresoSolicitudes,
+  registrarEgresoConComprobante,
   resolverEgresoSolicitud
 } from '../cajaRepository'
 import { fmtArs, fmtDateAr } from '../format'
@@ -143,6 +143,8 @@ export default function CajaSectionEgresos({
   const [concepto, setConcepto] = useState('')
   const [montoEf, setMontoEf] = useState('')
   const [obs, setObs] = useState('')
+  const [comprobanteFile, setComprobanteFile] = useState<File | null>(null)
+  const [comprobanteKey, setComprobanteKey] = useState(0)
   const [msg, setMsg] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [ticketParaId, setTicketParaId] = useState<string | null>(null)
@@ -176,12 +178,12 @@ export default function CajaSectionEgresos({
     if (filtroCajaSlug) setCajaSlug(filtroCajaSlug)
   }, [isAdmin, cajaSlugOp, filtroCajaSlug])
 
-  const solicitar = async (e: React.FormEvent) => {
+  const registrar = async (e: React.FormEvent) => {
     e.preventDefault()
-    const slug = (!isAdmin && cajaSlugOp) || cajaSlug
+    const slug = (!isAdmin && cajaSlugOp) || cajaSlug || filtroCajaSlug || ''
     if (!slug || !concepto.trim()) return
-    if (!isAdmin && usuarioId == null) {
-      setMsg('Usuario sin ID; no se puede solicitar egreso.')
+    if (usuarioId == null) {
+      setMsg('Usuario sin ID; no se puede registrar el egreso.')
       return
     }
     const monto = parseFloat(montoEf)
@@ -189,30 +191,41 @@ export default function CajaSectionEgresos({
       setMsg('Indicá el monto en efectivo.')
       return
     }
+    if (!comprobanteFile) {
+      setMsg('Adjuntá el comprobante (foto o PDF) para descontar de caja.')
+      return
+    }
+    if (comprobanteFile.size > 8 * 1024 * 1024) {
+      setMsg('El comprobante no puede superar 8 MB.')
+      return
+    }
     setSaving(true)
     setMsg(null)
     try {
-      await createEgresoSolicitud(
+      const url = await uploadAttachmentAndGetUrl(comprobanteFile, `caja/egresos/${slug}`)
+      await registrarEgresoConComprobante(
         {
           fecha,
           caja_slug: slug,
           concepto: concepto.trim(),
           monto_efectivo: monto,
           monto_otros: 0,
-          solicitante_id: usuarioId ?? null,
+          solicitante_id: usuarioId,
           solicitante_nombre: usuarioNombre,
           observacion: obs || null,
-          url_ticket: null
+          url_ticket: url
         },
-        usuarioId != null ? { actor: { id: usuarioId, esAdmin: isAdmin } } : undefined
+        { actor: { id: usuarioId, esAdmin: isAdmin }, esAdmin: isAdmin }
       )
       setConcepto('')
       setMontoEf('')
       setObs('')
-      setMsg('Solicitud enviada. Cuando administración apruebe, subí el ticket acá.')
+      setComprobanteFile(null)
+      setComprobanteKey((k) => k + 1)
+      setMsg('Egreso registrado con comprobante. Ya se descontó de la caja.')
       await reload()
     } catch (ex) {
-      setMsg(ex instanceof Error ? ex.message : 'No se pudo enviar la solicitud.')
+      setMsg(ex instanceof Error ? ex.message : 'No se pudo registrar el egreso.')
     } finally {
       setSaving(false)
     }
@@ -236,7 +249,7 @@ export default function CajaSectionEgresos({
       })
       setMsg(
         accion === 'aprobado'
-          ? 'Egreso autorizado. El operador debe subir el ticket para ejecutarlo.'
+          ? 'Egreso autorizado. Si ya tenía comprobante, se descontó de caja; si no, el operador debe subirlo.'
           : 'Solicitud rechazada.'
       )
       await reload()
@@ -378,78 +391,94 @@ export default function CajaSectionEgresos({
         <div>
           <h2>Egresos de caja</h2>
           <p>
-            {isAdmin
-              ? 'Autorizá o rechazá egresos. El operador sube el ticket después de la aprobación.'
-              : 'Pedí egreso en efectivo. Si te aprueban, subí el ticket para que se descuente de caja.'}
+            Cargá el egreso con comprobante (foto o PDF): se registra en tu caja y descuenta el efectivo al
+            instante.
           </p>
         </div>
         <CajaVolverPlotLab small />
       </div>
 
-      {!isAdmin && (
-        <form className="caja-cc-card" onSubmit={(e) => void solicitar(e)}>
-          <h3>Solicitar egreso</h3>
-          <div className="caja-cc-grid-2">
-            <label className="caja-cc-field">
-              Fecha
-              <input type="date" value={fecha} readOnly disabled required />
-              <span className="caja-cc-field-hint">Automática del sistema.</span>
-            </label>
-            <label className="caja-cc-field">
-              Caja
-              {cajaSlugOp ? (
-                <>
-                  <input type="text" value={cajaNombreOp || cajaSlugOp} readOnly disabled />
-                  <span className="caja-cc-field-hint">Tu caja personal; no podés egresar de otra.</span>
-                </>
-              ) : (
-                <select
-                  value={cajaSlug}
-                  onChange={(e) => setCajaSlug(e.target.value)}
-                  required
-                  disabled={cajaOpLoading}
-                >
-                  {cajas.map((c) => (
-                    <option key={c.slug} value={c.slug}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </label>
-          </div>
+      <form className="caja-cc-card" onSubmit={(e) => void registrar(e)}>
+        <h3>Registrar egreso</h3>
+        <div className="caja-cc-grid-2">
           <label className="caja-cc-field">
-            Concepto
-            <input
-              value={concepto}
-              onChange={(e) => setConcepto(e.target.value)}
-              required
-              placeholder="Ej: Pago proveedor"
-            />
+            Fecha
+            <input type="date" value={fecha} readOnly disabled required />
+            <span className="caja-cc-field-hint">Automática del sistema.</span>
           </label>
           <label className="caja-cc-field">
-            Monto ($) *
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0.01"
-              step="0.01"
-              value={montoEf}
-              onChange={(e) => setMontoEf(e.target.value)}
-              required
-              placeholder="0,00"
-            />
-            <span className="caja-cc-field-hint">Solo efectivo. Sale de la caja física.</span>
+            Caja
+            {!isAdmin && cajaSlugOp ? (
+              <>
+                <input type="text" value={cajaNombreOp || cajaSlugOp} readOnly disabled />
+                <span className="caja-cc-field-hint">Tu caja personal; no podés egresar de otra.</span>
+              </>
+            ) : (
+              <select
+                value={cajaSlug}
+                onChange={(e) => setCajaSlug(e.target.value)}
+                required
+                disabled={cajaOpLoading}
+              >
+                <option value="">Elegí caja…</option>
+                {cajas.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            )}
           </label>
-          <label className="caja-cc-field">
-            Observación
-            <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} />
-          </label>
-          <button type="submit" className="btn-primary" disabled={saving}>
-            Pedir autorización
-          </button>
-        </form>
-      )}
+        </div>
+        <label className="caja-cc-field">
+          Concepto
+          <input
+            value={concepto}
+            onChange={(e) => setConcepto(e.target.value)}
+            required
+            placeholder="Ej: Pago proveedor / envío / insumos"
+          />
+        </label>
+        <label className="caja-cc-field">
+          Monto ($) *
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0.01"
+            step="0.01"
+            value={montoEf}
+            onChange={(e) => setMontoEf(e.target.value)}
+            required
+            placeholder="0,00"
+          />
+          <span className="caja-cc-field-hint">Efectivo que sale de la caja física.</span>
+        </label>
+        <label className="caja-cc-field">
+          Comprobante * (PDF o imagen)
+          <input
+            key={comprobanteKey}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+            required
+            disabled={saving}
+            onChange={(e) => {
+              setComprobanteFile(e.target.files?.[0] ?? null)
+            }}
+          />
+          <span className="caja-cc-field-hint">
+            {comprobanteFile
+              ? `✓ ${comprobanteFile.name}`
+              : 'Obligatorio. Sin comprobante no se descuenta.'}
+          </span>
+        </label>
+        <label className="caja-cc-field">
+          Observación
+          <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} />
+        </label>
+        <button type="submit" className="btn-primary" disabled={saving || !comprobanteFile}>
+          {saving ? 'Registrando…' : 'Registrar y descontar de caja'}
+        </button>
+      </form>
 
       {!isAdmin && pendientesTicket.length > 0 && (
         <div className="caja-cc-card caja-cc-egreso-ticket-pendiente">

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import apiService from '@/services/api'
 import { TOTEM_PRINT_MAX_FILE_BYTES, TOTEM_PRINT_MAX_FILE_MB, TOTEM_PRINT_MAX_FILES } from '@/constants/totemPrint'
@@ -11,10 +11,13 @@ type View = 'loading' | 'invalid' | 'error' | 'abierta' | 'completada' | 'expira
 
 export default function TotemSubirArchivoQrPage() {
   const { sessionId = '' } = useParams<{ sessionId: string }>()
+  const fileInputId = useId()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [view, setView] = useState<View>('loading')
   const [msg, setMsg] = useState<string | null>(null)
   const [files, setFiles] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
 
   const load = useCallback(async () => {
     if (!UUID_RE.test(sessionId)) {
@@ -125,19 +128,94 @@ export default function TotemSubirArchivoQrPage() {
             <p className="totem-qr-upload-lead">
               Elegí uno o más PDF o imágenes (hasta {TOTEM_PRINT_MAX_FILES}, máx. {TOTEM_PRINT_MAX_FILE_MB} MB c/u).
             </p>
-            <input
-              type="file"
-              multiple
-              accept=".pdf,application/pdf,image/jpeg,image/png,image/webp,image/heic,.heic"
-              className="totem-qr-upload-file"
-              onChange={(ev) => handleFileChange(ev.target.files)}
-            />
+            <div
+              className={[
+                'totem-qr-upload-drop',
+                files.length > 0 ? 'is-filled' : '',
+                dragOver ? 'is-drag' : '',
+                files.length >= TOTEM_PRINT_MAX_FILES ? 'is-full' : ''
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onDragEnter={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (files.length < TOTEM_PRINT_MAX_FILES) setDragOver(true)
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setDragOver(false)
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setDragOver(false)
+                handleFileChange(e.dataTransfer.files)
+                if (fileInputRef.current) fileInputRef.current.value = ''
+              }}
+            >
+              <input
+                ref={fileInputRef}
+                id={fileInputId}
+                type="file"
+                multiple
+                accept=".pdf,application/pdf,image/jpeg,image/png,image/webp,image/heic,.heic"
+                className="totem-qr-upload-file"
+                disabled={files.length >= TOTEM_PRINT_MAX_FILES}
+                onChange={(ev) => {
+                  handleFileChange(ev.target.files)
+                  ev.target.value = ''
+                }}
+              />
+              <label htmlFor={fileInputId} className="totem-qr-upload-dropLabel">
+                <span className="totem-qr-upload-dropIcon" aria-hidden>
+                  <svg viewBox="0 0 48 48" width="40" height="40" fill="none">
+                    <path
+                      d="M24 8v22M24 8l-7 7M24 8l7 7"
+                      stroke="currentColor"
+                      strokeWidth="3.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M10 32v4a4 4 0 0 0 4 4h20a4 4 0 0 0 4-4v-4"
+                      stroke="currentColor"
+                      strokeWidth="3.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <span className="totem-qr-upload-dropTitle">
+                  {files.length >= TOTEM_PRINT_MAX_FILES
+                    ? 'Máximo de archivos alcanzado'
+                    : files.length > 0
+                      ? 'Agregar más archivos'
+                      : 'Tocá para elegir archivos'}
+                </span>
+                <span className="totem-qr-upload-dropHint">PDF · JPG · PNG · WEBP · HEIC</span>
+                <span className="totem-qr-upload-dropCta">
+                  {files.length >= TOTEM_PRINT_MAX_FILES ? `${TOTEM_PRINT_MAX_FILES}/${TOTEM_PRINT_MAX_FILES}` : 'Abrir galería o archivos'}
+                </span>
+              </label>
+            </div>
             {files.length > 0 && (
               <ul className="totem-qr-upload-fileList">
                 {files.map((f, i) => (
                   <li key={`${f.name}-${f.size}-${i}`}>
-                    <span>
-                      {f.name} ({(f.size / (1024 * 1024)).toFixed(1)} MB)
+                    <span className="totem-qr-upload-fileMeta">
+                      <span className="totem-qr-upload-fileBadge" aria-hidden>
+                        {f.type.includes('pdf') || f.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'IMG'}
+                      </span>
+                      <span className="totem-qr-upload-fileName">
+                        <strong>{f.name}</strong>
+                        <small>{(f.size / (1024 * 1024)).toFixed(1)} MB</small>
+                      </span>
                     </span>
                     <button
                       type="button"
@@ -155,7 +233,9 @@ export default function TotemSubirArchivoQrPage() {
               {submitting ? 'Subiendo…' : files.length > 1 ? `Enviar ${files.length} archivos` : 'Enviar archivo'}
             </button>
             {files.length > 0 && files.length < TOTEM_PRINT_MAX_FILES && (
-              <p className="totem-qr-upload-muted">Podés seguir eligiendo archivos antes de enviar ({files.length}/{TOTEM_PRINT_MAX_FILES}).</p>
+              <p className="totem-qr-upload-muted">
+                Podés seguir eligiendo archivos antes de enviar ({files.length}/{TOTEM_PRINT_MAX_FILES}).
+              </p>
             )}
           </form>
         )}

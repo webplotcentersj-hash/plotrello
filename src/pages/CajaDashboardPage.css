@@ -1207,6 +1207,13 @@
   flex-wrap: wrap;
 }
 
+.caja-dashboard-page .caja-cc-page-head.is-day-pending,
+.caja-dashboard-page .caja-cc-day-body.is-day-pending {
+  opacity: 0.72;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
 .caja-dashboard-page .caja-cc-page-head h2 {
   margin: 0;
   font-size: 20px;
@@ -3291,6 +3298,154 @@
   font-family: ui-monospace, monospace;
   line-height: 1.15;
   color: #0f172a;
+}
+
+/* —— Informes de ventas —— */
+.caja-dashboard-page .caja-cc-informe-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.caja-dashboard-page .caja-cc-informe-modo {
+  display: inline-flex;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.caja-dashboard-page .caja-cc-informe-modo-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.caja-dashboard-page .caja-cc-informe-modo-btn.is-active {
+  background: #0f766e;
+  color: #ecfdf5;
+}
+
+.caja-dashboard-page .caja-cc-informe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.caja-dashboard-page .caja-cc-informe-field input {
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.caja-dashboard-page .caja-cc-informe-rango {
+  margin: 0;
+  flex: 1 1 200px;
+}
+
+.caja-dashboard-page .caja-cc-informe-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.caja-dashboard-page .caja-cc-informe-delta {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.caja-dashboard-page .caja-cc-informe-delta.is-up {
+  color: #047857;
+}
+
+.caja-dashboard-page .caja-cc-informe-delta.is-down {
+  color: #b91c1c;
+}
+
+.caja-dashboard-page .caja-cc-informe-estados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.caja-dashboard-page .caja-cc-informe-extrema {
+  margin: 0 0 14px;
+}
+
+.caja-dashboard-page .caja-cc-informe-spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 88px;
+  margin: 8px 0 16px;
+  padding: 8px 4px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.caja-dashboard-page .caja-cc-informe-spark-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  gap: 4px;
+}
+
+.caja-dashboard-page .caja-cc-informe-spark-bar {
+  width: 100%;
+  max-width: 18px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(180deg, #14b8a6, #0f766e);
+}
+
+.caja-dashboard-page .caja-cc-informe-spark-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.caja-dashboard-page .caja-cc-informe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.caja-dashboard-page .caja-cc-informe-block h3 {
+  margin-top: 0;
+}
+
+.caja-dashboard-page .caja-cc-informe-bar-col {
+  width: 72px;
+  min-width: 72px;
+  vertical-align: middle;
+}
+
+.caja-dashboard-page .caja-cc-informe-bar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #99f6e4, #0f766e);
+}
+
+.caja-dashboard-page .caja-cc-table tr.is-muted-row td {
+  color: #94a3b8;
 }
 
 /* —— Calendario admin —— */

@@ -1055,14 +1055,72 @@ export async function resolverEgresoSolicitud(
       observacion: sol.observacion,
       updated_at: now
     })
-    return updated
+  } else {
+    const store = readLocal()
+    const idx = store.egreso_solicitudes.findIndex((s) => s.id === id)
+    if (idx >= 0) store.egreso_solicitudes[idx] = updated
+    writeLocal(store)
   }
 
-  const store = readLocal()
-  const idx = store.egreso_solicitudes.findIndex((s) => s.id === id)
-  if (idx >= 0) store.egreso_solicitudes[idx] = updated
-  writeLocal(store)
+  // Si ya había comprobante cargado, al aprobar se descuenta de caja.
+  if (accion === 'aprobado' && (sol.url_ticket || '').trim()) {
+    return (
+      (await adjuntarTicketEgresoSolicitud(id, sol.url_ticket!.trim(), {
+        actor: { id: aprobador.id, esAdmin: true }
+      })) ?? updated
+    )
+  }
+
   return updated
+}
+
+function notifyCajaDatosActualizados() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('caja-datos-actualizados'))
+  }
+}
+
+async function crearMovimientoEgresoDesdeSolicitud(
+  sol: CajaEgresoSolicitud,
+  urlTicket: string,
+  opts?: { actor?: CajaActor; adminSlug?: string }
+): Promise<CajaMovimiento> {
+  const adminSlug =
+    opts?.adminSlug ??
+    (await listCajas()).find((c) => c.slug === 'admin')?.slug ??
+    'admin'
+
+  return saveMovimiento(
+    {
+      fecha: sol.fecha,
+      hora: new Date().toTimeString().slice(0, 5),
+      concepto: sol.concepto || 'Egreso',
+      subtipo_pase: null,
+      tipo_movimiento: 'egreso',
+      categoria: 'gasto_vario',
+      origen_slug: sol.caja_slug,
+      destino_slug: adminSlug,
+      efectivo: sol.monto_efectivo,
+      otros: sol.monto_otros || 0,
+      nro_comprobante: null,
+      observacion: [
+        sol.aprobador_nombre ? `Egreso autorizado por ${sol.aprobador_nombre}.` : 'Egreso de caja.',
+        sol.observacion?.trim() || '',
+        `Comprobante: ${urlTicket}`
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim(),
+      id_usuario: sol.solicitante_id ?? null,
+      usuario_nombre: sol.solicitante_nombre ?? null,
+      origen_importacion: 'manual'
+    },
+    {
+      actor:
+        opts?.actor ??
+        (sol.solicitante_id != null ? { id: sol.solicitante_id } : undefined)
+    }
+  )
 }
 
 /** Operador adjunta ticket tras aprobación → genera el movimiento de egreso. */
@@ -1089,41 +1147,7 @@ export async function adjuntarTicketEgresoSolicitud(
   }
 
   const now = new Date().toISOString()
-  const adminSlug =
-    opts?.adminSlug ??
-    (await listCajas()).find((c) => c.slug === 'admin')?.slug ??
-    'admin'
-
-  const mov = await saveMovimiento(
-    {
-      fecha: sol.fecha,
-      hora: new Date().toTimeString().slice(0, 5),
-      concepto: sol.concepto || 'Egreso',
-      subtipo_pase: null,
-      tipo_movimiento: 'egreso',
-      categoria: 'gasto_vario',
-      origen_slug: sol.caja_slug,
-      destino_slug: adminSlug,
-      efectivo: sol.monto_efectivo,
-      otros: sol.monto_otros || 0,
-      observacion: [
-        sol.aprobador_nombre ? `Egreso autorizado por ${sol.aprobador_nombre}.` : 'Egreso autorizado.',
-        sol.observacion?.trim() || '',
-        `Ticket: ${url}`
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .trim(),
-      id_usuario: sol.solicitante_id ?? null,
-      usuario_nombre: sol.solicitante_nombre ?? null,
-      origen_importacion: 'manual'
-    },
-    {
-      actor:
-        opts?.actor ??
-        (sol.solicitante_id != null ? { id: sol.solicitante_id } : undefined)
-    }
-  )
+  const mov = await crearMovimientoEgresoDesdeSolicitud(sol, url, opts)
 
   const updated: CajaEgresoSolicitud = {
     ...sol,
@@ -1158,6 +1182,7 @@ export async function adjuntarTicketEgresoSolicitud(
         updated_at: now
       }
     )
+    notifyCajaDatosActualizados()
     return updated
   }
 
@@ -1165,7 +1190,96 @@ export async function adjuntarTicketEgresoSolicitud(
   const idx = store.egreso_solicitudes.findIndex((s) => s.id === id)
   if (idx >= 0) store.egreso_solicitudes[idx] = updated
   writeLocal(store)
+  notifyCajaDatosActualizados()
   return updated
+}
+
+/**
+ * Registra un egreso con comprobante y lo descuenta de caja al instante
+ * (queda como aprobado + movimiento de egreso).
+ */
+export async function registrarEgresoConComprobante(
+  input: {
+    fecha: string
+    caja_slug: string
+    concepto: string
+    monto_efectivo: number
+    monto_otros?: number
+    solicitante_id: number
+    solicitante_nombre: string
+    observacion?: string | null
+    url_ticket: string
+  },
+  opts?: { actor?: CajaActor; esAdmin?: boolean }
+): Promise<{ solicitud: CajaEgresoSolicitud; movimiento: CajaMovimiento }> {
+  const url = input.url_ticket.trim()
+  if (!url) throw new Error('Adjuntá el comprobante del egreso.')
+  if (!(input.monto_efectivo > 0) && !(Number(input.monto_otros) > 0)) {
+    throw new Error('Indicá un monto válido.')
+  }
+  if (!input.concepto.trim()) throw new Error('Indicá el concepto.')
+
+  const actor: CajaActor =
+    opts?.actor ?? { id: input.solicitante_id, esAdmin: opts?.esAdmin }
+  assertPuedeOperarCaja(actor, input.caja_slug)
+
+  const id = newId()
+  const now = new Date().toISOString()
+  const base: CajaEgresoSolicitud = {
+    id,
+    fecha: input.fecha,
+    caja_slug: input.caja_slug,
+    concepto: input.concepto.trim(),
+    monto_efectivo: input.monto_efectivo,
+    monto_otros: input.monto_otros ?? 0,
+    estado: 'aprobado',
+    solicitante_id: input.solicitante_id,
+    solicitante_nombre: input.solicitante_nombre,
+    aprobador_id: input.solicitante_id,
+    aprobador_nombre: input.solicitante_nombre,
+    motivo_rechazo: null,
+    observacion: input.observacion?.trim() || null,
+    url_ticket: url,
+    id_movimiento: null,
+    created_at: now,
+    updated_at: now
+  }
+
+  const mov = await crearMovimientoEgresoDesdeSolicitud(base, url, { actor })
+  const record: CajaEgresoSolicitud = {
+    ...base,
+    id_movimiento: mov.id,
+    updated_at: new Date().toISOString()
+  }
+
+  if (await checkRemote()) {
+    await rpcCajaUpsertAux('egreso', requireActorId(actor), {
+      id,
+      fecha: record.fecha,
+      caja_slug: record.caja_slug,
+      concepto: record.concepto,
+      monto_efectivo: record.monto_efectivo,
+      monto_otros: record.monto_otros,
+      estado: 'aprobado',
+      solicitante_id: record.solicitante_id,
+      solicitante_nombre: record.solicitante_nombre,
+      aprobador_id: record.aprobador_id,
+      aprobador_nombre: record.aprobador_nombre,
+      motivo_rechazo: null,
+      observacion: record.observacion,
+      url_ticket: url,
+      id_movimiento: mov.id,
+      updated_at: record.updated_at
+    })
+    notifyCajaDatosActualizados()
+    return { solicitud: record, movimiento: mov }
+  }
+
+  const store = readLocal()
+  store.egreso_solicitudes.unshift(record)
+  writeLocal(store)
+  notifyCajaDatosActualizados()
+  return { solicitud: record, movimiento: mov }
 }
 
 // —— Cierre de turno (lote) ——

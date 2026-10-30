@@ -221,18 +221,141 @@
 
 .totem-print-body--split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
   gap: 22px;
   align-items: start;
 }
 
-.totem-print-previewAside {
+.totem-print-sideCol {
   position: sticky;
   top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
 }
 
-.totem-print-previewAside.is-hidden {
-  display: none;
+.totem-print-previewAside {
+  min-width: 0;
+}
+
+.totem-print-guideAside {
+  border-radius: var(--totem-radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 18px 18px 16px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(251, 146, 60, 0.22), transparent 48%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.08), rgba(8, 10, 24, 0.55));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+}
+
+.totem-print-guideAside--archivo {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.26), transparent 48%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.08), rgba(8, 10, 24, 0.55));
+}
+
+.totem-print-guideAside--opciones {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(52, 211, 153, 0.22), transparent 48%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.08), rgba(8, 10, 24, 0.55));
+}
+
+.totem-print-guideAside--compact {
+  padding: 14px 14px 12px;
+}
+
+.totem-print-guideAside--compact .totem-print-guideCase__text {
+  font-size: 0.82rem;
+}
+
+.totem-print-guideAside__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.62);
+}
+
+.totem-print-guideAside__title {
+  margin: 0 0 14px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.totem-print-guideAside--datos .totem-print-guideAside__title {
+  color: #fdba74;
+}
+
+.totem-print-guideAside--archivo .totem-print-guideAside__title {
+  color: #7dd3fc;
+}
+
+.totem-print-guideAside--opciones .totem-print-guideAside__title {
+  color: #6ee7b7;
+}
+
+.totem-print-guideList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.totem-print-guideCase {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.totem-print-guideCase__n {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #1c1006;
+  background: linear-gradient(135deg, #ffe600, #fb923c);
+}
+
+.totem-print-guideAside--archivo .totem-print-guideCase__n {
+  background: linear-gradient(135deg, #7dd3fc, #0ea5e9);
+  color: #042f4a;
+}
+
+.totem-print-guideAside--opciones .totem-print-guideCase__n {
+  background: linear-gradient(135deg, #6ee7b7, #10b981);
+  color: #052e16;
+}
+
+.totem-print-guideCase__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.totem-print-guideCase__label {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1.25;
+}
+
+.totem-print-guideCase__text {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(226, 232, 240, 0.82);
 }
 
 .totem-print-hojasHint {
@@ -877,7 +1000,7 @@
     grid-template-columns: 1fr;
   }
 
-  .totem-print-previewAside {
+  .totem-print-sideCol {
     position: static;
     order: -1;
   }
@@ -947,12 +1070,17 @@
 .totem-print-step--opciones.is-done:not(.is-current) { border-color: rgba(52, 211, 153, 0.45); color: #a7f3d0; }
 
 .totem-print-page--tablet .totem-print-card {
+  width: min(1280px, 100%);
   border-color: rgba(255, 255, 255, 0.2);
   background:
     linear-gradient(160deg, rgba(249, 115, 22, 0.14), transparent 36%),
     linear-gradient(320deg, rgba(14, 165, 233, 0.12), transparent 40%),
     linear-gradient(165deg, rgba(255, 255, 255, 0.1) 0%, rgba(8, 10, 28, 0.55) 100%);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+}
+
+.totem-print-page--tablet .totem-print-guideAside {
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .totem-print-stageLead--datos strong { color: #fdba74; }
@@ -1043,4 +1171,200 @@
   background: linear-gradient(135deg, #ffe600, #f97316 55%, #ea580c);
   color: #1c1006;
   box-shadow: 0 14px 36px rgba(249, 115, 22, 0.45);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Pulido visual del tótem de impresión: mismo look, más fluido
+   (movimiento suave, botones táctiles, foco y feedback al tocar)
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes tpp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tpp-pop {
+  0% {
+    transform: scale(0.94);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes tpp-sheen {
+  from {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(260%) skewX(-18deg);
+  }
+}
+
+.totem-print-card {
+  animation: tpp-rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Al cambiar de paso, el contenido entra en cascada */
+.totem-print-grid > *,
+.totem-print-sideCol > * {
+  animation: tpp-rise 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.totem-print-grid > *:nth-child(2) {
+  animation-delay: 0.04s;
+}
+.totem-print-grid > *:nth-child(3) {
+  animation-delay: 0.08s;
+}
+.totem-print-grid > *:nth-child(4) {
+  animation-delay: 0.12s;
+}
+.totem-print-grid > *:nth-child(5) {
+  animation-delay: 0.16s;
+}
+.totem-print-grid > *:nth-child(n + 6) {
+  animation-delay: 0.2s;
+}
+.totem-print-sideCol > *:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.totem-print-guideCase {
+  animation: tpp-rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.totem-print-guideCase:nth-child(2) {
+  animation-delay: 0.06s;
+}
+.totem-print-guideCase:nth-child(3) {
+  animation-delay: 0.12s;
+}
+.totem-print-guideCase:nth-child(4) {
+  animation-delay: 0.18s;
+}
+
+/* Barra de pasos */
+.totem-print-step {
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease, transform 0.3s ease;
+}
+
+.totem-print-step.is-current {
+  transform: translateY(-1px);
+}
+
+.totem-print-step.is-current .totem-print-step__n {
+  animation: tpp-pop 0.4s ease both;
+}
+
+/* Botones grandes y táctiles, con feedback al tocar */
+.totem-print-primary,
+.totem-print-secondary,
+.totem-print-back,
+.totem-print-addFileBtn,
+.totem-print-clearBtn {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease, filter 0.2s ease;
+}
+
+.totem-print-primary:active,
+.totem-print-secondary:active,
+.totem-print-back:active,
+.totem-print-addFileBtn:active,
+.totem-print-clearBtn:active {
+  transform: scale(0.97);
+}
+
+.totem-print-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+.totem-print-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: translateX(-120%) skewX(-18deg);
+  pointer-events: none;
+}
+
+.totem-print-primary:hover::after,
+.totem-print-primary:focus-visible::after {
+  animation: tpp-sheen 0.9s ease;
+}
+
+.totem-print-primary:focus-visible,
+.totem-print-secondary:focus-visible,
+.totem-print-back:focus-visible,
+.totem-print-grid input:focus-visible,
+.totem-print-grid select:focus-visible,
+.totem-print-grid textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--totem-focus);
+}
+
+.totem-print-grid input,
+.totem-print-grid select,
+.totem-print-grid textarea {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.totem-print-grid input:focus,
+.totem-print-grid select:focus,
+.totem-print-grid textarea:focus {
+  border-color: var(--totem-orange);
+}
+
+/* Precio y archivos recibidos */
+.totem-print-priceTotal {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.totem-print-priceLine {
+  padding-left: 2px;
+}
+
+.totem-print-fileList li {
+  animation: tpp-rise 0.35s ease both;
+}
+
+.totem-print-fileOk {
+  animation: tpp-pop 0.4s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .totem-print-card,
+  .totem-print-grid > *,
+  .totem-print-sideCol > *,
+  .totem-print-guideCase,
+  .totem-print-fileList li,
+  .totem-print-fileOk,
+  .totem-print-step.is-current .totem-print-step__n {
+    animation: none;
+  }
+  .totem-print-primary:hover::after,
+  .totem-print-primary:focus-visible::after {
+    animation: none;
+  }
+}
+
+/* La tarjeta crece con su contenido (en pantallas angostas el contenido desbordaba el fondo de la tarjeta) */
+.totem-print-main {
+  align-items: flex-start;
+}
+
+.totem-print-card {
+  min-height: 100%;
+  box-sizing: border-box;
 }

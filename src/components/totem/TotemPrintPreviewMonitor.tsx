@@ -16,6 +16,7 @@ import {
   type TotemPrintPapelId
 } from '../../utils/totemPrintPapel'
 import { formatHojasResumen } from '../../utils/totemPrintJobs'
+import type { TotemPhotoEditorTab } from './TotemPhotoEditor'
 import './TotemPrintPreviewMonitor.css'
 
 export type TotemPreviewSource = {
@@ -39,6 +40,11 @@ type Props = {
   onClearPages?: (sourceIndex: number) => void
   pageCountForActive?: number
   copias?: number
+  /** Abre el editor de fotos para un archivo de imagen (recorte, ajustes, PlotAI). */
+  onEditImage?: (sourceIndex: number, tab: TotemPhotoEditorTab) => void
+  /** Índices de archivos cuya imagen ya fue editada (se muestra la insignia y «Volver al original»). */
+  editedSourceIndexes?: number[]
+  onRevertEdit?: (sourceIndex: number) => void
   onAnalysis?: (data: {
     pageCount: number
     colorDetection: PrintColorDetection
@@ -75,6 +81,9 @@ export default function TotemPrintPreviewMonitor({
   onClearPages,
   pageCountForActive,
   copias = 1,
+  onEditImage,
+  editedSourceIndexes,
+  onRevertEdit,
   onAnalysis
 }: Props) {
   const [loading, setLoading] = useState(false)
@@ -157,6 +166,9 @@ export default function TotemPrintPreviewMonitor({
   }, [activeSource, sourcesKey])
 
   const active = thumbsForActive[activePage] ?? thumbsForActive[0] ?? null
+  const activeKind: PrintDocumentKind = thumbsForActive[0]?.kind ?? 'unknown'
+  const canEditPhoto = !!onEditImage && !loading && !error && activeKind === 'image'
+  const activeEdited = !!editedSourceIndexes?.includes(activeSource)
   const forceBw = modoColor === 'bn'
   const forceColor = modoColor === 'color'
   const displayColor: PrintColorMode = forceBw
@@ -233,8 +245,14 @@ export default function TotemPrintPreviewMonitor({
         .join(' ')}
     >
       <div className="totem-print-monitor-head">
-        <p className="totem-print-monitor-kicker">Monitor de impresión</p>
-        <h2 className="totem-print-monitor-title">{title}</h2>
+        <p className="totem-print-monitor-kicker">
+          <span className="totem-print-monitor-kicker-dot" aria-hidden />
+          Monitor de impresión
+          {activeEdited && <span className="totem-print-monitor-edited-badge">Foto editada</span>}
+        </p>
+        <h2 className="totem-print-monitor-title" title={title}>
+          {title}
+        </h2>
         <p className="totem-print-monitor-range">
           {labelPrintFormat(formatoImpresion)} · {papelLabel} · {fazLabel} · {colorLabel}
           {!loading && activeFilePages > 0
@@ -268,6 +286,12 @@ export default function TotemPrintPreviewMonitor({
         <div className={screenClass} style={{ aspectRatio: String(ratio) }}>
           {sources.length === 0 ? (
             <div className={`totem-print-monitor-mock totem-print-monitor-mock--${displayColor}`}>
+              <span className="totem-print-monitor-mock-icon" aria-hidden>
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" />
+                  <path d="M14 3v5h5M12 17v-6M9.5 13.5L12 11l2.5 2.5" />
+                </svg>
+              </span>
               <span className="totem-print-monitor-mock-format">{labelPrintFormat(formatoImpresion)}</span>
               <span className="totem-print-monitor-mock-papel">{papelLabel}</span>
               <span className="totem-print-monitor-mock-hint">
@@ -275,11 +299,18 @@ export default function TotemPrintPreviewMonitor({
               </span>
             </div>
           ) : loading ? (
-            <div className="totem-print-monitor-state">Analizando archivos…</div>
+            <div className="totem-print-monitor-state totem-print-monitor-state--loading" role="status" aria-live="polite">
+              <span className="totem-print-monitor-skeleton" aria-hidden />
+              <span className="totem-print-monitor-spinner" aria-hidden />
+              <span>Preparando la vista previa…</span>
+            </div>
           ) : error ? (
-            <div className="totem-print-monitor-state totem-print-monitor-state--error">{error}</div>
+            <div className="totem-print-monitor-state totem-print-monitor-state--error" role="alert">
+              {error}
+            </div>
           ) : active ? (
             <img
+              key={active.previewUrl}
               src={active.previewUrl}
               alt={`Vista previa hoja ${hojaActual} de ${activeFilePages}`}
               className={`totem-print-monitor-img totem-print-monitor-img--${displayColor}`}
@@ -301,6 +332,50 @@ export default function TotemPrintPreviewMonitor({
       </div>
 
       {specs}
+
+      {canEditPhoto && (
+        <div className="totem-print-monitor-photo" role="group" aria-label="Editar foto">
+          <button
+            type="button"
+            className="totem-print-monitor-photo-btn"
+            onClick={() => onEditImage?.(activeSource, 'recorte')}
+          >
+            <span className="totem-print-monitor-photo-ico" aria-hidden>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14" />
+              </svg>
+            </span>
+            <span className="totem-print-monitor-photo-copy">
+              <strong>Editar foto</strong>
+              <small>Recortar · girar · ajustar</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="totem-print-monitor-photo-btn totem-print-monitor-photo-btn--ai"
+            onClick={() => onEditImage?.(activeSource, 'ia')}
+          >
+            <span className="totem-print-monitor-photo-ico" aria-hidden>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z" />
+              </svg>
+            </span>
+            <span className="totem-print-monitor-photo-copy">
+              <strong>Mejorar con PlotAI</strong>
+              <small>Luz, color y nitidez</small>
+            </span>
+          </button>
+          {activeEdited && onRevertEdit && (
+            <button
+              type="button"
+              className="totem-print-monitor-photo-revert"
+              onClick={() => onRevertEdit(activeSource)}
+            >
+              ↩ Volver a la foto original
+            </button>
+          )}
+        </div>
+      )}
 
       {selectionEnabled && sources.length > 0 && (
         <div className="totem-print-monitor-page-actions">
