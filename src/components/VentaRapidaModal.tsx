@@ -213,6 +213,9 @@ const VentaRapidaModal = ({
 
   const [guardando, setGuardando] = useState(false)
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
+  /** Overlay notorio solo cuando la venta quedó confirmada (no MP a medias). */
+  const [mostrarCartelRealizada, setMostrarCartelRealizada] = useState(false)
+  const [anulandoMpPendiente, setAnulandoMpPendiente] = useState(false)
   const [facturandoAfip, setFacturandoAfip] = useState(false)
   const [emisionAfip, setEmisionAfip] = useState<{
     etapa: EtapaEmision
@@ -717,6 +720,7 @@ const VentaRapidaModal = ({
       }
       if (ventaParaFactura) {
         setVentaCreada(ventaParaFactura)
+        setMostrarCartelRealizada(true)
         void emitirYExportarFacturaMp(ventaParaFactura)
       }
 
@@ -1147,6 +1151,7 @@ const VentaRapidaModal = ({
       }
 
       setVentaCreada(ventaFinal)
+      setMostrarCartelRealizada(true)
 
       if (comprobanteArchivo) {
         const compResp = await apiService.subirComprobantePagoVenta(ventaData.id, comprobanteArchivo)
@@ -1187,8 +1192,29 @@ const VentaRapidaModal = ({
     }
   }
 
-  const cerrar = () => {
-    if (ventaCreada) onSuccess?.()
+  const cerrar = async () => {
+    // QR / cobro MP abierto sin pago: no cuenta como venta → anular.
+    if (showMpCheckout && mpVentaId && ventaCreada?.estado_pago === 'Pendiente') {
+      const ok = window.confirm(
+        'El pago con Mercado Pago no terminó. Si cerrás ahora, esta venta no se cuenta y se anula. ¿Continuar?'
+      )
+      if (!ok) return
+      setAnulandoMpPendiente(true)
+      try {
+        await apiService.anularVentaConMotivo(
+          mpVentaId,
+          'Cobro Mercado Pago no confirmado — modal cerrado sin finalizar',
+          { sincronizarCaja: true }
+        )
+      } catch (e) {
+        console.warn('No se pudo anular venta MP pendiente:', e)
+      } finally {
+        setAnulandoMpPendiente(false)
+      }
+      onClose()
+      return
+    }
+    if (ventaCreada && !showMpCheckout) onSuccess?.()
     onClose()
   }
 
@@ -1211,14 +1237,103 @@ const VentaRapidaModal = ({
       >
         <div className="venta-rapida-modal-header">
           <h2>{ventaCreada && !showMpCheckout ? 'Venta realizada' : 'Venta'}</h2>
-          <button className="btn-close" onClick={cerrar}>✕</button>
+          <button
+            className="btn-close"
+            onClick={() => void cerrar()}
+            disabled={anulandoMpPendiente}
+          >
+            ✕
+          </button>
         </div>
 
-        {ventaCreada?.numero_op && !showMpCheckout && (
-          <div className="venta-realizada-banner">
-            Venta realizada — Nº {ventaCreada.numero_venta}
-            {` • OP: ${ventaCreada.numero_op}`}
-          </div>
+        {mostrarCartelRealizada && ventaCreada && !showMpCheckout ? (
+          (() => {
+            const cobroCartel = cobroDesdeVenta(ventaCreada)
+            const esParcial = cobroCartel.estado === 'parcial'
+            const esCc = cobroCartel.estado === 'cuenta_corriente'
+            const cobrado = Number(ventaCreada.monto_pagado) || Number(cobroCartel.monto) || 0
+            const falta = Number(cobroCartel.saldo) || 0
+            const total = Number(ventaCreada.valor_total) || 0
+            return (
+              <div
+                className="venta-realizada-cartel"
+                role="alertdialog"
+                aria-label={esParcial ? 'Cobro parcial' : 'Venta realizada'}
+              >
+                <div
+                  className={`venta-realizada-cartel-box${esParcial ? ' venta-realizada-cartel-box--parcial' : ''}`}
+                >
+                  <p className="venta-realizada-cartel-texto">
+                    {esParcial ? 'Cobro parcial' : esCc ? 'Venta en cuenta corriente' : 'Venta realizada'}
+                  </p>
+                  <p className="venta-realizada-cartel-hint">
+                    Nº {ventaCreada.numero_venta}
+                    {ventaCreada.metodo_pago ? ` · ${ventaCreada.metodo_pago}` : ''}
+                  </p>
+                  {esParcial ? (
+                    <div className="venta-realizada-cartel-montos">
+                      <div className="venta-realizada-cartel-monto venta-realizada-cartel-monto--ok">
+                        <span>En caja</span>
+                        <strong>$ {formatArs(cobrado > 0 ? cobrado : total)}</strong>
+                      </div>
+                      <div className="venta-realizada-cartel-monto venta-realizada-cartel-monto--falta">
+                        <span>Falta</span>
+                        <strong>$ {formatArs(falta)}</strong>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="venta-realizada-cartel-hint">
+                      {`$ ${formatArs(total)}`}
+                      {esCc ? ' · queda a crédito' : ' · ya suma en caja'}
+                    </p>
+                  )}
+                  {!esCc ? (
+                    <p className="venta-realizada-cartel-hint">
+                      {esParcial
+                        ? 'Lo cobrado ya suma en el circuito de caja; el saldo queda pendiente.'
+                        : 'Ya suma en el circuito de caja del día.'}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="venta-realizada-cartel-btn"
+                    onClick={() => setMostrarCartelRealizada(false)}
+                  >
+                    Continuar
+                  </button>
+                </div>
+              </div>
+            )
+          })()
+        ) : null}
+
+        {ventaCreada && !showMpCheckout && (
+          (() => {
+            const cobroBan = cobroDesdeVenta(ventaCreada)
+            const esParcial = cobroBan.estado === 'parcial'
+            const falta = Number(cobroBan.saldo) || 0
+            const cobrado = Number(ventaCreada.monto_pagado) || Number(cobroBan.monto) || 0
+            return (
+              <div
+                className={`venta-realizada-banner${esParcial ? ' venta-realizada-banner--parcial' : ''}`}
+              >
+                <span>
+                  {esParcial ? 'Cobro parcial' : 'Venta realizada'} — Nº {ventaCreada.numero_venta}
+                  {ventaCreada.numero_op ? ` • OP: ${ventaCreada.numero_op}` : ''}
+                </span>
+                {esParcial ? (
+                  <span className="venta-realizada-banner-montos">
+                    <span className="venta-realizada-banner-ok">
+                      En caja $ {formatArs(cobrado)}
+                    </span>
+                    <span className="venta-realizada-banner-falta">
+                      Falta $ {formatArs(falta)}
+                    </span>
+                  </span>
+                ) : null}
+              </div>
+            )
+          })()
         )}
 
         <div className="venta-rapida-modal-content" ref={modalContentRef}>
@@ -2260,7 +2375,28 @@ const VentaRapidaModal = ({
           {ventaCreada && !showMpCheckout && (
             <div className="venta-creada-info">
               <div className="success-message">
-                <strong>Venta realizada</strong> — Nº {ventaCreada.numero_venta}
+                {(() => {
+                  const c = cobroDesdeVenta(ventaCreada)
+                  const esParcial = c.estado === 'parcial'
+                  const falta = Number(c.saldo) || 0
+                  const cobrado = Number(ventaCreada.monto_pagado) || Number(c.monto) || 0
+                  return (
+                    <>
+                      <strong>{esParcial ? 'Cobro parcial' : 'Venta realizada'}</strong>
+                      {` — Nº ${ventaCreada.numero_venta}`}
+                      {esParcial ? (
+                        <div className="venta-creada-parcial-montos">
+                          <span className="venta-creada-parcial-ok">
+                            En caja $ {formatArs(cobrado)}
+                          </span>
+                          <span className="venta-creada-parcial-falta">
+                            Falta $ {formatArs(falta)}
+                          </span>
+                        </div>
+                      ) : null}
+                    </>
+                  )
+                })()}
                 {ventaCreada.numero_op && (
                   <div style={{ marginTop: '8px', fontSize: '0.95rem' }}>
                     ✓ Convertida a OP: <strong>{ventaCreada.numero_op}</strong>
@@ -2299,7 +2435,9 @@ const VentaRapidaModal = ({
                     onMontoChange={() => {}}
                   />
                   {cobro.estado === 'parcial' && cobro.saldo ? (
-                    <span className="venta-rapida-footer-falta">Falta $ {cobro.saldo}</span>
+                    <span className="venta-rapida-footer-falta">
+                      Falta $ {formatArs(Number(cobro.saldo) || 0)}
+                    </span>
                   ) : null}
                 </div>
               )
@@ -2310,7 +2448,7 @@ const VentaRapidaModal = ({
           <div className="venta-rapida-footer-actions">
           {!ventaCreada && !showMpCheckout ? (
             <>
-            <button className="btn-secondary" onClick={cerrar}>
+            <button className="btn-secondary" onClick={() => void cerrar()}>
               Cancelar
             </button>
             <button
@@ -2333,7 +2471,19 @@ const VentaRapidaModal = ({
             </button>
             </>
           ) : showMpCheckout ? (
-            <span className="venta-rapida-footer-hint">Esperando confirmación de Mercado Pago…</span>
+            <>
+              <span className="venta-rapida-footer-hint">
+                Esperando Mercado Pago… (si cerrás sin pagar, no cuenta como venta)
+              </span>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={anulandoMpPendiente}
+                onClick={() => void cerrar()}
+              >
+                {anulandoMpPendiente ? 'Anulando…' : 'Cancelar cobro'}
+              </button>
+            </>
           ) : ventaCreada ? (
             <>
               {ventaCreada.numero_op && (

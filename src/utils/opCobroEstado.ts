@@ -109,10 +109,11 @@ export function cobroDesdeVenta(venta: {
     const total = Number(venta.valor_total) || 0
     const pagado = Number(venta.monto_pagado) || 0
     const saldo = Math.max(0, Math.round((total - pagado) * 100) / 100)
+    const asMoney = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
     return {
       estado: 'parcial',
-      monto: pagado > 0 ? String(Math.round(pagado)) : '',
-      saldo: saldo > 0 ? String(Math.round(saldo)) : ''
+      monto: pagado > 0 ? asMoney(pagado) : '',
+      saldo: saldo > 0 ? asMoney(saldo) : ''
     }
   }
   return { estado: 'sin_pago', monto: '', saldo: '' }

@@ -1,5 +1,5 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
-import { notifyCajaSync } from './cajaSyncNotify'
+import { notifyCajaSync, notifyVentaRealizadaCaja } from './cajaSyncNotify'
 import { obtenerCajaOperativa } from './cajaOperativa'
 import { cajaSlugForUsuario } from './cajaPorUsuario'
 import {
@@ -98,9 +98,13 @@ export function ventaPerteneceCaja(
 }
 
 function montoVentaParaResumen(venta: VentaCajaSyncRecord): number {
+  const total = Number(venta.valor_total) || 0
   const pagado = Number(venta.monto_pagado) || 0
-  if (pagado > 0) return pagado
-  return Number(venta.valor_total) || 0
+  const estado = venta.estado_pago || 'Pendiente'
+  // Parcial: solo lo cobrado (nunca el total pendiente).
+  if (estado === 'Parcial') return pagado > 0 ? Math.min(pagado, total) : 0
+  if (pagado > 0) return Math.min(pagado, total)
+  return total
 }
 
 export function resumenDesdeVentasPlotLab(
@@ -179,13 +183,16 @@ export async function resumenPlotlabVentasDesdeApi(
   )
 }
 
+/** Solo ventas realizadas: Pagado, Parcial con monto cobrado, o CC pendiente (crédito). */
 export function ventaDebeSincronizarCaja(venta: VentaCajaSyncRecord): boolean {
   const estado = venta.estado_pago || 'Pendiente'
   const metodo = (venta.metodo_pago || '').trim()
   if (estado === 'Cancelado') return false
   if ((Number(venta.valor_total) || 0) <= 0) return false
-  if (estado === 'Pendiente' && metodo !== 'Cuenta Corriente') return false
-  return true
+  if (estado === 'Pendiente') return metodo === 'Cuenta Corriente'
+  if (estado === 'Parcial') return (Number(venta.monto_pagado) || 0) > 0
+  if (estado === 'Pagado') return true
+  return false
 }
 
 function normalizarMetodoPago(metodo?: string | null): MetodoPagoPlotLab {
@@ -333,7 +340,10 @@ function notificarCajaActualizada(): void {
 }
 
 function mensajeSyncOk(cajaSlug: string, monto: number, metodo: string): string {
-  return `Registrado en caja ${cajaSlug} · ${metodo} $ ${monto.toLocaleString('es-AR')}`
+  return `Venta realizada · ${metodo} $ ${monto.toLocaleString('es-AR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })} · caja ${cajaSlug}`
 }
 
 export async function syncDesdeVentaRecord(
@@ -429,10 +439,25 @@ export async function syncDesdeVentaRecord(
   if (!opts?.silencioso) {
     if (r.ok) {
       const m = monto > 0 ? monto : venta.valor_total
-      notifyCajaSync({
-        ok: true,
-        message: mensajeSyncOk(r.cajaSlug, m, String(metodo))
-      })
+      if (!r.yaExistia) {
+        const totalVenta = Number(venta.valor_total) || 0
+        const saldoFalta =
+          venta.estado_pago === 'Parcial' && totalVenta > m
+            ? Math.round((totalVenta - m) * 100) / 100
+            : null
+        notifyVentaRealizadaCaja({
+          numeroVenta: venta.numero_venta,
+          monto: m,
+          metodo: String(metodo),
+          cajaSlug: r.cajaSlug,
+          saldoFalta
+        })
+      } else {
+        notifyCajaSync({
+          ok: true,
+          message: mensajeSyncOk(r.cajaSlug, m, String(metodo))
+        })
+      }
     } else if (!r.omitido) {
       notifyCajaSync({ ok: false, message: r.error })
     }

@@ -1,7 +1,7 @@
 import { supabase } from '../../services/supabaseClient'
 import type { VentaCajaSyncRecord } from './plotlabVentaCajaSync'
 
-/** Monto que impacta caja: total si Pagado; parcial real si Parcial. */
+/** Monto que impacta caja: total si Pagado; parcial real si Parcial; CC pendiente = total. */
 export async function montoCobradoVenta(venta: VentaCajaSyncRecord): Promise<number> {
   const total = Number(venta.valor_total) || 0
   if (total <= 0) return 0
@@ -31,5 +31,11 @@ export async function montoCobradoVenta(venta: VentaCajaSyncRecord): Promise<num
     return 0
   }
 
-  return total
+  // Pendiente: solo cuenta corriente (crédito) impacta; MP/modal a medias = 0.
+  if (venta.estado_pago === 'Pendiente') {
+    const metodo = (venta.metodo_pago || '').trim()
+    return metodo === 'Cuenta Corriente' ? total : 0
+  }
+
+  return 0
 }

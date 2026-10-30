@@ -42,6 +42,11 @@
 }
 
 .venta-realizada-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 16px;
   padding: 14px 24px;
   background: linear-gradient(135deg, #059669, #10b981);
   color: #fff;
@@ -49,6 +54,36 @@
   font-weight: 600;
   text-align: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.venta-realizada-banner--parcial {
+  background: linear-gradient(135deg, #047857, #0f766e);
+}
+
+.venta-realizada-banner-montos {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.venta-realizada-banner-ok {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ecfdf5;
+}
+
+.venta-realizada-banner-falta {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: #fff7ed;
+  box-shadow: 0 2px 8px rgba(127, 29, 29, 0.35);
 }
 
 /* En el mismo modal: opción Convertirla a OP (visible sin scroll) */
@@ -95,7 +130,13 @@
   text-align: center;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   border: 2px solid rgba(255, 255, 255, 0.3);
+  max-width: min(420px, calc(100vw - 32px));
 }
+
+.venta-realizada-cartel-box--parcial {
+  background: linear-gradient(135deg, #0f766e, #047857 55%, #115e59);
+}
+
 .venta-realizada-cartel-texto {
   margin: 0 0 12px 0;
   font-size: 1.75rem;
@@ -107,6 +148,56 @@
   margin: 0 0 16px 0;
   font-size: 0.9rem;
   opacity: 0.9;
+}
+
+.venta-realizada-cartel-montos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.venta-realizada-cartel-monto {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.venta-realizada-cartel-monto > span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.venta-realizada-cartel-monto > strong {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.venta-realizada-cartel-monto--ok {
+  background: rgba(16, 185, 129, 0.35);
+}
+
+.venta-realizada-cartel-monto--ok > strong {
+  color: #a7f3d0;
+}
+
+.venta-realizada-cartel-monto--falta {
+  background: rgba(185, 28, 28, 0.55);
+  border-color: rgba(254, 202, 202, 0.45);
+}
+
+.venta-realizada-cartel-monto--falta > span {
+  color: #fecaca;
+}
+
+.venta-realizada-cartel-monto--falta > strong {
+  color: #fff7ed;
 }
 
 .venta-realizada-cartel-btn {
@@ -1002,6 +1093,31 @@
 
 .success-message strong {
   color: #10b981;
+}
+
+.venta-creada-parcial-montos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.venta-creada-parcial-ok {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #065f46;
+  background: #a7f3d0;
+}
+
+.venta-creada-parcial-falta {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff7ed;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
 }
 
 .venta-rapida-modal-footer {

@@ -10,17 +10,20 @@ export default function CajaPlotlabVentasPanel({ resumen, cajaNombre }: Props) {
   if (resumen.count <= 0) {
     return (
       <div className="caja-cc-plotlab-ventas caja-cc-plotlab-ventas--empty">
-        <strong>Ventas Plot Lab hoy</strong>
-        <p>Sin ventas cobradas hoy en {cajaNombre}. Al cobrar en Plot Lab aparecen acá al instante.</p>
+        <strong>Ventas realizadas hoy</strong>
+        <p>
+          Sin ventas cobradas hoy en {cajaNombre}. Solo cuentan las confirmadas (no el modal abierto a medias).
+        </p>
       </div>
     )
   }
 
   return (
     <div className="caja-cc-plotlab-ventas">
-      <strong>Ventas Plot Lab hoy — {cajaNombre}</strong>
+      <strong>Ventas realizadas hoy — {cajaNombre}</strong>
       <p className="caja-cc-sub">
-        {resumen.count} venta{resumen.count === 1 ? '' : 's'} cobrada{resumen.count === 1 ? '' : 's'} hoy en Plot Lab.
+        {resumen.count} venta{resumen.count === 1 ? '' : 's'} cobrada
+        {resumen.count === 1 ? '' : 's'} (confirmadas) en Plot Lab.
       </p>
       <div className="caja-cc-plotlab-ventas-grid">
         <span>Efectivo</span>

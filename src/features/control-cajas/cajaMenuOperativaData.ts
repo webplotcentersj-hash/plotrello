@@ -73,7 +73,7 @@ export function progresoDiaCaja(input: {
 }): ProgresoDiaPaso[] {
   const ventasEnCaja = input.resumenPlotlabCount > 0 || input.ingresosDia > 0
   return [
-    { id: 'ventas', label: 'Ventas en caja', hecho: ventasEnCaja },
+    { id: 'ventas', label: 'Ventas realizadas', hecho: ventasEnCaja },
     { id: 'arqueo', label: 'Arqueo', hecho: input.arqueoHecho },
     { id: 'cierre', label: 'Cierre de turno', hecho: input.cierreTurnoHecho }
   ]

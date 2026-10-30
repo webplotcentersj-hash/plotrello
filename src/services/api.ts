@@ -21588,7 +21588,14 @@ class ApiService {
       if (tocaCaja) {
         const ventaRes = await this.getVenta(id)
         if (ventaRes.success && ventaRes.data) {
-          void syncCajaDesdeVentaApi(ventaRes.data, { silencioso: true })
+          // Toast notorio solo cuando la venta queda cobrada de verdad (no borradores/Pendiente).
+          const estadoSync = String(ventaRes.data.estado_pago || '')
+          const cobrada =
+            estadoSync === 'Pagado' ||
+            estadoSync === 'Parcial' ||
+            (estadoSync === 'Pendiente' &&
+              String(ventaRes.data.metodo_pago || '').trim() === 'Cuenta Corriente')
+          void syncCajaDesdeVentaApi(ventaRes.data, { silencioso: !cobrada })
         }
       }
 

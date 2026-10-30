@@ -246,8 +246,8 @@ export default function CajaMenuResumenDia({ estado, cargando, enVivo, onNavigat
           <div>
             <small>
               {estado.resumenPlotlab && estado.resumenPlotlab.efectivo > 0
-                ? 'Efectivo a contar (fondo + ventas en efectivo Plot Lab)'
-                : 'Efectivo teórico en caja (fondo + movimientos físicos)'}
+                ? 'Efectivo a contar (ventas en efectivo Plot Lab − egresos)'
+                : 'Efectivo teórico en caja (movimientos físicos − egresos)'}
             </small>
             <strong>$ {fmtArs(estado.efectivoTeorico)}</strong>
           </div>
