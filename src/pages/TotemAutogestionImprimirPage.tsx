@@ -1081,23 +1081,6 @@ export default function TotemAutogestionImprimirPage() {
                     )}
                   </div>
                 </label>
-                {clienteId != null && (
-                  <div className="totem-print-span2 totem-print-clienteOk" role="status">
-                    <span className="totem-print-clienteOk__icon" aria-hidden>
-                      <TotemKioskIcon name="check" size="strip" />
-                    </span>
-                    <span>
-                      <strong>Cliente registrado</strong> — completamos nombre, DNI y teléfono automáticamente.
-                    </span>
-                  </div>
-                )}
-                {tieneDatosCliente && (
-                  <div className="totem-print-span2 totem-print-clearRow">
-                    <button type="button" className="totem-print-clearBtn" onClick={limpiarDatosCliente}>
-                      Borrar datos del cliente
-                    </button>
-                  </div>
-                )}
                 <label>
                   DNI/CUIT
                   <input
@@ -1124,6 +1107,27 @@ export default function TotemAutogestionImprimirPage() {
                     className={clienteId != null ? 'totem-print-input--matched' : undefined}
                   />
                 </label>
+                {(clienteId != null || tieneDatosCliente) && (
+                  <div className="totem-print-span2 totem-print-datosFoot">
+                    {clienteId != null ? (
+                      <div className="totem-print-clienteOk" role="status">
+                        <span className="totem-print-clienteOk__icon" aria-hidden>
+                          <TotemKioskIcon name="check" size="strip" />
+                        </span>
+                        <span>
+                          <strong>Cliente registrado</strong> — DNI y teléfono completados.
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="totem-print-datosFoot__spacer" />
+                    )}
+                    {tieneDatosCliente ? (
+                      <button type="button" className="totem-print-clearBtn" onClick={limpiarDatosCliente}>
+                        Borrar datos del cliente
+                      </button>
+                    ) : null}
+                  </div>
+                )}
                 </>
                 )}
                 {formStage === 'opciones' && (
