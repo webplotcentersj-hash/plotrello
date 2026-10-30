@@ -751,7 +751,8 @@ export default function TotemAutogestionImprimirPage() {
         setNombreSugerencias(lista)
         setNombreMenuOpen(lista.length > 0)
 
-        if (lista.length === 0) {
+        // Solo en paso archivo tiene sentido pulsar el bloque QR; en «Tus datos» no hay origen.
+        if (lista.length === 0 && formStage === 'archivo' && origenSectionRef.current) {
           const now = Date.now()
           if (now - lastEmptyScrollAt.current > 5000) {
             lastEmptyScrollAt.current = now
@@ -769,7 +770,7 @@ export default function TotemAutogestionImprimirPage() {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [clienteNombre, dniDigits, applyClienteDetectado])
+  }, [clienteNombre, dniDigits, applyClienteDetectado, formStage])
 
   useEffect(() => {
     if (dniDigits.length < 7) {
@@ -1006,7 +1007,36 @@ export default function TotemAutogestionImprimirPage() {
         <main className="totem-print-main">
           {step === 'form' && (
             <section className="totem-print-card">
-              <div className="totem-print-body totem-print-body--split">
+              <div
+                className={`totem-print-body${
+                  formStage === 'opciones' ? ' totem-print-body--split' : ' totem-print-body--stack'
+                }`}
+              >
+                {formStage !== 'opciones' ? (
+                  <div
+                    className={`totem-print-guideAside totem-print-guideAside--banner totem-print-guideAside--${formStage}`}
+                    aria-label={PRINT_GUIDE[formStage].title}
+                  >
+                    <div className="totem-print-guideAside__head">
+                      <p className="totem-print-guideAside__eyebrow">Instructivo</p>
+                      <h2 className="totem-print-guideAside__title">{PRINT_GUIDE[formStage].title}</h2>
+                    </div>
+                    <ol className="totem-print-guideList totem-print-guideList--row">
+                      {PRINT_GUIDE[formStage].cases.map((c, i) => (
+                        <li key={c.label} className="totem-print-guideCase">
+                          <span className="totem-print-guideCase__n" aria-hidden>
+                            {i + 1}
+                          </span>
+                          <div className="totem-print-guideCase__body">
+                            <strong className="totem-print-guideCase__label">{c.label}</strong>
+                            <p className="totem-print-guideCase__text">{c.text}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
+
                 <div className="totem-print-grid">
                 {formStage === 'datos' && (
                 <>
@@ -1398,30 +1428,28 @@ export default function TotemAutogestionImprimirPage() {
                 )}
               </div>
 
-              <aside className="totem-print-sideCol">
-                <div
-                  className={`totem-print-guideAside totem-print-guideAside--${formStage}${
-                    formStage === 'opciones' ? ' totem-print-guideAside--compact' : ''
-                  }`}
-                  aria-label={PRINT_GUIDE[formStage].title}
-                >
-                  <p className="totem-print-guideAside__eyebrow">Instructivo</p>
-                  <h2 className="totem-print-guideAside__title">{PRINT_GUIDE[formStage].title}</h2>
-                  <ol className="totem-print-guideList">
-                    {PRINT_GUIDE[formStage].cases.map((c, i) => (
-                      <li key={c.label} className="totem-print-guideCase">
-                        <span className="totem-print-guideCase__n" aria-hidden>
-                          {i + 1}
-                        </span>
-                        <div className="totem-print-guideCase__body">
-                          <strong className="totem-print-guideCase__label">{c.label}</strong>
-                          <p className="totem-print-guideCase__text">{c.text}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-                {formStage === 'opciones' && (
+              {formStage === 'opciones' ? (
+                <aside className="totem-print-sideCol">
+                  <div
+                    className="totem-print-guideAside totem-print-guideAside--opciones totem-print-guideAside--compact"
+                    aria-label={PRINT_GUIDE.opciones.title}
+                  >
+                    <p className="totem-print-guideAside__eyebrow">Instructivo</p>
+                    <h2 className="totem-print-guideAside__title">{PRINT_GUIDE.opciones.title}</h2>
+                    <ol className="totem-print-guideList">
+                      {PRINT_GUIDE.opciones.cases.map((c, i) => (
+                        <li key={c.label} className="totem-print-guideCase">
+                          <span className="totem-print-guideCase__n" aria-hidden>
+                            {i + 1}
+                          </span>
+                          <div className="totem-print-guideCase__body">
+                            <strong className="totem-print-guideCase__label">{c.label}</strong>
+                            <p className="totem-print-guideCase__text">{c.text}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
                   <div className="totem-print-previewAside">
                     <TotemPrintPreviewMonitor
                       sources={previewSources}
@@ -1469,8 +1497,8 @@ export default function TotemAutogestionImprimirPage() {
                       onAnalysis={handlePrintAnalysis}
                     />
                   </div>
-                )}
-              </aside>
+                </aside>
+              ) : null}
               </div>
 
               {error && <div className="totem-print-error">{error}</div>}
