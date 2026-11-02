@@ -468,29 +468,30 @@ export default function RrhhLiquidacionMensualTab({
 
   const feriadosPeriodo = useMemo(() => feriadosEntre(fechaDesde, fechaHasta), [fechaDesde, fechaHasta])
 
-  const persistirBd = (
-    nextCargas: CargaSocialDef[],
-    nextMontos: Record<number, MontosLiquidacion>,
-    nextPct: number,
-    nextPrecio: number,
-    nextValorDia: number
-  ) => {
-    guardarMesLiquidacion(mes, nextCargas, nextMontos, nextPct, nextValorDia)
+  const persistirBd = () => {
+    const snap = persistRef.current
+    guardarMesLiquidacion(
+      mes,
+      snap.cargas,
+      snap.montos,
+      snap.pctAntiguedadLegal,
+      snap.valorDiaDescuento
+    )
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       // Siempre el snapshot más reciente al flush (varios edits seguidos).
-      const snap = persistRef.current
+      const latest = persistRef.current
       setGuardandoBd(true)
       void apiService
         .rrhhLiquidacionPeriodoUpsert({
           periodo: mes,
-          valor_hora_default: snap.precioDefault,
+          valor_hora_default: latest.precioDefault,
           config_json: {
-            cargas: snap.cargas,
-            pctAntiguedadLegal: snap.pctAntiguedadLegal,
-            valorDiaDescuento: snap.valorDiaDescuento,
+            cargas: latest.cargas,
+            pctAntiguedadLegal: latest.pctAntiguedadLegal,
+            valorDiaDescuento: latest.valorDiaDescuento,
             montos: Object.fromEntries(
-              Object.entries(snap.montos).map(([k, v]) => [String(k), v])
+              Object.entries(latest.montos).map(([k, v]) => [String(k), v])
             )
           }
         })
@@ -520,7 +521,7 @@ export default function RrhhLiquidacionMensualTab({
     setPctAntiguedadLegal(nextPct)
     setPrecioDefault(nextPrecio)
     setValorDiaDescuento(nextValorDia)
-    persistirBd(nextCargas, nextMontos, nextPct, nextPrecio, nextValorDia)
+    persistirBd()
   }
 
   const cambiarMonto = (id: number, campo: keyof MontosLiquidacion, valor: string) => {
