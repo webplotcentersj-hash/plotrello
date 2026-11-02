@@ -1,4 +1,16 @@
--- Reactivar colaborador dado de baja (activo = true)
+-- Reactivar colaborador dado de baja (activo = true) + hito en hoja de vida
+ALTER TABLE public.rrhh_eventos_laborales
+  DROP CONSTRAINT IF EXISTS rrhh_eventos_laborales_tipo_check;
+
+ALTER TABLE public.rrhh_eventos_laborales
+  ADD CONSTRAINT rrhh_eventos_laborales_tipo_check
+  CHECK (tipo = ANY (ARRAY[
+    'cambio_puesto'::text,
+    'reconocimiento'::text,
+    'sancion'::text,
+    'reactivacion'::text
+  ]));
+
 CREATE OR REPLACE FUNCTION public.reactivar_usuario(
   p_id integer,
   p_registrado_por integer DEFAULT NULL
@@ -31,8 +43,27 @@ BEGIN
   SET activo = true
   WHERE id = p_id;
 
+  INSERT INTO public.rrhh_eventos_laborales (
+    id_usuario,
+    tipo,
+    fecha,
+    titulo,
+    descripcion,
+    registrado_por
+  ) VALUES (
+    p_id,
+    'reactivacion',
+    CURRENT_DATE,
+    'Reactivación laboral',
+    'El colaborador volvió a figurar como personal activo.',
+    p_registrado_por
+  );
+
   RETURN true;
 END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.reactivar_usuario(integer, integer) TO anon, authenticated, service_role;
+
+COMMENT ON COLUMN public.rrhh_eventos_laborales.tipo IS
+  'cambio_puesto | reconocimiento | sancion | reactivacion';

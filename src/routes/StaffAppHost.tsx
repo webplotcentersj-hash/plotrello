@@ -69,6 +69,7 @@ const MisHorasExtraPage = lazy(() => import('../pages/MisHorasExtraPage'))
 const CajaDashboardPage = lazy(() => import('../pages/CajaDashboardPage'))
 const RecursosHumanosNotificacionesPage = lazy(() => import('../pages/RecursosHumanosNotificacionesPage'))
 const RecursosHumanosCapacitacionesPage = lazy(() => import('../pages/RecursosHumanosCapacitacionesPage'))
+const RecursosHumanosFormacionPage = lazy(() => import('../pages/RecursosHumanosFormacionPage'))
 const RecursosHumanosMenuDiarioPage = lazy(() => import('../pages/RecursosHumanosMenuDiarioPage'))
 const RecursosHumanosPruebasPage = lazy(() => import('../pages/RecursosHumanosPruebasPage'))
 const RecursosHumanosIncidenciasPage = lazy(() => import('../pages/RecursosHumanosIncidenciasPage'))
@@ -1489,8 +1490,12 @@ function AppRoutes({
         element={<RecursosHumanosEvaluacionesPage />}
       />
       <Route
+        path="/rrhh/formacion"
+        element={<RecursosHumanosFormacionPage />}
+      />
+      <Route
         path="/rrhh/capacitaciones"
-        element={<RecursosHumanosCapacitacionesPage />}
+        element={<Navigate to="/rrhh/formacion" replace />}
       />
       <Route
         path="/rrhh/estadisticas"
@@ -1514,7 +1519,7 @@ function AppRoutes({
       />
       <Route
         path="/rrhh/pruebas"
-        element={<RecursosHumanosPruebasPage />}
+        element={<Navigate to="/rrhh/formacion?tab=pruebas" replace />}
       />
       <Route
         path="/rrhh/incidencias"

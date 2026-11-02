@@ -5,7 +5,12 @@ import apiService from '../services/api'
 import type { Capacitacion, InscripcionCapacitacion } from '../types/api'
 import './RecursosHumanosCapacitacionesPage.css'
 
-const RecursosHumanosCapacitacionesPage = () => {
+type Props = {
+  /** Embebido en /rrhh/formacion (sin header propio). */
+  embedded?: boolean
+}
+
+const RecursosHumanosCapacitacionesPage = ({ embedded = false }: Props) => {
   const navigate = useNavigate()
   const { canManageRecursosHumanos, usuario, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -50,7 +55,7 @@ const RecursosHumanosCapacitacionesPage = () => {
       return
     }
     loadData()
-  }, [canManageRecursosHumanos, navigate, authLoading, filtros.estado, filtros.tipo, filtros.categoria, filtros.fechaDesde, filtros.fechaHasta])
+  }, [canManageRecursosHumanos, navigate, authLoading, embedded, filtros.estado, filtros.tipo, filtros.categoria, filtros.fechaDesde, filtros.fechaHasta])
 
   const loadData = async () => {
     setLoading(true)
@@ -264,15 +269,17 @@ const RecursosHumanosCapacitacionesPage = () => {
   }
 
   return (
-    <div className="rrhh-capacitaciones-page">
-      <header className="rrhh-capacitaciones-header">
-        <div className="rrhh-header-content">
-          <h1>📚 Gestión de Capacitaciones</h1>
-          <button className="btn-back" onClick={() => navigate('/rrhh/dashboard')}>
-            ← Volver
-          </button>
-        </div>
-      </header>
+    <div className={`rrhh-capacitaciones-page${embedded ? ' rrhh-page--embedded' : ''}`}>
+      {!embedded ? (
+        <header className="rrhh-capacitaciones-header">
+          <div className="rrhh-header-content">
+            <h1>📚 Gestión de Capacitaciones</h1>
+            <button className="btn-back" onClick={() => navigate('/rrhh/formacion')}>
+              ← Formación
+            </button>
+          </div>
+        </header>
+      ) : null}
 
       <div className="rrhh-capacitaciones-content">
         {/* Filtros */}

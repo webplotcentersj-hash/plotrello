@@ -23,6 +23,7 @@ export type HojaVidaCategoria =
   | 'vacaciones'
   | 'licencia'
   | 'baja'
+  | 'reactivacion'
 
 export type HojaVidaEvento = {
   id: string
@@ -43,8 +44,16 @@ export const HOJA_VIDA_CATEGORIA_LABEL: Record<HojaVidaCategoria, string> = {
   sancion: 'Sanción',
   vacaciones: 'Vacaciones',
   licencia: 'Licencia prolongada',
-  baja: 'Baja laboral'
+  baja: 'Baja laboral',
+  reactivacion: 'Reactivación'
 }
+
+const CATEGORIAS_EVENTO_LABORAL = new Set<HojaVidaCategoria>([
+  'cambio_puesto',
+  'reconocimiento',
+  'sancion',
+  'reactivacion'
+])
 
 const LICENCIA_PROLONGADA_MIN_DIAS = 5
 const CODIGOS_LICENCIA_PROLONGADA = new Set([
@@ -108,16 +117,35 @@ export type HojaVidaInput = {
   permisos: SolicitudPermiso[]
   novedades: RrhhNovedad[]
   eventosLaborales: RrhhEventoLaboral[]
-  baja: UsuarioBajaLog | null
+  /** Historial de bajas (puede haber varias si hubo reactivaciones). */
+  bajas?: UsuarioBajaLog[]
+  /** @deprecated Preferir `bajas`. */
+  baja?: UsuarioBajaLog | null
 }
 
 export function construirHojaVidaLaboral(input: HojaVidaInput): HojaVidaEvento[] {
   const eventos: HojaVidaEvento[] = []
   const hoy = new Date().toISOString().slice(0, 10)
-  const fechaFinAntiguedad =
-    input.baja?.fecha_desvinculacion?.slice(0, 10) ||
-    input.baja?.created_at?.slice(0, 10) ||
-    hoy
+  const bajas =
+    input.bajas && input.bajas.length > 0
+      ? input.bajas
+      : input.baja
+        ? [input.baja]
+        : []
+  const fechaUltimaBaja = bajas
+    .map((b) => b.fecha_desvinculacion?.slice(0, 10) || b.created_at.slice(0, 10))
+    .filter(Boolean)
+    .sort()
+    .at(-1)
+  const fechaUltimaReactivacion = input.eventosLaborales
+    .filter((e) => e.tipo === 'reactivacion')
+    .map((e) => e.fecha.slice(0, 10))
+    .sort()
+    .at(-1)
+  const egresado =
+    !!fechaUltimaBaja &&
+    (!fechaUltimaReactivacion || fechaUltimaBaja > fechaUltimaReactivacion)
+  const fechaFinAntiguedad = egresado && fechaUltimaBaja ? fechaUltimaBaja : hoy
 
   if (input.legajo?.fecha_ingreso) {
     const fi = String(input.legajo.fecha_ingreso).slice(0, 10)
@@ -125,7 +153,7 @@ export function construirHojaVidaLaboral(input: HojaVidaInput): HojaVidaEvento[]
     try {
       const meses = differenceInMonths(parseISO(fechaFinAntiguedad), parseISO(fi))
       if (meses >= 0) {
-        meta = input.baja
+        meta = egresado
           ? `Antigüedad al egreso: ${fmtAntiguedad(meses)}`
           : `Antigüedad actual: ${fmtAntiguedad(meses)}`
       }
@@ -146,6 +174,7 @@ export function construirHojaVidaLaboral(input: HojaVidaInput): HojaVidaEvento[]
 
   for (const ev of input.eventosLaborales) {
     const cat = ev.tipo as HojaVidaCategoria
+    if (!CATEGORIAS_EVENTO_LABORAL.has(cat)) continue
     let detalle = ev.descripcion?.trim() || undefined
     if (ev.tipo === 'cambio_puesto' && (ev.sector_anterior || ev.sector_nuevo)) {
       const partes = [
@@ -154,7 +183,11 @@ export function construirHojaVidaLaboral(input: HojaVidaInput): HojaVidaEvento[]
       ].filter(Boolean)
       detalle = [detalle, partes.join(' · ')].filter(Boolean).join(' — ') || undefined
     }
-    pushEvento(eventos, ev.fecha, cat, String(ev.id), ev.titulo, detalle)
+    const titulo =
+      ev.tipo === 'reactivacion' && !ev.titulo?.trim()
+        ? 'Reactivación laboral'
+        : ev.titulo
+    pushEvento(eventos, ev.fecha, cat, String(ev.id), titulo, detalle)
   }
 
   for (const c of input.capacitaciones) {
@@ -279,22 +312,22 @@ export function construirHojaVidaLaboral(input: HojaVidaInput): HojaVidaEvento[]
     }
   }
 
-  if (input.baja) {
+  for (const baja of bajas) {
     const fb =
-      input.baja.fecha_desvinculacion?.slice(0, 10) ||
-      input.baja.created_at.slice(0, 10)
+      baja.fecha_desvinculacion?.slice(0, 10) ||
+      baja.created_at.slice(0, 10)
     pushEvento(
       eventos,
       fb,
       'baja',
-      String(input.baja.id),
+      String(baja.id),
       'Desvinculación laboral',
-      input.baja.motivo,
+      baja.motivo,
       [
-        input.baja.tipo_desvinculacion
-          ? etiquetaTipoDesvinculacion(input.baja.tipo_desvinculacion)
+        baja.tipo_desvinculacion
+          ? etiquetaTipoDesvinculacion(baja.tipo_desvinculacion)
           : null,
-        input.baja.observaciones_finales?.trim()
+        baja.observaciones_finales?.trim()
       ]
         .filter(Boolean)
         .join(' · ') || undefined

@@ -294,10 +294,10 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja, initialTab = 'l
         apiService.getUsuariosBajasLog()
       ])
 
-      const baja: UsuarioBajaLog | null =
+      const bajasUsuario: UsuarioBajaLog[] =
         bajasR.success && bajasR.data
-          ? bajasR.data.find((b) => b.id_usuario === usuario.id) ?? null
-          : null
+          ? bajasR.data.filter((b) => b.id_usuario === usuario.id)
+          : []
 
       const eventosLaborales: RrhhEventoLaboral[] =
         evR.success && evR.data ? evR.data : []
@@ -315,7 +315,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja, initialTab = 'l
           permisos: permR.success && permR.data ? permR.data : [],
           novedades: novR.success && novR.data ? novR.data : [],
           eventosLaborales,
-          baja
+          bajas: bajasUsuario
         })
       )
       setHvLoaded(true)

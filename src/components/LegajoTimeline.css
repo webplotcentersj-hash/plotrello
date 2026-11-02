@@ -166,6 +166,11 @@
   background: rgba(239, 68, 68, 0.12);
 }
 
+.legajo-timeline-item--reactivacion .legajo-timeline-marker span {
+  border-color: rgba(16, 185, 129, 0.55);
+  background: rgba(16, 185, 129, 0.18);
+}
+
 .legajo-timeline-item--reconocimiento .legajo-timeline-marker span {
   border-color: rgba(245, 158, 11, 0.5);
   background: rgba(245, 158, 11, 0.12);

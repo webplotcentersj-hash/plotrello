@@ -1,0 +1,403 @@
+.vac-goce {
+  margin: 0 0 24px;
+  border-radius: 18px;
+  border: 1px solid rgba(45, 212, 191, 0.18);
+  background:
+    radial-gradient(1200px 280px at 10% -20%, rgba(45, 212, 191, 0.18), transparent 55%),
+    radial-gradient(900px 240px at 90% 0%, rgba(56, 189, 248, 0.12), transparent 50%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.72));
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+}
+
+.vac-goce-hero {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 22px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.vac-goce-kicker {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5eead4;
+  font-weight: 700;
+}
+
+.vac-goce-hero-copy h2 {
+  margin: 0;
+  font-size: clamp(1.25rem, 2.4vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, #f8fafc, #99f6e4 55%, #7dd3fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.vac-goce-hero-copy p {
+  margin: 8px 0 0;
+  max-width: 52ch;
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.vac-goce-hero-stats {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.vac-goce-hero-stats > div {
+  min-width: 88px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.vac-goce-hero-stats strong {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1;
+}
+
+.vac-goce-hero-stats span {
+  font-size: 0.68rem;
+  color: rgba(148, 163, 184, 0.95);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.vac-goce-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 22px 4px;
+}
+
+.vac-goce-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 200px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.vac-goce-legend-chip i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vac-color) 25%, transparent);
+}
+
+.vac-goce-legend-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+
+.vac-goce-legend-chip:hover,
+.vac-goce-legend-chip.is-active {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--vac-color) 55%, transparent);
+  background: color-mix(in srgb, var(--vac-color) 12%, transparent);
+}
+
+.vac-goce-legend-more {
+  align-self: center;
+  font-size: 0.78rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.vac-goce-empty {
+  margin: 8px 22px 0;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.9rem;
+}
+
+.vac-goce-months {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 16px 18px;
+}
+
+@media (max-width: 1200px) {
+  .vac-goce-months {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .vac-goce-months {
+    grid-template-columns: 1fr;
+  }
+
+  .vac-goce-hero-stats {
+    width: 100%;
+  }
+
+  .vac-goce-hero-stats > div {
+    flex: 1;
+  }
+}
+
+.vac-goce-month {
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 10px;
+  animation: vac-goce-in 0.45s ease both;
+}
+
+.vac-goce-month:nth-child(2) {
+  animation-delay: 0.04s;
+}
+.vac-goce-month:nth-child(3) {
+  animation-delay: 0.08s;
+}
+.vac-goce-month:nth-child(4) {
+  animation-delay: 0.12s;
+}
+.vac-goce-month:nth-child(5) {
+  animation-delay: 0.16s;
+}
+
+@keyframes vac-goce-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vac-goce-month-head h3 {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  text-transform: capitalize;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: 0.02em;
+}
+
+.vac-goce-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.vac-goce-weekdays span {
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: rgba(148, 163, 184, 0.85);
+}
+
+.vac-goce-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.vac-goce-cell {
+  aspect-ratio: 1;
+  min-height: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  padding: 3px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.vac-goce-cell--pad {
+  background: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+.vac-goce-cell--out {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.vac-goce-cell--has {
+  background: rgba(45, 212, 191, 0.08);
+}
+
+.vac-goce-cell--has:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+  background: rgba(45, 212, 191, 0.14);
+}
+
+.vac-goce-cell--focus {
+  outline: 2px solid rgba(45, 212, 191, 0.65);
+  outline-offset: 0;
+}
+
+.vac-goce-cell--today .vac-goce-daynum {
+  color: #5eead4;
+  font-weight: 800;
+}
+
+.vac-goce-daynum {
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+  text-align: left;
+  padding-left: 2px;
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.vac-goce-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5px;
+  margin-top: auto;
+  min-height: 10px;
+}
+
+.vac-goce-bar {
+  display: block;
+  height: 3.5px;
+  border-radius: 2px;
+  opacity: 0.95;
+}
+
+.vac-goce-bar--start {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+  margin-left: 1px;
+}
+
+.vac-goce-bar--end {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+  margin-right: 1px;
+}
+
+.vac-goce-bar--mid {
+  border-radius: 1px;
+}
+
+.vac-goce-more {
+  font-size: 0.55rem;
+  color: #94a3b8;
+  line-height: 1;
+}
+
+.vac-goce-daypanel {
+  margin: 0 16px 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  background: rgba(2, 6, 23, 0.65);
+  animation: vac-goce-in 0.25s ease both;
+}
+
+.vac-goce-daypanel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.vac-goce-daypanel-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  text-transform: capitalize;
+}
+
+.vac-goce-daypanel-close {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.vac-goce-daylist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vac-goce-daylist-btn {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.vac-goce-daylist-btn:hover {
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.vac-goce-daylist-btn i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.vac-goce-daylist-btn strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.vac-goce-daylist-btn span {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: rgba(148, 163, 184, 0.95);
+}

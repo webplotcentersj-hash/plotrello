@@ -1,0 +1,96 @@
+.rrhh-formacion-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.rrhh-formacion-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 16px;
+}
+
+.rrhh-formacion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(800px 180px at 0% 0%, rgba(56, 189, 248, 0.12), transparent 55%),
+    rgba(15, 23, 42, 0.35);
+}
+
+.rrhh-formacion-kicker {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, #94a3b8);
+}
+
+.rrhh-formacion-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.rrhh-formacion-lead {
+  margin: 6px 0 0;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.95rem;
+  max-width: 52ch;
+}
+
+.rrhh-formacion-back {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.rrhh-formacion-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px 0;
+  flex-wrap: wrap;
+}
+
+.rrhh-formacion-tab {
+  padding: 10px 16px;
+  border-radius: 10px 10px 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.rrhh-formacion-tab.is-active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #7dd3fc;
+}
+
+.rrhh-formacion-body {
+  padding: 0 0 24px;
+}
+
+.rrhh-formacion-body .rrhh-capacitaciones-page,
+.rrhh-formacion-body .rrhh-pruebas-page {
+  min-height: auto;
+}
+
+.rrhh-formacion-body .rrhh-capacitaciones-page.rrhh-page--embedded,
+.rrhh-formacion-body .rrhh-pruebas-page.rrhh-page--embedded {
+  background: transparent;
+}

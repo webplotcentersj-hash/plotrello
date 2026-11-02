@@ -297,8 +297,8 @@ export interface RrhhBajaAdjunto {
   mime: string
 }
 
-/** Evento formal de hoja de vida laboral (cambio de puesto, reconocimiento, sanción). */
-export type RrhhEventoLaboralTipo = 'cambio_puesto' | 'reconocimiento' | 'sancion'
+/** Evento formal de hoja de vida laboral (cambio de puesto, reconocimiento, sanción, reactivación). */
+export type RrhhEventoLaboralTipo = 'cambio_puesto' | 'reconocimiento' | 'sancion' | 'reactivacion'
 
 export interface RrhhEventoLaboral {
   id: number

@@ -3,8 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { RrhhNovedad, RrhhVacacionesAjuste, SolicitudPermiso } from '../types/api'
+import VacacionesCalendarioGoce from '../components/VacacionesCalendarioGoce'
 import {
   calcularSaldoVacaciones,
+  etiquetaBaseLegalVacaciones,
+  listarPeriodosCalendarioGoce,
+  periodoGoceVacaciones,
   type SaldoVacacionesEmpleado
 } from '../utils/rrhhVacacionesSaldo'
 import { nombreSinDominioCorreo } from '../utils/userDisplayName'
@@ -19,6 +23,8 @@ const RecursosHumanosVacacionesPage = () => {
   const [anio, setAnio] = useState(() => new Date().getFullYear())
   const [busqueda, setBusqueda] = useState('')
   const [saldos, setSaldos] = useState<SaldoVacacionesEmpleado[]>([])
+  const [solicitudes, setSolicitudes] = useState<SolicitudPermiso[]>([])
+  const [novedades, setNovedades] = useState<RrhhNovedad[]>([])
   const [ajustes, setAjustes] = useState<RrhhVacacionesAjuste[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,16 +42,17 @@ const RecursosHumanosVacacionesPage = () => {
     setLoading(true)
     setError(null)
     try {
-      const yearStart = `${anio}-01-01`
-      const yearEnd = `${anio}-12-31`
+      const goce = periodoGoceVacaciones(anio)
+      // Saldos del año + temporada de goce (dic → abr del año siguiente)
+      const fechaDesde = `${anio}-01-01`
+      const fechaHasta = goce.hasta
       const [legRes, solRes, novRes, ajRes] = await Promise.all([
         apiService.obtenerLegajosBasico(),
-        // Sin filtro de fechas: el cruce con el año se resuelve en el util de saldo
         apiService.obtenerSolicitudesPermisos(null, 'aprobado', 'vacaciones'),
         apiService.rrhhNovedadesListar({
           codigo: 'licencia_vacaciones',
-          fechaDesde: yearStart,
-          fechaHasta: yearEnd
+          fechaDesde,
+          fechaHasta
         }),
         apiService.rrhhVacacionesAjustesListar({ anio })
       ])
@@ -55,8 +62,10 @@ const RecursosHumanosVacacionesPage = () => {
       }
 
       const sols = (solRes.success ? solRes.data : []) as SolicitudPermiso[]
-      const novedades = (novRes.success ? novRes.data : []) as RrhhNovedad[]
+      const novs = (novRes.success ? novRes.data : []) as RrhhNovedad[]
       const aj = (ajRes.success ? ajRes.data : []) as RrhhVacacionesAjuste[]
+      setSolicitudes(sols)
+      setNovedades(novs)
       setAjustes(aj)
 
       const list: SaldoVacacionesEmpleado[] = []
@@ -71,7 +80,7 @@ const RecursosHumanosVacacionesPage = () => {
             fechaIngreso: row.fecha_ingreso,
             anio,
             solicitudes: sols,
-            novedades,
+            novedades: novs,
             ajustes: aj
           })
         )
@@ -99,6 +108,17 @@ const RecursosHumanosVacacionesPage = () => {
     if (!q) return saldos
     return saldos.filter((s) => s.nombre.toLowerCase().includes(q))
   }, [saldos, busqueda])
+
+  const periodosCalendario = useMemo(
+    () =>
+      listarPeriodosCalendarioGoce({
+        anioLiquidado: anio,
+        saldos,
+        solicitudes,
+        novedades
+      }),
+    [anio, saldos, solicitudes, novedades]
+  )
 
   const handleAjuste = async () => {
     if (!usuario?.id || !detalle) return
@@ -139,6 +159,11 @@ const RecursosHumanosVacacionesPage = () => {
     }
   }
 
+  const seleccionarEmpleado = (idUsuario: number) => {
+    const row = saldos.find((s) => s.id_usuario === idUsuario)
+    if (row) setDetalle(row)
+  }
+
   const ajustesDetalle = detalle
     ? ajustes.filter((a) => a.id_usuario === detalle.id_usuario && a.anio === anio)
     : []
@@ -159,8 +184,9 @@ const RecursosHumanosVacacionesPage = () => {
           <p className="rrhh-vac-breadcrumb">RRHH · Vacaciones</p>
           <h1>Saldos de vacaciones</h1>
           <p className="rrhh-vac-subtitle">
-            Cupo LCT (14 / 21 / 28 / 35 días corridos según antigüedad). Tomados = vacaciones aprobadas +
-            novedades de licencia, sin doble conteo.
+            Régimen Argentina — LCT arts. 150 y 151. Cupo al 31/12; goce habitual desde diciembre del año
+            liquidado hasta abril del siguiente. Tomados = vacaciones aprobadas + novedades, sin doble
+            conteo.
           </p>
         </div>
         <button type="button" className="rrhh-vac-btn ghost" onClick={() => navigate('/rrhh')}>
@@ -170,7 +196,7 @@ const RecursosHumanosVacacionesPage = () => {
 
       <div className="rrhh-vac-toolbar">
         <label>
-          Año
+          Año liquidado
           <input
             type="number"
             min={2000}
@@ -191,6 +217,11 @@ const RecursosHumanosVacacionesPage = () => {
         <button type="button" className="rrhh-vac-btn" disabled={loading || busy} onClick={() => void cargar()}>
           Actualizar
         </button>
+        {detalle ? (
+          <button type="button" className="rrhh-vac-btn ghost" onClick={() => setDetalle(null)}>
+            Ver equipo completo
+          </button>
+        ) : null}
       </div>
 
       {error ? <p className="rrhh-vac-error">{error}</p> : null}
@@ -198,146 +229,175 @@ const RecursosHumanosVacacionesPage = () => {
       {loading ? (
         <p className="rrhh-vac-inline">Cargando saldos…</p>
       ) : (
-        <div className="rrhh-vac-layout">
-          <div className="rrhh-vac-table-wrap">
-            <table className="rrhh-vac-table">
-              <thead>
-                <tr>
-                  <th>Empleado</th>
-                  <th>Ingreso</th>
-                  <th>Antigüedad</th>
-                  <th>Corresponden</th>
-                  <th>Tomados</th>
-                  <th>Ajustes</th>
-                  <th>Saldo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrados.map((s) => (
-                  <tr
-                    key={s.id_usuario}
-                    className={detalle?.id_usuario === s.id_usuario ? 'active' : ''}
-                    onClick={() => setDetalle(s)}
-                  >
-                    <td>{s.nombre}</td>
-                    <td>{s.fecha_ingreso || '—'}</td>
-                    <td>{s.anios} a.</td>
-                    <td>{s.corresponden}</td>
-                    <td>{s.tomados}</td>
-                    <td>{s.ajustes || '—'}</td>
-                    <td className={s.saldo < 0 ? 'neg' : ''}>{s.saldo}</td>
-                  </tr>
-                ))}
-                {filtrados.length === 0 ? (
+        <>
+          <VacacionesCalendarioGoce
+            anioLiquidado={anio}
+            periodos={periodosCalendario}
+            filtroUsuarioId={detalle?.id_usuario ?? null}
+            onSelectUsuario={seleccionarEmpleado}
+          />
+
+          <div className="rrhh-vac-layout">
+            <div className="rrhh-vac-table-wrap">
+              <table className="rrhh-vac-table">
+                <thead>
                   <tr>
-                    <td colSpan={7}>Sin empleados</td>
+                    <th>Empleado</th>
+                    <th>Ingreso</th>
+                    <th>Antigüedad</th>
+                    <th>Corresponden</th>
+                    <th>Tomados</th>
+                    <th>Ajustes</th>
+                    <th>Saldo</th>
                   </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtrados.map((s) => (
+                    <tr
+                      key={s.id_usuario}
+                      className={detalle?.id_usuario === s.id_usuario ? 'active' : ''}
+                      onClick={() => setDetalle(s)}
+                    >
+                      <td>{s.nombre}</td>
+                      <td>{s.fecha_ingreso || '—'}</td>
+                      <td>{s.anios} a.</td>
+                      <td>{s.corresponden}</td>
+                      <td>{s.tomados}</td>
+                      <td>{s.ajustes || '—'}</td>
+                      <td className={s.saldo < 0 ? 'neg' : ''}>{s.saldo}</td>
+                    </tr>
+                  ))}
+                  {filtrados.length === 0 ? (
+                    <tr>
+                      <td colSpan={7}>Sin empleados</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
 
-          <aside className="rrhh-vac-detalle">
-            {detalle ? (
-              <>
-                <h2>{detalle.nombre}</h2>
-                <p className="rrhh-vac-saldo-chip">
-                  Vacaciones {anio}: saldo <strong>{detalle.saldo}</strong>
+            <aside className="rrhh-vac-detalle">
+              {detalle ? (
+                <>
+                  <h2>{detalle.nombre}</h2>
+                  <p className="rrhh-vac-saldo-chip">
+                    Vacaciones {anio}: saldo <strong>{detalle.saldo}</strong>
+                  </p>
+                  <dl className="rrhh-vac-dl">
+                    <div>
+                      <dt>Ingreso</dt>
+                      <dd>{detalle.fecha_ingreso || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Antigüedad al 31/12</dt>
+                      <dd>{detalle.anios} año{detalle.anios === 1 ? '' : 's'}</dd>
+                    </div>
+                    <div>
+                      <dt>Base legal</dt>
+                      <dd>{etiquetaBaseLegalVacaciones(detalle.baseLegal)}</dd>
+                    </div>
+                    <div>
+                      <dt>Corresponden</dt>
+                      <dd>
+                        {detalle.corresponden} día{detalle.corresponden === 1 ? '' : 's'} corridos
+                        {detalle.baseLegal === 'art151'
+                          ? ` (${detalle.diasPrestacion} d. de prestación ÷ 20)`
+                          : ''}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Tomados</dt>
+                      <dd>{detalle.tomados}</dd>
+                    </div>
+                    <div>
+                      <dt>Ajustes</dt>
+                      <dd>{detalle.ajustes}</dd>
+                    </div>
+                  </dl>
+
+                  <h3>Períodos tomados</h3>
+                  {detalle.tomadosDetalle.length === 0 ? (
+                    <p className="rrhh-vac-muted">Ninguno en {anio}</p>
+                  ) : (
+                    <ul className="rrhh-vac-tomados">
+                      {detalle.tomadosDetalle.map((t) => (
+                        <li key={`${t.fuente}-${t.id}`}>
+                          <span>
+                            {t.fecha_desde} → {t.fecha_hasta}
+                          </span>
+                          <span>
+                            {t.dias} d · {t.fuente}
+                            {t.titulo ? ` · ${t.titulo}` : ''}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <h3>Ajustes</h3>
+                  {ajustesDetalle.length === 0 ? (
+                    <p className="rrhh-vac-muted">Sin ajustes</p>
+                  ) : (
+                    <ul className="rrhh-vac-tomados">
+                      {ajustesDetalle.map((a) => (
+                        <li key={a.id}>
+                          <span>
+                            {a.dias_ajuste > 0 ? '+' : ''}
+                            {a.dias_ajuste} d{a.motivo ? ` · ${a.motivo}` : ''}
+                          </span>
+                          <button
+                            type="button"
+                            className="rrhh-vac-link"
+                            disabled={busy}
+                            onClick={() => void handleEliminarAjuste(a.id)}
+                          >
+                            Eliminar
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="rrhh-vac-ajuste-form">
+                    <h3>Nuevo ajuste</h3>
+                    <label>
+                      Días (+/−)
+                      <input
+                        type="number"
+                        step={0.5}
+                        value={ajusteDias}
+                        onChange={(e) => setAjusteDias(e.target.value)}
+                        disabled={busy}
+                      />
+                    </label>
+                    <label>
+                      Motivo
+                      <input
+                        type="text"
+                        value={ajusteMotivo}
+                        onChange={(e) => setAjusteMotivo(e.target.value)}
+                        disabled={busy}
+                        placeholder="Opcional"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="rrhh-vac-btn primary"
+                      disabled={busy}
+                      onClick={() => void handleAjuste()}
+                    >
+                      Guardar ajuste
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="rrhh-vac-muted">
+                  Seleccioná un empleado en la tabla o en el calendario para ver el detalle.
                 </p>
-                <dl className="rrhh-vac-dl">
-                  <div>
-                    <dt>Ingreso</dt>
-                    <dd>{detalle.fecha_ingreso || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>Corresponden</dt>
-                    <dd>{detalle.corresponden}</dd>
-                  </div>
-                  <div>
-                    <dt>Tomados</dt>
-                    <dd>{detalle.tomados}</dd>
-                  </div>
-                  <div>
-                    <dt>Ajustes</dt>
-                    <dd>{detalle.ajustes}</dd>
-                  </div>
-                </dl>
-
-                <h3>Períodos tomados</h3>
-                {detalle.tomadosDetalle.length === 0 ? (
-                  <p className="rrhh-vac-muted">Ninguno en {anio}</p>
-                ) : (
-                  <ul className="rrhh-vac-tomados">
-                    {detalle.tomadosDetalle.map((t) => (
-                      <li key={`${t.fuente}-${t.id}`}>
-                        <span>
-                          {t.fecha_desde} → {t.fecha_hasta}
-                        </span>
-                        <span>
-                          {t.dias} d · {t.fuente}
-                          {t.titulo ? ` · ${t.titulo}` : ''}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <h3>Ajustes</h3>
-                {ajustesDetalle.length === 0 ? (
-                  <p className="rrhh-vac-muted">Sin ajustes</p>
-                ) : (
-                  <ul className="rrhh-vac-tomados">
-                    {ajustesDetalle.map((a) => (
-                      <li key={a.id}>
-                        <span>
-                          {a.dias_ajuste > 0 ? '+' : ''}
-                          {a.dias_ajuste} d{a.motivo ? ` · ${a.motivo}` : ''}
-                        </span>
-                        <button
-                          type="button"
-                          className="rrhh-vac-link"
-                          disabled={busy}
-                          onClick={() => void handleEliminarAjuste(a.id)}
-                        >
-                          Eliminar
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <div className="rrhh-vac-ajuste-form">
-                  <h3>Nuevo ajuste</h3>
-                  <label>
-                    Días (+/−)
-                    <input
-                      type="number"
-                      step={0.5}
-                      value={ajusteDias}
-                      onChange={(e) => setAjusteDias(e.target.value)}
-                      disabled={busy}
-                    />
-                  </label>
-                  <label>
-                    Motivo
-                    <input
-                      type="text"
-                      value={ajusteMotivo}
-                      onChange={(e) => setAjusteMotivo(e.target.value)}
-                      disabled={busy}
-                      placeholder="Opcional"
-                    />
-                  </label>
-                  <button type="button" className="rrhh-vac-btn primary" disabled={busy} onClick={() => void handleAjuste()}>
-                    Guardar ajuste
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p className="rrhh-vac-muted">Seleccioná un empleado para ver el detalle.</p>
-            )}
-          </aside>
-        </div>
+              )}
+            </aside>
+          </div>
+        </>
       )}
     </div>
   )

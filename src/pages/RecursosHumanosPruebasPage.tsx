@@ -228,7 +228,12 @@ function labelTipoPregunta(t?: string): string {
   return t ?? '—'
 }
 
-const RecursosHumanosPruebasPage = () => {
+type Props = {
+  /** Embebido en /rrhh/formacion (sin header propio). */
+  embedded?: boolean
+}
+
+const RecursosHumanosPruebasPage = ({ embedded = false }: Props) => {
   const navigate = useNavigate()
   const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
   const puedeGestionar =
@@ -354,7 +359,7 @@ const RecursosHumanosPruebasPage = () => {
       return
     }
     void load()
-  }, [authLoading, puedeGestionar, navigate])
+  }, [authLoading, puedeGestionar, navigate, embedded])
 
   const guardarPrueba = async () => {
     if (!titulo.trim()) {
@@ -609,20 +614,22 @@ const RecursosHumanosPruebasPage = () => {
   if (!puedeGestionar) return null
 
   return (
-    <div className="rrhh-pruebas-page">
-      <header className="rrhh-pruebas-header">
-        <div>
-          <h1>📝 Pruebas de conocimiento</h1>
-          <p className="rrhh-pruebas-lead">
-            Preguntas de desarrollo, multiple choice, verdadero/falso; puntos por ítem; aprobación por % y
-            corrección automática en ítems cerrados. Asigná usuarios (incl. todos), editá o borrá pruebas sin
-            asignaciones, y revisá resultados con buscador.
-          </p>
-        </div>
-        <button type="button" className="rrhh-pruebas-back" onClick={() => navigate('/rrhh/dashboard')}>
-          ← Dashboard RRHH
-        </button>
-      </header>
+    <div className={`rrhh-pruebas-page${embedded ? ' rrhh-page--embedded' : ''}`}>
+      {!embedded ? (
+        <header className="rrhh-pruebas-header">
+          <div>
+            <h1>📝 Pruebas de conocimiento</h1>
+            <p className="rrhh-pruebas-lead">
+              Preguntas de desarrollo, multiple choice, verdadero/falso; puntos por ítem; aprobación por % y
+              corrección automática en ítems cerrados. Asigná usuarios (incl. todos), editá o borrá pruebas sin
+              asignaciones, y revisá resultados con buscador.
+            </p>
+          </div>
+          <button type="button" className="rrhh-pruebas-back" onClick={() => navigate('/rrhh/formacion')}>
+            ← Formación
+          </button>
+        </header>
+      ) : null}
 
       {error && (
         <div className="rrhh-pruebas-alert" role="alert">

@@ -18,7 +18,8 @@ const CATEGORIA_ICON: Record<HojaVidaCategoria, string> = {
   sancion: '⚠️',
   vacaciones: '🏖️',
   licencia: '📋',
-  baja: '📤'
+  baja: '📤',
+  reactivacion: '📥'
 }
 
 const TIPOS_EVENTO: { value: RrhhEventoLaboralTipo; label: string }[] = [
@@ -118,7 +119,7 @@ const LegajoTimeline = ({
 
       <p className="legajo-timeline-intro">
         Línea de tiempo cronológica del vínculo laboral: ingreso, trayectoria, formación, evaluaciones,
-        ausencias y desvinculación.
+        ausencias, desvinculación y reactivación.
       </p>
 
       <div className="legajo-timeline-summary">

@@ -10,17 +10,9 @@ const RecursosHumanosDashboardPage = () => {
   const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
   const canAccessRrhhDashboard =
     !!usuario && (canManageRecursosHumanos || usuario.rol === 'gerencia')
-  const [statsLoading, setStatsLoading] = useState(true)
+  const [usuariosLoading, setUsuariosLoading] = useState(true)
   const [usuariosAbiertos, setUsuariosAbiertos] = useState(false)
   const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
-  const [stats, setStats] = useState({
-    totalUsuarios: 0,
-    rolesDistintos: 0,
-    usuariosPorRol: {} as Record<string, number>,
-    totalPruebas: 0,
-    pruebasAsignaciones: 0,
-    pruebasFinalizadas: 0
-  })
 
   useEffect(() => {
     if (authLoading) return
@@ -28,50 +20,20 @@ const RecursosHumanosDashboardPage = () => {
       navigate('/')
       return
     }
-    loadDashboardData()
+    void loadDashboardData()
   }, [canAccessRrhhDashboard, navigate, authLoading])
 
   const loadDashboardData = async () => {
-    setStatsLoading(true)
+    setUsuariosLoading(true)
     try {
-      const [usuariosResponse, pruebasResponse] = await Promise.all([
-        apiService.getUsuarios(),
-        apiService.rrhhPruebasListar()
-      ])
-
+      const usuariosResponse = await apiService.getUsuarios()
       if (usuariosResponse.success && usuariosResponse.data) {
         setUsuarios(usuariosResponse.data)
-        const totalUsuarios = usuariosResponse.data.length
-        const usuariosPorRol: Record<string, number> = {}
-        usuariosResponse.data.forEach((u) => {
-          usuariosPorRol[u.rol] = (usuariosPorRol[u.rol] || 0) + 1
-        })
-        const rolesDistintos = Object.keys(usuariosPorRol).length
-
-        let totalPruebas = 0
-        let pruebasAsignaciones = 0
-        let pruebasFinalizadas = 0
-        if (pruebasResponse.success && Array.isArray(pruebasResponse.data)) {
-          totalPruebas = pruebasResponse.data.length
-          pruebasResponse.data.forEach((p: { asignados?: number; finalizados?: number }) => {
-            pruebasAsignaciones += Number(p.asignados) || 0
-            pruebasFinalizadas += Number(p.finalizados) || 0
-          })
-        }
-
-        setStats({
-          totalUsuarios,
-          rolesDistintos,
-          usuariosPorRol,
-          totalPruebas,
-          pruebasAsignaciones,
-          pruebasFinalizadas
-        })
       }
     } catch (error) {
       console.error('Error cargando datos del dashboard:', error)
     } finally {
-      setStatsLoading(false)
+      setUsuariosLoading(false)
     }
   }
 
@@ -104,43 +66,6 @@ const RecursosHumanosDashboardPage = () => {
           <button type="button" className="rrhh-dashboard-personal-btn" onClick={() => navigate('/mis-pruebas')}>
             Abrir
           </button>
-        </div>
-
-        {/* Estadísticas principales */}
-        <div className={`rrhh-stats-grid${statsLoading ? ' rrhh-stats-grid--loading' : ''}`}>
-          <div className="rrhh-stat-card">
-            <div className="rrhh-stat-icon">👥</div>
-            <div className="rrhh-stat-info">
-              <h3>Total de Usuarios</h3>
-              <p className="rrhh-stat-value">{statsLoading ? '…' : stats.totalUsuarios}</p>
-            </div>
-          </div>
-
-          <div className="rrhh-stat-card">
-            <div className="rrhh-stat-icon">🏷️</div>
-            <div className="rrhh-stat-info">
-              <h3>Roles distintos</h3>
-              <p className="rrhh-stat-value">{statsLoading ? '…' : stats.rolesDistintos}</p>
-            </div>
-          </div>
-
-          <div className="rrhh-stat-card">
-            <div className="rrhh-stat-icon">📝</div>
-            <div className="rrhh-stat-info">
-              <h3>Pruebas de conocimiento</h3>
-              <p className="rrhh-stat-value">{statsLoading ? '…' : stats.totalPruebas}</p>
-            </div>
-          </div>
-
-          <div className="rrhh-stat-card">
-            <div className="rrhh-stat-icon">📋</div>
-            <div className="rrhh-stat-info">
-              <h3>Asignaciones / Finalizadas</h3>
-              <p className="rrhh-stat-value">
-                {statsLoading ? '…' : `${stats.pruebasAsignaciones} / ${stats.pruebasFinalizadas}`}
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Sección de acciones rápidas */}
@@ -224,15 +149,6 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
-              onClick={() => navigate('/rrhh/liquidacion')}
-            >
-              <div className="rrhh-action-icon">📑</div>
-              <h3>Liquidación mensual</h3>
-              <p>Cierre del mes, HE, novedades y Excel para el estudio contable</p>
-            </button>
-
-            <button
-              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/libro-sueldos')}
             >
               <div className="rrhh-action-icon">📗</div>
@@ -249,12 +165,6 @@ const RecursosHumanosDashboardPage = () => {
               <p>Cupo LCT, días tomados, ajustes manuales y saldo por empleado</p>
             </button>
 
-            <button className="rrhh-action-card" onClick={() => navigate('/rrhh/onboarding')}>
-              <div className="rrhh-action-icon">✅</div>
-              <h3>Onboarding</h3>
-              <p>Checklist de ingreso: docs, inducción, accesos y ART</p>
-            </button>
-
             <button className="rrhh-action-card" onClick={() => navigate('/rrhh/organigrama')}>
               <div className="rrhh-action-icon">🏢</div>
               <h3>Organigrama</h3>
@@ -265,12 +175,6 @@ const RecursosHumanosDashboardPage = () => {
               <div className="rrhh-action-icon">🩺</div>
               <h3>Medicina / ART</h3>
               <p>Exámenes, aptos y vencimientos</p>
-            </button>
-
-            <button className="rrhh-action-card" onClick={() => navigate('/rrhh/recibos')}>
-              <div className="rrhh-action-icon">🧾</div>
-              <h3>Recibos firmados</h3>
-              <p>Lotes mensuales y seguimiento de firmas</p>
             </button>
 
             <button className="rrhh-action-card" onClick={() => navigate('/rrhh/clima')}>
@@ -290,20 +194,11 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
-              onClick={() => navigate('/rrhh/pruebas')}
-            >
-              <div className="rrhh-action-icon">📝</div>
-              <h3>Pruebas de conocimiento</h3>
-              <p>Crear pruebas, asignarlas y ver respuestas</p>
-            </button>
-
-            <button
-              className="rrhh-action-card"
-              onClick={() => navigate('/rrhh/capacitaciones')}
+              onClick={() => navigate('/rrhh/formacion')}
             >
               <div className="rrhh-action-icon">📚</div>
-              <h3>Capacitaciones</h3>
-              <p>Gestionar capacitaciones y cursos</p>
+              <h3>Formación</h3>
+              <p>Capacitaciones, cursos y pruebas de conocimiento</p>
             </button>
 
             <button
@@ -316,15 +211,6 @@ const RecursosHumanosDashboardPage = () => {
                 Menú del día, pedidos y planilla acumulativa de descuentos ($7.000 por pedido con pérdida de
                 beneficio de comida)
               </p>
-            </button>
-
-            <button
-              className="rrhh-action-card"
-              onClick={() => navigate('/rrhh/estadisticas')}
-            >
-              <div className="rrhh-action-icon">📈</div>
-              <h3>Estadísticas Avanzadas</h3>
-              <p>Análisis detallado de productividad y rendimiento</p>
             </button>
 
             <button
@@ -347,30 +233,6 @@ const RecursosHumanosDashboardPage = () => {
           </div>
         </div>
 
-        {/* Distribución por roles */}
-        <div className="rrhh-section">
-          <h2>Distribución por Roles</h2>
-          {statsLoading ? (
-            <p className="rrhh-dashboard-inline-loading">Cargando estadísticas…</p>
-          ) : null}
-          <div className="rrhh-roles-grid">
-            {Object.entries(stats.usuariosPorRol).map(([rol, count]) => (
-              <div key={rol} className="rrhh-role-card">
-                <h3>{rol}</h3>
-                <p className="rrhh-role-count">{count}</p>
-                <div className="rrhh-role-bar">
-                  <div
-                    className="rrhh-role-bar-fill"
-                    style={{
-                      width: `${(count / stats.totalUsuarios) * 100}%`
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Lista de usuarios — desplegable */}
         <div className={`rrhh-section rrhh-section-collapsible${usuariosAbiertos ? ' is-open' : ''}`}>
           <button
@@ -381,7 +243,7 @@ const RecursosHumanosDashboardPage = () => {
           >
             <h2>
               Usuarios del Sistema
-              {!statsLoading && usuarios.length > 0 ? (
+              {!usuariosLoading && usuarios.length > 0 ? (
                 <span className="rrhh-section-count">({usuarios.length})</span>
               ) : null}
             </h2>
@@ -391,7 +253,7 @@ const RecursosHumanosDashboardPage = () => {
           </button>
           {usuariosAbiertos ? (
             <>
-              {statsLoading ? (
+              {usuariosLoading ? (
                 <p className="rrhh-dashboard-inline-loading">Cargando usuarios…</p>
               ) : null}
               <div className="rrhh-users-table">
