@@ -424,6 +424,46 @@
   transform: scale(1.05);
 }
 
+.btn-reactivar {
+  padding: 6px 12px;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 6px;
+  color: #6ee7b7;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-reactivar:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.3);
+  transform: scale(1.05);
+}
+
+.btn-reactivar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rrhh-user-nombre {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rrhh-user-nombre-principal {
+  font-weight: 700;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.rrhh-user-nombre-login {
+  font-size: 0.72rem;
+  color: var(--text-secondary, #94a3b8);
+  word-break: break-all;
+}
+
 .form-group {
   margin-bottom: 20px;
 }

@@ -8,6 +8,14 @@ import apiService from '../services/api'
 import type { UsuarioBajaLog, UsuarioRecord, UserRole } from '../types/api'
 import { calcularIndicadoresPersonal, fmtRotacion } from '../utils/rrhhPersonalStats'
 import { etiquetaTipoDesvinculacion } from '../utils/rrhhBajaCatalog'
+import {
+  esNombreTipoEmail,
+  fallbackNombreSinEmail,
+  nombreCompletoLegajo,
+  nombreVisibleDesdeRecord,
+  type UsuarioRecordConVisible
+} from '../utils/usuarioDisplayName'
+import { supabase } from '../services/supabaseClient'
 import LegajoEmpleadoModal from '../components/LegajoEmpleadoModal'
 import VerLegajoModal from '../components/VerLegajoModal'
 import DarDeBajaEmpleadoModal from '../components/DarDeBajaEmpleadoModal'
@@ -151,8 +159,11 @@ const RecursosHumanosUsuariosPage = () => {
   const { usuario, canManageRecursosHumanos, loading: authLoading } = useAuth()
   const canAccessUsuarios =
     !!usuario && (canManageRecursosHumanos || usuario.rol === 'gerencia')
-  const [usuarios, setUsuarios] = useState<UsuarioRecord[]>([])
+  const [usuarios, setUsuarios] = useState<UsuarioRecordConVisible[]>([])
   const [bajas, setBajas] = useState<UsuarioBajaLog[]>([])
+  /** Nombre real (legajo) por id_usuario, para bajas y registradores. */
+  const [nombresLegajo, setNombresLegajo] = useState<Record<number, string>>({})
+  const [reactivandoId, setReactivandoId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [vistaLegajos, setVistaLegajos] = useState<VistaLegajos>('activo')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -225,12 +236,44 @@ const RecursosHumanosUsuariosPage = () => {
         apiService.getUsuarios(),
         apiService.getUsuariosBajasLog()
       ])
-      if (usuariosRes.success && usuariosRes.data) {
-        setUsuarios(usuariosRes.data)
+      const nextUsuarios = usuariosRes.success && usuariosRes.data ? usuariosRes.data : []
+      const nextBajas = bajasRes.success && bajasRes.data ? bajasRes.data : []
+      setUsuarios(nextUsuarios)
+      setBajas(nextBajas)
+
+      const ids = new Set<number>()
+      for (const u of nextUsuarios) ids.add(u.id)
+      for (const b of nextBajas) {
+        ids.add(b.id_usuario)
+        if (b.registrado_por != null) ids.add(b.registrado_por)
       }
-      if (bajasRes.success && bajasRes.data) {
-        setBajas(bajasRes.data)
+      const idList = [...ids]
+      const map: Record<number, string> = {}
+      for (const u of nextUsuarios) {
+        const visible = nombreVisibleDesdeRecord(u)
+        if (visible) map[u.id] = visible
       }
+      if (supabase && idList.length) {
+        const { data: legajos } = await supabase
+          .from('legajos_empleados')
+          .select('id_usuario, nombre, apellido')
+          .in('id_usuario', idList)
+        for (const row of legajos ?? []) {
+          const uid = Number(row.id_usuario)
+          const full = nombreCompletoLegajo(row)
+          if (uid > 0 && full) map[uid] = full
+        }
+        const faltan = idList.filter((id) => !map[id])
+        if (faltan.length) {
+          const porIds = await apiService.getUsuariosPorIds(faltan)
+          if (porIds.success && porIds.data) {
+            for (const u of porIds.data) {
+              map[u.id] = nombreVisibleDesdeRecord(u)
+            }
+          }
+        }
+      }
+      setNombresLegajo(map)
     } catch (error) {
       console.error('Error cargando usuarios:', error)
     } finally {
@@ -243,14 +286,28 @@ const RecursosHumanosUsuariosPage = () => {
     [usuarios.length, bajas]
   )
 
-  const nombreRegistrador = useMemo(() => {
-    const m = new Map<number, string>()
-    usuarios.forEach((u) => m.set(u.id, u.nombre))
-    return (id: number | null) => {
-      if (id == null) return '—'
-      return m.get(id) ?? `Usuario #${id}`
+  const nombreEmpleado = (id: number, snapshot?: string | null) => {
+    if (nombresLegajo[id]) return nombresLegajo[id]
+    if (snapshot?.trim()) return fallbackNombreSinEmail(snapshot)
+    return `Usuario #${id}`
+  }
+
+  const nombreRegistrador = (id: number | null) => {
+    if (id == null) return '—'
+    return nombresLegajo[id] ?? `Usuario #${id}`
+  }
+
+  const etiquetaUsuarioFila = (user: UsuarioRecordConVisible) => {
+    const visible = nombreVisibleDesdeRecord(user)
+    const login = user.nombre?.trim() || ''
+    if (esNombreTipoEmail(login) && visible && visible !== fallbackNombreSinEmail(login)) {
+      return { principal: visible, secundario: login }
     }
-  }, [usuarios])
+    if (user.nombre_visible && login && !esNombreTipoEmail(login) && user.nombre_visible !== login) {
+      return { principal: user.nombre_visible, secundario: login }
+    }
+    return { principal: visible, secundario: null as string | null }
+  }
 
   const handleCreate = async () => {
     if (!formData.nombre.trim() || !formData.password.trim()) {
@@ -356,7 +413,7 @@ const RecursosHumanosUsuariosPage = () => {
 
   const usuarioDesdeBaja = (b: UsuarioBajaLog): UsuarioRecord => ({
     id: b.id_usuario,
-    nombre: b.nombre_snapshot,
+    nombre: nombreEmpleado(b.id_usuario, b.nombre_snapshot),
     rol: (b.rol_snapshot || 'mostrador') as UserRole
   })
 
@@ -370,7 +427,12 @@ const RecursosHumanosUsuariosPage = () => {
   }
 
   const filteredUsuarios = usuarios.filter((u) => {
-    const matchesSearch = u.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    const q = searchTerm.toLowerCase()
+    const visible = nombreVisibleDesdeRecord(u).toLowerCase()
+    const matchesSearch =
+      u.nombre.toLowerCase().includes(q) ||
+      visible.includes(q) ||
+      String(u.id).includes(q)
     const matchesRol = filterRol === 'todos' || u.rol === filterRol
     return matchesSearch && matchesRol
   })
@@ -378,13 +440,38 @@ const RecursosHumanosUsuariosPage = () => {
   const filteredBajas = bajas.filter((b) => {
     const q = searchTerm.toLowerCase()
     const tipo = b.tipo_desvinculacion ? etiquetaTipoDesvinculacion(b.tipo_desvinculacion) : ''
+    const nombre = nombreEmpleado(b.id_usuario, b.nombre_snapshot).toLowerCase()
     return (
+      nombre.includes(q) ||
       b.nombre_snapshot.toLowerCase().includes(q) ||
       b.motivo.toLowerCase().includes(q) ||
       tipo.toLowerCase().includes(q) ||
-      (b.observaciones_finales?.toLowerCase().includes(q) ?? false)
+      (b.observaciones_finales?.toLowerCase().includes(q) ?? false) ||
+      String(b.id_usuario).includes(q)
     )
   })
+
+  const handleReactivar = async (b: UsuarioBajaLog) => {
+    const nombre = nombreEmpleado(b.id_usuario, b.nombre_snapshot)
+    if (!window.confirm(`¿Reactivar a ${nombre} (legajo #${b.id_usuario})? Volverá a figurar como personal activo.`)) {
+      return
+    }
+    setReactivandoId(b.id_usuario)
+    try {
+      const res = await apiService.reactivarUsuario({
+        id: b.id_usuario,
+        registradoPor: usuario?.id ?? null
+      })
+      if (!res.success) {
+        alert(res.error || 'No se pudo reactivar')
+        return
+      }
+      setVistaLegajos('activo')
+      await loadUsuarios()
+    } finally {
+      setReactivandoId(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -542,10 +629,19 @@ const RecursosHumanosUsuariosPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsuarios.map((user) => (
+                  filteredUsuarios.map((user) => {
+                    const etiqueta = etiquetaUsuarioFila(user)
+                    return (
                     <tr key={user.id} className="rrhh-users-row--activo">
                       <td>{user.id}</td>
-                      <td>{user.nombre}</td>
+                      <td>
+                        <div className="rrhh-user-nombre">
+                          <span className="rrhh-user-nombre-principal">{etiqueta.principal}</span>
+                          {etiqueta.secundario ? (
+                            <span className="rrhh-user-nombre-login">{etiqueta.secundario}</span>
+                          ) : null}
+                        </div>
+                      </td>
                       <td>
                         <span className="rrhh-estado-badge rrhh-estado-badge--activo">Activo</span>
                       </td>
@@ -604,7 +700,8 @@ const RecursosHumanosUsuariosPage = () => {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -635,10 +732,24 @@ const RecursosHumanosUsuariosPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredBajas.map((b) => (
+                  filteredBajas.map((b) => {
+                    const nombre = nombreEmpleado(b.id_usuario, b.nombre_snapshot)
+                    const snap = b.nombre_snapshot?.trim() || ''
+                    const mostrarLogin =
+                      snap &&
+                      esNombreTipoEmail(snap) &&
+                      nombre.toLowerCase() !== fallbackNombreSinEmail(snap).toLowerCase()
+                    return (
                     <tr key={b.id} className="rrhh-users-row--baja">
                       <td>{b.id_usuario}</td>
-                      <td>{b.nombre_snapshot}</td>
+                      <td>
+                        <div className="rrhh-user-nombre">
+                          <span className="rrhh-user-nombre-principal">{nombre}</span>
+                          {mostrarLogin ? (
+                            <span className="rrhh-user-nombre-login">{snap}</span>
+                          ) : null}
+                        </div>
+                      </td>
                       <td>
                         <span className="rrhh-estado-badge rrhh-estado-badge--baja">De baja</span>
                       </td>
@@ -673,20 +784,32 @@ const RecursosHumanosUsuariosPage = () => {
                       </td>
                       <td>{nombreRegistrador(b.registrado_por)}</td>
                       <td>
-                        <button
-                          type="button"
-                          className="btn-ver-legajo"
-                          onClick={() => {
-                            setSelectedUsuario(usuarioDesdeBaja(b))
-                            setShowVerLegajoModal(true)
-                          }}
-                          title="Ver legajo histórico"
-                        >
-                          👁️ Ver Legajo
-                        </button>
+                        <div className="rrhh-actions-buttons">
+                          <button
+                            type="button"
+                            className="btn-ver-legajo"
+                            onClick={() => {
+                              setSelectedUsuario(usuarioDesdeBaja(b))
+                              setShowVerLegajoModal(true)
+                            }}
+                            title="Ver legajo histórico"
+                          >
+                            👁️ Ver Legajo
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-reactivar"
+                            disabled={reactivandoId === b.id_usuario}
+                            onClick={() => void handleReactivar(b)}
+                            title="Volver a activar al colaborador"
+                          >
+                            {reactivandoId === b.id_usuario ? 'Reactivando…' : 'Reactivar'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ))
+                    )
+                  })
                 )}
               </tbody>
             </table>

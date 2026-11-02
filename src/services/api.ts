@@ -4774,6 +4774,28 @@ class ApiService {
   }
 
   /** Baja formal: conserva legajo e historial, marca usuario como inactivo. */
+  async reactivarUsuario(params: {
+    id: number
+    registradoPor?: number | null
+  }): Promise<ApiResponse<boolean>> {
+    if (!supabase) {
+      return { success: false, error: 'Supabase no configurado' }
+    }
+    try {
+      const { data, error } = await supabase.rpc('reactivar_usuario', {
+        p_id: params.id,
+        p_registrado_por: params.registradoPor ?? null
+      })
+      if (error) throw error
+      return { success: true, data: data === true || data == null }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al reactivar al colaborador')
+      }
+    }
+  }
+
   async darDeBajaUsuario(params: {
     id: number
     fechaDesvinculacion: string
