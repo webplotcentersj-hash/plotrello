@@ -175,10 +175,6 @@
   background: rgba(110, 231, 183, 0.28);
 }
 
-.liq-pagos {
-  grid-column: 1 / -1;
-}
-
 .liq-pagos-lista {
   list-style: none;
   margin: 0 0 10px;
@@ -309,11 +305,15 @@
 
 .liq-detalle td {
   white-space: normal;
-  background: rgba(15, 23, 42, 0.65);
+  background:
+    radial-gradient(1200px 280px at 0% 0%, rgba(56, 189, 248, 0.08), transparent 55%),
+    radial-gradient(900px 240px at 100% 0%, rgba(52, 211, 153, 0.07), transparent 50%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(11, 18, 32, 0.98));
   position: static;
   right: auto;
   box-shadow: none;
   min-width: 0;
+  padding: 14px 12px 18px;
 }
 
 .liq-detalle .liq-sticky {
@@ -322,28 +322,330 @@
   box-shadow: none;
 }
 
-.liq-detalle-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+.liq-detalle-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: liq-detalle-in 0.28s ease-out;
 }
 
-.liq-detalle h3 {
-  margin: 0 0 6px;
-  font-size: 0.82rem;
+@keyframes liq-detalle-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.liq-detalle-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px 20px;
+  padding: 4px 2px 2px;
+}
+
+.liq-detalle-kicker {
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+}
+
+.liq-detalle-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 750;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+}
+
+.liq-detalle-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.liq-kpi {
+  min-width: 112px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(2, 6, 23, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.liq-kpi span {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.liq-kpi strong {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
   color: #e2e8f0;
 }
 
-.liq-detalle p,
-.liq-detalle li {
-  margin: 0 0 4px;
+.liq-kpi-neto {
+  border-color: rgba(110, 231, 183, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.liq-kpi-neto strong {
+  color: #6ee7b7;
+}
+
+.liq-detalle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.liq-panel {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.liq-panel h4 {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.liq-panel h4 em {
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  color: #e2e8f0;
+}
+
+.liq-dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.liq-dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.liq-dl dt {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.liq-dl dd {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-weight: 600;
+}
+
+.liq-dl-total {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.liq-dl-total dt,
+.liq-dl-total dd {
+  color: #6ee7b7;
+  font-weight: 750;
+}
+
+.liq-dl-emphasis dd,
+.liq-dd-neg {
+  color: #fda4af !important;
+}
+
+.liq-muted {
+  margin: 0;
+  color: #64748b;
   font-size: 0.78rem;
 }
 
-.liq-detalle ul {
+.liq-hint {
+  margin: 0 0 10px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.liq-footnote {
+  margin: 10px 0 0;
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.liq-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin: 0 0 8px;
-  padding-left: 16px;
+}
+
+.liq-badge-row strong {
+  font-variant-numeric: tabular-nums;
+  color: #f8fafc;
+}
+
+.liq-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.liq-badge-warn {
+  background: rgba(251, 113, 133, 0.16);
+  color: #fda4af;
+}
+
+.liq-badge-ok {
+  background: rgba(52, 211, 153, 0.14);
+  color: #6ee7b7;
+}
+
+.liq-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.liq-chips li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: rgba(2, 6, 23, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  color: #e2e8f0;
+  font-size: 0.78rem;
+}
+
+.liq-chips time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #7dd3fc;
+  font-size: 0.72rem;
+}
+
+.liq-chips span {
+  font-weight: 600;
+}
+
+.liq-chips small {
+  width: 100%;
+  color: #94a3b8;
+  font-size: 0.7rem;
+}
+
+.liq-chips-warn li {
+  border-color: rgba(251, 113, 133, 0.22);
+  background: rgba(127, 29, 29, 0.18);
+}
+
+.liq-chips-ok li {
+  border-color: rgba(52, 211, 153, 0.2);
+  background: rgba(6, 78, 59, 0.22);
+}
+
+.liq-chips-soft li {
+  background: rgba(30, 41, 59, 0.45);
+}
+
+.liq-pagos {
+  grid-column: 1 / -1;
+}
+
+.liq-pagos-resumen {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.liq-pagos-resumen > div {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(2, 6, 23, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.liq-pagos-resumen span {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.liq-pagos-resumen strong {
+  font-size: 0.95rem;
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+}
+
+.liq-saldo-ok {
+  color: #6ee7b7 !important;
+}
+
+@media (max-width: 720px) {
+  .liq-pagos-resumen {
+    grid-template-columns: 1fr;
+  }
+
+  .liq-dl > div {
+    grid-template-columns: 1fr;
+  }
+
+  .liq-dl dd {
+    text-align: left;
+  }
 }
 
 .liq-tabla tfoot td {

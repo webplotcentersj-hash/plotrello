@@ -854,284 +854,474 @@ export default function RrhhLiquidacionMensualTab({
                   {abierto === f.id && (
                     <tr className="liq-detalle">
                       <td colSpan={23}>
-                        <div className="liq-detalle-grid">
-                          <section>
-                            <h3>Antigüedad</h3>
-                            <p>
-                              {f.fechaIngreso
-                                ? `Ingreso: ${f.fechaIngreso}. ${f.antiguedadLabel} al cierre del período (${f.antiguedadAnios} año${f.antiguedadAnios === 1 ? '' : 's'}).`
-                                : 'Sin fecha de ingreso en el legajo.'}
-                            </p>
-                            <p>
-                              Legal {f.pctAntiguedadLegal}% × {f.antiguedadAnios} años → pleno {formatArs(f.adicionalAntiguedadCompleto)}.
-                            </p>
-                            <p>
-                              Proporcional: {f.diasDebia}/{f.diasLaborablesPeriodo} días laborables
-                              {f.factorProporcional < 1 ? ` (${Math.round(f.factorProporcional * 100)}%)` : ''} →{' '}
-                              {formatArs(f.adicionalAntiguedad)}.
-                            </p>
-                          </section>
-                          <section>
-                            <h3>Novedades</h3>
-                            {f.novedades.length === 0 ? <p>Sin novedades.</p> : (
-                              <ul>
-                                {f.novedades.map((n, i) => (
-                                  <li key={`${n.desde}-${n.etiqueta}-${i}`}>
-                                    {n.desde === n.hasta ? n.desde : `${n.desde} → ${n.hasta}`} · {n.etiqueta}
-                                    {n.detalle ? ` · ${n.detalle}` : ''}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                            <p>Días justificados: {f.diasJustificados}</p>
-                          </section>
-                          <section>
-                            <h3>Permisos aprobados</h3>
-                            {f.permisos.length === 0 ? <p>Sin permisos en el período.</p> : (
-                              <ul>
-                                {f.permisos.map((p, i) => (
-                                  <li key={`${p.desde}-${i}`}>
-                                    {p.desde === p.hasta ? p.desde : `${p.desde} → ${p.hasta}`} · {p.tipo} · {p.titulo}
-                                    {p.dias != null ? ` · ${p.dias} días` : ''}
-                                    {p.detalle ? ` · ${p.detalle}` : ''}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </section>
-                          <section>
-                            <h3>Asistencia</h3>
-                            <p>
-                              Días c/ marca / exigibles:{' '}
-                              {f.diasConEntrada ? `${f.diasConEntrada} / ${f.diasExigibles}` : '—'}
-                            </p>
-                            <p>Puntualidad: {f.diasConEntrada ? `${f.puntualidadPct}%` : '—'}</p>
-                            <p>Tardanzas: {f.tardanzas}{f.minutosTarde > 0 ? ` (${f.minutosTarde} min)` : ''}</p>
-                            <p>Ausencias: {f.ausencias}. Justificados: {f.diasJustificados}. Sin marca: {f.sinMarca}.</p>
-                            <p>
-                              Horas: {f.totalHoras ? f.totalHoras.toFixed(1) : '—'} · Extra:{' '}
-                              {f.totalHorasExtra > 0 ? formatHoras(f.totalHorasExtra) : '—'} · HE 50%:{' '}
-                              {f.extra50 > 0 ? `${f.extra50.toFixed(1)} hs` : '—'} · HE 100%:{' '}
-                              {f.extra100 > 0 ? `${f.extra100.toFixed(1)} hs` : '—'}
-                            </p>
-                          </section>
-                          <section>
-                            <h3>Faltas y tardanzas</h3>
-                            <p>
-                              Valor día: {formatArs(f.valorDiaDescuento)}. Solo la falta injustificada descuenta 1 día.
-                              Las justificadas, licencias y permisos aprobados no descuentan. Cada{' '}
-                              {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 día.
-                            </p>
-                            {f.fechasFaltas.length === 0 ? (
-                              <p>Sin faltas injustificadas en el período.</p>
-                            ) : (
-                              <>
-                                <p>
-                                  {f.faltas} injustificada{f.faltas === 1 ? '' : 's'} · descuento{' '}
-                                  {formatArs(f.descuentoFaltas)}
-                                </p>
-                                <ul>
-                                  {f.fechasFaltas.map((fecha) => (
-                                    <li key={fecha}>
-                                      {fecha} — injustificada (−{formatArs(f.valorDiaDescuento)})
+                        <div className="liq-detalle-panel">
+                          <header className="liq-detalle-hero">
+                            <div>
+                              <p className="liq-detalle-kicker">{f.nombre}</p>
+                              <h3 className="liq-detalle-title">Detalle de liquidación</h3>
+                            </div>
+                            <div className="liq-detalle-kpis">
+                              <div className="liq-kpi liq-kpi-neto">
+                                <span>Neto</span>
+                                <strong>{formatArs(f.neto)}</strong>
+                              </div>
+                              <div className="liq-kpi">
+                                <span>Haberes</span>
+                                <strong>{formatArs(f.haberes)}</strong>
+                              </div>
+                              <div className="liq-kpi">
+                                <span>Puntualidad</span>
+                                <strong style={{ color: puntualColor }}>
+                                  {f.diasConEntrada ? `${f.puntualidadPct}%` : '—'}
+                                </strong>
+                              </div>
+                              <div className="liq-kpi">
+                                <span>Faltas / tardanzas</span>
+                                <strong>
+                                  {f.faltas} · {f.tardanzas}
+                                </strong>
+                              </div>
+                            </div>
+                          </header>
+
+                          <div className="liq-detalle-grid">
+                            <section className="liq-panel">
+                              <h4>Antigüedad</h4>
+                              {f.fechaIngreso ? (
+                                <dl className="liq-dl">
+                                  <div>
+                                    <dt>Ingreso</dt>
+                                    <dd>{f.fechaIngreso}</dd>
+                                  </div>
+                                  <div>
+                                    <dt>Al cierre</dt>
+                                    <dd>
+                                      {f.antiguedadLabel} ({f.antiguedadAnios} año
+                                      {f.antiguedadAnios === 1 ? '' : 's'})
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt>Legal</dt>
+                                    <dd>
+                                      {f.pctAntiguedadLegal}% × {f.antiguedadAnios} →{' '}
+                                      {formatArs(f.adicionalAntiguedadCompleto)}
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt>Proporcional</dt>
+                                    <dd>
+                                      {f.diasDebia}/{f.diasLaborablesPeriodo} días
+                                      {f.factorProporcional < 1
+                                        ? ` (${Math.round(f.factorProporcional * 100)}%)`
+                                        : ''}{' '}
+                                      → {formatArs(f.adicionalAntiguedad)}
+                                    </dd>
+                                  </div>
+                                </dl>
+                              ) : (
+                                <p className="liq-muted">Sin fecha de ingreso en el legajo.</p>
+                              )}
+                            </section>
+
+                            <section className="liq-panel">
+                              <h4>
+                                Novedades <em>{f.novedades.length}</em>
+                              </h4>
+                              {f.novedades.length === 0 ? (
+                                <p className="liq-muted">Sin novedades.</p>
+                              ) : (
+                                <ul className="liq-chips">
+                                  {f.novedades.map((n, i) => (
+                                    <li key={`${n.desde}-${n.etiqueta}-${i}`}>
+                                      <time>
+                                        {n.desde === n.hasta ? n.desde : `${n.desde} → ${n.hasta}`}
+                                      </time>
+                                      <span>{n.etiqueta}</span>
+                                      {n.detalle ? <small>{n.detalle}</small> : null}
                                     </li>
                                   ))}
                                 </ul>
-                              </>
-                            )}
-                            {f.fechasJustificadas.length > 0 ? (
-                              <>
-                                <p>
-                                  {f.fechasJustificadas.length} justificada
-                                  {f.fechasJustificadas.length === 1 ? '' : 's'} · sin descuento
-                                </p>
-                                <ul>
-                                  {f.fechasJustificadas.map((fecha) => (
-                                    <li key={`j-${fecha}`}>{fecha} — justificada ($0)</li>
+                              )}
+                              <p className="liq-footnote">Justificados: {f.diasJustificados}</p>
+                            </section>
+
+                            <section className="liq-panel">
+                              <h4>
+                                Permisos <em>{f.permisos.length}</em>
+                              </h4>
+                              {f.permisos.length === 0 ? (
+                                <p className="liq-muted">Sin permisos en el período.</p>
+                              ) : (
+                                <ul className="liq-chips">
+                                  {f.permisos.map((p, i) => (
+                                    <li key={`${p.desde}-${i}`}>
+                                      <time>
+                                        {p.desde === p.hasta ? p.desde : `${p.desde} → ${p.hasta}`}
+                                      </time>
+                                      <span>
+                                        {p.tipo} · {p.titulo}
+                                        {p.dias != null ? ` · ${p.dias} d` : ''}
+                                      </span>
+                                      {p.detalle ? <small>{p.detalle}</small> : null}
+                                    </li>
                                   ))}
                                 </ul>
-                              </>
-                            ) : null}
-                            <p>
-                              Tardanzas: {f.tardanzas}
-                              {f.diasDescuentoTardanzas > 0
-                                ? ` → ${f.diasDescuentoTardanzas} día${f.diasDescuentoTardanzas === 1 ? '' : 's'} (−${formatArs(f.descuentoTardanzas)})`
-                                : f.tardanzas > 0
-                                  ? ` (faltan ${TARDANZAS_POR_DIA_DESCUENTO - (f.tardanzas % TARDANZAS_POR_DIA_DESCUENTO)} para descontar 1 día)`
-                                  : ' · sin descuento'}
-                            </p>
-                          </section>
-                          <section>
-                            <h3>Días</h3>
-                            <p>Debía venir: {f.diasDebia}. Vino: {f.diasVino}.</p>
-                            <p>
-                              Domingos: {f.domingos}. Vino {f.domingosVino}
-                              {f.domingosVino > 0
-                                ? ` (${f.horasDomingo.toFixed(1)} hs al doble, ${formatArs(f.importeDomingo)})`
-                                : ' · si no vino, no es falta'}
-                              .
-                            </p>
-                            <p>
-                              Feriados/puentes AR: {f.feriados}. Vino {f.feriadosVino}
-                              {f.feriadosVino > 0
-                                ? ` (${f.horasFeriado.toFixed(1)} hs al doble, ${formatArs(f.importeFeriado)})`
-                                : ' · si no vino, no es falta'}
-                              .
-                              {feriadosPeriodo.length > 0
-                                ? ` (${feriadosPeriodo.map((x) => x.nombre).join(', ')})`
-                                : ''}
-                            </p>
-                            <p>Días que no trabaja: {f.diasNoTrabaja}. Vino igual: {f.noTrabajaVino}.</p>
-                            <p>Esas horas de domingo y feriado están dentro de las extra al 100%.</p>
-                          </section>
-                          <section>
-                            <h3>Haberes y descuentos</h3>
-                            <p>Ventas: {f.ventas}. Facturado: {formatArs(f.plataVendida)}.</p>
-                            <p>OPs que movió: {f.opsMovidas}. Movimientos de trabajo: {f.trabajos}.</p>
-                            <p>
-                              Sueldo base proporcional: {formatArs(f.sueldoBase)}
-                              {f.factorProporcional < 1 ? ` (${Math.round(f.factorProporcional * 100)}%)` : ''}
-                            </p>
-                            <p>Antigüedad legal: {formatArs(f.adicionalAntiguedad)}</p>
-                            <p>Horas extra 50%: {formatArs(f.importeExtra50)}</p>
-                            <p>Horas extra 100%: {formatArs(f.importeExtra100)}</p>
-                            <p>
-                              Descuento faltas: {formatArs(f.descuentoFaltas)} ({f.faltas} ×{' '}
-                              {formatArs(f.valorDiaDescuento)})
-                            </p>
-                            <p>
-                              Descuento tardanzas: {formatArs(f.descuentoTardanzas)}
-                              {f.diasDescuentoTardanzas > 0
-                                ? ` (${f.diasDescuentoTardanzas} día${f.diasDescuentoTardanzas === 1 ? '' : 's'} por bloques de ${TARDANZAS_POR_DIA_DESCUENTO})`
-                                : ''}
-                            </p>
-                            <p>Haberes: {formatArs(f.haberes)}</p>
-                          </section>
-                          <section>
-                            <h3>Cargas sociales</h3>
-                            {f.aportes.map((c) => (
-                              <p key={c.id}>Aporte {c.nombre} ({c.porcentaje}%): {formatArs(c.importe)}</p>
-                            ))}
-                            <p>
-                              <strong>Aportes descontados del base:</strong> {formatArs(f.totalAportes)}
-                            </p>
-                            {f.contribuciones.map((c) => (
-                              <p key={c.id}>Contribución {c.nombre} ({c.porcentaje}%): {formatArs(c.importe)}</p>
-                            ))}
-                            <p>
-                              Neto calculado: {formatArs(f.netoCalculado)}
-                              {f.netoManual ? ` · Neto manual: ${formatArs(f.neto)}` : ''}
-                            </p>
-                            <p>Costo empresa: {formatArs(f.costoEmpresa)}</p>
-                          </section>
-                          <section className="liq-pagos">
-                            <h3>Pagos parciales del sueldo</h3>
-                            {(() => {
-                              const pagos = pagosPorUsuario[f.id] ?? []
-                              const pagado = pagos.reduce((s, p) => s + p.monto, 0)
-                              const saldo = Math.round((f.neto - pagado) * 100) / 100
-                              const d = draftPago(f.id)
-                              return (
+                              )}
+                            </section>
+
+                            <section className="liq-panel">
+                              <h4>Asistencia</h4>
+                              <dl className="liq-dl">
+                                <div>
+                                  <dt>Marcas / exigibles</dt>
+                                  <dd>
+                                    {f.diasConEntrada ? `${f.diasConEntrada} / ${f.diasExigibles}` : '—'}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Puntualidad</dt>
+                                  <dd style={{ color: puntualColor }}>
+                                    {f.diasConEntrada ? `${f.puntualidadPct}%` : '—'}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Tardanzas</dt>
+                                  <dd>
+                                    {f.tardanzas}
+                                    {f.minutosTarde > 0 ? ` (${f.minutosTarde} min)` : ''}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Aus. / just. / sin marca</dt>
+                                  <dd>
+                                    {f.ausencias} / {f.diasJustificados} / {f.sinMarca}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Horas</dt>
+                                  <dd>{f.totalHoras ? f.totalHoras.toFixed(1) : '—'}</dd>
+                                </div>
+                                <div>
+                                  <dt>Extra · HE 50/100</dt>
+                                  <dd>
+                                    {f.totalHorasExtra > 0 ? formatHoras(f.totalHorasExtra) : '—'} ·{' '}
+                                    {f.extra50 > 0 ? `${f.extra50.toFixed(1)}` : '0'} /{' '}
+                                    {f.extra100 > 0 ? `${f.extra100.toFixed(1)}` : '0'} hs
+                                  </dd>
+                                </div>
+                              </dl>
+                            </section>
+
+                            <section className="liq-panel">
+                              <h4>Faltas y tardanzas</h4>
+                              <p className="liq-hint">
+                                Valor día {formatArs(f.valorDiaDescuento)}. Solo injustificadas descuentan · cada{' '}
+                                {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 día.
+                              </p>
+                              {f.fechasFaltas.length === 0 ? (
+                                <p className="liq-muted">Sin faltas injustificadas.</p>
+                              ) : (
                                 <>
-                                  <p>
-                                    Neto a pagar: {formatArs(f.neto)} · Pagado: {formatArs(pagado)} · Saldo:{' '}
-                                    <strong>{formatArs(saldo)}</strong>
+                                  <p className="liq-badge-row">
+                                    <span className="liq-badge liq-badge-warn">
+                                      {f.faltas} injustificada{f.faltas === 1 ? '' : 's'}
+                                    </span>
+                                    <strong>−{formatArs(f.descuentoFaltas)}</strong>
                                   </p>
-                                  {pagos.length === 0 ? (
-                                    <p>Sin pagos registrados este mes.</p>
-                                  ) : (
-                                    <ul className="liq-pagos-lista">
-                                      {pagos.map((p) => (
-                                        <li key={p.id}>
-                                          <span>
-                                            {p.fecha} · {formatArs(p.monto)}
-                                            {p.notas ? ` · ${p.notas}` : ''}
-                                          </span>
-                                          <span className="liq-pagos-acciones">
-                                            {p.url_recibo ? (
-                                              <a href={p.url_recibo} target="_blank" rel="noopener noreferrer">
-                                                Recibo
-                                              </a>
-                                            ) : null}
-                                            <button type="button" onClick={() => void eliminarPago(p)}>
-                                              Eliminar
-                                            </button>
-                                          </span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                  <div className="liq-pagos-form">
-                                    <label>
-                                      Fecha
-                                      <input
-                                        type="date"
-                                        value={d.fecha}
-                                        onChange={(e) =>
-                                          setPagoDraft((prev) => ({
-                                            ...prev,
-                                            [f.id]: { ...d, fecha: e.target.value }
-                                          }))
-                                        }
-                                      />
-                                    </label>
-                                    <label>
-                                      Monto
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        placeholder="0"
-                                        value={d.monto}
-                                        onChange={(e) =>
-                                          setPagoDraft((prev) => ({
-                                            ...prev,
-                                            [f.id]: { ...d, monto: e.target.value }
-                                          }))
-                                        }
-                                      />
-                                    </label>
-                                    <label>
-                                      Notas
-                                      <input
-                                        type="text"
-                                        placeholder="Opcional"
-                                        value={d.notas}
-                                        onChange={(e) =>
-                                          setPagoDraft((prev) => ({
-                                            ...prev,
-                                            [f.id]: { ...d, notas: e.target.value }
-                                          }))
-                                        }
-                                      />
-                                    </label>
-                                    <label className="liq-pagos-file">
-                                      Recibo {d.recibo ? `(${d.recibo.name})` : ''}
-                                      <input
-                                        type="file"
-                                        accept="image/*,.pdf"
-                                        disabled={subiendoPago === f.id}
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0] ?? null
-                                          setPagoDraft((prev) => ({
-                                            ...prev,
-                                            [f.id]: { ...d, recibo: file }
-                                          }))
-                                        }}
-                                      />
-                                    </label>
-                                    <button
-                                      type="button"
-                                      className="liq-btn-pago"
-                                      disabled={subiendoPago === f.id}
-                                      onClick={() => void registrarPago(f.id)}
-                                    >
-                                      {subiendoPago === f.id ? 'Guardando…' : 'Registrar pago'}
-                                    </button>
-                                  </div>
+                                  <ul className="liq-chips liq-chips-warn">
+                                    {f.fechasFaltas.map((fecha) => (
+                                      <li key={fecha}>
+                                        <time>{fecha}</time>
+                                        <span>−{formatArs(f.valorDiaDescuento)}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
                                 </>
-                              )
-                            })()}
-                          </section>
+                              )}
+                              {f.fechasJustificadas.length > 0 ? (
+                                <>
+                                  <p className="liq-badge-row">
+                                    <span className="liq-badge liq-badge-ok">
+                                      {f.fechasJustificadas.length} justificada
+                                      {f.fechasJustificadas.length === 1 ? '' : 's'}
+                                    </span>
+                                    <strong>$0</strong>
+                                  </p>
+                                  <ul className="liq-chips liq-chips-ok">
+                                    {f.fechasJustificadas.map((fecha) => (
+                                      <li key={`j-${fecha}`}>
+                                        <time>{fecha}</time>
+                                        <span>sin descuento</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </>
+                              ) : null}
+                              <p className="liq-footnote">
+                                Tardanzas: {f.tardanzas}
+                                {f.diasDescuentoTardanzas > 0
+                                  ? ` → ${f.diasDescuentoTardanzas} día${f.diasDescuentoTardanzas === 1 ? '' : 's'} (−${formatArs(f.descuentoTardanzas)})`
+                                  : f.tardanzas > 0
+                                    ? ` (faltan ${TARDANZAS_POR_DIA_DESCUENTO - (f.tardanzas % TARDANZAS_POR_DIA_DESCUENTO)} para 1 día)`
+                                    : ' · sin descuento'}
+                              </p>
+                            </section>
+
+                            <section className="liq-panel">
+                              <h4>Días especiales</h4>
+                              <dl className="liq-dl">
+                                <div>
+                                  <dt>Debía / vino</dt>
+                                  <dd>
+                                    {f.diasDebia} / {f.diasVino}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Domingos</dt>
+                                  <dd>
+                                    {f.domingos} · vino {f.domingosVino}
+                                    {f.domingosVino > 0
+                                      ? ` (${f.horasDomingo.toFixed(1)} hs ×2 = ${formatArs(f.importeDomingo)})`
+                                      : ' · no es falta'}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Feriados AR</dt>
+                                  <dd>
+                                    {f.feriados} · vino {f.feriadosVino}
+                                    {f.feriadosVino > 0
+                                      ? ` (${f.horasFeriado.toFixed(1)} hs ×2 = ${formatArs(f.importeFeriado)})`
+                                      : ' · no es falta'}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>No trabaja</dt>
+                                  <dd>
+                                    {f.diasNoTrabaja} · vino igual {f.noTrabajaVino}
+                                  </dd>
+                                </div>
+                              </dl>
+                              {feriadosPeriodo.length > 0 ? (
+                                <ul className="liq-chips liq-chips-soft">
+                                  {feriadosPeriodo.map((x) => (
+                                    <li key={x.fecha}>
+                                      <time>{x.fecha.slice(8)}/{x.fecha.slice(5, 7)}</time>
+                                      <span>{x.nombre}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                              <p className="liq-footnote">Domingo/feriado trabajado entra en HE 100%.</p>
+                            </section>
+
+                            <section className="liq-panel">
+                              <h4>Haberes</h4>
+                              <dl className="liq-dl">
+                                <div>
+                                  <dt>Ventas / facturado</dt>
+                                  <dd>
+                                    {f.ventas || '—'} · {formatArs(f.plataVendida)}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>OPs / trabajos</dt>
+                                  <dd>
+                                    {f.opsMovidas || '—'} · {f.trabajos || '—'}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Sueldo base</dt>
+                                  <dd>
+                                    {formatArs(f.sueldoBase)}
+                                    {f.factorProporcional < 1
+                                      ? ` (${Math.round(f.factorProporcional * 100)}%)`
+                                      : ''}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Antigüedad</dt>
+                                  <dd>{formatArs(f.adicionalAntiguedad)}</dd>
+                                </div>
+                                <div>
+                                  <dt>HE 50% / 100%</dt>
+                                  <dd>
+                                    {formatArs(f.importeExtra50)} / {formatArs(f.importeExtra100)}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Desc. faltas / tard.</dt>
+                                  <dd className="liq-dd-neg">
+                                    −{formatArs(f.descuentoFaltas)} / −{formatArs(f.descuentoTardanzas)}
+                                  </dd>
+                                </div>
+                                <div className="liq-dl-total">
+                                  <dt>Haberes</dt>
+                                  <dd>{formatArs(f.haberes)}</dd>
+                                </div>
+                              </dl>
+                            </section>
+
+                            <section className="liq-panel">
+                              <h4>Cargas sociales</h4>
+                              <dl className="liq-dl">
+                                {f.aportes.map((c) => (
+                                  <div key={c.id}>
+                                    <dt>
+                                      Aporte {c.nombre} ({c.porcentaje}%)
+                                    </dt>
+                                    <dd>{formatArs(c.importe)}</dd>
+                                  </div>
+                                ))}
+                                <div className="liq-dl-emphasis">
+                                  <dt>Aportes al neto</dt>
+                                  <dd className="liq-dd-neg">−{formatArs(f.totalAportes)}</dd>
+                                </div>
+                                {f.contribuciones.map((c) => (
+                                  <div key={c.id}>
+                                    <dt>
+                                      Contrib. {c.nombre} ({c.porcentaje}%)
+                                    </dt>
+                                    <dd>{formatArs(c.importe)}</dd>
+                                  </div>
+                                ))}
+                                <div>
+                                  <dt>Neto calculado</dt>
+                                  <dd>{formatArs(f.netoCalculado)}</dd>
+                                </div>
+                                {f.netoManual ? (
+                                  <div>
+                                    <dt>Neto manual</dt>
+                                    <dd>{formatArs(f.neto)}</dd>
+                                  </div>
+                                ) : null}
+                                <div className="liq-dl-total">
+                                  <dt>Costo empresa</dt>
+                                  <dd>{formatArs(f.costoEmpresa)}</dd>
+                                </div>
+                              </dl>
+                            </section>
+
+                            <section className="liq-panel liq-pagos">
+                              <h4>Pagos parciales</h4>
+                              {(() => {
+                                const pagos = pagosPorUsuario[f.id] ?? []
+                                const pagado = pagos.reduce((s, p) => s + p.monto, 0)
+                                const saldo = Math.round((f.neto - pagado) * 100) / 100
+                                const d = draftPago(f.id)
+                                return (
+                                  <>
+                                    <div className="liq-pagos-resumen">
+                                      <div>
+                                        <span>Neto</span>
+                                        <strong>{formatArs(f.neto)}</strong>
+                                      </div>
+                                      <div>
+                                        <span>Pagado</span>
+                                        <strong>{formatArs(pagado)}</strong>
+                                      </div>
+                                      <div>
+                                        <span>Saldo</span>
+                                        <strong className={saldo > 0 ? 'liq-saldo-ok' : ''}>
+                                          {formatArs(saldo)}
+                                        </strong>
+                                      </div>
+                                    </div>
+                                    {pagos.length === 0 ? (
+                                      <p className="liq-muted">Sin pagos registrados este mes.</p>
+                                    ) : (
+                                      <ul className="liq-pagos-lista">
+                                        {pagos.map((p) => (
+                                          <li key={p.id}>
+                                            <span>
+                                              {p.fecha} · {formatArs(p.monto)}
+                                              {p.notas ? ` · ${p.notas}` : ''}
+                                            </span>
+                                            <span className="liq-pagos-acciones">
+                                              {p.url_recibo ? (
+                                                <a href={p.url_recibo} target="_blank" rel="noopener noreferrer">
+                                                  Recibo
+                                                </a>
+                                              ) : null}
+                                              <button type="button" onClick={() => void eliminarPago(p)}>
+                                                Eliminar
+                                              </button>
+                                            </span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                    <div className="liq-pagos-form">
+                                      <label>
+                                        Fecha
+                                        <input
+                                          type="date"
+                                          value={d.fecha}
+                                          onChange={(e) =>
+                                            setPagoDraft((prev) => ({
+                                              ...prev,
+                                              [f.id]: { ...d, fecha: e.target.value }
+                                            }))
+                                          }
+                                        />
+                                      </label>
+                                      <label>
+                                        Monto
+                                        <input
+                                          type="text"
+                                          inputMode="decimal"
+                                          placeholder="0"
+                                          value={d.monto}
+                                          onChange={(e) =>
+                                            setPagoDraft((prev) => ({
+                                              ...prev,
+                                              [f.id]: { ...d, monto: e.target.value }
+                                            }))
+                                          }
+                                        />
+                                      </label>
+                                      <label>
+                                        Notas
+                                        <input
+                                          type="text"
+                                          placeholder="Opcional"
+                                          value={d.notas}
+                                          onChange={(e) =>
+                                            setPagoDraft((prev) => ({
+                                              ...prev,
+                                              [f.id]: { ...d, notas: e.target.value }
+                                            }))
+                                          }
+                                        />
+                                      </label>
+                                      <label className="liq-pagos-file">
+                                        Recibo {d.recibo ? `(${d.recibo.name})` : ''}
+                                        <input
+                                          type="file"
+                                          accept="image/*,.pdf"
+                                          disabled={subiendoPago === f.id}
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0] ?? null
+                                            setPagoDraft((prev) => ({
+                                              ...prev,
+                                              [f.id]: { ...d, recibo: file }
+                                            }))
+                                          }}
+                                        />
+                                      </label>
+                                      <button
+                                        type="button"
+                                        className="liq-btn-pago"
+                                        disabled={subiendoPago === f.id}
+                                        onClick={() => void registrarPago(f.id)}
+                                      >
+                                        {subiendoPago === f.id ? 'Guardando…' : 'Registrar pago'}
+                                      </button>
+                                    </div>
+                                  </>
+                                )
+                              })()}
+                            </section>
+                          </div>
                         </div>
                       </td>
                     </tr>
