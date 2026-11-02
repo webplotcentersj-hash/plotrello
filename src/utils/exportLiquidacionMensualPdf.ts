@@ -660,8 +660,20 @@ export async function exportarLiquidacionMensualPdf(opts: {
         {
           cols: colsImporte('Descuentos'),
           filas: [
-            [{ t: 'Faltas', sub: `${plural(f.faltas, 'día', 'días')} · remuneración / 30` }, importe(f.descuentoFaltas, C.rose)],
-            [{ t: 'Tardanzas', sub: `${f.minutosTarde} min` }, importe(f.descuentoTardanzas, C.rose)]
+            [
+              { t: 'Faltas', sub: `${plural(f.faltas, 'día', 'días')} · ${ars(f.valorDiaDescuento)}/día` },
+              importe(f.descuentoFaltas, C.rose)
+            ],
+            [
+              {
+                t: 'Tardanzas',
+                sub:
+                  f.diasDescuentoTardanzas > 0
+                    ? `${f.tardanzas} · ${plural(f.diasDescuentoTardanzas, 'día', 'días')} (cada 3)`
+                    : `${f.tardanzas} (sin bloque completo)`
+              },
+              importe(f.descuentoTardanzas, C.rose)
+            ]
           ],
           total: ['Total descuentos', { t: ars(f.descuentoFaltas + f.descuentoTardanzas), color: C.rose }]
         }

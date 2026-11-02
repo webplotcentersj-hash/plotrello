@@ -105,7 +105,7 @@
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.82rem;
-  min-width: 1980px;
+  min-width: 2084px;
 }
 
 .liq-tabla th,
@@ -129,25 +129,147 @@
 }
 
 .liq-sticky-precio {
-  right: 404px;
+  right: 508px;
   min-width: 164px;
   box-shadow: -8px 0 12px -10px rgba(0, 0, 0, 0.55);
 }
 
 .liq-sticky-sueldo {
-  right: 240px;
+  right: 344px;
   min-width: 164px;
 }
 
 .liq-sticky-sin {
-  right: 76px;
+  right: 180px;
   min-width: 164px;
 }
 
 .liq-sticky-neto {
   right: 0;
-  min-width: 76px;
+  min-width: 180px;
   padding-right: 12px;
+}
+
+.liq-neto-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.liq-neto-edit .liq-num {
+  width: 132px;
+}
+
+.liq-neto-auto {
+  border: 0;
+  background: rgba(110, 231, 183, 0.15);
+  color: #6ee7b7;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.liq-neto-auto:hover {
+  background: rgba(110, 231, 183, 0.28);
+}
+
+.liq-pagos {
+  grid-column: 1 / -1;
+}
+
+.liq-pagos-lista {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.liq-pagos-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.liq-pagos-acciones {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.liq-pagos-acciones a,
+.liq-pagos-acciones button {
+  background: none;
+  border: 0;
+  color: #93c5fd;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.liq-pagos-acciones button {
+  color: #fca5a5;
+}
+
+.liq-pagos-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  align-items: end;
+  margin-top: 8px;
+}
+
+.liq-pagos-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.liq-pagos-form input[type='date'],
+.liq-pagos-form input[type='text'] {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 0.85rem;
+  color-scheme: dark;
+}
+
+.liq-pagos-file input[type='file'] {
+  max-width: 220px;
+  font-size: 0.72rem;
+  color: #cbd5e1;
+}
+
+.liq-btn-pago {
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(110, 231, 183, 0.35);
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.liq-btn-pago:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .liq-tabla th {

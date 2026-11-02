@@ -18561,14 +18561,34 @@ class ApiService {
   // ============================================
 
   private mapRrhhLiquidacionPeriodo(row: Record<string, unknown>): RrhhLiquidacionPeriodo {
+    const cfg = row.config_json
     return {
       id: Number(row.id),
       periodo: String(row.periodo),
       estado: (row.estado === 'cerrado' ? 'cerrado' : 'borrador') as RrhhLiquidacionPeriodo['estado'],
       valor_hora_default: Number(row.valor_hora_default) || 0,
       notas: row.notas != null ? String(row.notas) : null,
+      config_json:
+        cfg && typeof cfg === 'object' && !Array.isArray(cfg)
+          ? (cfg as Record<string, unknown>)
+          : {},
       cerrado_por: row.cerrado_por != null ? Number(row.cerrado_por) : null,
       cerrado_at: row.cerrado_at != null ? String(row.cerrado_at) : null,
+      created_at: String(row.created_at || ''),
+      updated_at: String(row.updated_at || '')
+    }
+  }
+
+  private mapRrhhLiquidacionPago(row: Record<string, unknown>): import('../types/api').RrhhLiquidacionPago {
+    return {
+      id: Number(row.id),
+      id_periodo: Number(row.id_periodo),
+      id_usuario: Number(row.id_usuario),
+      fecha: String(row.fecha || '').slice(0, 10),
+      monto: Number(row.monto) || 0,
+      url_recibo: row.url_recibo != null ? String(row.url_recibo) : null,
+      notas: row.notas != null ? String(row.notas) : null,
+      registrado_por: row.registrado_por != null ? Number(row.registrado_por) : null,
       created_at: String(row.created_at || ''),
       updated_at: String(row.updated_at || '')
     }
@@ -18662,6 +18682,7 @@ class ApiService {
     periodo: string
     valor_hora_default?: number
     notas?: string | null
+    config_json?: Record<string, unknown>
     estado?: 'borrador' | 'cerrado'
     cerrado_por?: number | null
     cerrado_at?: string | null
@@ -18677,6 +18698,7 @@ class ApiService {
       }
       if (input.valor_hora_default != null) payload.valor_hora_default = input.valor_hora_default
       if (input.notas !== undefined) payload.notas = input.notas
+      if (input.config_json !== undefined) payload.config_json = input.config_json
       if (input.estado) payload.estado = input.estado
       if (input.cerrado_por !== undefined) payload.cerrado_por = input.cerrado_por
       if (input.cerrado_at !== undefined) payload.cerrado_at = input.cerrado_at
@@ -18692,6 +18714,104 @@ class ApiService {
       return {
         success: false,
         error: supabaseErrorMessage(e, 'Error al guardar período de liquidación')
+      }
+    }
+  }
+
+  async rrhhLiquidacionPagosListar(
+    idPeriodo: number,
+    idUsuario?: number
+  ): Promise<ApiResponse<import('../types/api').RrhhLiquidacionPago[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      let q = supabase
+        .from('rrhh_liquidacion_pagos')
+        .select('*')
+        .eq('id_periodo', idPeriodo)
+        .order('fecha', { ascending: false })
+        .order('id', { ascending: false })
+      if (idUsuario != null) q = q.eq('id_usuario', idUsuario)
+      const { data, error } = await q
+      if (error) throw error
+      return {
+        success: true,
+        data: ((data ?? []) as Record<string, unknown>[]).map((r) => this.mapRrhhLiquidacionPago(r))
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al listar pagos de liquidación')
+      }
+    }
+  }
+
+  async rrhhLiquidacionPagoCrear(input: {
+    id_periodo: number
+    id_usuario: number
+    fecha: string
+    monto: number
+    url_recibo?: string | null
+    notas?: string | null
+    registrado_por?: number | null
+  }): Promise<ApiResponse<import('../types/api').RrhhLiquidacionPago>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { data, error } = await supabase
+        .from('rrhh_liquidacion_pagos')
+        .insert({
+          id_periodo: input.id_periodo,
+          id_usuario: input.id_usuario,
+          fecha: input.fecha.slice(0, 10),
+          monto: Math.round(Number(input.monto) * 100) / 100,
+          url_recibo: input.url_recibo ?? null,
+          notas: input.notas ?? null,
+          registrado_por: input.registrado_por ?? null
+        })
+        .select('*')
+        .single()
+      if (error) throw error
+      return { success: true, data: this.mapRrhhLiquidacionPago(data as Record<string, unknown>) }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al registrar pago de sueldo')
+      }
+    }
+  }
+
+  async rrhhLiquidacionPagoEliminar(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { error } = await supabase.from('rrhh_liquidacion_pagos').delete().eq('id', id)
+      if (error) throw error
+      return { success: true, data: true }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al eliminar pago')
+      }
+    }
+  }
+
+  async rrhhLiquidacionSubirRecibo(
+    file: File,
+    opts: { periodo: string; idUsuario: number }
+  ): Promise<ApiResponse<{ url: string }>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+      const path = `rrhh-liquidacion/${opts.periodo}/u${opts.idUsuario}-${Date.now()}.${ext || 'bin'}`
+      const { error: uploadError } = await supabase.storage.from('archivos').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+      if (uploadError) throw uploadError
+      const { data: urlData } = supabase.storage.from('archivos').getPublicUrl(path)
+      return { success: true, data: { url: urlData.publicUrl } }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al subir recibo de pago')
       }
     }
   }

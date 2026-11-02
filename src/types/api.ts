@@ -1817,8 +1817,24 @@ export interface RrhhLiquidacionPeriodo {
   estado: 'borrador' | 'cerrado'
   valor_hora_default: number
   notas: string | null
+  /** Cargas, montos por empleado, % antigüedad, etc. */
+  config_json: Record<string, unknown>
   cerrado_por: number | null
   cerrado_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Pago parcial de sueldo dentro de un período de liquidación. */
+export interface RrhhLiquidacionPago {
+  id: number
+  id_periodo: number
+  id_usuario: number
+  fecha: string
+  monto: number
+  url_recibo: string | null
+  notas: string | null
+  registrado_por: number | null
   created_at: string
   updated_at: string
 }

@@ -17,6 +17,8 @@ export type MontosLiquidacion = {
   sueldoBase: number
   sueldoBlanco: number
   sueldoSinDeclarar: number
+  /** Si no es null, reemplaza el neto calculado (editable y persistido). */
+  netoManual: number | null
 }
 
 export type CargaSocialDef = {
@@ -74,7 +76,10 @@ export type LiquidacionEmpleado = {
   minutosTarde: number
   ausencias: number
   faltas: number
+  /** Solo injustificadas (descuentan valor día). */
   fechasFaltas: string[]
+  /** Justificadas / licencia / permiso: sin descuento. */
+  fechasJustificadas: string[]
   diasDebia: number
   diasVino: number
   domingos: number
@@ -106,13 +111,21 @@ export type LiquidacionEmpleado = {
   importeExtra100: number
   descuentoFaltas: number
   descuentoTardanzas: number
+  /** Valor día usado para faltas / bloques de tardanzas. */
+  valorDiaDescuento: number
+  /** Días descontados por bloques de 3 tardanzas. */
+  diasDescuentoTardanzas: number
   aportes: ItemCarga[]
   contribuciones: ItemCarga[]
   totalAportes: number
   totalContribuciones: number
   remuneracion: number
   haberes: number
+  /** Neto calculado (haberes − faltas − tardanzas − aportes). */
+  netoCalculado: number
+  /** Neto a pagar (manual si hay override, si no el calculado). */
   neto: number
+  netoManual: boolean
   costoEmpresa: number
   baseDistinta: boolean
 }
@@ -121,7 +134,8 @@ export const MONTOS_VACIOS: MontosLiquidacion = {
   precioHora: 0,
   sueldoBase: 0,
   sueldoBlanco: 0,
-  sueldoSinDeclarar: 0
+  sueldoSinDeclarar: 0,
+  netoManual: null
 }
 
 /** Referencia del régimen general, sin reducción pyme y sin ART. Se editan en la pantalla. */
@@ -140,12 +154,19 @@ export const CARGAS_SOCIALES_DEFAULT: CargaSocialDef[] = [
 /** % del sueldo base por cada año cumplido (uso habitual CCT / convenio). */
 export const PCT_ANTIGUEDAD_LEGAL_DEFAULT = 1
 
+/** Valor fijo de un día para descontar faltas injustificadas y bloques de tardanzas. */
+export const VALOR_DIA_DESCUENTO_DEFAULT = 52232
+
+/** Cada N tardanzas equivalen a 1 día de descuento. */
+export const TARDANZAS_POR_DIA_DESCUENTO = 3
+
 const LS_KEY = 'rrhh-liquidacion-v1'
 
 type MesGuardado = {
   cargas: CargaSocialDef[]
   montos: Record<string, MontosLiquidacion>
   pctAntiguedadLegal?: number
+  valorDiaDescuento?: number
 }
 
 function round2(n: number): number {
@@ -186,11 +207,18 @@ function normalizarCargas(raw: unknown): CargaSocialDef[] {
 
 function normalizarMontos(raw: unknown): MontosLiquidacion {
   const row = raw && typeof raw === 'object' ? (raw as Partial<MontosLiquidacion>) : {}
+  const netoRaw = row.netoManual
+  let netoManual: number | null = null
+  if (netoRaw != null && netoRaw !== ('' as unknown)) {
+    const n = typeof netoRaw === 'number' ? netoRaw : Number(netoRaw)
+    if (Number.isFinite(n) && n >= 0) netoManual = round2(n)
+  }
   return {
     precioHora: num(row.precioHora),
     sueldoBase: num(row.sueldoBase),
     sueldoBlanco: num(row.sueldoBlanco),
-    sueldoSinDeclarar: num(row.sueldoSinDeclarar)
+    sueldoSinDeclarar: num(row.sueldoSinDeclarar),
+    netoManual
   }
 }
 
@@ -219,10 +247,17 @@ function normalizarPctAntiguedad(raw: unknown): number {
   return round2(v)
 }
 
+function normalizarValorDia(raw: unknown): number {
+  const v = typeof raw === 'number' ? raw : Number(raw)
+  if (!Number.isFinite(v) || v < 0) return VALOR_DIA_DESCUENTO_DEFAULT
+  return round2(v)
+}
+
 export function cargarMesLiquidacion(mes: string): {
   cargas: CargaSocialDef[]
   montos: Record<number, MontosLiquidacion>
   pctAntiguedadLegal: number
+  valorDiaDescuento: number
 } {
   const todo = leerTodo()
   const propio = todo[mes]
@@ -230,6 +265,9 @@ export function cargarMesLiquidacion(mes: string): {
   const cargas = normalizarCargas(base?.cargas)
   const pctAntiguedadLegal = normalizarPctAntiguedad(
     propio?.pctAntiguedadLegal ?? base?.pctAntiguedadLegal ?? PCT_ANTIGUEDAD_LEGAL_DEFAULT
+  )
+  const valorDiaDescuento = normalizarValorDia(
+    propio?.valorDiaDescuento ?? base?.valorDiaDescuento ?? VALOR_DIA_DESCUENTO_DEFAULT
   )
   const montos: Record<number, MontosLiquidacion> = {}
   const origen = propio?.montos ?? base?.montos ?? {}
@@ -240,24 +278,27 @@ export function cargarMesLiquidacion(mes: string): {
     todo[mes] = {
       cargas,
       montos: Object.fromEntries(Object.entries(montos).map(([id, m]) => [id, m])),
-      pctAntiguedadLegal
+      pctAntiguedadLegal,
+      valorDiaDescuento
     }
     escribirTodo(todo)
   }
-  return { cargas, montos, pctAntiguedadLegal }
+  return { cargas, montos, pctAntiguedadLegal, valorDiaDescuento }
 }
 
 export function guardarMesLiquidacion(
   mes: string,
   cargas: CargaSocialDef[],
   montos: Record<number, MontosLiquidacion>,
-  pctAntiguedadLegal: number = PCT_ANTIGUEDAD_LEGAL_DEFAULT
+  pctAntiguedadLegal: number = PCT_ANTIGUEDAD_LEGAL_DEFAULT,
+  valorDiaDescuento: number = VALOR_DIA_DESCUENTO_DEFAULT
 ) {
   const todo = leerTodo()
   todo[mes] = {
     cargas: normalizarCargas(cargas),
     montos: Object.fromEntries(Object.entries(montos).map(([id, m]) => [id, normalizarMontos(m)])),
-    pctAntiguedadLegal: normalizarPctAntiguedad(pctAntiguedadLegal)
+    pctAntiguedadLegal: normalizarPctAntiguedad(pctAntiguedadLegal),
+    valorDiaDescuento: normalizarValorDia(valorDiaDescuento)
   }
   escribirTodo(todo)
 }
@@ -266,18 +307,36 @@ export function remuneracionPactada(m: MontosLiquidacion): number {
   return round2(m.sueldoBase + m.sueldoSinDeclarar)
 }
 
-export function descuentoPorFaltas(faltas: number, remuneracion: number, precioHora: number): number {
-  if (faltas <= 0) return 0
-  if (remuneracion > 0) return round2(faltas * (remuneracion / 30))
-  if (precioHora > 0) return round2(faltas * precioHora * 8)
-  return 0
+/** Falta injustificada: 1 día × valor día fijo (default $52.232). */
+export function descuentoPorFaltas(
+  faltas: number,
+  valorDia: number = VALOR_DIA_DESCUENTO_DEFAULT
+): number {
+  if (faltas <= 0 || valorDia <= 0) return 0
+  return round2(faltas * valorDia)
 }
 
-export function descuentoPorTardanzas(minutos: number, remuneracion: number, precioHora: number): number {
-  if (minutos <= 0) return 0
-  const hora = precioHora > 0 ? precioHora : remuneracion > 0 ? remuneracion / 30 / 8 : 0
-  if (hora <= 0) return 0
-  return round2((minutos / 60) * hora)
+/**
+ * Cada 3 tardanzas = 1 día de descuento al valor día fijo.
+ * Las tardanzas sueltas (resto) no descuentan hasta completar el bloque.
+ */
+export function descuentoPorTardanzas(
+  tardanzas: number,
+  valorDia: number = VALOR_DIA_DESCUENTO_DEFAULT,
+  porBloque: number = TARDANZAS_POR_DIA_DESCUENTO
+): number {
+  if (tardanzas <= 0 || valorDia <= 0 || porBloque <= 0) return 0
+  const dias = Math.floor(tardanzas / porBloque)
+  if (dias <= 0) return 0
+  return round2(dias * valorDia)
+}
+
+export function diasDescuentoPorTardanzas(
+  tardanzas: number,
+  porBloque: number = TARDANZAS_POR_DIA_DESCUENTO
+): number {
+  if (tardanzas <= 0 || porBloque <= 0) return 0
+  return Math.floor(tardanzas / porBloque)
 }
 
 function permisoSolapa(p: SolicitudPermiso, desde: string, hasta: string): boolean {
@@ -308,15 +367,35 @@ function horasVino(a: Asistencia | undefined): number {
   return round2((salida - entrada) / 3_600_000)
 }
 
-function esJustificadoDia(a: Asistencia | undefined, novs: RrhhNovedad[]): boolean {
-  if (a?.tipo_registro === 'justificado') return true
-  return novs.some(
-    (n) =>
-      n.grupo === 'licencia' ||
-      n.codigo === 'falta_justificada_enfermedad' ||
-      n.codigo === 'falta_justificada_tramites' ||
-      n.codigo.startsWith('licencia_')
+function esFaltaJustificadaNovedad(n: RrhhNovedad): boolean {
+  if (n.grupo === 'licencia' || n.codigo.startsWith('licencia_')) return true
+  if (n.codigo.startsWith('falta_justificada')) return true
+  return (
+    n.codigo === 'falta_justificada_enfermedad' || n.codigo === 'falta_justificada_tramites'
   )
+}
+
+function permisoCubreDia(p: SolicitudPermiso, fecha: string): boolean {
+  if (p.estado !== 'aprobado') return false
+  if (p.tipo_solicitud === 'turno' || p.tipo_solicitud === 'ropa') return false
+  const ini = (p.fecha_inicio || p.fecha_solicitud || '').slice(0, 10)
+  const fin = (p.fecha_fin || p.fecha_inicio || p.fecha_solicitud || '').slice(0, 10)
+  if (!ini) return false
+  const hasta = fin || ini
+  return fecha >= ini && fecha <= hasta
+}
+
+/** Día sin descuento: justificado en asistencia, novedad justificada/licencia o permiso aprobado. */
+function esJustificadoDia(
+  fecha: string,
+  a: Asistencia | undefined,
+  novs: RrhhNovedad[],
+  permisos: SolicitudPermiso[] = []
+): boolean {
+  if (a?.tipo_registro === 'justificado') return true
+  if (novs.some(esFaltaJustificadaNovedad)) return true
+  if (permisos.some((p) => permisoCubreDia(p, fecha))) return true
+  return false
 }
 
 /** Día hábil del empleado: no domingo, no feriado, y sábado solo si trabaja sábado. */
@@ -349,6 +428,8 @@ export function armarLiquidacionEmpleado(params: {
   precioHoraDefault: number
   cargas: CargaSocialDef[]
   pctAntiguedadLegal?: number
+  /** Valor fijo de un día para faltas y cada 3 tardanzas. */
+  valorDiaDescuento?: number
   novedades: RrhhNovedad[]
   permisos: SolicitudPermiso[]
   dias: string[]
@@ -390,6 +471,8 @@ export function armarLiquidacionEmpleado(params: {
   let diasNoTrabaja = 0
   let noTrabajaVino = 0
   const fechasFaltas: string[] = []
+  const fechasJustificadas: string[] = []
+  const permisosEmpleado = params.permisos.filter((p) => p.id_usuario === params.id)
   for (const fecha of params.dias) {
     const horario = params.horariosPorMes?.[fecha.slice(0, 7)]?.[params.id] ?? null
     const dia = dowDe(fecha)
@@ -433,7 +516,13 @@ export function armarLiquidacionEmpleado(params: {
       diasVino += 1
       continue
     }
-    if (fecha <= hoy && !esJustificadoDia(marca, novs)) fechasFaltas.push(fecha)
+    if (fecha > hoy) continue
+    // Justificadas / licencia / permiso aprobado: NO descuentan del neto.
+    if (esJustificadoDia(fecha, marca, novs, permisosEmpleado)) {
+      fechasJustificadas.push(fecha)
+      continue
+    }
+    fechasFaltas.push(fecha)
   }
   const faltas = fechasFaltas.length
   const factorProporcional = factorProporcionalPeriodo(diasDebia, diasLaborablesPeriodo)
@@ -452,10 +541,14 @@ export function armarLiquidacionEmpleado(params: {
   const importeDomingo = round2(horasDomingo * precioHora * MULTIPLICADOR_HE100)
   const importeFeriado = round2(horasFeriado * precioHora * MULTIPLICADOR_HE100)
   const minutosTarde = stats?.minutosTardeTotal ?? 0
-  // Valor día = remuneración mensual completa / 30 (no el proporcional del ingreso).
-  const remuneracionDiaRef = round2(remuneracionMensual + adicionalAntiguedadCompleto)
-  const descuentoFaltas = descuentoPorFaltas(faltas, remuneracionDiaRef, precioHora)
-  const descuentoTardanzas = descuentoPorTardanzas(minutosTarde, remuneracionDiaRef, precioHora)
+  const tardanzasCount = stats?.tardanzas ?? 0
+  const valorDiaDescuento = normalizarValorDia(
+    params.valorDiaDescuento ?? VALOR_DIA_DESCUENTO_DEFAULT
+  )
+  // Falta injustificada = 1 día a valor fijo. Cada 3 tardanzas = 1 día.
+  const descuentoFaltas = descuentoPorFaltas(faltas, valorDiaDescuento)
+  const diasDescTard = diasDescuentoPorTardanzas(tardanzasCount)
+  const descuentoTardanzas = descuentoPorTardanzas(tardanzasCount, valorDiaDescuento)
   const baseImponible = round2(sueldoBaseProporcional + adicionalAntiguedad)
 
   const items = params.cargas.map((c) => ({
@@ -470,7 +563,10 @@ export function armarLiquidacionEmpleado(params: {
   const totalAportes = round2(aportes.reduce((a, c) => a + c.importe, 0))
   const totalContribuciones = round2(contribuciones.reduce((a, c) => a + c.importe, 0))
   const haberes = round2(remuneracion + importeExtra50 + importeExtra100)
-  const neto = round2(haberes - descuentoFaltas - descuentoTardanzas - totalAportes)
+  // Aportes (cargas del empleado) se descuentan del base/haberes → neto a pagar.
+  const netoCalculado = round2(haberes - descuentoFaltas - descuentoTardanzas - totalAportes)
+  const tieneNetoManual = params.montos.netoManual != null
+  const neto = tieneNetoManual ? round2(Number(params.montos.netoManual) || 0) : netoCalculado
   const costoEmpresa = round2(haberes - descuentoFaltas - descuentoTardanzas + totalContribuciones)
 
   const novedades = params.novedades
@@ -529,6 +625,7 @@ export function armarLiquidacionEmpleado(params: {
     ausencias: stats?.ausencias ?? 0,
     faltas,
     fechasFaltas,
+    fechasJustificadas,
     diasDebia,
     diasVino,
     domingos,
@@ -541,7 +638,7 @@ export function armarLiquidacionEmpleado(params: {
     importeFeriado,
     diasNoTrabaja,
     noTrabajaVino,
-    diasJustificados: stats?.justificados ?? 0,
+    diasJustificados: Math.max(stats?.justificados ?? 0, fechasJustificadas.length),
     sinMarca: stats?.sinMarca ?? 0,
     totalHoras: stats?.totalHoras ?? 0,
     totalHorasExtra: stats?.totalHorasExtra ?? 0,
@@ -560,13 +657,17 @@ export function armarLiquidacionEmpleado(params: {
     importeExtra100,
     descuentoFaltas,
     descuentoTardanzas,
+    valorDiaDescuento,
+    diasDescuentoTardanzas: diasDescTard,
     aportes,
     contribuciones,
     totalAportes,
     totalContribuciones,
     remuneracion,
     haberes,
+    netoCalculado,
     neto,
+    netoManual: tieneNetoManual,
     costoEmpresa,
     baseDistinta
   }
