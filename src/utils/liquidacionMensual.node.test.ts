@@ -215,7 +215,8 @@ describe('liquidación mensual', () => {
 
   it('paga el domingo y el feriado al doble solo si vino, y no los cuenta como falta', () => {
     assert.equal(nombreFeriado('2026-10-12'), 'Día del Respeto a la Diversidad Cultural')
-    assert.equal(nombreFeriado('2026-10-04'), null)
+    assert.equal(nombreFeriado('2026-10-04'), null) // domingo, no feriado
+    assert.ok(nombreFeriado('2026-03-23')) // puente turístico 2026
 
     const domingo: Asistencia = {
       id: 1,

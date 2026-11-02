@@ -35,6 +35,7 @@ import {
   type MontosLiquidacion
 } from '../utils/liquidacionMensual'
 import { filtrarUsuariosLiquidacionMensual } from '../utils/rrhhUsuariosExcluidos'
+import { feriadosEntre } from '../utils/feriadosArgentina'
 import './RrhhLiquidacionMensualTab.css'
 
 function leerPrecioDefault(): number {
@@ -89,8 +90,13 @@ function Numero({
     []
   )
 
-  const guardar = (raw: string) => {
-    onCommit(ceroOk ? aNumeroCeroOk(raw) : aNumero(raw))
+  const parse = (raw: string) => (ceroOk ? aNumeroCeroOk(raw) : aNumero(raw))
+
+  const guardar = (raw: string, forzar = false) => {
+    const n = parse(raw)
+    // En blur forzamos commit para que el neto (u otros) se guarden aunque no haya cambiado el dígito.
+    if (!forzar && n === value) return
+    onCommit(n)
   }
 
   return (
@@ -116,7 +122,7 @@ function Numero({
           timerRef.current = null
         }
         setFoco(false)
-        guardar(texto)
+        guardar(texto, true)
       }}
     />
   )
@@ -158,6 +164,21 @@ export default function RrhhLiquidacionMensualTab({
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
   const [actividad, setActividad] = useState<Map<number, { ventas: number; plata: number; ops: number; trabajos: number }>>(new Map())
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Evita que edits rápidos de varios empleados se pisen por closures stale. */
+  const persistRef = useRef({
+    cargas,
+    montos,
+    pctAntiguedadLegal,
+    precioDefault,
+    valorDiaDescuento
+  })
+  persistRef.current = {
+    cargas,
+    montos,
+    pctAntiguedadLegal,
+    precioDefault,
+    valorDiaDescuento
+  }
 
   const dias = useMemo(() => diasEntre(fechaDesde, fechaHasta), [fechaDesde, fechaHasta])
   const mesesEnPeriodo = useMemo(() => [...new Set(dias.map((d) => d.slice(0, 7)))], [dias])
@@ -445,6 +466,8 @@ export default function RrhhLiquidacionMensualTab({
     return `${d.toLocaleDateString('es-AR')} – ${h.toLocaleDateString('es-AR')}`
   }, [fechaDesde, fechaHasta])
 
+  const feriadosPeriodo = useMemo(() => feriadosEntre(fechaDesde, fechaHasta), [fechaDesde, fechaHasta])
+
   const persistirBd = (
     nextCargas: CargaSocialDef[],
     nextMontos: Record<number, MontosLiquidacion>,
@@ -455,16 +478,20 @@ export default function RrhhLiquidacionMensualTab({
     guardarMesLiquidacion(mes, nextCargas, nextMontos, nextPct, nextValorDia)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
+      // Siempre el snapshot más reciente al flush (varios edits seguidos).
+      const snap = persistRef.current
       setGuardandoBd(true)
       void apiService
         .rrhhLiquidacionPeriodoUpsert({
           periodo: mes,
-          valor_hora_default: nextPrecio,
+          valor_hora_default: snap.precioDefault,
           config_json: {
-            cargas: nextCargas,
-            pctAntiguedadLegal: nextPct,
-            valorDiaDescuento: nextValorDia,
-            montos: Object.fromEntries(Object.entries(nextMontos).map(([k, v]) => [String(k), v]))
+            cargas: snap.cargas,
+            pctAntiguedadLegal: snap.pctAntiguedadLegal,
+            valorDiaDescuento: snap.valorDiaDescuento,
+            montos: Object.fromEntries(
+              Object.entries(snap.montos).map(([k, v]) => [String(k), v])
+            )
           }
         })
         .then((res) => {
@@ -481,6 +508,13 @@ export default function RrhhLiquidacionMensualTab({
     nextPrecio = precioDefault,
     nextValorDia = valorDiaDescuento
   ) => {
+    persistRef.current = {
+      cargas: nextCargas,
+      montos: nextMontos,
+      pctAntiguedadLegal: nextPct,
+      precioDefault: nextPrecio,
+      valorDiaDescuento: nextValorDia
+    }
     setCargas(nextCargas)
     setMontos(nextMontos)
     setPctAntiguedadLegal(nextPct)
@@ -490,36 +524,43 @@ export default function RrhhLiquidacionMensualTab({
   }
 
   const cambiarMonto = (id: number, campo: keyof MontosLiquidacion, valor: string) => {
-    const prev = montos[id] ?? MONTOS_VACIOS
+    const prevMontos = persistRef.current.montos
+    const prev = prevMontos[id] ?? MONTOS_VACIOS
     if (campo === 'netoManual') {
       const raw = String(valor).trim()
       const next: MontosLiquidacion = {
         ...prev,
         netoManual: raw === '' ? null : aNumeroCeroOk(raw)
       }
-      persistir(cargas, { ...montos, [id]: next })
+      persistir(persistRef.current.cargas, { ...prevMontos, [id]: next })
       return
     }
-    persistir(cargas, { ...montos, [id]: { ...prev, [campo]: aNumero(valor) } })
+    persistir(persistRef.current.cargas, {
+      ...prevMontos,
+      [id]: { ...prev, [campo]: aNumero(valor) }
+    })
   }
 
   const cambiarCarga = (id: string, valor: string) => {
+    const e = persistRef.current
     persistir(
-      cargas.map((c) => (c.id === id ? { ...c, porcentaje: aNumeroCeroOk(valor) } : c)),
-      montos
+      e.cargas.map((c) => (c.id === id ? { ...c, porcentaje: aNumeroCeroOk(valor) } : c)),
+      e.montos
     )
   }
 
   const cambiarPctAntiguedad = (valor: string) => {
     const n = Number(String(valor).replace(',', '.'))
     const pct = Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : PCT_ANTIGUEDAD_LEGAL_DEFAULT
-    persistir(cargas, montos, pct)
+    const e = persistRef.current
+    persistir(e.cargas, e.montos, pct)
   }
 
   const cambiarValorDia = (valor: string) => {
     const n = aNumeroCeroOk(valor)
     const dia = n > 0 ? n : VALOR_DIA_DESCUENTO_DEFAULT
-    persistir(cargas, montos, pctAntiguedadLegal, precioDefault, dia)
+    const e = persistRef.current
+    persistir(e.cargas, e.montos, e.pctAntiguedadLegal, e.precioDefault, dia)
   }
 
   const cambiarPrecioDefault = (valor: string) => {
@@ -529,12 +570,13 @@ export default function RrhhLiquidacionMensualTab({
     } catch {
       /* ignore */
     }
+    const e = persistRef.current
     // Precio fijo para todos: limpia overrides individuales para que aplique el default.
     const nextMontos: Record<number, MontosLiquidacion> = {}
-    for (const [id, m] of Object.entries(montos)) {
+    for (const [id, m] of Object.entries(e.montos)) {
       nextMontos[Number(id)] = { ...m, precioHora: 0 }
     }
-    persistir(cargas, nextMontos, pctAntiguedadLegal, n)
+    persistir(e.cargas, nextMontos, e.pctAntiguedadLegal, n, e.valorDiaDescuento)
   }
 
   const draftPago = (idUsuario: number) =>
@@ -630,7 +672,11 @@ export default function RrhhLiquidacionMensualTab({
         <div>
           <h2>Liquidación mensual</h2>
           <p className="rrhh-section-sub">
-            {periodoLabel}. Un domingo o un feriado se paga al doble solo si vino. Si no vino, no es falta. El sábado libre y el día que no le toca tampoco se descuentan.
+            {periodoLabel}. Domingos y feriados/puentes de Argentina no son falta si no vino; si vino, se pagan al
+            doble (HE 100%). El sábado libre y el día que no le toca tampoco se descuentan.
+            {feriadosPeriodo.length > 0
+              ? ` Feriados del período: ${feriadosPeriodo.map((f) => `${f.fecha.slice(8)}/${f.fecha.slice(5, 7)} ${f.nombre}`).join(' · ')}.`
+              : ''}
           </p>
         </div>
         <div className="rrhh-asistencia-actions">
@@ -787,12 +833,8 @@ export default function RrhhLiquidacionMensualTab({
                           value={f.neto}
                           placeholder={f.netoCalculado ? String(f.netoCalculado) : '0'}
                           onCommit={(n) => {
-                            // Si coincide con el calculado, no forzar override manual.
-                            if (Math.abs(n - f.netoCalculado) < 0.005) {
-                              cambiarMonto(f.id, 'netoManual', '')
-                            } else {
-                              cambiarMonto(f.id, 'netoManual', String(n))
-                            }
+                            // Siempre persistir el valor del input en BD (también si coincide con el calculado).
+                            cambiarMonto(f.id, 'netoManual', String(n))
                           }}
                         />
                         {f.netoManual ? (
@@ -923,11 +965,20 @@ export default function RrhhLiquidacionMensualTab({
                             <p>Debía venir: {f.diasDebia}. Vino: {f.diasVino}.</p>
                             <p>
                               Domingos: {f.domingos}. Vino {f.domingosVino}
-                              {f.domingosVino > 0 ? ` (${f.horasDomingo.toFixed(1)} hs al doble, ${formatArs(f.importeDomingo)})` : ''}.
+                              {f.domingosVino > 0
+                                ? ` (${f.horasDomingo.toFixed(1)} hs al doble, ${formatArs(f.importeDomingo)})`
+                                : ' · si no vino, no es falta'}
+                              .
                             </p>
                             <p>
-                              Feriados: {f.feriados}. Vino {f.feriadosVino}
-                              {f.feriadosVino > 0 ? ` (${f.horasFeriado.toFixed(1)} hs al doble, ${formatArs(f.importeFeriado)})` : ''}.
+                              Feriados/puentes AR: {f.feriados}. Vino {f.feriadosVino}
+                              {f.feriadosVino > 0
+                                ? ` (${f.horasFeriado.toFixed(1)} hs al doble, ${formatArs(f.importeFeriado)})`
+                                : ' · si no vino, no es falta'}
+                              .
+                              {feriadosPeriodo.length > 0
+                                ? ` (${feriadosPeriodo.map((x) => x.nombre).join(', ')})`
+                                : ''}
                             </p>
                             <p>Días que no trabaja: {f.diasNoTrabaja}. Vino igual: {f.noTrabajaVino}.</p>
                             <p>Esas horas de domingo y feriado están dentro de las extra al 100%.</p>

@@ -1,4 +1,5 @@
 import type { RrhhNovedad, RrhhNovedadGrupo, SolicitudPermiso } from '../types/api'
+import { esFeriado } from './feriadosArgentina'
 
 export function novedadEnDia(n: RrhhNovedad, dayStr: string): boolean {
   return n.fecha_desde <= dayStr && n.fecha_hasta >= dayStr
@@ -99,5 +100,8 @@ export function abreviaturaCodigoNovedad(codigo: string): string {
 export function esDiaHabil(dayStr: string): boolean {
   const [y, m, d] = dayStr.split('-').map(Number)
   const dow = new Date(y, m - 1, d).getDay()
+  // Domingo no es hábil. Feriados/puentes AR tampoco (no exigen marca ni son falta).
+  if (dow === 0) return false
+  if (esFeriado(dayStr.slice(0, 10))) return false
   return dow >= 1 && dow <= 6
 }

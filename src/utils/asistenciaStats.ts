@@ -146,11 +146,12 @@ function jornadaNormal(fecha: string, horario: HorarioFijoAsistencia | null, con
   return config.jornadaLunVie
 }
 
-/** Lun–Vie siempre; sábado solo si el horario fijo del empleado lo incluye; domingo nunca. */
+/** Lun–Vie (no feriado); sábado solo si trabaja sábado; domingo y feriado nunca. */
 function esDiaLaborableEmpleado(fecha: string, horario: HorarioFijoAsistencia | null): boolean {
   const [y, m, d] = fecha.split('-').map(Number)
   const dow = new Date(y, m - 1, d).getDay()
   if (dow === 0) return false
+  if (esFeriado(fecha)) return false
   if (dow === 6) return horario?.trabajaSabado === true
   return true
 }
