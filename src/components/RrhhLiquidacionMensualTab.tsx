@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import apiService from '../services/api'
 import type {
   Asistencia,
+  RrhhLiquidacionDeuda,
+  RrhhLiquidacionDeudaTipo,
   RrhhLiquidacionPago,
   RrhhNovedad,
   SolicitudPermiso,
@@ -29,11 +31,19 @@ import {
   armarLiquidacionEmpleado,
   cargarMesLiquidacion,
   guardarMesLiquidacion,
+  mesAnterior,
   mesDeFecha,
   totalesLiquidacion,
   type CargaSocialDef,
   type MontosLiquidacion
 } from '../utils/liquidacionMensual'
+import {
+  deudasAplicables,
+  etiquetaDeudaTipo,
+  periodoHabilitaArrastreAuto,
+  periodoOrigenArrastre,
+  resumenLiquidacionDeuda
+} from '../utils/liquidacionDeudas'
 import { filtrarUsuariosLiquidacionMensual } from '../utils/rrhhUsuariosExcluidos'
 import { feriadosEntre } from '../utils/feriadosArgentina'
 import './RrhhLiquidacionMensualTab.css'
@@ -155,10 +165,16 @@ export default function RrhhLiquidacionMensualTab({
   const [idPeriodo, setIdPeriodo] = useState<number | null>(null)
   const [guardandoBd, setGuardandoBd] = useState(false)
   const [pagosPorUsuario, setPagosPorUsuario] = useState<Record<number, RrhhLiquidacionPago[]>>({})
+  const [deudas, setDeudas] = useState<RrhhLiquidacionDeuda[]>([])
   const [pagoDraft, setPagoDraft] = useState<
     Record<number, { fecha: string; monto: string; notas: string; recibo: File | null }>
   >({})
+  const [deudaDraft, setDeudaDraft] = useState<
+    Record<number, { tipo: RrhhLiquidacionDeudaTipo; monto: string; concepto: string; periodoOrigen: string }>
+  >({})
   const [subiendoPago, setSubiendoPago] = useState<number | null>(null)
+  const [guardandoDeuda, setGuardandoDeuda] = useState<number | null>(null)
+  const arrastreHechoRef = useRef<string | null>(null)
   const [fechasIngreso, setFechasIngreso] = useState<Record<number, string | null>>({})
   const [abierto, setAbierto] = useState<number | null>(null)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
@@ -256,6 +272,8 @@ export default function RrhhLiquidacionMensualTab({
           }
           setPagosPorUsuario(map)
         }
+        const deudasRes = await apiService.rrhhLiquidacionDeudasListar({ soloActivas: true })
+        if (!cancelado && deudasRes.success && deudasRes.data) setDeudas(deudasRes.data)
       } else {
         setIdPeriodo(null)
         setCargas(local.cargas)
@@ -264,6 +282,7 @@ export default function RrhhLiquidacionMensualTab({
         setValorDiaDescuento(local.valorDiaDescuento)
         setPrecioDefault(leerPrecioDefault())
         setPagosPorUsuario({})
+        setDeudas([])
         // Crear período en BD al abrir el mes
         const crear = await apiService.rrhhLiquidacionPeriodoUpsert({
           periodo: mes,
@@ -276,7 +295,10 @@ export default function RrhhLiquidacionMensualTab({
           }
         })
         if (!cancelado && crear.success && crear.data) setIdPeriodo(crear.data.id)
+        const deudasRes = await apiService.rrhhLiquidacionDeudasListar({ soloActivas: true })
+        if (!cancelado && deudasRes.success && deudasRes.data) setDeudas(deudasRes.data)
       }
+      arrastreHechoRef.current = null
       if (!cancelado) setListo(true)
     })()
     return () => {
@@ -457,6 +479,76 @@ export default function RrhhLiquidacionMensualTab({
 
   const totales = useMemo(() => totalesLiquidacion(filas), [filas])
 
+  /** Arrastre automático del saldo impago del mes anterior (neto − pagos), desde el mes actual en adelante. */
+  useEffect(() => {
+    if (!listo || !periodoHabilitaArrastreAuto(mes) || empleados.length === 0) return
+    if (arrastreHechoRef.current === mes) return
+    let cancelado = false
+    void (async () => {
+      const origen = periodoOrigenArrastre(mes)
+      const prev = await apiService.rrhhLiquidacionPeriodoObtener(origen)
+      if (cancelado || !prev.success || !prev.data) {
+        arrastreHechoRef.current = mes
+        return
+      }
+      const pagosPrev = await apiService.rrhhLiquidacionPagosListar(prev.data.id)
+      const pagosMap: Record<number, number> = {}
+      if (pagosPrev.success && pagosPrev.data) {
+        for (const p of pagosPrev.data) {
+          pagosMap[p.id_usuario] = Math.round(((pagosMap[p.id_usuario] || 0) + p.monto) * 100) / 100
+        }
+      }
+      const cfg = prev.data.config_json || {}
+      const montosPrev =
+        cfg.montos && typeof cfg.montos === 'object'
+          ? (cfg.montos as Record<string, Partial<MontosLiquidacion>>)
+          : {}
+      const actor = (() => {
+        try {
+          const u = localStorage.getItem('usuario')
+          return u ? Number(JSON.parse(u).id) || null : null
+        } catch {
+          return null
+        }
+      })()
+      const nuevas: RrhhLiquidacionDeuda[] = []
+      for (const u of empleados) {
+        const row = montosPrev[String(u.id)]
+        const netoPrev =
+          row?.netoManual != null && Number.isFinite(Number(row.netoManual))
+            ? Math.round(Number(row.netoManual) * 100) / 100
+            : 0
+        const pagadoPrev = pagosMap[u.id] || 0
+        const saldoImpago = Math.round((netoPrev - pagadoPrev) * 100) / 100
+        const res = await apiService.rrhhLiquidacionDeudaAsegurarArrastre({
+          id_usuario: u.id,
+          periodo_destino: mes,
+          periodo_origen: origen,
+          saldo_impago: saldoImpago,
+          id_periodo_origen: prev.data.id,
+          registrado_por: actor
+        })
+        if (res.success && res.data) nuevas.push(res.data)
+      }
+      if (cancelado) return
+      arrastreHechoRef.current = mes
+      if (nuevas.length) {
+        setDeudas((prevDeudas) => {
+          const sinArrastreDestino = prevDeudas.filter(
+            (d) => !(d.tipo === 'arrastre' && d.periodo_destino === mes)
+          )
+          return [...nuevas, ...sinArrastreDestino]
+        })
+      } else {
+        const refresco = await apiService.rrhhLiquidacionDeudasListar({ soloActivas: true })
+        if (refresco.success && refresco.data) setDeudas(refresco.data)
+      }
+    })()
+    return () => {
+      cancelado = true
+    }
+  }, [listo, mes, empleados])
+
   const periodoLabel = useMemo(() => {
     const d = new Date(fechaDesde + 'T12:00:00')
     const h = new Date(fechaHasta + 'T12:00:00')
@@ -633,14 +725,43 @@ export default function RrhhLiquidacionMensualTab({
         alert(res.error || 'No se pudo registrar el pago')
         return
       }
+      const nextPagos = [res.data!, ...(pagosPorUsuario[idUsuario] ?? [])]
       setPagosPorUsuario((prev) => ({
         ...prev,
-        [idUsuario]: [res.data!, ...(prev[idUsuario] ?? [])]
+        [idUsuario]: nextPagos
       }))
       setPagoDraft((prev) => ({
         ...prev,
         [idUsuario]: { fecha: getArgentinaDateString(), monto: '', notas: '', recibo: null }
       }))
+      // Excedente sobre el neto del mes se aplica a deudas pendientes (FIFO).
+      const fila = filas.find((x) => x.id === idUsuario)
+      const netoMes = fila?.neto ?? 0
+      const pagado = nextPagos.reduce((s, p) => s + p.monto, 0)
+      let leftover = Math.round((pagado - netoMes) * 100) / 100
+      if (leftover > 0) {
+        const aplicables = deudasAplicables(deudas, idUsuario, mes).slice().sort((a, b) => a.id - b.id)
+        const updated: RrhhLiquidacionDeuda[] = []
+        for (const d of aplicables) {
+          if (leftover <= 0) break
+          const aplica = Math.min(d.monto_pendiente, leftover)
+          const pendiente = Math.round((d.monto_pendiente - aplica) * 100) / 100
+          leftover = Math.round((leftover - aplica) * 100) / 100
+          const up = await apiService.rrhhLiquidacionDeudaActualizar(d.id, {
+            monto_pendiente: pendiente,
+            activa: pendiente > 0
+          })
+          if (up.success && up.data) updated.push(up.data)
+        }
+        if (updated.length) {
+          setDeudas((prev) => {
+            const byId = new Map(updated.map((d) => [d.id, d]))
+            return prev
+              .map((d) => byId.get(d.id) ?? d)
+              .filter((d) => d.activa && d.monto_pendiente > 0)
+          })
+        }
+      }
     } finally {
       setSubiendoPago(null)
     }
@@ -657,6 +778,75 @@ export default function RrhhLiquidacionMensualTab({
       ...prev,
       [pago.id_usuario]: (prev[pago.id_usuario] ?? []).filter((p) => p.id !== pago.id)
     }))
+  }
+
+  const draftDeuda = (idUsuario: number) =>
+    deudaDraft[idUsuario] ?? {
+      tipo: 'mes_anterior' as RrhhLiquidacionDeudaTipo,
+      monto: '',
+      concepto: '',
+      periodoOrigen: mesAnterior(mes)
+    }
+
+  const registrarDeuda = async (idUsuario: number) => {
+    const d = draftDeuda(idUsuario)
+    const monto = aNumero(d.monto)
+    if (monto <= 0) {
+      alert('Indicá el monto de la deuda.')
+      return
+    }
+    if (d.tipo !== 'mes_anterior' && d.tipo !== 'especial') {
+      alert('Tipo de deuda inválido.')
+      return
+    }
+    setGuardandoDeuda(idUsuario)
+    try {
+      const actor = (() => {
+        try {
+          const u = localStorage.getItem('usuario')
+          return u ? Number(JSON.parse(u).id) || null : null
+        } catch {
+          return null
+        }
+      })()
+      const res = await apiService.rrhhLiquidacionDeudaCrear({
+        id_usuario: idUsuario,
+        tipo: d.tipo,
+        concepto: d.concepto.trim() || (d.tipo === 'especial' ? 'Deuda especial' : `Deuda ${d.periodoOrigen || mesAnterior(mes)}`),
+        monto,
+        periodo_origen: d.tipo === 'mes_anterior' ? d.periodoOrigen || mesAnterior(mes) : null,
+        periodo_destino: mes,
+        registrado_por: actor
+      })
+      if (!res.success || !res.data) {
+        alert(res.error || 'No se pudo registrar la deuda')
+        return
+      }
+      setDeudas((prev) => [res.data!, ...prev])
+      setDeudaDraft((prev) => ({
+        ...prev,
+        [idUsuario]: {
+          tipo: 'mes_anterior',
+          monto: '',
+          concepto: '',
+          periodoOrigen: mesAnterior(mes)
+        }
+      }))
+    } finally {
+      setGuardandoDeuda(null)
+    }
+  }
+
+  const eliminarDeuda = async (deuda: RrhhLiquidacionDeuda) => {
+    if (!window.confirm(`¿Quitar deuda de ${formatArs(deuda.monto_pendiente)} (${etiquetaDeudaTipo(deuda.tipo)})?`)) {
+      return
+    }
+    const res = await apiService.rrhhLiquidacionDeudaEliminar(deuda.id)
+    if (!res.success) {
+      alert(res.error || 'No se pudo eliminar')
+      return
+    }
+    setDeudas((prev) => prev.filter((d) => d.id !== deuda.id))
   }
 
   const exportarPdf = () => {
@@ -860,28 +1050,45 @@ export default function RrhhLiquidacionMensualTab({
                               <p className="liq-detalle-kicker">{f.nombre}</p>
                               <h3 className="liq-detalle-title">Detalle de liquidación</h3>
                             </div>
-                            <div className="liq-detalle-kpis">
-                              <div className="liq-kpi liq-kpi-neto">
-                                <span>Neto</span>
-                                <strong>{formatArs(f.neto)}</strong>
-                              </div>
-                              <div className="liq-kpi">
-                                <span>Haberes</span>
-                                <strong>{formatArs(f.haberes)}</strong>
-                              </div>
-                              <div className="liq-kpi">
-                                <span>Puntualidad</span>
-                                <strong style={{ color: puntualColor }}>
-                                  {f.diasConEntrada ? `${f.puntualidadPct}%` : '—'}
-                                </strong>
-                              </div>
-                              <div className="liq-kpi">
-                                <span>Faltas / tardanzas</span>
-                                <strong>
-                                  {f.faltas} · {f.tardanzas}
-                                </strong>
-                              </div>
-                            </div>
+                            {(() => {
+                              const rHero = resumenLiquidacionDeuda({
+                                netoMes: f.neto,
+                                deudas: deudasAplicables(deudas, f.id, mes),
+                                pagos: pagosPorUsuario[f.id] ?? []
+                              })
+                              return (
+                                <div className="liq-detalle-kpis">
+                                  <div className="liq-kpi liq-kpi-neto">
+                                    <span>Neto mes</span>
+                                    <strong>{formatArs(rHero.netoMes)}</strong>
+                                  </div>
+                                  <div className="liq-kpi">
+                                    <span>Deudas</span>
+                                    <strong>{formatArs(rHero.deudas)}</strong>
+                                  </div>
+                                  <div className="liq-kpi">
+                                    <span>A liquidar</span>
+                                    <strong>{formatArs(rHero.totalALiquidar)}</strong>
+                                  </div>
+                                  <div className="liq-kpi">
+                                    <span>Pagado</span>
+                                    <strong>{formatArs(rHero.pagado)}</strong>
+                                  </div>
+                                  <div className="liq-kpi">
+                                    <span>Saldo</span>
+                                    <strong className={rHero.saldo > 0 ? 'liq-saldo-ok' : ''}>
+                                      {formatArs(rHero.saldo)}
+                                    </strong>
+                                  </div>
+                                  <div className="liq-kpi">
+                                    <span>Puntualidad</span>
+                                    <strong style={{ color: puntualColor }}>
+                                      {f.diasConEntrada ? `${f.puntualidadPct}%` : '—'}
+                                    </strong>
+                                  </div>
+                                </div>
+                              )
+                            })()}
                           </header>
 
                           <div className="liq-detalle-grid">
@@ -1202,30 +1409,152 @@ export default function RrhhLiquidacionMensualTab({
                             </section>
 
                             <section className="liq-panel liq-pagos">
-                              <h4>Pagos parciales</h4>
+                              <h4>Deudas y pagos</h4>
                               {(() => {
                                 const pagos = pagosPorUsuario[f.id] ?? []
-                                const pagado = pagos.reduce((s, p) => s + p.monto, 0)
-                                const saldo = Math.round((f.neto - pagado) * 100) / 100
+                                const deudasEmp = deudasAplicables(deudas, f.id, mes)
+                                const r = resumenLiquidacionDeuda({
+                                  netoMes: f.neto,
+                                  deudas: deudasEmp,
+                                  pagos
+                                })
                                 const d = draftPago(f.id)
+                                const dd = draftDeuda(f.id)
                                 return (
                                   <>
-                                    <div className="liq-pagos-resumen">
+                                    <div className="liq-pagos-resumen liq-pagos-resumen-5">
                                       <div>
-                                        <span>Neto</span>
-                                        <strong>{formatArs(f.neto)}</strong>
+                                        <span>Neto mes</span>
+                                        <strong>{formatArs(r.netoMes)}</strong>
+                                      </div>
+                                      <div>
+                                        <span>Deudas</span>
+                                        <strong>{formatArs(r.deudas)}</strong>
+                                      </div>
+                                      <div>
+                                        <span>A liquidar</span>
+                                        <strong>{formatArs(r.totalALiquidar)}</strong>
                                       </div>
                                       <div>
                                         <span>Pagado</span>
-                                        <strong>{formatArs(pagado)}</strong>
+                                        <strong>{formatArs(r.pagado)}</strong>
                                       </div>
                                       <div>
                                         <span>Saldo</span>
-                                        <strong className={saldo > 0 ? 'liq-saldo-ok' : ''}>
-                                          {formatArs(saldo)}
+                                        <strong className={r.saldo > 0 ? 'liq-saldo-ok' : ''}>
+                                          {formatArs(r.saldo)}
                                         </strong>
                                       </div>
                                     </div>
+                                    <p className="liq-hint">
+                                      El pago parcial descuenta del neto del mes; el excedente baja deudas. El saldo
+                                      impago del neto se arrastra solo al mes siguiente (desde hoy).
+                                    </p>
+
+                                    <h5 className="liq-subhead">Deudas al empleado</h5>
+                                    {deudasEmp.length === 0 ? (
+                                      <p className="liq-muted">Sin deudas pendientes.</p>
+                                    ) : (
+                                      <ul className="liq-pagos-lista">
+                                        {deudasEmp.map((deu) => (
+                                          <li key={deu.id}>
+                                            <span>
+                                              <span className="liq-badge liq-badge-soft">
+                                                {etiquetaDeudaTipo(deu.tipo)}
+                                              </span>{' '}
+                                              {formatArs(deu.monto_pendiente)}
+                                              {deu.concepto ? ` · ${deu.concepto}` : ''}
+                                              {deu.periodo_origen ? ` · origen ${deu.periodo_origen}` : ''}
+                                            </span>
+                                            <span className="liq-pagos-acciones">
+                                              {deu.tipo !== 'arrastre' ? (
+                                                <button type="button" onClick={() => void eliminarDeuda(deu)}>
+                                                  Quitar
+                                                </button>
+                                              ) : (
+                                                <button type="button" onClick={() => void eliminarDeuda(deu)}>
+                                                  Anular arrastre
+                                                </button>
+                                              )}
+                                            </span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                    <div className="liq-pagos-form">
+                                      <label>
+                                        Tipo
+                                        <select
+                                          value={dd.tipo}
+                                          onChange={(e) =>
+                                            setDeudaDraft((prev) => ({
+                                              ...prev,
+                                              [f.id]: {
+                                                ...dd,
+                                                tipo: e.target.value as RrhhLiquidacionDeudaTipo
+                                              }
+                                            }))
+                                          }
+                                        >
+                                          <option value="mes_anterior">Mes anterior (manual)</option>
+                                          <option value="especial">Deuda especial</option>
+                                        </select>
+                                      </label>
+                                      {dd.tipo === 'mes_anterior' ? (
+                                        <label>
+                                          Período origen
+                                          <input
+                                            type="month"
+                                            value={dd.periodoOrigen}
+                                            onChange={(e) =>
+                                              setDeudaDraft((prev) => ({
+                                                ...prev,
+                                                [f.id]: { ...dd, periodoOrigen: e.target.value }
+                                              }))
+                                            }
+                                          />
+                                        </label>
+                                      ) : null}
+                                      <label>
+                                        Monto
+                                        <input
+                                          type="text"
+                                          inputMode="decimal"
+                                          placeholder="0"
+                                          value={dd.monto}
+                                          onChange={(e) =>
+                                            setDeudaDraft((prev) => ({
+                                              ...prev,
+                                              [f.id]: { ...dd, monto: e.target.value }
+                                            }))
+                                          }
+                                        />
+                                      </label>
+                                      <label>
+                                        Concepto
+                                        <input
+                                          type="text"
+                                          placeholder="Ej. saldo septiembre / préstamo"
+                                          value={dd.concepto}
+                                          onChange={(e) =>
+                                            setDeudaDraft((prev) => ({
+                                              ...prev,
+                                              [f.id]: { ...dd, concepto: e.target.value }
+                                            }))
+                                          }
+                                        />
+                                      </label>
+                                      <button
+                                        type="button"
+                                        className="liq-btn-pago"
+                                        disabled={guardandoDeuda === f.id}
+                                        onClick={() => void registrarDeuda(f.id)}
+                                      >
+                                        {guardandoDeuda === f.id ? 'Guardando…' : 'Cargar deuda'}
+                                      </button>
+                                    </div>
+
+                                    <h5 className="liq-subhead">Pagos parciales del mes</h5>
                                     {pagos.length === 0 ? (
                                       <p className="liq-muted">Sin pagos registrados este mes.</p>
                                     ) : (

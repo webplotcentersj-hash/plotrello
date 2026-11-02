@@ -1839,6 +1839,25 @@ export interface RrhhLiquidacionPago {
   updated_at: string
 }
 
+/** Deuda al empleado (lo que aún se le debe): mes anterior, especial o arrastre auto. */
+export type RrhhLiquidacionDeudaTipo = 'mes_anterior' | 'especial' | 'arrastre'
+
+export interface RrhhLiquidacionDeuda {
+  id: number
+  id_usuario: number
+  tipo: RrhhLiquidacionDeudaTipo
+  concepto: string | null
+  monto: number
+  monto_pendiente: number
+  periodo_origen: string | null
+  periodo_destino: string | null
+  id_periodo_origen: number | null
+  activa: boolean
+  registrado_por: number | null
+  created_at: string
+  updated_at: string
+}
+
 /** Línea por empleado en un cierre de liquidación. */
 export interface RrhhLiquidacionLinea {
   id?: number

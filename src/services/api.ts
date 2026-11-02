@@ -18594,6 +18594,29 @@ class ApiService {
     }
   }
 
+  private mapRrhhLiquidacionDeuda(row: Record<string, unknown>): import('../types/api').RrhhLiquidacionDeuda {
+    const tipoRaw = String(row.tipo || '')
+    const tipo =
+      tipoRaw === 'especial' || tipoRaw === 'arrastre' || tipoRaw === 'mes_anterior'
+        ? tipoRaw
+        : 'especial'
+    return {
+      id: Number(row.id),
+      id_usuario: Number(row.id_usuario),
+      tipo,
+      concepto: row.concepto != null ? String(row.concepto) : null,
+      monto: Number(row.monto) || 0,
+      monto_pendiente: Number(row.monto_pendiente) || 0,
+      periodo_origen: row.periodo_origen != null ? String(row.periodo_origen) : null,
+      periodo_destino: row.periodo_destino != null ? String(row.periodo_destino) : null,
+      id_periodo_origen: row.id_periodo_origen != null ? Number(row.id_periodo_origen) : null,
+      activa: row.activa !== false,
+      registrado_por: row.registrado_por != null ? Number(row.registrado_por) : null,
+      created_at: String(row.created_at || ''),
+      updated_at: String(row.updated_at || '')
+    }
+  }
+
   private mapRrhhLiquidacionLinea(row: Record<string, unknown>): RrhhLiquidacionLinea {
     const detalle = row.detalle_json
     return {
@@ -18812,6 +18835,202 @@ class ApiService {
       return {
         success: false,
         error: supabaseErrorMessage(e, 'Error al subir recibo de pago')
+      }
+    }
+  }
+
+  async rrhhLiquidacionDeudasListar(opts?: {
+    idUsuario?: number
+    soloActivas?: boolean
+    periodoDestino?: string
+  }): Promise<ApiResponse<import('../types/api').RrhhLiquidacionDeuda[]>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      let q = supabase
+        .from('rrhh_liquidacion_deudas')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (opts?.idUsuario != null) q = q.eq('id_usuario', opts.idUsuario)
+      if (opts?.soloActivas !== false) q = q.eq('activa', true)
+      if (opts?.periodoDestino) q = q.eq('periodo_destino', opts.periodoDestino)
+      const { data, error } = await q
+      if (error) throw error
+      return {
+        success: true,
+        data: ((data ?? []) as Record<string, unknown>[]).map((r) => this.mapRrhhLiquidacionDeuda(r))
+      }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al listar deudas de liquidación')
+      }
+    }
+  }
+
+  async rrhhLiquidacionDeudaCrear(input: {
+    id_usuario: number
+    tipo: import('../types/api').RrhhLiquidacionDeudaTipo
+    concepto?: string | null
+    monto: number
+    periodo_origen?: string | null
+    periodo_destino?: string | null
+    id_periodo_origen?: number | null
+    registrado_por?: number | null
+  }): Promise<ApiResponse<import('../types/api').RrhhLiquidacionDeuda>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const monto = Math.round(Number(input.monto) * 100) / 100
+      if (!(monto > 0)) return { success: false, error: 'El monto debe ser mayor a 0' }
+      const { data, error } = await supabase
+        .from('rrhh_liquidacion_deudas')
+        .insert({
+          id_usuario: input.id_usuario,
+          tipo: input.tipo,
+          concepto: input.concepto ?? null,
+          monto,
+          monto_pendiente: monto,
+          periodo_origen: input.periodo_origen ?? null,
+          periodo_destino: input.periodo_destino ?? null,
+          id_periodo_origen: input.id_periodo_origen ?? null,
+          activa: true,
+          registrado_por: input.registrado_por ?? null
+        })
+        .select('*')
+        .single()
+      if (error) throw error
+      return { success: true, data: this.mapRrhhLiquidacionDeuda(data as Record<string, unknown>) }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al registrar deuda')
+      }
+    }
+  }
+
+  async rrhhLiquidacionDeudaActualizar(
+    id: number,
+    patch: {
+      concepto?: string | null
+      monto_pendiente?: number
+      activa?: boolean
+    }
+  ): Promise<ApiResponse<import('../types/api').RrhhLiquidacionDeuda>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (patch.concepto !== undefined) payload.concepto = patch.concepto
+      if (patch.monto_pendiente != null) {
+        payload.monto_pendiente = Math.round(Number(patch.monto_pendiente) * 100) / 100
+      }
+      if (patch.activa != null) payload.activa = patch.activa
+      const { data, error } = await supabase
+        .from('rrhh_liquidacion_deudas')
+        .update(payload)
+        .eq('id', id)
+        .select('*')
+        .single()
+      if (error) throw error
+      return { success: true, data: this.mapRrhhLiquidacionDeuda(data as Record<string, unknown>) }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al actualizar deuda')
+      }
+    }
+  }
+
+  async rrhhLiquidacionDeudaEliminar(id: number): Promise<ApiResponse<boolean>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    try {
+      const { error } = await supabase
+        .from('rrhh_liquidacion_deudas')
+        .update({ activa: false, monto_pendiente: 0, updated_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
+      return { success: true, data: true }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al eliminar deuda')
+      }
+    }
+  }
+
+  /**
+   * Crea/actualiza arrastre del saldo impago del mes anterior hacia `periodo`
+   * (neto − pagos del período origen). Idempotente por usuario+periodo_destino.
+   */
+  async rrhhLiquidacionDeudaAsegurarArrastre(input: {
+    id_usuario: number
+    periodo_destino: string
+    periodo_origen: string
+    saldo_impago: number
+    id_periodo_origen?: number | null
+    registrado_por?: number | null
+  }): Promise<ApiResponse<import('../types/api').RrhhLiquidacionDeuda | null>> {
+    if (!supabase) return { success: false, error: 'Supabase no inicializado' }
+    const saldo = Math.round(Number(input.saldo_impago) * 100) / 100
+    try {
+      const { data: existing, error: exErr } = await supabase
+        .from('rrhh_liquidacion_deudas')
+        .select('*')
+        .eq('id_usuario', input.id_usuario)
+        .eq('tipo', 'arrastre')
+        .eq('periodo_destino', input.periodo_destino)
+        .eq('activa', true)
+        .maybeSingle()
+      if (exErr) throw exErr
+
+      if (saldo <= 0) {
+        if (existing) {
+          await supabase
+            .from('rrhh_liquidacion_deudas')
+            .update({ activa: false, monto_pendiente: 0, updated_at: new Date().toISOString() })
+            .eq('id', (existing as { id: number }).id)
+        }
+        return { success: true, data: null }
+      }
+
+      if (existing) {
+        const { data, error } = await supabase
+          .from('rrhh_liquidacion_deudas')
+          .update({
+            monto: saldo,
+            monto_pendiente: saldo,
+            periodo_origen: input.periodo_origen,
+            id_periodo_origen: input.id_periodo_origen ?? null,
+            concepto: `Saldo impago ${input.periodo_origen}`,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', (existing as { id: number }).id)
+          .select('*')
+          .single()
+        if (error) throw error
+        return { success: true, data: this.mapRrhhLiquidacionDeuda(data as Record<string, unknown>) }
+      }
+
+      const { data, error } = await supabase
+        .from('rrhh_liquidacion_deudas')
+        .insert({
+          id_usuario: input.id_usuario,
+          tipo: 'arrastre',
+          concepto: `Saldo impago ${input.periodo_origen}`,
+          monto: saldo,
+          monto_pendiente: saldo,
+          periodo_origen: input.periodo_origen,
+          periodo_destino: input.periodo_destino,
+          id_periodo_origen: input.id_periodo_origen ?? null,
+          activa: true,
+          registrado_por: input.registrado_por ?? null
+        })
+        .select('*')
+        .single()
+      if (error) throw error
+      return { success: true, data: this.mapRrhhLiquidacionDeuda(data as Record<string, unknown>) }
+    } catch (e) {
+      return {
+        success: false,
+        error: supabaseErrorMessage(e, 'Error al asegurar arrastre de deuda')
       }
     }
   }
