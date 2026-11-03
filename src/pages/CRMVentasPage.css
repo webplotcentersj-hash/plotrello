@@ -1489,6 +1489,9 @@
 }
 
 .venta-detail-modal__footer {
+  position: relative;
+  z-index: 5;
+  overflow: visible;
   flex-wrap: wrap;
   justify-content: flex-start;
   gap: 6px;
@@ -1571,11 +1574,12 @@
 }
 
 .venta-docs-split {
+  position: relative;
   display: inline-flex !important;
   align-items: stretch;
   gap: 0;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .venta-docs-split .btn-action {
@@ -1595,17 +1599,33 @@
   border-left: 0 !important;
 }
 
+.venta-detail-modal.venta-card--menu-open {
+  overflow: visible;
+  z-index: 10060;
+}
+
+.venta-detail-modal__footer .export-dropdown {
+  position: relative;
+  z-index: 6;
+}
+
 .venta-detail-modal__footer .export-menu {
-  min-width: 168px;
-  padding: 4px;
+  min-width: 188px;
+  padding: 6px;
   border-radius: 10px;
   border-width: 1px;
+  z-index: 10070;
+  bottom: calc(100% + 6px);
+  top: auto;
+  right: 0;
+  left: auto;
 }
 
 .venta-detail-modal__footer .export-menu-header {
   padding: 6px 8px 4px;
   margin-bottom: 2px;
   font-size: 0.68rem;
+  color: rgba(226, 232, 240, 0.9);
 }
 
 .venta-detail-modal__footer .export-menu button {
@@ -1613,10 +1633,12 @@
   font-size: 0.78rem;
   margin-bottom: 1px;
   border-radius: 6px;
+  color: #f8fafc;
 }
 
 .venta-detail-modal__footer .export-menu button:hover {
   transform: none;
+  color: #93c5fd;
 }
 
 .venta-detail-modal-overlay {
