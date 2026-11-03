@@ -19,6 +19,7 @@ import {
   esPagoMixto
 } from '../constants/ventasCondicionesPago'
 import { unidadDesdeDescripcionItem } from './unidadPrecio'
+import { descargarPresupuestoA4Pdf } from './documentos/presupuestoPdf'
 import apiService from '../services/api'
 import {
   buildPresupuestoPlanillaPdf,
@@ -219,6 +220,14 @@ export async function descargarPresupuestoVentaPDF(
 ): Promise<void> {
   const nombre = `${presupuesto.numero_presupuesto.replace(/\s+/g, '_')}.pdf`
   await downloadPresupuestoPlanillaPdf(await toPlanillaPayload(presupuesto, items), nombre)
+}
+
+/** Mismo presupuesto en A4 imprimible (no reemplaza la planilla de marca). */
+export async function descargarPresupuestoVentaA4(
+  presupuesto: PresupuestoVentaRecord,
+  items: PresupuestoVentaItemRecord[]
+): Promise<void> {
+  await descargarPresupuestoA4Pdf(await toPlanillaPayload(presupuesto, items))
 }
 
 function telefonoWhatsapp(tel: string | null | undefined): string | null {

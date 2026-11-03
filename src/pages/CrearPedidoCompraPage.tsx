@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { plantillaPedidoCompra } from '../features/copiar/plantillasCopia'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PrioridadPedido, Proveedor, ArticuloStock } from '../types/pedidos'
@@ -9,6 +10,9 @@ import './CrearPedidoCompraPage.css'
 
 const CrearPedidoCompraPage = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  /** Pedido del que se copian sector, proveedor, motivo y productos ("Copiar como nuevo"). */
+  const idCopiar = searchParams.get('copiar')
   const { canManageCompras, usuario, nombreVisible, loading: authLoading } = useAuth()
   const [saving, setSaving] = useState(false)
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
@@ -47,6 +51,34 @@ const CrearPedidoCompraPage = () => {
     }
     loadProveedores()
   }, [canManageCompras, usuario, navigate, authLoading])
+
+  useEffect(() => {
+    if (!idCopiar) return
+    let cancelled = false
+    void (async () => {
+      const response = await apiService.getPedidoCompra(Number(idCopiar))
+      if (cancelled) return
+      if (!response.success || !response.data) {
+        alert(response.error || 'No se pudo leer el pedido a copiar')
+        return
+      }
+      const p = plantillaPedidoCompra(response.data)
+      setFormData((prev) => ({
+        ...prev,
+        sector_solicitante: p.sector_solicitante,
+        id_proveedor: p.id_proveedor ? String(p.id_proveedor) : '',
+        motivo: p.motivo,
+        observaciones: p.observaciones,
+        prioridad: p.prioridad
+      }))
+      if (p.items.length > 0) {
+        setItems(p.items.map((i) => ({ ...i, cantidad: String(i.cantidad) })))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [idCopiar])
 
   const loadProveedores = async () => {
     setLoadingProveedores(true)

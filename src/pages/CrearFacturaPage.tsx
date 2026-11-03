@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
-import type { ArticuloEmpresaRecord, ClienteRecord, ConfiguracionAFIPRecord, OrdenTrabajo, Venta } from '../types/api'
+import type {
+  ArticuloEmpresaRecord,
+  ClienteRecord,
+  ConfiguracionAFIPRecord,
+  FacturaItemRecord,
+  FacturaVentaRecord,
+  OrdenTrabajo,
+  Venta
+} from '../types/api'
 import {
   LISTAS_PRECIO_VENTAS,
   labelAjustesPreciosActivos,
@@ -11,6 +19,7 @@ import {
 } from '../constants/ventasListasPrecio'
 import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosVentas'
 import { etiquetaUnidadCorta } from '../utils/unidadPrecio'
+import { plantillaFactura } from '../features/copiar/plantillasCopia'
 import {
   CONCEPTOS_AFIP,
   calcularLineaItem,
@@ -96,6 +105,8 @@ export default function CrearFacturaPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const idOP = searchParams.get('id_op')
   const idVentaParam = searchParams.get('id_venta')
+  /** Factura de la que se copian cliente, líneas y condiciones ("Copiar como nueva"). */
+  const idCopiarParam = searchParams.get('copiar')
 
   const [loading, setLoading] = useState(false)
   const [bootLoading, setBootLoading] = useState(true)
@@ -314,14 +325,53 @@ export default function CrearFacturaPage() {
     }
   }, [])
 
+  // Copia de otra factura: mismo cliente, líneas y condiciones; número, fecha, CAE, período, venta y OP no pasan.
+  const aplicarCopiaFactura = useCallback(
+    async (facturaId: number) => {
+      const response = await apiService.getFactura(facturaId)
+      const origen = response.success ? (response.data as (FacturaVentaRecord & { items?: FacturaItemRecord[] }) | undefined) : undefined
+      if (!origen) {
+        alert(response.error || 'No se pudo leer la factura a copiar')
+        return
+      }
+      const plantilla = plantillaFactura(origen, origen.items ?? [])
+      if (!plantilla) {
+        alert('Las notas de crédito y de débito no se copian: dependen de su comprobante original.')
+        return
+      }
+      aplicarCliente({
+        nombre: plantilla.cliente.nombre,
+        dni_cuit: plantilla.cliente.dni_cuit,
+        direccion: plantilla.cliente.direccion,
+        condicion_iva: plantilla.cliente.condicion_iva,
+        id_cliente: plantilla.cliente.id_cliente
+      })
+      setFormData((prev) => ({
+        ...prev,
+        tipo_comprobante: plantilla.tipo_comprobante,
+        concepto: plantilla.concepto,
+        observaciones: plantilla.observaciones
+      }))
+      // Los importes de una factura guardada son netos de IVA
+      setPreciosConIva(false)
+      setDescuentoGeneral(0)
+      setItems(plantilla.items.map((i) => ({ ...i })))
+    },
+    [aplicarCliente]
+  )
+
   useEffect(() => {
     if (bootLoading) return
+    if (idCopiarParam) {
+      void aplicarCopiaFactura(parseInt(idCopiarParam, 10))
+      return
+    }
     if (idVentaParam) {
       void aplicarVenta(parseInt(idVentaParam, 10))
       return
     }
     if (idOP) void loadOP(parseInt(idOP, 10))
-  }, [bootLoading, idOP, idVentaParam, aplicarVenta])
+  }, [bootLoading, idOP, idVentaParam, idCopiarParam, aplicarVenta, aplicarCopiaFactura])
 
   const loadOP = async (opId: number) => {
     try {

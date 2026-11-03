@@ -52,9 +52,10 @@ export function conceptoLabel(concepto: number | null | undefined): string {
   return CONCEPTOS_AFIP.find((c) => c.value === Number(concepto))?.label || 'Productos'
 }
 
+/** La letra es siempre el último carácter ("Nota de Crédito B" tiene una C en "Crédito"). */
 export function letraComprobante(tipo: string): 'A' | 'B' | 'C' {
-  if (tipo.includes(' A') || tipo.endsWith('A')) return 'A'
-  if (tipo.includes(' C') || tipo.endsWith('C')) return 'C'
+  const letra = tipo.trim().slice(-1).toUpperCase()
+  if (letra === 'A' || letra === 'C') return letra
   return 'B'
 }
 

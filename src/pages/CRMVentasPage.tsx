@@ -51,6 +51,14 @@ import { extraerUrlsDeObservaciones } from '../utils/presupuestoWebPublico'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import BuscadorClientesModal from '../components/BuscadorClientesModal'
 import CrearPresupuestoModal from '../components/CrearPresupuestoModal'
+import RemitoNuevoModal from '../components/remitos/RemitoNuevoModal'
+import { descargarOrdenEntregaPdf } from '../utils/documentos/ordenEntregaPdf'
+import {
+  plantillaPresupuesto,
+  plantillaVenta,
+  type PlantillaPresupuesto,
+  type PlantillaVenta
+} from '../features/copiar/plantillasCopia'
 import CajaCobroVentaModal from '../features/control-cajas/components/CajaCobroVentaModal'
 import VentaDevolucionModal from '../components/ventas/VentaDevolucionModal'
 import CajaSectionEgresos from '../features/control-cajas/components/CajaSectionEgresos'
@@ -75,6 +83,7 @@ import { useConfigAjustesPreciosVentas } from '../hooks/useConfigAjustesPreciosV
 import { useConfigCondicionesVenta } from '../hooks/useConfigCondicionesVenta'
 import { esPagoMixto, mediosPagoActivos } from '../constants/ventasCondicionesPago'
 import {
+  descargarPresupuestoVentaA4,
   descargarPresupuestoVentaPDF,
   enviarPresupuestoPorEmail,
   enviarPresupuestoPorWhatsapp
@@ -345,6 +354,7 @@ const CRMVentasPage = () => {
     return 'ventas'
   })
   const [showVentaRapida, setShowVentaRapida] = useState(false)
+  const [copiaVenta, setCopiaVenta] = useState<PlantillaVenta | null>(null)
   const [presupuestoParaVenta, setPresupuestoParaVenta] = useState<{
     presupuesto: PresupuestoVentaRecord
     items: PresupuestoVentaItemRecord[]
@@ -445,6 +455,7 @@ const CRMVentasPage = () => {
   const [articulosEncontradosEditar, setArticulosEncontradosEditar] = useState<ArticuloStock[]>([])
   const [buscandoArticulosEditar, setBuscandoArticulosEditar] = useState(false)
   const [dropdownDocumentosAbierto, setDropdownDocumentosAbierto] = useState<number | null>(null)
+  const [remitoVentaId, setRemitoVentaId] = useState<number | null>(null)
   const [dropdownExportVentasAbierto, setDropdownExportVentasAbierto] = useState(false)
   const [oportunidadParaPresupuesto, setOportunidadParaPresupuesto] = useState<OportunidadVenta | null>(null)
   const [crmBootstrapped, setCrmBootstrapped] = useState(false)
@@ -468,6 +479,7 @@ const CRMVentasPage = () => {
   const busquedaPresupuestoRef = useRef<HTMLInputElement>(null)
   const [mostrarBuscadorClientes, setMostrarBuscadorClientes] = useState(false)
   const [mostrarModalPresupuesto, setMostrarModalPresupuesto] = useState(false)
+  const [copiaPresupuesto, setCopiaPresupuesto] = useState<PlantillaPresupuesto | null>(null)
 
   // Ventas (solo CRM): ficha compacta + ampliar
   const [ventaModalId, setVentaModalId] = useState<number | null>(null)
@@ -1426,7 +1438,7 @@ const CRMVentasPage = () => {
   }
 
   const accionPresupuestoPdf = useCallback(
-    async (presupuesto: PresupuestoVentaRecord, modo: 'pdf' | 'whatsapp' | 'email') => {
+    async (presupuesto: PresupuestoVentaRecord, modo: 'pdf' | 'a4' | 'whatsapp' | 'email') => {
       const detalle = await apiService.obtenerDetallePresupuestoVenta(presupuesto.id)
       if (!detalle.success || !detalle.data) {
         alert(detalle.error || 'No se pudo cargar el presupuesto')
@@ -1435,6 +1447,7 @@ const CRMVentasPage = () => {
       const { presupuesto: p, items } = detalle.data
       try {
         if (modo === 'pdf') await descargarPresupuestoVentaPDF(p, items)
+        else if (modo === 'a4') await descargarPresupuestoVentaA4(p, items)
         else if (modo === 'whatsapp') await enviarPresupuestoPorWhatsapp(p, items)
         else await enviarPresupuestoPorEmail(p, items)
         if (p.estado === 'borrador') {
@@ -4007,11 +4020,40 @@ const CRMVentasPage = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            generarFacturaRemitoPDF(ventaModal, 'remito')
+                            setRemitoVentaId(ventaModal.id)
                             setDropdownDocumentosAbierto(null)
                           }}
                         >
-                          📦 Generar Remito
+                          📦 Remito (total o parcial)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void (async () => {
+                              const items = ventaModal.items?.length
+                                ? ventaModal.items
+                                : ((await apiService.getItemsVenta(ventaModal.id)).data ?? [])
+                              await descargarOrdenEntregaPdf({
+                                venta: {
+                                  numero_venta: ventaModal.numero_venta,
+                                  numero_op: ventaModal.numero_op,
+                                  cliente_nombre: ventaModal.cliente_nombre,
+                                  cliente_dni_cuit: ventaModal.cliente_dni_cuit,
+                                  cliente_direccion: ventaModal.cliente_direccion,
+                                  cliente_telefono: ventaModal.cliente_telefono,
+                                  nombre_vendedor: ventaModal.nombre_vendedor,
+                                  estado_pago: ventaModal.estado_pago,
+                                  valor_total: ventaModal.valor_total,
+                                  monto_pagado: ventaModal.monto_pagado,
+                                  observaciones: ventaModal.observaciones
+                                },
+                                items
+                              })
+                              setDropdownDocumentosAbierto(null)
+                            })()
+                          }}
+                        >
+                          📋 Orden de entrega
                         </button>
                         <button
                           type="button"
@@ -4045,6 +4087,23 @@ const CRMVentasPage = () => {
                       </div>
                     ) : null}
                   </div>
+                  <button
+                    type="button"
+                    className="btn-action"
+                    title="Nueva venta con el mismo cliente y las mismas líneas (sin número, cobros, OP ni facturas)"
+                    onClick={() => {
+                      void (async () => {
+                        const items = ventaModal.items?.length
+                          ? ventaModal.items
+                          : ((await apiService.getItemsVenta(ventaModal.id)).data ?? [])
+                        setCopiaVenta(plantillaVenta(ventaModal, items))
+                        cerrarVentaModal()
+                        setShowVentaRapida(true)
+                      })()
+                    }}
+                  >
+                    📋 Copiar como nueva
+                  </button>
                   <button
                     type="button"
                     className="btn-action"
@@ -4964,6 +5023,26 @@ const CRMVentasPage = () => {
                   <button
                     type="button"
                     className="btn-action"
+                    title="Presupuesto en hoja A4 para imprimir"
+                    onClick={() => void accionPresupuestoPdf(presupuestoModal, 'a4')}
+                  >
+                    📄 PDF A4
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-action"
+                    title="Presupuesto nuevo con el mismo cliente y las mismas líneas (sin número, fechas ni estado)"
+                    onClick={() => {
+                      setCopiaPresupuesto(plantillaPresupuesto(presupuestoModal, presupuestoModalItems))
+                      cerrarPresupuestoModal()
+                      setMostrarModalPresupuesto(true)
+                    }}
+                  >
+                    📋 Copiar como nuevo
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-action"
                     onClick={() => void accionPresupuestoPdf(presupuestoModal, 'whatsapp')}
                   >
                     💬 WhatsApp
@@ -5793,21 +5872,32 @@ const CRMVentasPage = () => {
         </div>
       )}
 
+      {remitoVentaId !== null &&
+        (() => {
+          const ventaRemito = ventas.find((v) => v.id === remitoVentaId)
+          return ventaRemito ? (
+            <RemitoNuevoModal venta={ventaRemito} onClose={() => setRemitoVentaId(null)} />
+          ) : null
+        })()}
+
       {mostrarModalPresupuesto && usuario && (
         <CrearPresupuestoModal
           key={oportunidadParaPresupuesto ? `opp-${oportunidadParaPresupuesto.id}` : 'presupuesto-nuevo'}
           onClose={() => {
             setMostrarModalPresupuesto(false)
             setOportunidadParaPresupuesto(null)
+            setCopiaPresupuesto(null)
           }}
           onSuccess={() => {
             setMostrarModalPresupuesto(false)
             setOportunidadParaPresupuesto(null)
+            setCopiaPresupuesto(null)
             loadData()
           }}
           usuarioId={usuario.id}
           usuarioNombre={nombreOperador}
           prefillDesdeOportunidad={oportunidadParaPresupuesto}
+          prefillDesdeCopia={copiaPresupuesto}
         />
       )}
 
@@ -5827,16 +5917,19 @@ const CRMVentasPage = () => {
           onClose={() => {
             setShowVentaRapida(false)
             setPresupuestoParaVenta(null)
+            setCopiaVenta(null)
           }}
           onSuccess={() => {
             setShowVentaRapida(false)
             setPresupuestoParaVenta(null)
+            setCopiaVenta(null)
             void loadData()
             setActiveTab('ventas')
           }}
           usuarioId={usuario.id}
           usuarioNombre={nombreOperador}
           prefillDesdePresupuesto={presupuestoParaVenta}
+          prefillDesdeVenta={copiaVenta}
         />
       )}
     </div>

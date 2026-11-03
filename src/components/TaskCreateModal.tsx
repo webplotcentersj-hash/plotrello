@@ -19,6 +19,7 @@ import {
 import {
   clearOpCreateDraft,
   formatOpCreateDraftSavedAt,
+  emptyOpCreateDraft,
   isOpCreateDraftMeaningful,
   loadOpCreateDraft,
   saveOpCreateDraft,
@@ -31,6 +32,8 @@ type TaskCreateModalProps = {
   materiales: MaterialRecord[]
   onClose: () => void
   onCreate: (newTask: Omit<Task, 'id'>, options?: { openChecklist?: boolean }) => Promise<void>
+  /** "Copiar como nueva": cliente y trabajo de otra OP; el número, la fecha y el cobro se cargan de nuevo. */
+  plantilla?: Partial<OpCreateDraftData> | null
 }
 
 type LocalAttachment = {
@@ -49,7 +52,8 @@ const TaskCreateModal = ({
   sectores,
   materiales,
   onClose,
-  onCreate
+  onCreate,
+  plantilla = null
 }: TaskCreateModalProps) => {
   const { usuario, nombreVisible, isAdmin, isDiseno } = useAuth()
   const draftUserKey = String(usuario?.id || (typeof localStorage !== 'undefined' ? localStorage.getItem('usuario_id') : '') || 'anon')
@@ -286,7 +290,9 @@ const TaskCreateModal = ({
       setDraftReady(true)
       return
     }
-    const rec = loadOpCreateDraft(draftUserKey)
+    const rec = plantilla
+      ? { data: { ...emptyOpCreateDraft(), ...plantilla }, savedAt: Date.now() }
+      : loadOpCreateDraft(draftUserKey)
     if (rec?.data) {
       const d = rec.data
       setOpNumber(d.opNumber || '')
@@ -338,7 +344,7 @@ const TaskCreateModal = ({
       setBriefMockupUrl(d.briefMockupUrl)
       setPedidoWebSeleccionado(d.pedidoWebSeleccionado)
       setDraftSavedAt(rec.savedAt)
-      setDraftRestored(true)
+      setDraftRestored(!plantilla)
     }
     setDraftReady(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hidratar una sola vez al abrir
@@ -1306,6 +1312,11 @@ const TaskCreateModal = ({
         </header>
 
         <div className="modal-body">
+          {plantilla ? (
+            <div className="create-draft-banner">
+              <span>Copia de otra OP: completá el número de OP y la fecha de entrega.</span>
+            </div>
+          ) : null}
           {draftRestored ? (
             <div className="create-draft-banner">
               <span>Recuperamos tu borrador. El guardado automático sigue activo.</span>

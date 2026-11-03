@@ -25,13 +25,16 @@ import {
   etiquetaUnidadCorta,
   importeLineaVentaPct,
   normalizarUnidadPrecio,
-  porcentajeDesdeDescuentoPesos
+  porcentajeDesdeDescuentoPesos,
+  unidadDesdeDescripcionItem
 } from '../utils/unidadPrecio'
+import type { PlantillaPresupuesto } from '../features/copiar/plantillasCopia'
 import {
   leerVentasPresupuestoDraft,
   limpiarVentasPresupuestoDraft
 } from '../utils/ventasPresupuestoDraft'
 import {
+  descargarPresupuestoVentaA4,
   descargarPresupuestoVentaPDF,
   enviarPresupuestoPorEmail,
   enviarPresupuestoPorWhatsapp
@@ -41,6 +44,8 @@ import { useConfigCondicionesVenta } from '../hooks/useConfigCondicionesVenta'
 import './CrearPresupuestoModal.css'
 
 interface CrearPresupuestoModalProps {
+  /** "Copiar como nuevo": cliente, líneas y condiciones de otro presupuesto (sin número, fechas ni estado). */
+  prefillDesdeCopia?: PlantillaPresupuesto | null
   onClose: () => void
   onSuccess: () => void
   usuarioId: number
@@ -77,7 +82,8 @@ const CrearPresupuestoModal = ({
   onSuccess,
   usuarioId,
   usuarioNombre,
-  prefillDesdeOportunidad
+  prefillDesdeOportunidad,
+  prefillDesdeCopia = null
 }: CrearPresupuestoModalProps) => {
   const { config: configCondiciones } = useConfigCondicionesVenta()
   const mediosChecklist = useMemo(
@@ -184,6 +190,63 @@ const CrearPresupuestoModal = ({
       return prev?.includes(nota) ? prev : prev ? `${prev}\n${nota}` : nota
     })
   }, [])
+
+  // Copia de otro presupuesto: mismas líneas, cliente y condiciones; el número, la validez y el estado se generan de nuevo.
+  useEffect(() => {
+    if (!prefillDesdeCopia) return
+    const c = prefillDesdeCopia
+    setObservacionesCliente(c.observaciones_cliente)
+    setObservacionesInternas(c.observaciones_internas)
+    setFormasPago(c.formas_pago)
+    setTipoListaPrecio(c.tipo_lista)
+    setSacarIva(c.sin_iva)
+    setItemsPresupuesto(
+      c.items.map((item) => {
+        const descuento = porcentajeDesdeDescuentoPesos(item.precio_unitario, item.cantidad, item.descuento)
+        return {
+          id_articulo_stock: item.id_articulo_stock,
+          codigo_articulo: item.codigo_articulo,
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          // el precio original se respeta: sin id_articulo_empresa no lo recalcula la lista
+          precio_unitario: item.precio_unitario,
+          descuento,
+          precio_total: importeLineaVentaPct(item.precio_unitario, item.cantidad, descuento),
+          unidad_medida: unidadDesdeDescripcionItem(item.descripcion) || undefined,
+          observaciones: item.observaciones
+        }
+      })
+    )
+    let cancelled = false
+    const cargarCliente = async () => {
+      if (c.cliente.id_cliente) {
+        const res = await apiService.getClientePorId(c.cliente.id_cliente)
+        if (cancelled) return
+        if (res.success && res.data) {
+          seleccionarCliente(res.data)
+          return
+        }
+      }
+      if (cancelled) return
+      setBusquedaCliente(c.cliente.nombre)
+      setClienteSeleccionado(null)
+      setCrearNuevoCliente(true)
+      setNuevoCliente({
+        nombre: c.cliente.nombre,
+        dni_cuit: c.cliente.dni_cuit,
+        telefono: c.cliente.telefono,
+        email: c.cliente.email,
+        empresa: c.cliente.empresa,
+        direccion: c.cliente.direccion,
+        condicion_iva: 'Consumidor Final'
+      })
+    }
+    void cargarCliente()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- se aplica una vez al abrir
+  }, [prefillDesdeCopia])
 
   useEffect(() => {
     if (busquedaCliente.trim().length < 1 || crearNuevoCliente || clienteSeleccionado) {
@@ -574,6 +637,17 @@ const CrearPresupuestoModal = ({
                   }
                 >
                   📥 Descargar PDF
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={enviandoPdf}
+                  title="Presupuesto en hoja A4 para imprimir"
+                  onClick={() =>
+                    void conPdf(() => descargarPresupuestoVentaA4(presupuestoCreado, itemsCreados))
+                  }
+                >
+                  📄 PDF A4
                 </button>
                 <button
                   type="button"

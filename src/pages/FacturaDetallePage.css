@@ -367,3 +367,25 @@
   color: #c53030;
 }
 
+
+.factura-envio {
+  margin-bottom: 20px;
+}
+
+.factura-envio-resultado {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.factura-envio-resultado.is-ok {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.factura-envio-resultado.is-error {
+  background: #fef2f2;
+  color: #991b1b;
+}

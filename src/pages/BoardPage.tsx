@@ -35,6 +35,8 @@ import { BOARD_COLUMNS } from '../data/mockData'
 import type { ActivityEvent, Priority, Task, TaskStatus, TeamMember } from '../types/board'
 import type { MaterialRecord, SectorRecord } from '../types/api'
 import { useAuth } from '../hooks/useAuth'
+import { plantillaOp } from '../features/copiar/plantillasCopia'
+import { loadOpCreateDraft, type OpCreateDraftData } from '../utils/opCreateDraft'
 import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
 import { buildAgenticContext } from '../utils/agentInsights'
 import { getApiService } from '../services/apiLoader'
@@ -44,6 +46,8 @@ import {
   taskToOrdenPayload,
   mapStatusToEstado,
   mapEstadoToStatus,
+  mapPriorityToDb,
+  mapImpactToComplejidad,
   isTaskHiddenFromKanban
 } from '../utils/dataMappers'
 import { recordTiposImpresionUsados } from '../utils/opImpresionRecientes'
@@ -134,6 +138,7 @@ const BoardPage = ({
   const [checklistTask, setChecklistTask] = useState<Task | null>(null)
   const [qrPrintTask, setQrPrintTask] = useState<{ opNumber: string; cliente: string } | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [plantillaCopiaOp, setPlantillaCopiaOp] = useState<OpCreateDraftData | null>(null)
   const [isOptimizerModalOpen, setIsOptimizerModalOpen] = useState(false)
   const [isChatAIOpen, setIsChatAIOpen] = useState(false)
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false)
@@ -1191,6 +1196,25 @@ const BoardPage = ({
     }
   }, [setTasks, setActionError, setActionSuccess])
 
+  /** Abre el alta de una OP nueva con el cliente y el trabajo de otra (sin número, fecha, cobro ni adjuntos). */
+  const handleCopyTaskAsNew = (task: Task) => {
+    const userKey = String(usuario?.id ?? localStorage.getItem('usuario_id') ?? 'anon')
+    if (
+      loadOpCreateDraft(userKey)?.data &&
+      !window.confirm('Hay un borrador de OP sin terminar. Si copiás esta OP se reemplaza. ¿Continuar?')
+    ) {
+      return
+    }
+    setPlantillaCopiaOp(
+      plantillaOp(task, {
+        prioridad: mapPriorityToDb(task.priority),
+        complejidad: mapImpactToComplejidad(task.impact)
+      })
+    )
+    setTaskToEdit(null)
+    setIsCreateModalOpen(true)
+  }
+
   const handleCreateTask = async (
     newTaskData: Omit<Task, 'id'> & { attachments?: Array<{ name: string; remoteUrl: string; uploading?: boolean }> },
     options?: { openChecklist?: boolean }
@@ -1661,6 +1685,7 @@ const BoardPage = ({
             onClose={handleCloseEditModal}
             onSave={handleSaveTask}
             onDelete={handleDeleteTask}
+            onCopyAsNew={handleCopyTaskAsNew}
             onEspejoSectoresOpSynced={handleEspejoSectoresOpSynced}
           />
         </Suspense>
@@ -1671,8 +1696,12 @@ const BoardPage = ({
           <TaskCreateModal
             sectores={sectores}
             materiales={materialesCatalog}
-            onClose={() => setIsCreateModalOpen(false)}
+            onClose={() => {
+              setIsCreateModalOpen(false)
+              setPlantillaCopiaOp(null)
+            }}
             onCreate={handleCreateTask}
+            plantilla={plantillaCopiaOp}
           />
         </Suspense>
       )}

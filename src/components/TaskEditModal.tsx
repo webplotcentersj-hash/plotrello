@@ -44,6 +44,8 @@ type TaskEditModalProps = {
   onClose: (taskId?: string) => void
   onSave: (updatedTask: Task) => void | Promise<void>
   onDelete?: (taskId: string) => void
+  /** Abre el alta de una OP nueva con el cliente y el trabajo de esta (sin número, fecha ni cobro) */
+  onCopyAsNew?: (task: Task) => void
   /** false en flujos que no son OP (ej. Asesor/Presupuestos): sin tipo/ítems m² ni tocar esos datos al guardar */
   showImpresionOpFields?: boolean
   /** Tras persistir modo espejo en BD (todas las filas del mismo `numero_op`): actualizar tablero / ficha abierta */
@@ -76,6 +78,7 @@ const TaskEditModal = ({
   onClose,
   onSave,
   onDelete,
+  onCopyAsNew,
   showImpresionOpFields = true,
   onEspejoSectoresOpSynced
 }: TaskEditModalProps) => {
@@ -2811,6 +2814,16 @@ const TaskEditModal = ({
               onClick={() => !opLocked && onDelete(task.id)}
             >
               Eliminar
+            </button>
+          )}
+          {onCopyAsNew && task && (
+            <button
+              type="button"
+              className="btn-cancel"
+              title="OP nueva con el mismo cliente y trabajo (sin número, fecha ni cobro)"
+              onClick={() => onCopyAsNew(task)}
+            >
+              📋 Copiar como nueva
             </button>
           )}
           <button type="button" className="btn-cancel" onClick={() => onClose(task?.id)}>

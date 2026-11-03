@@ -173,7 +173,7 @@ function leerPem(valor: string | undefined): string | undefined {
   return normalizarPem(readFileSync(ruta, 'utf8'))
 }
 
-function materialCertificado(): { cert?: string; key?: string } {
+export function materialCertificado(): { cert?: string; key?: string } {
   // La guía de Next.js lee el archivo y manda el texto: AFIPSDK_CERT_PATH / AFIPSDK_KEY_PATH.
   const cert =
     leerPem(process.env.AFIPSDK_CERT_PATH) ||

@@ -1,0 +1,44 @@
+.aviso-cert {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #1f2937;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.aviso-cert small {
+  color: #4b5563;
+}
+
+.aviso-cert code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  font-size: 0.85em;
+}
+
+.aviso-cert--ok {
+  border-color: #86efac;
+  border-left-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.aviso-cert--aviso {
+  border-color: #fcd34d;
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+
+.aviso-cert--error {
+  border-color: #fca5a5;
+  border-left-color: #dc2626;
+  background: #fef2f2;
+  color: #7f1d1d;
+}

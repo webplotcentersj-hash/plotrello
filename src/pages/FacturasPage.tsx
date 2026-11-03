@@ -4,8 +4,8 @@ import apiService from '../services/api'
 import type { FacturaVentaRecord } from '../types/api'
 import { formatFechaAr } from '../utils/afipFacturaUi'
 import { getArgentinaDateString } from '../utils/dateUtils'
-import { descargarPdfFacturaAfip } from '../services/afipApi'
-import { descargarFacturaAfipPdf } from '../utils/facturaAfipPdf'
+import AvisoCertificadoAfip from '../components/facturas/AvisoCertificadoAfip'
+import { descargarPdfFactura } from '../utils/pdfFactura'
 import './FacturasPage.css'
 
 const FACTURAS_POR_PAGINA = 15
@@ -116,11 +116,7 @@ export default function FacturasPage() {
         alert('No se pudo cargar la factura para el PDF: ' + (response.error || 'desconocido'))
         return
       }
-      if (response.data.estado_afip === 'Autorizada' && (response.data.cae || response.data.numero_cae)) {
-        await descargarPdfFacturaAfip(id)
-      } else {
-        await descargarFacturaAfipPdf(response.data)
-      }
+      await descargarPdfFactura(response.data)
     } catch (error) {
       console.error('Error generando PDF de factura:', error)
       alert(error instanceof Error ? error.message : 'No se pudo generar el PDF de la factura.')
@@ -175,6 +171,8 @@ export default function FacturasPage() {
           </button>
         </div>
       </div>
+
+      <AvisoCertificadoAfip />
 
       <div className="facturas-filters">
         <input

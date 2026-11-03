@@ -11,6 +11,9 @@ const emisor = {
   fecha_inicio_actividades: '2017-01-27'
 }
 
+/** El detalle con cantidad y precio por unidad usa espacios que no se parten, para que el SDK no lo separe al cortar la línea. */
+const sinCorte = (texto: string) => texto.replace(/ /g, ' ')
+
 describe('PDF AfipSDK', () => {
   it('elige el template oficial según el tipo', () => {
     assert.equal(templatePdfAfip('Factura A'), 'invoice-a')
@@ -146,10 +149,105 @@ describe('PDF AfipSDK', () => {
     assert.equal(items[0].quantity, 1)
     assert.equal(items[0].unit_price, 244268.88)
     assert.equal(items[0].subtotal, 244268.88)
-    assert.match(items[0].description, /x 6,25/)
+    // La cantidad y el precio por unidad (final, con IVA, en la B) van en la descripción.
+    assert.equal(items[0].description, `VINILO DE CORTE M2 (m2) ${sinCorte('x 6,25 a $ 39.083,02 c/IVA')}`)
     assert.equal(items[1].quantity, 1)
     assert.equal(items[1].unit_price, 21840.5)
-    assert.match(items[1].description, /x 0,95/)
+    assert.equal(items[1].description, `VINILO IMPRESO ${sinCorte('x 0,95 a $ 22.990,00 c/IVA')}`)
+  })
+
+  const lineaDecimal = {
+    item_numero: 1,
+    descripcion: 'VINILO IMPRESO + PRE CORTE X M2 (m2)',
+    cantidad: 0.48,
+    precio_unitario: 24181.82, // la app guarda el precio neto aunque se haya cargado con IVA incluido
+    subtotal: 11607.27,
+    iva_porcentaje: 21,
+    iva_monto: 2437.53,
+    total: 14044.8
+  }
+
+  function descripcionDecimal(tipo: string, extra: Record<string, unknown> = {}) {
+    const req = buildAfipSdkPdfRequest(
+      {
+        tipo_comprobante: tipo,
+        punto_venta: 14,
+        numero_comprobante: 692,
+        fecha_emision: '2026-11-02',
+        cliente_nombre: 'CLIENTE',
+        cliente_dni_cuit: '30715518801',
+        subtotal: 11607.27,
+        iva: 2437.53,
+        total: 14044.8,
+        cae: '86440688442835',
+        items: [lineaDecimal],
+        ...extra
+      },
+      emisor
+    )
+    return (req.template.params.items as Array<{ description: string }>)[0].description
+  }
+
+  it('cantidad decimal: en la B el precio por m² es el final con IVA', () => {
+    assert.equal(descripcionDecimal('Factura B'), `VINILO IMPRESO + PRE CORTE X M2 (m2) ${sinCorte('x 0,48 a $ 29.260,00 c/IVA')}`)
+  })
+
+  it('cantidad decimal: en la A el precio por m² es el neto guardado, más IVA', () => {
+    assert.equal(descripcionDecimal('Factura A'), `VINILO IMPRESO + PRE CORTE X M2 (m2) ${sinCorte('x 0,48 a $ 24.181,82 + IVA')}`)
+  })
+
+  it('cantidad decimal: en la C no se nombra el IVA', () => {
+    const d = descripcionDecimal('Factura C', { subtotal: 14044.8, iva: 0 })
+    assert.ok(!/IVA/.test(d.replace('M2 (m2)', '')), d)
+  })
+
+  it('la condición de venta es Contado salvo que el pago venza después de la emisión', () => {
+    const condicion = (extra: Record<string, unknown>) =>
+      buildAfipSdkPdfRequest(
+        {
+          tipo_comprobante: 'Factura B',
+          punto_venta: 14,
+          numero_comprobante: 1,
+          fecha_emision: '2026-11-02',
+          cliente_nombre: 'C',
+          subtotal: 100,
+          iva: 21,
+          total: 121,
+          cae: '86440688442835',
+          ...extra
+        },
+        emisor
+      ).template.params.sale_condition
+    assert.equal(condicion({}), 'Contado')
+    assert.equal(condicion({ fecha_vencimiento: '2026-11-02' }), 'Contado')
+    assert.equal(condicion({ fecha_vencimiento: '2026-11-30' }), 'Cuenta corriente (vence 30/11/2026)')
+  })
+
+  it('una nota de crédito guardada en negativo se imprime en positivo', () => {
+    const req = buildAfipSdkPdfRequest(
+      {
+        tipo_comprobante: 'Nota de Crédito B',
+        punto_venta: 14,
+        numero_comprobante: 23,
+        fecha_emision: '2026-11-02',
+        cliente_nombre: 'CLIENTE',
+        subtotal: -11607.27,
+        iva: -2437.53,
+        total: -14044.8,
+        cae: '86440688442835',
+        items: [{ ...lineaDecimal, subtotal: -11607.27, iva_monto: -2437.53, total: -14044.8 }]
+      },
+      emisor,
+      { tipo_comprobante: 'Factura B', punto_venta: 14, numero_comprobante: 692, fecha_emision: '2026-11-02' }
+    )
+    const p = req.template.params
+    assert.equal(p.total_amount, 14044.8)
+    assert.equal(p.vat_amount, 2437.53)
+    assert.equal(p.net_amount_taxed, 11607.27)
+    const linea = (p.items as Array<{ unit_price: number; subtotal: number; description: string }>)[0]
+    assert.equal(linea.unit_price, 14044.8)
+    assert.equal(linea.subtotal, 14044.8)
+    assert.match(linea.description, /x\s0,48\sa\s\$\s29\.260,00\sc\/IVA/)
   })
 
   it('nombra el archivo con tipo y número', () => {

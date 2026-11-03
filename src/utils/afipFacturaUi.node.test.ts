@@ -5,10 +5,21 @@ import {
   calcularTotalesFactura,
   cuitValido,
   inferirTipoFactura,
+  letraComprobante,
   redondear2,
   tiposFacturaPermitidos,
   validarReceptorComprobante
 } from './afipFacturaUi.ts'
+
+describe('letraComprobante', () => {
+  it('devuelve la letra de los nueve tipos, incluida Nota de Crédito B', () => {
+    for (const letra of ['A', 'B', 'C'] as const) {
+      for (const base of ['Factura', 'Nota de Crédito', 'Nota de Débito']) {
+        assert.equal(letraComprobante(`${base} ${letra}`), letra, `${base} ${letra}`)
+      }
+    }
+  })
+})
 
 describe('redondeo y cálculo por línea', () => {
   it('redondea mitades hacia arriba pese a la coma flotante', () => {

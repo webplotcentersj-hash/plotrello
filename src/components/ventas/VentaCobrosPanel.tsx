@@ -3,6 +3,7 @@ import apiService from '../../services/api'
 import type { Venta, VentaCobro } from '../../types/api'
 import { generarReciboCobrosVentaPDFCompleto } from '../../utils/crmExportUtils'
 import { formatArgentinaDate } from '../../utils/dateUtils'
+import { descargarReciboPdf } from '../../utils/documentos/reciboPdf'
 import './VentaCobrosPanel.css'
 
 type Props = {
@@ -43,6 +44,27 @@ export default function VentaCobrosPanel({ venta, disabled, onVentaActualizada }
   useEffect(() => {
     void cargar()
   }, [cargar])
+
+  const descargarRecibo = async (cobro: VentaCobro) => {
+    setError(null)
+    try {
+      await descargarReciboPdf({
+        cobro,
+        venta: {
+          numero_venta: venta.numero_venta,
+          numero_op: venta.numero_op,
+          cliente_nombre: venta.cliente_nombre,
+          cliente_dni_cuit: venta.cliente_dni_cuit,
+          cliente_direccion: venta.cliente_direccion,
+          cliente_telefono: venta.cliente_telefono,
+          valor_total: Number(venta.valor_total) || 0
+        },
+        cobros
+      })
+    } catch (ex) {
+      setError(ex instanceof Error ? ex.message : 'No se pudo generar el recibo')
+    }
+  }
 
   const total = Number(venta.valor_total) || 0
   const pagado = useMemo(
@@ -169,6 +191,14 @@ export default function VentaCobrosPanel({ venta, disabled, onVentaActualizada }
                         {[c.usuario_nombre, c.observaciones].filter(Boolean).join(' · ')}
                       </p>
                     )}
+                    <button
+                      type="button"
+                      className="venta-cobros-panel__edit-btn"
+                      title="Recibo X de este cobro"
+                      onClick={() => void descargarRecibo(c)}
+                    >
+                      Recibo
+                    </button>
                     <button
                       type="button"
                       className="venta-cobros-panel__edit-btn"

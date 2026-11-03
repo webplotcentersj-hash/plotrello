@@ -278,6 +278,17 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     featured: true
   },
   {
+    id: 'remitos',
+    title: 'Remitos',
+    description: 'Remito X con entregas parciales y saldo pendiente',
+    icon: '📦',
+    path: '/remitos',
+    category: 'ventas',
+    roles: ['mostrador', 'caja', 'presupuestos', 'administracion', 'gerencia'],
+    accent: '#0ea5e9',
+    featured: false
+  },
+  {
     id: 'mostrador',
     title: 'Mostrador',
     description: 'Dashboard de atención y entregas',

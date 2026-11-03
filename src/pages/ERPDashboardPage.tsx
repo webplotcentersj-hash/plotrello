@@ -54,6 +54,15 @@ const CONTABLE_MODULES: ErpModuleDef[] = [
     keywords: ['factura', 'facturacion', 'comprobante', 'cae', 'venta']
   },
   {
+    id: 'remitos',
+    title: 'Remitos',
+    description: 'Remito X con entregas parciales y saldo pendiente',
+    icon: '📦',
+    path: '/remitos',
+    accent: '#0ea5e9',
+    keywords: ['remito', 'entrega', 'parcial', 'despacho', 'pendiente']
+  },
+  {
     id: 'comisiones',
     title: 'Comisiones',
     description: 'Comisiones por ventas y liquidaciones mensuales',

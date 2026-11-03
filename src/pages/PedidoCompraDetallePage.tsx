@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { PedidoCompra, EstadoEntrega } from '../types/pedidos'
 import jsPDF from 'jspdf'
+import { descargarOrdenCompraPdf } from '../utils/documentos/ordenCompraPdf'
 import './PedidoCompraDetallePage.css'
 
 const PedidoCompraDetallePage = () => {
@@ -550,6 +551,30 @@ const PedidoCompraDetallePage = () => {
               >
                 📄 Descargar PDF
               </button>
+              {canManageCompras && (
+                <button
+                  className="btn-secondary"
+                  title="Pedido nuevo con el mismo sector, proveedor y productos (sin número, estado ni fechas)"
+                  onClick={() => navigate(`/compras/crear-pedido?copiar=${pedido.id}`)}
+                >
+                  📋 Copiar como nuevo
+                </button>
+              )}
+              {['Aprobado', 'En Compra', 'En Viaje', 'Completado'].includes(pedido.estado) && (
+                <button
+                  className="btn-primary"
+                  title="Orden de compra para enviar al proveedor"
+                  onClick={() =>
+                    void descargarOrdenCompraPdf({
+                      pedido,
+                      proveedor: pedido.proveedor ?? null,
+                      items: pedido.items ?? []
+                    })
+                  }
+                >
+                  🧾 Orden de compra
+                </button>
+              )}
             </div>
         </div>
       </header>

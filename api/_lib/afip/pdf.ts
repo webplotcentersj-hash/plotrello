@@ -80,8 +80,14 @@ function n(value: unknown): number {
   return Number.isFinite(v) ? v : 0
 }
 
+/** Importe a centavos, siempre en positivo: las notas de crédito se guardan en negativo y el comprobante las muestra como ARCA, en positivo. */
 function round2(value: unknown): number {
-  return Math.round((n(value) + Number.EPSILON) * 100) / 100
+  return Math.round((Math.abs(n(value)) + Number.EPSILON) * 100) / 100
+}
+
+/** "$ 29.260,00" */
+function monto(value: number): string {
+  return `$ ${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 /** AfipSDK exige cantidad entera y precio con 2 decimales. */
@@ -110,10 +116,17 @@ function fechaSdk(iso: string | null | undefined): string {
   return `${d}/${m}/${y}`
 }
 
+/** La factura no guarda la condición de venta: "Contado", o cuenta corriente si el pago vence después de la emisión. */
+function condicionVenta(factura: AfipPdfFactura): string {
+  const emision = String(factura.fecha_emision || '').slice(0, 10)
+  const vencimiento = String(factura.fecha_vencimiento || '').slice(0, 10)
+  return vencimiento && emision && vencimiento > emision ? `Cuenta corriente (vence ${fechaSdk(vencimiento)})` : 'Contado'
+}
+
+/** La letra es siempre el último carácter ("Nota de Crédito B" tiene una C en "Crédito"). */
 function letra(tipo: string): 'A' | 'B' | 'C' {
-  if (tipo.includes(' A') || tipo.endsWith('A')) return 'A'
-  if (tipo.includes(' C') || tipo.endsWith('C')) return 'C'
-  return 'B'
+  const ultima = tipo.trim().slice(-1).toUpperCase()
+  return ultima === 'A' || ultima === 'C' ? ultima : 'B'
 }
 
 export function templatePdfAfip(tipo: string): string {
@@ -163,9 +176,18 @@ export function buildAfipSdkPdfRequest(
           : total / cantidadRaw
         const unit = entero ? round2(unitRaw) : importeLinea
         const desc = textoItem(item.descripcion)
+        // La plantilla solo acepta cantidades enteras: con decimales se manda 1 unidad y la cantidad con su
+        // precio por unidad van en la descripción (final con IVA en B, neto en A). El precio neto guardado
+        // se usa si cierra con el subtotal; con descuento aparte se deriva del subtotal.
+        const precioNeto = Math.abs(n(item.precio_unitario))
+        const precioNetoCierra = precioNeto > 0 && Math.abs(precioNeto * cantidadRaw - neto) <= 0.01 + 0.005 * cantidadRaw
+        const precioPorUnidad = round2(esA ? (precioNetoCierra ? precioNeto : neto / cantidadRaw) : total / cantidadRaw)
+        const sufijoIva = esA ? ' + IVA' : clase === 'B' ? ' c/IVA' : ''
+        // Espacios que no se parten: el corte de línea de la plantilla no separa el precio de su "c/IVA".
+        const detalleDecimal = `x ${formatoCantidad(cantidadRaw)} a ${monto(precioPorUnidad)}${sufijoIva}`.replace(/ /g, ' ')
         return {
           code: String(item.item_numero || i + 1).padStart(3, '0'),
-          description: entero ? desc : `${desc} x ${formatoCantidad(cantidadRaw)}`,
+          description: entero ? desc : `${desc} ${detalleDecimal}`,
           quantity: cantidad,
           unit_price: unit,
           subtotal: importeLinea,
@@ -210,7 +232,7 @@ export function buildAfipSdkPdfRequest(
     receiver_document_type: doc.DocTipo,
     receiver_document_number: doc.DocNro,
     receiver_iva_condition: factura.cliente_condicion_iva || 'Consumidor Final',
-    sale_condition: 'Contado',
+    sale_condition: condicionVenta(factura),
     currency_id: 'ARS',
     currency_rate: 1,
     concept: n(factura.concepto) || 1,

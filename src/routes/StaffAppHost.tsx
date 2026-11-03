@@ -120,6 +120,7 @@ const ErpCuentasConsolidadasPage = lazy(() => import('../pages/ErpCuentasConsoli
 const ErpAsientosHerramientasPage = lazy(() => import('../pages/ErpAsientosHerramientasPage.tsx'))
 const ErpCuentasPorCobrarPage = lazy(() => import('../pages/ErpCuentasPorCobrarPage.tsx'))
 const ErpComisionesPage = lazy(() => import('../pages/ErpComisionesPage.tsx'))
+const RemitosPage = lazy(() => import('../pages/RemitosPage.tsx'))
 const ErpCuentasPorPagarPage = lazy(() => import('../pages/ErpCuentasPorPagarPage.tsx'))
 const ErpPlanCuentasPage = lazy(() => import('../pages/ErpPlanCuentasPage.tsx'))
 const ErpCostosPage = lazy(() => import('../pages/ErpCostosPage.tsx'))
@@ -1330,6 +1331,7 @@ function AppRoutes({
       />
       <Route path="/ventas" element={<CRMVentasPage />} />
       <Route path="/ventas/reportes" element={<ReportesVentasPage />} />
+      <Route path="/remitos" element={<RemitosPage />} />
       <Route path="/crm-ventas" element={<Navigate to="/ventas" replace />} />
       <Route path="/crm-ventas/reportes" element={<Navigate to="/ventas/reportes" replace />} />
       <Route

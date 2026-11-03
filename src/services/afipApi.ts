@@ -1,6 +1,8 @@
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
 import { getStaffAuthToken } from './staffSession'
 import type { FacturaVentaRecord } from '../types/api'
+import type { CertificadoAfipInfo } from '../utils/certificadoAfip'
+import { guardarBlob } from '../utils/descargarArchivo'
 
 function staffHeaders(): HeadersInit {
   const token = getStaffAuthToken()
@@ -42,6 +44,32 @@ export async function probarConexionAFIP(): Promise<{
   }
 }
 
+/** Vencimiento del certificado de ARCA que usa el servidor. No llama a ARCA: solo lee el certificado. */
+export async function consultarCertificadoAFIP(): Promise<{
+  success: boolean
+  data?: CertificadoAfipInfo
+  error?: string
+}> {
+  try {
+    const res = await plotLabFetch('/api/erp/afip-test', {
+      method: 'POST',
+      headers: staffHeaders(),
+      body: JSON.stringify({ solo_certificado: true })
+    })
+    const json = (await res.json().catch(() => null)) as {
+      success?: boolean
+      data?: { certificado?: CertificadoAfipInfo }
+      error?: string
+    } | null
+    if (!res.ok || !json?.success || !json.data?.certificado) {
+      return { success: false, error: json?.error || `HTTP ${res.status}` }
+    }
+    return { success: true, data: json.data.certificado }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Error de red' }
+  }
+}
+
 function filenameFromDisposition(header: string | null, fallback: string): string {
   const match = header?.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i)
   if (!match?.[1]) return fallback
@@ -53,7 +81,7 @@ function filenameFromDisposition(header: string | null, fallback: string): strin
 }
 
 /** PDF oficial de AfipSDK (mismo template que app.afipsdk.com). Solo comprobantes con CAE. */
-export async function descargarPdfFacturaAfip(idFactura: number): Promise<void> {
+export async function obtenerPdfFacturaAfip(idFactura: number): Promise<{ blob: Blob; nombre: string }> {
   const res = await plotLabFetch('/api/erp/afip-pdf', {
     method: 'POST',
     headers: staffHeaders(),
@@ -66,14 +94,13 @@ export async function descargarPdfFacturaAfip(idFactura: number): Promise<void> 
   }
   const blob = await res.blob()
   const nombre = filenameFromDisposition(res.headers.get('Content-Disposition'), `factura-${idFactura}.pdf`)
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = nombre
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
+  return { blob, nombre }
+}
+
+/** Descarga el PDF oficial de AfipSDK de un comprobante con CAE. */
+export async function descargarPdfFacturaAfip(idFactura: number): Promise<void> {
+  const { blob, nombre } = await obtenerPdfFacturaAfip(idFactura)
+  guardarBlob(blob, nombre)
 }
 
 /**

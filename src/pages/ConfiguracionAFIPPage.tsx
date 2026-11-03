@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
+import AvisoCertificadoAfip from '../components/facturas/AvisoCertificadoAfip'
 import { probarConexionAFIP } from '../services/afipApi'
 import type { ConfiguracionAFIPRecord } from '../types/api'
 import './ConfiguracionAFIPPage.css'
@@ -323,6 +324,8 @@ export default function ConfiguracionAFIPPage() {
             </div>
           </div>
         </div>
+
+        <AvisoCertificadoAfip detalle />
 
         {/* Información Importante */}
         <div className="info-box">

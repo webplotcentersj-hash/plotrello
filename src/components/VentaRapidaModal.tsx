@@ -10,6 +10,7 @@ import type {
   Venta
 } from '../types/api'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
+import type { PlantillaVenta } from '../features/copiar/plantillasCopia'
 import {
   CONDICIONES_IVA_CLIENTE,
   inferirCondicionIva,
@@ -97,6 +98,8 @@ interface VentaRapidaModalProps {
   uiVariant?: 'default' | 'mostrador'
   /** Cliente e ítems de un presupuesto aceptado */
   prefillDesdePresupuesto?: PrefillVentaDesdePresupuesto | null
+  /** Cliente, líneas y observaciones de otra venta: "Copiar como nueva" (sin número, cobros ni facturas). */
+  prefillDesdeVenta?: PlantillaVenta | null
 }
 
 interface ItemVenta {
@@ -136,7 +139,8 @@ const VentaRapidaModal = ({
   usuarioId,
   usuarioNombre,
   uiVariant = 'default',
-  prefillDesdePresupuesto = null
+  prefillDesdePresupuesto = null,
+  prefillDesdeVenta = null
 }: VentaRapidaModalProps) => {
   const navigate = useNavigate()
   const { ajustes: ajustesPrecios } = useConfigAjustesPreciosVentas()
@@ -323,6 +327,55 @@ const VentaRapidaModal = ({
       cancelled = true
     }
   }, [prefillDesdePresupuesto, seleccionarCliente])
+
+  // Copia de otra venta: mismas líneas y mismo cliente; el cobro, la fecha y el método de pago se eligen de nuevo.
+  useEffect(() => {
+    if (!prefillDesdeVenta) return
+    setObservaciones(prefillDesdeVenta.observaciones)
+    setItemsVenta(
+      prefillDesdeVenta.items.map((item) => ({
+        id_articulo_stock: item.id_articulo_stock,
+        codigo_articulo: item.codigo_articulo,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        cantidadTexto: formatCantidadInput(item.cantidad),
+        precio_unitario: item.precio_unitario,
+        // el precio de la venta original se respeta: no lo pisa el recargo de lista/prioridad
+        precioEditado: true,
+        descuento: porcentajeDesdeDescuentoPesos(item.precio_unitario, item.cantidad, item.descuento),
+        unidad_medida: unidadDesdeDescripcionItem(item.descripcion) || 'u',
+        observaciones: item.observaciones
+      }))
+    )
+    const c = prefillDesdeVenta.cliente
+    let cancelled = false
+    const cargarCliente = async () => {
+      if (c.id_cliente) {
+        const res = await apiService.getClientePorId(c.id_cliente)
+        if (cancelled) return
+        if (res.success && res.data) {
+          seleccionarCliente(res.data)
+          return
+        }
+      }
+      if (cancelled) return
+      setBusquedaCliente(c.nombre)
+      setClienteSeleccionado(null)
+      setCrearNuevoCliente(true)
+      setNuevoCliente({
+        nombre: c.nombre || 'Consumidor Final',
+        dni_cuit: c.dni_cuit,
+        telefono: c.telefono,
+        email: c.email,
+        direccion: c.direccion,
+        condicion_iva: 'Consumidor Final'
+      })
+    }
+    void cargarCliente()
+    return () => {
+      cancelled = true
+    }
+  }, [prefillDesdeVenta, seleccionarCliente])
 
   useEffect(() => {
     let cancelled = false

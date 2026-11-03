@@ -4,8 +4,7 @@ import { CLIENTES_CUENTA_CORRIENTE, clientesPerfil } from '../utils/clientesRout
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import { supabase } from '../services/supabaseClient'
-import { descargarPdfFacturaAfip } from '../services/afipApi'
-import { descargarFacturaAfipPdf } from '../utils/facturaAfipPdf'
+import { descargarPdfFactura } from '../utils/pdfFactura'
 import { generarFacturaRemitoPDF } from '../utils/crmExportUtils'
 import { buildWhatsappLink } from '../utils/whatsappLink'
 import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
@@ -22,6 +21,7 @@ import type {
   ProveedorConFinanzas
 } from '../types/api'
 import { TIPO_CLIENTE_CC_LABELS, labelCondicionIva } from '../constants/cuentaCorriente'
+import { datosEstadoCuentaDesdePerfil, descargarEstadoCuentaPdf } from '../utils/documentos/estadoCuentaPdf'
 import {
   formatLimiteCredito,
   type CcScoreNivel
@@ -240,11 +240,7 @@ export default function CuentaCorrientePerfilPage() {
         return
       }
       const data = response.data
-      if (data.estado_afip === 'Autorizada' && (data.cae || data.numero_cae)) {
-        await descargarPdfFacturaAfip(data.id)
-      } else {
-        await descargarFacturaAfipPdf(data)
-      }
+      await descargarPdfFactura(data)
     } catch (ex) {
       setError(ex instanceof Error ? ex.message : 'No se pudo descargar la factura')
     } finally {
@@ -540,6 +536,14 @@ export default function CuentaCorrientePerfilPage() {
                   id: 'pdf',
                   label: 'Estado de cuenta — PDF',
                   onClick: () => downloadEstadoCuentaPdf(perfil, nombre)
+                },
+                {
+                  id: 'pdf-cliente',
+                  label: 'Estado de cuenta — PDF para el cliente',
+                  onClick: () =>
+                    void descargarEstadoCuentaPdf(
+                      datosEstadoCuentaDesdePerfil(perfil, nombre, labelCondicionIva(ficha.condicion_iva))
+                    )
                 },
                 {
                   id: 'libro',

@@ -4,9 +4,10 @@ import apiService from '../services/api'
 import { syncVentaPlotLabACaja } from '../features/control-cajas/plotlabVentaCajaSync'
 import type { CuentaPorCobrarRecord, FacturaVentaRecord, FacturaItemRecord } from '../types/api'
 import { conceptoLabel, formatFechaAr, hoyISO } from '../utils/afipFacturaUi'
+import AvisoCertificadoAfip from '../components/facturas/AvisoCertificadoAfip'
 import { anularFacturaAfip } from '../utils/anularFacturaAfip'
-import { descargarPdfFacturaAfip } from '../services/afipApi'
-import { descargarFacturaAfipPdf } from '../utils/facturaAfipPdf'
+import { enviarFactura, puedeCompartirArchivos, type CanalEnvio } from '../utils/compartirFactura'
+import { descargarPdfFactura } from '../utils/pdfFactura'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import './FacturaDetallePage.css'
 
@@ -34,6 +35,10 @@ export default function FacturaDetallePage() {
   const [cuentas, setCuentas] = useState<any[]>([])
   const [subiendoComprobante, setSubiendoComprobante] = useState(false)
   const [comprobanteNombre, setComprobanteNombre] = useState('')
+  const [showEnviar, setShowEnviar] = useState(false)
+  const [contacto, setContacto] = useState({ telefono: '', email: '' })
+  const [enviando, setEnviando] = useState<CanalEnvio | null>(null)
+  const [resultadoEnvio, setResultadoEnvio] = useState<{ ok: boolean; texto: string } | null>(null)
 
   const todayStr = useMemo(() => hoyISO(), [])
   type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
@@ -98,6 +103,21 @@ export default function FacturaDetallePage() {
       cancelled = true
     }
   }, [])
+
+  // Al abrir "Enviar al cliente" se completan teléfono y correo con la ficha del cliente (editables).
+  const idCliente = factura?.id_cliente
+  useEffect(() => {
+    if (!showEnviar || !idCliente) return
+    let cancelled = false
+    void apiService.getClientePorId(idCliente).then((r) => {
+      if (cancelled || !r.success || !r.data) return
+      const cliente = r.data
+      setContacto((p) => ({ telefono: p.telefono || cliente.telefono || '', email: p.email || cliente.email || '' }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [showEnviar, idCliente])
 
   const loadCxc = async (facturaId: number) => {
     try {
@@ -168,16 +188,26 @@ export default function FacturaDetallePage() {
     if (!factura || descargandoPdf) return
     setDescargandoPdf(true)
     try {
-      if (factura.estado_afip === 'Autorizada' && (factura.cae || factura.numero_cae)) {
-        await descargarPdfFacturaAfip(factura.id)
-      } else {
-        await descargarFacturaAfipPdf(factura)
-      }
+      await descargarPdfFactura(factura)
     } catch (error) {
       console.error('Error generando PDF de factura:', error)
       alert(error instanceof Error ? error.message : 'No se pudo generar el PDF de la factura.')
     } finally {
       setDescargandoPdf(false)
+    }
+  }
+
+  const handleEnviar = async (canal: CanalEnvio) => {
+    if (!factura || enviando) return
+    setEnviando(canal)
+    setResultadoEnvio(null)
+    try {
+      const r = await enviarFactura(factura, canal, contacto)
+      setResultadoEnvio({ ok: true, texto: r.mensaje })
+    } catch (error) {
+      setResultadoEnvio({ ok: false, texto: error instanceof Error ? error.message : 'No se pudo enviar la factura.' })
+    } finally {
+      setEnviando(null)
     }
   }
 
@@ -334,6 +364,11 @@ export default function FacturaDetallePage() {
           <button className="btn-primary" onClick={() => void handleDescargarPdf()} disabled={descargandoPdf}>
             {descargandoPdf ? 'Generando PDF…' : 'Descargar PDF'}
           </button>
+          {factura.estado_afip === 'Autorizada' && (
+            <button className="btn-secondary" onClick={() => setShowEnviar((v) => !v)}>
+              {showEnviar ? 'Cerrar envío' : 'Enviar al cliente'}
+            </button>
+          )}
           {puedeEmitirAfip && (
             <button className="btn-primary" onClick={handleEmitirAfip} disabled={loadingAfip}>
               {loadingAfip
@@ -368,6 +403,15 @@ export default function FacturaDetallePage() {
               </button>
             </>
           )}
+          {String(factura.tipo_comprobante).startsWith('Factura') && (
+            <button
+              className="btn-secondary"
+              title="Factura nueva con el mismo cliente y las mismas líneas (sin número, CAE ni fechas)"
+              onClick={() => navigate(`/erp/facturas/nueva?copiar=${factura.id}`)}
+            >
+              📋 Copiar como nueva
+            </button>
+          )}
           {factura.estado === 'Borrador' && factura.estado_afip !== 'Autorizada' && factura.estado_afip !== 'Enviando' && (
             <button className="btn-secondary" onClick={handleAnular} disabled={anulando}>
               {anulando ? 'Descartando…' : 'Descartar borrador'}
@@ -375,6 +419,56 @@ export default function FacturaDetallePage() {
           )}
         </div>
       </div>
+
+      <AvisoCertificadoAfip />
+
+      {showEnviar && factura.estado_afip === 'Autorizada' && (
+        <section className="factura-section factura-envio">
+          <h2>Enviar al cliente</h2>
+          <div className="cobranza-grid">
+            <div className="cobranza-field">
+              <label>WhatsApp / teléfono</label>
+              <input
+                type="tel"
+                inputMode="tel"
+                placeholder="0264 4123456"
+                value={contacto.telefono}
+                onChange={(e) => setContacto((p) => ({ ...p, telefono: e.target.value }))}
+              />
+              <span className="cobranza-field-hint">Se descarga el PDF y se abre la conversación con el mensaje listo.</span>
+            </div>
+            <div className="cobranza-field">
+              <label>Correo</label>
+              <input
+                type="email"
+                inputMode="email"
+                placeholder="cliente@ejemplo.com"
+                value={contacto.email}
+                onChange={(e) => setContacto((p) => ({ ...p, email: e.target.value }))}
+              />
+              <span className="cobranza-field-hint">Se descarga el PDF y se abre tu correo con el mensaje listo.</span>
+            </div>
+          </div>
+          <div className="cobranza-actions">
+            <button className="btn-primary" onClick={() => void handleEnviar('whatsapp')} disabled={enviando !== null}>
+              {enviando === 'whatsapp' ? 'Preparando…' : 'Enviar por WhatsApp'}
+            </button>
+            <button className="btn-secondary" onClick={() => void handleEnviar('correo')} disabled={enviando !== null}>
+              {enviando === 'correo' ? 'Preparando…' : 'Enviar por correo'}
+            </button>
+            {puedeCompartirArchivos() && (
+              <button className="btn-secondary" onClick={() => void handleEnviar('compartir')} disabled={enviando !== null}>
+                {enviando === 'compartir' ? 'Preparando…' : 'Compartir…'}
+              </button>
+            )}
+          </div>
+          {resultadoEnvio && (
+            <p className={`factura-envio-resultado ${resultadoEnvio.ok ? 'is-ok' : 'is-error'}`} role="status">
+              {resultadoEnvio.texto}
+            </p>
+          )}
+        </section>
+      )}
 
       <div className="factura-content">
         <div className="factura-section">
