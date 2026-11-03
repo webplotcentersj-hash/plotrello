@@ -49,7 +49,9 @@ export default defineConfig({
           // face-api (~1.3MB): se carga on-demand en tablet-reloj, no en el SW
           '**/face-api*.js',
           // three + robot 3D del tótem: solo /totem lo carga, on-demand
-          '**/TotemPlotAIRobot3D*.js'
+          '**/TotemPlotAIRobot3D*.js',
+          // PWA propia en /lector-afip/ (su SW; el bundle supera el tope de precache)
+          '**/lector-afip/**'
         ],
         maximumFileSizeToCacheInBytes: 400_000
       }
