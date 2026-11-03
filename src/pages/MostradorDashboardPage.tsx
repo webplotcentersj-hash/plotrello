@@ -1051,6 +1051,13 @@ const MostradorDashboardPage = () => {
             tone="orange"
             onClick={() => navigate(VENTAS)}
           />
+          <NavTile
+            title="Barras AFIP"
+            desc="Generar código RG 1702"
+            glyph="receipt"
+            tone="emerald"
+            onClick={() => navigate('/generador-codigo-barras-afip')}
+          />
           {canAccessTotemImpresionPanel && (
             <NavTile
               title="Tótem"

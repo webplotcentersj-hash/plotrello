@@ -151,6 +151,24 @@ export default function InsightsToolsMenu({
             </button>
           )}
 
+          <button
+            type="button"
+            role="menuitem"
+            className="insights-tools-item"
+            onClick={() => {
+              navigate('/generador-codigo-barras-afip')
+              setMenuOpen(false)
+            }}
+          >
+            <span className="insights-tools-item-icon" aria-hidden>
+              <HeaderNavGlyph id="receipt" size={18} />
+            </span>
+            <span className="insights-tools-item-text">
+              <span className="insights-tools-item-title">Código barras AFIP</span>
+              <span className="insights-tools-item-sub">Generar ITF RG 1702</span>
+            </span>
+          </button>
+
           {usuario && (
             <button
               type="button"

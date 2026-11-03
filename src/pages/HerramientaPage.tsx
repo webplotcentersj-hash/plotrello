@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { PLOT_CENTER_DESIGN_TOOLS } from '../constants/plotCenterDesignTools'
 import './HerramientaPage.css'
 
@@ -33,6 +34,15 @@ const HerramientaPage = ({ onBack }: HerramientaPageProps) => {
           <p>Acceso rápido a herramientas útiles para el trabajo diario.</p>
           
           <div className="herramientas-grid">
+            <Link to="/generador-codigo-barras-afip" className="herramienta-link-card">
+              <div className="herramienta-icon">🧾</div>
+              <div className="herramienta-content">
+                <h3>Código de barras AFIP</h3>
+                <p>Generar ITF RG 1702 (CUIT, tipo, punto de venta, CAE/CAI)</p>
+                <span className="herramienta-url">/generador-codigo-barras-afip</span>
+              </div>
+            </Link>
+
             <a
               href="https://tools.plotcenter.com.ar/"
               target="_blank"

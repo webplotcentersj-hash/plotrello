@@ -340,6 +340,17 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     featured: true
   },
   {
+    id: 'codigo-barras-afip',
+    title: 'Código de barras AFIP',
+    description: 'Generador ITF RG 1702 para comprobantes (CAI/CAE)',
+    icon: '🧾',
+    path: '/generador-codigo-barras-afip',
+    category: 'finanzas',
+    roles: ['administracion', 'gerencia', 'mostrador', 'caja'],
+    accent: '#0f766e',
+    featured: true
+  },
+  {
     id: 'conciliacion-bancaria',
     title: 'Conciliación bancaria',
     description: 'Match de extractos y movimientos',

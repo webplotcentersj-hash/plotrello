@@ -102,6 +102,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
       title: 'Emitir factura AFIP'
     })
     push({
+      id: 'codigo-barras-afip',
+      label: 'Barras AFIP',
+      icon: '🧾',
+      href: '/generador-codigo-barras-afip',
+      title: 'Generar código de barras AFIP (RG 1702)'
+    })
+    push({
       id: 'presupuesto-venta',
       label: 'Presupuesto',
       icon: '📑',

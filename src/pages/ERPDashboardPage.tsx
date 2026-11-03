@@ -140,6 +140,15 @@ const CONTABLE_MODULES: ErpModuleDef[] = [
     path: '/erp/configuracion-afip',
     accent: '#10b981',
     keywords: ['afip', 'cae', 'certificado', 'punto venta', 'homologacion']
+  },
+  {
+    id: 'codigo-barras-afip',
+    title: 'Código de barras AFIP',
+    description: 'Generar ITF RG 1702 (CUIT, tipo, PV, CAE y vencimiento)',
+    icon: '🧾',
+    path: '/generador-codigo-barras-afip',
+    accent: '#0f766e',
+    keywords: ['codigo', 'barras', 'afip', 'itf', 'cae', 'cai', 'rg1702', 'generador']
   }
 ]
 

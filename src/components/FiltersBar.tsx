@@ -274,6 +274,16 @@ const FiltersBar = ({
                     <Atajo teclas="f" />
                   </button>
                 )}
+                {showAccionesMostrador && (
+                  <button
+                    type="button"
+                    className="factura-button"
+                    onClick={() => navigate('/generador-codigo-barras-afip')}
+                    title="Generar código de barras AFIP (RG 1702)"
+                  >
+                    Barras AFIP
+                  </button>
+                )}
                 {usuario && (
                   <button
                     type="button"
