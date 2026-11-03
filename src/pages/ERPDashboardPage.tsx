@@ -12,6 +12,8 @@ type ErpModuleDef = {
   path: string
   accent: string
   keywords: string[]
+  /** Abrir en pestaña nueva (p. ej. PWA del lector AFIP). */
+  openInNewTab?: boolean
 }
 
 const CONTABLE_MODULES: ErpModuleDef[] = [
@@ -149,6 +151,16 @@ const CONTABLE_MODULES: ErpModuleDef[] = [
     path: '/generador-codigo-barras-afip',
     accent: '#0f766e',
     keywords: ['codigo', 'barras', 'afip', 'itf', 'cae', 'cai', 'rg1702', 'generador']
+  },
+  {
+    id: 'lector-barras-afip',
+    title: 'Lector AFIP',
+    description: 'Leer con la cámara el código de barras de comprobantes',
+    icon: '📷',
+    path: '/lector-afip/',
+    accent: '#0369a1',
+    keywords: ['lector', 'escaner', 'camara', 'barras', 'afip', 'itf', 'cae', 'rg1702'],
+    openInNewTab: true
   }
 ]
 
@@ -391,7 +403,13 @@ export default function ERPDashboardPage() {
                 type="button"
                 className="erp-module-card"
                 style={{ '--module-accent': module.accent } as CSSProperties}
-                onClick={() => navigate(module.path)}
+                onClick={() => {
+                  if (module.openInNewTab) {
+                    window.open(module.path, '_blank', 'noopener,noreferrer')
+                    return
+                  }
+                  navigate(module.path)
+                }}
               >
                 <span className="erp-module-card__glow" aria-hidden />
                 <span className="erp-module-card__icon">{module.icon}</span>

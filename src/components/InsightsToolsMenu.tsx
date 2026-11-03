@@ -169,6 +169,24 @@ export default function InsightsToolsMenu({
             </span>
           </button>
 
+          <button
+            type="button"
+            role="menuitem"
+            className="insights-tools-item"
+            onClick={() => {
+              window.open('/lector-afip/', '_blank', 'noopener,noreferrer')
+              setMenuOpen(false)
+            }}
+          >
+            <span className="insights-tools-item-icon" aria-hidden>
+              <HeaderNavGlyph id="spark" size={18} />
+            </span>
+            <span className="insights-tools-item-text">
+              <span className="insights-tools-item-title">Lector AFIP</span>
+              <span className="insights-tools-item-sub">Escanear con la cámara</span>
+            </span>
+          </button>
+
           {usuario && (
             <button
               type="button"

@@ -52,7 +52,15 @@
       "destination": "/tablet-reloj.html"
     },
     {
-      "source": "/((?!api/|assets/|.*\\..*).*)",
+      "source": "/lector-afip",
+      "destination": "/lector-afip/index.html"
+    },
+    {
+      "source": "/lector-afip/",
+      "destination": "/lector-afip/index.html"
+    },
+    {
+      "source": "/((?!api/|assets/|lector-afip/|.*\\..*).*)",
       "destination": "/index.html"
     }
   ],
@@ -75,7 +83,7 @@
       ]
     },
     {
-      "source": "/((?!embed/|tablet-reloj|totem|escanear-op).*)",
+      "source": "/((?!embed/|tablet-reloj|totem|escanear-op|lector-afip).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -166,6 +174,19 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=*, microphone=(), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/lector-afip(.*)",
+      "headers": [
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=*, microphone=(), geolocation=()"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
         }
       ]
     }

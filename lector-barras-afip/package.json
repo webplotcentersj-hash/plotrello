@@ -1,0 +1,24 @@
+{
+  "name": "lector-barras-afip",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "tsx --test src/afip.node.test.ts src/decodificador.node.test.ts",
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "iconos": "node scripts/generar-iconos.mjs"
+  },
+  "description": "Lector de códigos de barras de comprobantes AFIP (RG 1702) para el teléfono",
+  "dependencies": {
+    "7": "file:..",
+    "@zxing/library": "^0.21.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.7",
+    "vite-plugin-pwa": "^1.3.0"
+  },
+  "private": true,
+  "type": "module"
+}

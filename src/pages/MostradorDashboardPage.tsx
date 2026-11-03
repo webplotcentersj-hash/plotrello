@@ -1058,6 +1058,13 @@ const MostradorDashboardPage = () => {
             tone="emerald"
             onClick={() => navigate('/generador-codigo-barras-afip')}
           />
+          <NavTile
+            title="Lector AFIP"
+            desc="Escanear con cámara"
+            glyph="receipt"
+            tone="sky"
+            onClick={() => window.open('/lector-afip/', '_blank', 'noopener,noreferrer')}
+          />
           {canAccessTotemImpresionPanel && (
             <NavTile
               title="Tótem"

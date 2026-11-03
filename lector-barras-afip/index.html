@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1220" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Lector AFIP" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <title>Lector AFIP</title>
+  </head>
+  <body>
+    <main class="app">
+      <header class="barra">
+        <h1>Lector AFIP</h1>
+        <span class="chip" id="motor" hidden></span>
+      </header>
+
+      <section class="visor" aria-label="Cámara">
+        <video id="video" playsinline muted></video>
+        <div class="marco" aria-hidden="true"><i class="linea"></i></div>
+        <p class="estado" id="estado" role="status">Iniciando cámara…</p>
+        <button type="button" class="primario" id="reintentar" hidden>Activar cámara</button>
+      </section>
+
+      <nav class="acciones" aria-label="Otras formas de leer">
+        <button type="button" id="btn-linterna" hidden>Linterna</button>
+        <button type="button" id="btn-foto">Desde foto</button>
+        <button type="button" id="btn-manual">Escribir código</button>
+      </nav>
+      <input type="file" id="archivo" accept="image/*" hidden />
+
+      <section class="historial" id="historial" hidden>
+        <div class="historial__cab">
+          <h2>Últimos leídos</h2>
+          <button type="button" class="texto" id="borrar">Borrar</button>
+        </div>
+        <ul id="lista"></ul>
+      </section>
+    </main>
+
+    <dialog id="resultado" class="hoja">
+      <div class="hoja__cuerpo" id="res-cuerpo"></div>
+    </dialog>
+
+    <dialog id="manual" class="hoja">
+      <form class="hoja__cuerpo" id="form-manual" method="dialog">
+        <h2>Escribir el código</h2>
+        <p class="ayuda">Los 40 dígitos que están debajo de las barras.</p>
+        <input id="manual-input" inputmode="numeric" autocomplete="off" placeholder="3071551880101001486406405514474202610167" />
+        <p class="contador" id="manual-contador">0 / 40</p>
+        <div class="hoja__botones">
+          <button type="button" id="manual-cancelar">Cancelar</button>
+          <button type="submit" class="primario">Analizar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

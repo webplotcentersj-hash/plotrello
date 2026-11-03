@@ -109,6 +109,14 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
       title: 'Generar código de barras AFIP (RG 1702)'
     })
     push({
+      id: 'lector-barras-afip',
+      label: 'Lector AFIP',
+      icon: '📷',
+      href: '/lector-afip/',
+      external: true,
+      title: 'Leer código de barras AFIP con la cámara'
+    })
+    push({
       id: 'presupuesto-venta',
       label: 'Presupuesto',
       icon: '📑',

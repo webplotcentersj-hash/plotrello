@@ -43,6 +43,15 @@ const HerramientaPage = ({ onBack }: HerramientaPageProps) => {
               </div>
             </Link>
 
+            <a href="/lector-afip/" target="_blank" rel="noopener noreferrer" className="herramienta-link-card">
+              <div className="herramienta-icon">📷</div>
+              <div className="herramienta-content">
+                <h3>Lector AFIP</h3>
+                <p>Escanear con la cámara el código de barras de comprobantes (PWA)</p>
+                <span className="herramienta-url">/lector-afip/</span>
+              </div>
+            </a>
+
             <a
               href="https://tools.plotcenter.com.ar/"
               target="_blank"

@@ -32,6 +32,12 @@
   line-height: 1.45;
 }
 
+.cbafip__head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .cbafip__volver {
   flex-shrink: 0;
   padding: 8px 12px;

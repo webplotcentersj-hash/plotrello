@@ -284,6 +284,16 @@ const FiltersBar = ({
                     Barras AFIP
                   </button>
                 )}
+                {showAccionesMostrador && (
+                  <button
+                    type="button"
+                    className="factura-button"
+                    onClick={() => window.open('/lector-afip/', '_blank', 'noopener,noreferrer')}
+                    title="Leer código de barras AFIP con la cámara"
+                  >
+                    Lector AFIP
+                  </button>
+                )}
                 {usuario && (
                   <button
                     type="button"

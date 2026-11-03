@@ -141,9 +141,14 @@ export default function GeneradorCodigoBarrasAfipPage() {
               para cualquier emisor: cargá los datos del comprobante y se genera al instante.
             </p>
           </div>
-          <Link to="/erp" className="cbafip__volver">
-            ← ERP
-          </Link>
+          <div className="cbafip__head-actions">
+            <a href="/lector-afip/" target="_blank" rel="noopener noreferrer" className="cbafip__volver">
+              Lector cámara
+            </a>
+            <Link to="/erp" className="cbafip__volver">
+              ← ERP
+            </Link>
+          </div>
         </div>
       </header>
 

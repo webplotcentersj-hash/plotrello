@@ -351,6 +351,18 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     featured: true
   },
   {
+    id: 'lector-barras-afip',
+    title: 'Lector AFIP',
+    description: 'Escanear con la cámara códigos de barras de comprobantes',
+    icon: '📷',
+    path: '/lector-afip/',
+    category: 'finanzas',
+    roles: ['administracion', 'gerencia', 'mostrador', 'caja'],
+    accent: '#0369a1',
+    featured: true,
+    openInNewTab: true
+  },
+  {
     id: 'conciliacion-bancaria',
     title: 'Conciliación bancaria',
     description: 'Match de extractos y movimientos',
