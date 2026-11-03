@@ -35,7 +35,6 @@ import {
   exportarVentasExcel,
   exportarOportunidadesPDF,
   exportarOportunidadesCSV,
-  generarFacturaRemitoPDF,
   generarPagarePDF,
   generarReciboCobrosVentaPDFCompleto
 } from '../utils/crmExportUtils'
@@ -3925,7 +3924,7 @@ const CRMVentasPage = () => {
                       className="btn-action"
                       onClick={() => navigate(clientesPerfil(ventaModal.id_cliente!))}
                     >
-                      👤 Perfil cliente
+                      Perfil
                     </button>
                   ) : null}
                   {ventaTieneOp(ventaModal) ? (
@@ -3936,7 +3935,7 @@ const CRMVentasPage = () => {
                         navigate(ventaModal.id_op ? `/op/${ventaModal.id_op}` : `/op/${ventaModal.numero_op}`)
                       }
                     >
-                      👁️ Ver OP
+                      Ver OP
                     </button>
                   ) : (
                     <button
@@ -3944,11 +3943,11 @@ const CRMVentasPage = () => {
                       className="btn-action btn-primary"
                       onClick={() => handleConvertirVentaAOP(ventaModal)}
                     >
-                      {ventaModal.id_pedido_cliente ? '📋 Pedido → OP' : '📋 Convertir a OP'}
+                      {ventaModal.id_pedido_cliente ? 'Pedido → OP' : 'A OP'}
                     </button>
                   )}
                   <button type="button" className="btn-action" onClick={() => handleEditarVenta(ventaModal)}>
-                    ➕ Agregar ítems
+                    Ítems
                   </button>
                   {ventaModal.estado_pago !== 'Cancelado' ? (
                     <>
@@ -3958,7 +3957,7 @@ const CRMVentasPage = () => {
                         disabled={ventaEditBusy || !usuario?.id}
                         onClick={() => setDevolucionVenta(ventaModal)}
                       >
-                        NC / Devolución
+                        NC / Dev.
                       </button>
                       <button
                         type="button"
@@ -3973,14 +3972,14 @@ const CRMVentasPage = () => {
                           setVentaMotivoTexto('')
                         }}
                       >
-                        {ventaTieneFactura(ventaModal.id) ? 'Anular (NC)' : 'Eliminar venta'}
+                        {ventaTieneFactura(ventaModal.id) ? 'Anular' : 'Eliminar'}
                       </button>
                     </>
                   ) : null}
-                  <div className="export-dropdown" style={{ position: 'relative', display: 'inline-flex' }}>
+                  <div className="export-dropdown venta-docs-split">
                     <button
                       type="button"
-                      className="btn-action"
+                      className="btn-action btn-action--afip"
                       disabled={facturandoAfipId === ventaModal.id || ventaEditBusy}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -3991,8 +3990,9 @@ const CRMVentasPage = () => {
                     </button>
                     <button
                       type="button"
-                      className="btn-action"
-                      title="Pagaré, remito y otros documentos"
+                      className="btn-action venta-docs-split__caret"
+                      title="Documentos"
+                      aria-expanded={dropdownDocumentosAbierto === ventaModal.id}
                       onClick={(e) => {
                         e.stopPropagation()
                         setDropdownDocumentosAbierto(
@@ -4015,7 +4015,7 @@ const CRMVentasPage = () => {
                             setDropdownDocumentosAbierto(null)
                           }}
                         >
-                          🧾 Generar Pagaré
+                          Pagaré
                         </button>
                         <button
                           type="button"
@@ -4024,7 +4024,7 @@ const CRMVentasPage = () => {
                             setDropdownDocumentosAbierto(null)
                           }}
                         >
-                          📦 Remito (total o parcial)
+                          Remito
                         </button>
                         <button
                           type="button"
@@ -4053,16 +4053,7 @@ const CRMVentasPage = () => {
                             })()
                           }}
                         >
-                          📋 Orden de entrega
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            generarFacturaRemitoPDF(ventaModal, 'factura')
-                            setDropdownDocumentosAbierto(null)
-                          }}
-                        >
-                          🧾 Generar Factura (PDF)
+                          Orden de entrega
                         </button>
                         <button
                           type="button"
@@ -4074,15 +4065,7 @@ const CRMVentasPage = () => {
                             })()
                           }}
                         >
-                          💳 PDF cobros / saldo
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void emitirFacturaAfipDesdeVenta(ventaModal, { persistirCabeceraModal: true })
-                          }}
-                        >
-                          🏛️ Factura AFIP
+                          Cobros / saldo
                         </button>
                       </div>
                     ) : null}
@@ -4102,7 +4085,7 @@ const CRMVentasPage = () => {
                       })()
                     }}
                   >
-                    📋 Copiar como nueva
+                    Copiar
                   </button>
                   <button
                     type="button"
@@ -4111,7 +4094,7 @@ const CRMVentasPage = () => {
                     disabled={resyncVentaId === ventaModal.id}
                     onClick={() => void handleResyncCajaVenta(ventaModal)}
                   >
-                    {resyncVentaId === ventaModal.id ? '↻…' : '↻ Caja'}
+                    {resyncVentaId === ventaModal.id ? '…' : 'Caja'}
                   </button>
                   {(ventaModal.estado_pago === 'Pendiente' || ventaModal.estado_pago === 'Parcial') && (
                     <button
@@ -4119,7 +4102,7 @@ const CRMVentasPage = () => {
                       className="btn-action btn-action--mp"
                       onClick={() => setMpVentaModal(ventaModal)}
                     >
-                      💙 Mercado Pago
+                      Mercado Pago
                     </button>
                   )}
                   <select

@@ -91,7 +91,11 @@ export function detectarNovedadesDesdeAsistencia(params: {
         horarioEsperado
       })
 
-      if (ev.esAusenciaInjustificada && !tieneNovedad(novedades, id, f, 'falta')) {
+      if (
+        ev.esAusenciaInjustificada &&
+        !tieneNovedad(novedades, id, f, 'falta') &&
+        !tieneNovedad(novedades, id, f, 'suspension', 'suspension')
+      ) {
         pendientes.push({
           id_usuario: id,
           fecha: f,

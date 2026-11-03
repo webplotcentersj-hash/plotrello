@@ -7,7 +7,8 @@ export const RRHH_NOVEDAD_GRUPOS: { value: RrhhNovedadGrupo; label: string }[] =
   { value: 'horas_extra', label: 'Horas extra' },
   { value: 'beneficio_comida', label: 'Beneficio comida' },
   { value: 'parte_diario', label: 'Parte diario' },
-  { value: 'anticipacion_sueldo', label: 'Anticipación de sueldo' }
+  { value: 'anticipacion_sueldo', label: 'Anticipación de sueldo' },
+  { value: 'suspension', label: 'Suspensión' }
 ]
 
 export const RRHH_NOVEDAD_CODIGOS_POR_GRUPO: Record<
@@ -37,7 +38,17 @@ export const RRHH_NOVEDAD_CODIGOS_POR_GRUPO: Record<
   ],
   beneficio_comida: [{ value: 'perdida_beneficio_comida', label: 'Pérdida del beneficio de comida' }],
   parte_diario: [{ value: 'parte_diario', label: 'Parte diario' }],
-  anticipacion_sueldo: [{ value: 'anticipacion_sueldo', label: 'Anticipación de sueldo' }]
+  anticipacion_sueldo: [{ value: 'anticipacion_sueldo', label: 'Anticipación de sueldo' }],
+  suspension: [
+    {
+      value: 'suspension',
+      label: 'Suspensión (sin goce + media jornada después)'
+    },
+    {
+      value: 'restituir_jornada',
+      label: 'Restituir jornada completa (fin media jornada)'
+    }
+  ]
 }
 
 export function etiquetaCodigoRrhhNovedad(codigo: string): string {

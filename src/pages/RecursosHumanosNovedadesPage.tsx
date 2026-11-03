@@ -47,8 +47,11 @@ import type { LegajoSectorBasico } from '../utils/rrhhNovedadesSectorStats'
 import { parseFechaFiltro } from '../utils/rrhhNovedadesLegajoStats'
 import {
   etiquetaCortaChipCalendario,
+  etiquetaCortaPermisoCalendario,
+  etiquetaTipoPermisoCalendario,
   novedadVisibleEnCalendarioDia,
-  ordenarNovedadesCalendario
+  ordenarNovedadesCalendario,
+  permisoVisibleEnCalendarioDia
 } from '../utils/rrhhNovedadDates'
 import { filtrarUsuariosRrhhOperarios, idsUsuariosGenericosRrhh } from '../utils/rrhhUsuariosExcluidos'
 import { novedadEmpleadoIncorrecto } from '../utils/rrhhNovedadEmpleadoObs'
@@ -263,6 +266,20 @@ const RecursosHumanosNovedadesPage = () => {
       novedades.filter((n) => novedadVisibleEnCalendarioDia(n, calendarDayOpen))
     )
   }, [calendarDayOpen, novedades])
+
+  const permisosAprobadosCalendario = useMemo(() => {
+    const activos = new Set(usuarios.map((u) => u.id))
+    return solicitudes.filter(
+      (s) => activos.has(s.id_usuario) && (filtroUsuario === '' || s.id_usuario === filtroUsuario)
+    )
+  }, [solicitudes, usuarios, filtroUsuario])
+
+  const permisosDiaCalendario = useMemo(() => {
+    if (!calendarDayOpen) return []
+    return permisosAprobadosCalendario.filter((p) =>
+      permisoVisibleEnCalendarioDia(p, calendarDayOpen, novedades)
+    )
+  }, [calendarDayOpen, permisosAprobadosCalendario, novedades])
 
   const solicitudesEmpleado = useMemo(() => {
     if (!form.id_usuario) return []
@@ -535,9 +552,19 @@ const RecursosHumanosNovedadesPage = () => {
       (n) => n.fecha_desde <= monthEnd && n.fecha_hasta >= monthStart
     )
     const porGrupo = contarPorGrupo(enMes)
-    const total = enMes.length
-    return { porGrupo, total }
-  }, [calendarMonth, novedades])
+    const diasMes = eachDayOfInterval({
+      start: startOfMonth(calendarMonth),
+      end: endOfMonth(calendarMonth)
+    }).map((d) => format(d, 'yyyy-MM-dd'))
+    const permisosVistos = new Set<number>()
+    for (const day of diasMes) {
+      for (const p of permisosAprobadosCalendario) {
+        if (permisoVisibleEnCalendarioDia(p, day, novedades)) permisosVistos.add(p.id)
+      }
+    }
+    const permisos = permisosVistos.size
+    return { porGrupo, total: enMes.length + permisos, permisos }
+  }, [calendarMonth, novedades, permisosAprobadosCalendario])
 
   const codigosListado = useMemo(() => {
     if (!filtroListadoGrupo) {
@@ -841,18 +868,24 @@ const RecursosHumanosNovedadesPage = () => {
             const list = ordenarNovedadesCalendario(
               novedades.filter((n) => novedadVisibleEnCalendarioDia(n, key))
             )
+            const permisosDia = permisosAprobadosCalendario.filter((p) =>
+              permisoVisibleEnCalendarioDia(p, key, novedades)
+            )
+            const totalItems = list.length + permisosDia.length
             const tardanzasDia = list.filter((n) => n.codigo === 'tardanza').length
-            const maxVisible = list.length > 4 ? 3 : 4
-            const hidden = list.length - maxVisible
+            const maxVisible = totalItems > 4 ? 3 : 4
+            const novVisible = Math.min(list.length, maxVisible)
+            const permVisible = Math.min(permisosDia.length, Math.max(0, maxVisible - novVisible))
+            const hidden = totalItems - novVisible - permVisible
             return (
               <div
                 key={key}
-                className={`rrhh-novedades-cal-cell${list.length ? ' rrhh-novedades-cal-cell--has' : ''}`}
-                role={list.length ? 'button' : undefined}
-                tabIndex={list.length ? 0 : undefined}
-                onClick={() => list.length && setCalendarDayOpen(key)}
+                className={`rrhh-novedades-cal-cell${totalItems ? ' rrhh-novedades-cal-cell--has' : ''}`}
+                role={totalItems ? 'button' : undefined}
+                tabIndex={totalItems ? 0 : undefined}
+                onClick={() => totalItems && setCalendarDayOpen(key)}
                 onKeyDown={(e) => {
-                  if (list.length && (e.key === 'Enter' || e.key === ' ')) {
+                  if (totalItems && (e.key === 'Enter' || e.key === ' ')) {
                     e.preventDefault()
                     setCalendarDayOpen(key)
                   }
@@ -867,9 +900,9 @@ const RecursosHumanosNovedadesPage = () => {
                   ) : null}
                 </div>
                 <div className="rrhh-novedades-cal-chips">
-                  {list.slice(0, maxVisible).map((n) => (
+                  {list.slice(0, novVisible).map((n) => (
                     <button
-                      key={n.id}
+                      key={`n-${n.id}`}
                       type="button"
                       className={`rrhh-novedades-cal-chip rrhh-novedades-cal-chip--${n.grupo}`}
                       title={[
@@ -897,11 +930,36 @@ const RecursosHumanosNovedadesPage = () => {
                       </span>
                     </button>
                   ))}
+                  {permisosDia.slice(0, permVisible).map((p) => (
+                    <button
+                      key={`p-${p.id}`}
+                      type="button"
+                      className="rrhh-novedades-cal-chip rrhh-novedades-cal-chip--permiso"
+                      title={[
+                        empleadoMostrar(p.id_usuario, 'usuario-hash'),
+                        etiquetaTipoPermisoCalendario(p),
+                        p.titulo,
+                        p.descripcion
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setCalendarDayOpen(key)
+                      }}
+                    >
+                      <span className="rrhh-novedades-cal-chip-dot rrhh-novedades-cal-chip-dot--permiso" aria-hidden />
+                      <span className="rrhh-novedades-cal-chip-tag">{etiquetaCortaPermisoCalendario(p)}</span>
+                      <span className="rrhh-novedades-cal-chip-name">
+                        {nombreParaChipCalendario(nombreUsuario.get(p.id_usuario) || p.nombre_usuario)}
+                      </span>
+                    </button>
+                  ))}
                   {hidden > 0 ? (
                     <button
                       type="button"
                       className="rrhh-novedades-cal-more"
-                      title={`Ver las ${list.length} novedades de este día`}
+                      title={`Ver las ${totalItems} entradas de este día`}
                       onClick={(e) => {
                         e.stopPropagation()
                         setCalendarDayOpen(key)
@@ -922,10 +980,19 @@ const RecursosHumanosNovedadesPage = () => {
               Resumen de {format(calendarMonth, 'MMMM yyyy', { locale: es })}
             </h3>
             <span className="rrhh-novedades-cal-stats-total">
-              {resumenMesCalendario.total} novedad{resumenMesCalendario.total === 1 ? '' : 'es'}
+              {resumenMesCalendario.total} en calendario
+              {resumenMesCalendario.permisos > 0
+                ? ` · ${resumenMesCalendario.permisos} permiso${resumenMesCalendario.permisos === 1 ? '' : 's'} aprobado${resumenMesCalendario.permisos === 1 ? '' : 's'}`
+                : ''}
             </span>
           </div>
           <div className="rrhh-novedades-cal-stats-grid">
+            <div
+              className={`rrhh-novedades-cal-stat-card rrhh-novedades-cal-stat-card--permiso${resumenMesCalendario.permisos === 0 ? ' rrhh-novedades-cal-stat-card--zero' : ''}`}
+            >
+              <span className="rrhh-novedades-cal-stat-num">{resumenMesCalendario.permisos}</span>
+              <span className="rrhh-novedades-cal-stat-lbl">Permisos aprobados</span>
+            </div>
             {GRUPOS.map((g) => {
               const n = resumenMesCalendario.porGrupo[g.value] ?? 0
               return (
@@ -1127,6 +1194,9 @@ const RecursosHumanosNovedadesPage = () => {
                 <p className="rrhh-novedades-cal-day-sub">
                   {novedadesDiaCalendario.length} novedad
                   {novedadesDiaCalendario.length === 1 ? '' : 'es'}
+                  {permisosDiaCalendario.length > 0
+                    ? ` · ${permisosDiaCalendario.length} permiso${permisosDiaCalendario.length === 1 ? '' : 's'} aprobado${permisosDiaCalendario.length === 1 ? '' : 's'}`
+                    : ''}
                 </p>
               </div>
               <button
@@ -1139,8 +1209,24 @@ const RecursosHumanosNovedadesPage = () => {
               </button>
             </header>
             <ul className="rrhh-novedades-cal-day-list">
+              {permisosDiaCalendario.map((p) => (
+                <li key={`p-${p.id}`}>
+                  <div className="rrhh-novedades-cal-day-item rrhh-novedades-cal-day-item--permiso">
+                    <span className="rrhh-novedades-cal-chip-dot rrhh-novedades-cal-chip-dot--permiso" aria-hidden />
+                    <span className="rrhh-novedades-cal-day-item-main">
+                      <span className="rrhh-novedades-cal-day-item-name">
+                        {empleadoMostrar(p.id_usuario, 'usuario-hash')}
+                      </span>
+                      <span className="rrhh-novedades-cal-day-item-code">
+                        {etiquetaCortaPermisoCalendario(p)} · {etiquetaTipoPermisoCalendario(p)}
+                        {p.titulo ? ` · ${p.titulo}` : ''}
+                      </span>
+                    </span>
+                  </div>
+                </li>
+              ))}
               {novedadesDiaCalendario.map((n) => (
-                <li key={n.id}>
+                <li key={`n-${n.id}`}>
                   <button
                     type="button"
                     className={`rrhh-novedades-cal-day-item rrhh-novedades-cal-day-item--${n.grupo}`}
@@ -1307,6 +1393,20 @@ const RecursosHumanosNovedadesPage = () => {
                 El período va desde la fecha inicial hasta el <strong>último día de ese mes</strong>. Al guardar una{' '}
                 <strong>nueva</strong> novedad, el colaborador recibe notificación en la app y un mensaje en{' '}
                 <strong>/mensajeria</strong> (conversación contigo).
+              </p>
+            ) : null}
+
+            {form.grupo === 'suspension' && form.codigo === 'suspension' ? (
+              <p className="rrhh-novedades-beneficio-hint">
+                Elegí el <strong>período de suspensión</strong> (desde / hasta). Esos días descuentan valor día en la
+                liquidación (sin goce). <strong>Al día siguiente</strong> de la fecha hasta, la jornada queda en{' '}
+                <strong>media jornada</strong> hasta que registres «Restituir jornada completa».
+              </p>
+            ) : null}
+
+            {form.grupo === 'suspension' && form.codigo === 'restituir_jornada' ? (
+              <p className="rrhh-novedades-beneficio-hint">
+                Indicá desde qué fecha vuelve a <strong>jornada completa</strong> (podés dejar hasta = desde).
               </p>
             ) : null}
 

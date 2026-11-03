@@ -60,7 +60,9 @@ export function exportarLiquidacionMensualXlsx(opts: {
       'Horas extra 50% $': f.importeExtra50,
       'Horas extra 100% $': f.importeExtra100,
       'Descuento faltas': f.descuentoFaltas,
-      'Descuento tardanzas': f.descuentoTardanzas
+      'Descuento tardanzas': f.descuentoTardanzas,
+      'Descuento suspensión': f.descuentoSuspensiones,
+      'Descuento media jornada': f.descuentoMediaJornada
     }
     for (const c of f.aportes) row[`Aporte ${c.nombre} (${c.porcentaje}%)`] = c.importe
     for (const c of f.contribuciones) row[`Contribución ${c.nombre} (${c.porcentaje}%)`] = c.importe
@@ -119,7 +121,9 @@ export function exportarLiquidacionMensualXlsx(opts: {
       'Horas extra 50% $': filas.reduce((a, f) => a + f.importeExtra50, 0),
       'Horas extra 100% $': filas.reduce((a, f) => a + f.importeExtra100, 0),
       'Descuento faltas': filas.reduce((a, f) => a + f.descuentoFaltas, 0),
-      'Descuento tardanzas': filas.reduce((a, f) => a + f.descuentoTardanzas, 0)
+      'Descuento tardanzas': filas.reduce((a, f) => a + f.descuentoTardanzas, 0),
+      'Descuento suspensión': filas.reduce((a, f) => a + f.descuentoSuspensiones, 0),
+      'Descuento media jornada': filas.reduce((a, f) => a + f.descuentoMediaJornada, 0)
     }
     for (const c of primera.aportes) {
       totalRow[`Aporte ${c.nombre} (${c.porcentaje}%)`] = filas.reduce(

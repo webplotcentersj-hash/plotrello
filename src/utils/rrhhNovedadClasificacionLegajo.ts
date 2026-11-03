@@ -43,6 +43,9 @@ export function clasificarNovedadLegajo(n: RrhhNovedad): NovedadClasificacionLeg
   if (n.codigo === 'retiro_anticipado') return 'sancion_disciplinaria'
   if (n.codigo === 'perdida_beneficio_comida') return 'perdida_beneficio'
   if (n.codigo === 'parte_diario') return 'accidente_incidente'
+  if (n.grupo === 'suspension' || n.codigo === 'suspension' || n.codigo === 'restituir_jornada') {
+    return 'sancion_disciplinaria'
+  }
 
   const obs = (n.observaciones ?? '').toLowerCase()
   if (

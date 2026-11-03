@@ -149,7 +149,6 @@ const LibroActasSectorPage = lazy(() => import('../pages/LibroActasSectorPage'))
 const LibroActasPage = lazy(() => import('../pages/LibroActasPage'))
 const ProtocolosBasesPage = lazy(() => import('../pages/ProtocolosBasesPage'))
 const AsesorPresupuestosPage = lazy(() => import('../pages/AsesorPresupuestosPage'))
-const AdminBackLink = lazy(() => import('../components/AdminBackLink'))
 const TallerGraficoPedidoEntregaOverlay = lazy(() => import('../components/TallerGraficoPedidoEntregaOverlay'))
 const TallerImprentaPedidoEntregaOverlay = lazy(() => import('../components/TallerImprentaPedidoEntregaOverlay'))
 import { useAuth } from '../hooks/useAuth'
@@ -1033,9 +1032,6 @@ function AppRoutes({
       </Suspense>
       <Suspense fallback={null}>
         <TallerImprentaPedidoEntregaOverlay />
-      </Suspense>
-      <Suspense fallback={null}>
-        <AdminBackLink />
       </Suspense>
       <Suspense
         fallback={

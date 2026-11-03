@@ -1220,11 +1220,49 @@ export default function RrhhLiquidacionMensualTab({
                             </section>
 
                             <section className="liq-panel">
-                              <h4>Faltas y tardanzas</h4>
+                              <h4>Faltas, suspensión y tardanzas</h4>
                               <p className="liq-hint">
                                 Valor día {formatArs(f.valorDiaDescuento)}. Solo injustificadas descuentan · cada{' '}
-                                {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 día.
+                                {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 día. Suspensión = 1 día · media jornada
+                                post-suspensión = ½ día.
                               </p>
+                              {f.diasSuspension > 0 ? (
+                                <>
+                                  <p className="liq-badge-row">
+                                    <span className="liq-badge liq-badge-warn">
+                                      {f.diasSuspension} suspensión
+                                      {f.diasSuspension === 1 ? '' : 'es'}
+                                    </span>
+                                    <strong>−{formatArs(f.descuentoSuspensiones)}</strong>
+                                  </p>
+                                  <ul className="liq-chips liq-chips-warn">
+                                    {f.fechasSuspensiones.map((fecha) => (
+                                      <li key={`s-${fecha}`}>
+                                        <time>{fecha}</time>
+                                        <span>−{formatArs(f.valorDiaDescuento)}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </>
+                              ) : null}
+                              {f.diasMediaJornada > 0 ? (
+                                <>
+                                  <p className="liq-badge-row">
+                                    <span className="liq-badge">
+                                      {f.diasMediaJornada} media jornada
+                                    </span>
+                                    <strong>−{formatArs(f.descuentoMediaJornada)}</strong>
+                                  </p>
+                                  <ul className="liq-chips">
+                                    {f.fechasMediaJornada.map((fecha) => (
+                                      <li key={`mj-${fecha}`}>
+                                        <time>{fecha}</time>
+                                        <span>−{formatArs(f.valorDiaDescuento / 2)}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </>
+                              ) : null}
                               {f.fechasFaltas.length === 0 ? (
                                 <p className="liq-muted">Sin faltas injustificadas.</p>
                               ) : (
@@ -1356,9 +1394,10 @@ export default function RrhhLiquidacionMensualTab({
                                   </dd>
                                 </div>
                                 <div>
-                                  <dt>Desc. faltas / tard.</dt>
+                                  <dt>Desc. faltas / tard. / susp. / ½ j.</dt>
                                   <dd className="liq-dd-neg">
-                                    −{formatArs(f.descuentoFaltas)} / −{formatArs(f.descuentoTardanzas)}
+                                    −{formatArs(f.descuentoFaltas)} / −{formatArs(f.descuentoTardanzas)} / −
+                                    {formatArs(f.descuentoSuspensiones)} / −{formatArs(f.descuentoMediaJornada)}
                                   </dd>
                                 </div>
                                 <div className="liq-dl-total">

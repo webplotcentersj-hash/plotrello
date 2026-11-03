@@ -1,19 +1,23 @@
 /* ── Nueva factura — shell oscuro + comprobante AFIP ── */
 .crear-factura-page {
-  --cf-ink: #e8edf5;
+  --cf-ink: #e2e8f0;
   --cf-muted: #94a3b8;
-  --cf-accent: #10b981;
-  --cf-line: rgba(148, 163, 184, 0.16);
-  --cf-surface: rgba(15, 23, 42, 0.88);
+  --cf-accent: #0f766e;
+  --cf-accent-soft: rgba(15, 118, 110, 0.18);
+  --cf-accent-line: rgba(45, 212, 191, 0.35);
+  --cf-line: rgba(148, 163, 184, 0.18);
+  --cf-surface: rgba(15, 23, 42, 0.9);
+  --cf-input: rgba(2, 6, 23, 0.55);
+  --cf-radius: 12px;
 
   min-height: 100vh;
-  padding: 22px;
+  padding: 20px;
   max-width: 1480px;
   margin: 0 auto;
   color: var(--cf-ink);
   background-color: #020617;
   background-image:
-    radial-gradient(ellipse 90% 60% at 0% -5%, rgba(5, 150, 105, 0.2), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 0% 0%, rgba(15, 118, 110, 0.16), transparent 55%),
     linear-gradient(165deg, #0f172a 0%, #020617 100%);
 }
 
@@ -29,58 +33,98 @@
   align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
-  padding: 20px 22px;
-  border-radius: 18px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border-radius: var(--cf-radius);
   border: 1px solid var(--cf-line);
-  background: linear-gradient(155deg, rgba(30, 41, 59, 0.82), var(--cf-surface));
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  background: var(--cf-surface);
 }
 
 .crear-factura-header__brand {
   display: flex;
   gap: 14px;
   align-items: flex-start;
-}
-
-.crear-factura-header__icon {
-  width: 54px;
-  height: 54px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.7rem;
-  border-radius: 14px;
-  background: rgba(16, 185, 129, 0.18);
-  border: 1px solid rgba(16, 185, 129, 0.35);
+  min-width: 0;
 }
 
 .crear-factura-header__eyebrow {
   margin: 0 0 4px;
   font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-weight: 750;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #6ee7b7;
+  color: #5eead4;
 }
 
 .crear-factura-header h1 {
   margin: 0;
-  color: #fff;
-  font-size: clamp(1.4rem, 2.5vw, 1.85rem);
-  font-weight: 800;
+  color: #f8fafc;
+  font-size: clamp(1.25rem, 2.2vw, 1.55rem);
+  font-weight: 750;
+  letter-spacing: -0.02em;
 }
 
 .crear-factura-header__sub {
   margin: 6px 0 0;
   color: var(--cf-muted);
-  font-size: 0.9rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  max-width: 42rem;
 }
 
 .crear-factura-header__actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+}
+
+.cf-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.cf-btn--ghost {
+  background: transparent;
+  border-color: var(--cf-line);
+  color: #cbd5e1;
+}
+
+.cf-btn--ghost:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: #f8fafc;
+}
+
+.cf-btn--soft {
+  background: var(--cf-accent-soft);
+  border-color: var(--cf-accent-line);
+  color: #99f6e4;
+}
+
+.cf-btn--soft:hover {
+  background: rgba(15, 118, 110, 0.3);
+}
+
+.cf-btn--primary {
+  background: var(--cf-accent);
+  border-color: var(--cf-accent);
+  color: #ecfdf5;
+}
+
+.cf-btn--primary:hover:not(:disabled) {
+  background: #0d9488;
+  border-color: #0d9488;
+}
+
+.cf-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .crear-factura-alert {
@@ -98,8 +142,8 @@
 
 .crear-factura-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 380px) 1fr;
-  gap: 20px;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
@@ -112,21 +156,40 @@
 .crear-factura-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .crear-factura-panel {
-  padding: 16px;
-  border-radius: 14px;
+  padding: 14px;
+  border-radius: var(--cf-radius);
   border: 1px solid var(--cf-line);
   background: var(--cf-surface);
 }
 
 .crear-factura-panel h2 {
   margin: 0 0 12px;
-  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+}
+
+.crear-factura-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--cf-accent-soft);
+  border: 1px solid var(--cf-accent-line);
+  color: #99f6e4;
+  font-size: 0.72rem;
   font-weight: 800;
-  color: #fff;
+  flex-shrink: 0;
 }
 
 .crear-factura-panel__head {
@@ -139,6 +202,66 @@
 
 .crear-factura-panel__head h2 {
   margin: 0;
+}
+
+.crear-factura-panel__hint {
+  margin: -4px 0 12px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--cf-muted);
+}
+
+.crear-factura-panel__hint strong {
+  color: #99f6e4;
+  font-weight: 650;
+}
+
+.crear-factura-panel--emitir {
+  border-color: var(--cf-accent-line);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.12), var(--cf-surface));
+}
+
+.crear-factura-alert--inline {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+}
+
+.crear-factura-catalogo-block {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cf-line);
+}
+
+.crear-factura-catalogo-block > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.crear-factura-catalogo-block > summary::-webkit-details-marker {
+  display: none;
+}
+
+.crear-factura-catalogo-block > summary::before {
+  content: '▸ ';
+  color: var(--cf-accent);
+}
+
+.crear-factura-catalogo-block[open] > summary::before {
+  content: '▾ ';
+}
+
+.crear-factura-catalogo-block > summary small {
+  font-weight: 500;
+  color: var(--cf-muted);
+  font-size: 0.72rem;
 }
 
 .crear-factura-field {
@@ -159,12 +282,12 @@
 .crear-factura-field input,
 .crear-factura-field select,
 .crear-factura-field textarea {
-  padding: 9px 11px;
-  border-radius: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
   border: 1px solid var(--cf-line);
-  background: rgba(2, 6, 23, 0.55);
+  background: var(--cf-input);
   color: var(--cf-ink);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-family: inherit;
 }
 
@@ -172,8 +295,8 @@
 .crear-factura-field select:focus,
 .crear-factura-field textarea:focus {
   outline: none;
-  border-color: rgba(16, 185, 129, 0.45);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12);
+  border-color: var(--cf-accent-line);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.16);
 }
 
 .crear-factura-cliente-search {
@@ -233,14 +356,14 @@
 
 .crear-factura-cliente-item.is-active,
 .crear-factura-cliente-item:hover {
-  background: rgba(16, 185, 129, 0.14);
+  background: var(--cf-accent-soft);
 }
 
 .crear-factura-cliente-ok {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #6ee7b7;
+  color: #5eead4;
   font-size: 0.75rem;
 }
 
@@ -256,15 +379,23 @@
 
 .crear-factura-check {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  font-size: 0.85rem;
-  color: var(--cf-muted);
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--cf-line);
+  background: rgba(2, 6, 23, 0.28);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: #cbd5e1;
   cursor: pointer;
 }
 
 .crear-factura-check input {
   width: auto;
+  margin-top: 2px;
+  accent-color: var(--cf-accent);
 }
 
 .crear-factura-origen-meta {
@@ -277,11 +408,11 @@
 .crear-factura-pill {
   padding: 3px 8px;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  border: 1px solid var(--cf-line);
-  background: rgba(16, 185, 129, 0.1);
-  color: #a7f3d0;
+  border: 1px solid var(--cf-accent-line);
+  background: var(--cf-accent-soft);
+  color: #99f6e4;
 }
 
 .crear-factura-muted {
@@ -297,7 +428,7 @@
 }
 
 .crear-factura-catalogo__hint strong {
-  color: #a7f3d0;
+  color: #99f6e4;
   font-weight: 700;
 }
 
@@ -316,10 +447,10 @@
   padding: 7px 9px;
   border-radius: 9px;
   border: 1px solid var(--cf-line);
-  background: rgba(15, 23, 42, 0.7);
+  background: var(--cf-input);
   color: var(--cf-ink);
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 750;
   cursor: pointer;
   text-align: left;
 }
@@ -331,13 +462,13 @@
 }
 
 .crear-factura-lista-chip.is-active {
-  border-color: rgba(16, 185, 129, 0.55);
-  background: rgba(16, 185, 129, 0.16);
+  border-color: var(--cf-accent-line);
+  background: var(--cf-accent-soft);
   color: #ecfdf5;
 }
 
 .crear-factura-lista-chip.is-active small {
-  color: #a7f3d0;
+  color: #99f6e4;
 }
 
 .crear-factura-catalogo-filtros {
@@ -387,7 +518,7 @@
 }
 
 .crear-factura-catalogo-row:hover:not(:disabled) {
-  background: rgba(16, 185, 129, 0.12);
+  background: var(--cf-accent-soft);
 }
 
 .crear-factura-catalogo-row:disabled {
@@ -396,7 +527,7 @@
 }
 
 .crear-factura-catalogo-row.is-added {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(15, 118, 110, 0.14);
 }
 
 .crear-factura-catalogo-row__nombre {
@@ -425,7 +556,7 @@
   gap: 2px;
   font-size: 0.7rem;
   font-weight: 700;
-  color: #6ee7b7;
+  color: #5eead4;
   white-space: nowrap;
 }
 
@@ -444,7 +575,7 @@
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: #6ee7b7;
+  color: #5eead4;
 }
 
 .crear-factura-items-editor {
@@ -505,54 +636,130 @@
 .crear-factura-descuento-general {
   margin-top: 12px;
   padding: 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  background: rgba(251, 191, 36, 0.08);
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.45);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
-.crear-factura-descuento-general > strong {
-  font-size: 0.92rem;
-  color: #fde68a;
+.crear-factura-descuento-general.is-on {
+  border-color: rgba(45, 212, 191, 0.35);
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.crear-factura-descuento-general__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.crear-factura-descuento-general__head strong {
+  display: block;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+  margin-bottom: 2px;
 }
 
 .crear-factura-descuento-general .crear-factura-muted {
   margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.crear-factura-descuento-general__modo {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  flex-shrink: 0;
+}
+
+.crear-factura-descuento-general__modo > button {
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
   font-size: 0.78rem;
+  font-weight: 750;
+  min-width: 32px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.crear-factura-descuento-general__modo > button.is-on {
+  background: #0f766e;
+  color: #ecfdf5;
 }
 
 .crear-factura-descuento-general__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
   gap: 8px;
   align-items: end;
 }
 
 .crear-factura-descuento-general__row input {
-  padding: 7px 9px;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--cf-line);
   background: rgba(15, 23, 42, 0.8);
   color: var(--cf-ink);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   width: 100%;
   box-sizing: border-box;
 }
 
 .crear-factura-descuento-general__resumen {
-  min-height: 34px;
+  min-height: 36px;
   display: flex;
   align-items: center;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #fbbf24;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.crear-factura-descuento-general__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.35);
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  color: #99f6e4;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.crear-factura-descuento-general__meta {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.crear-factura-descuento-general__clear {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: transparent;
+  color: #94a3b8;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.crear-factura-descuento-general__clear:hover {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fecaca;
 }
 
 @media (max-width: 720px) {
   .crear-factura-descuento-general__row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr auto;
   }
 
   .crear-factura-descuento-general__resumen {
@@ -565,6 +772,9 @@
   gap: 8px;
   justify-content: flex-end;
   flex-wrap: wrap;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cf-line);
 }
 
 .btn-sm {
@@ -586,7 +796,19 @@
   position: sticky;
   top: 16px;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.afip-comprobante-wrap::before {
+  content: 'Vista previa';
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cf-muted);
 }
 
 .afip-comprobante {
@@ -973,13 +1195,13 @@
 }
 
 .crear-factura-page .btn-primary {
-  padding: 12px 24px;
-  background: #059669;
-  color: white;
-  border: none;
-  border-radius: 8px;
+  padding: 10px 18px;
+  background: var(--cf-accent);
+  color: #ecfdf5;
+  border: 1px solid var(--cf-accent);
+  border-radius: 9px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .crear-factura-page .btn-primary:disabled {
@@ -988,10 +1210,10 @@
 }
 
 .crear-factura-page .btn-secondary {
-  padding: 12px 24px;
-  background: rgba(148, 163, 184, 0.15);
+  padding: 10px 18px;
+  background: transparent;
   color: var(--cf-ink);
   border: 1px solid var(--cf-line);
-  border-radius: 8px;
+  border-radius: 9px;
   cursor: pointer;
 }

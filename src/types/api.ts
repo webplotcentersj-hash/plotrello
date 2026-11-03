@@ -1722,6 +1722,7 @@ export type RrhhNovedadGrupo =
   | 'beneficio_comida'
   | 'parte_diario'
   | 'anticipacion_sueldo'
+  | 'suspension'
 
 /** Código cerrado para filtros exactos. */
 export type RrhhNovedadCodigo =
@@ -1741,6 +1742,8 @@ export type RrhhNovedadCodigo =
   | 'horas_extra_100'
   | 'parte_diario'
   | 'anticipacion_sueldo'
+  | 'suspension'
+  | 'restituir_jornada'
 
 export interface RrhhNovedadAdjunto {
   url: string

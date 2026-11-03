@@ -491,6 +491,7 @@ export function evaluarDiaAsistencia(params: {
 
   const novFalta = novs.find((n) => n.grupo === 'falta')
   const novLicencia = novs.find((n) => n.grupo === 'licencia')
+  const novSuspension = novs.find((n) => n.grupo === 'suspension' && n.codigo === 'suspension')
   const novTardanza = novs.find((n) => n.codigo === 'tardanza')
   const novsHe = novs.filter((n) => n.grupo === 'horas_extra')
   // Sábado: usar entrada de sábado del fijo si no hay esperado explícito
@@ -509,7 +510,10 @@ export function evaluarDiaAsistencia(params: {
     : { tarde: !!novTardanza, minutos: novTardanza?.duracion_minutos ?? 0 }
 
   let esJustificado =
-    a?.tipo_registro === 'justificado' || !!novLicencia || (novFalta != null && esFaltaJustificada(novFalta))
+    a?.tipo_registro === 'justificado' ||
+    !!novLicencia ||
+    !!novSuspension ||
+    (novFalta != null && esFaltaJustificada(novFalta))
 
   let esAusenciaInjustificada =
     !esJustificado &&
@@ -517,6 +521,9 @@ export function evaluarDiaAsistencia(params: {
 
   if (novFalta && esFaltaJustificada(novFalta)) {
     esJustificado = true
+    esAusenciaInjustificada = false
+  }
+  if (novSuspension) {
     esAusenciaInjustificada = false
   }
 
@@ -535,6 +542,7 @@ export function evaluarDiaAsistencia(params: {
     !!a ||
     !!novFalta ||
     !!novLicencia ||
+    !!novSuspension ||
     !!novTardanza ||
     novsHe.length > 0 ||
     novs.some((n) => n.grupo === 'tardanza_retiro')

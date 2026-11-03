@@ -148,6 +148,67 @@ describe('liquidación mensual', () => {
     assert.equal(fila.descuentoFaltas, 52232)
   })
 
+  it('descuenta suspensión a valor día y media jornada al 50% después', () => {
+    const horario = { entrada: '08:00', salida: '17:00', horas: 9, trabajaSabado: false }
+    // Lun 5–mar 6 suspensión; mié 7 media jornada con marca
+    const dias = ['2026-10-05', '2026-10-06', '2026-10-07']
+    const fila = armarLiquidacionEmpleado({
+      id: 1,
+      nombre: 'Ana',
+      stats: stats({ diasConEntrada: 1, diasExigibles: 3 }),
+      montos: { netoManual: null, precioHora: 0, sueldoBase: 300000, sueldoBlanco: 0, sueldoSinDeclarar: 0 },
+      precioHoraDefault: 0,
+      cargas: CARGAS_SOCIALES_DEFAULT,
+      valorDiaDescuento: 52232,
+      novedades: [
+        {
+          id: 9,
+          id_usuario: 1,
+          id_solicitud_permiso: null,
+          grupo: 'suspension',
+          codigo: 'suspension',
+          fecha_desde: '2026-10-05',
+          fecha_hasta: '2026-10-06',
+          duracion_minutos: null,
+          horas_extra_cantidad: null,
+          observaciones: 'Sanción',
+          adjuntos: [],
+          registrado_por: null,
+          firma_data_url: null,
+          firmado_at: null,
+          created_at: '',
+          updated_at: ''
+        }
+      ],
+      permisos: [],
+      dias,
+      fechaDesde: '2026-10-05',
+      fechaHasta: '2026-10-07',
+      asistencia: [
+        {
+          id: 1,
+          id_usuario: 1,
+          fecha: '2026-10-07',
+          hora_entrada: '2026-10-07T08:00:00-03:00',
+          hora_salida: '2026-10-07T12:00:00-03:00',
+          horas_trabajadas: 4,
+          tipo_registro: 'normal',
+          observaciones: null,
+          created_at: '',
+          updated_at: ''
+        }
+      ],
+      horariosPorMes: { '2026-10': { 1: horario } }
+    })
+
+    assert.deepEqual(fila.fechasSuspensiones, ['2026-10-05', '2026-10-06'])
+    assert.equal(fila.descuentoSuspensiones, 104464)
+    assert.deepEqual(fila.fechasMediaJornada, ['2026-10-07'])
+    assert.equal(fila.descuentoMediaJornada, 26116)
+    assert.equal(fila.faltas, 0)
+    assert.equal(fila.descuentoFaltas, 0)
+  })
+
   it('aplica bloque de 3 tardanzas como 1 día al neto', () => {
     const fila = armarLiquidacionEmpleado({
       id: 1,

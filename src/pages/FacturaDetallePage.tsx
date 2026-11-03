@@ -370,80 +370,118 @@ export default function FacturaDetallePage() {
           </div>
         </div>
         <div className="header-actions">
-          <button className="btn-secondary" onClick={() => navigate('/erp/facturas')}>
-            ← Volver
-          </button>
-          {factura.estado_afip === 'Autorizada' && (
-            <label className="factura-diseno-pdf">
-              <span>Diseño PDF</span>
-              <select
-                value={disenoPdf}
-                onChange={(e) => elegirDisenoPdf(e.target.value as DisenoPdfFactura)}
+          <div className="header-actions__row header-actions__row--nav">
+            <button type="button" className="fd-btn fd-btn--ghost" onClick={() => navigate('/erp/facturas')}>
+              ← Volver
+            </button>
+          </div>
+
+          <div className="header-actions__row header-actions__row--main">
+            {factura.estado_afip === 'Autorizada' && (
+              <div
+                className="factura-diseno-pdf"
+                role="group"
+                aria-label="Diseño del PDF"
                 title={DISENOS_PDF_FACTURA.find((d) => d.id === disenoPdf)?.hint}
               >
                 {DISENOS_PDF_FACTURA.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.label}
-                  </option>
+                  <button
+                    key={d.id}
+                    type="button"
+                    className={`factura-diseno-pdf__opt${disenoPdf === d.id ? ' is-on' : ''}`}
+                    aria-pressed={disenoPdf === d.id}
+                    onClick={() => elegirDisenoPdf(d.id)}
+                  >
+                    {d.id === 'oficial' ? 'Oficial' : 'Plot Lab'}
+                  </button>
                 ))}
-              </select>
-            </label>
-          )}
-          <button className="btn-primary" onClick={() => void handleDescargarPdf()} disabled={descargandoPdf}>
-            {descargandoPdf ? 'Generando PDF…' : 'Descargar PDF'}
-          </button>
-          {factura.estado_afip === 'Autorizada' && (
-            <button className="btn-secondary" onClick={() => setShowEnviar((v) => !v)}>
-              {showEnviar ? 'Cerrar envío' : 'Enviar al cliente'}
-            </button>
-          )}
-          {puedeEmitirAfip && (
-            <button className="btn-primary" onClick={handleEmitirAfip} disabled={loadingAfip}>
-              {loadingAfip
-                ? 'Autorizando en AFIP…'
-                : factura.estado === 'Borrador'
-                  ? factura.estado_afip === 'Error' || factura.estado_afip === 'Enviando'
-                    ? 'Reintentar emisión (AFIP)'
-                    : 'Emitir (autorizar AFIP)'
-                  : 'Autorizar AFIP'}
-            </button>
-          )}
-          {envioEnCurso && (
-            <button className="btn-primary" disabled>
-              Enviando a AFIP…
-            </button>
-          )}
-          {efectosPendientes && (
-            <button className="btn-primary" onClick={handleEmitirAfip} disabled={loadingAfip}>
-              {loadingAfip ? 'Generando…' : 'Generar CxC y asiento pendientes'}
-            </button>
-          )}
-          {puedeCrearNotas && (
-            <>
-              <button className="btn-secondary" onClick={handleAnular} disabled={anulando}>
-                {anulando ? 'Anulando…' : 'Anular con nota de crédito'}
-              </button>
-              <button className="btn-secondary" onClick={() => navigate(`/erp/facturas/${factura.id}/nota?tipo=credito`)}>
-                Nota de crédito parcial
-              </button>
-              <button className="btn-secondary" onClick={() => navigate(`/erp/facturas/${factura.id}/nota?tipo=debito`)}>
-                Nota débito
-              </button>
-            </>
-          )}
-          {String(factura.tipo_comprobante).startsWith('Factura') && (
+              </div>
+            )}
             <button
-              className="btn-secondary"
-              title="Factura nueva con el mismo cliente y las mismas líneas (sin número, CAE ni fechas)"
-              onClick={() => navigate(`/erp/facturas/nueva?copiar=${factura.id}`)}
+              type="button"
+              className="fd-btn fd-btn--primary"
+              onClick={() => void handleDescargarPdf()}
+              disabled={descargandoPdf}
             >
-              📋 Copiar como nueva
+              {descargandoPdf ? 'Generando…' : 'Descargar PDF'}
             </button>
-          )}
-          {factura.estado === 'Borrador' && factura.estado_afip !== 'Autorizada' && factura.estado_afip !== 'Enviando' && (
-            <button className="btn-secondary" onClick={handleAnular} disabled={anulando}>
-              {anulando ? 'Descartando…' : 'Descartar borrador'}
-            </button>
+            {factura.estado_afip === 'Autorizada' && (
+              <button
+                type="button"
+                className={`fd-btn fd-btn--soft${showEnviar ? ' is-active' : ''}`}
+                onClick={() => setShowEnviar((v) => !v)}
+              >
+                {showEnviar ? 'Cerrar envío' : 'Enviar'}
+              </button>
+            )}
+            {puedeEmitirAfip && (
+              <button type="button" className="fd-btn fd-btn--primary" onClick={handleEmitirAfip} disabled={loadingAfip}>
+                {loadingAfip
+                  ? 'Autorizando…'
+                  : factura.estado === 'Borrador'
+                    ? factura.estado_afip === 'Error' || factura.estado_afip === 'Enviando'
+                      ? 'Reintentar AFIP'
+                      : 'Emitir AFIP'
+                    : 'Autorizar AFIP'}
+              </button>
+            )}
+            {envioEnCurso && (
+              <button type="button" className="fd-btn fd-btn--primary" disabled>
+                Enviando AFIP…
+              </button>
+            )}
+            {efectosPendientes && (
+              <button type="button" className="fd-btn fd-btn--primary" onClick={handleEmitirAfip} disabled={loadingAfip}>
+                {loadingAfip ? 'Generando…' : 'Generar CxC / asiento'}
+              </button>
+            )}
+          </div>
+
+          {(puedeCrearNotas ||
+            String(factura.tipo_comprobante).startsWith('Factura') ||
+            (factura.estado === 'Borrador' &&
+              factura.estado_afip !== 'Autorizada' &&
+              factura.estado_afip !== 'Enviando')) && (
+            <div className="header-actions__row header-actions__row--more">
+              {puedeCrearNotas && (
+                <>
+                  <button type="button" className="fd-btn fd-btn--danger-ghost" onClick={handleAnular} disabled={anulando}>
+                    {anulando ? 'Anulando…' : 'Anular'}
+                  </button>
+                  <button
+                    type="button"
+                    className="fd-btn fd-btn--ghost"
+                    onClick={() => navigate(`/erp/facturas/${factura.id}/nota?tipo=credito`)}
+                  >
+                    NC parcial
+                  </button>
+                  <button
+                    type="button"
+                    className="fd-btn fd-btn--ghost"
+                    onClick={() => navigate(`/erp/facturas/${factura.id}/nota?tipo=debito`)}
+                  >
+                    Nota débito
+                  </button>
+                </>
+              )}
+              {String(factura.tipo_comprobante).startsWith('Factura') && (
+                <button
+                  type="button"
+                  className="fd-btn fd-btn--ghost"
+                  title="Factura nueva con el mismo cliente y las mismas líneas (sin número, CAE ni fechas)"
+                  onClick={() => navigate(`/erp/facturas/nueva?copiar=${factura.id}`)}
+                >
+                  Copiar
+                </button>
+              )}
+              {factura.estado === 'Borrador' &&
+                factura.estado_afip !== 'Autorizada' &&
+                factura.estado_afip !== 'Enviando' && (
+                  <button type="button" className="fd-btn fd-btn--danger-ghost" onClick={handleAnular} disabled={anulando}>
+                    {anulando ? 'Descartando…' : 'Descartar'}
+                  </button>
+                )}
+            </div>
           )}
         </div>
       </div>

@@ -3,6 +3,7 @@ import { isoToArgentinaDateKey } from './dateUtils'
 import { nombreFeriado } from './feriadosArgentina'
 import { etiquetaCodigoRrhhNovedad, etiquetaGrupoRrhhNovedad } from './rrhhNovedadCatalog'
 import { novedadEnDia } from './rrhhNovedadDates'
+import { diaEnMediaJornadaPostSuspension, diaEnSuspension } from './rrhhSuspension'
 import {
   MULTIPLICADOR_HE100,
   MULTIPLICADOR_HE50,
@@ -80,6 +81,12 @@ export type LiquidacionEmpleado = {
   fechasFaltas: string[]
   /** Justificadas / licencia / permiso: sin descuento. */
   fechasJustificadas: string[]
+  /** Días laborables dentro de una suspensión (sin goce). */
+  fechasSuspensiones: string[]
+  diasSuspension: number
+  /** Días laborables con media jornada post-suspensión. */
+  fechasMediaJornada: string[]
+  diasMediaJornada: number
   diasDebia: number
   diasVino: number
   domingos: number
@@ -111,6 +118,10 @@ export type LiquidacionEmpleado = {
   importeExtra100: number
   descuentoFaltas: number
   descuentoTardanzas: number
+  /** Suspensión: 1 valor día por cada día laborable del período. */
+  descuentoSuspensiones: number
+  /** Media jornada post-suspensión: ½ valor día por cada día laborable. */
+  descuentoMediaJornada: number
   /** Valor día usado para faltas / bloques de tardanzas. */
   valorDiaDescuento: number
   /** Días descontados por bloques de 3 tardanzas. */
@@ -472,6 +483,8 @@ export function armarLiquidacionEmpleado(params: {
   let noTrabajaVino = 0
   const fechasFaltas: string[] = []
   const fechasJustificadas: string[] = []
+  const fechasSuspensiones: string[] = []
+  const fechasMediaJornada: string[] = []
   const permisosEmpleado = params.permisos.filter((p) => p.id_usuario === params.id)
   for (const fecha of params.dias) {
     const horario = params.horariosPorMes?.[fecha.slice(0, 7)]?.[params.id] ?? null
@@ -482,6 +495,8 @@ export function armarLiquidacionEmpleado(params: {
     const horas = horasVino(marca)
     const novs = params.novedades.filter((n) => n.id_usuario === params.id && novedadEnDia(n, fecha))
     const yaIngreso = !fechaIngreso || fecha >= fechaIngreso
+    const enSuspension = diaEnSuspension(params.novedades, params.id, fecha)
+    const enMediaJornada = diaEnMediaJornadaPostSuspension(params.novedades, params.id, fecha)
 
     if (esDiaLaborableEmpleado(fecha, horario)) {
       diasLaborablesPeriodo += 1
@@ -512,6 +527,29 @@ export function armarLiquidacionEmpleado(params: {
       continue
     }
     diasDebia += 1
+    if (enSuspension) {
+      fechasSuspensiones.push(fecha)
+      continue
+    }
+    if (enMediaJornada) {
+      // Presente o justificado: ½ valor día (jornada reducida). Ausente: falta de 1 día.
+      if (vino) {
+        fechasMediaJornada.push(fecha)
+        diasVino += 1
+        continue
+      }
+      if (fecha > hoy) {
+        fechasMediaJornada.push(fecha)
+        continue
+      }
+      if (esJustificadoDia(fecha, marca, novs, permisosEmpleado)) {
+        fechasMediaJornada.push(fecha)
+        fechasJustificadas.push(fecha)
+        continue
+      }
+      fechasFaltas.push(fecha)
+      continue
+    }
     if (vino) {
       diasVino += 1
       continue
@@ -525,6 +563,8 @@ export function armarLiquidacionEmpleado(params: {
     fechasFaltas.push(fecha)
   }
   const faltas = fechasFaltas.length
+  const diasSuspension = fechasSuspensiones.length
+  const diasMediaJornada = fechasMediaJornada.length
   const factorProporcional = factorProporcionalPeriodo(diasDebia, diasLaborablesPeriodo)
   const adicionalAntiguedadCompleto = round2(
     params.montos.sueldoBase * antiguedadAnios * (pctAntiguedadLegal / 100)
@@ -549,6 +589,9 @@ export function armarLiquidacionEmpleado(params: {
   const descuentoFaltas = descuentoPorFaltas(faltas, valorDiaDescuento)
   const diasDescTard = diasDescuentoPorTardanzas(tardanzasCount)
   const descuentoTardanzas = descuentoPorTardanzas(tardanzasCount, valorDiaDescuento)
+  // Suspensión sin goce = 1 valor día. Media jornada post-suspensión = ½ valor día.
+  const descuentoSuspensiones = round2(diasSuspension * valorDiaDescuento)
+  const descuentoMediaJornada = round2(diasMediaJornada * valorDiaDescuento * 0.5)
   const baseImponible = round2(sueldoBaseProporcional + adicionalAntiguedad)
 
   const items = params.cargas.map((c) => ({
@@ -563,11 +606,14 @@ export function armarLiquidacionEmpleado(params: {
   const totalAportes = round2(aportes.reduce((a, c) => a + c.importe, 0))
   const totalContribuciones = round2(contribuciones.reduce((a, c) => a + c.importe, 0))
   const haberes = round2(remuneracion + importeExtra50 + importeExtra100)
+  const descuentosLaborales = round2(
+    descuentoFaltas + descuentoTardanzas + descuentoSuspensiones + descuentoMediaJornada
+  )
   // Aportes (cargas del empleado) se descuentan del base/haberes → neto a pagar.
-  const netoCalculado = round2(haberes - descuentoFaltas - descuentoTardanzas - totalAportes)
+  const netoCalculado = round2(haberes - descuentosLaborales - totalAportes)
   const tieneNetoManual = params.montos.netoManual != null
   const neto = tieneNetoManual ? round2(Number(params.montos.netoManual) || 0) : netoCalculado
-  const costoEmpresa = round2(haberes - descuentoFaltas - descuentoTardanzas + totalContribuciones)
+  const costoEmpresa = round2(haberes - descuentosLaborales + totalContribuciones)
 
   const novedades = params.novedades
     .filter((n) => n.id_usuario === params.id && params.dias.some((d) => novedadEnDia(n, d)))
@@ -626,6 +672,10 @@ export function armarLiquidacionEmpleado(params: {
     faltas,
     fechasFaltas,
     fechasJustificadas,
+    fechasSuspensiones,
+    diasSuspension,
+    fechasMediaJornada,
+    diasMediaJornada,
     diasDebia,
     diasVino,
     domingos,
@@ -657,6 +707,8 @@ export function armarLiquidacionEmpleado(params: {
     importeExtra100,
     descuentoFaltas,
     descuentoTardanzas,
+    descuentoSuspensiones,
+    descuentoMediaJornada,
     valorDiaDescuento,
     diasDescuentoTardanzas: diasDescTard,
     aportes,

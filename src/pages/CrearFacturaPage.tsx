@@ -144,6 +144,7 @@ export default function CrearFacturaPage() {
   const [items, setItems] = useState<ItemRow[]>([])
   /** Descuento de toda la factura (en pesos); se reparte entre ítems al calcular/guardar. */
   const [descuentoGeneral, setDescuentoGeneral] = useState(0)
+  const [descuentoGeneralModo, setDescuentoGeneralModo] = useState<'pesos' | 'pct'>('pesos')
   const { ajustes: ajustesPrecios } = useConfigAjustesPreciosVentas()
   const [catalogoArticulos, setCatalogoArticulos] = useState<ArticuloEmpresaRecord[]>([])
   const [loadingCatalogo, setLoadingCatalogo] = useState(false)
@@ -409,6 +410,14 @@ export default function CrearFacturaPage() {
     setVentaSeleccionadaId(ventaId)
     if (!ventaId) {
       setVenta(null)
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev)
+          p.delete('id_venta')
+          return p
+        },
+        { replace: true }
+      )
       return
     }
     const vid = parseInt(ventaId, 10)
@@ -548,6 +557,15 @@ export default function CrearFacturaPage() {
 
   const tiposPermitidos = useMemo(() => tiposFacturaPermitidos(condicionEmisor), [condicionEmisor])
   const esFacturaC = formData.tipo_comprobante === 'Factura C'
+  const origenDesdeVenta = Boolean(venta)
+  const tipoSugerido = useMemo(
+    () => inferirTipoFactura(cliente.dni_cuit, cliente.condicion_iva, condicionEmisor),
+    [cliente.dni_cuit, cliente.condicion_iva, condicionEmisor]
+  )
+  const avisoReceptor = useMemo(
+    () => validarReceptorComprobante(formData.tipo_comprobante, cliente.condicion_iva, cliente.dni_cuit),
+    [formData.tipo_comprobante, cliente.condicion_iva, cliente.dni_cuit]
+  )
   const opcionesCalculo = useMemo(
     () => ({ preciosConIva: preciosConIva && !esFacturaC, sinIva: esFacturaC }),
     [preciosConIva, esFacturaC]
@@ -718,22 +736,20 @@ export default function CrearFacturaPage() {
     <div className="crear-factura-page">
       <header className="crear-factura-header">
         <div className="crear-factura-header__brand">
-          <div className="crear-factura-header__icon" aria-hidden>
-            🧾
-          </div>
           <div>
             <p className="crear-factura-header__eyebrow">Contable · AFIP</p>
-            <h1>Nueva factura de venta</h1>
+            <h1>Nueva factura</h1>
             <p className="crear-factura-header__sub">
-              Comprobante fiscal con datos de ventas del CRM · {afipConfig?.ambiente || 'Sin ambiente'}
+              Origen → cliente → comprobante → ítems → emitir
+              {afipConfig?.ambiente ? ` · ${afipConfig.ambiente}` : ''}
             </p>
           </div>
         </div>
         <div className="crear-factura-header__actions">
-          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/facturas')}>
+          <button type="button" className="cf-btn cf-btn--ghost" onClick={() => navigate('/erp/facturas')}>
             ← Facturas
           </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/configuracion-afip')}>
+          <button type="button" className="cf-btn cf-btn--ghost" onClick={() => navigate('/erp/configuracion-afip')}>
             Config AFIP
           </button>
         </div>
@@ -748,11 +764,18 @@ export default function CrearFacturaPage() {
       <div className="crear-factura-layout">
         <aside className="crear-factura-sidebar">
           <section className="crear-factura-panel">
-            <h2>Origen · Ventas</h2>
+            <h2><span className="crear-factura-step">1</span> Origen</h2>
+            <p className="crear-factura-panel__hint">
+              {origenDesdeVenta
+                ? 'Cliente e ítems se cargan desde la venta. Después podés ajustar.'
+                : idCopiarParam
+                  ? 'Copiando otra factura: cliente e ítems vienen de ahí; el número y el CAE son nuevos.'
+                  : 'Sin venta: cargás cliente e ítems a mano o desde la lista de precios.'}
+            </p>
             <label className="crear-factura-field">
               <span>Venta del CRM / mostrador</span>
               <select value={ventaSeleccionadaId} onChange={(e) => void handleSelectVenta(e.target.value)}>
-                <option value="">(manual / sin venta)</option>
+                <option value="">Manual / sin venta</option>
                 {ventasDisponibles.map((v) => (
                   <option key={v.id} value={String(v.id)}>
                     {v.numero_venta} · {v.cliente_nombre} · ${Number(v.valor_total).toLocaleString('es-AR')}
@@ -768,102 +791,18 @@ export default function CrearFacturaPage() {
                 <span className="crear-factura-pill">{venta.estado_pago}</span>
               </div>
             )}
-          </section>
-
-          <section className="crear-factura-panel">
-            <h2>Comprobante</h2>
-            <label className="crear-factura-field">
-              <span>Tipo</span>
-              <select
-                value={formData.tipo_comprobante}
-                onChange={(e) => setFormData((p) => ({ ...p, tipo_comprobante: e.target.value as TipoFactura }))}
-              >
-                {tiposPermitidos.includes('Factura A') && (
-                  <option value="Factura A">Factura A (a Resp. Inscripto / Monotributista)</option>
-                )}
-                {tiposPermitidos.includes('Factura B') && (
-                  <option value="Factura B">Factura B (a Consumidor Final / Exento)</option>
-                )}
-                {tiposPermitidos.includes('Factura C') && (
-                  <option value="Factura C">Factura C (emisor Monotributista / Exento)</option>
-                )}
-              </select>
-            </label>
-            <label className="crear-factura-field">
-              <span>Concepto</span>
-              <select
-                value={formData.concepto}
-                onChange={(e) => setFormData((p) => ({ ...p, concepto: Number(e.target.value) as ConceptoAfip }))}
-              >
-                {CONCEPTOS_AFIP.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="crear-factura-field">
-              <span>Fecha emisión</span>
-              <input
-                type="date"
-                value={formData.fecha_emision}
-                onChange={(e) => setFormData((p) => ({ ...p, fecha_emision: e.target.value }))}
-              />
-            </label>
-            {esServicio && (
-              <>
-                <label className="crear-factura-field">
-                  <span>Servicio desde</span>
-                  <input
-                    type="date"
-                    value={formData.fecha_servicio_desde || formData.fecha_emision}
-                    onChange={(e) => setFormData((p) => ({ ...p, fecha_servicio_desde: e.target.value }))}
-                  />
-                </label>
-                <label className="crear-factura-field">
-                  <span>Servicio hasta</span>
-                  <input
-                    type="date"
-                    value={formData.fecha_servicio_hasta || formData.fecha_servicio_desde || formData.fecha_emision}
-                    onChange={(e) => setFormData((p) => ({ ...p, fecha_servicio_hasta: e.target.value }))}
-                  />
-                </label>
-              </>
+            {op && !venta?.numero_op && (
+              <div className="crear-factura-origen-meta">
+                <span className="crear-factura-pill">OP {op.numero_op}</span>
+              </div>
             )}
-            <label className="crear-factura-field">
-              <span>{esServicio ? 'Vencimiento del pago (vacío = fecha de emisión)' : 'Fecha vencimiento'}</span>
-              <input
-                type="date"
-                value={formData.fecha_vencimiento}
-                min={esServicio ? formData.fecha_emision : undefined}
-                onChange={(e) => setFormData((p) => ({ ...p, fecha_vencimiento: e.target.value }))}
-              />
-            </label>
-            <label className="crear-factura-check">
-              <input
-                type="checkbox"
-                checked={emitirAlGuardar}
-                disabled={typeof navigator !== 'undefined' && navigator.onLine === false}
-                onChange={(e) => setEmitirAlGuardar(e.target.checked)}
-              />
-              Autorizar en AFIP al guardar (con CAE genera CxC y asiento)
-              {typeof navigator !== 'undefined' && navigator.onLine === false
-                ? ' — solo online'
-                : ''}
-            </label>
-            <label className="crear-factura-check">
-              <input
-                type="checkbox"
-                checked={preciosConIva && !esFacturaC}
-                disabled={esFacturaC}
-                onChange={(e) => setPreciosConIva(e.target.checked)}
-              />
-              Precios con IVA incluido
-            </label>
           </section>
 
           <section className="crear-factura-panel">
-            <h2>Cliente receptor</h2>
+            <h2><span className="crear-factura-step">2</span> Cliente</h2>
+            <p className="crear-factura-panel__hint">
+              La condición IVA del receptor define si corresponde Factura A, B o C.
+            </p>
             <div className="crear-factura-field">
               <span>Razón social / Nombre</span>
               <div className={`crear-factura-cliente-search${cliente.id_cliente ? ' is-selected' : ''}`}>
@@ -967,99 +906,115 @@ export default function CrearFacturaPage() {
           </section>
 
           <section className="crear-factura-panel">
+            <h2><span className="crear-factura-step">3</span> Comprobante</h2>
+            <p className="crear-factura-panel__hint">
+              Tipo sugerido según cliente: <strong>{tipoSugerido}</strong>
+              {formData.tipo_comprobante !== tipoSugerido ? ' · cambiaste el tipo a mano' : ''}
+            </p>
+            <label className="crear-factura-field">
+              <span>Tipo</span>
+              <select
+                value={formData.tipo_comprobante}
+                onChange={(e) => setFormData((p) => ({ ...p, tipo_comprobante: e.target.value as TipoFactura }))}
+              >
+                {tiposPermitidos.includes('Factura A') && (
+                  <option value="Factura A">Factura A (a Resp. Inscripto / Monotributista)</option>
+                )}
+                {tiposPermitidos.includes('Factura B') && (
+                  <option value="Factura B">Factura B (a Consumidor Final / Exento)</option>
+                )}
+                {tiposPermitidos.includes('Factura C') && (
+                  <option value="Factura C">Factura C (emisor Monotributista / Exento)</option>
+                )}
+              </select>
+            </label>
+            {avisoReceptor && (
+              <div className="crear-factura-alert crear-factura-alert--warn crear-factura-alert--inline">
+                {avisoReceptor}
+              </div>
+            )}
+            <label className="crear-factura-field">
+              <span>Concepto</span>
+              <select
+                value={formData.concepto}
+                onChange={(e) => setFormData((p) => ({ ...p, concepto: Number(e.target.value) as ConceptoAfip }))}
+              >
+                {CONCEPTOS_AFIP.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="crear-factura-field">
+              <span>Fecha emisión</span>
+              <input
+                type="date"
+                value={formData.fecha_emision}
+                onChange={(e) => setFormData((p) => ({ ...p, fecha_emision: e.target.value }))}
+              />
+            </label>
+            {esServicio && (
+              <>
+                <label className="crear-factura-field">
+                  <span>Servicio desde</span>
+                  <input
+                    type="date"
+                    value={formData.fecha_servicio_desde || formData.fecha_emision}
+                    onChange={(e) => setFormData((p) => ({ ...p, fecha_servicio_desde: e.target.value }))}
+                  />
+                </label>
+                <label className="crear-factura-field">
+                  <span>Servicio hasta</span>
+                  <input
+                    type="date"
+                    value={formData.fecha_servicio_hasta || formData.fecha_servicio_desde || formData.fecha_emision}
+                    onChange={(e) => setFormData((p) => ({ ...p, fecha_servicio_hasta: e.target.value }))}
+                  />
+                </label>
+              </>
+            )}
+            <label className="crear-factura-field">
+              <span>{esServicio ? 'Vencimiento del pago (vacío = fecha de emisión)' : 'Fecha vencimiento'}</span>
+              <input
+                type="date"
+                value={formData.fecha_vencimiento}
+                min={esServicio ? formData.fecha_emision : undefined}
+                onChange={(e) => setFormData((p) => ({ ...p, fecha_vencimiento: e.target.value }))}
+              />
+            </label>
+          </section>
+
+          <section className="crear-factura-panel">
             <div className="crear-factura-panel__head">
-              <h2>Ítems</h2>
-              <button type="button" className="btn-secondary btn-sm" onClick={handleAddItem}>
+              <h2><span className="crear-factura-step">4</span> Ítems</h2>
+              <button type="button" className="cf-btn cf-btn--soft btn-sm" onClick={handleAddItem}>
                 + Ítem
               </button>
             </div>
-
-            <p className="crear-factura-catalogo__hint">
-              Lista Flexxus · precios con <strong>{labelAjustesPreciosActivos(ajustesPrecios)}</strong>
+            <p className="crear-factura-panel__hint">
+              {origenDesdeVenta
+                ? 'Líneas traídas de la venta (precios finales con IVA). Podés editar o sumar más.'
+                : 'Armá las líneas y después, si hace falta, sumá desde la lista de precios.'}
             </p>
-            <div className="crear-factura-lista-chips">
-              {(Object.keys(LISTAS_PRECIO_VENTAS) as TipoListaPrecioVentas[]).map((lista) => (
-                <button
-                  key={lista}
-                  type="button"
-                  className={`crear-factura-lista-chip${tipoListaPrecio === lista ? ' is-active' : ''}`}
-                  onClick={() => setTipoListaPrecio(lista)}
-                >
-                  {LISTAS_PRECIO_VENTAS[lista].label}
-                  <small>{LISTAS_PRECIO_VENTAS[lista].subtitle}</small>
-                </button>
-              ))}
-            </div>
-            <div className="crear-factura-catalogo-filtros">
+            <label className="crear-factura-check">
               <input
-                type="search"
-                placeholder="Buscar código, nombre o rubro…"
-                value={busquedaArticulo}
-                onChange={(e) => setBusquedaArticulo(e.target.value)}
-                autoComplete="off"
+                type="checkbox"
+                checked={preciosConIva && !esFacturaC}
+                disabled={esFacturaC}
+                onChange={(e) => setPreciosConIva(e.target.checked)}
               />
-              {categoriasArticulos.length > 0 && (
-                <select value={categoriaArticulo} onChange={(e) => setCategoriaArticulo(e.target.value)}>
-                  <option value="todas">Todos los rubros</option>
-                  {categoriasArticulos.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <div className="crear-factura-catalogo">
-              {loadingCatalogo ? (
-                <p className="crear-factura-muted">Cargando lista de precios…</p>
-              ) : articulosFiltrados.length === 0 ? (
-                <p className="crear-factura-muted">
-                  {busquedaArticulo.trim() || categoriaArticulo !== 'todas'
-                    ? 'Sin resultados. Probá con otras palabras o rubro.'
-                    : 'No hay artículos en la lista de precios.'}
-                </p>
-              ) : (
-                <>
-                  {articulosFiltrados.slice(0, 60).map((articulo) => {
-                    const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
-                    const qty = items.find((item) => item.id_articulo_empresa === articulo.id)?.cantidad
-                    return (
-                      <button
-                        key={articulo.id}
-                        type="button"
-                        className={`crear-factura-catalogo-row${qty ? ' is-added' : ''}`}
-                        disabled={precio == null}
-                        onClick={() => handleAddArticulo(articulo)}
-                      >
-                        <span className="crear-factura-catalogo-row__nombre">
-                          <strong>{articulo.nombre}</strong>
-                          <small>
-                            {articulo.codigo || '—'}
-                            {articulo.categoria ? ` · ${articulo.categoria}` : ''}
-                          </small>
-                        </span>
-                        <span className="crear-factura-catalogo-row__precio">
-                          {precio != null
-                            ? `$${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })} / ${etiquetaUnidadCorta(articulo.unidad_medida)}`
-                            : 'Sin precio'}
-                          {qty ? <em>+{qty}</em> : null}
-                        </span>
-                      </button>
-                    )
-                  })}
-                  {articulosFiltrados.length > 60 && (
-                    <p className="crear-factura-muted crear-factura-catalogo__more">
-                      Mostrando 60 de {articulosFiltrados.length}. Acotá la búsqueda.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
+              {esFacturaC
+                ? 'Factura C: no discrimina IVA'
+                : preciosConIva
+                  ? 'Precios con IVA incluido (venta / mostrador)'
+                  : 'Precios netos (sin IVA); el IVA se suma al total'}
+            </label>
 
             <div className="crear-factura-items-editor">
               {items.length === 0 ? (
                 <p className="crear-factura-muted">
-                  Sin ítems. Elegí un artículo de la lista, una venta o agregá uno manual.
+                  Todavía no hay líneas. Agregá un ítem manual o elegí de la lista abajo.
                 </p>
               ) : (
                 items.map((item, index) => (
@@ -1167,79 +1122,220 @@ export default function CrearFacturaPage() {
               )}
             </div>
 
-            <div className="crear-factura-descuento-general">
-              <strong>Descuento general</strong>
-              <p className="crear-factura-muted">
-                Se aplica a toda la factura (además de los descuentos por ítem).
-              </p>
+            <div
+              className={`crear-factura-descuento-general${descuentoGeneralEfectivo > 0 ? ' is-on' : ''}`}
+            >
+              <div className="crear-factura-descuento-general__head">
+                <div>
+                  <strong>Descuento general</strong>
+                  <p className="crear-factura-muted">
+                    Sobre el subtotal de ítems ({pesos(brutoItemsTrasLinea)}). Se reparte entre las
+                    líneas.
+                  </p>
+                </div>
+                <div className="crear-factura-descuento-general__modo" role="group" aria-label="Modo de descuento">
+                  <button
+                    type="button"
+                    className={descuentoGeneralModo === 'pesos' ? 'is-on' : undefined}
+                    onClick={() => setDescuentoGeneralModo('pesos')}
+                  >
+                    $
+                  </button>
+                  <button
+                    type="button"
+                    className={descuentoGeneralModo === 'pct' ? 'is-on' : undefined}
+                    onClick={() => setDescuentoGeneralModo('pct')}
+                  >
+                    %
+                  </button>
+                </div>
+              </div>
               <div className="crear-factura-descuento-general__row">
-                <label className="crear-factura-item-edit__field">
-                  <span>Desc. $</span>
+                <label className="crear-factura-item-edit__field crear-factura-descuento-general__input">
+                  <span>{descuentoGeneralModo === 'pesos' ? 'Monto' : 'Porcentaje'}</span>
                   <input
                     type="number"
                     min="0"
+                    max={descuentoGeneralModo === 'pct' ? 100 : undefined}
                     step="0.01"
-                    value={descuentoGeneral > 0 ? descuentoGeneral : ''}
+                    inputMode="decimal"
+                    value={
+                      descuentoGeneralModo === 'pesos'
+                        ? descuentoGeneral > 0
+                          ? descuentoGeneral
+                          : ''
+                        : descuentoGeneralPct > 0
+                          ? descuentoGeneralPct
+                          : ''
+                    }
                     placeholder="0"
+                    disabled={brutoItemsTrasLinea <= 0}
                     onChange={(e) => {
-                      const n = parseFloat(e.target.value) || 0
-                      setDescuentoGeneral(Math.max(0, Math.min(n, brutoItemsTrasLinea || n)))
-                    }}
-                  />
-                </label>
-                <label className="crear-factura-item-edit__field">
-                  <span>Desc. %</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={descuentoGeneralPct > 0 ? descuentoGeneralPct : ''}
-                    placeholder="0"
-                    onChange={(e) => {
+                      if (descuentoGeneralModo === 'pesos') {
+                        const n = parseFloat(e.target.value) || 0
+                        setDescuentoGeneral(Math.max(0, Math.min(n, brutoItemsTrasLinea || 0)))
+                        return
+                      }
                       const pct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0))
-                      const pesosDesc =
+                      setDescuentoGeneral(
                         Math.round(((brutoItemsTrasLinea * pct) / 100) * 100) / 100
-                      setDescuentoGeneral(pesosDesc)
+                      )
                     }}
                   />
                 </label>
                 <div className="crear-factura-descuento-general__resumen" aria-live="polite">
                   {descuentoGeneralEfectivo > 0 ? (
                     <>
-                      −{pesos(descuentoGeneralEfectivo)}
-                      {descuentoGeneralPct > 0
-                        ? ` · ${descuentoGeneralPct.toLocaleString('es-AR', {
-                            maximumFractionDigits: 2
-                          })}%`
-                        : ''}
+                      <span className="crear-factura-descuento-general__chip">
+                        −{pesos(descuentoGeneralEfectivo)}
+                      </span>
+                      <span className="crear-factura-descuento-general__meta">
+                        {descuentoGeneralPct.toLocaleString('es-AR', { maximumFractionDigits: 2 })}%
+                      </span>
                     </>
                   ) : (
-                    'Sin descuento general'
+                    <span className="crear-factura-descuento-general__meta">Sin descuento</span>
                   )}
                 </div>
+                {descuentoGeneralEfectivo > 0 ? (
+                  <button
+                    type="button"
+                    className="crear-factura-descuento-general__clear"
+                    onClick={() => setDescuentoGeneral(0)}
+                  >
+                    Quitar
+                  </button>
+                ) : null}
               </div>
             </div>
+
+            <details className="crear-factura-catalogo-block" open={!origenDesdeVenta && items.length === 0}>
+              <summary>
+                Agregar desde lista de precios
+                <small>Flexxus · {labelAjustesPreciosActivos(ajustesPrecios)}</small>
+              </summary>
+              <div className="crear-factura-lista-chips">
+                {(Object.keys(LISTAS_PRECIO_VENTAS) as TipoListaPrecioVentas[]).map((lista) => (
+                  <button
+                    key={lista}
+                    type="button"
+                    className={`crear-factura-lista-chip${tipoListaPrecio === lista ? ' is-active' : ''}`}
+                    onClick={() => setTipoListaPrecio(lista)}
+                  >
+                    {LISTAS_PRECIO_VENTAS[lista].label}
+                    <small>{LISTAS_PRECIO_VENTAS[lista].subtitle}</small>
+                  </button>
+                ))}
+              </div>
+              <div className="crear-factura-catalogo-filtros">
+                <input
+                  type="search"
+                  placeholder="Buscar código, nombre o rubro…"
+                  value={busquedaArticulo}
+                  onChange={(e) => setBusquedaArticulo(e.target.value)}
+                  autoComplete="off"
+                />
+                {categoriasArticulos.length > 0 && (
+                  <select value={categoriaArticulo} onChange={(e) => setCategoriaArticulo(e.target.value)}>
+                    <option value="todas">Todos los rubros</option>
+                    {categoriasArticulos.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <div className="crear-factura-catalogo">
+                {loadingCatalogo ? (
+                  <p className="crear-factura-muted">Cargando lista de precios…</p>
+                ) : articulosFiltrados.length === 0 ? (
+                  <p className="crear-factura-muted">
+                    {busquedaArticulo.trim() || categoriaArticulo !== 'todas'
+                      ? 'Sin resultados. Probá con otras palabras o rubro.'
+                      : 'No hay artículos en la lista de precios.'}
+                  </p>
+                ) : (
+                  <>
+                    {articulosFiltrados.slice(0, 60).map((articulo) => {
+                      const precio = resolvePrecioLista(articulo, tipoListaPrecio, ajustesPrecios)
+                      const qty = items.find((item) => item.id_articulo_empresa === articulo.id)?.cantidad
+                      return (
+                        <button
+                          key={articulo.id}
+                          type="button"
+                          className={`crear-factura-catalogo-row${qty ? ' is-added' : ''}`}
+                          disabled={precio == null}
+                          onClick={() => handleAddArticulo(articulo)}
+                        >
+                          <span className="crear-factura-catalogo-row__nombre">
+                            <strong>{articulo.nombre}</strong>
+                            <small>
+                              {articulo.codigo || '—'}
+                              {articulo.categoria ? ` · ${articulo.categoria}` : ''}
+                            </small>
+                          </span>
+                          <span className="crear-factura-catalogo-row__precio">
+                            {precio != null
+                              ? `$${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })} / ${etiquetaUnidadCorta(articulo.unidad_medida)}`
+                              : 'Sin precio'}
+                            {qty ? <em>+{qty}</em> : null}
+                          </span>
+                        </button>
+                      )
+                    })}
+                    {articulosFiltrados.length > 60 && (
+                      <p className="crear-factura-muted crear-factura-catalogo__more">
+                        Mostrando 60 de {articulosFiltrados.length}. Acotá la búsqueda.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </details>
           </section>
 
-          <label className="crear-factura-field">
-            <span>Observaciones</span>
-            <textarea
-              rows={3}
-              value={formData.observaciones}
-              onChange={(e) => setFormData((p) => ({ ...p, observaciones: e.target.value }))}
-              placeholder="Texto adicional en la factura…"
-            />
-          </label>
-
-          <div className="crear-factura-actions">
-            <button type="button" className="btn-secondary" onClick={() => navigate('/erp/facturas')}>
-              Cancelar
-            </button>
-            <button type="button" className="btn-primary" onClick={handleGuardar} disabled={loading || !afipConfig}>
-              {loading ? 'Guardando…' : emitirAlGuardar ? 'Crear y emitir' : 'Guardar borrador'}
-            </button>
-          </div>
+          <section className="crear-factura-panel crear-factura-panel--emitir">
+            <h2><span className="crear-factura-step">5</span> Emisión</h2>
+            <p className="crear-factura-panel__hint">
+              Revisá la vista previa. Con CAE se genera cuenta corriente y asiento.
+            </p>
+            <label className="crear-factura-field">
+              <span>Observaciones</span>
+              <textarea
+                rows={3}
+                value={formData.observaciones}
+                onChange={(e) => setFormData((p) => ({ ...p, observaciones: e.target.value }))}
+                placeholder="Texto adicional en la factura…"
+              />
+            </label>
+            <label className="crear-factura-check">
+              <input
+                type="checkbox"
+                checked={emitirAlGuardar}
+                disabled={typeof navigator !== 'undefined' && navigator.onLine === false}
+                onChange={(e) => setEmitirAlGuardar(e.target.checked)}
+              />
+              {typeof navigator !== 'undefined' && navigator.onLine === false
+                ? 'Sin conexión: solo borrador'
+                : emitirAlGuardar
+                  ? 'Autorizar en AFIP al guardar (pide CAE)'
+                  : 'Guardar solo borrador (emitís después)'}
+            </label>
+            <div className="crear-factura-actions">
+              <button type="button" className="cf-btn cf-btn--ghost" onClick={() => navigate('/erp/facturas')}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="cf-btn cf-btn--primary"
+                onClick={handleGuardar}
+                disabled={loading || !afipConfig || Boolean(avisoReceptor) || items.length === 0 || !cliente.nombre.trim()}
+              >
+                {loading ? 'Guardando…' : emitirAlGuardar ? 'Crear y emitir' : 'Guardar borrador'}
+              </button>
+            </div>
+          </section>
         </aside>
 
         <div className="afip-comprobante-wrap">

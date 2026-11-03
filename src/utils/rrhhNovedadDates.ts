@@ -18,11 +18,12 @@ export function novedadVisibleEnCalendarioDia(n: RrhhNovedad, dayStr: string): b
 const PRIORIDAD_CALENDARIO: Partial<Record<RrhhNovedadGrupo, number>> = {
   tardanza_retiro: 0,
   falta: 1,
-  licencia: 2,
-  horas_extra: 3,
-  parte_diario: 4,
-  anticipacion_sueldo: 5,
-  beneficio_comida: 6
+  suspension: 2,
+  licencia: 3,
+  horas_extra: 4,
+  parte_diario: 5,
+  anticipacion_sueldo: 6,
+  beneficio_comida: 7
 }
 
 /** Orden de chips: tardanzas y faltas primero; dentro del grupo, más recientes arriba. */
@@ -74,6 +75,54 @@ export function permisoEnDia(p: SolicitudPermiso, dayStr: string): boolean {
   return desde <= dayStr && hasta >= dayStr
 }
 
+/** Permisos que explican ausencia (igual que falta justificada / licencia). */
+export function esPermisoAsistenciaCalendario(p: SolicitudPermiso): boolean {
+  if (p.estado !== 'aprobado') return false
+  if (p.tipo_solicitud === 'turno' || p.tipo_solicitud === 'ropa') return false
+  return true
+}
+
+export function permisoVisibleEnCalendarioDia(
+  p: SolicitudPermiso,
+  dayStr: string,
+  novedades: RrhhNovedad[] = []
+): boolean {
+  if (!esPermisoAsistenciaCalendario(p) || !permisoEnDia(p, dayStr)) return false
+  // Si ya hay novedad vinculada a este permiso ese día, no duplicar el chip.
+  if (novedades.some((n) => n.id_solicitud_permiso === p.id && novedadEnDia(n, dayStr))) return false
+  return true
+}
+
+export function etiquetaCortaPermisoCalendario(p: SolicitudPermiso): string {
+  switch (p.tipo_solicitud) {
+    case 'vacaciones':
+      return 'Vac'
+    case 'ausencia':
+      return 'Aus'
+    case 'permiso':
+      return 'Perm'
+    case 'otro':
+      return 'Sol'
+    default:
+      return 'Perm'
+  }
+}
+
+export function etiquetaTipoPermisoCalendario(p: SolicitudPermiso): string {
+  switch (p.tipo_solicitud) {
+    case 'vacaciones':
+      return 'Vacaciones (aprobadas)'
+    case 'ausencia':
+      return 'Ausencia (aprobada)'
+    case 'permiso':
+      return 'Permiso (aprobado)'
+    case 'otro':
+      return 'Solicitud (aprobada)'
+    default:
+      return `Solicitud ${p.tipo_solicitud} (aprobada)`
+  }
+}
+
 /** Etiqueta corta para celdas de planilla de asistencia. */
 export function abreviaturaCodigoNovedad(codigo: string): string {
   const map: Record<string, string> = {
@@ -92,7 +141,9 @@ export function abreviaturaCodigoNovedad(codigo: string): string {
     horas_extra_100: 'HE100',
     perdida_beneficio_comida: 'Com',
     parte_diario: 'PD',
-    anticipacion_sueldo: 'Ant'
+    anticipacion_sueldo: 'Ant',
+    suspension: 'Susp',
+    restituir_jornada: 'J.comp'
   }
   return map[codigo] ?? codigo.replace(/_/g, ' ').slice(0, 8)
 }

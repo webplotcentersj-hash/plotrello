@@ -1491,6 +1491,132 @@
 .venta-detail-modal__footer {
   flex-wrap: wrap;
   justify-content: flex-start;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 12px 0 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.venta-detail-modal__footer.card-actions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.venta-detail-modal__footer .btn-action {
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #e2e8f0;
+  box-shadow: none;
+  backdrop-filter: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.venta-detail-modal__footer .btn-action:hover:not(:disabled) {
+  background: rgba(51, 65, 85, 0.95);
+  border-color: rgba(125, 211, 252, 0.45);
+  color: #f8fafc;
+  transform: none;
+  box-shadow: none;
+}
+
+.venta-detail-modal__footer .btn-action.btn-primary {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ecfdf5;
+  box-shadow: none;
+}
+
+.venta-detail-modal__footer .btn-action.btn-primary:hover:not(:disabled) {
+  background: #0d9488;
+  border-color: #0d9488;
+  transform: none;
+  box-shadow: none;
+}
+
+.venta-detail-modal__footer .btn-action--afip {
+  background: rgba(15, 118, 110, 0.22);
+  border-color: rgba(45, 212, 191, 0.4);
+  color: #99f6e4;
+}
+
+.venta-detail-modal__footer .btn-action--afip:hover:not(:disabled) {
+  background: rgba(15, 118, 110, 0.38);
+  border-color: rgba(45, 212, 191, 0.6);
+  color: #ccfbf1;
+}
+
+.venta-detail-modal__footer .btn-action--mp {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #bfdbfe;
+}
+
+.venta-detail-modal__footer .venta-detail-btn-danger {
+  background: rgba(127, 29, 29, 0.28);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+}
+
+.venta-detail-modal__footer .venta-detail-btn-danger:hover:not(:disabled) {
+  background: rgba(153, 27, 27, 0.45);
+  border-color: rgba(252, 165, 165, 0.55);
+  color: #fff;
+}
+
+.venta-docs-split {
+  display: inline-flex !important;
+  align-items: stretch;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.venta-docs-split .btn-action {
+  border-radius: 0;
+}
+
+.venta-docs-split .btn-action--afip {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+.venta-docs-split__caret {
+  min-width: 28px;
+  padding-inline: 6px !important;
+  border-top-right-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+  border-left: 0 !important;
+}
+
+.venta-detail-modal__footer .export-menu {
+  min-width: 168px;
+  padding: 4px;
+  border-radius: 10px;
+  border-width: 1px;
+}
+
+.venta-detail-modal__footer .export-menu-header {
+  padding: 6px 8px 4px;
+  margin-bottom: 2px;
+  font-size: 0.68rem;
+}
+
+.venta-detail-modal__footer .export-menu button {
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  margin-bottom: 1px;
+  border-radius: 6px;
+}
+
+.venta-detail-modal__footer .export-menu button:hover {
+  transform: none;
 }
 
 .venta-detail-modal-overlay {

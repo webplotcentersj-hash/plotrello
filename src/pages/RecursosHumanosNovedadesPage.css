@@ -306,6 +306,12 @@
 .rrhh-novedades-cal-chip--anticipacion_sueldo {
   border-left: 2px solid rgba(236, 72, 153, 0.9);
 }
+.rrhh-novedades-cal-chip--suspension {
+  border-left: 2px solid rgba(220, 38, 38, 0.95);
+}
+.rrhh-novedades-cal-chip--permiso {
+  border-left: 2px solid rgba(16, 185, 129, 0.95);
+}
 
 .rrhh-novedades-cal-chip-dot {
   width: 7px;
@@ -341,6 +347,14 @@
 .rrhh-novedades-cal-chip-dot--anticipacion_sueldo {
   background: #ec4899;
   box-shadow: 0 0 0 1px rgba(236, 72, 153, 0.45);
+}
+.rrhh-novedades-cal-chip-dot--suspension {
+  background: #dc2626;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.45);
+}
+.rrhh-novedades-cal-chip-dot--permiso {
+  background: #10b981;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.45);
 }
 
 .rrhh-novedades-cal-chip-name {
@@ -512,6 +526,22 @@
   color: #f9a8d4;
 }
 
+.rrhh-novedades-cal-stat-card--suspension {
+  border-color: rgba(220, 38, 38, 0.45);
+  background: linear-gradient(145deg, rgba(220, 38, 38, 0.2) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+.rrhh-novedades-cal-stat-card--suspension .rrhh-novedades-cal-stat-num {
+  color: #fca5a5;
+}
+
+.rrhh-novedades-cal-stat-card--permiso {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.2) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+.rrhh-novedades-cal-stat-card--permiso .rrhh-novedades-cal-stat-num {
+  color: #6ee7b7;
+}
+
 .rrhh-novedades-cal-day-panel {
   width: 100%;
   max-width: 420px;
@@ -603,6 +633,13 @@
 }
 .rrhh-novedades-cal-day-item--anticipacion_sueldo {
   border-left: 3px solid rgba(236, 72, 153, 0.9);
+}
+.rrhh-novedades-cal-day-item--suspension {
+  border-left: 3px solid rgba(220, 38, 38, 0.95);
+}
+.rrhh-novedades-cal-day-item--permiso {
+  border-left: 3px solid rgba(16, 185, 129, 0.95);
+  cursor: default;
 }
 
 .rrhh-novedades-cal-day-item-main {
@@ -1096,6 +1133,10 @@
 .rrhh-novedades-detail-badge--anticipacion_sueldo {
   background: rgba(236, 72, 153, 0.28);
   color: #fbcfe8;
+}
+.rrhh-novedades-detail-badge--suspension {
+  background: rgba(220, 38, 38, 0.3);
+  color: #fecaca;
 }
 
 .rrhh-novedades-detail-head h3 {
