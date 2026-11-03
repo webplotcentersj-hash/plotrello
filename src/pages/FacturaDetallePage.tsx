@@ -7,6 +7,12 @@ import { conceptoLabel, formatFechaAr, hoyISO } from '../utils/afipFacturaUi'
 import AvisoCertificadoAfip from '../components/facturas/AvisoCertificadoAfip'
 import { anularFacturaAfip } from '../utils/anularFacturaAfip'
 import { enviarFactura, puedeCompartirArchivos, type CanalEnvio } from '../utils/compartirFactura'
+import {
+  DISENOS_PDF_FACTURA,
+  guardarDisenoPdfFactura,
+  leerDisenoPdfFactura,
+  type DisenoPdfFactura
+} from '../utils/disenoPdfFactura'
 import { descargarPdfFactura } from '../utils/pdfFactura'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import './FacturaDetallePage.css'
@@ -39,6 +45,7 @@ export default function FacturaDetallePage() {
   const [contacto, setContacto] = useState({ telefono: '', email: '' })
   const [enviando, setEnviando] = useState<CanalEnvio | null>(null)
   const [resultadoEnvio, setResultadoEnvio] = useState<{ ok: boolean; texto: string } | null>(null)
+  const [disenoPdf, setDisenoPdf] = useState<DisenoPdfFactura>(() => leerDisenoPdfFactura())
 
   const todayStr = useMemo(() => hoyISO(), [])
   type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
@@ -184,11 +191,16 @@ export default function FacturaDetallePage() {
     }
   }
 
+  const elegirDisenoPdf = (valor: DisenoPdfFactura) => {
+    setDisenoPdf(valor)
+    guardarDisenoPdfFactura(valor)
+  }
+
   const handleDescargarPdf = async () => {
     if (!factura || descargandoPdf) return
     setDescargandoPdf(true)
     try {
-      await descargarPdfFactura(factura)
+      await descargarPdfFactura(factura, { diseno: disenoPdf })
     } catch (error) {
       console.error('Error generando PDF de factura:', error)
       alert(error instanceof Error ? error.message : 'No se pudo generar el PDF de la factura.')
@@ -202,7 +214,7 @@ export default function FacturaDetallePage() {
     setEnviando(canal)
     setResultadoEnvio(null)
     try {
-      const r = await enviarFactura(factura, canal, contacto)
+      const r = await enviarFactura(factura, canal, contacto, disenoPdf)
       setResultadoEnvio({ ok: true, texto: r.mensaje })
     } catch (error) {
       setResultadoEnvio({ ok: false, texto: error instanceof Error ? error.message : 'No se pudo enviar la factura.' })
@@ -361,6 +373,22 @@ export default function FacturaDetallePage() {
           <button className="btn-secondary" onClick={() => navigate('/erp/facturas')}>
             ← Volver
           </button>
+          {factura.estado_afip === 'Autorizada' && (
+            <label className="factura-diseno-pdf">
+              <span>Diseño PDF</span>
+              <select
+                value={disenoPdf}
+                onChange={(e) => elegirDisenoPdf(e.target.value as DisenoPdfFactura)}
+                title={DISENOS_PDF_FACTURA.find((d) => d.id === disenoPdf)?.hint}
+              >
+                {DISENOS_PDF_FACTURA.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <button className="btn-primary" onClick={() => void handleDescargarPdf()} disabled={descargandoPdf}>
             {descargandoPdf ? 'Generando PDF…' : 'Descargar PDF'}
           </button>

@@ -24,7 +24,26 @@
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
-  max-width: 640px;
+  max-width: 720px;
+  align-items: center;
+}
+
+.factura-diseno-pdf {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #4a5568;
+  min-width: 160px;
+}
+
+.factura-diseno-pdf select {
+  padding: 8px 10px;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a202c;
+  font-size: 13px;
 }
 
 .factura-detalle-page .btn-primary,

@@ -53,6 +53,7 @@ import './ventas/VentaCondicionPagoFields.css'
 import OpCobroFooterChecks from './OpCobroFooterChecks'
 import { cobroDesdeVenta } from '../utils/opCobroEstado'
 import { descargarPdfFacturaAfip } from '../services/afipApi'
+import { leerDisenoPdfFactura } from '../utils/disenoPdfFactura'
 import { emitirFacturaDesdeVenta, type EtapaEmision, type ResultadoFacturaVenta } from '../utils/emitirFacturaDesdeVenta'
 import EmisionFacturaOverlay from './facturas/EmisionFacturaOverlay'
 import {
@@ -184,7 +185,8 @@ const VentaRapidaModal = ({
     limite_credito: number | null
     limite_credito_sugerido: number | null
   } | null>(null)
-  const [fechaVenta, setFechaVenta] = useState(() => getArgentinaDateString())
+  /** Fecha de la venta = hoy AR; no se edita en el formulario. */
+  const [fechaVenta] = useState(() => getArgentinaDateString())
   const [prioridad, setPrioridad] = useState<PrioridadVentaRapida>('Normal')
   const [observaciones, setObservaciones] = useState('')
 
@@ -715,7 +717,7 @@ const VentaRapidaModal = ({
       setEmisionAfip((prev) => (prev ? { ...prev, etapa: 'cae', resultado } : prev))
       if (resultado.ok && resultado.facturaId) {
         try {
-          await descargarPdfFacturaAfip(resultado.facturaId)
+          await descargarPdfFacturaAfip(resultado.facturaId, leerDisenoPdfFactura())
         } catch (error) {
           console.error('No se pudo exportar el PDF de la factura MP:', error)
         }
@@ -1623,6 +1625,301 @@ const VentaRapidaModal = ({
             )}
           </div>
 
+          {/* Prioridad */}
+          <div className="form-group">
+            <label>Prioridad *</label>
+            <select
+              className="form-select"
+              value={prioridad}
+              onChange={(e) => setPrioridad(e.target.value as PrioridadVentaRapida)}
+            >
+              <option value="Baja">Baja</option>
+              <option value="Normal">Normal</option>
+              <option value="Alta">Alta (+10%)</option>
+              <option value="Urgente">Urgente (+45%)</option>
+            </select>
+            {recargoPrioridadLabel ? (
+              <p className="form-hint-comprobante venta-prioridad-hint">
+                Los precios de la lista y los ítems ya cargados incluyen <strong>{recargoPrioridadLabel}</strong>.
+              </p>
+            ) : (
+              <p className="form-hint-comprobante venta-prioridad-hint">
+                Prioridad Baja o Normal: sin recargo sobre el precio de lista.
+              </p>
+            )}
+          </div>
+
+          {/* Lista de precios / artículos */}
+          <div className="form-group form-group--lista-precios">
+            <div className="form-group-label-row">
+              <label>Lista de precios</label>
+              <span className="venta-rapida-lista-badge venta-rapida-lista-badge--inline">
+                {labelListaPrecio(tipoListaPrecio)}
+              </span>
+            </div>
+            <p className="form-hint-comprobante venta-lista-hint">
+              {tipoListaPrecio === 'lista_1'
+                ? 'Efectivo, transferencia, tarjeta y otros medios usan Lista 1.'
+                : 'Cuenta corriente usa Lista 2.'}{' '}
+              Precios con <strong>{labelAjustesPreciosActivos(ajustesPrecios)}</strong>.
+              {recargoPrioridadLabel ? (
+                <>
+                  {' '}
+                  <strong>{recargoPrioridadLabel}</strong> incluido en los precios mostrados.
+                </>
+              ) : null}
+            </p>
+            <div className="lista-precios-filtros">
+              <input
+                type="text"
+                className="form-input form-input--search"
+                placeholder="Buscar por código, nombre o rubro…"
+                value={busquedaArticulo}
+                onChange={(e) => setBusquedaArticulo(e.target.value)}
+                autoComplete="off"
+              />
+              {categoriasArticulos.length > 0 && (
+                <select
+                  className="form-select lista-precios-categoria"
+                  value={categoriaArticulo}
+                  onChange={(e) => setCategoriaArticulo(e.target.value)}
+                >
+                  <option value="todas">Todos los rubros</option>
+                  {categoriasArticulos.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="lista-precios-panel">
+              {loadingCatalogo ? (
+                <p className="lista-precios-empty">Cargando catálogo…</p>
+              ) : articulosFiltrados.length === 0 ? (
+                <p className="lista-precios-empty">
+                  {busquedaArticulo.trim() || categoriaArticulo !== 'todas'
+                    ? 'Sin resultados. Probá con otras palabras o rubro.'
+                    : 'No hay artículos en la lista de precios.'}
+                </p>
+              ) : (
+                <div className="lista-precios-scroll">
+                  {articulosFiltrados.slice(0, 80).map((articulo) => {
+                    const precio = precioListaConPrioridad(articulo)
+                    const yaAgregado = itemsVenta.some((i) => i.id_articulo_empresa === articulo.id)
+                    const nombreVisible = descripcionEditableArticulo(articulo) || articulo.nombre
+                    const descCatalogo = articulo.descripcion?.trim() || ''
+                    return (
+                      <button
+                        key={articulo.id}
+                        type="button"
+                        className={`lista-precios-row${yaAgregado ? ' lista-precios-row--added' : ''}`}
+                        disabled={precio == null || yaAgregado}
+                        onClick={() => agregarArticulo(articulo)}
+                      >
+                        <span className="lista-precios-row__codigo" title={articulo.codigo}>
+                          {articulo.codigo}
+                        </span>
+                        <span
+                          className="lista-precios-row__nombre"
+                          title={descCatalogo || nombreVisible}
+                        >
+                          <span className="lista-precios-row__icon" aria-hidden>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M8 3h6l5 5v13a1.2 1.2 0 0 1-1.2 1.2H8.2A1.2 1.2 0 0 1 7 21V4.2A1.2 1.2 0 0 1 8.2 3z" />
+                              <path d="M14 3v5.2H20" />
+                              <path d="M9.5 13h5.5M9.5 16.5h5.5" />
+                            </svg>
+                          </span>
+                          <span className="lista-precios-row__nombre-wrap">
+                            <span className="lista-precios-row__nombre-text">{nombreVisible}</span>
+                            {descCatalogo &&
+                            descCatalogo !== nombreVisible &&
+                            !/\(\s*no usar\s*\)/i.test(descCatalogo) ? (
+                              <span className="lista-precios-row__desc">{descCatalogo}</span>
+                            ) : null}
+                          </span>
+                        </span>
+                        <span className="lista-precios-row__precio">
+                          {precio != null
+                            ? `$${formatArs(precio)} / ${etiquetaUnidadCorta(articulo.unidad_medida)}`
+                            : '—'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  {articulosFiltrados.length > 80 && (
+                    <p className="lista-precios-more">
+                      Mostrando 80 de {articulosFiltrados.length}. Acotá la búsqueda para ver más.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Items de venta (se muestran al agregar desde la lista) */}
+          {itemsVenta.length > 0 && (
+            <div className="items-venta-section">
+              <h3>Items de Venta</h3>
+              <div className="items-list">
+                {itemsVenta.map((item, index) => (
+                  <div key={index} className="item-card">
+                    <div className="item-header">
+                      <label className="item-desc-label">
+                        Descripción
+                        <input
+                          type="text"
+                          className="form-input item-desc-input"
+                          value={item.descripcion}
+                          placeholder="Escribí la descripción que va a la factura"
+                          onChange={(e) => actualizarItem(index, 'descripcion', e.target.value)}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn-remove"
+                        onClick={() => eliminarItem(index)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    {item.codigo_articulo && (
+                      <div className="item-info">Código: {item.codigo_articulo}</div>
+                    )}
+                    <div className="item-controls">
+                      <div className="item-control item-control--cantidad">
+                        <label>{etiquetaCantidadUnidad(item.unidad_medida)}</label>
+                        <div className="item-cantidad-row">
+                          <button
+                            type="button"
+                            className="item-cantidad-btn"
+                            onClick={() => ajustarCantidad(index, -1)}
+                            aria-label="Quitar"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="form-input-small item-cantidad-input"
+                            value={item.cantidadTexto ?? formatCantidadInput(item.cantidad)}
+                            onChange={(e) => onCantidadChange(index, e.target.value)}
+                            onBlur={() => onCantidadBlur(index)}
+                          />
+                          <button
+                            type="button"
+                            className="item-cantidad-btn"
+                            onClick={() => ajustarCantidad(index, 1)}
+                            aria-label="Agregar"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                      <div className="item-control item-control--precio">
+                        <label>
+                          Precio / {etiquetaUnidadCorta(item.unidad_medida)}{' '}
+                          {item.precio_lista && (
+                            <span className="item-precio-lista-tag">
+                              {item.precio_lista === 'lista_1' ? 'L1' : 'L2'}
+                            </span>
+                          )}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="form-input-small item-precio-input"
+                          value={item.precio_unitario || ''}
+                          title="Precio por unidad. Este valor es el que va a la factura."
+                          onChange={(e) =>
+                            actualizarItem(
+                              index,
+                              'precio_unitario',
+                              e.target.value.trim() === '' ? 0 : parseFloat(e.target.value) || 0
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="item-control item-control--descuento">
+                        <label>Desc. %</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          className="form-input-small"
+                          value={item.descuento > 0 ? item.descuento : ''}
+                          onChange={(e) =>
+                            actualizarItem(
+                              index,
+                              'descuento',
+                              e.target.value.trim() === '' ? 0 : clampDescuentoPct(parseFloat(e.target.value) || 0)
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="item-control item-control--subtotal">
+                        <label>Subtotal</label>
+                        <div className="item-subtotal-box">
+                          ${formatArs(importeLineaVentaPct(item.precio_unitario, item.cantidad, item.descuento))}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="item-precio-calc">
+                      {formatCantidadInput(item.cantidad)} {etiquetaUnidadCorta(item.unidad_medida)} × $
+                      {formatArs(item.precio_unitario)} / {etiquetaUnidadCorta(item.unidad_medida)}
+                      {item.descuento > 0
+                        ? ` − ${item.descuento}% (−$${formatArs(descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento))})`
+                        : ''}
+                    </p>
+                    {item.observaciones && (
+                      <div className="item-warning">⚠️ {item.observaciones}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Totales */}
+          {itemsVenta.length > 0 && (
+            <div className="totales-section">
+              <div className="total-line">
+                <span>Subtotal:</span>
+                <span>${formatArs(calcularSubtotal())}</span>
+              </div>
+              <div className="total-line total-line--lista">
+                <span>Lista aplicada:</span>
+                <span>{labelListaPrecio(tipoListaPrecio)}</span>
+              </div>
+              {recargoPrioridadLabel ? (
+                <div className="total-line total-line--lista">
+                  <span>Recargo prioridad:</span>
+                  <span>{recargoPrioridadLabel}</span>
+                </div>
+              ) : null}
+              <div className="total-line total-final">
+                <span><strong>Total:</strong></span>
+                <span><strong>${formatArs(calcularSubtotal())}</strong></span>
+              </div>
+            </div>
+          )}
+
+          {/* Observaciones */}
+          <div className="form-group">
+            <label>Observaciones</label>
+            <textarea
+              className="form-textarea"
+              rows={3}
+              value={observaciones}
+              onChange={(e) => setObservaciones(e.target.value)}
+              placeholder="Observaciones adicionales..."
+            />
+          </div>
+
           {/* Condición de Venta */}
           <div className="form-group">
             <label>Condición de Venta *</label>
@@ -1754,116 +2051,6 @@ const VentaRapidaModal = ({
             ) : null}
           </div>
 
-
-          {/* Lista de precios / artículos */}
-          <div className="form-group form-group--lista-precios">
-            <div className="form-group-label-row">
-              <label>Lista de precios</label>
-              <span className="venta-rapida-lista-badge venta-rapida-lista-badge--inline">
-                {labelListaPrecio(tipoListaPrecio)}
-              </span>
-            </div>
-            <p className="form-hint-comprobante venta-lista-hint">
-              {tipoListaPrecio === 'lista_1'
-                ? 'Efectivo, transferencia, tarjeta y otros medios usan Lista 1.'
-                : 'Cuenta corriente usa Lista 2.'}{' '}
-              Precios con <strong>{labelAjustesPreciosActivos(ajustesPrecios)}</strong>.
-              {recargoPrioridadLabel ? (
-                <>
-                  {' '}
-                  <strong>{recargoPrioridadLabel}</strong> incluido en los precios mostrados.
-                </>
-              ) : null}
-            </p>
-            <div className="lista-precios-filtros">
-              <input
-                type="text"
-                className="form-input form-input--search"
-                placeholder="Buscar por código, nombre o rubro…"
-                value={busquedaArticulo}
-                onChange={(e) => setBusquedaArticulo(e.target.value)}
-                autoComplete="off"
-              />
-              {categoriasArticulos.length > 0 && (
-                <select
-                  className="form-select lista-precios-categoria"
-                  value={categoriaArticulo}
-                  onChange={(e) => setCategoriaArticulo(e.target.value)}
-                >
-                  <option value="todas">Todos los rubros</option>
-                  {categoriasArticulos.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div className="lista-precios-panel">
-              {loadingCatalogo ? (
-                <p className="lista-precios-empty">Cargando catálogo…</p>
-              ) : articulosFiltrados.length === 0 ? (
-                <p className="lista-precios-empty">
-                  {busquedaArticulo.trim() || categoriaArticulo !== 'todas'
-                    ? 'Sin resultados. Probá con otras palabras o rubro.'
-                    : 'No hay artículos en la lista de precios.'}
-                </p>
-              ) : (
-                <div className="lista-precios-scroll">
-                  {articulosFiltrados.slice(0, 80).map((articulo) => {
-                    const precio = precioListaConPrioridad(articulo)
-                    const yaAgregado = itemsVenta.some((i) => i.id_articulo_empresa === articulo.id)
-                    const nombreVisible = descripcionEditableArticulo(articulo) || articulo.nombre
-                    const descCatalogo = articulo.descripcion?.trim() || ''
-                    return (
-                      <button
-                        key={articulo.id}
-                        type="button"
-                        className={`lista-precios-row${yaAgregado ? ' lista-precios-row--added' : ''}`}
-                        disabled={precio == null || yaAgregado}
-                        onClick={() => agregarArticulo(articulo)}
-                      >
-                        <span className="lista-precios-row__codigo" title={articulo.codigo}>
-                          {articulo.codigo}
-                        </span>
-                        <span
-                          className="lista-precios-row__nombre"
-                          title={descCatalogo || nombreVisible}
-                        >
-                          <span className="lista-precios-row__icon" aria-hidden>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M8 3h6l5 5v13a1.2 1.2 0 0 1-1.2 1.2H8.2A1.2 1.2 0 0 1 7 21V4.2A1.2 1.2 0 0 1 8.2 3z" />
-                              <path d="M14 3v5.2H20" />
-                              <path d="M9.5 13h5.5M9.5 16.5h5.5" />
-                            </svg>
-                          </span>
-                          <span className="lista-precios-row__nombre-wrap">
-                            <span className="lista-precios-row__nombre-text">{nombreVisible}</span>
-                            {descCatalogo &&
-                            descCatalogo !== nombreVisible &&
-                            !/\(\s*no usar\s*\)/i.test(descCatalogo) ? (
-                              <span className="lista-precios-row__desc">{descCatalogo}</span>
-                            ) : null}
-                          </span>
-                        </span>
-                        <span className="lista-precios-row__precio">
-                          {precio != null
-                            ? `$${formatArs(precio)} / ${etiquetaUnidadCorta(articulo.unidad_medida)}`
-                            : '—'}
-                        </span>
-                      </button>
-                    )
-                  })}
-                  {articulosFiltrados.length > 80 && (
-                    <p className="lista-precios-more">
-                      Mostrando 80 de {articulosFiltrados.length}. Acotá la búsqueda para ver más.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
 
           {esMixto ? (
             <div className="venta-pago-mixto">
@@ -2228,202 +2415,6 @@ const VentaRapidaModal = ({
           </div>
           ) : null}
 
-          {/* Fecha */}
-          <div className="form-group">
-            <label>Fecha *</label>
-            <input
-              type="date"
-              className="form-input"
-              value={fechaVenta}
-              onChange={(e) => setFechaVenta(e.target.value)}
-            />
-          </div>
-
-          {/* Prioridad */}
-          <div className="form-group">
-            <label>Prioridad *</label>
-            <select
-              className="form-select"
-              value={prioridad}
-              onChange={(e) => setPrioridad(e.target.value as PrioridadVentaRapida)}
-            >
-              <option value="Baja">Baja</option>
-              <option value="Normal">Normal</option>
-              <option value="Alta">Alta (+10%)</option>
-              <option value="Urgente">Urgente (+45%)</option>
-            </select>
-            {recargoPrioridadLabel ? (
-              <p className="form-hint-comprobante venta-prioridad-hint">
-                Los precios de la lista y los ítems ya cargados incluyen <strong>{recargoPrioridadLabel}</strong>.
-              </p>
-            ) : (
-              <p className="form-hint-comprobante venta-prioridad-hint">
-                Prioridad Baja o Normal: sin recargo sobre el precio de lista.
-              </p>
-            )}
-          </div>
-
-          {/* Items de venta (se muestran al agregar desde la lista) */}
-          {itemsVenta.length > 0 && (
-            <div className="items-venta-section">
-              <h3>Items de Venta</h3>
-              <div className="items-list">
-                {itemsVenta.map((item, index) => (
-                  <div key={index} className="item-card">
-                    <div className="item-header">
-                      <label className="item-desc-label">
-                        Descripción
-                        <input
-                          type="text"
-                          className="form-input item-desc-input"
-                          value={item.descripcion}
-                          placeholder="Escribí la descripción que va a la factura"
-                          onChange={(e) => actualizarItem(index, 'descripcion', e.target.value)}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="btn-remove"
-                        onClick={() => eliminarItem(index)}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    {item.codigo_articulo && (
-                      <div className="item-info">Código: {item.codigo_articulo}</div>
-                    )}
-                    <div className="item-controls">
-                      <div className="item-control item-control--cantidad">
-                        <label>{etiquetaCantidadUnidad(item.unidad_medida)}</label>
-                        <div className="item-cantidad-row">
-                          <button
-                            type="button"
-                            className="item-cantidad-btn"
-                            onClick={() => ajustarCantidad(index, -1)}
-                            aria-label="Quitar"
-                          >
-                            −
-                          </button>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            className="form-input-small item-cantidad-input"
-                            value={item.cantidadTexto ?? formatCantidadInput(item.cantidad)}
-                            onChange={(e) => onCantidadChange(index, e.target.value)}
-                            onBlur={() => onCantidadBlur(index)}
-                          />
-                          <button
-                            type="button"
-                            className="item-cantidad-btn"
-                            onClick={() => ajustarCantidad(index, 1)}
-                            aria-label="Agregar"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                      <div className="item-control item-control--precio">
-                        <label>
-                          Precio / {etiquetaUnidadCorta(item.unidad_medida)}{' '}
-                          {item.precio_lista && (
-                            <span className="item-precio-lista-tag">
-                              {item.precio_lista === 'lista_1' ? 'L1' : 'L2'}
-                            </span>
-                          )}
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="form-input-small item-precio-input"
-                          value={item.precio_unitario || ''}
-                          title="Precio por unidad. Este valor es el que va a la factura."
-                          onChange={(e) =>
-                            actualizarItem(
-                              index,
-                              'precio_unitario',
-                              e.target.value.trim() === '' ? 0 : parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="item-control item-control--descuento">
-                        <label>Desc. %</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          className="form-input-small"
-                          value={item.descuento > 0 ? item.descuento : ''}
-                          onChange={(e) =>
-                            actualizarItem(
-                              index,
-                              'descuento',
-                              e.target.value.trim() === '' ? 0 : clampDescuentoPct(parseFloat(e.target.value) || 0)
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="item-control item-control--subtotal">
-                        <label>Subtotal</label>
-                        <div className="item-subtotal-box">
-                          ${formatArs(importeLineaVentaPct(item.precio_unitario, item.cantidad, item.descuento))}
-                        </div>
-                      </div>
-                    </div>
-                    <p className="item-precio-calc">
-                      {formatCantidadInput(item.cantidad)} {etiquetaUnidadCorta(item.unidad_medida)} × $
-                      {formatArs(item.precio_unitario)} / {etiquetaUnidadCorta(item.unidad_medida)}
-                      {item.descuento > 0
-                        ? ` − ${item.descuento}% (−$${formatArs(descuentoPesosDesdePct(item.precio_unitario, item.cantidad, item.descuento))})`
-                        : ''}
-                    </p>
-                    {item.observaciones && (
-                      <div className="item-warning">⚠️ {item.observaciones}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Totales */}
-          {itemsVenta.length > 0 && (
-            <div className="totales-section">
-              <div className="total-line">
-                <span>Subtotal:</span>
-                <span>${formatArs(calcularSubtotal())}</span>
-              </div>
-              <div className="total-line total-line--lista">
-                <span>Lista aplicada:</span>
-                <span>{labelListaPrecio(tipoListaPrecio)}</span>
-              </div>
-              {recargoPrioridadLabel ? (
-                <div className="total-line total-line--lista">
-                  <span>Recargo prioridad:</span>
-                  <span>{recargoPrioridadLabel}</span>
-                </div>
-              ) : null}
-              <div className="total-line total-final">
-                <span><strong>Total:</strong></span>
-                <span><strong>${formatArs(calcularSubtotal())}</strong></span>
-              </div>
-            </div>
-          )}
-
-          {/* Observaciones */}
-          <div className="form-group">
-            <label>Observaciones</label>
-            <textarea
-              className="form-textarea"
-              rows={3}
-              value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
-              placeholder="Observaciones adicionales..."
-            />
-          </div>
-
           {/* Número de Venta (si ya se creó) */}
           {ventaCreada && !showMpCheckout && (
             <div className="venta-creada-info">
@@ -2472,6 +2463,16 @@ const VentaRapidaModal = ({
           )}
           </div>
         </div>
+
+        {itemsVenta.length > 0 && !ventaCreada ? (
+          <div className="venta-rapida-total-flotante" aria-live="polite">
+            <span className="venta-rapida-total-flotante__meta">
+              {itemsVenta.length} {itemsVenta.length === 1 ? 'ítem' : 'ítems'}
+              {recargoPrioridadLabel ? ` · ${recargoPrioridadLabel}` : ''}
+            </span>
+            <strong className="venta-rapida-total-flotante__monto">${formatArs(totalVenta)}</strong>
+          </div>
+        ) : null}
 
         <div className="venta-rapida-modal-footer">
           <div className="venta-rapida-footer-buttons">

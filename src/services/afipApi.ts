@@ -80,12 +80,15 @@ function filenameFromDisposition(header: string | null, fallback: string): strin
   }
 }
 
-/** PDF oficial de AfipSDK (mismo template que app.afipsdk.com). Solo comprobantes con CAE. */
-export async function obtenerPdfFacturaAfip(idFactura: number): Promise<{ blob: Blob; nombre: string }> {
+/** PDF con CAE vía AfipSDK: plantilla oficial o diseño Plot Lab (`diseno: 'plotlab'`). */
+export async function obtenerPdfFacturaAfip(
+  idFactura: number,
+  diseno: 'oficial' | 'plotlab' = 'oficial'
+): Promise<{ blob: Blob; nombre: string }> {
   const res = await plotLabFetch('/api/erp/afip-pdf', {
     method: 'POST',
     headers: staffHeaders(),
-    body: JSON.stringify({ id_factura: idFactura })
+    body: JSON.stringify({ id_factura: idFactura, diseno })
   })
   const tipo = res.headers.get('Content-Type') || ''
   if (!res.ok || !tipo.includes('pdf')) {
@@ -97,9 +100,12 @@ export async function obtenerPdfFacturaAfip(idFactura: number): Promise<{ blob: 
   return { blob, nombre }
 }
 
-/** Descarga el PDF oficial de AfipSDK de un comprobante con CAE. */
-export async function descargarPdfFacturaAfip(idFactura: number): Promise<void> {
-  const { blob, nombre } = await obtenerPdfFacturaAfip(idFactura)
+/** Descarga el PDF de un comprobante con CAE (oficial o diseño Plot Lab según preferencia). */
+export async function descargarPdfFacturaAfip(
+  idFactura: number,
+  diseno: 'oficial' | 'plotlab' = 'oficial'
+): Promise<void> {
+  const { blob, nombre } = await obtenerPdfFacturaAfip(idFactura, diseno)
   guardarBlob(blob, nombre)
 }
 

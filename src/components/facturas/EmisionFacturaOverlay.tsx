@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { descargarPdfFacturaAfip } from '../../services/afipApi'
+import { leerDisenoPdfFactura } from '../../utils/disenoPdfFactura'
 import type { EtapaEmision, ResultadoFacturaVenta } from '../../utils/emitirFacturaDesdeVenta'
 import './EmisionFacturaOverlay.css'
 
@@ -98,7 +99,7 @@ export default function EmisionFacturaOverlay({ cliente, total, etapa, resultado
                 onClick={() => {
                   if (descargandoPdf || !resultado.facturaId) return
                   setDescargandoPdf(true)
-                  void descargarPdfFacturaAfip(resultado.facturaId)
+                  void descargarPdfFacturaAfip(resultado.facturaId, leerDisenoPdfFactura())
                     .catch((error) => {
                       console.error('Error descargando PDF AfipSDK:', error)
                       alert(error instanceof Error ? error.message : 'No se pudo descargar el PDF.')

@@ -283,7 +283,12 @@ export function buildAfipSdkPdfRequest(
   }
 }
 
-export async function crearPdfAfipSdk(payload: ReturnType<typeof buildAfipSdkPdfRequest>): Promise<{
+/** Plantilla oficial o HTML propio (diseño Plot Lab). Ambos se renderizan en AfipSDK. */
+export type PedidoPdfAfipSdk =
+  | ReturnType<typeof buildAfipSdkPdfRequest>
+  | { file_name: string; html: string; options?: { width?: number } }
+
+export async function crearPdfAfipSdk(payload: PedidoPdfAfipSdk): Promise<{
   file: string
   file_name: string
 }> {

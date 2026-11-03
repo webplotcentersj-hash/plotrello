@@ -24,8 +24,8 @@ function origenes() {
   const llamadas: string[] = []
   return {
     llamadas,
-    sdk: async (id: number) => {
-      llamadas.push(`sdk:${id}`)
+    sdk: async (id: number, diseno: string) => {
+      llamadas.push(`sdk:${id}:${diseno}`)
       return { blob: new Blob(['sdk']), nombre: 'del-sdk.pdf' }
     },
     borrador: async (f: FacturaVentaRecord) => {
@@ -52,9 +52,15 @@ describe('usaPdfDelSdk', () => {
 describe('obtenerPdfFactura', () => {
   it('con CAE pide el PDF al SDK con el id de la factura', async () => {
     const o = origenes()
-    const pdf = await obtenerPdfFactura(base, o)
+    const pdf = await obtenerPdfFactura(base, o, { diseno: 'oficial' })
     assert.equal(pdf.nombre, 'del-sdk.pdf')
-    assert.deepEqual(o.llamadas, ['sdk:692'])
+    assert.deepEqual(o.llamadas, ['sdk:692:oficial'])
+  })
+
+  it('puede pedir el diseño Plot Lab', async () => {
+    const o = origenes()
+    await obtenerPdfFactura(base, o, { diseno: 'plotlab' })
+    assert.deepEqual(o.llamadas, ['sdk:692:plotlab'])
   })
 
   it('un borrador no consulta al SDK', async () => {
@@ -67,12 +73,16 @@ describe('obtenerPdfFactura', () => {
   it('un error del SDK se propaga (no se reemplaza en silencio por otro PDF)', async () => {
     const o = origenes()
     await assert.rejects(
-      obtenerPdfFactura(base, {
-        ...o,
-        sdk: async () => {
-          throw new Error('AfipSDK no respondió')
-        }
-      }),
+      obtenerPdfFactura(
+        base,
+        {
+          ...o,
+          sdk: async () => {
+            throw new Error('AfipSDK no respondió')
+          }
+        },
+        { diseno: 'oficial' }
+      ),
       /AfipSDK no respondió/
     )
     assert.deepEqual(o.llamadas, [])

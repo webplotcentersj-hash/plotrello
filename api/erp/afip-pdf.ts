@@ -9,7 +9,10 @@ import {
   type AfipPdfEmisor,
   type AfipPdfFactura
 } from '../_lib/afip/pdf'
+import { buildAfipHtmlPdfRequest } from '../_lib/afip/pdfHtml'
 import { getSupabaseAdmin, loadAfipConfigResumen } from '../_lib/afip/supabaseAdmin'
+
+type BodyPdf = { id_factura?: number; diseno?: string }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -26,7 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const staff = requireStaffSession(req, res)
   if (!staff) return
 
-  const id = Number((req.body as { id_factura?: number } | undefined)?.id_factura)
+  const body = (req.body || {}) as BodyPdf
+  const id = Number(body.id_factura)
+  const diseno = body.diseno === 'plotlab' ? 'plotlab' : 'oficial'
   if (!Number.isFinite(id) || id <= 0) {
     res.status(400).json({ success: false, error: 'Falta id_factura.' })
     return
@@ -66,7 +71,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const emisor = (await loadAfipConfigResumen(supabase)) as AfipPdfEmisor
-    const payload = buildAfipSdkPdfRequest(factura as AfipPdfFactura, emisor, referencia)
+    const payload =
+      diseno === 'plotlab'
+        ? await buildAfipHtmlPdfRequest(factura as AfipPdfFactura, emisor, referencia)
+        : buildAfipSdkPdfRequest(factura as AfipPdfFactura, emisor, referencia)
     const generado = await crearPdfAfipSdk(payload)
     const bytes = await descargarBytesPdfAfip(generado.file)
     const nombre = generado.file_name || nombreArchivoPdfAfip(factura as AfipPdfFactura)

@@ -1,5 +1,6 @@
 import type { FacturaVentaRecord } from '../types/api'
 import { guardarBlob } from './descargarArchivo'
+import type { DisenoPdfFactura } from './disenoPdfFactura'
 import type { FacturaPdf } from './facturaAfipPdf'
 import { obtenerPdfFactura } from './pdfFactura'
 import { buildWhatsappLink } from './whatsappLink'
@@ -73,7 +74,8 @@ export function puedeCompartirArchivos(): boolean {
 export async function enviarFactura(
   factura: FacturaPdf,
   canal: CanalEnvio,
-  contacto: ContactoEnvio = {}
+  contacto: ContactoEnvio = {},
+  diseno?: DisenoPdfFactura
 ): Promise<ResultadoEnvio> {
   if (canal === 'whatsapp' && !linkWhatsappFactura(factura, contacto.telefono)) {
     throw new Error('Ingresá el teléfono del cliente para abrir WhatsApp.')
@@ -85,7 +87,7 @@ export async function enviarFactura(
   // El navegador solo deja abrir pestañas dentro del clic: se abre antes de generar el PDF y se completa después.
   const ventana = canal === 'whatsapp' ? window.open('about:blank', '_blank') : null
   try {
-    const { blob, nombre } = await obtenerPdfFactura(factura)
+    const { blob, nombre } = await obtenerPdfFactura(factura, undefined, { diseno })
 
     if (canal === 'compartir') {
       if (!puedeCompartirArchivos()) {
