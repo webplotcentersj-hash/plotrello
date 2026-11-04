@@ -440,6 +440,15 @@ const NotificationsDropdown = ({ onNotificationClick, workPoolScope }: Notificat
         }
         return
       }
+      // Recibos de sueldo
+      if (
+        notification.related_id === 'mis-recibos' ||
+        (notification.description || '').includes('/mis-recibos') ||
+        /recibo de sueldo/i.test(notification.title || '')
+      ) {
+        navigate('/mis-recibos')
+        return
+      }
       // Comunicados RRHH (notificador masivo)
       if (notification.origen === 'rrhh_masivo') {
         navigate(`/avisar-ausencia?comunicado=${notification.id}`)

@@ -1,0 +1,371 @@
+.rrhh-recibos-page {
+  max-width: 1180px;
+  position: relative;
+}
+
+.rrhh-recibos-page::before {
+  content: '';
+  position: absolute;
+  inset: -20px -16px auto;
+  height: 240px;
+  background:
+    radial-gradient(ellipse 65% 80% at 8% 0%, rgba(37, 99, 235, 0.26), transparent 58%),
+    radial-gradient(ellipse 45% 70% at 92% 8%, rgba(245, 158, 11, 0.12), transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.rrhh-recibos-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+.rrhh-recibos-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin-bottom: 18px;
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.94), rgba(15, 23, 42, 0.9));
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.32);
+}
+
+.rrhh-recibos-hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+.rrhh-recibos-hero-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: inline-grid;
+  place-items: center;
+  background: linear-gradient(145deg, #3b82f6, #1d4ed8);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+
+.rrhh-recibos-hero h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.6vw, 1.9rem);
+  letter-spacing: -0.02em;
+}
+
+.rrhh-recibos-hero p {
+  margin: 8px 0 0;
+  color: #94a3b8;
+  max-width: 52ch;
+  line-height: 1.45;
+}
+
+.rrhh-recibos-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rrhh-recibos-ok {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  color: #86efac;
+  font-size: 0.92rem;
+}
+
+.rrhh-recibos-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .rrhh-recibos-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rrhh-recibos-aside,
+.rrhh-recibos-detail {
+  border-radius: 18px !important;
+  border-color: rgba(148, 163, 184, 0.16) !important;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.92)) !important;
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.28);
+  padding: 16px !important;
+}
+
+.rrhh-recibos-aside-head h3,
+.rrhh-recibos-detail-head h2 {
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.rrhh-recibos-crear {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0 16px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-recibos-crear label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.rrhh-recibos-crear input[type='month'] {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #0b1220;
+  color: inherit;
+}
+
+.rrhh-recibos-crear-preview {
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: #e2e8f0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+}
+
+.rrhh-recibos-lotes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(62vh, 640px);
+  overflow: auto;
+}
+
+.rrhh-recibos-lote {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(11, 18, 32, 0.72);
+  color: inherit;
+  border-radius: 14px;
+  padding: 12px 13px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.rrhh-recibos-lote:hover {
+  transform: translateY(-1px);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.rrhh-recibos-lote.is-active {
+  border-color: #3b82f6;
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.28), rgba(15, 23, 42, 0.85));
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.18);
+}
+
+.rrhh-recibos-lote-title {
+  font-weight: 650;
+  font-size: 0.93rem;
+  line-height: 1.35;
+}
+
+.rrhh-recibos-lote-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.rrhh-recibos-muted {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.rrhh-recibos-detail-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-recibos-detail-head h2 {
+  font-size: 1.25rem;
+}
+
+.rrhh-recibos-detail-head p {
+  margin: 8px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.rrhh-recibos-detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.rrhh-recibos-upload {
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(11, 18, 32, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rrhh-recibos-upload h4 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.rrhh-recibos-upload-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+@media (max-width: 720px) {
+  .rrhh-recibos-upload-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rrhh-recibos-upload-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.rrhh-recibos-upload-row select,
+.rrhh-recibos-upload-row input[type='file'] {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #0b1220;
+  color: inherit;
+}
+
+.rrhh-recibos-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: #94a3b8;
+  border-radius: 16px;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  background: rgba(11, 18, 32, 0.35);
+}
+
+.rrhh-recibos-empty strong {
+  display: block;
+  color: #e2e8f0;
+  margin-bottom: 6px;
+  font-size: 1.08rem;
+}
+
+.rrhh-recibos-empty p {
+  margin: 0 auto;
+  font-size: 0.9rem;
+  max-width: 42ch;
+  line-height: 1.45;
+}
+
+.rrhh-recibos-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rrhh-recibos-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(11, 18, 32, 0.7);
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+
+.rrhh-recibos-item:hover {
+  border-color: rgba(148, 163, 184, 0.28);
+  transform: translateY(-1px);
+}
+
+.rrhh-recibos-item-name {
+  font-weight: 650;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+
+.rrhh-recibos-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.rrhh-recibos-item-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.rrhh-recibos-firma {
+  height: 40px;
+  max-width: 120px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 8px;
+  padding: 3px 8px;
+}
+
+.rrhh-recibos-btn-danger {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fca5a5;
+}
+
+.rrhh-recibos-btn-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.55);
+}

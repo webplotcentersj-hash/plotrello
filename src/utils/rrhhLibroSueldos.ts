@@ -108,6 +108,28 @@ export function importeToEdit(n: number): string {
   return String(n).replace('.', ',')
 }
 
+/** Ej. `2026-11` → `Recibo de sueldo · Noviembre 2026` */
+export function tituloReciboPeriodo(periodo: string): string {
+  const raw = String(periodo || '').trim()
+  const m = raw.match(/^(\d{4})-(\d{2})$/)
+  if (!m) return raw ? `Recibo de sueldo · ${raw}` : 'Recibo de sueldo'
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  if (!Number.isFinite(y) || mo < 1 || mo > 12) return `Recibo de sueldo · ${raw}`
+  const label = new Date(y, mo - 1, 1).toLocaleDateString('es-AR', {
+    month: 'long',
+    year: 'numeric'
+  })
+  const pretty = label.charAt(0).toUpperCase() + label.slice(1)
+  return `Recibo de sueldo · ${pretty}`
+}
+
+/** Ej. `2026-11` → `Noviembre 2026` */
+export function labelPeriodoMes(periodo: string): string {
+  const t = tituloReciboPeriodo(periodo)
+  return t.replace(/^Recibo de sueldo ·\s*/i, '') || periodo
+}
+
 /** Códigos internos del empleador para parametrizar en ARCA LSD (módulo Conceptos). */
 export const CONCEPTOS_LSD = {
   sueldo: { codigo: 'SUELDO', arca: '110000', tipo: 'REMUNERATIVO' as const, label: 'Sueldo básico' },

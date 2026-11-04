@@ -431,6 +431,20 @@ export async function rrhhDocLoteActualizarEstado(id: number, estado: RrhhDocLot
   }
 }
 
+export async function rrhhDocLoteActualizarTitulo(id: number, titulo: string) {
+  if (!supabase) return { success: false as const, error: 'Supabase no inicializado' }
+  try {
+    const { error } = await supabase
+      .from('rrhh_doc_lotes')
+      .update({ titulo, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) throw error
+    return { success: true as const }
+  } catch (e) {
+    return { success: false as const, error: err(e, 'Error al actualizar título del lote') }
+  }
+}
+
 export async function rrhhDocItemsListar(idLote?: number, idUsuario?: number): Promise<{
   success: boolean
   data?: RrhhDocItem[]
@@ -539,6 +553,29 @@ export async function rrhhDocItemFirmar(id: number, firmaDataUrl: string) {
     return { success: true as const, data: data as RrhhDocItem }
   } catch (e) {
     return { success: false as const, error: err(e, 'Error al firmar') }
+  }
+}
+
+export async function rrhhDocItemEliminar(id: number) {
+  if (!supabase) return { success: false as const, error: 'Supabase no inicializado' }
+  try {
+    const { error } = await supabase.from('rrhh_doc_items').delete().eq('id', id)
+    if (error) throw error
+    return { success: true as const }
+  } catch (e) {
+    return { success: false as const, error: err(e, 'Error al eliminar recibo') }
+  }
+}
+
+export async function rrhhDocLoteEliminar(id: number) {
+  if (!supabase) return { success: false as const, error: 'Supabase no inicializado' }
+  try {
+    // Los ítems se borran en cascada (FK ON DELETE CASCADE).
+    const { error } = await supabase.from('rrhh_doc_lotes').delete().eq('id', id)
+    if (error) throw error
+    return { success: true as const }
+  } catch (e) {
+    return { success: false as const, error: err(e, 'Error al eliminar lote') }
   }
 }
 

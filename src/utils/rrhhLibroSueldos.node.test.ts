@@ -5,6 +5,7 @@ import {
   aniosAntiguedadAlPeriodo,
   liquidarRecibo,
   parseImporteInput,
+  tituloReciboPeriodo,
   round2,
   type RrhhLibroSueldos,
   type RrhhLibroSueldosItem
@@ -94,6 +95,11 @@ describe('libro de sueldos LCT', () => {
     assert.equal(liq.descuentos, 31914.18)
     assert.equal(liq.neto, 113150.27)
     assert.equal(round2(liq.bruto + liq.contribuciones), liq.costoEmpleador)
+  })
+
+  it('titula el recibo por mes', () => {
+    assert.match(tituloReciboPeriodo('2026-11'), /Noviembre.*2026/i)
+    assert.match(tituloReciboPeriodo('2026-08'), /Agosto.*2026/i)
   })
 
   it('parsea importes con coma o punto', () => {

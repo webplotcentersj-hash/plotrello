@@ -4,26 +4,23 @@ import { useAuth } from '../hooks/useAuth'
 import { useSignatureCanvas } from '../hooks/useSignatureCanvas'
 import { rrhhDocItemFirmar, rrhhDocItemsListar } from '../services/rrhhExtendidoService'
 import type { RrhhDocItem } from '../types/api'
+import { tituloReciboPeriodo } from '../utils/rrhhLibroSueldos'
 import './rrhhExtendido.css'
 import './MisRecibosPage.css'
 
 function tituloRecibo(item: RrhhDocItem): string {
-  if (item.lote_titulo?.trim()) return item.lote_titulo.trim()
-  const periodo = item.lote_periodo?.trim()
-  if (periodo) {
-    const [y, m] = periodo.split('-')
-    if (y && m) {
-      const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('es-AR', {
-        month: 'long',
-        year: 'numeric'
-      })
-      return `Recibo de sueldo · ${label}`
-    }
-    return `Recibo de sueldo · ${periodo}`
+  if (item.archivo_nombre && /recibo de sueldo ·/i.test(item.archivo_nombre)) {
+    return item.archivo_nombre.trim()
   }
+  if (item.lote_titulo?.trim() && /recibo de sueldo ·/i.test(item.lote_titulo)) {
+    return item.lote_titulo.trim()
+  }
+  const periodo = item.lote_periodo?.trim()
+  if (periodo) return tituloReciboPeriodo(periodo)
+  if (item.lote_titulo?.trim()) return item.lote_titulo.trim()
   const raw = (item.archivo_nombre || '').replace(/\.[^.]+$/, '')
   const m = raw.match(/recibo[_-]?(\d{4}-\d{2})/i)
-  if (m) return `Recibo de sueldo · ${m[1]}`
+  if (m) return tituloReciboPeriodo(m[1])
   if (raw && !/^LstWFrm/i.test(raw)) return raw.replace(/_/g, ' ')
   return 'Recibo de sueldo'
 }
@@ -118,8 +115,14 @@ const MisRecibosPage = () => {
 
   return (
     <div className="rrhh-ext-page mis-recibos-page">
-      <header className="rrhh-ext-header">
+      <header className="mis-recibos-hero">
         <div>
+          <div className="mis-recibos-hero-kicker">
+            <span className="mis-recibos-hero-mark" aria-hidden>
+              ✎
+            </span>
+            Documentación laboral
+          </div>
           <h1>Mis recibos</h1>
           <p>Recibos de sueldo enviados por RRHH. Abrí el PDF, firmá y listo.</p>
         </div>
@@ -127,6 +130,21 @@ const MisRecibosPage = () => {
           Volver
         </button>
       </header>
+
+      <div className="mis-recibos-stats">
+        <div className={`mis-recibos-stat ${pendientes.length ? 'is-warn' : ''}`}>
+          <strong>{pendientes.length}</strong>
+          <span>Pendientes</span>
+        </div>
+        <div className={`mis-recibos-stat ${firmados.length ? 'is-ok' : ''}`}>
+          <strong>{firmados.length}</strong>
+          <span>Firmados</span>
+        </div>
+        <div className="mis-recibos-stat">
+          <strong>{items.length}</strong>
+          <span>Totales</span>
+        </div>
+      </div>
 
       {error ? <p className="rrhh-ext-error">{error}</p> : null}
       {msg ? <p className="mis-recibos-ok">{msg}</p> : null}
@@ -137,32 +155,39 @@ const MisRecibosPage = () => {
           className={filtro === 'pendientes' ? 'is-on' : ''}
           onClick={() => setFiltro('pendientes')}
         >
-          Pendientes ({pendientes.length})
+          Pendientes
         </button>
         <button
           type="button"
           className={filtro === 'firmados' ? 'is-on' : ''}
           onClick={() => setFiltro('firmados')}
         >
-          Firmados ({firmados.length})
+          Firmados
         </button>
         <button
           type="button"
           className={filtro === 'todos' ? 'is-on' : ''}
           onClick={() => setFiltro('todos')}
         >
-          Todos ({items.length})
+          Todos
         </button>
       </div>
 
       {loading ? (
-        <div className="rrhh-ext-card mis-recibos-empty">Cargando recibos…</div>
+        <div className="mis-recibos-empty">Cargando recibos…</div>
       ) : visibles.length === 0 ? (
-        <div className="rrhh-ext-card mis-recibos-empty">
+        <div className="mis-recibos-empty">
+          <strong>
+            {filtro === 'pendientes'
+              ? 'Nada pendiente'
+              : filtro === 'firmados'
+                ? 'Sin firmas todavía'
+                : 'Sin recibos aún'}
+          </strong>
           {filtro === 'pendientes'
-            ? 'No tenés recibos pendientes de firma.'
+            ? 'Cuando RRHH publique un recibo, aparece acá para firmar.'
             : filtro === 'firmados'
-              ? 'Todavía no firmaste ningún recibo.'
+              ? 'Los que firmes se listan en esta pestaña.'
               : 'Cuando RRHH envíe recibos desde el libro de sueldos, van a aparecer acá.'}
         </div>
       ) : (
@@ -172,16 +197,21 @@ const MisRecibosPage = () => {
             const pendiente = i.estado === 'pendiente'
             return (
               <li key={i.id} className={`mis-recibos-item ${pendiente ? 'is-pendiente' : 'is-firmado'}`}>
-                <div className="mis-recibos-item-main">
-                  <div className="mis-recibos-item-title">{titulo}</div>
-                  <div className="mis-recibos-item-meta">
-                    <span className={`rrhh-ext-badge ${pendiente ? 'warn' : 'ok'}`}>
-                      {pendiente ? 'Pendiente de firma' : 'Firmado'}
-                    </span>
-                    {i.lote_periodo ? <span className="mis-recibos-periodo">{i.lote_periodo}</span> : null}
-                    {!pendiente && i.firmado_at ? (
-                      <span className="mis-recibos-fecha">Firmado {formatFirmado(i.firmado_at)}</span>
-                    ) : null}
+                <div className="mis-recibos-item-body">
+                  <div className="mis-recibos-item-icon" aria-hidden>
+                    {pendiente ? '⏳' : '✓'}
+                  </div>
+                  <div className="mis-recibos-item-main">
+                    <div className="mis-recibos-item-title">{titulo}</div>
+                    <div className="mis-recibos-item-meta">
+                      <span className={`rrhh-ext-badge ${pendiente ? 'warn' : 'ok'}`}>
+                        {pendiente ? 'Pendiente de firma' : 'Firmado'}
+                      </span>
+                      {i.lote_periodo ? <span className="mis-recibos-periodo">{i.lote_periodo}</span> : null}
+                      {!pendiente && i.firmado_at ? (
+                        <span className="mis-recibos-fecha">Firmado {formatFirmado(i.firmado_at)}</span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
                 <div className="mis-recibos-item-actions">
@@ -241,7 +271,7 @@ const MisRecibosPage = () => {
                 target="_blank"
                 rel="noreferrer"
               >
-                Abrir PDF del recibo en otra pestaña
+                ↗ Abrir PDF del recibo
               </a>
 
               <label className="mis-recibos-firma-label">Tu firma</label>

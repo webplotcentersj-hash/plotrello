@@ -28,17 +28,26 @@
 
 .rrhh-ext-btn {
   padding: 8px 14px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: #334155;
   color: inherit;
   cursor: pointer;
   font-size: 0.9rem;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+}
+
+.rrhh-ext-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .rrhh-ext-btn.primary {
-  background: #2563eb;
+  background: linear-gradient(145deg, #3b82f6, #2563eb);
   border-color: #2563eb;
+}
+
+.rrhh-ext-btn.primary:hover:not(:disabled) {
+  filter: brightness(1.05);
 }
 
 .rrhh-ext-btn.ghost {

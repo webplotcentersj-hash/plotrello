@@ -1,4 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import ReciboSueldoLct from '../components/ReciboSueldoLct'
@@ -6,6 +7,7 @@ import apiService from '../services/api'
 import {
   rrhhDocItemAgregar,
   rrhhDocLoteActualizarEstado,
+  rrhhDocLoteActualizarTitulo,
   rrhhDocLoteCrear,
   rrhhDocLotesListar,
   rrhhDocSubirArchivo,
@@ -33,6 +35,7 @@ import {
   formatArs2,
   liquidarRecibo,
   numerosLiquidacion,
+  tituloReciboPeriodo,
   type RrhhLibroSueldos,
   type RrhhLibroSueldosItem,
   type RrhhSueldoFicha
@@ -323,14 +326,18 @@ const RecursosHumanosLibroSueldosPage = () => {
   const selDeferred = useDeferredValue(sel)
 
   const liq = useMemo(() => {
-    if (!libroDeferred) return null
-    const it = itemsDeferred.find((i) => i.id_usuario === selDeferred) || itemsDeferred[0]
+    // En envío masivo usamos estado vivo (no deferred) para que el PDF coincida con el empleado.
+    const libroSrc = busy ? libro : libroDeferred
+    const itemsSrc = busy ? items : itemsDeferred
+    const selSrc = busy ? sel : selDeferred
+    if (!libroSrc) return null
+    const it = itemsSrc.find((i) => i.id_usuario === selSrc) || itemsSrc[0]
     if (!it) return null
     return liquidarRecibo({
-      item: { ...it, id: it.id || 0, id_libro: it.id_libro || libroDeferred.id },
-      libro: libroDeferred
+      item: { ...it, id: it.id || 0, id_libro: it.id_libro || libroSrc.id },
+      libro: libroSrc
     })
-  }, [libroDeferred, itemsDeferred, selDeferred])
+  }, [busy, libro, items, sel, libroDeferred, itemsDeferred, selDeferred])
 
   const netos = useMemo(() => {
     const m = new Map<number, number>()
@@ -382,51 +389,89 @@ const RecursosHumanosLibroSueldosPage = () => {
 
   const enviarEmpleados = async () => {
     if (!libro || !usuario) return
-    setBusy(true)
     setError(null)
     setMsg(null)
+    const incluidos = items.filter((i) => i.incluido)
+    if (!incluidos.length) {
+      setError('No hay empleados marcados en la nómina. Marcá al menos uno (checkbox) y volvé a enviar.')
+      return
+    }
+    const tituloMes = tituloReciboPeriodo(periodo)
+    setBusy(true)
     try {
       const saved = await guardar()
       if (!saved) return
       setBusy(true)
       const lotes = await rrhhDocLotesListar()
-      let lote = (lotes.data || []).find(
-        (l) => l.periodo === periodo && l.tipo === 'recibo_sueldo' && (libro.id_lote_recibos ? l.id === libro.id_lote_recibos : true)
-      )
+      let lote =
+        (libro.id_lote_recibos
+          ? (lotes.data || []).find((l) => l.id === libro.id_lote_recibos)
+          : null) ||
+        (lotes.data || []).find((l) => l.periodo === periodo && l.tipo === 'recibo_sueldo') ||
+        null
       if (!lote) {
         const created = await rrhhDocLoteCrear({
           periodo,
-          titulo: `Recibos de sueldo ${periodo}`,
+          titulo: tituloMes,
           created_by: usuario.id
         })
         if (!created.success || !created.data) throw new Error(created.error || 'No se pudo crear el lote')
         lote = created.data
+      } else if (lote.titulo !== tituloMes) {
+        const upTitulo = await rrhhDocLoteActualizarTitulo(lote.id, tituloMes)
+        if (upTitulo.success) lote = { ...lote, titulo: tituloMes }
       }
-      const incluidos = items.filter((i) => i.incluido && (i.sueldo_basico > 0 || i.adicional_antiguedad > 0))
       let ok = 0
+      const fallos: string[] = []
       for (const it of incluidos) {
-        setSel(it.id_usuario)
-        await esperarFrame()
-        const el = previewRef.current
-        if (!el) throw new Error('No se pudo renderizar el recibo')
-        const blob = await elementoAPdfBlob(el)
-        const fileName = `Recibo_${periodo}_leg${it.n_legajo}.pdf`
-        const file = new File([blob], fileName, { type: 'application/pdf' })
-        const up = await rrhhDocSubirArchivo(file, it.id_usuario)
-        if (!up.success || !up.data) throw new Error(up.error || `Falló el upload de ${it.apellido_nombre}`)
-        const add = await rrhhDocItemAgregar({
-          id_lote: lote.id,
-          id_usuario: it.id_usuario,
-          archivo_url: up.data.url,
-          archivo_nombre: `Recibo de sueldo ${periodo}`
-        })
-        if (!add.success) throw new Error(add.error || `No se pudo anexar ${it.apellido_nombre}`)
-        ok += 1
+        try {
+          flushSync(() => setSel(it.id_usuario))
+          await esperarFrame()
+          await new Promise((r) => setTimeout(r, 80))
+          const el = previewRef.current
+          if (!el) throw new Error('No se pudo renderizar el recibo')
+          const blob = await elementoAPdfBlob(el)
+          const fileName = `Recibo_${periodo}_leg${it.n_legajo}.pdf`
+          const file = new File([blob], fileName, { type: 'application/pdf' })
+          const up = await rrhhDocSubirArchivo(file, it.id_usuario)
+          if (!up.success || !up.data) throw new Error(up.error || 'Falló el upload')
+          const add = await rrhhDocItemAgregar({
+            id_lote: lote.id,
+            id_usuario: it.id_usuario,
+            archivo_url: up.data.url,
+            archivo_nombre: tituloMes
+          })
+          if (!add.success) throw new Error(add.error || 'No se pudo anexar')
+          await apiService.createNotification({
+            user_id: it.id_usuario,
+            title: tituloMes,
+            description: 'Tenés un recibo de sueldo para ver y firmar en Mis recibos (/mis-recibos).',
+            type: 'info',
+            origen: 'sistema',
+            related_id: 'mis-recibos'
+          })
+          ok += 1
+        } catch (e) {
+          fallos.push(
+            `${it.apellido_nombre || it.id_usuario}: ${e instanceof Error ? e.message : 'error'}`
+          )
+        }
+      }
+      if (ok === 0) {
+        throw new Error(
+          fallos.length
+            ? `No se publicó ningún recibo. ${fallos.slice(0, 3).join(' · ')}`
+            : 'No se publicó ningún recibo.'
+        )
       }
       await rrhhDocLoteActualizarEstado(lote.id, 'enviado')
       await rrhhLibroSueldosUpsert({ periodo, patch: { id_lote_recibos: lote.id } })
       setLibro((prev) => (prev ? { ...prev, id_lote_recibos: lote!.id } : prev))
-      setMsg(`${ok} recibos publicados en /mis-recibos (el empleado los ve y firma ahí).`)
+      setMsg(
+        `${ok} recibo${ok === 1 ? '' : 's'} en Mis recibos (${tituloMes}).` +
+          (fallos.length ? ` Fallaron ${fallos.length}.` : '')
+      )
+      if (fallos.length) setError(fallos.slice(0, 5).join(' · '))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al enviar recibos')
     } finally {
@@ -658,7 +703,7 @@ const RecursosHumanosLibroSueldosPage = () => {
           className="rrhh-ext-btn primary"
           onClick={() => void enviarEmpleados()}
           disabled={busy || cerrado}
-          title="Genera el PDF de cada empleado marcado y lo publica en Mis recibos (firma en la app). No envía mail."
+          title="Publica el PDF de cada empleado marcado en Mis recibos (/mis-recibos) y le manda una notificación. No envía mail."
         >
           Enviar recibos a empleados
         </button>
