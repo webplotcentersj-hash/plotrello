@@ -1177,6 +1177,18 @@
   background: rgba(255, 255, 255, 0.15);
 }
 
+.venta-rapida-mp-panel__hint {
+  margin: 12px 0 8px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.venta-rapida-mp-panel__anular {
+  width: 100%;
+  margin-top: 4px;
+}
+
 @media (max-width: 768px) {
   .venta-rapida-modal {
     max-width: 100%;

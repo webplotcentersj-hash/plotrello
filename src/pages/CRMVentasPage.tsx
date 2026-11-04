@@ -497,6 +497,8 @@ const CRMVentasPage = () => {
   >({})
   const [ventaAuditoria, setVentaAuditoria] = useState<VentaAuditoria[]>([])
   const [ventaEditBusy, setVentaEditBusy] = useState(false)
+  const [subiendoComprobanteVenta, setSubiendoComprobanteVenta] = useState(false)
+  const comprobanteVentaInputRef = useRef<HTMLInputElement>(null)
   const [ventaMotivoAccion, setVentaMotivoAccion] = useState<{ tipo: 'item' | 'venta'; itemId?: number } | null>(null)
   const [ventaMotivoTexto, setVentaMotivoTexto] = useState('')
 
@@ -745,6 +747,33 @@ const CRMVentasPage = () => {
       setVentasFiltradas((prev) => prev.map((v) => (v.id === ventaId ? { ...v, ...patch } : v)))
     }
     if (aud.success && aud.data) setVentaAuditoria(aud.data)
+  }
+
+  const subirComprobanteVentaDetalle = async (file: File | null) => {
+    if (!ventaModal || !file) return
+    if (ventaModal.estado_pago === 'Cancelado') {
+      alert('Esta venta está cancelada. Cambiá el estado a Pendiente/Parcial/Pagado para adjuntar el comprobante.')
+      return
+    }
+    setSubiendoComprobanteVenta(true)
+    try {
+      const res = await apiService.subirComprobantePagoVenta(ventaModal.id, file)
+      if (!res.success || !res.data?.url) {
+        throw new Error(res.error || 'No se pudo subir el comprobante')
+      }
+      const url = res.data.url
+      setVentas((prev) =>
+        prev.map((v) => (v.id === ventaModal.id ? { ...v, comprobante_pago_url: url } : v))
+      )
+      setVentasFiltradas((prev) =>
+        prev.map((v) => (v.id === ventaModal.id ? { ...v, comprobante_pago_url: url } : v))
+      )
+    } catch (e: any) {
+      alert(e?.message || 'Error al subir el comprobante')
+    } finally {
+      setSubiendoComprobanteVenta(false)
+      if (comprobanteVentaInputRef.current) comprobanteVentaInputRef.current.value = ''
+    }
   }
 
   const guardarCabeceraVentaDetalle = async (): Promise<boolean> => {
@@ -3831,7 +3860,37 @@ const CRMVentasPage = () => {
                       textoInicial={ventaModal.comprobante_pago_texto ?? null}
                       onGuardado={(ia, texto) => actualizarComprobanteIaVenta(ventaModal.id, ia, texto)}
                     />
-                  ) : null}
+                  ) : (
+                    <div className="venta-detail-block venta-detail-block--comprobante">
+                      <h3 className="venta-detail-block__title">Comprobante de pago</h3>
+                      <p className="venta-detail-block__text">
+                        Adjuntá el PDF o la foto del comprobante (transferencia, MP, etc.).
+                      </p>
+                      <input
+                        ref={comprobanteVentaInputRef}
+                        type="file"
+                        accept="image/*,.pdf,application/pdf"
+                        disabled={
+                          ventaModal.estado_pago === 'Cancelado' ||
+                          ventaEditBusy ||
+                          subiendoComprobanteVenta
+                        }
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] ?? null
+                          void subirComprobanteVentaDetalle(f)
+                        }}
+                      />
+                      {subiendoComprobanteVenta ? (
+                        <p className="venta-detail-block__text">Subiendo comprobante…</p>
+                      ) : null}
+                      {ventaModal.estado_pago === 'Cancelado' ? (
+                        <p className="venta-detail-modal__locked">
+                          Para subir el comprobante, cambiá el estado de Cancelado a Pendiente, Parcial o
+                          Pagado abajo.
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
 
                   <VentaCobrosPanel
                     venta={ventaModal}

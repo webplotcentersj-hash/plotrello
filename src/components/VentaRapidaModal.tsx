@@ -1248,29 +1248,42 @@ const VentaRapidaModal = ({
   }
 
   const cerrar = async () => {
-    // QR / cobro MP abierto sin pago: no cuenta como venta → anular.
+    // QR / cobro MP abierto sin pago: la venta YA existe (ítems/stock).
+    // No anular al cerrar: queda Pendiente para cobrar por transferencia u otro medio / subir comprobante.
     if (showMpCheckout && mpVentaId && ventaCreada?.estado_pago === 'Pendiente') {
       const ok = window.confirm(
-        'El pago con Mercado Pago no terminó. Si cerrás ahora, esta venta no se cuenta y se anula. ¿Continuar?'
+        'El pago con Mercado Pago no terminó. La venta queda pendiente (no se anula) para cobrar por otro medio o adjuntar comprobante. ¿Cerrar?'
       )
       if (!ok) return
-      setAnulandoMpPendiente(true)
-      try {
-        await apiService.anularVentaConMotivo(
-          mpVentaId,
-          'Cobro Mercado Pago no confirmado — modal cerrado sin finalizar',
-          { sincronizarCaja: true }
-        )
-      } catch (e) {
-        console.warn('No se pudo anular venta MP pendiente:', e)
-      } finally {
-        setAnulandoMpPendiente(false)
-      }
+      setShowMpCheckout(false)
+      onSuccess?.()
       onClose()
       return
     }
     if (ventaCreada && !showMpCheckout) onSuccess?.()
     onClose()
+  }
+
+  const anularVentaMpPendiente = async () => {
+    if (!mpVentaId || ventaCreada?.estado_pago !== 'Pendiente') return
+    const ok = window.confirm(
+      'Esto anula la venta por completo (no solo el cobro MP). ¿Confirmás?'
+    )
+    if (!ok) return
+    setAnulandoMpPendiente(true)
+    try {
+      await apiService.anularVentaConMotivo(
+        mpVentaId,
+        'Cobro Mercado Pago no confirmado — anulación manual desde venta rápida',
+        { sincronizarCaja: true }
+      )
+      onClose()
+    } catch (e) {
+      console.warn('No se pudo anular venta MP pendiente:', e)
+      alert('No se pudo anular la venta. Probá de nuevo o anulala desde Ventas.')
+    } finally {
+      setAnulandoMpPendiente(false)
+    }
   }
 
   useEffect(() => {
@@ -2239,6 +2252,18 @@ const VentaRapidaModal = ({
                 }
                 onPaid={(data) => void finalizarVentaTrasMp(data)}
               />
+              <p className="venta-rapida-mp-panel__hint">
+                Si cobrás por transferencia u otro medio, cerrá el modal: la venta queda pendiente y podés
+                subir el comprobante desde Ventas. Anular solo si la venta no corresponde.
+              </p>
+              <button
+                type="button"
+                className="btn-secondary venta-rapida-mp-panel__anular"
+                disabled={anulandoMpPendiente}
+                onClick={() => void anularVentaMpPendiente()}
+              >
+                {anulandoMpPendiente ? 'Anulando…' : 'Anular esta venta'}
+              </button>
             </div>
           ) : null}
 
