@@ -287,6 +287,7 @@ const Header = ({
     push({ id: 'protocolos', label: 'Protocolos y bases', icon: '📚', href: '/protocolos-bases' })
     push({ id: 'capacitaciones', label: 'Capacitaciones', icon: '📚', href: '/capacitaciones' })
     push({ id: 'evaluaciones', label: 'Mis evaluaciones', icon: '📝', href: '/mis-pruebas' })
+    push({ id: 'mis-recibos', label: 'Mis recibos', icon: '🧾', href: '/mis-recibos' })
     push({ id: 'manual', label: 'Manual', icon: '📖', href: '/manual' })
     push({ id: 'mis-pedidos', label: 'Mis pedidos', icon: '📋', href: '/mis-pedidos' })
     return extras

@@ -184,6 +184,17 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
         fecha_nacimiento: legajo.fecha_nacimiento || null,
         dni: legajo.dni || null,
         cuil: legajo.cuil || null,
+        n_legajo:
+          legajo.n_legajo != null && Number.isFinite(Number(legajo.n_legajo)) && Number(legajo.n_legajo) > 0
+            ? Math.floor(Number(legajo.n_legajo))
+            : null,
+        banco: legajo.banco || null,
+        cbu: legajo.cbu || null,
+        conyuge: !!legajo.conyuge,
+        hijos:
+          legajo.hijos != null && Number.isFinite(Number(legajo.hijos)) && Number(legajo.hijos) > 0
+            ? Math.floor(Number(legajo.hijos))
+            : 0,
         direccion: legajo.direccion || null,
         email: legajo.email || null,
         estado_civil: legajo.estado_civil || null,
@@ -308,6 +319,26 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
                   />
                 </div>
                 <div className="legajo-form-group">
+                  <label className="legajo-label">Legajo AFIP</label>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={legajo.n_legajo != null && legajo.n_legajo > 0 ? legajo.n_legajo : ''}
+                    onChange={(e) => {
+                      const raw = e.target.value.trim()
+                      setLegajo({
+                        ...legajo,
+                        n_legajo: raw === '' ? null : Math.floor(Number(raw)) || null
+                      })
+                    }}
+                    className="legajo-input"
+                    placeholder="Número"
+                    inputMode="numeric"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="legajo-form-group">
                   <label className="legajo-label">Fecha de Nacimiento</label>
                   <input
                     type="date"
@@ -330,6 +361,62 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
                     <option value="Viudo/a">Viudo/a</option>
                     <option value="Unión Libre">Unión Libre</option>
                   </select>
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Banco</label>
+                  <input
+                    type="text"
+                    value={legajo.banco || ''}
+                    onChange={(e) => setLegajo({ ...legajo, banco: e.target.value })}
+                    className="legajo-input"
+                    placeholder="Banco de cobro"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">CBU</label>
+                  <input
+                    type="text"
+                    value={legajo.cbu || ''}
+                    onChange={(e) => setLegajo({ ...legajo, cbu: e.target.value.replace(/\D/g, '').slice(0, 22) })}
+                    className="legajo-input"
+                    placeholder="22 dígitos"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={22}
+                  />
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Cónyuge a cargo</label>
+                  <select
+                    value={legajo.conyuge ? 'si' : 'no'}
+                    onChange={(e) => setLegajo({ ...legajo, conyuge: e.target.value === 'si' })}
+                    className="legajo-input"
+                  >
+                    <option value="no">No</option>
+                    <option value="si">Sí</option>
+                  </select>
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Personas a cargo</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={legajo.hijos != null && legajo.hijos >= 0 ? legajo.hijos : 0}
+                    onChange={(e) => {
+                      const raw = e.target.value.trim()
+                      const n = raw === '' ? 0 : Math.floor(Number(raw))
+                      setLegajo({
+                        ...legajo,
+                        hijos: Number.isFinite(n) && n > 0 ? n : 0
+                      })
+                    }}
+                    className="legajo-input"
+                    placeholder="0"
+                    inputMode="numeric"
+                    autoComplete="off"
+                  />
                 </div>
               </div>
             </div>

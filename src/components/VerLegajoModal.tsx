@@ -473,6 +473,14 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja, initialTab = 'l
       kv('Apellido', legajo.apellido || '—')
       kv('DNI', legajo.dni || '—')
       kv('CUIT / CUIL', legajo.cuil || '—')
+      kv('Legajo AFIP', legajo.n_legajo != null && legajo.n_legajo > 0 ? String(legajo.n_legajo) : '—')
+      kv('Banco', legajo.banco || '—')
+      kv('CBU', legajo.cbu || '—')
+      kv('Cónyuge a cargo', legajo.conyuge ? 'Sí' : 'No')
+      kv(
+        'Personas a cargo',
+        legajo.hijos != null && legajo.hijos > 0 ? String(legajo.hijos) : '0'
+      )
       kv('Teléfono', legajo.telefono || '—')
       kv('Email', legajo.email || '—')
       kv('Dirección', legajo.direccion || '—')
@@ -973,6 +981,14 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja, initialTab = 'l
                   </span>
                 </div>
                 <div className="ver-legajo-info-item">
+                  <span className="ver-legajo-label">Legajo AFIP:</span>
+                  <span className="ver-legajo-value">
+                    {legajo.n_legajo != null && legajo.n_legajo > 0
+                      ? legajo.n_legajo
+                      : 'No especificado'}
+                  </span>
+                </div>
+                <div className="ver-legajo-info-item">
                   <span className="ver-legajo-label">Fecha de Nacimiento:</span>
                   <span className="ver-legajo-value">
                     {formatDate(legajo.fecha_nacimiento)}
@@ -982,6 +998,30 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja, initialTab = 'l
                   <span className="ver-legajo-label">Estado Civil:</span>
                   <span className="ver-legajo-value">
                     {legajo.estado_civil || 'No especificado'}
+                  </span>
+                </div>
+                <div className="ver-legajo-info-item">
+                  <span className="ver-legajo-label">Banco:</span>
+                  <span className="ver-legajo-value">
+                    {legajo.banco || 'No especificado'}
+                  </span>
+                </div>
+                <div className="ver-legajo-info-item">
+                  <span className="ver-legajo-label">CBU:</span>
+                  <span className="ver-legajo-value">
+                    {legajo.cbu || 'No especificado'}
+                  </span>
+                </div>
+                <div className="ver-legajo-info-item">
+                  <span className="ver-legajo-label">Cónyuge a cargo:</span>
+                  <span className="ver-legajo-value">
+                    {legajo.conyuge ? 'Sí' : 'No'}
+                  </span>
+                </div>
+                <div className="ver-legajo-info-item">
+                  <span className="ver-legajo-label">Personas a cargo:</span>
+                  <span className="ver-legajo-value">
+                    {legajo.hijos != null && legajo.hijos > 0 ? legajo.hijos : 0}
                   </span>
                 </div>
               </div>

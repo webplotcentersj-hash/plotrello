@@ -100,7 +100,35 @@ describe('libro de sueldos LCT', () => {
     assert.equal(parseImporteInput('145064,45'), 145064.45)
     assert.equal(parseImporteInput('145.064,45'), 145064.45)
     assert.equal(parseImporteInput('137622.31'), 137622.31)
+    assert.equal(parseImporteInput('150.000'), 150000)
+    assert.equal(parseImporteInput('1.500.000'), 1500000)
+    assert.equal(parseImporteInput('22.500'), 22500)
+    assert.equal(parseImporteInput('22.50'), 22.5)
     assert.equal(parseImporteInput(''), null)
+  })
+
+  it('descuento extra baja el neto del empleado y aparece en recibo', () => {
+    const base = liquidarRecibo({ item: itemEvelyn(), libro: libroAgosto() })
+    const conDesc = liquidarRecibo({
+      item: {
+        ...itemEvelyn(),
+        extras: [
+          {
+            id: 'd1',
+            concepto: 'Retención Judicial',
+            tipo: 'descuento',
+            unidad: '',
+            base: null,
+            monto: 10000,
+            codigo_lsd: ''
+          }
+        ]
+      },
+      libro: libroAgosto()
+    })
+    assert.equal(conDesc.descuentos, round2(base.descuentos + 10000))
+    assert.equal(conDesc.neto, round2(base.neto - 10000))
+    assert.ok(conDesc.lineasTrabajador.some((l) => l.concepto === 'Retención Judicial' && l.descuento === 10000))
   })
 
   it('antigüedad en años al cierre del período', () => {

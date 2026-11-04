@@ -4331,7 +4331,18 @@ class ApiService {
         p_contacto_emergencia_nombre: legajo.contacto_emergencia_nombre || null,
         p_contacto_emergencia_telefono: legajo.contacto_emergencia_telefono || null,
         p_observaciones: legajo.observaciones || null,
-        p_cuil: legajo.cuil || null
+        p_cuil: legajo.cuil || null,
+        p_n_legajo:
+          legajo.n_legajo != null && Number.isFinite(Number(legajo.n_legajo)) && Number(legajo.n_legajo) > 0
+            ? Math.floor(Number(legajo.n_legajo))
+            : null,
+        p_banco: legajo.banco || null,
+        p_cbu: legajo.cbu || null,
+        p_conyuge: !!legajo.conyuge,
+        p_hijos:
+          legajo.hijos != null && Number.isFinite(Number(legajo.hijos)) && Number(legajo.hijos) > 0
+            ? Math.floor(Number(legajo.hijos))
+            : 0
       })
 
       if (error) {
@@ -18010,6 +18021,9 @@ class ApiService {
           email: string | null
           dni?: string | null
           cuil?: string | null
+          n_legajo?: number | null
+          banco?: string | null
+          cbu?: string | null
         }
       >
     >
@@ -18023,7 +18037,9 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('legajos_empleados')
-        .select('id_usuario, nombre, apellido, sector, fecha_ingreso, email, dni, cuil')
+        .select(
+          'id_usuario, nombre, apellido, sector, fecha_ingreso, email, dni, cuil, n_legajo, banco, cbu'
+        )
 
       if (error) {
         return { success: false, error: error.message }
@@ -18038,6 +18054,9 @@ class ApiService {
         email: string | null
         dni?: string | null
         cuil?: string | null
+        n_legajo?: number | null
+        banco?: string | null
+        cbu?: string | null
       }>) || []
 
       if (soloActivos) {
@@ -18063,9 +18082,13 @@ class ApiService {
           email: string | null
           dni?: string | null
           cuil?: string | null
+          n_legajo?: number | null
+          banco?: string | null
+          cbu?: string | null
         }
       > = {}
       for (const row of rows) {
+        const nLeg = row.n_legajo != null ? Number(row.n_legajo) : null
         mapa[row.id_usuario] = {
           nombre: row.nombre || '',
           apellido: row.apellido || '',
@@ -18073,7 +18096,10 @@ class ApiService {
           fecha_ingreso: row.fecha_ingreso ?? null,
           email: row.email ?? null,
           dni: row.dni ?? null,
-          cuil: row.cuil ?? null
+          cuil: row.cuil ?? null,
+          n_legajo: nLeg != null && Number.isFinite(nLeg) && nLeg > 0 ? Math.floor(nLeg) : null,
+          banco: row.banco ?? null,
+          cbu: row.cbu ?? null
         }
       }
 

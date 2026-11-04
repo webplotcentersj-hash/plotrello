@@ -51,23 +51,56 @@ export function extraVacio(): ReciboExtra {
   }
 }
 
-/** Acepta 145064.45, 145064,45 o 145.064,45 sin pisar mientras se escribe. */
+/**
+ * Acepta pesos AR (`145.064,45` / `150.000` / `145064,45`) o decimal US (`137622.31`).
+ * Un solo `.` con 1–2 decimales = decimal; `.` de miles (`1.500` / `1.500.000`) se quita.
+ */
 export function parseImporteInput(raw: string): number | null {
-  const t = String(raw || '').trim().replace(/\s/g, '')
-  if (!t || t === '-' || t === ',' || t === '.') return null
-  let n: number
-  if (t.includes(',') && t.includes('.')) {
-    const lastComma = t.lastIndexOf(',')
-    const lastDot = t.lastIndexOf('.')
-    n = lastComma > lastDot
-      ? Number(t.replace(/\./g, '').replace(',', '.'))
-      : Number(t.replace(/,/g, ''))
-  } else if (t.includes(',')) {
-    n = Number(t.replace(',', '.'))
-  } else {
-    n = Number(t)
+  let s = String(raw || '')
+    .trim()
+    .replace(/\s/g, '')
+    .replace(/[^\d.,\-]/g, '')
+  if (!s || s === '-' || s === ',' || s === '.' || s === '-.' || s === '-,') return null
+
+  const neg = s.startsWith('-')
+  if (neg) s = s.slice(1)
+  if (!s) return null
+
+  const hasComma = s.includes(',')
+  const hasDot = s.includes('.')
+
+  if (hasComma && hasDot) {
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+      // 1.234.567,89
+      s = s.replace(/\./g, '').replace(',', '.')
+    } else {
+      // 1,234,567.89
+      s = s.replace(/,/g, '')
+    }
+  } else if (hasComma) {
+    const parts = s.split(',')
+    if (parts.length === 2 && parts[1].length <= 2) {
+      s = `${parts[0].replace(/\./g, '')}.${parts[1]}`
+    } else if (parts.length === 2) {
+      // más de 2 decimales raros → igual como decimal
+      s = `${parts[0].replace(/\./g, '')}.${parts[1]}`
+    } else {
+      s = s.replace(/,/g, '')
+    }
+  } else if (hasDot) {
+    const parts = s.split('.')
+    // Un solo punto con 1–2 decimales → decimal (137622.31), no miles.
+    if (parts.length === 2 && parts[1].length >= 1 && parts[1].length <= 2) {
+      // keep
+    } else {
+      // 150.000 / 1.500 / 1.500.000
+      s = s.replace(/\./g, '')
+    }
   }
-  return Number.isFinite(n) ? n : null
+
+  const n = Number(s)
+  if (!Number.isFinite(n)) return null
+  return neg ? -n : n
 }
 
 export function importeToEdit(n: number): string {

@@ -160,6 +160,7 @@ const ID_META: Record<string, { glyph: HeaderGlyphId; tone: HeaderGlyphTone }> =
   'clientes-consulta': { glyph: 'users', tone: 'sky' },
   'clientes-dashboard': { glyph: 'users', tone: 'sky' },
   'menu-diario': { glyph: 'utensils', tone: 'rose' },
+  'mis-recibos': { glyph: 'receipt', tone: 'emerald' },
   flota: { glyph: 'car', tone: 'indigo' },
   permisos: { glyph: 'clipboard', tone: 'amber' },
   'horas-extra': { glyph: 'timer', tone: 'orange' },

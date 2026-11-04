@@ -209,6 +209,26 @@ export default function InsightsToolsMenu({
               )}
             </button>
           )}
+
+          {usuario && (
+            <button
+              type="button"
+              role="menuitem"
+              className="insights-tools-item"
+              onClick={() => {
+                setMenuOpen(false)
+                navigate('/mis-recibos')
+              }}
+            >
+              <span className="insights-tools-item-icon" aria-hidden>
+                <HeaderNavGlyph id="receipt" size={18} />
+              </span>
+              <span className="insights-tools-item-text">
+                <span className="insights-tools-item-title">Mis recibos</span>
+                <span className="insights-tools-item-sub">Ver y firmar recibos de sueldo</span>
+              </span>
+            </button>
+          )}
         </div>
       )}
 

@@ -68,6 +68,16 @@ const RecursosHumanosDashboardPage = () => {
           </button>
         </div>
 
+        <div className="rrhh-dashboard-personal">
+          <div className="rrhh-dashboard-personal-text">
+            <strong>Mis recibos</strong>
+            <span>Recibos de sueldo enviados para ver y firmar</span>
+          </div>
+          <button type="button" className="rrhh-dashboard-personal-btn" onClick={() => navigate('/mis-recibos')}>
+            Abrir
+          </button>
+        </div>
+
         {/* Sección de acciones rápidas */}
         <div className="rrhh-actions-section">
           <h2>Acciones Rápidas</h2>
@@ -154,6 +164,15 @@ const RecursosHumanosDashboardPage = () => {
               <div className="rrhh-action-icon">📗</div>
               <h3>Libro de sueldos</h3>
               <p>Recibos LCT, PDF a empleados y TXT para ARCA / F.931</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/recibos')}
+            >
+              <div className="rrhh-action-icon">🧾</div>
+              <h3>Recibos enviados</h3>
+              <p>Lotes, firmas y documentación publicada a empleados</p>
             </button>
 
             <button

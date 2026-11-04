@@ -438,12 +438,23 @@ export async function rrhhDocItemsListar(idLote?: number, idUsuario?: number): P
 }> {
   if (!supabase) return { success: false, error: 'Supabase no inicializado' }
   try {
-    let q = supabase.from('rrhh_doc_items').select('*').order('created_at', { ascending: false })
+    let q = supabase
+      .from('rrhh_doc_items')
+      .select('*, rrhh_doc_lotes(periodo, titulo, tipo, estado)')
+      .order('created_at', { ascending: false })
     if (idLote) q = q.eq('id_lote', idLote)
     if (idUsuario) q = q.eq('id_usuario', idUsuario)
     const { data, error } = await q
     if (error) throw error
-    let rows = (data || []) as RrhhDocItem[]
+    type Row = RrhhDocItem & {
+      rrhh_doc_lotes?: {
+        periodo?: string | null
+        titulo?: string | null
+        tipo?: string | null
+        estado?: string | null
+      } | null
+    }
+    let rows = (data || []) as Row[]
     // En listados generales (sin lote/usuario), ocultar ítems de personal de baja.
     if (!idLote && !idUsuario) {
       const activos = await idsUsuariosActivos()
@@ -459,7 +470,23 @@ export async function rrhhDocItemsListar(idLote?: number, idUsuario?: number): P
     }
     return {
       success: true,
-      data: rows.map((r) => ({ ...r, nombre_usuario: nameById.get(r.id_usuario) }))
+      data: rows.map((r) => {
+        const lote = r.rrhh_doc_lotes
+        return {
+          id: r.id,
+          id_lote: r.id_lote,
+          id_usuario: r.id_usuario,
+          archivo_url: r.archivo_url,
+          archivo_nombre: r.archivo_nombre,
+          estado: r.estado,
+          firma_data_url: r.firma_data_url,
+          firmado_at: r.firmado_at,
+          nombre_usuario: nameById.get(r.id_usuario),
+          lote_periodo: lote?.periodo || null,
+          lote_titulo: lote?.titulo || null,
+          lote_tipo: lote?.tipo || null
+        }
+      })
     }
   } catch (e) {
     return { success: false, error: err(e, 'Error al listar ítems') }

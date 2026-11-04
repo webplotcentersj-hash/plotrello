@@ -1,10 +1,45 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useSignatureCanvas } from '../hooks/useSignatureCanvas'
 import { rrhhDocItemFirmar, rrhhDocItemsListar } from '../services/rrhhExtendidoService'
 import type { RrhhDocItem } from '../types/api'
 import './rrhhExtendido.css'
+import './MisRecibosPage.css'
+
+function tituloRecibo(item: RrhhDocItem): string {
+  if (item.lote_titulo?.trim()) return item.lote_titulo.trim()
+  const periodo = item.lote_periodo?.trim()
+  if (periodo) {
+    const [y, m] = periodo.split('-')
+    if (y && m) {
+      const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('es-AR', {
+        month: 'long',
+        year: 'numeric'
+      })
+      return `Recibo de sueldo · ${label}`
+    }
+    return `Recibo de sueldo · ${periodo}`
+  }
+  const raw = (item.archivo_nombre || '').replace(/\.[^.]+$/, '')
+  const m = raw.match(/recibo[_-]?(\d{4}-\d{2})/i)
+  if (m) return `Recibo de sueldo · ${m[1]}`
+  if (raw && !/^LstWFrm/i.test(raw)) return raw.replace(/_/g, ' ')
+  return 'Recibo de sueldo'
+}
+
+function formatFirmado(at: string | null | undefined): string {
+  if (!at) return ''
+  const d = new Date(at)
+  if (Number.isNaN(d.getTime())) return at
+  return d.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
 
 const MisRecibosPage = () => {
   const navigate = useNavigate()
@@ -12,13 +47,25 @@ const MisRecibosPage = () => {
   const [items, setItems] = useState<RrhhDocItem[]>([])
   const [selected, setSelected] = useState<RrhhDocItem | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const { canvasRef, firmaDataUrl, limpiarFirma } = useSignatureCanvas({ width: 480, height: 140 })
+  const [msg, setMsg] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [filtro, setFiltro] = useState<'pendientes' | 'firmados' | 'todos'>('pendientes')
+
+  const { canvasRef, firmaDataUrl, limpiarFirma, hasStroke } = useSignatureCanvas({
+    enabled: !!selected,
+    width: 640,
+    height: 168
+  })
 
   const load = useCallback(async () => {
     if (!usuario?.id) return
+    setLoading(true)
+    setError(null)
     const res = await rrhhDocItemsListar(undefined, usuario.id)
     if (res.success && res.data) setItems(res.data)
-    else setError(res.error || 'Error')
+    else setError(res.error || 'No se pudieron cargar los recibos')
+    setLoading(false)
   }, [usuario?.id])
 
   useEffect(() => {
@@ -30,94 +77,200 @@ const MisRecibosPage = () => {
     void load()
   }, [authLoading, usuario, navigate, load])
 
+  const pendientes = useMemo(() => items.filter((i) => i.estado === 'pendiente'), [items])
+  const firmados = useMemo(() => items.filter((i) => i.estado === 'firmado'), [items])
+  const visibles = useMemo(() => {
+    if (filtro === 'pendientes') return pendientes
+    if (filtro === 'firmados') return firmados
+    return items
+  }, [filtro, pendientes, firmados, items])
+
+  const abrirFirmar = (item: RrhhDocItem) => {
+    setError(null)
+    setMsg(null)
+    setSelected(item)
+  }
+
+  const cerrarFirmar = () => {
+    setSelected(null)
+    limpiarFirma()
+  }
+
   const firmar = async () => {
-    if (!selected || !firmaDataUrl) {
-      setError('Firmá en el recuadro')
+    if (!selected) return
+    if (!hasStroke || !firmaDataUrl) {
+      setError('Dibujá tu firma en el recuadro blanco')
       return
     }
+    setBusy(true)
+    setError(null)
     const res = await rrhhDocItemFirmar(selected.id, firmaDataUrl)
-    if (!res.success) setError(res.error || 'Error')
-    else {
-      setSelected(null)
-      limpiarFirma()
-      await load()
+    setBusy(false)
+    if (!res.success) {
+      setError(res.error || 'No se pudo guardar la firma')
+      return
     }
+    setMsg('Recibo firmado correctamente')
+    setSelected(null)
+    limpiarFirma()
+    await load()
   }
 
   return (
-    <div className="rrhh-ext-page">
+    <div className="rrhh-ext-page mis-recibos-page">
       <header className="rrhh-ext-header">
         <div>
           <h1>Mis recibos</h1>
-          <p>Documentación pendiente de firma.</p>
+          <p>Recibos de sueldo enviados por RRHH. Abrí el PDF, firmá y listo.</p>
         </div>
         <button type="button" className="rrhh-ext-btn ghost" onClick={() => navigate('/')}>
           Volver
         </button>
       </header>
-      {error ? <p className="rrhh-ext-error">{error}</p> : null}
 
-      <div className="rrhh-ext-card">
-        <table className="rrhh-ext-table">
-          <thead>
-            <tr>
-              <th>Documento</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((i) => (
-              <tr key={i.id}>
-                <td>
-                  <a href={i.archivo_url} target="_blank" rel="noreferrer">
-                    {i.archivo_nombre || `Documento #${i.id}`}
+      {error ? <p className="rrhh-ext-error">{error}</p> : null}
+      {msg ? <p className="mis-recibos-ok">{msg}</p> : null}
+
+      <div className="mis-recibos-tabs" role="tablist">
+        <button
+          type="button"
+          className={filtro === 'pendientes' ? 'is-on' : ''}
+          onClick={() => setFiltro('pendientes')}
+        >
+          Pendientes ({pendientes.length})
+        </button>
+        <button
+          type="button"
+          className={filtro === 'firmados' ? 'is-on' : ''}
+          onClick={() => setFiltro('firmados')}
+        >
+          Firmados ({firmados.length})
+        </button>
+        <button
+          type="button"
+          className={filtro === 'todos' ? 'is-on' : ''}
+          onClick={() => setFiltro('todos')}
+        >
+          Todos ({items.length})
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="rrhh-ext-card mis-recibos-empty">Cargando recibos…</div>
+      ) : visibles.length === 0 ? (
+        <div className="rrhh-ext-card mis-recibos-empty">
+          {filtro === 'pendientes'
+            ? 'No tenés recibos pendientes de firma.'
+            : filtro === 'firmados'
+              ? 'Todavía no firmaste ningún recibo.'
+              : 'Cuando RRHH envíe recibos desde el libro de sueldos, van a aparecer acá.'}
+        </div>
+      ) : (
+        <ul className="mis-recibos-list">
+          {visibles.map((i) => {
+            const titulo = tituloRecibo(i)
+            const pendiente = i.estado === 'pendiente'
+            return (
+              <li key={i.id} className={`mis-recibos-item ${pendiente ? 'is-pendiente' : 'is-firmado'}`}>
+                <div className="mis-recibos-item-main">
+                  <div className="mis-recibos-item-title">{titulo}</div>
+                  <div className="mis-recibos-item-meta">
+                    <span className={`rrhh-ext-badge ${pendiente ? 'warn' : 'ok'}`}>
+                      {pendiente ? 'Pendiente de firma' : 'Firmado'}
+                    </span>
+                    {i.lote_periodo ? <span className="mis-recibos-periodo">{i.lote_periodo}</span> : null}
+                    {!pendiente && i.firmado_at ? (
+                      <span className="mis-recibos-fecha">Firmado {formatFirmado(i.firmado_at)}</span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="mis-recibos-item-actions">
+                  <a
+                    className="rrhh-ext-btn ghost"
+                    href={i.archivo_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Ver PDF
                   </a>
-                </td>
-                <td>
-                  <span className={`rrhh-ext-badge ${i.estado === 'firmado' ? 'ok' : 'warn'}`}>
-                    {i.estado}
-                  </span>
-                </td>
-                <td>
-                  {i.estado === 'pendiente' ? (
+                  {pendiente ? (
                     <button
                       type="button"
                       className="rrhh-ext-btn primary"
-                      onClick={() => {
-                        setSelected(i)
-                        limpiarFirma()
-                      }}
+                      onClick={() => abrirFirmar(i)}
                     >
                       Firmar
                     </button>
+                  ) : i.firma_data_url ? (
+                    <img
+                      className="mis-recibos-firma-mini"
+                      src={i.firma_data_url}
+                      alt="Firma"
+                      title="Tu firma"
+                    />
                   ) : null}
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={3}>No tenés documentos</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
 
       {selected ? (
-        <div className="rrhh-ext-card" style={{ marginTop: 16 }}>
-          <h3>Firmar: {selected.archivo_nombre}</h3>
-          <canvas ref={canvasRef} className="rrhh-ext-firma-canvas" width={480} height={140} />
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button type="button" className="rrhh-ext-btn ghost" onClick={() => limpiarFirma()}>
-              Limpiar
-            </button>
-            <button type="button" className="rrhh-ext-btn primary" onClick={() => void firmar()}>
-              Confirmar firma
-            </button>
-            <button type="button" className="rrhh-ext-btn" onClick={() => setSelected(null)}>
-              Cancelar
-            </button>
+        <div
+          className="mis-recibos-modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !busy) cerrarFirmar()
+          }}
+        >
+          <div className="mis-recibos-modal" role="dialog" aria-modal="true">
+            <header className="mis-recibos-modal-head">
+              <div>
+                <h2>Firmar recibo</h2>
+                <p>{tituloRecibo(selected)}</p>
+              </div>
+              <button type="button" className="rrhh-ext-btn ghost" onClick={cerrarFirmar} disabled={busy}>
+                Cerrar
+              </button>
+            </header>
+
+            <div className="mis-recibos-modal-body">
+              <a
+                className="mis-recibos-pdf-link"
+                href={selected.archivo_url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Abrir PDF del recibo en otra pestaña
+              </a>
+
+              <label className="mis-recibos-firma-label">Tu firma</label>
+              <p className="mis-recibos-firma-hint">
+                Firmá con el mouse o el dedo dentro del recuadro blanco.
+              </p>
+              <div className="mis-recibos-firma-wrap">
+                <canvas ref={canvasRef} className="rrhh-ext-firma-canvas" />
+              </div>
+
+              <div className="mis-recibos-modal-actions">
+                <button
+                  type="button"
+                  className="rrhh-ext-btn ghost"
+                  onClick={() => limpiarFirma()}
+                  disabled={busy}
+                >
+                  Limpiar
+                </button>
+                <button
+                  type="button"
+                  className="rrhh-ext-btn primary"
+                  onClick={() => void firmar()}
+                  disabled={busy || !hasStroke}
+                >
+                  {busy ? 'Guardando…' : 'Confirmar firma'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

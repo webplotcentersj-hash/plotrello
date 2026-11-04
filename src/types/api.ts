@@ -390,6 +390,16 @@ export interface LegajoEmpleado {
   dni?: string | null
   /** CUIT o CUIL (11 dígitos). Se usa en libro de sueldos / recibo. */
   cuil?: string | null
+  /** Número de legajo AFIP. Se usa en libro de sueldos / recibo. */
+  n_legajo?: number | null
+  /** Banco de cobro. Se usa en libro de sueldos / recibo. */
+  banco?: string | null
+  /** CBU. Se usa en libro de sueldos / recibo. */
+  cbu?: string | null
+  /** Declara cónyuge a cargo (solo legajo; no alimenta el libro de sueldos). */
+  conyuge?: boolean | null
+  /** Personas a cargo (solo legajo; no alimenta el libro de sueldos). */
+  hijos?: number | null
   direccion?: string | null
   email?: string | null
   estado_civil?: string | null
@@ -480,6 +490,9 @@ export interface RrhhDocItem {
   firma_data_url: string | null
   firmado_at: string | null
   nombre_usuario?: string
+  lote_periodo?: string | null
+  lote_titulo?: string | null
+  lote_tipo?: string | null
 }
 
 export type {

@@ -141,7 +141,11 @@ const RecursosHumanosLibroSueldosPage = () => {
             id_libro: libroId,
             id_usuario: r.id_usuario,
             incluido: prev?.incluido ?? true,
-            n_legajo: prev?.n_legajo || ficha?.n_legajo || idx + 1,
+            n_legajo:
+              prev?.n_legajo ||
+              ficha?.n_legajo ||
+              legRes.data?.[r.id_usuario]?.n_legajo ||
+              idx + 1,
             apellido_nombre: prev?.apellido_nombre || nombre,
             cuil:
               prev?.cuil ||
@@ -157,8 +161,16 @@ const RecursosHumanosLibroSueldosPage = () => {
             sueldo_basico: prev?.sueldo_basico ?? ficha?.sueldo_basico ?? 0,
             adicional_antiguedad: prev?.adicional_antiguedad ?? ficha?.adicional_antiguedad ?? 0,
             scvo: prev?.scvo ?? ficha?.scvo ?? scvoDefault,
-            banco: prev?.banco ?? ficha?.banco ?? null,
-            cbu: prev?.cbu ?? ficha?.cbu ?? null,
+            banco:
+              prev?.banco ??
+              ficha?.banco ??
+              legRes.data?.[r.id_usuario]?.banco ??
+              null,
+            cbu:
+              prev?.cbu ??
+              ficha?.cbu ??
+              legRes.data?.[r.id_usuario]?.cbu ??
+              null,
             forma_pago: prev?.forma_pago || ficha?.forma_pago || '1',
             conyuge: prev?.conyuge ?? ficha?.conyuge ?? false,
             hijos: prev?.hijos ?? ficha?.hijos ?? 0,
@@ -240,8 +252,17 @@ const RecursosHumanosLibroSueldosPage = () => {
     void cargar()
   }, [authLoading, canAccess, cargar])
 
-  const patchItem = (idUsuario: number, patch: Partial<ItemDraft>) => {
-    setItems((prev) => prev.map((it) => (it.id_usuario === idUsuario ? { ...it, ...patch } : it)))
+  const patchItem = (
+    idUsuario: number,
+    patch: Partial<ItemDraft> | ((it: ItemDraft) => Partial<ItemDraft>)
+  ) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id_usuario !== idUsuario) return it
+        const p = typeof patch === 'function' ? patch(it) : patch
+        return { ...it, ...p }
+      })
+    )
   }
 
   const patchLibro = (patch: Partial<RrhhLibroSueldos>) => {
@@ -320,6 +341,13 @@ const RecursosHumanosLibroSueldosPage = () => {
     return m
   }, [items, libro])
 
+  const todosIncluidos = items.length > 0 && items.every((it) => it.incluido)
+  const algunoIncluido = items.some((it) => it.incluido)
+
+  const marcarTodos = (incluido: boolean) => {
+    setItems((prev) => prev.map((it) => ({ ...it, incluido })))
+  }
+
   const totales = useMemo(() => {
     if (!libro) return { neto: 0, bruto: 0, costo: 0, n: 0 }
     let n = 0
@@ -382,14 +410,15 @@ const RecursosHumanosLibroSueldosPage = () => {
         const el = previewRef.current
         if (!el) throw new Error('No se pudo renderizar el recibo')
         const blob = await elementoAPdfBlob(el)
-        const file = new File([blob], `recibo_${periodo}_${it.n_legajo}.pdf`, { type: 'application/pdf' })
+        const fileName = `Recibo_${periodo}_leg${it.n_legajo}.pdf`
+        const file = new File([blob], fileName, { type: 'application/pdf' })
         const up = await rrhhDocSubirArchivo(file, it.id_usuario)
         if (!up.success || !up.data) throw new Error(up.error || `Falló el upload de ${it.apellido_nombre}`)
         const add = await rrhhDocItemAgregar({
           id_lote: lote.id,
           id_usuario: it.id_usuario,
           archivo_url: up.data.url,
-          archivo_nombre: up.data.nombre
+          archivo_nombre: `Recibo de sueldo ${periodo}`
         })
         if (!add.success) throw new Error(add.error || `No se pudo anexar ${it.apellido_nombre}`)
         ok += 1
@@ -397,7 +426,7 @@ const RecursosHumanosLibroSueldosPage = () => {
       await rrhhDocLoteActualizarEstado(lote.id, 'enviado')
       await rrhhLibroSueldosUpsert({ periodo, patch: { id_lote_recibos: lote.id } })
       setLibro((prev) => (prev ? { ...prev, id_lote_recibos: lote!.id } : prev))
-      setMsg(`${ok} recibos enviados a Mis recibos. El empleado firma ahí.`)
+      setMsg(`${ok} recibos publicados en /mis-recibos (el empleado los ve y firma ahí).`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al enviar recibos')
     } finally {
@@ -624,7 +653,13 @@ const RecursosHumanosLibroSueldosPage = () => {
         >
           TXT ARCA / F.931
         </button>
-        <button type="button" className="rrhh-ext-btn primary" onClick={() => void enviarEmpleados()} disabled={busy || cerrado}>
+        <button
+          type="button"
+          className="rrhh-ext-btn primary"
+          onClick={() => void enviarEmpleados()}
+          disabled={busy || cerrado}
+          title="Genera el PDF de cada empleado marcado y lo publica en Mis recibos (firma en la app). No envía mail."
+        >
           Enviar recibos a empleados
         </button>
         <span className="rrhh-ext-badge">
@@ -640,7 +675,19 @@ const RecursosHumanosLibroSueldosPage = () => {
             <table className="rrhh-ext-table rrhh-libro-table">
               <thead>
                 <tr>
-                  <th></th>
+                  <th>
+                    <input
+                      type="checkbox"
+                      title={todosIncluidos ? 'Desmarcar todos' : 'Marcar todos'}
+                      checked={todosIncluidos}
+                      disabled={cerrado || items.length === 0}
+                      ref={(el) => {
+                        if (el) el.indeterminate = algunoIncluido && !todosIncluidos
+                      }}
+                      onChange={(e) => marcarTodos(e.target.checked)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </th>
                   <th>Leg.</th>
                   <th>Empleado</th>
                   <th>CUIL</th>
@@ -858,7 +905,9 @@ const RecursosHumanosLibroSueldosPage = () => {
                   className="rrhh-ext-btn"
                   disabled={cerrado}
                   onClick={() =>
-                    patchItem(itemSel.id_usuario, { extras: [...(itemSel.extras || []), extraVacio()] })
+                    patchItem(itemSel.id_usuario, (it) => ({
+                      extras: [...(it.extras || []), extraVacio()]
+                    }))
                   }
                 >
                   Agregar concepto
@@ -870,26 +919,26 @@ const RecursosHumanosLibroSueldosPage = () => {
                     placeholder="Concepto"
                     value={x.concepto}
                     disabled={cerrado}
-                    onChange={(e) =>
-                      patchItem(itemSel.id_usuario, {
-                        extras: (itemSel.extras || []).map((r) =>
-                          r.id === x.id ? { ...r, concepto: e.target.value } : r
+                    onChange={(e) => {
+                      const v = e.target.value
+                      patchItem(itemSel.id_usuario, (it) => ({
+                        extras: (it.extras || []).map((r) =>
+                          r.id === x.id ? { ...r, concepto: v } : r
                         )
-                      })
-                    }
+                      }))
+                    }}
                   />
                   <select
                     value={x.tipo}
                     disabled={cerrado}
-                    onChange={(e) =>
-                      patchItem(itemSel.id_usuario, {
-                        extras: (itemSel.extras || []).map((r) =>
-                          r.id === x.id
-                            ? { ...r, tipo: e.target.value as typeof r.tipo }
-                            : r
+                    onChange={(e) => {
+                      const tipo = e.target.value as typeof x.tipo
+                      patchItem(itemSel.id_usuario, (it) => ({
+                        extras: (it.extras || []).map((r) =>
+                          r.id === x.id ? { ...r, tipo } : r
                         )
-                      })
-                    }
+                      }))
+                    }}
                   >
                     <option value="remunerativo">Remunerativo</option>
                     <option value="no_remunerativo">No remunerativo</option>
@@ -900,43 +949,47 @@ const RecursosHumanosLibroSueldosPage = () => {
                     placeholder="Unidad"
                     value={x.unidad}
                     disabled={cerrado}
-                    onChange={(e) =>
-                      patchItem(itemSel.id_usuario, {
-                        extras: (itemSel.extras || []).map((r) =>
-                          r.id === x.id ? { ...r, unidad: e.target.value } : r
+                    onChange={(e) => {
+                      const v = e.target.value
+                      patchItem(itemSel.id_usuario, (it) => ({
+                        extras: (it.extras || []).map((r) =>
+                          r.id === x.id ? { ...r, unidad: v } : r
                         )
-                      })
-                    }
+                      }))
+                    }}
                   />
                   <ImporteField
                     value={x.monto}
                     disabled={cerrado}
                     onCommit={(n) =>
-                      patchItem(itemSel.id_usuario, {
-                        extras: (itemSel.extras || []).map((r) => (r.id === x.id ? { ...r, monto: n } : r))
-                      })
+                      patchItem(itemSel.id_usuario, (it) => ({
+                        extras: (it.extras || []).map((r) =>
+                          r.id === x.id ? { ...r, monto: n } : r
+                        )
+                      }))
                     }
                   />
                   <input
                     placeholder="Cód. LSD"
                     value={x.codigo_lsd}
                     disabled={cerrado}
-                    onChange={(e) =>
-                      patchItem(itemSel.id_usuario, {
-                        extras: (itemSel.extras || []).map((r) =>
-                          r.id === x.id ? { ...r, codigo_lsd: e.target.value } : r
+                    onChange={(e) => {
+                      const v = e.target.value
+                      patchItem(itemSel.id_usuario, (it) => ({
+                        extras: (it.extras || []).map((r) =>
+                          r.id === x.id ? { ...r, codigo_lsd: v } : r
                         )
-                      })
-                    }
+                      }))
+                    }}
                   />
                   <button
                     type="button"
                     className="rrhh-ext-btn ghost"
                     disabled={cerrado}
                     onClick={() =>
-                      patchItem(itemSel.id_usuario, {
-                        extras: (itemSel.extras || []).filter((r) => r.id !== x.id)
-                      })
+                      patchItem(itemSel.id_usuario, (it) => ({
+                        extras: (it.extras || []).filter((r) => r.id !== x.id)
+                      }))
                     }
                   >
                     Quitar

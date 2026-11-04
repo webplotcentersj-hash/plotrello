@@ -487,6 +487,13 @@ export function buildHeaderQuickNavItems(ctx: BuildHeaderQuickNavCtx): HeaderQui
     href: '/menu-diario',
     title: 'Menú del día y turnos'
   })
+  push({
+    id: 'mis-recibos',
+    label: 'Mis recibos',
+    icon: '🧾',
+    href: '/mis-recibos',
+    title: 'Recibos de sueldo para ver y firmar'
+  })
 
   if (ctx.onNavigateToFlota) {
     push({
