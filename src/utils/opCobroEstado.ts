@@ -19,10 +19,44 @@ export function resolveCobroOpEstado(task: {
   return 'ninguno'
 }
 
+/**
+ * Acepta pesos en formato AR (`19.645,50` / `19645,5`) o punto decimal (`19645.00`).
+ * Antes se borraban todos los `.` y `19645.00` pasaba a `1964500`.
+ */
 export function parseMontoPagoParcial(raw: string): number | null {
-  const cleaned = raw.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.')
-  if (!cleaned.trim()) return null
-  const n = Number(cleaned)
+  let s = String(raw ?? '').replace(/[^\d.,]/g, '').trim()
+  if (!s) return null
+
+  const hasComma = s.includes(',')
+  const hasDot = s.includes('.')
+
+  if (hasComma && hasDot) {
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+      // 1.234.567,89
+      s = s.replace(/\./g, '').replace(',', '.')
+    } else {
+      // 1,234,567.89
+      s = s.replace(/,/g, '')
+    }
+  } else if (hasComma) {
+    const parts = s.split(',')
+    if (parts.length === 2 && parts[1].length <= 2) {
+      s = `${parts[0].replace(/\./g, '')}.${parts[1]}`
+    } else {
+      s = s.replace(/,/g, '')
+    }
+  } else if (hasDot) {
+    const parts = s.split('.')
+    // Un solo punto con 1–2 decimales → decimal (19645.00), no miles.
+    if (parts.length === 2 && parts[1].length >= 1 && parts[1].length <= 2) {
+      // keep 19645.00
+    } else {
+      // 1.964.500 o 1.964
+      s = s.replace(/\./g, '')
+    }
+  }
+
+  const n = Number(s)
   if (!Number.isFinite(n) || n <= 0) return null
   return Math.round(n)
 }
@@ -108,12 +142,13 @@ export function cobroDesdeVenta(venta: {
   if (venta.estado_pago === 'Parcial') {
     const total = Number(venta.valor_total) || 0
     const pagado = Number(venta.monto_pagado) || 0
-    const saldo = Math.max(0, Math.round((total - pagado) * 100) / 100)
-    const asMoney = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
+    const saldo = Math.max(0, Math.round(total - pagado))
+    // Enteros en string: evita que parseMonto trate "19645.00" como miles.
+    const asPesos = (n: number) => String(Math.round(n))
     return {
       estado: 'parcial',
-      monto: pagado > 0 ? asMoney(pagado) : '',
-      saldo: saldo > 0 ? asMoney(saldo) : ''
+      monto: pagado > 0 ? asPesos(pagado) : '',
+      saldo: saldo > 0 ? asPesos(saldo) : ''
     }
   }
   return { estado: 'sin_pago', monto: '', saldo: '' }

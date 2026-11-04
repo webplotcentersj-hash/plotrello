@@ -143,7 +143,11 @@ const RecursosHumanosLibroSueldosPage = () => {
             incluido: prev?.incluido ?? true,
             n_legajo: prev?.n_legajo || ficha?.n_legajo || idx + 1,
             apellido_nombre: prev?.apellido_nombre || nombre,
-            cuil: prev?.cuil || ficha?.cuil || '',
+            cuil:
+              prev?.cuil ||
+              ficha?.cuil ||
+              legRes.data?.[r.id_usuario]?.cuil ||
+              '',
             categoria,
             fecha_ingreso: fechaIngreso,
             antiguedad_reconocida: prev?.antiguedad_reconocida ?? ficha?.antiguedad_reconocida ?? meses,

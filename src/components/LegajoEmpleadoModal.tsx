@@ -183,6 +183,7 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
         fecha_ingreso: legajo.fecha_ingreso || null,
         fecha_nacimiento: legajo.fecha_nacimiento || null,
         dni: legajo.dni || null,
+        cuil: legajo.cuil || null,
         direccion: legajo.direccion || null,
         email: legajo.email || null,
         estado_civil: legajo.estado_civil || null,
@@ -292,6 +293,18 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
                     onChange={(e) => setLegajo({ ...legajo, dni: e.target.value })}
                     className="legajo-input"
                     placeholder="DNI"
+                  />
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">CUIT / CUIL</label>
+                  <input
+                    type="text"
+                    value={legajo.cuil || ''}
+                    onChange={(e) => setLegajo({ ...legajo, cuil: e.target.value })}
+                    className="legajo-input"
+                    placeholder="XX-XXXXXXXX-X"
+                    inputMode="numeric"
+                    autoComplete="off"
                   />
                 </div>
                 <div className="legajo-form-group">

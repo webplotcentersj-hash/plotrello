@@ -388,6 +388,8 @@ export interface LegajoEmpleado {
   fecha_ingreso?: string | null
   fecha_nacimiento?: string | null
   dni?: string | null
+  /** CUIT o CUIL (11 dígitos). Se usa en libro de sueldos / recibo. */
+  cuil?: string | null
   direccion?: string | null
   email?: string | null
   estado_civil?: string | null

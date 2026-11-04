@@ -67,7 +67,11 @@ const OpViewPage = ({ tasks, sectores }: OpViewPageProps) => {
 
     void (async () => {
       try {
-        const response = await apiService.getOrdenByOpNumber(opNumber)
+        let response = await apiService.getOrdenByOpNumber(opNumber)
+        // Enlaces viejos / CRM a veces pasan id BD (`/op/7191`) en vez del numero_op.
+        if ((!response.success || !response.data) && /^\d+$/.test(opNumber)) {
+          response = await apiService.getOrden(Number(opNumber))
+        }
         if (cancelled) return
         if (response.success && response.data) {
           setResolvedTask(ordenToTask(response.data))

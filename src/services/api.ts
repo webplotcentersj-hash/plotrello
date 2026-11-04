@@ -4330,7 +4330,8 @@ class ApiService {
         p_estado_civil: legajo.estado_civil || null,
         p_contacto_emergencia_nombre: legajo.contacto_emergencia_nombre || null,
         p_contacto_emergencia_telefono: legajo.contacto_emergencia_telefono || null,
-        p_observaciones: legajo.observaciones || null
+        p_observaciones: legajo.observaciones || null,
+        p_cuil: legajo.cuil || null
       })
 
       if (error) {
@@ -18008,6 +18009,7 @@ class ApiService {
           fecha_ingreso: string | null
           email: string | null
           dni?: string | null
+          cuil?: string | null
         }
       >
     >
@@ -18021,7 +18023,7 @@ class ApiService {
     try {
       const { data, error } = await supabase
         .from('legajos_empleados')
-        .select('id_usuario, nombre, apellido, sector, fecha_ingreso, email, dni')
+        .select('id_usuario, nombre, apellido, sector, fecha_ingreso, email, dni, cuil')
 
       if (error) {
         return { success: false, error: error.message }
@@ -18035,6 +18037,7 @@ class ApiService {
         fecha_ingreso: string | null
         email: string | null
         dni?: string | null
+        cuil?: string | null
       }>) || []
 
       if (soloActivos) {
@@ -18052,7 +18055,15 @@ class ApiService {
 
       const mapa: Record<
         number,
-        { nombre: string; apellido: string; sector: string; fecha_ingreso: string | null; email: string | null; dni?: string | null }
+        {
+          nombre: string
+          apellido: string
+          sector: string
+          fecha_ingreso: string | null
+          email: string | null
+          dni?: string | null
+          cuil?: string | null
+        }
       > = {}
       for (const row of rows) {
         mapa[row.id_usuario] = {
@@ -18061,7 +18072,8 @@ class ApiService {
           sector: row.sector || '',
           fecha_ingreso: row.fecha_ingreso ?? null,
           email: row.email ?? null,
-          dni: row.dni ?? null
+          dni: row.dni ?? null,
+          cuil: row.cuil ?? null
         }
       }
 

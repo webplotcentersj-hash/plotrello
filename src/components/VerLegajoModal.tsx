@@ -472,6 +472,7 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja, initialTab = 'l
       kv('Nombre', legajo.nombre || empleadoNombre || '—')
       kv('Apellido', legajo.apellido || '—')
       kv('DNI', legajo.dni || '—')
+      kv('CUIT / CUIL', legajo.cuil || '—')
       kv('Teléfono', legajo.telefono || '—')
       kv('Email', legajo.email || '—')
       kv('Dirección', legajo.direccion || '—')
@@ -963,6 +964,12 @@ const VerLegajoModal = ({ usuario, isOpen, onClose, onDarDeBaja, initialTab = 'l
                   <span className="ver-legajo-label">DNI:</span>
                   <span className="ver-legajo-value">
                     {legajo.dni || 'No especificado'}
+                  </span>
+                </div>
+                <div className="ver-legajo-info-item">
+                  <span className="ver-legajo-label">CUIT / CUIL:</span>
+                  <span className="ver-legajo-value">
+                    {legajo.cuil || 'No especificado'}
                   </span>
                 </div>
                 <div className="ver-legajo-info-item">

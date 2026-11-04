@@ -2541,7 +2541,7 @@ const CRMVentasPage = () => {
         if (response.success && response.data) {
           const d = response.data
           alert(`Pedido convertido a OP ${d.numero_op}${d.numero_venta ? ` · Venta ${d.numero_venta}` : ''}`)
-          navigate(`/op/${d.id_op}`)
+          navigate(`/op/${encodeURIComponent(d.numero_op || String(d.id_op))}`)
         } else {
           alert(response.error || 'No se pudo convertir el pedido a OP')
         }
@@ -2601,6 +2601,8 @@ const CRMVentasPage = () => {
 
       alert(`Venta convertida a OP exitosamente: ${ordenResponse.data.numero_op}`)
       await loadData()
+      const numero = ordenResponse.data.numero_op?.trim()
+      navigate(`/op/${encodeURIComponent(numero || String(ordenResponse.data.id))}`)
     } catch (error: any) {
       console.error('Error convirtiendo venta a OP:', error)
       alert('Error al convertir a OP: ' + error.message)
@@ -3990,9 +3992,15 @@ const CRMVentasPage = () => {
                     <button
                       type="button"
                       className="btn-action"
-                      onClick={() =>
-                        navigate(ventaModal.id_op ? `/op/${ventaModal.id_op}` : `/op/${ventaModal.numero_op}`)
-                      }
+                      onClick={() => {
+                        const numero = ventaModal.numero_op?.trim()
+                        // OpViewPage resuelve por numero_op (no por id BD).
+                        if (numero) {
+                          navigate(`/op/${encodeURIComponent(numero)}`)
+                          return
+                        }
+                        if (ventaModal.id_op) navigate(`/op/${ventaModal.id_op}`)
+                      }}
                     >
                       Ver OP
                     </button>
