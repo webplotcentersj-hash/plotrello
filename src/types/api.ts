@@ -1605,6 +1605,8 @@ export interface Notification {
   reclamo_id?: number | null
   /** Canal del chat interno donde se publicó el aviso (ej. tótem / crear_atencion_mostrador). */
   chat_canal?: string | null
+  /** Enlace lógico libre (ej. mis-recibos). */
+  related_id?: string | null
   is_read: boolean
   timestamp: string
 }
