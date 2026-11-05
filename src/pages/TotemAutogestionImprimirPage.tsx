@@ -1037,15 +1037,17 @@ export default function TotemAutogestionImprimirPage() {
                   </div>
                 ) : null}
 
-                <div className="totem-print-grid">
+                <div
+                  className={`totem-print-grid${formStage === 'datos' ? ' totem-print-grid--datos' : ''}`}
+                >
                 {formStage === 'datos' && (
                 <>
                 <p className="totem-print-span2 totem-print-stageLead totem-print-stageLead--datos">
                   <strong>Paso 1 · Tus datos</strong>
                   Escribí tu nombre. Si ya sos cliente, el tótem completa DNI y teléfono.
                 </p>
-                <label className="totem-print-span2">
-                  Nombre
+                <label className="totem-print-span2 totem-print-field--nombre">
+                  Nombre y apellido
                   <div className="totem-print-nombreWrap" ref={nombreWrapRef}>
                     <input
                       value={clienteNombre}
@@ -1057,7 +1059,7 @@ export default function TotemAutogestionImprimirPage() {
                         if (nombreSugerencias.length > 0) setNombreMenuOpen(true)
                       }}
                       autoComplete="off"
-                      placeholder="Nombre y apellido (buscamos en clientes)"
+                      placeholder="Empezá a escribir… buscamos en clientes"
                       className={clienteId != null ? 'totem-print-input--matched' : undefined}
                     />
                     {nombreLoading && clienteNombre.trim().length >= 3 && (
