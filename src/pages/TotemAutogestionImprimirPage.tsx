@@ -1012,7 +1012,7 @@ export default function TotemAutogestionImprimirPage() {
                   formStage === 'opciones' ? ' totem-print-body--split' : ' totem-print-body--stack'
                 }`}
               >
-                {formStage !== 'opciones' ? (
+                {formStage !== 'opciones' && formStage !== 'datos' ? (
                   <div
                     className={`totem-print-guideAside totem-print-guideAside--banner totem-print-guideAside--${formStage}`}
                     aria-label={PRINT_GUIDE[formStage].title}
@@ -1037,101 +1037,111 @@ export default function TotemAutogestionImprimirPage() {
                   </div>
                 ) : null}
 
-                <div
-                  className={`totem-print-grid${formStage === 'datos' ? ' totem-print-grid--datos' : ''}`}
-                >
-                {formStage === 'datos' && (
-                <>
-                <p className="totem-print-span2 totem-print-stageLead totem-print-stageLead--datos">
-                  <strong>Paso 1 · Tus datos</strong>
-                  Escribí tu nombre. Si ya sos cliente, el tótem completa DNI y teléfono.
-                </p>
-                <label className="totem-print-span2 totem-print-field--nombre">
-                  Nombre y apellido
-                  <div className="totem-print-nombreWrap" ref={nombreWrapRef}>
-                    <input
-                      value={clienteNombre}
-                      onChange={(e) => {
-                        setClienteNombre(e.target.value)
-                        setClienteId(null)
-                      }}
-                      onFocus={() => {
-                        if (nombreSugerencias.length > 0) setNombreMenuOpen(true)
-                      }}
-                      autoComplete="off"
-                      placeholder="Empezá a escribir… buscamos en clientes"
-                      className={clienteId != null ? 'totem-print-input--matched' : undefined}
-                    />
-                    {nombreLoading && clienteNombre.trim().length >= 3 && (
-                      <div className="totem-print-nombreHint">Buscando en el sistema…</div>
-                    )}
-                    {nombreMenuOpen && nombreSugerencias.length > 0 && (
-                      <ul className="totem-print-suggest" role="listbox">
-                        {nombreSugerencias.map((c) => {
-                          const line = [c.nombre, c.apellido].filter(Boolean).join(' ').trim()
-                          const extra = [c.dni_cuit, c.telefono].filter(Boolean).join(' · ')
-                          return (
-                            <li key={c.id}>
-                              <button type="button" className="totem-print-suggestBtn" onClick={() => pickCliente(c)}>
-                                <span className="totem-print-suggestTitle">{line || c.nombre}</span>
-                                {extra ? <span className="totem-print-suggestMeta">{extra}</span> : null}
-                              </button>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    )}
+                {formStage === 'datos' ? (
+                <div className="totem-print-datosPanel">
+                  <header className="totem-print-datosPanel__head">
+                    <p className="totem-print-datosPanel__kicker">Paso 1</p>
+                    <h3 className="totem-print-datosPanel__title">Tus datos</h3>
+                    <p className="totem-print-datosPanel__hint">
+                      Escribí tu nombre. Si ya sos cliente, completamos DNI y teléfono.
+                    </p>
+                  </header>
+
+                  <label className="totem-print-datosNombre">
+                    <span className="totem-print-datosNombre__label">Nombre y apellido</span>
+                    <div className="totem-print-nombreWrap" ref={nombreWrapRef}>
+                      <input
+                        value={clienteNombre}
+                        onChange={(e) => {
+                          setClienteNombre(e.target.value)
+                          setClienteId(null)
+                        }}
+                        onFocus={() => {
+                          if (nombreSugerencias.length > 0) setNombreMenuOpen(true)
+                        }}
+                        autoComplete="off"
+                        placeholder="Ej: Ana Pérez"
+                        className={clienteId != null ? 'totem-print-input--matched' : undefined}
+                      />
+                      {nombreLoading && clienteNombre.trim().length >= 3 && (
+                        <div className="totem-print-nombreHint">Buscando en el sistema…</div>
+                      )}
+                      {nombreMenuOpen && nombreSugerencias.length > 0 && (
+                        <ul className="totem-print-suggest" role="listbox">
+                          {nombreSugerencias.map((c) => {
+                            const line = [c.nombre, c.apellido].filter(Boolean).join(' ').trim()
+                            const extra = [c.dni_cuit, c.telefono].filter(Boolean).join(' · ')
+                            return (
+                              <li key={c.id}>
+                                <button
+                                  type="button"
+                                  className="totem-print-suggestBtn"
+                                  onClick={() => pickCliente(c)}
+                                >
+                                  <span className="totem-print-suggestTitle">{line || c.nombre}</span>
+                                  {extra ? <span className="totem-print-suggestMeta">{extra}</span> : null}
+                                </button>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </label>
+
+                  <div className="totem-print-datosRow">
+                    <label>
+                      DNI / CUIT
+                      <input
+                        inputMode="numeric"
+                        value={clienteDni}
+                        onChange={(e) => setClienteDni(e.target.value)}
+                        placeholder="Solo números"
+                        className={clienteId != null ? 'totem-print-input--matched' : undefined}
+                      />
+                      {dniLoading && dniDigits.length >= 7 && (
+                        <span className="totem-print-hojasHint">Buscando cliente por DNI…</span>
+                      )}
+                    </label>
+                    <label>
+                      Teléfono
+                      <input
+                        inputMode="tel"
+                        value={clienteTelefono}
+                        onChange={(e) => {
+                          setClienteTelefono(e.target.value)
+                          setClienteId(null)
+                        }}
+                        placeholder="Ej: 264…"
+                        className={clienteId != null ? 'totem-print-input--matched' : undefined}
+                      />
+                    </label>
                   </div>
-                </label>
-                <label>
-                  DNI/CUIT
-                  <input
-                    inputMode="numeric"
-                    value={clienteDni}
-                    onChange={(e) => setClienteDni(e.target.value)}
-                    placeholder="Solo números (detectamos cliente)"
-                    className={clienteId != null ? 'totem-print-input--matched' : undefined}
-                  />
-                  {dniLoading && dniDigits.length >= 7 && (
-                    <span className="totem-print-hojasHint">Buscando cliente por DNI…</span>
+
+                  {(clienteId != null || tieneDatosCliente) && (
+                    <div className="totem-print-datosFoot">
+                      {clienteId != null ? (
+                        <div className="totem-print-clienteOk" role="status">
+                          <span className="totem-print-clienteOk__icon" aria-hidden>
+                            <TotemKioskIcon name="check" size="strip" />
+                          </span>
+                          <span>
+                            <strong>Cliente registrado</strong> — DNI y teléfono listos.
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="totem-print-datosFoot__spacer" />
+                      )}
+                      {tieneDatosCliente ? (
+                        <button type="button" className="totem-print-clearBtn" onClick={limpiarDatosCliente}>
+                          Borrar datos
+                        </button>
+                      ) : null}
+                    </div>
                   )}
-                </label>
-                <label>
-                  Teléfono
-                  <input
-                    inputMode="tel"
-                    value={clienteTelefono}
-                    onChange={(e) => {
-                      setClienteTelefono(e.target.value)
-                      setClienteId(null)
-                    }}
-                    placeholder="Ej: 264..."
-                    className={clienteId != null ? 'totem-print-input--matched' : undefined}
-                  />
-                </label>
-                {(clienteId != null || tieneDatosCliente) && (
-                  <div className="totem-print-span2 totem-print-datosFoot">
-                    {clienteId != null ? (
-                      <div className="totem-print-clienteOk" role="status">
-                        <span className="totem-print-clienteOk__icon" aria-hidden>
-                          <TotemKioskIcon name="check" size="strip" />
-                        </span>
-                        <span>
-                          <strong>Cliente registrado</strong> — DNI y teléfono completados.
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="totem-print-datosFoot__spacer" />
-                    )}
-                    {tieneDatosCliente ? (
-                      <button type="button" className="totem-print-clearBtn" onClick={limpiarDatosCliente}>
-                        Borrar datos del cliente
-                      </button>
-                    ) : null}
-                  </div>
-                )}
-                </>
-                )}
+                </div>
+                ) : (
+                <div className="totem-print-grid">
                 {formStage === 'opciones' && (
                 <>
                 <p className="totem-print-span2 totem-print-stageLead totem-print-stageLead--opciones">
@@ -1433,6 +1443,7 @@ export default function TotemAutogestionImprimirPage() {
                 </>
                 )}
               </div>
+                )}
 
               {formStage === 'opciones' ? (
                 <aside className="totem-print-sideCol">
