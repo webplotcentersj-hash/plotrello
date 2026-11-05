@@ -459,6 +459,20 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
               </ul>
             ) : null}
           </div>
+        </div>
+        <div className="header-spotlight-split-col header-spotlight-split-col--frase">
+          <div className="header-spotlight-frase" aria-label="Frase del día">
+            <div className="header-spotlight-frase-head">
+              <span className="header-spotlight-frase-head-icon" aria-hidden>
+                ✨
+              </span>
+              <span className="header-spotlight-frase-head-title">Frase del día</span>
+            </div>
+            <blockquote className="header-spotlight-frase-quote">
+              <p className="header-spotlight-frase-texto">“{fraseDia.texto}”</p>
+              <footer className="header-spotlight-frase-autor">— {fraseDia.autor}</footer>
+            </blockquote>
+          </div>
           <div
             className="header-spotlight-atendidos"
             title="Presencial = ventas del día. Virtual = atenciones cargadas a mano en Mostrador."
@@ -477,20 +491,6 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                 Virtual <strong>{atendidosHoy.virtual}</strong>
               </span>
             </span>
-          </div>
-        </div>
-        <div className="header-spotlight-split-col header-spotlight-split-col--frase">
-          <div className="header-spotlight-frase" aria-label="Frase del día">
-            <div className="header-spotlight-frase-head">
-              <span className="header-spotlight-frase-head-icon" aria-hidden>
-                ✨
-              </span>
-              <span className="header-spotlight-frase-head-title">Frase del día</span>
-            </div>
-            <blockquote className="header-spotlight-frase-quote">
-              <p className="header-spotlight-frase-texto">“{fraseDia.texto}”</p>
-              <footer className="header-spotlight-frase-autor">— {fraseDia.autor}</footer>
-            </blockquote>
           </div>
         </div>
       </div>

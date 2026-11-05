@@ -6,7 +6,7 @@
   justify-content: flex-start;
 }
 
-/* 3 columnas iguales: Tu día | Comunicados (+atendidos) | Frase */
+/* 3 columnas: Tu día | Comunicados | Frase (+ Atendidos abajo) */
 .header-spotlight-split {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -37,9 +37,6 @@
 
 .header-spotlight-split-col--frase {
   padding-right: 0;
-}
-
-.header-spotlight-split-col--rrhh {
   gap: 8px;
 }
 
@@ -59,8 +56,14 @@
   flex: 1 1 auto;
 }
 
-.header-spotlight-split-col--rrhh .header-spotlight-atendidos {
+.header-spotlight-split-col--frase .header-spotlight-frase {
+  height: auto;
+  flex: 1 1 auto;
+}
+
+.header-spotlight-split-col--frase .header-spotlight-atendidos {
   flex: 0 0 auto;
+  margin-top: auto;
 }
 
 @media (max-width: 720px) {
