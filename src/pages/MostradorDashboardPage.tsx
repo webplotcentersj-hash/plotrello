@@ -107,6 +107,8 @@ const MostradorDashboardPage = () => {
   const [ordenesCreadasCount, setOrdenesCreadasCount] = useState(0)
   const [showFabMenu, setShowFabMenu] = useState(false)
   const [registrandoRapido, setRegistrandoRapido] = useState(false)
+  const [cantidadVirtual, setCantidadVirtual] = useState('1')
+  const [cantidadConsulta, setCantidadConsulta] = useState('1')
   const handleRegistrarAtencionSuccess = async () => {
     await loadAtencionesHoy()
     if (isAdmin) {
@@ -459,25 +461,40 @@ const MostradorDashboardPage = () => {
     loadDashboardData()
   }, [loadDashboardData])
 
+  const parseCantidadAtencion = (raw: string): number => {
+    const n = Math.floor(Number(String(raw).replace(',', '.')))
+    if (!Number.isFinite(n) || n < 1) return 1
+    return Math.min(50, n)
+  }
+
   const registrarAtencionRapida = useCallback(
-    async (tipo: TipoAtencion) => {
+    async (tipo: TipoAtencion, cantidadRaw = 1) => {
       if (!usuario) {
         alert('Debes estar autenticado para registrar la atención')
         return
       }
+      const cantidad =
+        tipo === 'venta' ? 1 : Math.min(50, Math.max(1, Math.floor(Number(cantidadRaw) || 1)))
       setRegistrandoRapido(true)
       try {
-        const resp = await apiService.crearAtencionMostrador({
-          cliente_nombre: 'Cliente mostrador',
-          tipo,
-          usuario_id: Number(usuario.id),
-          usuario_nombre: nombreVisible || 'Mostrador',
-          notas: 'Registro rápido'
-        })
-        if (!resp.success) {
-          throw new Error(resp.error || 'No se pudo registrar')
+        for (let i = 0; i < cantidad; i++) {
+          const resp = await apiService.crearAtencionMostrador({
+            cliente_nombre: 'Cliente mostrador',
+            tipo,
+            usuario_id: Number(usuario.id),
+            usuario_nombre: nombreVisible || 'Mostrador',
+            notas:
+              cantidad > 1
+                ? `Registro rápido (${i + 1}/${cantidad})`
+                : 'Registro rápido'
+          })
+          if (!resp.success) {
+            throw new Error(resp.error || 'No se pudo registrar')
+          }
         }
         await handleRegistrarAtencionSuccess()
+        if (tipo === 'virtual') setCantidadVirtual('1')
+        if (tipo === 'consulta') setCantidadConsulta('1')
         setShowFabMenu(false)
       } catch (error) {
         console.error('Error en registro rápido:', error)
@@ -486,7 +503,7 @@ const MostradorDashboardPage = () => {
         setRegistrandoRapido(false)
       }
     },
-    [usuario, handleRegistrarAtencionSuccess]
+    [usuario, nombreVisible, handleRegistrarAtencionSuccess]
   )
 
   // Atajos rápidos de atención (Venta rápida usa el atajo global V).
@@ -1113,25 +1130,80 @@ const MostradorDashboardPage = () => {
           </button>
         </div>
         {showFabMenu && (
-          <div className="fab-menu" role="menu" onMouseLeave={() => setShowFabMenu(false)}>
-            <p className="fab-hint">Atajos: Alt+1 virtual · Alt+2 consulta · Alt+3 venta</p>
+          <div className="fab-menu" role="menu">
+            <p className="fab-hint">
+              Virtual y consulta: cargá la cantidad. Atajos Alt+1 / Alt+2 / Alt+3 = 1.
+            </p>
+            <div className="fab-option-row fab-option-row--virtual">
+              <label className="fab-option-row__label" htmlFor="fab-cant-virtual">
+                💻 Virtual
+              </label>
+              <input
+                id="fab-cant-virtual"
+                type="number"
+                min={1}
+                max={50}
+                inputMode="numeric"
+                className="fab-option-qty"
+                value={cantidadVirtual}
+                disabled={registrandoRapido}
+                onChange={(e) => setCantidadVirtual(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void registrarAtencionRapida('virtual', parseCantidadAtencion(cantidadVirtual))
+                  }
+                }}
+                aria-label="Cantidad virtual"
+              />
+              <button
+                type="button"
+                className="fab-option-go"
+                disabled={registrandoRapido}
+                onClick={() =>
+                  void registrarAtencionRapida('virtual', parseCantidadAtencion(cantidadVirtual))
+                }
+              >
+                Cargar
+              </button>
+            </div>
+            <div className="fab-option-row fab-option-row--consulta">
+              <label className="fab-option-row__label" htmlFor="fab-cant-consulta">
+                ❓ Consulta
+              </label>
+              <input
+                id="fab-cant-consulta"
+                type="number"
+                min={1}
+                max={50}
+                inputMode="numeric"
+                className="fab-option-qty"
+                value={cantidadConsulta}
+                disabled={registrandoRapido}
+                onChange={(e) => setCantidadConsulta(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void registrarAtencionRapida('consulta', parseCantidadAtencion(cantidadConsulta))
+                  }
+                }}
+                aria-label="Cantidad consulta"
+              />
+              <button
+                type="button"
+                className="fab-option-go"
+                disabled={registrandoRapido}
+                onClick={() =>
+                  void registrarAtencionRapida('consulta', parseCantidadAtencion(cantidadConsulta))
+                }
+              >
+                Cargar
+              </button>
+            </div>
             <button
-              className="fab-option virtual"
-              onClick={() => registrarAtencionRapida('virtual')}
-              disabled={registrandoRapido}
-            >
-              💻 Virtual
-            </button>
-            <button
-              className="fab-option consulta"
-              onClick={() => registrarAtencionRapida('consulta')}
-              disabled={registrandoRapido}
-            >
-              ❓ Consulta
-            </button>
-            <button
+              type="button"
               className="fab-option venta"
-              onClick={() => registrarAtencionRapida('venta')}
+              onClick={() => void registrarAtencionRapida('venta')}
               disabled={registrandoRapido}
             >
               💰 Venta Concretada

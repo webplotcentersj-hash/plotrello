@@ -194,10 +194,13 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
     let cancelled = false
     const loadAtendidos = async () => {
       const hoy = getArgentinaDateString()
+      // timestamptz del RPC: 'YYYY-MM-DD' = medianoche → rango vacío si inicio=fin.
+      const atenDesde = `${hoy}T00:00:00-03:00`
+      const atenHasta = `${hoy}T23:59:59.999-03:00`
       try {
         const [ventasRes, atenRes] = await Promise.all([
           apiService.obtenerVentas(undefined, hoy, hoy, 'todos'),
-          apiService.obtenerAtencionesMostrador(hoy, hoy)
+          apiService.obtenerAtencionesMostrador(atenDesde, atenHasta)
         ])
         if (cancelled) return
         const presencial = (ventasRes.success && ventasRes.data
@@ -209,13 +212,8 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
           : []
         ).length
         const virtual = (atenRes.success && atenRes.data
-          ? atenRes.data.filter((a) => {
-              if (a.tipo !== 'virtual') return false
-              const key = isoToArgentinaDateKey(String(a.fecha_atencion || ''))
-              return key === hoy
-            })
-          : []
-        ).length
+          ? atenRes.data.filter((a) => a.tipo === 'virtual').length
+          : 0)
         setAtendidosHoy({ presencial, virtual })
       } catch {
         if (!cancelled) setAtendidosHoy({ presencial: 0, virtual: 0 })
@@ -225,10 +223,12 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
     const onRefresh = () => void loadAtendidos()
     window.addEventListener('venta-creada', onRefresh)
     window.addEventListener('atencion-mostrador-creada', onRefresh)
+    window.addEventListener('focus', onRefresh)
     return () => {
       cancelled = true
       window.removeEventListener('venta-creada', onRefresh)
       window.removeEventListener('atencion-mostrador-creada', onRefresh)
+      window.removeEventListener('focus', onRefresh)
     }
   }, [])
 
@@ -463,28 +463,20 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
             className="header-spotlight-atendidos"
             title="Presencial = ventas del día. Virtual = atenciones cargadas a mano en Mostrador."
           >
-            <div className="header-spotlight-atendidos-head">
-              <span className="header-spotlight-atendidos-head-icon" aria-hidden>
-                👥
+            <span className="header-spotlight-atendidos-label">
+              <span aria-hidden>👥</span> Atendidos hoy
+            </span>
+            <span className="header-spotlight-atendidos-guarismo" aria-label="Total atendidos hoy">
+              {atendidosHoy.presencial + atendidosHoy.virtual}
+            </span>
+            <span className="header-spotlight-atendidos-chips">
+              <span className="header-spotlight-atendidos-chip header-spotlight-atendidos-chip--presencial">
+                Presencial <strong>{atendidosHoy.presencial}</strong>
               </span>
-              <span className="header-spotlight-atendidos-head-title">Personas atendidas hoy</span>
-            </div>
-            <div className="header-spotlight-atendidos-body">
-              <div className="header-spotlight-atendidos-guarismo" aria-label="Total atendidos hoy">
-                {atendidosHoy.presencial + atendidosHoy.virtual}
-              </div>
-              <div className="header-spotlight-atendidos-desglose">
-                <span>
-                  Presencial <strong>{atendidosHoy.presencial}</strong>
-                </span>
-                <span className="header-spotlight-atendidos-sep" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  Virtual <strong>{atendidosHoy.virtual}</strong>
-                </span>
-              </div>
-            </div>
+              <span className="header-spotlight-atendidos-chip header-spotlight-atendidos-chip--virtual">
+                Virtual <strong>{atendidosHoy.virtual}</strong>
+              </span>
+            </span>
           </div>
         </div>
         <div className="header-spotlight-split-col header-spotlight-split-col--frase">

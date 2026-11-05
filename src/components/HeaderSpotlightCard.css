@@ -37,7 +37,7 @@
 }
 
 .header-spotlight-split-col--rrhh {
-  gap: 12px;
+  gap: 8px;
 }
 
 .header-spotlight-split-col--rrhh .header-spotlight-comunicados,
@@ -477,85 +477,122 @@
   min-height: 148px;
 }
 
-/* ——— Personas atendidas hoy ——— */
+/* ——— Personas atendidas hoy (barra horizontal compacta) ——— */
 .header-spotlight-atendidos {
-  padding-top: 10px;
-  border-top: 1px solid rgba(129, 140, 248, 0.18);
-}
-
-.header-spotlight-atendidos-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  min-height: 1.5rem;
+  gap: 10px;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 10px 5px 8px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background:
+    linear-gradient(105deg, rgba(16, 185, 129, 0.22) 0%, rgba(56, 189, 248, 0.1) 42%, rgba(15, 23, 42, 0.35) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 4px 14px rgba(16, 185, 129, 0.12);
 }
 
-.header-stat-card.header-stat-card--spotlight .header-spotlight-atendidos-head span {
-  display: inline-block;
+.header-stat-card.header-stat-card--spotlight .header-spotlight-atendidos span {
+  display: inline-flex;
   margin-bottom: 0;
   font-size: inherit;
   color: inherit;
 }
 
-.header-spotlight-atendidos-head-icon {
-  font-size: 1.15rem;
-  line-height: 1;
-  filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.4));
-}
-
-.header-spotlight-atendidos-head-title {
-  font-size: 0.72rem;
+.header-spotlight-atendidos-label {
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-size: 0.62rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: linear-gradient(90deg, #6ee7b7 0%, #a5b4fc 55%, #93c5fd 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.header-spotlight-atendidos-body {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  flex-wrap: wrap;
+  color: #a7f3d0;
 }
 
 .header-spotlight-atendidos-guarismo {
-  font-size: 2rem;
+  flex: 0 0 auto;
+  font-size: 1.15rem;
   font-weight: 800;
   line-height: 1;
   color: #f8fafc;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
+  min-width: 1.4em;
+  text-align: center;
+  text-shadow: 0 0 12px rgba(110, 231, 183, 0.35);
 }
 
-.header-spotlight-atendidos-desglose {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 0.8rem;
-  color: #94a3b8;
+.header-spotlight-atendidos-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
-.header-spotlight-atendidos-desglose strong {
-  color: #e2e8f0;
-  font-weight: 700;
+.header-spotlight-atendidos-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.header-spotlight-atendidos-chip strong {
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
+  color: #f8fafc;
 }
 
-.header-spotlight-atendidos-sep {
-  opacity: 0.55;
+.header-spotlight-atendidos-chip--presencial {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.28);
+  color: #bae6fd;
+}
+
+.header-spotlight-atendidos-chip--virtual {
+  background: rgba(167, 139, 250, 0.14);
+  border-color: rgba(167, 139, 250, 0.28);
+  color: #ddd6fe;
+}
+
+.header-spotlight-card--compact .header-spotlight-atendidos {
+  min-height: 30px;
+  padding: 4px 8px;
+  gap: 8px;
 }
 
 .header-spotlight-card--compact .header-spotlight-atendidos-guarismo {
-  font-size: 1.55rem;
+  font-size: 1rem;
 }
 
-.header-spotlight-card--compact .header-spotlight-atendidos-head-title {
-  font-size: 0.65rem;
+.header-spotlight-card--compact .header-spotlight-atendidos-label {
+  font-size: 0.58rem;
+}
+
+@media (max-width: 720px) {
+  .header-spotlight-atendidos {
+    flex-wrap: wrap;
+    border-radius: 14px;
+    row-gap: 6px;
+  }
+
+  .header-spotlight-atendidos-chips {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 .header-spotlight-comunicado-item {
