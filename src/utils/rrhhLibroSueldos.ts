@@ -51,6 +51,37 @@ export function extraVacio(): ReciboExtra {
   }
 }
 
+/** Si Unidad trae "22%", se interpreta como alícuota (0.22). */
+export function parseUnidadPorcentaje(unidad: string | null | undefined): number | null {
+  const s = String(unidad || '').trim()
+  if (!s.includes('%')) return null
+  const n = Number(s.replace(/%/g, '').replace(/\s/g, '').replace(',', '.'))
+  if (!Number.isFinite(n) || n === 0) return null
+  return n / 100
+}
+
+/**
+ * Monto efectivo del concepto extra: usa `monto` si > 0;
+ * si no, calcula base × % cuando Unidad es p. ej. "22%".
+ */
+export function montoExtraEfectivo(
+  x: Pick<ReciboExtra, 'monto' | 'unidad' | 'base'>,
+  baseDefault: number
+): { monto: number; base: number | null; pct: number | null } {
+  const raw = round2(Number(x.monto) || 0)
+  const pct = parseUnidadPorcentaje(x.unidad)
+  const baseExpl =
+    x.base != null && Number.isFinite(Number(x.base)) && Number(x.base) !== 0
+      ? Number(x.base)
+      : null
+  if (raw !== 0) {
+    return { monto: raw, base: baseExpl, pct }
+  }
+  if (pct == null) return { monto: 0, base: baseExpl, pct: null }
+  const base = baseExpl != null ? baseExpl : baseDefault
+  return { monto: round2(base * pct), base, pct }
+}
+
 /**
  * Acepta pesos AR (`145.064,45` / `150.000` / `145064,45`) o decimal US (`137622.31`).
  * Un solo `.` con 1–2 decimales = decimal; `.` de miles (`1.500` / `1.500.000`) se quita.
@@ -352,6 +383,40 @@ export function antiguedadMesesAlPeriodo(ingreso: string | null | undefined, per
   return Math.max(0, y * 12 + m - (a * 12 + b))
 }
 
+/**
+ * Texto para el recibo: solo años (p. ej. "3 años").
+ * `antiguedad_reconocida` se guarda en meses.
+ */
+export function formatAntiguedadReconocida(meses: number | null | undefined): string {
+  const n = Math.max(0, Math.floor(Number(meses) || 0))
+  const anios = Math.floor(n / 12)
+  if (anios <= 0) return ''
+  return `${anios} año${anios === 1 ? '' : 's'}`
+}
+
+/**
+ * Si alguien cargó años en el campo de meses (ej. 3 con 3 años reales ≈ 36–39 meses),
+ * preferimos los meses calculados desde el ingreso.
+ */
+export function mesesReconocidosEfectivos(opts: {
+  antiguedad_reconocida: number | null | undefined
+  anios_antiguedad?: number | null | undefined
+  fecha_ingreso?: string | null
+  periodo?: string | null
+}): number {
+  const raw = Math.max(0, Math.floor(Number(opts.antiguedad_reconocida) || 0))
+  const anios = Math.max(0, Math.floor(Number(opts.anios_antiguedad) || 0))
+  const calc =
+    opts.fecha_ingreso && opts.periodo
+      ? antiguedadMesesAlPeriodo(opts.fecha_ingreso, opts.periodo)
+      : 0
+  if (calc > 0 && raw > 0 && raw === anios && raw <= 40 && calc >= raw * 11) {
+    return calc
+  }
+  if (calc > 0 && raw === 0) return calc
+  return raw || calc
+}
+
 export function formatArs2(n: number | null | undefined): string {
   if (n == null || Number.isNaN(Number(n))) return ''
   return new Intl.NumberFormat('es-AR', {
@@ -403,15 +468,30 @@ export function numerosLiquidacion(item: RrhhLibroSueldosItem, libro: LibroLiq) 
   const a = mergeAlicuotas(libro.alicuotas)
   const osMult = Number(libro.os_base_mult) > 0 ? Number(libro.os_base_mult) : 2
   const extras = item.extras || []
-  const extraRem = round2(extras.filter((x) => x.tipo === 'remunerativo').reduce((s, x) => s + (Number(x.monto) || 0), 0))
-  const extraNoRem = round2(
-    extras.filter((x) => x.tipo === 'no_remunerativo').reduce((s, x) => s + (Number(x.monto) || 0), 0)
-  )
-  const extraDesc = round2(extras.filter((x) => x.tipo === 'descuento').reduce((s, x) => s + (Number(x.monto) || 0), 0))
-  const extraEmp = round2(extras.filter((x) => x.tipo === 'empleador').reduce((s, x) => s + (Number(x.monto) || 0), 0))
   const basico = round2(item.sueldo_basico)
   const antig = round2(item.adicional_antiguedad)
+  const baseHaberes = round2(basico + antig)
+  const extraRem = round2(
+    extras
+      .filter((x) => x.tipo === 'remunerativo')
+      .reduce((s, x) => s + montoExtraEfectivo(x, baseHaberes).monto, 0)
+  )
   const bruto = round2(basico + antig + extraRem)
+  const extraNoRem = round2(
+    extras
+      .filter((x) => x.tipo === 'no_remunerativo')
+      .reduce((s, x) => s + montoExtraEfectivo(x, bruto).monto, 0)
+  )
+  const extraDesc = round2(
+    extras
+      .filter((x) => x.tipo === 'descuento')
+      .reduce((s, x) => s + montoExtraEfectivo(x, bruto).monto, 0)
+  )
+  const extraEmp = round2(
+    extras
+      .filter((x) => x.tipo === 'empleador')
+      .reduce((s, x) => s + montoExtraEfectivo(x, bruto).monto, 0)
+  )
   const baseOs = round2(bruto * osMult)
   const scvo = round2(item.scvo)
   const sipa = round2(bruto * a.sipaEmpleador)
@@ -612,27 +692,41 @@ export function liquidarRecibo(opts: { item: RrhhLibroSueldosItem; libro: LibroL
       pct: a.osTrabajador
     },
     ...extras
-      .filter((x) => x.tipo !== 'empleador' && (x.concepto.trim() || x.monto))
-      .map((x) => ({
-        concepto: x.concepto || '(concepto)',
-        unidad: x.unidad,
-        base: x.base,
-        remunerativo: x.tipo === 'remunerativo' ? x.monto : null,
-        noRemunerativo: x.tipo === 'no_remunerativo' ? x.monto : null,
-        descuento: x.tipo === 'descuento' ? x.monto : null,
-        montoEmpleador: x.tipo === 'empleador' ? x.monto : null
-      }))
+      .filter((x) => x.tipo !== 'empleador')
+      .map((x) => {
+        const baseDef = x.tipo === 'remunerativo' ? round2(basico + antig) : bruto
+        const ef = montoExtraEfectivo(x, baseDef)
+        return {
+          x,
+          ef,
+          linea: {
+            concepto: x.concepto || '(concepto)',
+            unidad: x.unidad,
+            base: ef.base,
+            remunerativo: x.tipo === 'remunerativo' ? ef.monto : null,
+            noRemunerativo: x.tipo === 'no_remunerativo' ? ef.monto : null,
+            descuento: x.tipo === 'descuento' ? ef.monto : null,
+            montoEmpleador: null as number | null,
+            pct: ef.pct ?? undefined
+          }
+        }
+      })
+      .filter(({ x, ef }) => x.concepto.trim() || ef.monto)
+      .map(({ linea }) => linea)
   ]
 
-  for (const x of extras.filter((e) => e.tipo === 'empleador' && (e.concepto.trim() || e.monto))) {
+  for (const x of extras.filter((e) => e.tipo === 'empleador')) {
+    const ef = montoExtraEfectivo(x, bruto)
+    if (!x.concepto.trim() && !ef.monto) continue
     lineasEmpleador.push({
       concepto: x.concepto || '(concepto empleador)',
       unidad: x.unidad,
-      base: x.base,
-      montoEmpleador: x.monto,
+      base: ef.base,
+      montoEmpleador: ef.monto,
       remunerativo: null,
       noRemunerativo: null,
-      descuento: null
+      descuento: null,
+      pct: ef.pct ?? undefined
     })
   }
 

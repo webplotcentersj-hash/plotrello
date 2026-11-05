@@ -208,7 +208,7 @@ export function diasCorrespondenPorAntiguedad(
   return calcularCupoVacacionesLct(fechaIngreso, anio).corresponden
 }
 
-function diasEntreInclusive(desde: string, hasta: string): number {
+export function diasEntreInclusive(desde: string, hasta: string): number {
   const a = parseFechaLocal(desde)
   const b = parseFechaLocal(hasta)
   if (!a || !b || b < a) return 0

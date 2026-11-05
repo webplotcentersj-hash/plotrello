@@ -6,6 +6,7 @@ import type { RrhhNovedad, RrhhVacacionesAjuste, SolicitudPermiso } from '../typ
 import VacacionesCalendarioGoce from '../components/VacacionesCalendarioGoce'
 import {
   calcularSaldoVacaciones,
+  diasEntreInclusive,
   etiquetaBaseLegalVacaciones,
   listarPeriodosCalendarioGoce,
   periodoGoceVacaciones,
@@ -31,6 +32,9 @@ const RecursosHumanosVacacionesPage = () => {
   const [detalle, setDetalle] = useState<SaldoVacacionesEmpleado | null>(null)
   const [ajusteDias, setAjusteDias] = useState('')
   const [ajusteMotivo, setAjusteMotivo] = useState('')
+  const [periodoDesde, setPeriodoDesde] = useState('')
+  const [periodoHasta, setPeriodoHasta] = useState('')
+  const [periodoNota, setPeriodoNota] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -159,9 +163,87 @@ const RecursosHumanosVacacionesPage = () => {
     }
   }
 
+  const resetPeriodoForm = useCallback(() => {
+    const goce = periodoGoceVacaciones(anio)
+    setPeriodoDesde(goce.desde)
+    setPeriodoHasta('')
+    setPeriodoNota('')
+  }, [anio])
+
   const seleccionarEmpleado = (idUsuario: number) => {
     const row = saldos.find((s) => s.id_usuario === idUsuario)
-    if (row) setDetalle(row)
+    if (row) {
+      setDetalle(row)
+      resetPeriodoForm()
+    }
+  }
+
+  useEffect(() => {
+    if (detalle) resetPeriodoForm()
+  }, [anio]) // eslint-disable-line react-hooks/exhaustive-deps -- solo al cambiar año liquidado
+
+  const diasPeriodoNuevo =
+    periodoDesde && periodoHasta ? diasEntreInclusive(periodoDesde, periodoHasta) : 0
+
+  const handleRegistrarPeriodo = async () => {
+    if (!usuario?.id || !detalle) return
+    if (!periodoDesde || !periodoHasta) {
+      setError('Elegí fecha desde y hasta del período')
+      return
+    }
+    if (periodoHasta < periodoDesde) {
+      setError('La fecha hasta no puede ser anterior a la fecha desde')
+      return
+    }
+    const dias = diasEntreInclusive(periodoDesde, periodoHasta)
+    if (dias <= 0) {
+      setError('El período no tiene días válidos')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await apiService.rrhhNovedadCrear({
+        id_usuario: detalle.id_usuario,
+        grupo: 'licencia',
+        codigo: 'licencia_vacaciones',
+        fecha_desde: periodoDesde,
+        fecha_hasta: periodoHasta,
+        observaciones:
+          periodoNota.trim() ||
+          `Vacaciones ${anio}: ${periodoDesde} → ${periodoHasta} (${dias} d)`,
+        registrado_por: usuario.id
+      })
+      if (!res.success) throw new Error(res.error || 'No se pudo registrar el período')
+      resetPeriodoForm()
+      await cargar()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al registrar el período')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleEliminarPeriodo = async (t: {
+    fuente: 'solicitud' | 'novedad'
+    id: number
+  }) => {
+    if (t.fuente !== 'novedad') {
+      setError('Ese período viene de una solicitud aprobada; anulalo desde Permisos.')
+      return
+    }
+    if (!confirm('¿Eliminar este período de vacaciones?')) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await apiService.rrhhNovedadEliminar(t.id)
+      if (!res.success) throw new Error(res.error || 'No se pudo eliminar')
+      await cargar()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al eliminar el período')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const ajustesDetalle = detalle
@@ -256,7 +338,7 @@ const RecursosHumanosVacacionesPage = () => {
                     <tr
                       key={s.id_usuario}
                       className={detalle?.id_usuario === s.id_usuario ? 'active' : ''}
-                      onClick={() => setDetalle(s)}
+                      onClick={() => seleccionarEmpleado(s.id_usuario)}
                     >
                       <td>{s.nombre}</td>
                       <td>{s.fecha_ingreso || '—'}</td>
@@ -324,15 +406,83 @@ const RecursosHumanosVacacionesPage = () => {
                         <li key={`${t.fuente}-${t.id}`}>
                           <span>
                             {t.fecha_desde} → {t.fecha_hasta}
+                            <br />
+                            <small>
+                              {t.dias} d · {t.fuente}
+                              {t.titulo ? ` · ${t.titulo}` : ''}
+                            </small>
                           </span>
-                          <span>
-                            {t.dias} d · {t.fuente}
-                            {t.titulo ? ` · ${t.titulo}` : ''}
-                          </span>
+                          {t.fuente === 'novedad' ? (
+                            <button
+                              type="button"
+                              className="rrhh-vac-link"
+                              disabled={busy}
+                              onClick={() => void handleEliminarPeriodo(t)}
+                            >
+                              Eliminar
+                            </button>
+                          ) : null}
                         </li>
                       ))}
                     </ul>
                   )}
+
+                  <div className="rrhh-vac-ajuste-form">
+                    <h3>Registrar período</h3>
+                    <p className="rrhh-vac-muted" style={{ margin: 0 }}>
+                      Elegí las fechas de goce. Se guarda como novedad de vacaciones y descuenta del
+                      saldo.
+                    </p>
+                    <label>
+                      Desde
+                      <input
+                        type="date"
+                        value={periodoDesde}
+                        disabled={busy}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          setPeriodoDesde(v)
+                          if (periodoHasta && v && periodoHasta < v) setPeriodoHasta(v)
+                        }}
+                      />
+                    </label>
+                    <label>
+                      Hasta
+                      <input
+                        type="date"
+                        value={periodoHasta}
+                        min={periodoDesde || undefined}
+                        disabled={busy}
+                        onChange={(e) => setPeriodoHasta(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Nota (opcional)
+                      <input
+                        type="text"
+                        value={periodoNota}
+                        disabled={busy}
+                        onChange={(e) => setPeriodoNota(e.target.value)}
+                        placeholder="Ej. primera quincena"
+                      />
+                    </label>
+                    {diasPeriodoNuevo > 0 ? (
+                      <p className="rrhh-vac-periodo-dias">
+                        {diasPeriodoNuevo} día{diasPeriodoNuevo === 1 ? '' : 's'} corridos
+                        {detalle.saldo < diasPeriodoNuevo
+                          ? ` · saldo actual ${detalle.saldo} (quedaría ${detalle.saldo - diasPeriodoNuevo})`
+                          : ` · saldo quedaría ${detalle.saldo - diasPeriodoNuevo}`}
+                      </p>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="rrhh-vac-btn primary"
+                      disabled={busy || diasPeriodoNuevo <= 0}
+                      onClick={() => void handleRegistrarPeriodo()}
+                    >
+                      Guardar período
+                    </button>
+                  </div>
 
                   <h3>Ajustes</h3>
                   {ajustesDetalle.length === 0 ? (

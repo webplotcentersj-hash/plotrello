@@ -2,8 +2,10 @@ import { memo } from 'react'
 import {
   etiquetaPeriodoLibro,
   fechaCortaEs,
+  formatAntiguedadReconocida,
   formatArs2,
   formatCuil,
+  mesesReconocidosEfectivos,
   round2,
   type ReciboLinea,
   type ReciboLiquidado
@@ -185,7 +187,14 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
               {formatArs2(liq.bruto)}
             </td>
             <td colSpan={2} className="center">
-              {item.antiguedad_reconocida || ''}
+              {formatAntiguedadReconocida(
+                mesesReconocidosEfectivos({
+                  antiguedad_reconocida: item.antiguedad_reconocida,
+                  anios_antiguedad: item.anios_antiguedad,
+                  fecha_ingreso: item.fecha_ingreso,
+                  periodo: empresa.periodo
+                })
+              )}
             </td>
           </tr>
           <tr>
@@ -356,7 +365,15 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
             <td colSpan={2} className="num">
               {formatArs2(liq.bruto)}
             </td>
-            <td colSpan={2} />
+            <td colSpan={2} className="num">
+              {liq.lineasTrabajador.some((l) => (l.noRemunerativo || 0) > 0)
+                ? formatArs2(
+                    round2(
+                      liq.lineasTrabajador.reduce((s, l) => s + (Number(l.noRemunerativo) || 0), 0)
+                    )
+                  )
+                : ''}
+            </td>
             <td colSpan={2} className="num">
               {formatArs2(liq.descuentos)}
             </td>

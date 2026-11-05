@@ -32,8 +32,11 @@ import {
   aniosAntiguedadAlPeriodo,
   antiguedadMesesAlPeriodo,
   fichaDesdeItem,
+  formatAntiguedadReconocida,
   formatArs2,
   liquidarRecibo,
+  mesesReconocidosEfectivos,
+  montoExtraEfectivo,
   numerosLiquidacion,
   tituloReciboPeriodo,
   type RrhhLibroSueldos,
@@ -99,6 +102,7 @@ const RecursosHumanosLibroSueldosPage = () => {
   const [libro, setLibro] = useState<RrhhLibroSueldos | null>(null)
   const [items, setItems] = useState<ItemDraft[]>([])
   const [sel, setSel] = useState<number | null>(null)
+  const [busqueda, setBusqueda] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -157,7 +161,12 @@ const RecursosHumanosLibroSueldosPage = () => {
               '',
             categoria,
             fecha_ingreso: fechaIngreso,
-            antiguedad_reconocida: prev?.antiguedad_reconocida ?? ficha?.antiguedad_reconocida ?? meses,
+            antiguedad_reconocida: mesesReconocidosEfectivos({
+              antiguedad_reconocida: prev?.antiguedad_reconocida ?? ficha?.antiguedad_reconocida ?? meses,
+              anios_antiguedad: prev?.anios_antiguedad ?? anios,
+              fecha_ingreso: fechaIngreso,
+              periodo
+            }),
             anios_antiguedad: prev?.anios_antiguedad ?? anios,
             dias: prev?.dias || 30,
             etiqueta_basico: prev?.etiqueta_basico || ficha?.etiqueta_basico || (medio ? 'Sueldo básico medio día' : 'Sueldo básico'),
@@ -230,8 +239,17 @@ const RecursosHumanosLibroSueldosPage = () => {
       const itemsRes = await rrhhLibroSueldosItemsListar(actual.id)
       if (!itemsRes.success) throw new Error(itemsRes.error || 'No se pudieron leer los ítems')
       if (itemsRes.data && itemsRes.data.length > 0) {
-        setItems(itemsRes.data)
-        setSel(itemsRes.data[0]?.id_usuario ?? null)
+        const normalizados = itemsRes.data.map((it) => ({
+          ...it,
+          antiguedad_reconocida: mesesReconocidosEfectivos({
+            antiguedad_reconocida: it.antiguedad_reconocida,
+            anios_antiguedad: it.anios_antiguedad,
+            fecha_ingreso: it.fecha_ingreso,
+            periodo
+          })
+        }))
+        setItems(normalizados)
+        setSel(normalizados[0]?.id_usuario ?? null)
       } else {
         const prevLib = await rrhhLibroSueldosObtener(periodoAnterior(periodo))
         let prevItems: RrhhLibroSueldosItem[] = []
@@ -320,7 +338,27 @@ const RecursosHumanosLibroSueldosPage = () => {
     }
   }
 
-  const itemSel = items.find((i) => i.id_usuario === sel) || items[0] || null
+  const itemsFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return items
+    return items.filter((it) => {
+      const leg = String(it.n_legajo)
+      const nombre = (it.apellido_nombre || '').toLowerCase()
+      const cuil = (it.cuil || '').toLowerCase().replace(/[-\s]/g, '')
+      const cat = (it.categoria || '').toLowerCase()
+      const qCuil = q.replace(/[-\s]/g, '')
+      return nombre.includes(q) || cuil.includes(qCuil) || leg.includes(q) || cat.includes(q)
+    })
+  }, [items, busqueda])
+
+  useEffect(() => {
+    if (itemsFiltrados.length === 0) return
+    if (!itemsFiltrados.some((it) => it.id_usuario === sel)) {
+      setSel(itemsFiltrados[0].id_usuario)
+    }
+  }, [itemsFiltrados, sel])
+
+  const itemSel = items.find((i) => i.id_usuario === sel) || itemsFiltrados[0] || items[0] || null
   const itemsDeferred = useDeferredValue(items)
   const libroDeferred = useDeferredValue(libro)
   const selDeferred = useDeferredValue(sel)
@@ -348,11 +386,18 @@ const RecursosHumanosLibroSueldosPage = () => {
     return m
   }, [items, libro])
 
-  const todosIncluidos = items.length > 0 && items.every((it) => it.incluido)
-  const algunoIncluido = items.some((it) => it.incluido)
+  const idsFiltrados = useMemo(
+    () => new Set(itemsFiltrados.map((it) => it.id_usuario)),
+    [itemsFiltrados]
+  )
+  const todosIncluidos =
+    itemsFiltrados.length > 0 && itemsFiltrados.every((it) => it.incluido)
+  const algunoIncluido = itemsFiltrados.some((it) => it.incluido)
 
   const marcarTodos = (incluido: boolean) => {
-    setItems((prev) => prev.map((it) => ({ ...it, incluido })))
+    setItems((prev) =>
+      prev.map((it) => (idsFiltrados.has(it.id_usuario) ? { ...it, incluido } : it))
+    )
   }
 
   const totales = useMemo(() => {
@@ -668,6 +713,16 @@ const RecursosHumanosLibroSueldosPage = () => {
       </div>
 
       <div className="rrhh-libro-actions" style={{ marginBottom: 14 }}>
+        <label className="rrhh-libro-search">
+          <span className="sr-only">Buscar empleado</span>
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar empleado (nombre, CUIL, legajo…)"
+            autoComplete="off"
+          />
+        </label>
         <button type="button" className="rrhh-ext-btn primary" onClick={() => void guardar()} disabled={busy || cerrado}>
           Guardar
         </button>
@@ -715,7 +770,15 @@ const RecursosHumanosLibroSueldosPage = () => {
 
       <div className="rrhh-libro-grid">
         <div className="rrhh-ext-card">
-          <h3>Nómina</h3>
+          <h3>
+            Nómina
+            {busqueda.trim() ? (
+              <span className="rrhh-libro-nomina-count">
+                {' '}
+                · {itemsFiltrados.length} de {items.length}
+              </span>
+            ) : null}
+          </h3>
           <div className="rrhh-libro-table-wrap">
             <table className="rrhh-ext-table rrhh-libro-table">
               <thead>
@@ -725,7 +788,7 @@ const RecursosHumanosLibroSueldosPage = () => {
                       type="checkbox"
                       title={todosIncluidos ? 'Desmarcar todos' : 'Marcar todos'}
                       checked={todosIncluidos}
-                      disabled={cerrado || items.length === 0}
+                      disabled={cerrado || itemsFiltrados.length === 0}
                       ref={(el) => {
                         if (el) el.indeterminate = algunoIncluido && !todosIncluidos
                       }}
@@ -745,7 +808,16 @@ const RecursosHumanosLibroSueldosPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {items.map((it) => {
+                {itemsFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} style={{ textAlign: 'center', opacity: 0.7, padding: 16 }}>
+                      {items.length === 0
+                        ? 'Sin empleados en este período.'
+                        : 'Ningún empleado coincide con la búsqueda.'}
+                    </td>
+                  </tr>
+                ) : null}
+                {itemsFiltrados.map((it) => {
                   const n = netos.get(it.id_usuario) || 0
                   return (
                     <tr
@@ -798,7 +870,14 @@ const RecursosHumanosLibroSueldosPage = () => {
                           type="date"
                           value={it.fecha_ingreso || ''}
                           disabled={cerrado}
-                          onChange={(e) => patchItem(it.id_usuario, { fecha_ingreso: e.target.value || null })}
+                          onChange={(e) => {
+                            const fi = e.target.value || null
+                            patchItem(it.id_usuario, {
+                              fecha_ingreso: fi,
+                              antiguedad_reconocida: antiguedadMesesAlPeriodo(fi, periodo),
+                              anios_antiguedad: aniosAntiguedadAlPeriodo(fi, periodo)
+                            })
+                          }}
                         />
                       </td>
                       <td>
@@ -860,15 +939,20 @@ const RecursosHumanosLibroSueldosPage = () => {
                 />
               </label>
               <label>
-                Antigüedad reconocida
+                Antigüedad reconocida (meses)
                 <input
                   type="number"
+                  min={0}
                   value={itemSel.antiguedad_reconocida}
                   disabled={cerrado}
                   onChange={(e) =>
                     patchItem(itemSel.id_usuario, { antiguedad_reconocida: Number(e.target.value) || 0 })
                   }
                 />
+                <small style={{ display: 'block', opacity: 0.75, marginTop: 4 }}>
+                  En recibo:{' '}
+                  {formatAntiguedadReconocida(itemSel.antiguedad_reconocida) || '—'}
+                </small>
               </label>
               <label>
                 Convenio CCT
@@ -991,7 +1075,8 @@ const RecursosHumanosLibroSueldosPage = () => {
                     <option value="empleador">Costo empleador</option>
                   </select>
                   <input
-                    placeholder="Unidad"
+                    placeholder="Unidad o %"
+                    title='Monto fijo, o dejá monto en 0 y poné p. ej. "22%" para calcular sobre el bruto'
                     value={x.unidad}
                     disabled={cerrado}
                     onChange={(e) => {
@@ -1003,17 +1088,48 @@ const RecursosHumanosLibroSueldosPage = () => {
                       }))
                     }}
                   />
-                  <ImporteField
-                    value={x.monto}
-                    disabled={cerrado}
-                    onCommit={(n) =>
-                      patchItem(itemSel.id_usuario, (it) => ({
-                        extras: (it.extras || []).map((r) =>
-                          r.id === x.id ? { ...r, monto: n } : r
-                        )
-                      }))
-                    }
-                  />
+                  <div className="rrhh-libro-extra-monto">
+                    <ImporteField
+                      value={x.monto}
+                      disabled={cerrado}
+                      onCommit={(n) =>
+                        patchItem(itemSel.id_usuario, (it) => ({
+                          extras: (it.extras || []).map((r) =>
+                            r.id === x.id ? { ...r, monto: n } : r
+                          )
+                        }))
+                      }
+                    />
+                    {libro && itemSel && x.monto === 0 && x.unidad.includes('%') ? (
+                      <span
+                        className="rrhh-libro-extra-calc"
+                        title={
+                          x.tipo === 'remunerativo'
+                            ? 'Calculado sobre básico + antigüedad'
+                            : 'Calculado sobre el bruto'
+                        }
+                      >
+                        ≈{' '}
+                        {formatArs2(
+                          (() => {
+                            const nums = numerosLiquidacion(
+                              {
+                                ...itemSel,
+                                id: itemSel.id || 0,
+                                id_libro: itemSel.id_libro || libro.id
+                              },
+                              libro
+                            )
+                            const base =
+                              x.tipo === 'remunerativo'
+                                ? nums.basico + nums.antig
+                                : nums.bruto
+                            return montoExtraEfectivo(x, base).monto
+                          })()
+                        )}
+                      </span>
+                    ) : null}
+                  </div>
                   <input
                     placeholder="Cód. LSD"
                     value={x.codigo_lsd}

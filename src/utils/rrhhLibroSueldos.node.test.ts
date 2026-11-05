@@ -3,7 +3,9 @@ import { describe, it } from 'node:test'
 import {
   ALICUOTAS_LCT_DEFAULT,
   aniosAntiguedadAlPeriodo,
+  formatAntiguedadReconocida,
   liquidarRecibo,
+  mesesReconocidosEfectivos,
   parseImporteInput,
   tituloReciboPeriodo,
   round2,
@@ -137,9 +139,69 @@ describe('libro de sueldos LCT', () => {
     assert.ok(conDesc.lineasTrabajador.some((l) => l.concepto === 'Retención Judicial' && l.descuento === 10000))
   })
 
+  it('descuento extra por % en unidad se aplica debajo de obra social y baja el neto', () => {
+    const base = liquidarRecibo({ item: itemEvelyn(), libro: libroAgosto() })
+    const conPct = liquidarRecibo({
+      item: {
+        ...itemEvelyn(),
+        extras: [
+          {
+            id: 'd2',
+            concepto: 'Retención Judicial',
+            tipo: 'descuento',
+            unidad: '22%',
+            base: null,
+            monto: 0,
+            codigo_lsd: ''
+          }
+        ]
+      },
+      libro: libroAgosto()
+    })
+    const esperado = round2(base.bruto * 0.22)
+    assert.equal(conPct.descuentos, round2(base.descuentos + esperado))
+    assert.equal(conPct.neto, round2(base.neto - esperado))
+    const linea = conPct.lineasTrabajador.find((l) => l.concepto === 'Retención Judicial')
+    assert.ok(linea)
+    assert.equal(linea!.descuento, esperado)
+    assert.equal(linea!.base, base.bruto)
+    const idxOs = conPct.lineasTrabajador.findIndex((l) => l.concepto === 'Obra Social')
+    const idxRet = conPct.lineasTrabajador.findIndex((l) => l.concepto === 'Retención Judicial')
+    assert.ok(idxOs >= 0 && idxRet > idxOs)
+  })
+
   it('antigüedad en años al cierre del período', () => {
     assert.equal(aniosAntiguedadAlPeriodo('2025-02-01', '2026-08'), 1)
     assert.equal(aniosAntiguedadAlPeriodo('2025-02-01', '2026-01'), 0)
+  })
+
+  it('formatea antigüedad reconocida solo en años para el recibo', () => {
+    assert.equal(formatAntiguedadReconocida(0), '')
+    assert.equal(formatAntiguedadReconocida(11), '')
+    assert.equal(formatAntiguedadReconocida(12), '1 año')
+    assert.equal(formatAntiguedadReconocida(20), '1 año')
+    assert.equal(formatAntiguedadReconocida(39), '3 años')
+  })
+
+  it('corrige años cargados por error en el campo de meses', () => {
+    assert.equal(
+      mesesReconocidosEfectivos({
+        antiguedad_reconocida: 3,
+        anios_antiguedad: 3,
+        fecha_ingreso: '2023-08-17',
+        periodo: '2026-11'
+      }),
+      39
+    )
+    assert.equal(
+      mesesReconocidosEfectivos({
+        antiguedad_reconocida: 20,
+        anios_antiguedad: 1,
+        fecha_ingreso: '2025-02-01',
+        periodo: '2026-11'
+      }),
+      20
+    )
   })
 
   it('TXT LSD: longitudes 01=35 02=115 03=51 04=370', () => {
