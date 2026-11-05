@@ -83,6 +83,15 @@ import {
 } from '../constants/cuentaCorrienteScoring'
 import CuentaCorrienteScoreBadge from './CuentaCorrienteScoreBadge'
 import { MSG_CC_NO_HABILITADA } from '../utils/cuentaCorrienteCobranzas'
+import type { ComprobanteMedioParsed } from '../features/control-cajas/comprobanteMediosTypes'
+import { isComprobanteAiAvailable } from '../features/control-cajas/parseComprobanteImagenGemini'
+import {
+  evaluarCorrespondenciaComprobante,
+  extraerComprobantePagoDesdeArchivo,
+  montoComprobanteEfectivo,
+  notaDiscrepanciaComprobante,
+  resumenTextoComprobanteParsed
+} from '../utils/ventaComprobantePago'
 import './VentaRapidaModal.css'
 
 export type PrefillVentaDesdePresupuesto = {
@@ -228,7 +237,12 @@ const VentaRapidaModal = ({
     resultado: ResultadoFacturaVenta | null
   } | null>(null)
   const [comprobanteArchivo, setComprobanteArchivo] = useState<File | null>(null)
+  const [comprobanteIa, setComprobanteIa] = useState<ComprobanteMedioParsed | null>(null)
+  const [comprobanteIaTexto, setComprobanteIaTexto] = useState('')
+  const [comprobanteIaLoading, setComprobanteIaLoading] = useState(false)
+  const [comprobanteIaError, setComprobanteIaError] = useState<string | null>(null)
   const comprobanteInputRef = useRef<HTMLInputElement>(null)
+  const comprobanteIaReqRef = useRef(0)
   const modalContentRef = useRef<HTMLDivElement>(null)
 
   // Buscar clientes (desde 1 letra)
@@ -635,6 +649,66 @@ const VentaRapidaModal = ({
     ? totalVenta
     : montoLineaMetodo(detallePago, 'Mercado Pago')
 
+  /** Monto que debería figurar en el comprobante (parcial / líneas transferencia-tarjeta / total). */
+  const montoEsperadoComprobante = useMemo(() => {
+    if (pagoParcialActivo) {
+      const n = Number(String(montoCobradoParcial).replace(',', '.'))
+      if (Number.isFinite(n) && n > 0) return Math.round(n * 100) / 100
+    }
+    if (esMixto) {
+      const suma =
+        montoLineaMetodo(detallePago, 'Transferencia') + montoLineaMetodo(detallePago, 'Tarjeta')
+      if (suma > 0) return Math.round(suma * 100) / 100
+    }
+    return Math.round(totalVenta * 100) / 100
+  }, [
+    pagoParcialActivo,
+    montoCobradoParcial,
+    esMixto,
+    detallePago,
+    totalVenta
+  ])
+
+  const comprobanteCorrespondencia = useMemo(() => {
+    if (!comprobanteIa) return null
+    const leido = montoComprobanteEfectivo(comprobanteIa)
+    if (leido <= 0 || montoEsperadoComprobante <= 0) return null
+    return evaluarCorrespondenciaComprobante(leido, montoEsperadoComprobante)
+  }, [comprobanteIa, montoEsperadoComprobante])
+
+  const leerComprobanteConPlotAi = useCallback(async (file: File) => {
+    const reqId = ++comprobanteIaReqRef.current
+    setComprobanteIa(null)
+    setComprobanteIaTexto('')
+    setComprobanteIaError(null)
+    if (!isComprobanteAiAvailable()) {
+      setComprobanteIaError('PlotAI no está configurado para leer comprobantes.')
+      return
+    }
+    setComprobanteIaLoading(true)
+    try {
+      const { parsed, texto } = await extraerComprobantePagoDesdeArchivo(file)
+      if (reqId !== comprobanteIaReqRef.current) return
+      setComprobanteIa(parsed)
+      setComprobanteIaTexto(texto || resumenTextoComprobanteParsed(parsed))
+    } catch (e) {
+      if (reqId !== comprobanteIaReqRef.current) return
+      setComprobanteIaError(e instanceof Error ? e.message : 'No se pudo leer el comprobante')
+    } finally {
+      if (reqId === comprobanteIaReqRef.current) setComprobanteIaLoading(false)
+    }
+  }, [])
+
+  const limpiarComprobanteArchivo = useCallback(() => {
+    comprobanteIaReqRef.current += 1
+    setComprobanteArchivo(null)
+    setComprobanteIa(null)
+    setComprobanteIaTexto('')
+    setComprobanteIaError(null)
+    setComprobanteIaLoading(false)
+    if (comprobanteInputRef.current) comprobanteInputRef.current.value = ''
+  }, [])
+
   const redondearMonto = (n: number) => Math.max(0, Math.round(n * 100) / 100)
 
   const textoMontoMixto = (n: number) => (n > 0 ? String(n).replace('.', ',') : '')
@@ -963,7 +1037,14 @@ const VentaRapidaModal = ({
       }
       const detalleResumen = resumenDetallePago(detallePagoFinal)
       const obsBase = observaciones ? `Prioridad: ${prioridad}. ${observaciones}` : `Prioridad: ${prioridad}`
-      const observacionesFinal = detalleResumen ? `${obsBase}\nPago: ${detalleResumen}` : obsBase
+      let observacionesFinal = detalleResumen ? `${obsBase}\nPago: ${detalleResumen}` : obsBase
+      if (comprobanteIa && comprobanteCorrespondencia && !comprobanteCorrespondencia.corresponde) {
+        const leido = montoComprobanteEfectivo(comprobanteIa)
+        const notaPlot = notaDiscrepanciaComprobante(leido, montoEsperadoComprobante)
+        if (!observacionesFinal.includes('PlotAI comprobante: NO CORRESPONDE')) {
+          observacionesFinal = `${observacionesFinal}\n${notaPlot}`
+        }
+      }
       const metodoPagoFinal: MedioPagoCodigo = esMixto ? PAGO_MIXTO : condicionVenta
       const montoParcialNum = Number(String(montoCobradoParcial).replace(',', '.'))
       const esParcialValido =
@@ -1209,18 +1290,27 @@ const VentaRapidaModal = ({
       setMostrarCartelRealizada(true)
 
       if (comprobanteArchivo) {
-        const compResp = await apiService.subirComprobantePagoVenta(ventaData.id, comprobanteArchivo)
+        const compResp = await apiService.subirComprobantePagoVenta(ventaData.id, comprobanteArchivo, {
+          ia: comprobanteIa,
+          texto: comprobanteIaTexto
+        })
         if (!compResp.success) {
           alert(
             `La venta se guardó, pero no se pudo adjuntar el comprobante: ${compResp.error || 'Error desconocido'}`
           )
         } else if (compResp.data?.url) {
           setVentaCreada((prev) =>
-            prev ? { ...prev, comprobante_pago_url: compResp.data!.url } : prev
+            prev
+              ? {
+                  ...prev,
+                  comprobante_pago_url: compResp.data!.url,
+                  comprobante_pago_ia: comprobanteIa ?? prev.comprobante_pago_ia,
+                  comprobante_pago_texto: comprobanteIaTexto || prev.comprobante_pago_texto
+                }
+              : prev
           )
         }
-        setComprobanteArchivo(null)
-        if (comprobanteInputRef.current) comprobanteInputRef.current.value = ''
+        limpiarComprobanteArchivo()
       }
 
       try {
@@ -2405,8 +2495,8 @@ const VentaRapidaModal = ({
             <p className="form-hint-comprobante">
               {condicionVenta === 'Tarjeta' ||
               (esMixto && (mixtoLineaA.metodo === 'Tarjeta' || mixtoLineaB.metodo === 'Tarjeta'))
-                ? 'Adjuntá el ticket o comprobante de la tarjeta. PDF o imagen, máximo 8 MB.'
-                : 'PDF o imagen del comprobante (transferencia, tarjeta, etc.). Máximo 8 MB.'}
+                ? 'Adjuntá el ticket o comprobante de la tarjeta. PlotAI lo lee y valida el monto. PDF o imagen, máximo 8 MB.'
+                : 'PDF o imagen del comprobante. PlotAI lo lee y valida el monto. Máximo 8 MB.'}
             </p>
             <input
               ref={comprobanteInputRef}
@@ -2415,24 +2505,89 @@ const VentaRapidaModal = ({
               accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/*"
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null
+                if (!f) {
+                  limpiarComprobanteArchivo()
+                  return
+                }
                 setComprobanteArchivo(f)
+                void leerComprobanteConPlotAi(f)
               }}
             />
             {comprobanteArchivo && (
               <div className="comprobante-seleccionado">
                 <span className="comprobante-nombre">{comprobanteArchivo.name}</span>
-                <button
-                  type="button"
-                  className="btn-link"
-                  onClick={() => {
-                    setComprobanteArchivo(null)
-                    if (comprobanteInputRef.current) comprobanteInputRef.current.value = ''
-                  }}
-                >
+                <button type="button" className="btn-link" onClick={limpiarComprobanteArchivo}>
                   Quitar archivo
                 </button>
               </div>
             )}
+            {comprobanteArchivo ? (
+              <div className="comprobante-plotai" aria-live="polite">
+                {comprobanteIaLoading ? (
+                  <p className="comprobante-plotai__loading">Leyendo comprobante con PlotAI…</p>
+                ) : null}
+                {comprobanteIaError ? (
+                  <p className="comprobante-plotai__error">{comprobanteIaError}</p>
+                ) : null}
+                {comprobanteIa && !comprobanteIaLoading ? (
+                  <>
+                    {comprobanteCorrespondencia ? (
+                      comprobanteCorrespondencia.corresponde ? (
+                        <div className="comprobante-plotai__badge comprobante-plotai__badge--ok">
+                          ✓ Corresponde
+                          <span className="comprobante-plotai__badge-sub">
+                            ${montoComprobanteEfectivo(comprobanteIa).toLocaleString('es-AR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}{' '}
+                            = esperado $
+                            {montoEsperadoComprobante.toLocaleString('es-AR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="comprobante-plotai__badge comprobante-plotai__badge--warn">
+                          ✗ No corresponde — se anotará en la venta
+                          <span className="comprobante-plotai__badge-sub">
+                            Leído $
+                            {montoComprobanteEfectivo(comprobanteIa).toLocaleString('es-AR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}{' '}
+                            · esperado $
+                            {montoEsperadoComprobante.toLocaleString('es-AR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}{' '}
+                            · diff $
+                            {comprobanteCorrespondencia.diferencia.toLocaleString('es-AR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      <div className="comprobante-plotai__badge comprobante-plotai__badge--muted">
+                        PlotAI no encontró un monto claro en el documento
+                      </div>
+                    )}
+                    {comprobanteIaTexto ? (
+                      <pre className="comprobante-plotai__texto">{comprobanteIaTexto}</pre>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="btn-link comprobante-plotai__retry"
+                      onClick={() => void leerComprobanteConPlotAi(comprobanteArchivo)}
+                    >
+                      Releer con PlotAI
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
           </div>
           ) : null}
 

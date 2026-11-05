@@ -90,16 +90,10 @@
   box-shadow: 0 2px 8px rgba(235, 103, 27, 0.2);
 }
 
-#board-stats-toggle[aria-expanded='true'] {
+#board-insights-toggle[aria-expanded='true'] {
   background: rgba(59, 130, 246, 0.18);
   border-color: rgba(96, 165, 250, 0.4);
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.18);
-}
-
-#board-activity-toggle[aria-expanded='true'] {
-  background: rgba(16, 185, 129, 0.18);
-  border-color: rgba(52, 211, 153, 0.4);
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.18);
 }
 
 .insights-toggle-btn:focus-visible {

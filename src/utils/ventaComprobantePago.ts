@@ -46,6 +46,35 @@ export async function extraerComprobantePagoDesdeUrl(url: string): Promise<Compr
   return parseComprobanteArchivoGemini(file)
 }
 
+/** Monto a contrastar contra la venta (ticket individual o total de resumen). */
+export function montoComprobanteEfectivo(c: ComprobanteMedioParsed): number {
+  if (c.es_resumen && c.total_resumen != null && c.total_resumen > 0) {
+    return c.total_resumen
+  }
+  return c.monto > 0 ? c.monto : 0
+}
+
+export function evaluarCorrespondenciaComprobante(
+  montoLeido: number,
+  montoEsperado: number,
+  tolerancia = 1
+): { corresponde: boolean; diferencia: number } {
+  const diferencia = Math.round((montoLeido - montoEsperado) * 100) / 100
+  const corresponde = montoLeido > 0 && montoEsperado > 0 && Math.abs(diferencia) <= tolerancia
+  return { corresponde, diferencia }
+}
+
+/** Texto para observaciones de la venta cuando el monto del comprobante no cierra. */
+export function notaDiscrepanciaComprobante(
+  montoLeido: number,
+  montoEsperado: number
+): string {
+  const fmt = (n: number) =>
+    n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const diff = Math.round((montoLeido - montoEsperado) * 100) / 100
+  return `PlotAI comprobante: NO CORRESPONDE — leído $${fmt(montoLeido)} vs esperado $${fmt(montoEsperado)} (diff $${fmt(diff)})`
+}
+
 export function resumenTextoComprobanteParsed(c: ComprobanteMedioParsed): string {
   const lines: string[] = []
   if (c.comercio) lines.push(`Comercio: ${c.comercio}`)

@@ -18,7 +18,6 @@ import ActivityFeed from '../components/ActivityFeed'
 const TaskEditModal = lazy(() => import('../components/TaskEditModal'))
 const TaskViewModal = lazy(() => import('../components/TaskViewModal'))
 const TaskCreateModal = lazy(() => import('../components/TaskCreateModal'))
-const SprintOptimizerModal = lazy(() => import('../components/SprintOptimizerModal'))
 const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
 import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
 import WorkPoolOperarioNotasFab from '../features/work-pool/WorkPoolOperarioNotasFab'
@@ -139,7 +138,6 @@ const BoardPage = ({
   const [qrPrintTask, setQrPrintTask] = useState<{ opNumber: string; cliente: string } | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [plantillaCopiaOp, setPlantillaCopiaOp] = useState<OpCreateDraftData | null>(null)
-  const [isOptimizerModalOpen, setIsOptimizerModalOpen] = useState(false)
   const [isChatAIOpen, setIsChatAIOpen] = useState(false)
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false)
   const [isSolicitarProductosOpen, setIsSolicitarProductosOpen] = useState(false)
@@ -148,10 +146,8 @@ const BoardPage = ({
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [taskViewId, setTaskViewId] = useState<string | null>(null)
-  /** Estadísticas del tablero: ocultas por defecto; se abren con el botón del panel lateral */
-  const [statsPanelOpen, setStatsPanelOpen] = useState(false)
-  /** Movimientos recientes: ocultos por defecto para dar más ancho al tablero */
-  const [activityFeedOpen, setActivityFeedOpen] = useState(false)
+  /** Estadísticas + movimientos: un solo panel lateral (oculto por defecto para dar ancho al tablero) */
+  const [insightsOpen, setInsightsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const isPhoneBoard = usePhoneBoardLayout()
   const plotAIAgentic = useMemo(
@@ -168,8 +164,7 @@ const BoardPage = ({
     [usuario?.id, nombreVisible]
   )
 
-  const sidebarCompact =
-    isAdmin ? !statsPanelOpen && !activityFeedOpen : !activityFeedOpen
+  const sidebarCompact = !insightsOpen
   const tasksRef = useRef<Task[]>(tasks)
   useEffect(() => {
     tasksRef.current = tasks
@@ -1398,93 +1393,24 @@ const BoardPage = ({
     [sessionActor.id, sessionActor.name]
   )
 
-  const handleApplyOptimizations = (suggestions: Array<{
-    type: 'reassign' | 'move' | 'priority'
-    taskId: string
-    taskTitle: string
-    currentValue: string
-    suggestedValue: string
-    reason: string
-    impact: 'high' | 'medium' | 'low'
-  }>) => {
-    setTasks((prev) =>
-      prev.map((task) => {
-        const suggestion = suggestions.find((s) => s.taskId === task.id)
-        if (!suggestion) return task
-
-        let updatedTask = { ...task }
-
-        if (suggestion.type === 'reassign') {
-          const newOwner = teamMembers.find((m) => m.name === suggestion.suggestedValue)
-          if (newOwner) {
-            updatedTask.ownerId = newOwner.id
-          }
-        } else if (suggestion.type === 'move') {
-          const newStatus = BOARD_COLUMNS.find((col) => col.label === suggestion.suggestedValue)
-          if (newStatus) {
-            updatedTask.status = newStatus.id
-            updatedTask.assignedSector = newStatus.label
-          }
-        } else if (suggestion.type === 'priority') {
-          updatedTask.priority = suggestion.suggestedValue as any
-        }
-
-        updatedTask.updatedAt = new Date().toISOString()
-
-        setActivity((prev) => [
-          {
-            id: `optimize-${Date.now()}-${task.id}`,
-            taskId: task.id,
-            from: task.status,
-            to: updatedTask.status,
-            actorId: sessionActor.id || updatedTask.ownerId,
-            actorName: sessionActor.name,
-            timestamp: new Date().toISOString(),
-            note: `Optimización aplicada: ${suggestion.reason}`
-          },
-          ...prev
-        ])
-
-        return updatedTask
-      })
-    )
-    setIsOptimizerModalOpen(false)
-  }
-
   const boardTools = (
     <>
-      {isAdmin && (
-        <button
-          type="button"
-          className={`insights-toggle-btn header-board-tool header-board-tool--stats${statsPanelOpen ? ' is-on' : ''}`}
-          onClick={() => setStatsPanelOpen((v) => !v)}
-          aria-expanded={statsPanelOpen}
-          aria-controls="board-stats-panel"
-          id="board-stats-toggle"
-          title={statsPanelOpen ? 'Ocultar estadísticas' : 'Mostrar estadísticas'}
-          aria-label={
-            statsPanelOpen ? 'Ocultar estadísticas del tablero' : 'Mostrar estadísticas del tablero'
-          }
-        >
-          <span className="header-board-tool__glyph" aria-hidden>
-            <HeaderNavGlyph id="chart" size={16} />
-          </span>
-        </button>
-      )}
       <button
         type="button"
-        className={`insights-toggle-btn header-board-tool header-board-tool--activity${activityFeedOpen ? ' is-on' : ''}`}
-        onClick={() => setActivityFeedOpen((v) => !v)}
-        aria-expanded={activityFeedOpen}
-        aria-controls="board-activity-panel"
-        id="board-activity-toggle"
-        title={activityFeedOpen ? 'Ocultar movimientos' : 'Mostrar movimientos recientes'}
+        className={`insights-toggle-btn header-board-tool header-board-tool--insights${insightsOpen ? ' is-on' : ''}`}
+        onClick={() => setInsightsOpen((v) => !v)}
+        aria-expanded={insightsOpen}
+        aria-controls="board-insights-panel"
+        id="board-insights-toggle"
+        title={insightsOpen ? 'Ocultar panel del tablero' : 'Estadísticas y movimientos'}
         aria-label={
-          activityFeedOpen ? 'Ocultar movimientos recientes' : 'Mostrar movimientos recientes'
+          insightsOpen
+            ? 'Ocultar estadísticas y movimientos del tablero'
+            : 'Mostrar estadísticas y movimientos del tablero'
         }
       >
         <span className="header-board-tool__glyph" aria-hidden>
-          <HeaderNavGlyph id="history" size={16} />
+          <HeaderNavGlyph id="chart" size={16} />
         </span>
       </button>
       {!isPhoneBoard && (
@@ -1591,7 +1517,6 @@ const BoardPage = ({
         onMisTrabajosChange={setMisTrabajosFilter}
         onAddNewOrder={() => setIsCreateModalOpen(true)}
         onOpenLibrary={() => setIsLibraryModalOpen(true)}
-        onOptimizeSprint={() => setIsOptimizerModalOpen(true)}
       />
 
       <main
@@ -1624,7 +1549,7 @@ const BoardPage = ({
             onDeleteTask={handleDeleteTask}
             sectores={sectores}
             onMarkDelivered={handleMarkDelivered}
-            activity={activityFeedOpen ? activity : undefined}
+            activity={insightsOpen ? activity : undefined}
             selectedTaskId={selectedTaskId}
             onSelectTask={setSelectedTaskId}
             onViewTask={handleViewTask}
@@ -1648,17 +1573,20 @@ const BoardPage = ({
 
         {/* El aside solo existe si hay algún panel abierto; los botones viven en el header. */}
         {!sidebarCompact && (
-          <aside className="insights-panel">
-            {isAdmin && statsPanelOpen && (
-              <div id="board-stats-panel" role="region" aria-labelledby="board-stats-toggle">
+          <aside
+            className="insights-panel"
+            id="board-insights-panel"
+            role="region"
+            aria-labelledby="board-insights-toggle"
+          >
+            {isAdmin && (
+              <div className="insights-panel__section">
                 <StatsPanel tasks={tasks} activity={activity} teamMembers={teamMembers} />
               </div>
             )}
-            {activityFeedOpen && (
-              <div id="board-activity-panel" role="region" aria-labelledby="board-activity-toggle">
-                <ActivityFeed activity={activity} teamMembers={teamMembers} />
-              </div>
-            )}
+            <div className="insights-panel__section">
+              <ActivityFeed activity={activity} teamMembers={teamMembers} />
+            </div>
           </aside>
         )}
       </main>
@@ -1702,17 +1630,6 @@ const BoardPage = ({
             }}
             onCreate={handleCreateTask}
             plantilla={plantillaCopiaOp}
-          />
-        </Suspense>
-      )}
-
-      {isOptimizerModalOpen && (
-        <Suspense fallback={null}>
-          <SprintOptimizerModal
-            tasks={tasks}
-            teamMembers={teamMembers}
-            onClose={() => setIsOptimizerModalOpen(false)}
-            onApplyOptimization={handleApplyOptimizations}
           />
         </Suspense>
       )}

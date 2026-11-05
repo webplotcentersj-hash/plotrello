@@ -12,6 +12,7 @@ import {
   periodoGoceVacaciones,
   type SaldoVacacionesEmpleado
 } from '../utils/rrhhVacacionesSaldo'
+import { downloadVacacionesPeriodosPdf } from '../utils/rrhhVacacionesExportPdf'
 import { nombreSinDominioCorreo } from '../utils/userDisplayName'
 import './RecursosHumanosVacacionesPage.css'
 
@@ -164,11 +165,10 @@ const RecursosHumanosVacacionesPage = () => {
   }
 
   const resetPeriodoForm = useCallback(() => {
-    const goce = periodoGoceVacaciones(anio)
-    setPeriodoDesde(goce.desde)
+    setPeriodoDesde('')
     setPeriodoHasta('')
     setPeriodoNota('')
-  }, [anio])
+  }, [])
 
   const seleccionarEmpleado = (idUsuario: number) => {
     const row = saldos.find((s) => s.id_usuario === idUsuario)
@@ -182,8 +182,33 @@ const RecursosHumanosVacacionesPage = () => {
     if (detalle) resetPeriodoForm()
   }, [anio]) // eslint-disable-line react-hooks/exhaustive-deps -- solo al cambiar año liquidado
 
+  /** Primer clic = desde; segundo = hasta (si es anterior, se invierte). Tercer clic reinicia. */
+  const pickDiaCalendario = (iso: string) => {
+    setError(null)
+    if (!periodoDesde || (periodoDesde && periodoHasta)) {
+      setPeriodoDesde(iso)
+      setPeriodoHasta('')
+      return
+    }
+    if (iso < periodoDesde) {
+      setPeriodoHasta(periodoDesde)
+      setPeriodoDesde(iso)
+      return
+    }
+    setPeriodoHasta(iso)
+  }
+
   const diasPeriodoNuevo =
     periodoDesde && periodoHasta ? diasEntreInclusive(periodoDesde, periodoHasta) : 0
+
+  const exportarPdf = () => {
+    downloadVacacionesPeriodosPdf({
+      anioLiquidado: anio,
+      saldos,
+      periodos: periodosCalendario,
+      filtroUsuarioId: detalle?.id_usuario ?? null
+    })
+  }
 
   const handleRegistrarPeriodo = async () => {
     if (!usuario?.id || !detalle) return
@@ -299,6 +324,19 @@ const RecursosHumanosVacacionesPage = () => {
         <button type="button" className="rrhh-vac-btn" disabled={loading || busy} onClick={() => void cargar()}>
           Actualizar
         </button>
+        <button
+          type="button"
+          className="rrhh-vac-btn primary"
+          disabled={loading || saldos.length === 0}
+          onClick={exportarPdf}
+          title={
+            detalle
+              ? `PDF con períodos de ${detalle.nombre}`
+              : 'PDF con saldos y períodos de todo el equipo'
+          }
+        >
+          Exportar PDF
+        </button>
         {detalle ? (
           <button type="button" className="rrhh-vac-btn ghost" onClick={() => setDetalle(null)}>
             Ver equipo completo
@@ -316,7 +354,11 @@ const RecursosHumanosVacacionesPage = () => {
             anioLiquidado={anio}
             periodos={periodosCalendario}
             filtroUsuarioId={detalle?.id_usuario ?? null}
+            rangoSeleccionado={
+              periodoDesde ? { desde: periodoDesde, hasta: periodoHasta || null } : null
+            }
             onSelectUsuario={seleccionarEmpleado}
+            onPickDia={detalle ? pickDiaCalendario : undefined}
           />
 
           <div className="rrhh-vac-layout">
@@ -430,8 +472,8 @@ const RecursosHumanosVacacionesPage = () => {
                   <div className="rrhh-vac-ajuste-form">
                     <h3>Registrar período</h3>
                     <p className="rrhh-vac-muted" style={{ margin: 0 }}>
-                      Elegí las fechas de goce. Se guarda como novedad de vacaciones y descuenta del
-                      saldo.
+                      Marcá dos días en el calendario (desde → hasta) o cargá las fechas acá. Se
+                      guarda como novedad y descuenta del saldo.
                     </p>
                     <label>
                       Desde
@@ -439,6 +481,7 @@ const RecursosHumanosVacacionesPage = () => {
                         type="date"
                         value={periodoDesde}
                         disabled={busy}
+                        className="rrhh-vac-date"
                         onChange={(e) => {
                           const v = e.target.value
                           setPeriodoDesde(v)
@@ -453,9 +496,20 @@ const RecursosHumanosVacacionesPage = () => {
                         value={periodoHasta}
                         min={periodoDesde || undefined}
                         disabled={busy}
+                        className="rrhh-vac-date"
                         onChange={(e) => setPeriodoHasta(e.target.value)}
                       />
                     </label>
+                    {(periodoDesde || periodoHasta) && (
+                      <button
+                        type="button"
+                        className="rrhh-vac-btn ghost"
+                        disabled={busy}
+                        onClick={resetPeriodoForm}
+                      >
+                        Limpiar fechas
+                      </button>
+                    )}
                     <label>
                       Nota (opcional)
                       <input

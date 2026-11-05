@@ -327,8 +327,9 @@ function SceneSupervision09() {
 function SceneLegajo10() {
   const tabs = [
     { id: 'legajo', label: '📋 Legajo' },
-    { id: 'movimientos', label: '📈 Actividad operativa' },
-    { id: 'actividades_plot', label: '📝 Actividades Plot' }
+    { id: 'hoja_vida', label: '📅 Hoja de vida' },
+    { id: 'resumen', label: '📊 Resumen' },
+    { id: 'desarrollo', label: '🎓 Desarrollo' }
   ]
 
   return (
@@ -347,14 +348,15 @@ function SceneLegajo10() {
                 <button
                   key={t.id}
                   type="button"
-                  className={`ver-legajo-tab ${t.id === 'actividades_plot' ? 'active' : ''}`}
+                  className={`ver-legajo-tab ${t.id === 'resumen' ? 'active' : ''}`}
                 >
                   {t.label}
                 </button>
               ))}
             </div>
             <div className="ver-legajo-tab-content">
-              <h3 className="ver-legajo-section-title">📝 Actividades Plot Lab</h3>
+              <h3 className="ver-legajo-section-title">📊 Resumen del colaborador</h3>
+              <h4 className="ver-legajo-subtitle">Actividades Plot Lab</h4>
               <div className="legajo-act-plot">
                 <div className="legajo-act-plot__head">
                   <p>Registro automático desde el anotador de operarios (bitácora, checklist, anotador).</p>

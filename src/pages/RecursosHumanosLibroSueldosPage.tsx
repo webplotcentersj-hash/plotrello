@@ -137,12 +137,26 @@ const RecursosHumanosLibroSueldosPage = () => {
           const prev = prevBy.get(r.id_usuario)
           const ficha = fichaBy.get(r.id_usuario)
           const nombre = apellidoNombre(r.apellido, r.nombre)
-          const fechaIngreso =
-            prev?.fecha_ingreso || legRes.data?.[r.id_usuario]?.fecha_ingreso || null
+          const leg = legRes.data?.[r.id_usuario]
+          const fechaIngreso = prev?.fecha_ingreso || leg?.fecha_ingreso || null
           const anios = aniosAntiguedadAlPeriodo(fechaIngreso, periodo)
           const meses = antiguedadMesesAlPeriodo(fechaIngreso, periodo)
-          const categoria = prev?.categoria || ficha?.categoria || puestos.get(r.id_puesto || 0) || r.sector || ''
-          const medio = /medio/i.test(ficha?.etiqueta_basico || prev?.etiqueta_basico || '')
+          const categoria =
+            prev?.categoria ||
+            ficha?.categoria ||
+            leg?.categoria ||
+            leg?.puesto ||
+            puestos.get(r.id_puesto || 0) ||
+            r.sector ||
+            ''
+          const tipoServ =
+            leg?.tipo_servicio || ficha?.etiqueta_basico || prev?.etiqueta_basico || ''
+          const medio = /medio/i.test(tipoServ)
+          const cctCodigo =
+            prev?.cct_codigo ||
+            ficha?.cct_codigo ||
+            leg?.convenio_cct ||
+            (/admin/i.test(categoria) ? '9999/99' : '0409/05')
           return {
             id: prev?.id,
             id_libro: libroId,
@@ -151,14 +165,10 @@ const RecursosHumanosLibroSueldosPage = () => {
             n_legajo:
               prev?.n_legajo ||
               ficha?.n_legajo ||
-              legRes.data?.[r.id_usuario]?.n_legajo ||
+              leg?.n_legajo ||
               idx + 1,
             apellido_nombre: prev?.apellido_nombre || nombre,
-            cuil:
-              prev?.cuil ||
-              ficha?.cuil ||
-              legRes.data?.[r.id_usuario]?.cuil ||
-              '',
+            cuil: prev?.cuil || ficha?.cuil || leg?.cuil || '',
             categoria,
             fecha_ingreso: fechaIngreso,
             antiguedad_reconocida: mesesReconocidosEfectivos({
@@ -169,34 +179,35 @@ const RecursosHumanosLibroSueldosPage = () => {
             }),
             anios_antiguedad: prev?.anios_antiguedad ?? anios,
             dias: prev?.dias || 30,
-            etiqueta_basico: prev?.etiqueta_basico || ficha?.etiqueta_basico || (medio ? 'Sueldo básico medio día' : 'Sueldo básico'),
-            sueldo_basico: prev?.sueldo_basico ?? ficha?.sueldo_basico ?? 0,
+            etiqueta_basico:
+              prev?.etiqueta_basico ||
+              ficha?.etiqueta_basico ||
+              (medio ? 'Sueldo básico medio día' : 'Sueldo básico'),
+            sueldo_basico:
+              prev?.sueldo_basico ??
+              ficha?.sueldo_basico ??
+              (leg?.retribucion_pactada != null && Number.isFinite(Number(leg.retribucion_pactada))
+                ? Number(leg.retribucion_pactada)
+                : 0),
             adicional_antiguedad: prev?.adicional_antiguedad ?? ficha?.adicional_antiguedad ?? 0,
             scvo: prev?.scvo ?? ficha?.scvo ?? scvoDefault,
-            banco:
-              prev?.banco ??
-              ficha?.banco ??
-              legRes.data?.[r.id_usuario]?.banco ??
-              null,
-            cbu:
-              prev?.cbu ??
-              ficha?.cbu ??
-              legRes.data?.[r.id_usuario]?.cbu ??
-              null,
+            banco: prev?.banco ?? ficha?.banco ?? leg?.banco ?? null,
+            cbu: prev?.cbu ?? ficha?.cbu ?? leg?.cbu ?? null,
             forma_pago: prev?.forma_pago || ficha?.forma_pago || '1',
             conyuge: prev?.conyuge ?? ficha?.conyuge ?? false,
             hijos: prev?.hijos ?? ficha?.hijos ?? 0,
-            cct: prev?.cct ?? ficha?.cct ?? cctEnConvenio(prev?.cct_codigo || ficha?.cct_codigo || '0409/05'),
-            cct_codigo:
-              prev?.cct_codigo ||
-              ficha?.cct_codigo ||
-              (/admin/i.test(categoria) ? '9999/99' : '0409/05'),
+            cct: prev?.cct ?? ficha?.cct ?? cctEnConvenio(cctCodigo),
+            cct_codigo: cctCodigo,
             cobertura_scvo: prev?.cobertura_scvo ?? ficha?.cobertura_scvo ?? true,
             situacion_revista: prev?.situacion_revista || ficha?.situacion_revista || '01',
             condicion: prev?.condicion || ficha?.condicion || '01',
             actividad: prev?.actividad ?? ficha?.actividad ?? null,
-            modalidad: prev?.modalidad || ficha?.modalidad || (medio ? '008' : '001'),
-            codigo_os: prev?.codigo_os ?? ficha?.codigo_os ?? null,
+            modalidad:
+              prev?.modalidad ||
+              ficha?.modalidad ||
+              leg?.modalidad_contrato ||
+              (medio ? '008' : '001'),
+            codigo_os: prev?.codigo_os ?? ficha?.codigo_os ?? leg?.codigo_os ?? null,
             horas_trabajadas: prev?.horas_trabajadas || 0,
             extras: prev?.extras ? prev.extras.map((x) => ({ ...x })) : []
           } satisfies ItemDraft

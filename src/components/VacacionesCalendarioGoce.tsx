@@ -11,6 +11,7 @@ import {
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
+  diasEntreInclusive,
   mesesCalendarioGoce,
   periodoGoceVacaciones,
   type VacacionesPeriodoCalendario
@@ -45,14 +46,20 @@ type Props = {
   anioLiquidado: number
   periodos: VacacionesPeriodoCalendario[]
   filtroUsuarioId?: number | null
+  /** Rango elegido para cargar período (desde / hasta). */
+  rangoSeleccionado?: { desde: string; hasta: string | null } | null
   onSelectUsuario?: (idUsuario: number) => void
+  /** Click en un día de la temporada: permite armar desde/hasta. */
+  onPickDia?: (iso: string) => void
 }
 
 const VacacionesCalendarioGoce = ({
   anioLiquidado,
   periodos,
   filtroUsuarioId = null,
-  onSelectUsuario
+  rangoSeleccionado = null,
+  onSelectUsuario,
+  onPickDia
 }: Props) => {
   const goce = periodoGoceVacaciones(anioLiquidado)
   const meses = mesesCalendarioGoce(anioLiquidado)
@@ -94,6 +101,31 @@ const VacacionesCalendarioGoce = ({
 
   const delDiaFocus = diaFocus ? porDia.get(diaFocus) ?? [] : []
 
+  const enRangoPick = (iso: string) => {
+    if (!rangoSeleccionado?.desde) return false
+    const hasta = rangoSeleccionado.hasta || rangoSeleccionado.desde
+    const a = rangoSeleccionado.desde <= hasta ? rangoSeleccionado.desde : hasta
+    const b = rangoSeleccionado.desde <= hasta ? hasta : rangoSeleccionado.desde
+    return iso >= a && iso <= b
+  }
+
+  const diasRango =
+    rangoSeleccionado?.desde && rangoSeleccionado.hasta
+      ? diasEntreInclusive(rangoSeleccionado.desde, rangoSeleccionado.hasta)
+      : rangoSeleccionado?.desde
+        ? 1
+        : 0
+
+  const handleDayClick = (iso: string, enVentana: boolean) => {
+    if (!enVentana) return
+    if (filtroUsuarioId != null && onPickDia) {
+      onPickDia(iso)
+      setDiaFocus(iso)
+      return
+    }
+    setDiaFocus((prev) => (prev === iso ? null : iso))
+  }
+
   return (
     <section className="vac-goce" aria-label="Calendario de goce de vacaciones">
       <div className="vac-goce-hero">
@@ -105,8 +137,28 @@ const VacacionesCalendarioGoce = ({
             Abril {anioLiquidado + 1}
           </h2>
           <p>
-            Períodos tomados en la ventana habitual de vacaciones (desde diciembre en adelante).
-            {filtroUsuarioId != null ? ' Mostrando solo el colaborador seleccionado.' : ' Vista de todo el equipo.'}
+            {filtroUsuarioId != null ? (
+              <>
+                Seleccioná en el calendario el <strong>desde</strong> y el <strong>hasta</strong> del
+                período (dos clics). El rango queda listo en el panel del empleado.
+                {rangoSeleccionado?.desde ? (
+                  <>
+                    {' '}
+                    Actual:{' '}
+                    <strong>
+                      {rangoSeleccionado.desde}
+                      {rangoSeleccionado.hasta ? ` → ${rangoSeleccionado.hasta}` : ' (elegí hasta)'}
+                    </strong>
+                    {diasRango > 0 ? ` · ${diasRango} d` : ''}
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <>
+                Períodos tomados en la ventana habitual de vacaciones. Elegí un empleado en la tabla
+                o leyenda para marcar fechas en el calendario.
+              </>
+            )}
           </p>
         </div>
         <div className="vac-goce-hero-stats">
@@ -145,7 +197,11 @@ const VacacionesCalendarioGoce = ({
           ) : null}
         </div>
       ) : (
-        <p className="vac-goce-empty">Todavía no hay vacaciones cargadas en esta temporada de goce.</p>
+        <p className="vac-goce-empty">
+          {filtroUsuarioId != null
+            ? 'Este colaborador aún no tiene vacaciones en la temporada. Marcá el período en el calendario.'
+            : 'Todavía no hay vacaciones cargadas en esta temporada de goce.'}
+        </p>
       )}
 
       <div className="vac-goce-months">
@@ -154,7 +210,6 @@ const VacacionesCalendarioGoce = ({
           const start = startOfMonth(monthDate)
           const end = endOfMonth(monthDate)
           const days = eachDayOfInterval({ start, end })
-          // Lunes = 0 en nuestra grilla
           const pad = (getDay(start) + 6) % 7
 
           return (
@@ -180,6 +235,9 @@ const VacacionesCalendarioGoce = ({
                   const items = porDia.get(iso) ?? []
                   const has = items.length > 0
                   const isFocus = diaFocus === iso
+                  const isPick = enRangoPick(iso)
+                  const isPickEdge =
+                    rangoSeleccionado?.desde === iso || rangoSeleccionado?.hasta === iso
                   const uniqueUsers = [...new Map(items.map((x) => [x.idUsuario, x])).values()]
 
                   return (
@@ -191,16 +249,20 @@ const VacacionesCalendarioGoce = ({
                         'vac-goce-cell',
                         has ? 'vac-goce-cell--has' : '',
                         isFocus ? 'vac-goce-cell--focus' : '',
+                        isPick ? 'vac-goce-cell--pick' : '',
+                        isPickEdge ? 'vac-goce-cell--pick-edge' : '',
                         !enVentana ? 'vac-goce-cell--out' : '',
                         isSameDay(day, new Date()) ? 'vac-goce-cell--today' : ''
                       ]
                         .filter(Boolean)
                         .join(' ')}
-                      onClick={() => setDiaFocus((prev) => (prev === iso ? null : iso))}
+                      onClick={() => handleDayClick(iso, enVentana)}
                       title={
-                        has
-                          ? items.map((x) => x.nombre).join(', ')
-                          : format(day, "d 'de' MMMM", { locale: es })
+                        filtroUsuarioId != null
+                          ? `Elegir ${format(day, "d 'de' MMMM", { locale: es })}`
+                          : has
+                            ? items.map((x) => x.nombre).join(', ')
+                            : format(day, "d 'de' MMMM", { locale: es })
                       }
                     >
                       <span className="vac-goce-daynum">{format(day, 'd')}</span>
@@ -238,12 +300,10 @@ const VacacionesCalendarioGoce = ({
         })}
       </div>
 
-      {diaFocus ? (
+      {diaFocus && filtroUsuarioId == null ? (
         <div className="vac-goce-daypanel">
           <div className="vac-goce-daypanel-head">
-            <h3>
-              {format(parseISO(diaFocus), "EEEE d 'de' MMMM yyyy", { locale: es })}
-            </h3>
+            <h3>{format(parseISO(diaFocus), "EEEE d 'de' MMMM yyyy", { locale: es })}</h3>
             <button type="button" className="vac-goce-daypanel-close" onClick={() => setDiaFocus(null)}>
               Cerrar
             </button>

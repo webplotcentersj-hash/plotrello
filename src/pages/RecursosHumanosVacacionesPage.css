@@ -255,6 +255,12 @@
   color: inherit;
 }
 
+.rrhh-vac-date {
+  color-scheme: dark;
+  min-height: 38px;
+  cursor: pointer;
+}
+
 .rrhh-vac-periodo-dias {
   margin: 0;
   font-size: 0.85rem;

@@ -233,12 +233,6 @@
   color: #fff;
 }
 
-.library-button-container .brand-button--sprint {
-  background: linear-gradient(145deg, rgba(251, 146, 60, 0.28), rgba(234, 88, 12, 0.16));
-  color: #ffedd5;
-  border: 1px solid rgba(251, 146, 60, 0.4);
-}
-
 .library-button-container .library-button {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.9);

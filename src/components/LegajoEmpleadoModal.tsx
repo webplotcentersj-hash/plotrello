@@ -1,9 +1,34 @@
 import { useState, useEffect, useRef } from 'react'
 import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import apiService from '../services/api'
-import type { LegajoEmpleado, UsuarioRecord } from '../types/api'
+import { rrhhPuestosListar } from '../services/rrhhExtendidoService'
+import type {
+  LegajoConyugeDetalle,
+  LegajoEmpleado,
+  LegajoPersonaACargo,
+  RrhhPuesto,
+  UsuarioRecord
+} from '../types/api'
+import { CCTS_PLOT, cctEnConvenio } from '../utils/rrhhLibroSueldos'
 import { isoToArgentinaDateKey } from '../utils/dateUtils'
 import './LegajoEmpleadoModal.css'
+
+const TIPOS_SERVICIO = [
+  'Jornada completa',
+  'Medio día',
+  'Por hora',
+  'Por tarea',
+  'Otro'
+] as const
+
+const MODOS_LIQUIDACION = ['Mensual', 'Quincenal', 'Semanal', 'Diario'] as const
+
+const MODALIDADES_CONTRATO = [
+  { value: '001', label: '001 · Tiempo indeterminado' },
+  { value: '008', label: '008 · Tiempo parcial' },
+  { value: '102', label: '102 · Contrato a plazo fijo' },
+  { value: '999', label: '999 · Otra' }
+] as const
 
 type LegajoEmpleadoModalProps = {
   usuario: UsuarioRecord
@@ -20,11 +45,17 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
     id_usuario: usuario.id
   })
   const [fotoPreview, setFotoPreview] = useState<string | null>(null)
+  const [puestos, setPuestos] = useState<RrhhPuesto[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isOpen && usuario.id) {
       loadLegajo()
+      void rrhhPuestosListar().then((res) => {
+        if (res.success && res.data) {
+          setPuestos(res.data.filter((p) => p.activo !== false))
+        }
+      })
     }
   }, [isOpen, usuario.id])
 
@@ -34,6 +65,16 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
       const response = await apiService.getLegajoEmpleado(usuario.id)
       if (response.success && response.data) {
         const d = response.data
+        let personas = Array.isArray(d.personas_a_cargo) ? [...d.personas_a_cargo] : []
+        // Migración suave: si había solo el contador hijos, armar filas vacías para completar.
+        if (personas.length === 0 && d.hijos != null && d.hijos > 0) {
+          personas = Array.from({ length: Math.min(d.hijos, 20) }, (_, i) => ({
+            id: `p-seed-${i}`,
+            nombre: '',
+            apellido: '',
+            fecha_nacimiento: null
+          }))
+        }
         setLegajo({
           ...d,
           fecha_ingreso: d.fecha_ingreso
@@ -41,7 +82,12 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
             : d.fecha_ingreso,
           fecha_nacimiento: d.fecha_nacimiento
             ? isoToArgentinaDateKey(String(d.fecha_nacimiento)) || d.fecha_nacimiento
-            : d.fecha_nacimiento
+            : d.fecha_nacimiento,
+          conyuge_detalle: d.conyuge
+            ? d.conyuge_detalle || { nombre: '', apellido: '', edad: null }
+            : null,
+          personas_a_cargo: personas,
+          hijos: personas.length
         })
         if (d.foto_url) {
           setFotoPreview(d.foto_url)
@@ -191,10 +237,40 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
         banco: legajo.banco || null,
         cbu: legajo.cbu || null,
         conyuge: !!legajo.conyuge,
-        hijos:
-          legajo.hijos != null && Number.isFinite(Number(legajo.hijos)) && Number(legajo.hijos) > 0
-            ? Math.floor(Number(legajo.hijos))
-            : 0,
+        conyuge_detalle: legajo.conyuge
+          ? {
+              nombre: String(legajo.conyuge_detalle?.nombre || '').trim(),
+              apellido: String(legajo.conyuge_detalle?.apellido || '').trim(),
+              edad:
+                legajo.conyuge_detalle?.edad != null &&
+                Number.isFinite(Number(legajo.conyuge_detalle.edad))
+                  ? Math.floor(Number(legajo.conyuge_detalle.edad))
+                  : null
+            }
+          : null,
+        personas_a_cargo: (legajo.personas_a_cargo || []).map((p) => ({
+          id: p.id || `p-${Math.random().toString(36).slice(2, 9)}`,
+          nombre: String(p.nombre || '').trim(),
+          apellido: String(p.apellido || '').trim(),
+          fecha_nacimiento: p.fecha_nacimiento || null
+        })),
+        hijos: (legajo.personas_a_cargo || []).length,
+        obra_social: legajo.obra_social || null,
+        codigo_os: legajo.codigo_os || null,
+        tipo_servicio: legajo.tipo_servicio || null,
+        categoria: legajo.categoria || null,
+        puesto: legajo.puesto || null,
+        id_puesto:
+          legajo.id_puesto != null && Number.isFinite(Number(legajo.id_puesto)) && Number(legajo.id_puesto) > 0
+            ? Math.floor(Number(legajo.id_puesto))
+            : null,
+        retribucion_pactada:
+          legajo.retribucion_pactada != null && Number.isFinite(Number(legajo.retribucion_pactada))
+            ? Number(legajo.retribucion_pactada)
+            : null,
+        modo_liquidacion: legajo.modo_liquidacion || null,
+        modalidad_contrato: legajo.modalidad_contrato || null,
+        convenio_cct: legajo.convenio_cct || null,
         direccion: legajo.direccion || null,
         email: legajo.email || null,
         estado_civil: legajo.estado_civil || null,
@@ -390,33 +466,173 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
                   <label className="legajo-label">Cónyuge a cargo</label>
                   <select
                     value={legajo.conyuge ? 'si' : 'no'}
-                    onChange={(e) => setLegajo({ ...legajo, conyuge: e.target.value === 'si' })}
+                    onChange={(e) => {
+                      const si = e.target.value === 'si'
+                      setLegajo({
+                        ...legajo,
+                        conyuge: si,
+                        conyuge_detalle: si
+                          ? legajo.conyuge_detalle || { nombre: '', apellido: '', edad: null }
+                          : null
+                      })
+                    }}
                     className="legajo-input"
                   >
                     <option value="no">No</option>
                     <option value="si">Sí</option>
                   </select>
                 </div>
-                <div className="legajo-form-group">
-                  <label className="legajo-label">Personas a cargo</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={legajo.hijos != null && legajo.hijos >= 0 ? legajo.hijos : 0}
-                    onChange={(e) => {
-                      const raw = e.target.value.trim()
-                      const n = raw === '' ? 0 : Math.floor(Number(raw))
-                      setLegajo({
-                        ...legajo,
-                        hijos: Number.isFinite(n) && n > 0 ? n : 0
-                      })
-                    }}
-                    className="legajo-input"
-                    placeholder="0"
-                    inputMode="numeric"
-                    autoComplete="off"
-                  />
+                {legajo.conyuge ? (
+                  <>
+                    <div className="legajo-form-group">
+                      <label className="legajo-label">Cónyuge · Nombre</label>
+                      <input
+                        type="text"
+                        value={legajo.conyuge_detalle?.nombre || ''}
+                        onChange={(e) =>
+                          setLegajo({
+                            ...legajo,
+                            conyuge_detalle: {
+                              ...(legajo.conyuge_detalle || { apellido: '', edad: null }),
+                              nombre: e.target.value
+                            } as LegajoConyugeDetalle
+                          })
+                        }
+                        className="legajo-input"
+                        placeholder="Nombre"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="legajo-form-group">
+                      <label className="legajo-label">Cónyuge · Apellido</label>
+                      <input
+                        type="text"
+                        value={legajo.conyuge_detalle?.apellido || ''}
+                        onChange={(e) =>
+                          setLegajo({
+                            ...legajo,
+                            conyuge_detalle: {
+                              ...(legajo.conyuge_detalle || { nombre: '', edad: null }),
+                              apellido: e.target.value
+                            } as LegajoConyugeDetalle
+                          })
+                        }
+                        className="legajo-input"
+                        placeholder="Apellido"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="legajo-form-group">
+                      <label className="legajo-label">Cónyuge · Edad</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={120}
+                        step={1}
+                        value={
+                          legajo.conyuge_detalle?.edad != null &&
+                          Number.isFinite(Number(legajo.conyuge_detalle.edad))
+                            ? legajo.conyuge_detalle.edad
+                            : ''
+                        }
+                        onChange={(e) => {
+                          const raw = e.target.value.trim()
+                          setLegajo({
+                            ...legajo,
+                            conyuge_detalle: {
+                              ...(legajo.conyuge_detalle || { nombre: '', apellido: '' }),
+                              edad: raw === '' ? null : Math.floor(Number(raw)) || null
+                            } as LegajoConyugeDetalle
+                          })
+                        }}
+                        className="legajo-input"
+                        placeholder="Años"
+                        inputMode="numeric"
+                      />
+                    </div>
+                  </>
+                ) : null}
+                <div className="legajo-form-group legajo-form-group-full">
+                  <div className="legajo-familia-head">
+                    <label className="legajo-label">
+                      Personas a cargo ({(legajo.personas_a_cargo || []).length})
+                    </label>
+                    <button
+                      type="button"
+                      className="legajo-btn legajo-btn-secondary legajo-btn-sm"
+                      onClick={() => {
+                        const next: LegajoPersonaACargo = {
+                          id: `p-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                          nombre: '',
+                          apellido: '',
+                          fecha_nacimiento: null
+                        }
+                        const list = [...(legajo.personas_a_cargo || []), next]
+                        setLegajo({ ...legajo, personas_a_cargo: list, hijos: list.length })
+                      }}
+                    >
+                      + Agregar persona
+                    </button>
+                  </div>
+                  {(legajo.personas_a_cargo || []).length === 0 ? (
+                    <p className="legajo-hint">Sin personas a cargo cargadas.</p>
+                  ) : (
+                    <div className="legajo-familia-list">
+                      {(legajo.personas_a_cargo || []).map((p, idx) => (
+                        <div key={p.id} className="legajo-familia-row">
+                          <span className="legajo-familia-idx">#{idx + 1}</span>
+                          <input
+                            type="text"
+                            className="legajo-input"
+                            placeholder="Nombre"
+                            value={p.nombre}
+                            onChange={(e) => {
+                              const list = (legajo.personas_a_cargo || []).map((x) =>
+                                x.id === p.id ? { ...x, nombre: e.target.value } : x
+                              )
+                              setLegajo({ ...legajo, personas_a_cargo: list, hijos: list.length })
+                            }}
+                          />
+                          <input
+                            type="text"
+                            className="legajo-input"
+                            placeholder="Apellido"
+                            value={p.apellido}
+                            onChange={(e) => {
+                              const list = (legajo.personas_a_cargo || []).map((x) =>
+                                x.id === p.id ? { ...x, apellido: e.target.value } : x
+                              )
+                              setLegajo({ ...legajo, personas_a_cargo: list, hijos: list.length })
+                            }}
+                          />
+                          <input
+                            type="date"
+                            className="legajo-input"
+                            value={p.fecha_nacimiento || ''}
+                            onChange={(e) => {
+                              const list = (legajo.personas_a_cargo || []).map((x) =>
+                                x.id === p.id
+                                  ? { ...x, fecha_nacimiento: e.target.value || null }
+                                  : x
+                              )
+                              setLegajo({ ...legajo, personas_a_cargo: list, hijos: list.length })
+                            }}
+                            title="Fecha de nacimiento"
+                          />
+                          <button
+                            type="button"
+                            className="legajo-btn legajo-btn-danger legajo-btn-sm"
+                            onClick={() => {
+                              const list = (legajo.personas_a_cargo || []).filter((x) => x.id !== p.id)
+                              setLegajo({ ...legajo, personas_a_cargo: list, hijos: list.length })
+                            }}
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -491,6 +707,166 @@ const LegajoEmpleadoModal = ({ usuario, isOpen, onClose, onSave, onDarDeBaja }: 
                     className="legajo-input"
                     required
                   />
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Puesto</label>
+                  <select
+                    value={legajo.id_puesto != null && legajo.id_puesto > 0 ? String(legajo.id_puesto) : ''}
+                    onChange={(e) => {
+                      const id = e.target.value ? Number(e.target.value) : null
+                      const p = puestos.find((x) => x.id === id)
+                      setLegajo({
+                        ...legajo,
+                        id_puesto: id,
+                        puesto: p?.nombre || legajo.puesto || null,
+                        sector: legajo.sector || p?.sector || null
+                      })
+                    }}
+                    className="legajo-input"
+                  >
+                    <option value="">Seleccionar puesto…</option>
+                    {puestos.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}
+                        {p.sector ? ` · ${p.sector}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Puesto (texto)</label>
+                  <input
+                    type="text"
+                    value={legajo.puesto || ''}
+                    onChange={(e) => setLegajo({ ...legajo, puesto: e.target.value })}
+                    className="legajo-input"
+                    placeholder="Si no está en el listado"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Categoría</label>
+                  <input
+                    type="text"
+                    value={legajo.categoria || ''}
+                    onChange={(e) => setLegajo({ ...legajo, categoria: e.target.value })}
+                    className="legajo-input"
+                    placeholder="Ej. Administrativo 1°"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Tipo de servicio</label>
+                  <select
+                    value={legajo.tipo_servicio || ''}
+                    onChange={(e) => setLegajo({ ...legajo, tipo_servicio: e.target.value || null })}
+                    className="legajo-input"
+                  >
+                    <option value="">Seleccionar…</option>
+                    {TIPOS_SERVICIO.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Obra social</label>
+                  <input
+                    type="text"
+                    value={legajo.obra_social || ''}
+                    onChange={(e) => setLegajo({ ...legajo, obra_social: e.target.value })}
+                    className="legajo-input"
+                    placeholder="Nombre de la obra social"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Código OS (AFIP)</label>
+                  <input
+                    type="text"
+                    value={legajo.codigo_os || ''}
+                    onChange={(e) => setLegajo({ ...legajo, codigo_os: e.target.value })}
+                    className="legajo-input"
+                    placeholder="000000"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Retribución pactada</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={
+                      legajo.retribucion_pactada != null && Number.isFinite(Number(legajo.retribucion_pactada))
+                        ? legajo.retribucion_pactada
+                        : ''
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value.trim()
+                      setLegajo({
+                        ...legajo,
+                        retribucion_pactada: raw === '' ? null : Number(raw)
+                      })
+                    }}
+                    className="legajo-input"
+                    placeholder="0,00"
+                    inputMode="decimal"
+                  />
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Modo de liquidación</label>
+                  <select
+                    value={legajo.modo_liquidacion || ''}
+                    onChange={(e) => setLegajo({ ...legajo, modo_liquidacion: e.target.value || null })}
+                    className="legajo-input"
+                  >
+                    <option value="">Seleccionar…</option>
+                    {MODOS_LIQUIDACION.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Modalidad de contrato</label>
+                  <select
+                    value={legajo.modalidad_contrato || ''}
+                    onChange={(e) => setLegajo({ ...legajo, modalidad_contrato: e.target.value || null })}
+                    className="legajo-input"
+                  >
+                    <option value="">Seleccionar…</option>
+                    {MODALIDADES_CONTRATO.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="legajo-form-group">
+                  <label className="legajo-label">Convenio (CCT)</label>
+                  <input
+                    list="legajo-ccts"
+                    value={legajo.convenio_cct || ''}
+                    onChange={(e) => setLegajo({ ...legajo, convenio_cct: e.target.value || null })}
+                    className="legajo-input"
+                    placeholder="0409/05"
+                    autoComplete="off"
+                  />
+                  <datalist id="legajo-ccts">
+                    {CCTS_PLOT.map((c) => (
+                      <option key={c.codigo} value={c.codigo}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </datalist>
+                  {legajo.convenio_cct ? (
+                    <small className="legajo-hint">
+                      {cctEnConvenio(legajo.convenio_cct) ? 'En convenio' : 'Excluido de convenio'}
+                    </small>
+                  ) : null}
                 </div>
                 <div className="legajo-form-group legajo-form-group-full">
                   <label className="legajo-label">Funciones</label>

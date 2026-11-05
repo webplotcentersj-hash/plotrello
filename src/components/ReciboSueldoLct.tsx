@@ -33,59 +33,125 @@ const YELLOW_EMP = new Set([
 
 type Slice = { label: string; value: number; color: string }
 
+function polar(cx: number, cy: number, r: number, a: number) {
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }
+}
+
+/** Arco de donut (anillo) entre a1 y a2. */
+function donutSlicePath(
+  cx: number,
+  cy: number,
+  rOut: number,
+  rIn: number,
+  a1: number,
+  a2: number
+): string {
+  const large = a2 - a1 > Math.PI ? 1 : 0
+  const o1 = polar(cx, cy, rOut, a1)
+  const o2 = polar(cx, cy, rOut, a2)
+  const i2 = polar(cx, cy, rIn, a2)
+  const i1 = polar(cx, cy, rIn, a1)
+  return [
+    `M ${o1.x.toFixed(3)} ${o1.y.toFixed(3)}`,
+    `A ${rOut} ${rOut} 0 ${large} 1 ${o2.x.toFixed(3)} ${o2.y.toFixed(3)}`,
+    `L ${i2.x.toFixed(3)} ${i2.y.toFixed(3)}`,
+    `A ${rIn} ${rIn} 0 ${large} 0 ${i1.x.toFixed(3)} ${i1.y.toFixed(3)}`,
+    'Z'
+  ].join(' ')
+}
+
 const PieExcel = memo(function PieExcel({ slices, total }: { slices: Slice[]; total: number }) {
-  const cx = 110
-  const cy = 110
-  const r = 96
+  const size = 240
+  const cx = size / 2
+  const cy = size / 2
+  const rOut = 98
+  const rIn = 54
   let angle = -Math.PI / 2
   const paths: Array<{ d: string; color: string; key: string }> = []
-  const labels: Array<{ x: number; y: number; text: string; fill: string }> = []
+  const labels: Array<{ key: string; x: number; y: number; text: string; fill: string }> = []
 
-  for (const s of slices) {
-    const frac = total > 0 ? s.value / total : 0
-    if (frac <= 0) continue
+  const activos = slices.filter((s) => s.value > 0 && total > 0)
+  for (const s of activos) {
+    const frac = s.value / total
     const sweep = Math.min(frac, 1) * 2 * Math.PI
     const a1 = angle
     const a2 = angle + sweep
-    const large = sweep > Math.PI ? 1 : 0
-    const x1 = cx + r * Math.cos(a1)
-    const y1 = cy + r * Math.sin(a1)
-    const x2 = cx + r * Math.cos(a2)
-    const y2 = cy + r * Math.sin(a2)
     paths.push({
       key: s.label,
       color: s.color,
-      d: `M ${cx} ${cy} L ${x1.toFixed(3)} ${y1.toFixed(3)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(3)} ${y2.toFixed(3)} Z`
+      d: donutSlicePath(cx, cy, rOut, rIn, a1, a2)
     })
-    if (frac >= 0.02) {
+    if (frac >= 0.055) {
       const mid = a1 + sweep / 2
-      const lr = r * 0.62
+      const lr = (rOut + rIn) / 2
+      const p = polar(cx, cy, lr, mid)
       labels.push({
-        x: cx + lr * Math.cos(mid),
-        y: cy + lr * Math.sin(mid),
-        text: `${(frac * 100).toFixed(1).replace('.', ',')}%`,
-        fill: frac > 0.12 ? '#fff' : '#111'
+        key: s.label,
+        x: p.x,
+        y: p.y,
+        text: `${(frac * 100).toFixed(frac >= 0.1 ? 0 : 1).replace('.', ',')}%`,
+        fill: '#fff'
       })
     }
     angle = a2
   }
 
   return (
-    <svg className="recibo-lct-pie" viewBox="0 0 220 220" width="220" height="220" aria-label="Costo total empleador">
+    <svg
+      className="recibo-lct-pie"
+      viewBox={`0 0 ${size} ${size}`}
+      width={size}
+      height={size}
+      aria-label="Costo total empleador"
+    >
+      <circle cx={cx} cy={cy} r={rOut + 3} fill="#f1f5f9" />
       {paths.map((p) => (
-        <path key={p.key} d={p.d} fill={p.color} stroke="#fff" strokeWidth="1.2" />
+        <path
+          key={p.key}
+          d={p.d}
+          fill={p.color}
+          stroke="#fff"
+          strokeWidth="2.4"
+          strokeLinejoin="round"
+        />
       ))}
+      <circle cx={cx} cy={cy} r={rIn - 1} fill="#fff" stroke="#e2e8f0" strokeWidth="1" />
+      <text
+        x={cx}
+        y={cy - 10}
+        textAnchor="middle"
+        fontSize="9"
+        fontFamily="Calibri, Arial, sans-serif"
+        fontWeight="600"
+        fill="#64748b"
+        letterSpacing="0.04em"
+      >
+        COSTO TOTAL
+      </text>
+      <text
+        x={cx}
+        y={cy + 10}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize="13"
+        fontFamily="Calibri, Arial, sans-serif"
+        fontWeight="700"
+        fill="#0f172a"
+      >
+        {formatArs2(total)}
+      </text>
       {labels.map((l) => (
         <text
-          key={l.text + l.x}
+          key={l.key}
           x={l.x}
           y={l.y}
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize="12"
+          fontSize="11"
           fontFamily="Calibri, Arial, sans-serif"
           fontWeight="700"
           fill={l.fill}
+          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}
         >
           {l.text}
         </text>
@@ -100,13 +166,13 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
   const { item, empresa, composicion: c } = liq
   const costo = liq.costoEmpleador || 1
   const slices: Slice[] = [
-    { label: 'Sueldo Neto', value: liq.neto, color: '#2F5597' },
-    { label: 'Costo Sindical', value: round2(c.sindicalEmpleador + c.sindicalTrabajador), color: '#ED7D31' },
-    { label: 'Seguridad Social', value: round2(c.ssEmpleador + c.ssTrabajador), color: '#FFC000' },
-    { label: 'Obra Social', value: round2(c.osEmpleador + c.osTrabajador), color: '#70AD47' },
-    { label: 'Costo INSSJP', value: round2(c.inssjpEmpleador + c.inssjpTrabajador), color: '#C00000' },
-    { label: 'Costo ART', value: c.art || 0, color: '#5B9BD5' },
-    { label: 'Costo SCVO', value: c.scvo, color: '#833C0C' }
+    { label: 'Sueldo Neto', value: liq.neto, color: '#1d4ed8' },
+    { label: 'Costo Sindical', value: round2(c.sindicalEmpleador + c.sindicalTrabajador), color: '#ea580c' },
+    { label: 'Seguridad Social', value: round2(c.ssEmpleador + c.ssTrabajador), color: '#ca8a04' },
+    { label: 'Obra Social', value: round2(c.osEmpleador + c.osTrabajador), color: '#16a34a' },
+    { label: 'Costo INSSJP', value: round2(c.inssjpEmpleador + c.inssjpTrabajador), color: '#b91c1c' },
+    { label: 'Costo ART', value: c.art || 0, color: '#0284c7' },
+    { label: 'Costo SCVO', value: c.scvo, color: '#9a3412' }
   ]
 
   const empLineas = liq.lineasEmpleador.filter((l) => l.concepto !== 'scvo' || (l.montoEmpleador || 0) > 0)
@@ -456,12 +522,26 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
           <div className="hd-grey comp-title">Costo Total Empleador</div>
           <div className="pie-wrap">
             <ul className="pie-legend">
-              {slices.map((s) => (
-                <li key={s.label}>
-                  <span className="swatch" style={{ background: s.color }} />
-                  {s.label}
-                </li>
-              ))}
+              {slices
+                .filter((s) => s.value > 0)
+                .map((s) => {
+                  const pct = costo > 0 ? (s.value / costo) * 100 : 0
+                  return (
+                    <li key={s.label}>
+                      <span className="swatch" style={{ background: s.color }} />
+                      <span className="pie-legend-text">
+                        <strong>{s.label}</strong>
+                        <em>
+                          {formatArs2(s.value)}
+                          <span className="pie-legend-pct">
+                            {' '}
+                            · {pct.toFixed(pct >= 10 ? 0 : 1).replace('.', ',')}%
+                          </span>
+                        </em>
+                      </span>
+                    </li>
+                  )
+                })}
             </ul>
             <div className="pie-chart">
               <PieExcel slices={slices} total={costo} />

@@ -6,6 +6,7 @@ import {
   formatAnosEnEmpresa,
   fullYearsBetweenCalendar,
   getArgentinaDateString,
+  isoToArgentinaDateKey,
   legajoCalendarDateKey
 } from '../utils/dateUtils'
 import { fraseMotivacionalDelDia } from '../utils/fraseMotivacionalDia'
@@ -172,6 +173,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
   const [celebrateFotoBlocked, setCelebrateFotoBlocked] = useState(false)
   const [loading, setLoading] = useState(false)
   const [fotoZoom, setFotoZoom] = useState<{ src: string; label: string } | null>(null)
+  const [atendidosHoy, setAtendidosHoy] = useState({ presencial: 0, virtual: 0 })
 
   const resolvedId = resolveSessionUserId(userId)
 
@@ -187,6 +189,48 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [fotoZoom])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadAtendidos = async () => {
+      const hoy = getArgentinaDateString()
+      try {
+        const [ventasRes, atenRes] = await Promise.all([
+          apiService.obtenerVentas(undefined, hoy, hoy, 'todos'),
+          apiService.obtenerAtencionesMostrador(hoy, hoy)
+        ])
+        if (cancelled) return
+        const presencial = (ventasRes.success && ventasRes.data
+          ? ventasRes.data.filter((v) => {
+              if (v.estado_pago === 'Cancelado') return false
+              const key = isoToArgentinaDateKey(String(v.fecha_venta || ''))
+              return key === hoy
+            })
+          : []
+        ).length
+        const virtual = (atenRes.success && atenRes.data
+          ? atenRes.data.filter((a) => {
+              if (a.tipo !== 'virtual') return false
+              const key = isoToArgentinaDateKey(String(a.fecha_atencion || ''))
+              return key === hoy
+            })
+          : []
+        ).length
+        setAtendidosHoy({ presencial, virtual })
+      } catch {
+        if (!cancelled) setAtendidosHoy({ presencial: 0, virtual: 0 })
+      }
+    }
+    void loadAtendidos()
+    const onRefresh = () => void loadAtendidos()
+    window.addEventListener('venta-creada', onRefresh)
+    window.addEventListener('atencion-mostrador-creada', onRefresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener('venta-creada', onRefresh)
+      window.removeEventListener('atencion-mostrador-creada', onRefresh)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -414,6 +458,33 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                 ))}
               </ul>
             ) : null}
+          </div>
+          <div
+            className="header-spotlight-atendidos"
+            title="Presencial = ventas del día. Virtual = atenciones cargadas a mano en Mostrador."
+          >
+            <div className="header-spotlight-atendidos-head">
+              <span className="header-spotlight-atendidos-head-icon" aria-hidden>
+                👥
+              </span>
+              <span className="header-spotlight-atendidos-head-title">Personas atendidas hoy</span>
+            </div>
+            <div className="header-spotlight-atendidos-body">
+              <div className="header-spotlight-atendidos-guarismo" aria-label="Total atendidos hoy">
+                {atendidosHoy.presencial + atendidosHoy.virtual}
+              </div>
+              <div className="header-spotlight-atendidos-desglose">
+                <span>
+                  Presencial <strong>{atendidosHoy.presencial}</strong>
+                </span>
+                <span className="header-spotlight-atendidos-sep" aria-hidden>
+                  ·
+                </span>
+                <span>
+                  Virtual <strong>{atendidosHoy.virtual}</strong>
+                </span>
+              </div>
+            </div>
           </div>
         </div>
         <div className="header-spotlight-split-col header-spotlight-split-col--frase">

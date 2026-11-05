@@ -4255,10 +4255,35 @@ class ApiService {
         if (v instanceof Date) return v.toISOString().slice(0, 10)
         return String(v)
       }
+      let conyugeDetalle = row.conyuge_detalle as LegajoEmpleado['conyuge_detalle']
+      if (typeof conyugeDetalle === 'string') {
+        try {
+          conyugeDetalle = JSON.parse(conyugeDetalle)
+        } catch {
+          conyugeDetalle = null
+        }
+      }
+      let personas = row.personas_a_cargo as LegajoEmpleado['personas_a_cargo']
+      if (typeof personas === 'string') {
+        try {
+          personas = JSON.parse(personas)
+        } catch {
+          personas = []
+        }
+      }
+      if (!Array.isArray(personas)) personas = []
+      personas = personas.map((p, i) => ({
+        id: String((p as { id?: string })?.id || `p-${i}`),
+        nombre: String((p as { nombre?: string })?.nombre || ''),
+        apellido: String((p as { apellido?: string })?.apellido || ''),
+        fecha_nacimiento: toDateStr((p as { fecha_nacimiento?: unknown })?.fecha_nacimiento)
+      }))
       return {
         ...(row as unknown as LegajoEmpleado),
         fecha_ingreso: toDateStr(fi),
-        fecha_nacimiento: toDateStr(fn)
+        fecha_nacimiento: toDateStr(fn),
+        conyuge_detalle: conyugeDetalle && typeof conyugeDetalle === 'object' ? conyugeDetalle : null,
+        personas_a_cargo: personas
       }
     }
 
@@ -4342,7 +4367,42 @@ class ApiService {
         p_hijos:
           legajo.hijos != null && Number.isFinite(Number(legajo.hijos)) && Number(legajo.hijos) > 0
             ? Math.floor(Number(legajo.hijos))
-            : 0
+            : 0,
+        p_obra_social: legajo.obra_social || null,
+        p_codigo_os: legajo.codigo_os || null,
+        p_tipo_servicio: legajo.tipo_servicio || null,
+        p_categoria: legajo.categoria || null,
+        p_puesto: legajo.puesto || null,
+        p_id_puesto:
+          legajo.id_puesto != null && Number.isFinite(Number(legajo.id_puesto)) && Number(legajo.id_puesto) > 0
+            ? Math.floor(Number(legajo.id_puesto))
+            : null,
+        p_retribucion_pactada:
+          legajo.retribucion_pactada != null && Number.isFinite(Number(legajo.retribucion_pactada))
+            ? Number(legajo.retribucion_pactada)
+            : null,
+        p_modo_liquidacion: legajo.modo_liquidacion || null,
+        p_modalidad_contrato: legajo.modalidad_contrato || null,
+        p_convenio_cct: legajo.convenio_cct || null,
+        p_conyuge_detalle: legajo.conyuge
+          ? {
+              nombre: String(legajo.conyuge_detalle?.nombre || '').trim(),
+              apellido: String(legajo.conyuge_detalle?.apellido || '').trim(),
+              edad:
+                legajo.conyuge_detalle?.edad != null &&
+                Number.isFinite(Number(legajo.conyuge_detalle.edad))
+                  ? Math.floor(Number(legajo.conyuge_detalle.edad))
+                  : null
+            }
+          : null,
+        p_personas_a_cargo: Array.isArray(legajo.personas_a_cargo)
+          ? legajo.personas_a_cargo.map((p) => ({
+              id: p.id || `p-${Math.random().toString(36).slice(2, 9)}`,
+              nombre: String(p.nombre || '').trim(),
+              apellido: String(p.apellido || '').trim(),
+              fecha_nacimiento: p.fecha_nacimiento || null
+            }))
+          : []
       })
 
       if (error) {
@@ -11358,6 +11418,13 @@ class ApiService {
         if (!Number.isFinite(id) || id <= 0) {
           return { success: false, error: 'La atención se creó pero no se obtuvo un id válido' }
         }
+        try {
+          window.dispatchEvent(
+            new CustomEvent('atencion-mostrador-creada', { detail: { id, tipo: data.tipo } })
+          )
+        } catch {
+          /* ignore (SSR / tests) */
+        }
         return { success: true, data: id }
       } catch (error) {
         console.error('Error creando atención:', error)
@@ -18024,6 +18091,15 @@ class ApiService {
           n_legajo?: number | null
           banco?: string | null
           cbu?: string | null
+          obra_social?: string | null
+          codigo_os?: string | null
+          tipo_servicio?: string | null
+          categoria?: string | null
+          puesto?: string | null
+          retribucion_pactada?: number | null
+          modo_liquidacion?: string | null
+          modalidad_contrato?: string | null
+          convenio_cct?: string | null
         }
       >
     >
@@ -18038,7 +18114,7 @@ class ApiService {
       const { data, error } = await supabase
         .from('legajos_empleados')
         .select(
-          'id_usuario, nombre, apellido, sector, fecha_ingreso, email, dni, cuil, n_legajo, banco, cbu'
+          'id_usuario, nombre, apellido, sector, fecha_ingreso, email, dni, cuil, n_legajo, banco, cbu, obra_social, codigo_os, tipo_servicio, categoria, puesto, retribucion_pactada, modo_liquidacion, modalidad_contrato, convenio_cct'
         )
 
       if (error) {
@@ -18057,6 +18133,15 @@ class ApiService {
         n_legajo?: number | null
         banco?: string | null
         cbu?: string | null
+        obra_social?: string | null
+        codigo_os?: string | null
+        tipo_servicio?: string | null
+        categoria?: string | null
+        puesto?: string | null
+        retribucion_pactada?: number | null
+        modo_liquidacion?: string | null
+        modalidad_contrato?: string | null
+        convenio_cct?: string | null
       }>) || []
 
       if (soloActivos) {
@@ -18085,10 +18170,21 @@ class ApiService {
           n_legajo?: number | null
           banco?: string | null
           cbu?: string | null
+          obra_social?: string | null
+          codigo_os?: string | null
+          tipo_servicio?: string | null
+          categoria?: string | null
+          puesto?: string | null
+          retribucion_pactada?: number | null
+          modo_liquidacion?: string | null
+          modalidad_contrato?: string | null
+          convenio_cct?: string | null
         }
       > = {}
       for (const row of rows) {
         const nLeg = row.n_legajo != null ? Number(row.n_legajo) : null
+        const ret =
+          row.retribucion_pactada != null ? Number(row.retribucion_pactada) : null
         mapa[row.id_usuario] = {
           nombre: row.nombre || '',
           apellido: row.apellido || '',
@@ -18099,7 +18195,16 @@ class ApiService {
           cuil: row.cuil ?? null,
           n_legajo: nLeg != null && Number.isFinite(nLeg) && nLeg > 0 ? Math.floor(nLeg) : null,
           banco: row.banco ?? null,
-          cbu: row.cbu ?? null
+          cbu: row.cbu ?? null,
+          obra_social: row.obra_social ?? null,
+          codigo_os: row.codigo_os ?? null,
+          tipo_servicio: row.tipo_servicio ?? null,
+          categoria: row.categoria ?? null,
+          puesto: row.puesto ?? null,
+          retribucion_pactada: ret != null && Number.isFinite(ret) ? ret : null,
+          modo_liquidacion: row.modo_liquidacion ?? null,
+          modalidad_contrato: row.modalidad_contrato ?? null,
+          convenio_cct: row.convenio_cct ?? null
         }
       }
 
@@ -21281,7 +21386,12 @@ class ApiService {
    */
   async subirComprobantePagoVenta(
     idVenta: number,
-    file: File
+    file: File,
+    opts?: {
+      /** Lectura PlotAI ya hecha en el cliente (evita releer). */
+      ia?: import('../features/control-cajas/comprobanteMediosTypes').ComprobanteMedioParsed | null
+      texto?: string | null
+    }
   ): Promise<ApiResponse<{ url: string }>> {
     if (!supabase) {
       return { success: false, error: 'Supabase no inicializado' }
@@ -21343,12 +21453,18 @@ class ApiService {
         const { isComprobanteAiAvailable } = await import(
           '../features/control-cajas/parseComprobanteImagenGemini'
         )
-        if (isComprobanteAiAvailable()) {
-          const { parsed, texto } = await extraerComprobantePagoDesdeArchivo(file)
+        let parsed = opts?.ia ?? null
+        let texto = opts?.texto?.trim() || ''
+        if (!parsed && isComprobanteAiAvailable()) {
+          const r = await extraerComprobantePagoDesdeArchivo(file)
+          parsed = r.parsed
+          texto = r.texto
+        }
+        if (parsed) {
           await this.rpcVentasUpsert({
             id: idVenta,
             comprobante_pago_ia: parsed as unknown as Record<string, unknown>,
-            comprobante_pago_texto: texto,
+            comprobante_pago_texto: texto || undefined,
             updated_at: new Date().toISOString()
           })
         }

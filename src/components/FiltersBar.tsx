@@ -26,7 +26,6 @@ type FiltersBarProps = {
   onMisTrabajosChange?: (value: boolean) => void
   onOpenLibrary?: () => void
   onAddNewOrder?: () => void
-  onOptimizeSprint?: () => void
   /** Placeholder del buscador (ej. asesor-presupuestos: fichas FICHA-*, no OP de taller) */
   searchPlaceholder?: string
   /** Teléfono: solo buscador + alta ficha; sin chips ni prioridad. */
@@ -58,7 +57,6 @@ const FiltersBar = ({
   onMisTrabajosChange,
   onOpenLibrary,
   onAddNewOrder,
-  onOptimizeSprint,
   searchPlaceholder = 'Buscar: OP, cliente, descripción, etiquetas, contacto, materiales…',
   compactPhone = false
 }: FiltersBarProps) => {
@@ -350,19 +348,6 @@ const FiltersBar = ({
                   </span>
                   Bibliotecas
                   <Atajo teclas="b" />
-                </button>
-              )}
-              {onOptimizeSprint && (
-                <button
-                  type="button"
-                  className="brand-button brand-button--sprint"
-                  onClick={onOptimizeSprint}
-                  title="Optimizar Sprint"
-                >
-                  <span className="btn-ico" aria-hidden>
-                    ⚡
-                  </span>
-                  Sprint
                 </button>
               )}
               {(isAdmin || isDiseno) && (

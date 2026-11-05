@@ -36,6 +36,10 @@
   flex-direction: column;
 }
 
+.header-spotlight-split-col--rrhh {
+  gap: 12px;
+}
+
 .header-spotlight-split-col--rrhh .header-spotlight-comunicados,
 .header-spotlight-split-col--frase .header-spotlight-frase {
   flex: 1 1 auto;
@@ -45,6 +49,15 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+}
+
+.header-spotlight-split-col--rrhh .header-spotlight-comunicados {
+  height: auto;
+  flex: 1 1 auto;
+}
+
+.header-spotlight-split-col--rrhh .header-spotlight-atendidos {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 980px) {
@@ -462,6 +475,87 @@
 
 .header-spotlight-comunicados-list > li:first-child .header-spotlight-comunicado-item {
   min-height: 148px;
+}
+
+/* ——— Personas atendidas hoy ——— */
+.header-spotlight-atendidos {
+  padding-top: 10px;
+  border-top: 1px solid rgba(129, 140, 248, 0.18);
+}
+
+.header-spotlight-atendidos-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-height: 1.5rem;
+}
+
+.header-stat-card.header-stat-card--spotlight .header-spotlight-atendidos-head span {
+  display: inline-block;
+  margin-bottom: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.header-spotlight-atendidos-head-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.4));
+}
+
+.header-spotlight-atendidos-head-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #6ee7b7 0%, #a5b4fc 55%, #93c5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.header-spotlight-atendidos-body {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.header-spotlight-atendidos-guarismo {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #f8fafc;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.header-spotlight-atendidos-desglose {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.header-spotlight-atendidos-desglose strong {
+  color: #e2e8f0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.header-spotlight-atendidos-sep {
+  opacity: 0.55;
+}
+
+.header-spotlight-card--compact .header-spotlight-atendidos-guarismo {
+  font-size: 1.55rem;
+}
+
+.header-spotlight-card--compact .header-spotlight-atendidos-head-title {
+  font-size: 0.65rem;
 }
 
 .header-spotlight-comunicado-item {

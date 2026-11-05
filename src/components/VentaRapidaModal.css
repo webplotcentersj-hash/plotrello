@@ -492,6 +492,80 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
+.comprobante-plotai {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comprobante-plotai__loading {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #93c5fd;
+}
+
+.comprobante-plotai__error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #fca5a5;
+}
+
+.comprobante-plotai__badge {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.comprobante-plotai__badge-sub {
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.92;
+}
+
+.comprobante-plotai__badge--ok {
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  color: #a7f3d0;
+}
+
+.comprobante-plotai__badge--warn {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #fde68a;
+}
+
+.comprobante-plotai__badge--muted {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.comprobante-plotai__texto {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.comprobante-plotai__retry {
+  align-self: flex-start;
+  font-size: 0.82rem;
+}
+
 .comprobante-nombre {
   word-break: break-all;
   flex: 1;

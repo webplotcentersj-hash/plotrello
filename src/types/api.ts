@@ -375,6 +375,20 @@ export interface PruebaPreguntaInput {
   indice_correcto?: number | null
 }
 
+export type LegajoConyugeDetalle = {
+  nombre: string
+  apellido: string
+  /** Edad en años (opcional si se prefiere no calcular). */
+  edad?: number | null
+}
+
+export type LegajoPersonaACargo = {
+  id: string
+  nombre: string
+  apellido: string
+  fecha_nacimiento: string | null
+}
+
 export interface LegajoEmpleado {
   id?: number
   id_usuario: number
@@ -398,8 +412,30 @@ export interface LegajoEmpleado {
   cbu?: string | null
   /** Declara cónyuge a cargo (solo legajo; no alimenta el libro de sueldos). */
   conyuge?: boolean | null
+  /** Datos del cónyuge a cargo (nombre, apellido, edad). */
+  conyuge_detalle?: LegajoConyugeDetalle | null
   /** Personas a cargo (solo legajo; no alimenta el libro de sueldos). */
   hijos?: number | null
+  /** Detalle de cada persona a cargo (nombre, apellido, fecha de nacimiento). */
+  personas_a_cargo?: LegajoPersonaACargo[] | null
+  /** Nombre de obra social. */
+  obra_social?: string | null
+  /** Código OS AFIP; se usa en libro de sueldos / recibo. */
+  codigo_os?: string | null
+  /** Tipo de servicio / jornada. */
+  tipo_servicio?: string | null
+  /** Categoría laboral; se usa en libro de sueldos. */
+  categoria?: string | null
+  /** Puesto o cargo (texto). */
+  puesto?: string | null
+  /** Retribución pactada; referencia de sueldo básico en libro. */
+  retribucion_pactada?: number | null
+  /** Modo de liquidación (mensual, quincenal, etc.). */
+  modo_liquidacion?: string | null
+  /** Modalidad de contrato AFIP; se usa en libro de sueldos. */
+  modalidad_contrato?: string | null
+  /** Código CCT / convenio; se usa en libro de sueldos. */
+  convenio_cct?: string | null
   direccion?: string | null
   email?: string | null
   estado_civil?: string | null

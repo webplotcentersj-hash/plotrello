@@ -108,6 +108,56 @@
   color: var(--text-primary);
 }
 
+.legajo-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.legajo-familia-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.legajo-familia-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legajo-familia-row {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.legajo-familia-idx {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  min-width: 1.6rem;
+}
+
+.legajo-btn-sm {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .legajo-familia-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .legajo-familia-idx {
+    grid-column: 1 / -1;
+  }
+}
+
 .legajo-input,
 .legajo-textarea {
   padding: 12px;

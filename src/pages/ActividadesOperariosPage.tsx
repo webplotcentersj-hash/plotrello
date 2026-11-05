@@ -978,7 +978,7 @@ export default function ActividadesOperariosPage() {
           usuario={legajoUsuario}
           isOpen
           onClose={() => setLegajoUsuario(null)}
-          initialTab="actividades_plot"
+          initialTab="resumen"
         />
       ) : null}
     </div>
