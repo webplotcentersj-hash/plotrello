@@ -6,34 +6,37 @@
   justify-content: flex-start;
 }
 
-/* Tu día en Plot | Comunicados RRHH | Frase del día */
+/* 3 columnas iguales: Tu día | Comunicados (+atendidos) | Frase */
 .header-spotlight-split {
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
-  gap: 1rem 1.25rem;
+  gap: 0;
   width: 100%;
 }
 
-/* Plot: columna angosta; Comunicados + Frase: mismo ancho/altura */
-.header-spotlight-split-col--plot {
-  flex: 0 0 220px;
+.header-spotlight-split-col--plot,
+.header-spotlight-split-col--rrhh,
+.header-spotlight-split-col--frase {
   min-width: 0;
-  max-width: 260px;
+  max-width: none;
   display: flex;
   flex-direction: column;
+  padding: 0 1rem;
+}
+
+.header-spotlight-split-col--plot {
   gap: 6px;
+  padding-left: 0;
 }
 
 .header-spotlight-split-col--rrhh,
 .header-spotlight-split-col--frase {
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: none;
-  padding-left: 1rem;
   border-left: 1px solid rgba(129, 140, 248, 0.22);
-  display: flex;
-  flex-direction: column;
+}
+
+.header-spotlight-split-col--frase {
+  padding-right: 0;
 }
 
 .header-spotlight-split-col--rrhh {
@@ -60,31 +63,24 @@
   flex: 0 0 auto;
 }
 
-@media (max-width: 980px) {
-  .header-spotlight-split-col--frase {
-    flex: 1 1 0;
-    max-width: none;
-  }
-}
-
 @media (max-width: 720px) {
   .header-spotlight-split {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .header-spotlight-split-col--plot,
+  .header-spotlight-split-col--rrhh,
+  .header-spotlight-split-col--frase {
+    padding: 0.75rem 0 0;
+    border-left: none;
   }
 
   .header-spotlight-split-col--plot {
-    flex: 1 1 auto;
-    max-width: none;
-    flex-basis: auto;
+    padding-top: 0;
   }
 
   .header-spotlight-split-col--rrhh,
   .header-spotlight-split-col--frase {
-    flex: 1 1 auto;
-    max-width: none;
-    padding-left: 0;
-    padding-top: 0.75rem;
-    border-left: none;
     border-top: 1px solid rgba(129, 140, 248, 0.22);
   }
 }
@@ -498,7 +494,6 @@
 .header-stat-card.header-stat-card--spotlight .header-spotlight-atendidos span {
   display: inline-flex;
   margin-bottom: 0;
-  font-size: inherit;
   color: inherit;
 }
 
@@ -514,9 +509,11 @@
   color: #a7f3d0;
 }
 
+/* Guarismo grande (gana a .header-stat-card strong) */
+.header-stat-card.header-stat-card--spotlight .header-spotlight-atendidos-guarismo,
 .header-spotlight-atendidos-guarismo {
   flex: 0 0 auto;
-  font-size: 1.15rem;
+  font-size: 1.2rem !important;
   font-weight: 800;
   line-height: 1;
   color: #f8fafc;
@@ -540,18 +537,25 @@
 .header-spotlight-atendidos-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: 3px;
+  padding: 1px 7px;
   border-radius: 999px;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 600;
+  line-height: 1.2;
   color: #cbd5e1;
   white-space: nowrap;
   border: 1px solid transparent;
 }
 
+/* Desglose chico: no heredar el 1.8rem de .header-stat-card strong */
+.header-stat-card.header-stat-card--spotlight .header-spotlight-atendidos-chip,
+.header-stat-card.header-stat-card--spotlight .header-spotlight-atendidos-chip strong,
 .header-spotlight-atendidos-chip strong {
-  font-weight: 800;
+  font-size: 0.62rem !important;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0;
   font-variant-numeric: tabular-nums;
   color: #f8fafc;
 }
@@ -810,29 +814,22 @@
 }
 
 .header-spotlight-card--compact .header-spotlight-split {
-  flex-direction: column;
+  grid-template-columns: 1fr;
+}
+
+.header-spotlight-card--compact .header-spotlight-split-col--plot,
+.header-spotlight-card--compact .header-spotlight-split-col--rrhh,
+.header-spotlight-card--compact .header-spotlight-split-col--frase {
+  padding: 6px 0 0;
+  border-left: none;
 }
 
 .header-spotlight-card--compact .header-spotlight-split-col--plot {
-  flex: 1 1 auto;
-  flex-basis: auto;
-  max-width: none;
+  padding-top: 0;
 }
 
-.header-spotlight-card--compact .header-spotlight-split-col--rrhh {
-  flex: 1 1 auto;
-  padding-left: 0;
-  padding-top: 6px;
-  border-left: none;
-  border-top: 1px solid rgba(129, 140, 248, 0.2);
-}
-
+.header-spotlight-card--compact .header-spotlight-split-col--rrhh,
 .header-spotlight-card--compact .header-spotlight-split-col--frase {
-  flex: 1 1 auto;
-  max-width: none;
-  padding-left: 0;
-  padding-top: 6px;
-  border-left: none;
   border-top: 1px solid rgba(129, 140, 248, 0.2);
 }
 
@@ -922,12 +919,22 @@
 }
 
 .header-stats--single .header-spotlight-split {
-  gap: 0.5rem 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+}
+
+.header-stats--single .header-spotlight-split-col--plot,
+.header-stats--single .header-spotlight-split-col--rrhh,
+.header-stats--single .header-spotlight-split-col--frase {
+  padding: 0 0.75rem;
 }
 
 .header-stats--single .header-spotlight-split-col--plot {
-  flex-basis: 168px;
-  max-width: 190px;
+  padding-left: 0;
+}
+
+.header-stats--single .header-spotlight-split-col--frase {
+  padding-right: 0;
 }
 
 .header-stats--single .header-spotlight-kicker,
