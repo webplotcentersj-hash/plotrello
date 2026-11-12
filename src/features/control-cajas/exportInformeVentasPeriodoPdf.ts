@@ -215,12 +215,38 @@ export function downloadInformeVentasPeriodoPdf(informe: InformeVentasPeriodo): 
     )
   }
 
-  nombreTabla('Por medio de pago', informe.porMetodo)
-  nombreTabla('Por vendedor', informe.porVendedor)
-  nombreTabla('Por caja de cobro', informe.porCaja)
-  nombreTabla('Por estado', informe.porEstado)
-  nombreTabla('Top productos', informe.topProductos)
-  nombreTabla('Top clientes', informe.topClientes)
+  const rankingTabla = (
+    title: string,
+    filas: InformeVentasPeriodo['topClientes']
+  ) => {
+    if (!filas.length) return
+    y = drawTable(
+      doc,
+      y,
+      margin,
+      pageBottom,
+      [
+        { header: '#', width: 10 },
+        { header: 'Nombre', width: 58 },
+        { header: 'Monto', width: 28, align: 'right' },
+        { header: 'Cant.', width: 16, align: 'right' },
+        { header: 'Ticket', width: 26, align: 'right' },
+        { header: '%', width: 16, align: 'right' }
+      ],
+      filas.map((f, i) => [
+        String(i + 1),
+        f.nombre,
+        fmtArs(f.monto),
+        String(f.cantidad),
+        fmtArs(f.ticketPromedio),
+        `${f.pct}%`
+      ]),
+      { title }
+    )
+  }
+
+  rankingTabla('Top vendedores', informe.topVendedores)
+  rankingTabla('Top clientes', informe.topClientes)
 
   if (informe.topVentas.length) {
     y = drawTable(
@@ -229,24 +255,31 @@ export function downloadInformeVentasPeriodoPdf(informe: InformeVentasPeriodo): 
       margin,
       pageBottom,
       [
+        { header: '#', width: 10 },
         { header: 'N°', width: 22 },
         { header: 'Fecha', width: 18 },
-        { header: 'Cliente', width: 40 },
-        { header: 'Medio', width: 28 },
-        { header: 'Cobrado', width: 28, align: 'right' },
-        { header: 'Est.', width: 18 }
+        { header: 'Cliente', width: 36 },
+        { header: 'Vendedor', width: 28 },
+        { header: 'Cobrado', width: 26, align: 'right' },
+        { header: 'Est.', width: 14 }
       ],
-      informe.topVentas.map((v) => [
+      informe.topVentas.map((v, i) => [
+        String(i + 1),
         v.numero,
         fmtDateAr(v.fecha),
         v.cliente,
-        v.metodo,
+        v.vendedor,
         fmtArs(v.cobrado),
         v.estado
       ]),
-      { title: 'Mayores ventas del periodo' }
+      { title: 'Top ventas del periodo' }
     )
   }
+
+  nombreTabla('Por medio de pago', informe.porMetodo)
+  nombreTabla('Por caja de cobro', informe.porCaja)
+  nombreTabla('Por estado', informe.porEstado)
+  nombreTabla('Top productos', informe.topProductos)
 
   const slug =
     informe.modo === 'semana'

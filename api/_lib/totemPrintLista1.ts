@@ -349,3 +349,112 @@ export async function cotizarTotemImpresionLista1(
 
   return { ok: true, total, items }
 }
+
+export type TotemPrintUnitPrice = {
+  color: number | null
+  bw: number | null
+  /** Ilustración / adhesivo / especial: un solo precio (color === bw). */
+  unico: boolean
+}
+
+export type TotemPrintCatalogoPrecios = Record<
+  TotemPrintFormato,
+  Record<TotemPrintPapelId, TotemPrintUnitPrice>
+>
+
+const ALL_FORMATOS: TotemPrintFormato[] = ['A4', 'A3', 'A3E']
+const ALL_PAPELES: TotemPrintPapelId[] = [
+  'obra_80',
+  'obra_120',
+  'obra_180',
+  'obra_240',
+  'ilust_115',
+  'ilust_170',
+  'ilust_300',
+  'ilust_350',
+  'adh_ilust',
+  'adh_obra',
+  'esp_texturado',
+  'esp_metalizado',
+  'esp_perlado'
+]
+
+function pickFromRows(rows: ArticuloRow[], term: string): ArticuloRow | null {
+  const candidates = rows.filter((r) => resolveBruto(r) != null && !isPaqueteFijo(r.nombre || ''))
+  if (!candidates.length) return null
+  const scored = candidates
+    .map((r) => ({ r, s: scoreMatch(r.nombre || '', term) }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+  return scored[0]?.r || null
+}
+
+function unitFromRow(row: ArticuloRow | null, formato: TotemPrintFormato, ajustes: ConfigAjustes): number | null {
+  if (!row) return null
+  const bruto = resolveBruto(row)
+  if (bruto == null) return null
+  let unit = calcularFinalLista1(bruto, ajustes)
+  if (formato === 'A3E') unit = round2(unit * A3E_AREA_FACTOR)
+  return unit
+}
+
+/** Precios unitarios Lista 1 (1 cara) por formato × papel, para anotar opciones del tótem. */
+export async function catalogoPreciosUnitariosTotemLista1(
+  supabase: SupabaseClient
+): Promise<TotemPrintCatalogoPrecios> {
+  const ajustes = await getAjustes(supabase)
+
+  const { data } = await supabase
+    .from('articulos_empresa')
+    .select('codigo, nombre, precio_base, precio_lista_1')
+    .eq('activo', true)
+    .or(
+      'nombre.ilike.%impresiones%,nombre.ilike.%papel adhesivo%,nombre.ilike.%papel especial%'
+    )
+    .limit(500)
+
+  const rows = (data || []) as ArticuloRow[]
+
+  const find = (terms: string[]): ArticuloRow | null => {
+    for (const term of terms) {
+      const hit = pickFromRows(rows, term)
+      if (hit) return hit
+    }
+    return null
+  }
+
+  const empty: TotemPrintUnitPrice = { color: null, bw: null, unico: false }
+  const out = {
+    A4: {} as Record<TotemPrintPapelId, TotemPrintUnitPrice>,
+    A3: {} as Record<TotemPrintPapelId, TotemPrintUnitPrice>,
+    A3E: {} as Record<TotemPrintPapelId, TotemPrintUnitPrice>
+  }
+
+  for (const formato of ALL_FORMATOS) {
+    for (const papel of ALL_PAPELES) {
+      const unico = papelUsaPrecioUnico(papel)
+      if (unico) {
+        const row = find(searchTermsForPapel(formato, papel, 'color'))
+        const unit = unitFromRow(row, formato, ajustes)
+        out[formato][papel] = { color: unit, bw: unit, unico: true }
+      } else {
+        const colorRow = find(searchTermsForPapel(formato, papel, 'color'))
+        const bwRow = find(searchTermsForPapel(formato, papel, 'bw'))
+        out[formato][papel] = {
+          color: unitFromRow(colorRow, formato, ajustes),
+          bw: unitFromRow(bwRow, formato, ajustes),
+          unico: false
+        }
+      }
+    }
+  }
+
+  // Garantizar claves aunque no haya filas (defensivo).
+  for (const formato of ALL_FORMATOS) {
+    for (const papel of ALL_PAPELES) {
+      if (!out[formato][papel]) out[formato][papel] = { ...empty }
+    }
+  }
+
+  return out
+}

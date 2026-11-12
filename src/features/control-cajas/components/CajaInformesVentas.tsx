@@ -6,9 +6,13 @@ import { downloadInformeVentasPeriodoPdf } from '../exportInformeVentasPeriodoPd
 import { fmtArs, fmtDateAr } from '../format'
 import {
   construirInformeVentasPeriodo,
+  INFORME_TOP_CLIENTES,
+  INFORME_TOP_VENDEDORES,
+  INFORME_TOP_VENTAS,
   rangoInformeVentas,
   type InformeFilaNombre,
   type InformePeriodoModo,
+  type InformeVentaLinea,
   type InformeVentasPeriodo
 } from '../informeVentasPeriodo'
 import { yearMonthFromDate } from '../calendarioCajasData'
@@ -23,14 +27,23 @@ function pctLabel(pct: number | null): string {
   return `${sign}${pct.toFixed(1)}%`
 }
 
+function medal(rank: number): string {
+  if (rank === 1) return '🥇'
+  if (rank === 2) return '🥈'
+  if (rank === 3) return '🥉'
+  return `${rank}º`
+}
+
 function TablaNombre({
   titulo,
   filas,
-  empty
+  empty,
+  showTicket
 }: {
   titulo: string
   filas: InformeFilaNombre[]
   empty?: string
+  showTicket?: boolean
 }) {
   return (
     <div className="caja-cc-card caja-cc-informe-block">
@@ -42,19 +55,23 @@ function TablaNombre({
           <table className="caja-cc-table">
             <thead>
               <tr>
+                <th className="num">#</th>
                 <th>Nombre</th>
                 <th className="num">Monto</th>
                 <th className="num">Cant.</th>
+                {showTicket ? <th className="num">Ticket</th> : null}
                 <th className="num">%</th>
                 <th aria-hidden className="caja-cc-informe-bar-col" />
               </tr>
             </thead>
             <tbody>
-              {filas.map((f) => (
-                <tr key={f.nombre}>
+              {filas.map((f, i) => (
+                <tr key={f.nombre} className={i < 3 ? 'caja-cc-informe-top-row' : undefined}>
+                  <td className="num caja-cc-informe-rank">{medal(i + 1)}</td>
                   <td>{f.nombre}</td>
                   <td className="num">{money(f.monto)}</td>
                   <td className="num">{f.cantidad}</td>
+                  {showTicket ? <td className="num">{money(f.ticketPromedio)}</td> : null}
                   <td className="num">{f.pct.toFixed(1)}%</td>
                   <td className="caja-cc-informe-bar-col">
                     <span
@@ -70,6 +87,119 @@ function TablaNombre({
         </div>
       )}
     </div>
+  )
+}
+
+function PodioTops({
+  ventas,
+  clientes,
+  vendedores
+}: {
+  ventas: InformeVentaLinea[]
+  clientes: InformeFilaNombre[]
+  vendedores: InformeFilaNombre[]
+}) {
+  const topV = ventas.slice(0, 3)
+  const topC = clientes.slice(0, 3)
+  const topS = vendedores.slice(0, 3)
+
+  return (
+    <section className="caja-cc-informe-tops" aria-label="Rankings del periodo">
+      <div className="caja-cc-informe-tops-head">
+        <h3>Tops del periodo</h3>
+        <p className="caja-cc-help">
+          Ranking por cobrado · Top {INFORME_TOP_VENTAS} ventas · {INFORME_TOP_CLIENTES} clientes ·{' '}
+          {INFORME_TOP_VENDEDORES} vendedores
+        </p>
+      </div>
+      <div className="caja-cc-informe-tops-grid">
+        <article className="caja-cc-card caja-cc-informe-podio">
+          <header>
+            <h4>Top ventas</h4>
+            <span>Mayores tickets cobrados</span>
+          </header>
+          {topV.length === 0 ? (
+            <p className="caja-cc-muted">Sin ventas cobradas.</p>
+          ) : (
+            <ol className="caja-cc-informe-podio-list">
+              {topV.map((v, i) => (
+                <li key={v.id}>
+                  <span className="caja-cc-informe-podio-medal" aria-hidden>
+                    {medal(i + 1)}
+                  </span>
+                  <div className="caja-cc-informe-podio-body">
+                    <strong>{v.numero}</strong>
+                    <span>
+                      {v.cliente} · {fmtDateAr(v.fecha)}
+                    </span>
+                    <span className="caja-cc-informe-podio-meta">
+                      {v.vendedor} · {v.metodo}
+                    </span>
+                  </div>
+                  <strong className="caja-cc-informe-podio-monto">{money(v.cobrado)}</strong>
+                </li>
+              ))}
+            </ol>
+          )}
+        </article>
+
+        <article className="caja-cc-card caja-cc-informe-podio">
+          <header>
+            <h4>Top clientes</h4>
+            <span>Mayor facturación cobrada</span>
+          </header>
+          {topC.length === 0 ? (
+            <p className="caja-cc-muted">Sin clientes en el periodo.</p>
+          ) : (
+            <ol className="caja-cc-informe-podio-list">
+              {topC.map((c, i) => (
+                <li key={c.nombre}>
+                  <span className="caja-cc-informe-podio-medal" aria-hidden>
+                    {medal(i + 1)}
+                  </span>
+                  <div className="caja-cc-informe-podio-body">
+                    <strong>{c.nombre}</strong>
+                    <span>
+                      {c.cantidad} venta(s) · ticket {money(c.ticketPromedio)}
+                    </span>
+                    <span className="caja-cc-informe-podio-meta">{c.pct.toFixed(1)}% del cobrado</span>
+                  </div>
+                  <strong className="caja-cc-informe-podio-monto">{money(c.monto)}</strong>
+                </li>
+              ))}
+            </ol>
+          )}
+        </article>
+
+        <article className="caja-cc-card caja-cc-informe-podio">
+          <header>
+            <h4>Top vendedores</h4>
+            <span>Mayor cobrado del equipo</span>
+          </header>
+          {topS.length === 0 ? (
+            <p className="caja-cc-muted">Sin vendedores en el periodo.</p>
+          ) : (
+            <ol className="caja-cc-informe-podio-list">
+              {topS.map((s, i) => (
+                <li key={s.nombre}>
+                  <span className="caja-cc-informe-podio-medal" aria-hidden>
+                    {medal(i + 1)}
+                  </span>
+                  <div className="caja-cc-informe-podio-body">
+                    <strong>{s.nombre}</strong>
+                    <span>
+                      {s.cantidad} venta(s) · ticket {money(s.ticketPromedio)}
+                    </span>
+                    <span className="caja-cc-informe-podio-meta">{s.pct.toFixed(1)}% del cobrado</span>
+                  </div>
+                  <strong className="caja-cc-informe-podio-monto">{money(s.monto)}</strong>
+                </li>
+              ))}
+            </ol>
+          )}
+        </article>
+      </div>
+    </section>
   )
 }
 
@@ -146,7 +276,8 @@ export default function CajaInformesVentas({ anclaInicial, modoInicial = 'semana
         <div>
           <h2>Informes de ventas</h2>
           <p className="caja-cc-sub">
-            Semanales y mensuales con desglose por día, medio, vendedor, caja, productos y clientes.
+            Semanales y mensuales con tops de ventas, clientes y vendedores, más desglose por día, medio, caja y
+            productos.
           </p>
         </div>
         <div className="caja-cc-page-head-actions">
@@ -249,6 +380,12 @@ export default function CajaInformesVentas({ anclaInicial, modoInicial = 'semana
             </div>
           </div>
 
+          <PodioTops
+            ventas={informe.topVentas}
+            clientes={informe.topClientes}
+            vendedores={informe.topVendedores}
+          />
+
           {(informe.mejorDia || informe.peorDia) && (
             <p className="caja-cc-help caja-cc-informe-extrema">
               {informe.mejorDia && (
@@ -269,6 +406,59 @@ export default function CajaInformesVentas({ anclaInicial, modoInicial = 'semana
               )}
             </p>
           )}
+
+          <div className="caja-cc-informe-grid">
+            <TablaNombre
+              titulo={`Top vendedores (${informe.topVendedores.length})`}
+              filas={informe.topVendedores}
+              showTicket
+            />
+            <TablaNombre
+              titulo={`Top clientes (${informe.topClientes.length})`}
+              filas={informe.topClientes}
+              showTicket
+            />
+          </div>
+
+          <div className="caja-cc-card">
+            <h3>Top ventas del periodo ({informe.topVentas.length})</h3>
+            {informe.topVentas.length === 0 ? (
+              <p className="caja-cc-muted">No hay ventas cobradas en este rango.</p>
+            ) : (
+              <div className="caja-cc-table-wrap">
+                <table className="caja-cc-table">
+                  <thead>
+                    <tr>
+                      <th className="num">#</th>
+                      <th>N°</th>
+                      <th>Fecha</th>
+                      <th>Cliente</th>
+                      <th>Vendedor</th>
+                      <th>Medio</th>
+                      <th>Caja</th>
+                      <th className="num">Cobrado</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {informe.topVentas.map((v, i) => (
+                      <tr key={v.id} className={i < 3 ? 'caja-cc-informe-top-row' : undefined}>
+                        <td className="num caja-cc-informe-rank">{medal(i + 1)}</td>
+                        <td>{v.numero}</td>
+                        <td>{fmtDateAr(v.fecha)}</td>
+                        <td>{v.cliente}</td>
+                        <td>{v.vendedor}</td>
+                        <td>{v.metodo}</td>
+                        <td>{v.caja}</td>
+                        <td className="num">{money(v.cobrado)}</td>
+                        <td>{v.estado}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           <div className="caja-cc-card">
             <h3>Cobrado por día</h3>
@@ -315,52 +505,13 @@ export default function CajaInformesVentas({ anclaInicial, modoInicial = 'semana
 
           <div className="caja-cc-informe-grid">
             <TablaNombre titulo="Por medio de pago" filas={informe.porMetodo} />
-            <TablaNombre titulo="Por vendedor" filas={informe.porVendedor} />
             <TablaNombre titulo="Por caja de cobro" filas={informe.porCaja} />
             <TablaNombre titulo="Por estado" filas={informe.porEstado} />
-          </div>
-
-          <div className="caja-cc-informe-grid">
-            <TablaNombre titulo="Top productos" filas={informe.topProductos} empty="Sin ítems en las ventas del periodo." />
-            <TablaNombre titulo="Top clientes" filas={informe.topClientes} />
-          </div>
-
-          <div className="caja-cc-card">
-            <h3>Mayores ventas del periodo</h3>
-            {informe.topVentas.length === 0 ? (
-              <p className="caja-cc-muted">No hay ventas cobradas en este rango.</p>
-            ) : (
-              <div className="caja-cc-table-wrap">
-                <table className="caja-cc-table">
-                  <thead>
-                    <tr>
-                      <th>N°</th>
-                      <th>Fecha</th>
-                      <th>Cliente</th>
-                      <th>Vendedor</th>
-                      <th>Medio</th>
-                      <th>Caja</th>
-                      <th className="num">Cobrado</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {informe.topVentas.map((v) => (
-                      <tr key={v.id}>
-                        <td>{v.numero}</td>
-                        <td>{fmtDateAr(v.fecha)}</td>
-                        <td>{v.cliente}</td>
-                        <td>{v.vendedor}</td>
-                        <td>{v.metodo}</td>
-                        <td>{v.caja}</td>
-                        <td className="num">{money(v.cobrado)}</td>
-                        <td>{v.estado}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <TablaNombre
+              titulo="Top productos"
+              filas={informe.topProductos}
+              empty="Sin ítems en las ventas del periodo."
+            />
           </div>
         </>
       )}

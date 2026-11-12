@@ -94,6 +94,9 @@ export async function emitirFacturaDesdeVenta(
   const errorReceptor = validarReceptorComprobante(tipo, condicion, cuit)
   if (errorReceptor) return { ok: false, mensaje: errorReceptor }
 
+  const nombreCliente =
+    String(overrides?.cliente_nombre ?? venta.cliente_nombre ?? '').trim() || 'Consumidor Final'
+
   let facturaId = existente?.id as number | undefined
   if (!facturaId) {
     const itemsRes = await apiService.getItemsVenta(venta.id)
@@ -111,9 +114,6 @@ export async function emitirFacturaDesdeVenta(
     if (!items.length) {
       return { ok: false, mensaje: 'La venta no tiene ítems con precio para facturar.' }
     }
-
-    const nombreCliente =
-      String(overrides?.cliente_nombre ?? venta.cliente_nombre ?? '').trim() || 'Consumidor Final'
 
     const creada = await apiService.crearFactura({
       tipo_comprobante: tipo,
@@ -144,6 +144,24 @@ export async function emitirFacturaDesdeVenta(
       return { ok: false, mensaje: creada.error || 'No se pudo crear la factura.' }
     }
     facturaId = creada.data.id
+  } else {
+    // Borrador previo: actualizar receptor/condición para no facturar con IVA viejo.
+    const patch = await apiService.actualizarFactura(facturaId, {
+      tipo_comprobante: tipo,
+      id_cliente: venta.id_cliente ?? null,
+      cliente_nombre: nombreCliente,
+      cliente_dni_cuit: cuit || null,
+      cliente_direccion: direccion,
+      cliente_condicion_iva: condicion,
+      precios_con_iva: tipo !== 'Factura C'
+    })
+    if (!patch.success) {
+      return {
+        ok: false,
+        facturaId,
+        mensaje: patch.error || 'No se pudo actualizar la condición de IVA del borrador de factura.'
+      }
+    }
   }
 
   onEtapa?.('arca')

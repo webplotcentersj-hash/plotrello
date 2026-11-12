@@ -19,7 +19,6 @@ const TaskEditModal = lazy(() => import('../components/TaskEditModal'))
 const TaskViewModal = lazy(() => import('../components/TaskViewModal'))
 const TaskCreateModal = lazy(() => import('../components/TaskCreateModal'))
 const PlotAIChat = lazy(() => import('../components/PlotAIChat'))
-import PlotAIFloatingButton from '../components/PlotAIFloatingButton'
 import WorkPoolOperarioNotasFab from '../features/work-pool/WorkPoolOperarioNotasFab'
 import { registrarActividadTableroAutomatica } from '../features/work-pool/workPoolOperarioNotas'
 import InsightsToolsMenu from '../components/InsightsToolsMenu'
@@ -37,7 +36,6 @@ import { useAuth } from '../hooks/useAuth'
 import { plantillaOp } from '../features/copiar/plantillasCopia'
 import { loadOpCreateDraft, type OpCreateDraftData } from '../utils/opCreateDraft'
 import { usePhoneBoardLayout } from '../hooks/usePhoneBoardLayout'
-import { buildAgenticContext } from '../utils/agentInsights'
 import { getApiService } from '../services/apiLoader'
 import {
   ordenToTask,
@@ -150,10 +148,6 @@ const BoardPage = ({
   const [insightsOpen, setInsightsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const isPhoneBoard = usePhoneBoardLayout()
-  const plotAIAgentic = useMemo(
-    () => buildAgenticContext(tasks, activity, teamMembers),
-    [tasks, activity, teamMembers]
-  )
 
   /** Usuario de sesión: la bitácora local debe mostrar quién hizo el cambio, no el operario asignado a la ficha. */
   const sessionActor = useMemo(
@@ -1421,11 +1415,6 @@ const BoardPage = ({
           showImpresoras
         />
       )}
-      <PlotAIFloatingButton
-        isOpen={isChatAIOpen}
-        alertCount={plotAIAgentic.alertCount}
-        onClick={() => setIsChatAIOpen((v) => !v)}
-      />
     </>
   )
 

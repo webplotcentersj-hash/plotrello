@@ -1377,18 +1377,48 @@
   color: #6ee7b7;
 }
 
+.venta-pipeline-card__pago--transferencia.is-alerta,
+.venta-pipeline-card__pago.is-alerta {
+  color: #fecaca;
+  font-weight: 800;
+}
+
 .venta-pipeline-card--sin-factura {
   box-shadow: inset 3px 0 0 #f59e0b;
 }
 
+.venta-pipeline-card--alerta-transferencia {
+  box-shadow: inset 3px 0 0 #ef4444, 0 0 0 1px rgba(239, 68, 68, 0.35);
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.28), rgba(15, 23, 42, 0.2));
+}
+
+.venta-pipeline-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .venta-pipeline-card__factura-pendiente {
   display: inline-flex;
-  margin-top: 8px;
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(245, 158, 11, 0.18);
   border: 1px solid rgba(251, 191, 36, 0.45);
   color: #fde68a;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.venta-pipeline-card__alerta-transferencia {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.22);
+  border: 1px solid rgba(248, 113, 113, 0.55);
+  color: #fecaca;
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.03em;

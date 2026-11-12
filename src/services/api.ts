@@ -21609,24 +21609,51 @@ class ApiService {
   async listIdsVentasFacturadas(idsVentas?: number[]): Promise<ApiResponse<number[]>> {
     if (!supabase) return { success: false, error: 'Supabase no inicializado' }
     try {
-      const { data, error } = await supabase
-        .from('facturas_venta')
-        .select('id_venta, estado, estado_afip, tipo_comprobante')
-        .not('id_venta', 'is', null)
-        .limit(5000)
-      if (error) return { success: false, error: error.message }
-      const wanted = idsVentas && idsVentas.length > 0
-        ? new Set(idsVentas.map((id) => Number(id)).filter((id) => Number.isFinite(id)))
-        : null
-
       type Row = {
         id_venta?: number | null
         estado?: string | null
         estado_afip?: string | null
         tipo_comprobante?: string | null
+        cae?: string | null
       }
+
+      const wantedIds = (idsVentas || [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0)
+      const wanted = wantedIds.length > 0 ? new Set(wantedIds) : null
+
+      const rows: Row[] = []
+      // Consultar por lotes de id_venta para no perder facturas por .limit global.
+      if (wanted) {
+        const chunkSize = 200
+        const list = [...wanted]
+        for (let i = 0; i < list.length; i += chunkSize) {
+          const chunk = list.slice(i, i + chunkSize)
+          const { data, error } = await supabase
+            .from('facturas_venta')
+            .select('id_venta, estado, estado_afip, tipo_comprobante, cae')
+            .in('id_venta', chunk)
+          if (error) return { success: false, error: error.message }
+          rows.push(...((data || []) as Row[]))
+        }
+      } else {
+        const pageSize = 1000
+        for (let from = 0; from < 20000; from += pageSize) {
+          const { data, error } = await supabase
+            .from('facturas_venta')
+            .select('id_venta, estado, estado_afip, tipo_comprobante, cae')
+            .not('id_venta', 'is', null)
+            .order('id', { ascending: true })
+            .range(from, from + pageSize - 1)
+          if (error) return { success: false, error: error.message }
+          const batch = (data || []) as Row[]
+          rows.push(...batch)
+          if (batch.length < pageSize) break
+        }
+      }
+
       const byVenta = new Map<number, Row[]>()
-      for (const f of (data || []) as Row[]) {
+      for (const f of rows) {
         const estado = String(f.estado || '').trim()
         const afip = String(f.estado_afip || '').trim()
         if (estado === 'Anulada' || afip === 'Anulada') continue
@@ -21638,20 +21665,25 @@ class ApiService {
         byVenta.set(id, list)
       }
 
+      const facturaVigente = (r: Row) => {
+        const tipo = String(r.tipo_comprobante || '')
+        if (!tipo.startsWith('Factura')) return false
+        const afip = String(r.estado_afip || '').trim()
+        const estado = String(r.estado || '').trim()
+        const cae = String(r.cae || '').trim()
+        // Autorizada AFIP, o emitida con CAE (por si el estado_afip viene desfasado).
+        return afip === 'Autorizada' || (estado === 'Emitida' && cae.length > 0)
+      }
+
       const ids: number[] = []
-      for (const [idVenta, rows] of byVenta) {
-        const tieneNc = rows.some(
+      for (const [idVenta, list] of byVenta) {
+        const tieneNc = list.some(
           (r) =>
             String(r.tipo_comprobante || '').startsWith('Nota de Crédito') &&
             String(r.estado_afip || '') === 'Autorizada'
         )
-        const tieneFaVigente = rows.some(
-          (r) =>
-            String(r.tipo_comprobante || '').startsWith('Factura') &&
-            String(r.estado_afip || '') === 'Autorizada' &&
-            !tieneNc
-        )
-        if (tieneFaVigente) ids.push(idVenta)
+        if (tieneNc) continue
+        if (list.some(facturaVigente)) ids.push(idVenta)
       }
       return { success: true, data: ids }
     } catch (error: unknown) {

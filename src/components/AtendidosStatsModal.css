@@ -1,0 +1,609 @@
+.atendidos-stats-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.atendidos-stats-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.atendidos-stats-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(920px, 100%);
+  max-height: min(88vh, 820px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(16, 185, 129, 0.16), transparent 55%),
+    radial-gradient(90% 70% at 100% 0%, rgba(56, 189, 248, 0.12), transparent 50%),
+    #0b1220;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  color: #e2e8f0;
+}
+
+.atendidos-stats-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 10px;
+}
+
+.atendidos-stats-modal__kicker {
+  margin: 0 0 2px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6ee7b7;
+}
+
+.atendidos-stats-modal__head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 750;
+  color: #f8fafc;
+}
+
+.atendidos-stats-modal__sub {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.atendidos-stats-modal__close {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.atendidos-stats-modal__close:hover {
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.atendidos-stats-modal__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 20px 8px;
+}
+
+.atendidos-stats-modal__cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 20px 12px;
+}
+
+.atendidos-stats-modal__cal-nav > button {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.atendidos-stats-modal__cal-nav > button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.atendidos-stats-modal__cal-nav-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.atendidos-stats-modal__cal-nav-title strong {
+  font-size: 0.95rem;
+  color: #f8fafc;
+  text-transform: capitalize;
+}
+
+.atendidos-stats-modal__hoy {
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.12);
+  color: #bae6fd;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.atendidos-cal-month {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.atendidos-cal-month__head,
+.atendidos-cal-month__week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.atendidos-cal-month__head span {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  padding: 2px 0 4px;
+}
+
+.atendidos-cal-day {
+  appearance: none;
+  position: relative;
+  min-height: 64px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.5);
+  color: #e2e8f0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.atendidos-cal-day--empty {
+  border: 0;
+  background: transparent;
+  min-height: 64px;
+}
+
+.atendidos-cal-day.has-data {
+  background: rgba(16, 185, 129, calc(var(--cal-heat, 0.2)));
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.atendidos-cal-day.is-today {
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.65);
+}
+
+.atendidos-cal-day.is-selected {
+  border-color: rgba(125, 211, 252, 0.75);
+}
+
+.atendidos-cal-day:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.atendidos-cal-day__num {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.atendidos-cal-day__count {
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #f8fafc;
+  line-height: 1;
+}
+
+.atendidos-cal-day__count--zero {
+  color: #475569;
+  font-weight: 600;
+}
+
+.atendidos-cal-day__mini {
+  display: inline-flex;
+  gap: 6px;
+  margin-top: auto;
+  font-size: 0.62rem;
+  font-style: normal;
+}
+
+.atendidos-cal-day__mini i {
+  font-style: normal;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+.atendidos-cal-day__mini .is-p {
+  color: #7dd3fc;
+}
+
+.atendidos-cal-day__mini .is-v {
+  color: #c4b5fd;
+}
+
+.atendidos-cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.atendidos-cal-week-day {
+  appearance: none;
+  position: relative;
+  min-height: 140px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.5);
+  color: #e2e8f0;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.atendidos-cal-week-day.is-today {
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.65);
+}
+
+.atendidos-cal-week-day.is-selected {
+  border-color: rgba(125, 211, 252, 0.75);
+}
+
+.atendidos-cal-week-day:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.atendidos-cal-week-day__dow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.atendidos-cal-week-day__num {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.atendidos-cal-week-day__total {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+
+.atendidos-cal-week-day__split {
+  display: flex;
+  gap: 8px;
+  font-size: 0.68rem;
+  color: #94a3b8;
+}
+
+.atendidos-cal-week-day__split em {
+  font-style: normal;
+  font-weight: 650;
+}
+
+.atendidos-cal-week-day__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.35), rgba(167, 139, 250, 0.45));
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.atendidos-cal-day-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.atendidos-cal-day-kpis article {
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.45);
+  padding: 12px;
+  display: grid;
+  gap: 2px;
+}
+
+.atendidos-cal-day-kpis strong {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+
+.atendidos-cal-day-kpis span {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.atendidos-stats-modal__chart--compact {
+  min-height: 180px;
+}
+
+.atendidos-stats-modal__periodos,
+.atendidos-stats-modal__tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.atendidos-stats-modal__chip,
+.atendidos-stats-modal__tab {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.55);
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  font-weight: 650;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.atendidos-stats-modal__chip.is-active,
+.atendidos-stats-modal__tab.is-active {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(16, 185, 129, 0.18);
+  color: #ecfdf5;
+}
+
+.atendidos-stats-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 20px 16px;
+}
+
+.atendidos-stats-modal__section h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.atendidos-stats-modal__chart {
+  width: 100%;
+  min-height: 260px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.45);
+  padding: 8px 4px 4px;
+  box-sizing: border-box;
+}
+
+.atendidos-stats-modal__hora-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.atendidos-stats-modal__hora-head h3 {
+  margin: 0;
+}
+
+.atendidos-stats-modal__hora-head label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.atendidos-stats-modal__hora-head input[type='date'] {
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 5px 8px;
+}
+
+.atendidos-stats-modal__flujos .atendidos-stats-modal__pies {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.atendidos-stats-modal__pie-card {
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.45);
+  padding: 12px;
+}
+
+.atendidos-stats-modal__pie-card h4 {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+}
+
+.atendidos-stats-modal__legend {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.atendidos-stats-modal__legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.atendidos-stats-modal__legend span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.atendidos-stats-modal__legend strong {
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+
+.atendidos-stats-modal__funnel {
+  margin-top: 12px;
+}
+
+.atendidos-stats-modal__funnel-track {
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.atendidos-stats-modal__funnel-presencial {
+  background: #38bdf8;
+  min-width: 0;
+}
+
+.atendidos-stats-modal__funnel-virtual {
+  background: #a78bfa;
+  min-width: 0;
+}
+
+.atendidos-stats-modal__funnel p {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.atendidos-stats-modal__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.atendidos-stats-modal__kpis article {
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.45);
+  padding: 14px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.atendidos-stats-modal__kpis strong {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.atendidos-stats-modal__kpis span {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.atendidos-stats-modal__loading,
+.atendidos-stats-modal__error,
+.atendidos-stats-modal__empty {
+  margin: 24px 0;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.atendidos-stats-modal__error {
+  color: #fca5a5;
+}
+
+.atendidos-stats-modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.atendidos-stats-modal__link {
+  border: 0;
+  background: transparent;
+  color: #7dd3fc;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0;
+}
+
+.atendidos-stats-modal__done {
+  border-radius: 10px;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  background: rgba(16, 185, 129, 0.18);
+  color: #ecfdf5;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .atendidos-stats-modal__flujos .atendidos-stats-modal__pies,
+  .atendidos-stats-modal__kpis,
+  .atendidos-cal-day-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .atendidos-cal-week {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .atendidos-cal-day {
+    min-height: 52px;
+    padding: 4px;
+  }
+
+  .atendidos-cal-day__mini {
+    display: none;
+  }
+
+  .atendidos-stats-modal__foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -14,6 +14,8 @@ export type InformeFilaNombre = {
   monto: number
   cantidad: number
   pct: number
+  /** Monto / cantidad (ticket medio del agrupado). */
+  ticketPromedio: number
 }
 
 export type InformeDiaFila = {
@@ -69,10 +71,18 @@ export type InformeVentasPeriodo = {
   porEstado: InformeFilaNombre[]
   topProductos: InformeFilaNombre[]
   topClientes: InformeFilaNombre[]
+  /** Ranking de vendedores (mismo criterio que porVendedor, tope ranking). */
+  topVendedores: InformeFilaNombre[]
   topVentas: InformeVentaLinea[]
   mejorDia: InformeDiaFila | null
   peorDia: InformeDiaFila | null
 }
+
+/** Límites de rankings del informe (UI + PDF). */
+export const INFORME_TOP_VENTAS = 50
+export const INFORME_TOP_CLIENTES = 25
+export const INFORME_TOP_VENDEDORES = 20
+export const INFORME_TOP_PRODUCTOS = 25
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
@@ -168,7 +178,8 @@ function toFilas(map: Map<string, { monto: number; cantidad: number }>, total: n
       nombre,
       monto: round2(v.monto),
       cantidad: v.cantidad,
-      pct: total > 0 ? round2((v.monto / total) * 100) : 0
+      pct: total > 0 ? round2((v.monto / total) * 100) : 0,
+      ticketPromedio: v.cantidad > 0 ? round2(v.monto / v.cantidad) : 0
     }))
     .sort((a, b) => b.monto - a.monto || b.cantidad - a.cantidad)
 }
@@ -369,9 +380,10 @@ export function construirInformeVentasPeriodo(
     porVendedor: toFilas(porVendedor, cobradoR),
     porCaja: toFilas(porCaja, cobradoR),
     porEstado: toFilas(porEstado, valorTotal || cobradoR),
-    topProductos: toFilas(porProducto, cobradoR).slice(0, 20),
-    topClientes: toFilas(porCliente, cobradoR).slice(0, 15),
-    topVentas: lineas.sort((a, b) => b.cobrado - a.cobrado).slice(0, 40),
+    topProductos: toFilas(porProducto, cobradoR).slice(0, INFORME_TOP_PRODUCTOS),
+    topClientes: toFilas(porCliente, cobradoR).slice(0, INFORME_TOP_CLIENTES),
+    topVendedores: toFilas(porVendedor, cobradoR).slice(0, INFORME_TOP_VENDEDORES),
+    topVentas: lineas.sort((a, b) => b.cobrado - a.cobrado).slice(0, INFORME_TOP_VENTAS),
     mejorDia,
     peorDia
   }

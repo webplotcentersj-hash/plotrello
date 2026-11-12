@@ -97,6 +97,8 @@ import './VentaRapidaModal.css'
 export type PrefillVentaDesdePresupuesto = {
   presupuesto: PresupuestoVentaRecord
   items: PresupuestoVentaItemRecord[]
+  /** Condición IVA elegida en el presupuesto; pisa la del cliente al armar la venta. */
+  condicion_iva?: CondicionIvaCliente | null
 }
 
 interface VentaRapidaModalProps {
@@ -315,12 +317,21 @@ const VentaRapidaModal = ({
       })
     )
     let cancelled = false
+    const ivaDesdePresupuesto =
+      normalizarCondicionIvaCliente(prefillDesdePresupuesto.condicion_iva) ||
+      inferirCondicionIva(presupuesto.cliente_dni_cuit)
     const cargarCliente = async () => {
       if (presupuesto.id_cliente) {
         const res = await apiService.getClientePorId(presupuesto.id_cliente)
         if (cancelled) return
         if (res.success && res.data) {
-          seleccionarCliente(res.data)
+          seleccionarCliente({
+            ...res.data,
+            condicion_iva:
+              ivaDesdePresupuesto ||
+              normalizarCondicionIvaCliente(res.data.condicion_iva) ||
+              inferirCondicionIva(res.data.dni_cuit)
+          })
           return
         }
       }
@@ -335,7 +346,7 @@ const VentaRapidaModal = ({
         telefono: presupuesto.cliente_telefono || '',
         email: presupuesto.cliente_email || '',
         direccion: presupuesto.cliente_direccion || '',
-        condicion_iva: 'Consumidor Final'
+        condicion_iva: ivaDesdePresupuesto
       })
     }
     void cargarCliente()
@@ -384,7 +395,7 @@ const VentaRapidaModal = ({
         telefono: c.telefono,
         email: c.email,
         direccion: c.direccion,
-        condicion_iva: 'Consumidor Final'
+        condicion_iva: inferirCondicionIva(c.dni_cuit)
       })
     }
     void cargarCliente()

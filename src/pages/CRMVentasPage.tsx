@@ -65,12 +65,15 @@ import CajaSectionHistorial from '../features/control-cajas/components/CajaSecti
 import { resolveUsuarioCajaEtiqueta } from '../features/control-cajas/cajaUsuarioDisplay'
 import MercadoPagoCheckoutPanel from '../components/payments/MercadoPagoCheckoutPanel'
 import { forceResyncVenta } from '../features/control-cajas/plotlabVentaCajaSync'
-import VentaRapidaModal from '../components/VentaRapidaModal'
+import VentaRapidaModal, {
+  type PrefillVentaDesdePresupuesto
+} from '../components/VentaRapidaModal'
 import VentaComprobantePagoDetalle from '../components/ventas/VentaComprobantePagoDetalle'
 import VentasListaPreciosPanel from '../components/ventas/VentasListaPreciosPanel'
 import VentasOportunidadesChatLeads from '../components/ventas/VentasOportunidadesChatLeads'
 import VentasOportunidadesSugeridas from '../components/ventas/VentasOportunidadesSugeridas'
 import {
+  esClienteIvaExento,
   labelListaPrecio,
   LISTAS_PRECIO_VENTAS,
   marcarObservacionesPreciosSinIva,
@@ -129,6 +132,22 @@ function leyendaPagoVenta(venta: Venta): { texto: string; tipo: 'mp' | 'transfer
     return { texto: extra ? `Transferencia · ${extra}` : 'Transferencia', tipo: 'transferencia' }
   }
   return { texto: metodo || 'Sin medio de pago', tipo: 'otro' }
+}
+
+/** Transferencia pura o pago mixto con tramo transferencia. */
+function ventaEsTransferencia(venta: Venta): boolean {
+  if (leyendaPagoVenta(venta).tipo === 'transferencia') return true
+  const metodo = String(venta.metodo_pago || '').toLowerCase()
+  if (metodo.includes('transfer')) return true
+  const lineas = venta.detalle_pago?.lineas
+  if (!Array.isArray(lineas)) return false
+  return lineas.some((l) => {
+    const m = String((l as { metodo?: string; medio?: string; codigo?: string }).metodo
+      || (l as { medio?: string }).medio
+      || (l as { codigo?: string }).codigo
+      || '').toLowerCase()
+    return m.includes('transfer') && Number((l as { monto?: number }).monto) > 0
+  })
 }
 
 const PRESUPUESTO_PIPELINE_ESTADOS: EstadoPresupuestoCliente[] = [
@@ -354,10 +373,9 @@ const CRMVentasPage = () => {
   })
   const [showVentaRapida, setShowVentaRapida] = useState(false)
   const [copiaVenta, setCopiaVenta] = useState<PlantillaVenta | null>(null)
-  const [presupuestoParaVenta, setPresupuestoParaVenta] = useState<{
-    presupuesto: PresupuestoVentaRecord
-    items: PresupuestoVentaItemRecord[]
-  } | null>(null)
+  const [presupuestoParaVenta, setPresupuestoParaVenta] = useState<PrefillVentaDesdePresupuesto | null>(
+    null
+  )
 
   useEffect(() => {
     if (!vistaPropia && (activeTab === 'arqueos' || activeTab === 'egresos')) {
@@ -515,6 +533,7 @@ const CRMVentasPage = () => {
     cliente_dni_cuit: '',
     cliente_empresa: '',
     cliente_direccion: '',
+    cliente_condicion_iva: 'Consumidor Final' as CondicionIvaCliente,
     fecha_vencimiento: '',
     observaciones_cliente: '',
     observaciones_internas: '',
@@ -644,6 +663,24 @@ const CRMVentasPage = () => {
         .sort(compararVentasRecientes),
     [ventas, idsVentasFacturadas]
   )
+
+  // Al entrar a «Por facturar», refrescar IDs facturados para no mostrar ventas ya emitidas.
+  useEffect(() => {
+    if (activeTab !== 'por-facturar' || ventas.length === 0) return
+    let cancelled = false
+    void (async () => {
+      const sync = await apiService.listIdsVentasFacturadas(ventas.map((v) => Number(v.id)))
+      if (cancelled || !sync.success || !sync.data) return
+      setIdsVentasFacturadas((prev) => {
+        const next = new Set(prev)
+        for (const id of sync.data!) next.add(Number(id))
+        return next
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, ventas])
 
   const ventaTieneFactura = useCallback(
     (id: number) => idsVentasFacturadas.has(Number(id)),
@@ -1121,13 +1158,15 @@ const CRMVentasPage = () => {
 
   useEffect(() => {
     if (!presupuestoModal || presupuestoModalLoading) return
+    const dni = presupuestoModal.cliente_dni_cuit || ''
     setPresupuestoCabeceraDraft({
       cliente_nombre: presupuestoModal.cliente_nombre || '',
       cliente_telefono: presupuestoModal.cliente_telefono || '',
       cliente_email: presupuestoModal.cliente_email || '',
-      cliente_dni_cuit: presupuestoModal.cliente_dni_cuit || '',
+      cliente_dni_cuit: dni,
       cliente_empresa: presupuestoModal.cliente_empresa || '',
       cliente_direccion: presupuestoModal.cliente_direccion || '',
+      cliente_condicion_iva: inferirCondicionIva(dni),
       fecha_vencimiento: presupuestoModal.fecha_vencimiento
         ? isoToArgentinaDateKey(presupuestoModal.fecha_vencimiento)
         : '',
@@ -1179,6 +1218,7 @@ const CRMVentasPage = () => {
         }
       })
     )
+
   }, [
     presupuestoModal,
     presupuestoModalLoading,
@@ -1186,6 +1226,21 @@ const CRMVentasPage = () => {
     presupuestoCatalogo,
     presupuestoAjustesPrecios
   ])
+
+  useEffect(() => {
+    if (!presupuestoModal?.id_cliente) return
+    let cancelled = false
+    void apiService.getClientePorId(presupuestoModal.id_cliente).then((cli) => {
+      if (cancelled || !cli.success || !cli.data) return
+      const iva = normalizarCondicionIvaCliente(cli.data.condicion_iva)
+      if (!iva) return
+      setPresupuestoCabeceraDraft((prev) => ({ ...prev, cliente_condicion_iva: iva }))
+      if (esClienteIvaExento(iva)) setPresupuestoSacarIva(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [presupuestoModal?.id, presupuestoModal?.id_cliente])
 
   useEffect(() => {
     if (!crmBootstrapped) return
@@ -1524,16 +1579,67 @@ const CRMVentasPage = () => {
         }
         items = detalle.data.items
       }
+
+      // Condición IVA del modal (si está abierto) → cliente → inferida por CUIT.
+      let condicionIva: CondicionIvaCliente | null = null
+      if (presupuestoModal?.id === presupuesto.id) {
+        condicionIva = normalizarCondicionIvaCliente(presupuestoCabeceraDraft.cliente_condicion_iva)
+      }
+      if (!condicionIva && presupuesto.id_cliente) {
+        const cli = await apiService.getClientePorId(presupuesto.id_cliente)
+        if (cli.success && cli.data) {
+          condicionIva = normalizarCondicionIvaCliente(cli.data.condicion_iva)
+        }
+      }
+      if (!condicionIva) {
+        condicionIva = inferirCondicionIva(
+          presupuestoCabeceraDraft.cliente_dni_cuit || presupuesto.cliente_dni_cuit
+        )
+      }
+
+      // Persistir en ficha cliente antes de abrir venta rápida / facturación.
+      if (presupuesto.id_cliente && usuario?.id && condicionIva) {
+        const cliUp = await apiService.actualizarClienteDatos(
+          presupuesto.id_cliente,
+          {
+            condicion_iva: condicionIva,
+            dni_cuit:
+              (presupuestoModal?.id === presupuesto.id
+                ? presupuestoCabeceraDraft.cliente_dni_cuit
+                : presupuesto.cliente_dni_cuit
+              )?.trim() || undefined
+          },
+          usuario.id
+        )
+        if (!cliUp.success) {
+          console.warn('No se pudo arrastrar condición IVA al cliente al generar venta:', cliUp.error)
+        }
+      }
+
       void apiService.registrarAuditoriaPresupuestoVenta({
         idPresupuesto: actual.id,
         accion: 'generar_venta',
-        actor: actorPresupuesto
+        actor: actorPresupuesto,
+        detalle: { condicion_iva: condicionIva }
       })
       cerrarPresupuestoModal()
-      setPresupuestoParaVenta({ presupuesto: actual, items })
+      setPresupuestoParaVenta({
+        presupuesto: actual,
+        items,
+        condicion_iva: condicionIva
+      })
       setShowVentaRapida(true)
     },
-    [abrirVentaModal, actorPresupuesto, cerrarPresupuestoModal, presupuestoModalItems]
+    [
+      abrirVentaModal,
+      actorPresupuesto,
+      cerrarPresupuestoModal,
+      presupuestoCabeceraDraft.cliente_condicion_iva,
+      presupuestoCabeceraDraft.cliente_dni_cuit,
+      presupuestoModal?.id,
+      presupuestoModalItems,
+      usuario?.id
+    ]
   )
 
   const actualizarEstadoPresupuestoModal = useCallback(
@@ -1611,6 +1717,25 @@ const CRMVentasPage = () => {
         alert(res.error || 'No se pudo guardar el presupuesto.')
         return
       }
+
+      if (presupuestoModal.id_cliente && usuario?.id) {
+        const iva = normalizarCondicionIvaCliente(presupuestoCabeceraDraft.cliente_condicion_iva)
+        const cliUp = await apiService.actualizarClienteDatos(
+          presupuestoModal.id_cliente,
+          {
+            condicion_iva: iva || presupuestoCabeceraDraft.cliente_condicion_iva,
+            dni_cuit: presupuestoCabeceraDraft.cliente_dni_cuit.trim() || undefined,
+            telefono: presupuestoCabeceraDraft.cliente_telefono.trim() || undefined,
+            email: presupuestoCabeceraDraft.cliente_email.trim() || undefined,
+            direccion: presupuestoCabeceraDraft.cliente_direccion.trim() || undefined
+          },
+          usuario.id
+        )
+        if (!cliUp.success) {
+          console.warn('No se pudo guardar condición IVA del cliente:', cliUp.error)
+        }
+      }
+
       const detalle = await apiService.obtenerDetallePresupuestoVenta(presupuestoModal.id)
       if (detalle.success && detalle.data) {
         setPresupuestos((prev) =>
@@ -1632,7 +1757,8 @@ const CRMVentasPage = () => {
     presupuestoCabeceraDraft,
     presupuestoItemsDraft,
     presupuestoModal,
-    presupuestoSacarIva
+    presupuestoSacarIva,
+    usuario?.id
   ])
 
   // Filtros oportunidades
@@ -2261,9 +2387,16 @@ const CRMVentasPage = () => {
           next.add(Number(ventaEmit.id))
           return next
         })
-        const sync = await apiService.listIdsVentasFacturadas()
+        const sync = await apiService.listIdsVentasFacturadas(
+          ventas.map((v) => Number(v.id)).concat(Number(ventaEmit.id))
+        )
         if (sync.success && sync.data) {
-          setIdsVentasFacturadas(new Set(sync.data.map((id) => Number(id))))
+          setIdsVentasFacturadas((prev) => {
+            const next = new Set(prev)
+            for (const id of sync.data!) next.add(Number(id))
+            next.add(Number(ventaEmit.id))
+            return next
+          })
         }
       }
     } catch (error) {
@@ -4221,7 +4354,8 @@ const CRMVentasPage = () => {
       {activeTab === 'por-facturar' && (
         <div className="crm-section" role="tabpanel" aria-labelledby="crm-tab-por-facturar">
           <p className="ventas-por-facturar__intro">
-            Ventas sin factura AFIP. No usa el filtro de fecha de Ventas: acá aparecen todas las que faltan facturar.
+            Solo ventas sin factura AFIP vigente. Las ya facturadas (o con CAE) no aparecen. Transferencias van con
+            alerta roja.
           </p>
           <div className="ventas-pipeline ventas-pipeline--por-facturar">
             {VENTA_PIPELINE_ESTADOS.filter((estado) => estado !== 'Cancelado').map((estado) => {
@@ -4239,10 +4373,15 @@ const CRMVentasPage = () => {
                     <span className="ventas-pipeline__total">${columnTotal.toLocaleString()}</span>
                   </header>
                   <div className="ventas-pipeline__cards">
-                    {columnVentas.map((venta) => (
+                    {columnVentas.map((venta) => {
+                      const esTransfer = ventaEsTransferencia(venta)
+                      const pago = leyendaPagoVenta(venta)
+                      return (
                       <article
                         key={venta.id}
-                        className="venta-pipeline-card venta-pipeline-card--sin-factura"
+                        className={`venta-pipeline-card venta-pipeline-card--sin-factura${
+                          esTransfer ? ' venta-pipeline-card--alerta-transferencia' : ''
+                        }`}
                       >
                         <button
                           type="button"
@@ -4268,15 +4407,19 @@ const CRMVentasPage = () => {
                           {venta.cliente_empresa ? (
                             <span className="venta-pipeline-card__empresa">{venta.cliente_empresa}</span>
                           ) : null}
-                          {(() => {
-                            const pago = leyendaPagoVenta(venta)
-                            return (
-                              <span className={`venta-pipeline-card__pago venta-pipeline-card__pago--${pago.tipo}`}>
-                                {pago.texto}
-                              </span>
-                            )
-                          })()}
-                          <span className="venta-pipeline-card__factura-pendiente">Sin factura</span>
+                          <span
+                            className={`venta-pipeline-card__pago venta-pipeline-card__pago--${pago.tipo}${
+                              esTransfer ? ' is-alerta' : ''
+                            }`}
+                          >
+                            {pago.texto}
+                          </span>
+                          <span className="venta-pipeline-card__badges">
+                            <span className="venta-pipeline-card__factura-pendiente">Sin factura</span>
+                            {esTransfer ? (
+                              <span className="venta-pipeline-card__alerta-transferencia">Transferencia</span>
+                            ) : null}
+                          </span>
                         </button>
                         <div className="venta-pipeline-card__actions">
                           <button
@@ -4299,7 +4442,8 @@ const CRMVentasPage = () => {
                           </button>
                         </div>
                       </article>
-                    ))}
+                      )
+                    })}
                     {columnVentas.length === 0 ? (
                       <p className="ventas-pipeline__empty">Sin ventas</p>
                     ) : null}
@@ -4676,6 +4820,33 @@ const CRMVentasPage = () => {
                       />
                     </div>
                     <div className="venta-compact-row">
+                      <span className="venta-compact-k">Cond. IVA</span>
+                      <select
+                        className="venta-detail-input"
+                        value={presupuestoCabeceraDraft.cliente_condicion_iva}
+                        disabled={presupuestoEditBusy || !presupuestoModal.id_cliente}
+                        title={
+                          presupuestoModal.id_cliente
+                            ? 'Condición frente al IVA del cliente'
+                            : 'Vinculá un cliente de la ficha para editar la condición de IVA'
+                        }
+                        onChange={(e) => {
+                          const iva = e.target.value as CondicionIvaCliente
+                          setPresupuestoCabeceraDraft((prev) => ({
+                            ...prev,
+                            cliente_condicion_iva: iva
+                          }))
+                          if (esClienteIvaExento(iva)) setPresupuestoSacarIva(true)
+                        }}
+                      >
+                        {CONDICIONES_IVA_CLIENTE.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="venta-compact-row">
                       <span className="venta-compact-k">Dirección</span>
                       <input
                         className="venta-detail-input"
@@ -4689,6 +4860,11 @@ const CRMVentasPage = () => {
                         }
                       />
                     </div>
+                    {!presupuestoModal.id_cliente ? (
+                      <p className="venta-detail-modal__sub" style={{ margin: '4px 0 0' }}>
+                        Sin cliente vinculado: la condición de IVA se edita cuando el presupuesto tiene ficha de cliente.
+                      </p>
+                    ) : null}
                     <div className="venta-detail-save-row">
                       <button
                         type="button"

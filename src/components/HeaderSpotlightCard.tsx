@@ -10,6 +10,7 @@ import {
   legajoCalendarDateKey
 } from '../utils/dateUtils'
 import { fraseMotivacionalDelDia } from '../utils/fraseMotivacionalDia'
+import AtendidosStatsModal from './AtendidosStatsModal'
 import './HeaderSpotlightCard.css'
 
 type Props = { userId: number | null | undefined; compact?: boolean }
@@ -174,6 +175,7 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
   const [loading, setLoading] = useState(false)
   const [fotoZoom, setFotoZoom] = useState<{ src: string; label: string } | null>(null)
   const [atendidosHoy, setAtendidosHoy] = useState({ presencial: 0, virtual: 0 })
+  const [atendidosStatsOpen, setAtendidosStatsOpen] = useState(false)
 
   const resolvedId = resolveSessionUserId(userId)
 
@@ -473,9 +475,12 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
               <footer className="header-spotlight-frase-autor">— {fraseDia.autor}</footer>
             </blockquote>
           </div>
-          <div
-            className="header-spotlight-atendidos"
-            title="Presencial = ventas del día. Virtual = atenciones cargadas a mano en Mostrador."
+          <button
+            type="button"
+            className="header-spotlight-atendidos header-spotlight-atendidos--btn"
+            title="Ver estadísticas por día, hora y flujos. Presencial = ventas · Virtual = atenciones Mostrador."
+            aria-label="Abrir estadísticas de atendidos"
+            onClick={() => setAtendidosStatsOpen(true)}
           >
             <span className="header-spotlight-atendidos-label">
               <span aria-hidden>👥</span> Atendidos hoy
@@ -491,9 +496,10 @@ export default function HeaderSpotlightCard({ userId, compact = false }: Props) 
                 Virtual <strong>{atendidosHoy.virtual}</strong>
               </span>
             </span>
-          </div>
+          </button>
         </div>
       </div>
+      <AtendidosStatsModal open={atendidosStatsOpen} onClose={() => setAtendidosStatsOpen(false)} />
       {fotoZoom &&
         typeof document !== 'undefined' &&
         createPortal(

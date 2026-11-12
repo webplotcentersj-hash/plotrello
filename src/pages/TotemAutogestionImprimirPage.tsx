@@ -38,8 +38,12 @@ import {
   type TotemPrintJobSpec
 } from '@/utils/totemPrintJobs'
 import {
+  cargarPreciosUnitariosTotem,
   cotizarImpresionTotem,
   formatTotemPrintArs,
+  formatTotemPrintArsShort,
+  unitPriceForTone,
+  type TotemPrintCatalogoPrecios,
   type TotemPrintQuote
 } from '../services/totemPrintPricingService'
 import TotemPrintPreviewMonitor from '../components/totem/TotemPrintPreviewMonitor'
@@ -159,6 +163,7 @@ export default function TotemAutogestionImprimirPage() {
   const [printQuote, setPrintQuote] = useState<TotemPrintQuote | null>(null)
   const [printQuoteLoading, setPrintQuoteLoading] = useState(false)
   const [printQuoteError, setPrintQuoteError] = useState<string | null>(null)
+  const [preciosLista1, setPreciosLista1] = useState<TotemPrintCatalogoPrecios | null>(null)
 
   const [nombreSugerencias, setNombreSugerencias] = useState<ClienteRecord[]>([])
   const [nombreLoading, setNombreLoading] = useState(false)
@@ -470,6 +475,38 @@ export default function TotemAutogestionImprimirPage() {
     setColorAutoDetectado(false)
     lastAnalysisRef.current = null
   }, [previewSources])
+
+  useEffect(() => {
+    if (step !== 'form' || preciosLista1) return
+    let cancelled = false
+    void (async () => {
+      const r = await cargarPreciosUnitariosTotem()
+      if (cancelled || !r.ok || !r.precios) return
+      setPreciosLista1(r.precios)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [step, preciosLista1])
+
+  /** Tono Lista 1 según modo (auto → según detección; mixto → color). */
+  const lista1Tone = useMemo((): 'color' | 'bw' => {
+    if (modoColor === 'bn') return 'bw'
+    if (modoColor === 'color') return 'color'
+    const t = colorQuote.tipo_impresion.toLowerCase()
+    if (t.includes('blanco') || t.includes('negro') || t.includes('b/n')) return 'bw'
+    return 'color'
+  }, [modoColor, colorQuote.tipo_impresion])
+
+  const unitActual = useMemo(() => {
+    if (!preciosLista1) return null
+    return unitPriceForTone(preciosLista1[formatoImpresion]?.[tipoPapel], lista1Tone)
+  }, [preciosLista1, formatoImpresion, tipoPapel, lista1Tone])
+
+  const withUnit = useCallback((label: string, unit: number | null | undefined) => {
+    if (unit == null || !Number.isFinite(unit)) return label
+    return `${label} — ${formatTotemPrintArsShort(unit)}`
+  }, [])
 
   useEffect(() => {
     if (!colorQuote.tipo_impresion.trim() || (printJobs.length > 0 ? hojasTotalesSeleccionadas < 1 : cantidadHojas < 1)) {
@@ -1233,9 +1270,16 @@ export default function TotemAutogestionImprimirPage() {
                       patchActiveJob({ formato: v })
                     }}
                   >
-                    <option value="A4">A4</option>
-                    <option value="A3">A3</option>
-                    <option value="A3E">A3 extendido (32×45 cm)</option>
+                    {(['A4', 'A3', 'A3E'] as PrintFormat[]).map((f) => {
+                      const label =
+                        f === 'A3E' ? 'A3 extendido (32×45 cm)' : f
+                      const unit = unitPriceForTone(preciosLista1?.[f]?.[tipoPapel], lista1Tone)
+                      return (
+                        <option key={f} value={f}>
+                          {withUnit(label, unit)}
+                        </option>
+                      )
+                    })}
                   </select>
                 </label>
                 <label className="totem-print-span2">
@@ -1249,8 +1293,13 @@ export default function TotemAutogestionImprimirPage() {
                     }}
                     aria-label="Simple faz o doble faz"
                   >
-                    <option value="simple">Simple faz</option>
-                    <option value="doble">Doble faz</option>
+                    <option value="simple">{withUnit('Simple faz', unitActual)}</option>
+                    <option value="doble">
+                      {withUnit(
+                        'Doble faz',
+                        unitActual != null ? unitActual * 2 : null
+                      )}
+                    </option>
                   </select>
                   {fazImpresion === 'doble' && (
                     <span className="totem-print-hojasHint">
@@ -1273,11 +1322,22 @@ export default function TotemAutogestionImprimirPage() {
                   >
                     {gruposTotemPrintPapel().map(({ group, options }) => (
                       <optgroup key={group} label={group}>
-                        {options.map((o) => (
-                          <option key={o.id} value={o.id}>
-                            {o.label}
-                          </option>
-                        ))}
+                        {options.map((o) => {
+                          const entry = preciosLista1?.[formatoImpresion]?.[o.id]
+                          let unit: number | null = null
+                          if (entry?.unico) {
+                            unit = entry.color
+                          } else if (lista1Tone === 'bw') {
+                            unit = entry?.bw ?? null
+                          } else {
+                            unit = entry?.color ?? null
+                          }
+                          return (
+                            <option key={o.id} value={o.id}>
+                              {withUnit(o.label, unit)}
+                            </option>
+                          )
+                        })}
                       </optgroup>
                     ))}
                   </select>
@@ -1302,9 +1362,19 @@ export default function TotemAutogestionImprimirPage() {
                     }}
                     aria-label="Modo de color"
                   >
-                    <option value="auto">Automático (del archivo)</option>
-                    <option value="color">Todo a color</option>
-                    <option value="bn">Todo blanco y negro</option>
+                    {(() => {
+                      const entry = preciosLista1?.[formatoImpresion]?.[tipoPapel]
+                      const colorU = entry?.color ?? null
+                      const bwU = entry?.bw ?? null
+                      const autoU = lista1Tone === 'bw' ? bwU : colorU
+                      return (
+                        <>
+                          <option value="auto">{withUnit('Automático (del archivo)', autoU)}</option>
+                          <option value="color">{withUnit('Todo a color', colorU)}</option>
+                          <option value="bn">{withUnit('Todo blanco y negro', bwU)}</option>
+                        </>
+                      )
+                    })()}
                   </select>
                   {modoColor === 'auto' && colorAutoDetectado && (
                     <span className="totem-print-hojasHint">Detectado: {colorQuote.tipo_impresion}</span>
