@@ -1308,6 +1308,8 @@ export interface MovimientoProveedorRecord {
   fecha_hasta?: string | null
   fecha_hora: string
   fecha_comprobante?: string | null
+  /** Vencimiento de la factura (solo debe). */
+  fecha_vencimiento?: string | null
   tipo_movimiento: string
   comprobante: string
   debe: number

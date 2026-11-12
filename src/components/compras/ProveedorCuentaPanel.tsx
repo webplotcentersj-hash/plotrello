@@ -6,15 +6,26 @@ import { extraerDatosTicket, fileToDataUrl, type TicketExtract } from '../../uti
 import {
   adjuntosDeMovimiento,
   estadoCuentaProveedor,
+  estadoVencimientoFactura,
+  etiquetaEstadoVencimiento,
+  facturasAlertaVencimiento,
   moneyProveedor,
   saldoCuentaProveedor,
   type AdjuntoProveedor
 } from '../../utils/proveedorCuenta'
+import {
+  descargarCuentaProveedorPdf,
+  descargarVencimientosProveedoresPdf
+} from '../../utils/documentos/proveedorCuentaPdf'
 import '../../pages/DeudasProveedoresPage.css'
 
 type Props = {
   idProveedor?: number
   proveedorNombre?: string
+  proveedorCuit?: string | null
+  proveedorTelefono?: string | null
+  proveedorEmail?: string | null
+  proveedorDomicilio?: string | null
   saldoListado?: number | null
   onChanged?: () => void
 }
@@ -58,9 +69,26 @@ function csvEscape(v: string | number | null | undefined): string {
   return s
 }
 
+/** Último movimiento por fecha_hora + id (tie-break si comparten medianoche). */
+function ultimoMovimientoCronologico(
+  rows: MovimientoProveedorEnriquecido[]
+): MovimientoProveedorEnriquecido | undefined {
+  if (rows.length === 0) return undefined
+  return [...rows].sort((a, b) => {
+    const ta = new Date(a.fecha_hora).getTime()
+    const tb = new Date(b.fecha_hora).getTime()
+    if (ta !== tb) return ta - tb
+    return (Number(a.id) || 0) - (Number(b.id) || 0)
+  })[rows.length - 1]
+}
+
 export default function ProveedorCuentaPanel({
   idProveedor,
   proveedorNombre,
+  proveedorCuit,
+  proveedorTelefono,
+  proveedorEmail,
+  proveedorDomicilio,
   saldoListado,
   onChanged
 }: Props) {
@@ -74,6 +102,7 @@ export default function ProveedorCuentaPanel({
   const [tipo, setTipo] = useState<'factura' | 'pago'>('factura')
   const [monto, setMonto] = useState('')
   const [fecha, setFecha] = useState(getArgentinaDateString())
+  const [fechaVto, setFechaVto] = useState('')
   const [comprobante, setComprobante] = useState('')
   const [archivos, setArchivos] = useState<File[]>([])
   const [preview, setPreview] = useState<string | null>(null)
@@ -124,7 +153,7 @@ export default function ProveedorCuentaPanel({
   }, [load])
 
   const saldo = useMemo(() => {
-    const last = rows[rows.length - 1]
+    const last = ultimoMovimientoCronologico(rows)
     if (last) return Number(last.saldo) || 0
     if (saldoDeuda != null) return saldoDeuda
     return saldoCuentaProveedor({ saldo_listado: saldoListado ?? null })
@@ -145,7 +174,7 @@ export default function ProveedorCuentaPanel({
       else facturas += 1
       if (adjuntosDeMovimiento(r).length > 0) conAdjunto += 1
     }
-    const ultimo = rows[rows.length - 1]
+    const ultimo = ultimoMovimientoCronologico(rows)
     const saldoActual =
       ultimo != null
         ? Number(ultimo.saldo) || 0
@@ -175,6 +204,13 @@ export default function ProveedorCuentaPanel({
     }
   }, [rows, saldoDeuda, saldoListado, resetMeta.at])
 
+  const hoyIso = getArgentinaDateString()
+
+  const alertasVto = useMemo(
+    () => facturasAlertaVencimiento(rows, hoyIso),
+    [rows, hoyIso]
+  )
+
   const visibles = useMemo(() => {
     const query = q.trim().toLowerCase()
     const filtered = rows.filter((r) => {
@@ -183,7 +219,7 @@ export default function ProveedorCuentaPanel({
       if (filtro === 'pago' && !pago) return false
       if (!query) return true
       const hay =
-        `${r.id} ${r.comprobante} ${r.tipo_movimiento} ${r.fecha_comprobante || ''} ${r.fecha_hora} ${r.enlace_tipo || ''}`.toLowerCase()
+        `${r.id} ${r.comprobante} ${r.tipo_movimiento} ${r.fecha_comprobante || ''} ${r.fecha_vencimiento || ''} ${r.fecha_hora} ${r.enlace_tipo || ''}`.toLowerCase()
       return hay.includes(query)
     })
     if (ordenLibro === 'reciente') return [...filtered].reverse()
@@ -205,6 +241,7 @@ export default function ProveedorCuentaPanel({
       setExtracto(data)
       if (data.total != null && Number(data.total) > 0) setMonto(String(data.total))
       if (data.fecha) setFecha(String(data.fecha).slice(0, 10))
+      if (data.fecha_vencimiento) setFechaVto(String(data.fecha_vencimiento).slice(0, 10))
       const nro = (data.numero_comprobante || '').trim()
       if (nro) setComprobante(nro)
       else if (data.descripcion) setComprobante(String(data.descripcion))
@@ -353,11 +390,13 @@ export default function ProveedorCuentaPanel({
         fecha,
         comprobante: comprobante.trim() || undefined,
         url_adjunto: adjuntos[0]?.url ?? null,
-        url_adjuntos: adjuntos
+        url_adjuntos: adjuntos,
+        fecha_vencimiento: tipo === 'factura' && fechaVto ? fechaVto : null
       })
       if (!r.success) throw new Error(r.error || 'No se pudo registrar')
       setMonto('')
       setComprobante('')
+      setFechaVto('')
       setArchivos([])
       setPreview(null)
       setExtracto(null)
@@ -389,10 +428,35 @@ export default function ProveedorCuentaPanel({
     }
   }
 
+  const exportarPdfCuenta = () => {
+    void descargarCuentaProveedorPdf({
+      proveedor: {
+        nombre: proveedorNombre || 'Proveedor',
+        cuit: proveedorCuit,
+        telefono: proveedorTelefono,
+        email: proveedorEmail,
+        domicilio: proveedorDomicilio
+      },
+      saldoActual: saldo,
+      totalDebe: resumen.totalDebe,
+      totalHaber: resumen.totalHaber,
+      movimientos: rows
+    })
+  }
+
+  const exportarPdfVencimientos = () => {
+    if (alertasVto.length === 0) return
+    void descargarVencimientosProveedoresPdf(alertasVto, {
+      titulo: `Vencimientos · ${proveedorNombre || 'Proveedor'}`,
+      nota: `Facturas de ${proveedorNombre || 'este proveedor'} vencidas o por vencer en 14 días.`
+    })
+  }
+
   const exportarCsv = () => {
     const header = [
       'id',
       'fecha_comprobante',
+      'fecha_vencimiento',
       'fecha_registro',
       'tipo',
       'comprobante',
@@ -412,6 +476,7 @@ export default function ProveedorCuentaPanel({
         [
           r.id,
           (r.fecha_comprobante || '').slice(0, 10),
+          (r.fecha_vencimiento || '').slice(0, 10),
           r.fecha_hora || '',
           etiquetaTipo(r),
           r.comprobante || '',
@@ -537,6 +602,24 @@ export default function ProveedorCuentaPanel({
             >
               Le pagamos
             </button>
+            <button
+              type="button"
+              className="cp-btn cp-btn--secondary"
+              onClick={exportarPdfCuenta}
+              disabled={rows.length === 0}
+              title="PDF del libro con montos y fecha de vencimiento"
+            >
+              PDF cuenta
+            </button>
+            <button
+              type="button"
+              className="cp-btn cp-btn--secondary"
+              onClick={exportarPdfVencimientos}
+              disabled={alertasVto.length === 0}
+              title="PDF de facturas vencidas o por vencer"
+            >
+              PDF vencimientos
+            </button>
             <button type="button" className="cp-btn cp-btn--secondary" onClick={exportarCsv} disabled={rows.length === 0}>
               Exportar CSV
             </button>
@@ -637,7 +720,7 @@ export default function ProveedorCuentaPanel({
           </button>
         </div>
 
-        <div className="prov-cuenta__grid">
+        <div className={`prov-cuenta__grid ${tipo === 'factura' ? 'prov-cuenta__grid--factura' : ''}`}>
           <label>
             Importe
             <input
@@ -654,6 +737,17 @@ export default function ProveedorCuentaPanel({
             Fecha comprobante
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
           </label>
+          {tipo === 'factura' ? (
+            <label>
+              Fecha de vencimiento
+              <input
+                type="date"
+                value={fechaVto}
+                onChange={(e) => setFechaVto(e.target.value)}
+                min={fecha || undefined}
+              />
+            </label>
+          ) : null}
           <label>
             N° comprobante
             <input
@@ -731,6 +825,28 @@ export default function ProveedorCuentaPanel({
 
       {error && <p className="prov-cuenta__error">{error}</p>}
 
+      {alertasVto.length > 0 ? (
+        <div className="prov-cuenta__alerta-vto" role="status">
+          <div>
+            <strong>
+              {alertasVto.filter((a) => a.estado === 'vencida').length > 0
+                ? 'Hay facturas vencidas'
+                : 'Próximos vencimientos'}
+            </strong>
+            <span>
+              {alertasVto.length} factura{alertasVto.length === 1 ? '' : 's'} ·{' '}
+              {moneyProveedor(alertasVto.reduce((s, a) => s + a.monto, 0))}
+              {alertasVto[0]
+                ? ` · primera vto ${fmtFecha(alertasVto[0].fecha_vencimiento)}`
+                : ''}
+            </span>
+          </div>
+          <button type="button" className="cp-btn cp-btn--secondary" onClick={exportarPdfVencimientos}>
+            Descargar PDF
+          </button>
+        </div>
+      ) : null}
+
       <section className="prov-cuenta__libro">
         <div className="prov-cuenta__libro-head">
           <span className="prov-cuenta__step">2</span>
@@ -798,6 +914,7 @@ export default function ProveedorCuentaPanel({
                 <tr>
                   <th>ID</th>
                   <th>Fecha</th>
+                  <th>Vto</th>
                   <th>Tipo</th>
                   <th>Comprobante</th>
                   <th className="num">Debe</th>
@@ -812,6 +929,9 @@ export default function ProveedorCuentaPanel({
                   const debe = Number(r.debe) || 0
                   const haber = Number(r.haber) || 0
                   const adjuntos = adjuntosDeMovimiento(r)
+                  const estVto = pago
+                    ? null
+                    : estadoVencimientoFactura(r.fecha_vencimiento, hoyIso)
                   return (
                     <tr
                       key={r.id}
@@ -826,6 +946,20 @@ export default function ProveedorCuentaPanel({
                       <td>
                         <strong>{fmtFecha(r.fecha_comprobante || r.fecha_hora)}</strong>
                         <small className="prov-cuenta__meta">reg. {fmtFechaHora(r.fecha_hora)}</small>
+                      </td>
+                      <td>
+                        {r.fecha_vencimiento ? (
+                          <>
+                            <strong>{fmtFecha(r.fecha_vencimiento)}</strong>
+                            {estVto && estVto !== 'ok' ? (
+                              <small className={`prov-cuenta__vto-badge prov-cuenta__vto-badge--${estVto}`}>
+                                {etiquetaEstadoVencimiento(estVto)}
+                              </small>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="prov-cuenta__meta">—</span>
+                        )}
                       </td>
                       <td>
                         <span className={`prov-mov__kind ${pago ? 'is-pago' : 'is-factura'}`}>

@@ -9953,7 +9953,8 @@ class ApiService {
           .select(`
             *,
             items:pedidos_compras_items(*),
-            comentarios:pedidos_compras_comentarios(*)
+            comentarios:pedidos_compras_comentarios(*),
+            proveedor:proveedores(*)
           `)
           .order('fecha_solicitud', { ascending: false })
 
@@ -12783,7 +12784,11 @@ class ApiService {
       const [provRes, deudasRes, movsRes, pagosRes, deudaCcRows] = await Promise.all([
         this.getProveedores(true),
         supabase.from('deudas_proveedores').select('*'),
-        supabase.from('movimientos_proveedores').select('*').order('fecha_hora', { ascending: true }),
+        supabase
+          .from('movimientos_proveedores')
+          .select('*')
+          .order('fecha_hora', { ascending: true })
+          .order('id', { ascending: true }),
         supabase.from('pagos_proveedores').select('*'),
         this.loadDeudaCcRows()
       ])
@@ -24868,6 +24873,7 @@ class ApiService {
         .from('movimientos_proveedores')
         .select('*')
         .order('fecha_hora', { ascending: true })
+        .order('id', { ascending: true })
 
       if (error) {
         if (error.message.includes('movimientos_proveedores') || error.code === '42P01') {
@@ -24877,6 +24883,13 @@ class ApiService {
       }
 
       let rows = (data as import('../types/api').MovimientoProveedorRecord[]) ?? []
+      // Misma fecha_hora (medianoche del comprobante) → orden estable por id.
+      rows = [...rows].sort((a, b) => {
+        const ta = new Date(a.fecha_hora).getTime()
+        const tb = new Date(b.fecha_hora).getTime()
+        if (ta !== tb) return ta - tb
+        return (Number(a.id) || 0) - (Number(b.id) || 0)
+      })
 
       const pagosRes = await supabase.from('pagos_proveedores').select('id, numero_pago')
       const pagosMap = new Map<string, number>()
@@ -24992,6 +25005,8 @@ class ApiService {
     usuario?: string
     url_adjunto?: string | null
     url_adjuntos?: Array<{ url: string; nombre?: string }>
+    /** Solo aplica a facturas. */
+    fecha_vencimiento?: string | null
   }): Promise<ApiResponse<{ saldo: number; id?: number }>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
     try {
@@ -25003,7 +25018,11 @@ class ApiService {
         p_comprobante: input.comprobante || '',
         p_usuario: input.usuario || null,
         p_url_adjunto: input.url_adjunto || null,
-        p_url_adjuntos: input.url_adjuntos ?? []
+        p_url_adjuntos: input.url_adjuntos ?? [],
+        p_fecha_vencimiento:
+          input.tipo === 'factura' && input.fecha_vencimiento
+            ? String(input.fecha_vencimiento).slice(0, 10)
+            : null
       })
       if (error) return { success: false, error: error.message }
       const payload = data as { success?: boolean; saldo?: number; id?: number; error?: string } | null

@@ -2,14 +2,22 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
-import type { ArticuloEmpresaRecord, ClienteRecord, ProveedorConFinanzas } from '../types/api'
+import type {
+  ArticuloEmpresaRecord,
+  ClienteRecord,
+  MovimientoProveedorEnriquecido,
+  ProveedorConFinanzas
+} from '../types/api'
 import type { ArticuloStock, Proveedor, ProveedorProducto } from '../types/pedidos'
 import ProveedorFinanzasHub from '../components/compras/ProveedorFinanzasHub'
+import ProveedoresMesInformeModal from '../components/compras/ProveedoresMesInformeModal'
 import {
   estadoCuentaProveedor,
+  facturasAlertaVencimiento,
   moneyProveedor,
   saldoCuentaProveedor
 } from '../utils/proveedorCuenta'
+import { descargarVencimientosProveedoresPdf } from '../utils/documentos/proveedorCuentaPdf'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
 import {
   CONDICIONES_IVA_CLIENTE,
@@ -142,15 +150,19 @@ const ProveedoresPage = () => {
     notas: ''
   })
   const [busqueda, setBusqueda] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState<'todos' | 'deuda' | 'aldia' | 'favor'>('todos')
+  const [filtroEstado, setFiltroEstado] = useState<
+    'todos' | 'deuda' | 'aldia' | 'favor' | 'vence'
+  >('todos')
   const [pagina, setPagina] = useState(1)
   const PAGE_SIZE = 10
+  const [todosMovs, setTodosMovs] = useState<MovimientoProveedorEnriquecido[]>([])
   const [mesMovs, setMesMovs] = useState({
     debe: 0,
     haber: 0,
     facturas: 0,
     pagos: 0
   })
+  const [informeMesOpen, setInformeMesOpen] = useState(false)
   const [clientesSugeridos, setClientesSugeridos] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [clienteVinculado, setClienteVinculado] = useState<ClienteRecord | null>(null)
@@ -182,6 +194,7 @@ const ProveedoresPage = () => {
         setProveedores(response.data)
       }
       if (movsRes.success && movsRes.data) {
+        setTodosMovs(movsRes.data)
         let debe = 0
         let haber = 0
         let facturas = 0
@@ -199,6 +212,7 @@ const ProveedoresPage = () => {
         }
         setMesMovs({ debe, haber, facturas, pagos })
       } else {
+        setTodosMovs([])
         setMesMovs({ debe: 0, haber: 0, facturas: 0, pagos: 0 })
       }
     } catch (error) {
@@ -509,6 +523,24 @@ const ProveedoresPage = () => {
     }
   }
 
+  const hoyIso = getArgentinaDateString()
+
+  const alertasVencimiento = useMemo(
+    () => facturasAlertaVencimiento(todosMovs, hoyIso),
+    [todosMovs, hoyIso]
+  )
+
+  const idsProveedorConVencimiento = useMemo(() => {
+    const ids = new Set<number>()
+    const nombres = new Set<string>()
+    for (const f of alertasVencimiento) {
+      if (f.id_proveedor != null && f.id_proveedor > 0) ids.add(f.id_proveedor)
+      const n = (f.proveedor_nombre || '').trim().toLowerCase()
+      if (n) nombres.add(n)
+    }
+    return { ids, nombres }
+  }, [alertasVencimiento])
+
   const proveedoresFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
     return proveedores.filter((p) => {
@@ -517,6 +549,12 @@ const ProveedoresPage = () => {
       if (filtroEstado === 'deuda' && estado !== 'deuda') return false
       if (filtroEstado === 'aldia' && estado !== 'ok') return false
       if (filtroEstado === 'favor' && estado !== 'favor') return false
+      if (filtroEstado === 'vence') {
+        const nombre = displayNombre(p).trim().toLowerCase()
+        const matchId = p.id > 0 && idsProveedorConVencimiento.ids.has(p.id)
+        const matchNombre = nombre ? idsProveedorConVencimiento.nombres.has(nombre) : false
+        if (!matchId && !matchNombre) return false
+      }
       if (!q) return true
       const blob = [
         p.nombre,
@@ -532,7 +570,7 @@ const ProveedoresPage = () => {
         .toLowerCase()
       return blob.includes(q)
     })
-  }, [proveedores, busqueda, filtroEstado])
+  }, [proveedores, busqueda, filtroEstado, idsProveedorConVencimiento])
 
   const listaOrdenada = useMemo(() => {
     return [...proveedoresFiltrados].sort((a, b) => {
@@ -573,6 +611,7 @@ const ProveedoresPage = () => {
     let nDeuda = 0
     let nOk = 0
     let nFavor = 0
+    let nVence = 0
     for (const p of proveedores) {
       const saldo = saldoCuentaProveedor(p.finanzas)
       const cls = estadoCuentaProveedor(saldo).cls
@@ -584,6 +623,13 @@ const ProveedoresPage = () => {
         nFavor += 1
       } else {
         nOk += 1
+      }
+      const nombre = displayNombre(p).trim().toLowerCase()
+      if (
+        (p.id > 0 && idsProveedorConVencimiento.ids.has(p.id)) ||
+        (nombre && idsProveedorConVencimiento.nombres.has(nombre))
+      ) {
+        nVence += 1
       }
     }
     const neto = deuda - favor
@@ -635,6 +681,7 @@ const ProveedoresPage = () => {
       nDeuda,
       nOk,
       nFavor,
+      nVence,
       total: proveedores.length,
       balance,
       mes: {
@@ -644,7 +691,7 @@ const ProveedoresPage = () => {
         estado: mesEstado
       }
     }
-  }, [proveedores, mesMovs])
+  }, [proveedores, mesMovs, idsProveedorConVencimiento])
 
   if (authLoading || loading) {
     return (
@@ -738,16 +785,25 @@ const ProveedoresPage = () => {
               {cuentaGeneral.nOk} al día
             </small>
           </article>
-          <article
-            className={`prov-cuenta-general__kpi prov-cuenta-general__kpi--mes prov-cuenta-general__kpi--mes-${cuentaGeneral.mes.estado.cls}`}
+          <button
+            type="button"
+            className={`prov-cuenta-general__kpi prov-cuenta-general__kpi--mes prov-cuenta-general__kpi--mes-${cuentaGeneral.mes.estado.cls} prov-cuenta-general__kpi--click`}
+            onClick={() => setInformeMesOpen(true)}
+            title="Ver gráficos e informe del mes"
           >
             <em>Estado del mes · {cuentaGeneral.mes.label}</em>
             <b>{cuentaGeneral.mes.estado.label}</b>
             <small>{cuentaGeneral.mes.estado.frase}</small>
-          </article>
+            <span className="prov-cuenta-general__kpi-cta">Ver informe →</span>
+          </button>
         </div>
 
-        <div className="prov-cuenta-general__mes">
+        <button
+          type="button"
+          className="prov-cuenta-general__mes prov-cuenta-general__mes--click"
+          onClick={() => setInformeMesOpen(true)}
+          title="Abrir informe del mes"
+        >
           <div>
             <span>Facturado del mes</span>
             <strong>{moneyProveedor(cuentaGeneral.mes.debe)}</strong>
@@ -772,8 +828,56 @@ const ProveedoresPage = () => {
               {cuentaGeneral.total} proveedor{cuentaGeneral.total === 1 ? '' : 'es'} en cartera
             </em>
           </div>
-        </div>
+        </button>
       </section>
+
+      <ProveedoresMesInformeModal
+        open={informeMesOpen}
+        onClose={() => setInformeMesOpen(false)}
+        proveedores={proveedores}
+        mesInicial={cuentaGeneral.mes.clave}
+      />
+
+      {alertasVencimiento.length > 0 ? (
+        <div className="prov-dir-alerta-vto" role="status">
+          <div>
+            <strong>
+              {alertasVencimiento.some((a) => a.estado === 'vencida')
+                ? 'Alertas de vencimiento'
+                : 'Próximos vencimientos'}
+            </strong>
+            <span>
+              {alertasVencimiento.filter((a) => a.estado === 'vencida').length} vencida
+              {alertasVencimiento.filter((a) => a.estado === 'vencida').length === 1 ? '' : 's'}
+              {' · '}
+              {alertasVencimiento.filter((a) => a.estado === 'proxima').length} por vencer
+              {' · '}
+              {moneyProveedor(alertasVencimiento.reduce((s, a) => s + a.monto, 0))}
+            </span>
+          </div>
+          <div className="prov-dir-alerta-vto__actions">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setFiltroEstado('vence')}
+            >
+              Ver proveedores
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() =>
+                void descargarVencimientosProveedoresPdf(alertasVencimiento, {
+                  titulo: 'Vencimientos a proveedores',
+                  nota: 'Detalle de facturas vencidas y por vencer (14 días) con monto y fecha de vto.'
+                })
+              }
+            >
+              Descargar PDF
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <section className="search-section prov-dir-search">
         <input
@@ -789,13 +893,14 @@ const ProveedoresPage = () => {
               ['todos', `Todos (${cuentaGeneral.total})`],
               ['deuda', `Le debemos (${cuentaGeneral.nDeuda})`],
               ['aldia', `Al día (${cuentaGeneral.nOk})`],
-              ['favor', `A favor (${cuentaGeneral.nFavor})`]
+              ['favor', `A favor (${cuentaGeneral.nFavor})`],
+              ['vence', `Vencen (${cuentaGeneral.nVence})`]
             ] as const
           ).map(([key, label]) => (
             <button
               key={key}
               type="button"
-              className={filtroEstado === key ? 'is-on' : ''}
+              className={`${filtroEstado === key ? 'is-on' : ''}${key === 'vence' ? ' is-vence' : ''}`}
               onClick={() => setFiltroEstado(key)}
             >
               {label}
@@ -934,6 +1039,16 @@ const ProveedoresPage = () => {
             mode="embedded"
             idProveedor={proveedorTrazado.id > 0 ? proveedorTrazado.id : undefined}
             proveedorNombre={displayNombre(proveedorTrazado)}
+            proveedorCuit={proveedorTrazado.cuit}
+            proveedorTelefono={proveedorTrazado.telefono}
+            proveedorEmail={proveedorTrazado.email}
+            proveedorDomicilio={[
+              proveedorTrazado.direccion,
+              proveedorTrazado.ciudad,
+              proveedorTrazado.provincia
+            ]
+              .filter(Boolean)
+              .join(', ')}
             saldoListado={saldoCuentaProveedor(proveedorTrazado.finanzas)}
             onChanged={() => {
               void loadProveedores().then(() => {

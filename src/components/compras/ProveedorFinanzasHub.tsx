@@ -10,6 +10,10 @@ export type ProveedorFinanzasHubProps = {
   initialTab?: FinanzasTab
   idProveedor?: number
   proveedorNombre?: string
+  proveedorCuit?: string | null
+  proveedorTelefono?: string | null
+  proveedorEmail?: string | null
+  proveedorDomicilio?: string | null
   saldoListado?: number | null
   codigoDeuda?: string | null
   movimientosCount?: number
@@ -25,6 +29,10 @@ export default function ProveedorFinanzasHub({
   mode = 'page',
   idProveedor,
   proveedorNombre,
+  proveedorCuit,
+  proveedorTelefono,
+  proveedorEmail,
+  proveedorDomicilio,
   saldoListado,
   onClose,
   onEditar,
@@ -81,6 +89,10 @@ export default function ProveedorFinanzasHub({
       <ProveedorCuentaPanel
         idProveedor={idProveedor}
         proveedorNombre={proveedorNombre}
+        proveedorCuit={proveedorCuit}
+        proveedorTelefono={proveedorTelefono}
+        proveedorEmail={proveedorEmail}
+        proveedorDomicilio={proveedorDomicilio}
         saldoListado={saldoListado}
         onChanged={onChanged}
       />

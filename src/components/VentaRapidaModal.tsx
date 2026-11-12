@@ -232,6 +232,8 @@ const VentaRapidaModal = ({
   const [ventaCreada, setVentaCreada] = useState<Venta | null>(null)
   /** Overlay notorio solo cuando la venta quedó confirmada (no MP a medias). */
   const [mostrarCartelRealizada, setMostrarCartelRealizada] = useState(false)
+  /** Transferencia: no se puede Continuar hasta emitir factura. */
+  const [facturaEmitidaEnSesion, setFacturaEmitidaEnSesion] = useState(false)
   const [anulandoMpPendiente, setAnulandoMpPendiente] = useState(false)
   const [facturandoAfip, setFacturandoAfip] = useState(false)
   const [emisionAfip, setEmisionAfip] = useState<{
@@ -801,6 +803,7 @@ const VentaRapidaModal = ({
       })
       setEmisionAfip((prev) => (prev ? { ...prev, etapa: 'cae', resultado } : prev))
       if (resultado.ok && resultado.facturaId) {
+        setFacturaEmitidaEnSesion(true)
         try {
           await descargarPdfFacturaAfip(resultado.facturaId, leerDisenoPdfFactura())
         } catch (error) {
@@ -859,6 +862,7 @@ const VentaRapidaModal = ({
         /* usamos el snapshot local */
       }
       if (ventaParaFactura) {
+        setFacturaEmitidaEnSesion(false)
         setVentaCreada(ventaParaFactura)
         setMostrarCartelRealizada(true)
         void emitirYExportarFacturaMp(ventaParaFactura)
@@ -1297,6 +1301,7 @@ const VentaRapidaModal = ({
         }
       }
 
+      setFacturaEmitidaEnSesion(false)
       setVentaCreada(ventaFinal)
       setMostrarCartelRealizada(true)
 
@@ -1348,6 +1353,20 @@ const VentaRapidaModal = ({
     }
   }
 
+  const ventaEsTransferencia = (venta: Venta | null | undefined): boolean => {
+    if (!venta) return false
+    const metodo = String(venta.metodo_pago || '')
+    if (metodo === 'Transferencia') return true
+    if (esPagoMixto(metodo) && montoLineaMetodo(venta.detalle_pago, 'Transferencia') > 0) return true
+    return false
+  }
+
+  const requiereFacturaTransferencia =
+    !!ventaCreada &&
+    !showMpCheckout &&
+    ventaEsTransferencia(ventaCreada) &&
+    !facturaEmitidaEnSesion
+
   const cerrar = async () => {
     // QR / cobro MP abierto sin pago: la venta YA existe (ítems/stock).
     // No anular al cerrar: queda Pendiente para cobrar por transferencia u otro medio / subir comprobante.
@@ -1359,6 +1378,10 @@ const VentaRapidaModal = ({
       setShowMpCheckout(false)
       onSuccess?.()
       onClose()
+      return
+    }
+    if (requiereFacturaTransferencia && mostrarCartelRealizada) {
+      alert('Esta venta es por transferencia: emití la Factura AFIP antes de continuar.')
       return
     }
     if (ventaCreada && !showMpCheckout) onSuccess?.()
@@ -1420,6 +1443,8 @@ const VentaRapidaModal = ({
             const cobroCartel = cobroDesdeVenta(ventaCreada)
             const esParcial = cobroCartel.estado === 'parcial'
             const esCc = cobroCartel.estado === 'cuenta_corriente'
+            const esTransfer = ventaEsTransferencia(ventaCreada)
+            const exigeFactura = esTransfer && !facturaEmitidaEnSesion
             const cobrado = Number(ventaCreada.monto_pagado) || Number(cobroCartel.monto) || 0
             const falta = Number(cobroCartel.saldo) || 0
             const total = Number(ventaCreada.valor_total) || 0
@@ -1427,13 +1452,27 @@ const VentaRapidaModal = ({
               <div
                 className="venta-realizada-cartel"
                 role="alertdialog"
-                aria-label={esParcial ? 'Cobro parcial' : 'Venta realizada'}
+                aria-label={
+                  exigeFactura
+                    ? 'Transferencia: emití Factura AFIP'
+                    : esParcial
+                      ? 'Cobro parcial'
+                      : 'Venta realizada'
+                }
               >
                 <div
-                  className={`venta-realizada-cartel-box${esParcial ? ' venta-realizada-cartel-box--parcial' : ''}`}
+                  className={`venta-realizada-cartel-box${
+                    esParcial ? ' venta-realizada-cartel-box--parcial' : ''
+                  }${exigeFactura ? ' venta-realizada-cartel-box--facturar' : ''}`}
                 >
                   <p className="venta-realizada-cartel-texto">
-                    {esParcial ? 'Cobro parcial' : esCc ? 'Venta en cuenta corriente' : 'Venta realizada'}
+                    {exigeFactura
+                      ? 'Emití Factura AFIP'
+                      : esParcial
+                        ? 'Cobro parcial'
+                        : esCc
+                          ? 'Venta en cuenta corriente'
+                          : 'Venta realizada'}
                   </p>
                   <p className="venta-realizada-cartel-hint">
                     Nº {ventaCreada.numero_venta}
@@ -1456,20 +1495,48 @@ const VentaRapidaModal = ({
                       {esCc ? ' · queda a crédito' : ' · ya suma en caja'}
                     </p>
                   )}
-                  {!esCc ? (
+                  {exigeFactura ? (
+                    <p className="venta-realizada-cartel-hint">
+                      Cobro por transferencia: emití la Factura AFIP para poder continuar.
+                    </p>
+                  ) : !esCc ? (
                     <p className="venta-realizada-cartel-hint">
                       {esParcial
                         ? 'Lo cobrado ya suma en el circuito de caja; el saldo queda pendiente.'
                         : 'Ya suma en el circuito de caja del día.'}
                     </p>
                   ) : null}
-                  <button
-                    type="button"
-                    className="venta-realizada-cartel-btn"
-                    onClick={() => setMostrarCartelRealizada(false)}
-                  >
-                    Continuar
-                  </button>
+                  {exigeFactura ? (
+                    <div className="venta-realizada-cartel-acciones">
+                      <button
+                        type="button"
+                        className="venta-realizada-cartel-btn venta-realizada-cartel-btn--afip"
+                        disabled={facturandoAfip}
+                        onClick={() => {
+                          if (facturandoAfip) return
+                          void emitirYExportarFacturaMp(ventaCreada)
+                        }}
+                      >
+                        {facturandoAfip ? 'Emitiendo…' : 'Factura AFIP'}
+                      </button>
+                      <button
+                        type="button"
+                        className="venta-realizada-cartel-btn venta-realizada-cartel-btn--disabled"
+                        disabled
+                        title="Emití la Factura AFIP para continuar"
+                      >
+                        Continuar
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="venta-realizada-cartel-btn"
+                      onClick={() => setMostrarCartelRealizada(false)}
+                    >
+                      Continuar
+                    </button>
+                  )}
                 </div>
               </div>
             )

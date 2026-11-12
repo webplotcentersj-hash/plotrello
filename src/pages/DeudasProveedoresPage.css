@@ -960,6 +960,52 @@
   gap: 10px;
 }
 
+.prov-cuenta__grid--factura {
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+}
+
+.prov-cuenta__alerta-vto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(251, 146, 60, 0.35);
+  background: linear-gradient(135deg, rgba(154, 52, 18, 0.35), rgba(69, 26, 3, 0.45));
+  color: #ffedd5;
+}
+
+.prov-cuenta__alerta-vto strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.prov-cuenta__alerta-vto span {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: #fed7aa;
+}
+
+.prov-cuenta__vto-badge {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.prov-cuenta__vto-badge--vencida {
+  color: #f87171;
+}
+
+.prov-cuenta__vto-badge--proxima {
+  color: #fb923c;
+}
+
 .prov-cuenta__grid label,
 .prov-cuenta__card label {
   display: flex;
@@ -1198,7 +1244,14 @@
     grid-column: 1 / -1;
   }
 
-  .prov-cuenta__grid {
+  .prov-cuenta__grid,
+  .prov-cuenta__grid--factura {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  .prov-cuenta__grid--factura {
+    grid-template-columns: 1fr 1fr;
   }
 }

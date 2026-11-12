@@ -259,31 +259,31 @@
   color: var(--sp-ink);
 }
 
-.items-list {
+.solicitar-productos-modal .items-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.item-card {
+.solicitar-productos-modal .item-card {
   background: #f9fafb !important;
   border-radius: 8px;
   padding: 16px;
   border-left: 4px solid #3b82f6;
 }
 
-.item-header {
+.solicitar-productos-modal .item-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
 }
 
-.item-header strong {
+.solicitar-productos-modal .item-header strong {
   color: #111827 !important;
 }
 
-.btn-remove {
+.solicitar-productos-modal .btn-remove {
   background: #ef4444;
   border: none;
   color: white;
@@ -298,7 +298,7 @@
   transition: all 0.2s;
 }
 
-.btn-remove:hover {
+.solicitar-productos-modal .btn-remove:hover {
   background: #dc2626;
   transform: scale(1.1);
 }

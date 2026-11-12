@@ -2,6 +2,7 @@ import { plotLabFetch } from './plotLabApiOrigin'
 
 export type TicketExtract = {
   fecha?: string | null
+  fecha_vencimiento?: string | null
   proveedor?: string | null
   categoria?: string | null
   descripcion?: string | null

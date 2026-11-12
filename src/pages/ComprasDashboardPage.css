@@ -392,166 +392,109 @@ button.compras-dash-stat:hover {
   border-color: rgba(249, 115, 22, 0.4);
 }
 
-/* Lista */
-.pedidos-sectores {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+/* Tabla de pedidos */
+.pedidos-table-meta {
+  margin: 0 0 10px;
 }
 
-.pedidos-sector-group {
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--sector-color) 38%, var(--cp-line));
-  border-radius: 17px;
-  background: linear-gradient(
-    150deg,
-    color-mix(in srgb, var(--sector-color) 8%, rgba(15, 23, 42, 0.72)),
-    rgba(2, 6, 23, 0.42)
-  );
-}
-
-.pedidos-sector-group__header {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 13px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--sector-color) 26%, var(--cp-line));
-  background: color-mix(in srgb, var(--sector-color) 11%, transparent);
-}
-
-.pedidos-sector-group__icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--sector-color) 20%, rgba(2, 6, 23, 0.8));
-  font-size: 1.1rem;
-}
-
-.pedidos-sector-group__header h3 {
+.pedidos-table-meta p {
   margin: 0;
-  color: #fff;
-  font-size: 1rem;
-}
-
-.pedidos-sector-group__header p {
-  margin: 2px 0 0;
-  color: var(--cp-muted);
-  font-size: 0.73rem;
-}
-
-.pedidos-sector-group__nuevos {
-  margin-left: auto;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: #f97316;
-  color: #fff;
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.pedidos-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 13px;
-}
-
-.pedidos-list__divider-label {
-  margin: 8px 0 4px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 0.82rem;
   color: var(--cp-muted);
 }
 
-.pedido-card {
-  position: relative;
-  overflow: hidden;
-  border-radius: 14px;
-  padding: 16px 18px;
-  border: 1px solid color-mix(in srgb, var(--pedido-sector-color) 24%, var(--cp-line));
-  border-left: 4px solid var(--pedido-sector-color);
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.76), rgba(2, 6, 23, 0.68));
-  cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+.pedidos-table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(2, 6, 23, 0.45);
 }
 
-.pedido-card:hover {
-  border-color: rgba(249, 115, 22, 0.45);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+.pedidos-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 920px;
 }
 
-.pedido-card--nuevo {
-  border-color: color-mix(in srgb, var(--pedido-sector-color) 65%, #f97316);
-  background:
-    radial-gradient(circle at 0% 0%, rgba(249, 115, 22, 0.13), transparent 42%),
-    linear-gradient(145deg, rgba(45, 38, 44, 0.95), rgba(15, 23, 42, 0.88));
-  box-shadow: 0 10px 28px rgba(249, 115, 22, 0.12);
-  padding-top: 34px;
+.pedidos-table th,
+.pedidos-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  vertical-align: middle;
 }
 
-.pedido-nuevo-badge {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: auto;
-  z-index: 1;
-  padding: 4px 10px;
-  border-radius: 0 0 10px 0;
-  background: linear-gradient(135deg, #f97316, #ea580c);
-  color: #fff;
-  font-size: 0.62rem;
-  font-weight: 850;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  pointer-events: none;
-}
-
-.pedido-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.pedido-numero {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.pedido-numero strong {
-  font-size: 1.1rem;
-  color: #fff;
-}
-
-.pedido-sector {
+.pedidos-table th {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+  color: #f8fafc;
   font-size: 0.78rem;
-  color: color-mix(in srgb, var(--pedido-sector-color) 70%, #fff);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.pedidos-table td {
+  color: var(--cp-ink);
+  font-size: 0.9rem;
+}
+
+.pedidos-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pedidos-table tbody tr {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.pedidos-table tbody tr:hover {
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.pedidos-table__row--nuevo {
+  background: rgba(249, 115, 22, 0.06);
+}
+
+.pedidos-table th.num,
+.pedidos-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pedidos-table__dot {
+  color: #f97316;
+  font-size: 0.85rem;
+}
+
+.pedidos-table__num strong {
+  color: #fff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pedidos-table__prov {
+  display: block;
+  color: #f8fafc;
   font-weight: 650;
 }
 
-.pedido-header__badges {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+.pedidos-table__hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: #94a3b8;
 }
 
-.pedido-prioridad {
-  font-size: 0.72rem;
+.pedidos-table__prio {
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.pedido-estado {
+.pedidos-table__estado {
+  display: inline-flex;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 0.7rem;
@@ -561,60 +504,65 @@ button.compras-dash-stat:hover {
   white-space: nowrap;
 }
 
-.pedido-info {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 8px 16px;
+.pedidos-table__motivo {
+  max-width: 220px;
+  color: var(--cp-muted);
+  font-size: 0.82rem;
 }
 
-.info-row {
+.pedidos-table__btn {
+  padding: 6px 12px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  color: #3b82f6;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  min-height: 34px;
+}
+
+.pedidos-table__btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.pedidos-pager {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 16px;
 }
 
-.info-row .label {
-  font-size: 0.72rem;
+.pedidos-pager__arrow {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(30, 41, 59, 0.85);
+  color: #e2e8f0;
+  font-size: 1.15rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pedidos-pager__arrow:hover:not(:disabled) {
+  border-color: rgba(249, 115, 22, 0.5);
+  background: rgba(249, 115, 22, 0.16);
+}
+
+.pedidos-pager__arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pedidos-pager__info {
+  min-width: 4.5rem;
+  text-align: center;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--cp-muted);
-}
-
-.info-row span:last-child {
-  font-size: 0.92rem;
-  color: var(--cp-ink);
-}
-
-.pedido-motivo {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--cp-line);
-  font-size: 0.85rem;
-  color: var(--cp-muted);
-  line-height: 1.45;
-}
-
-.pedido-motivo strong {
-  color: var(--cp-ink);
-}
-
-.pedido-card__abrir {
-  display: block;
-  margin-top: 10px;
-  color: color-mix(in srgb, var(--pedido-sector-color) 70%, #fff);
-  font-size: 0.73rem;
-  font-weight: 750;
-  text-align: right;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 0.15s, transform 0.15s;
-}
-
-.pedido-card:hover .pedido-card__abrir,
-.pedido-card:focus-visible .pedido-card__abrir {
-  opacity: 1;
-  transform: translateX(0);
+  color: #cbd5e1;
+  font-variant-numeric: tabular-nums;
 }
 
 .empty-state {
@@ -651,16 +599,4 @@ button.compras-dash-stat:hover {
     flex: 1;
   }
 
-  .pedidos-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .pedido-header {
-    flex-direction: column;
-  }
-
-  .pedido-header__badges {
-    flex-direction: row;
-    align-items: center;
-  }
 }

@@ -85,19 +85,34 @@
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
-.btn-agregar-producto {
+.crear-pedido-page .btn-agregar-producto {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  min-height: 38px;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  padding: 10px 16px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  min-height: 42px;
   border-radius: 10px;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
+  white-space: nowrap;
 }
 
-.btn-agregar-producto .btn-icon {
-  font-size: 16px;
+.crear-pedido-page .btn-agregar-producto:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.4);
+}
+
+.crear-pedido-page .btn-agregar-producto .btn-icon {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .btn-buscar-producto {
@@ -149,11 +164,15 @@
   pointer-events: none;
 }
 
-.section-header {
+.crear-pedido-page .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
 }
 
 .form-section h2 {
@@ -242,23 +261,27 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
-.items-list {
+.crear-pedido-page .items-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.item-card {
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(2, 6, 23, 0.55), rgba(15, 23, 42, 0.45));
-  border-radius: 12px;
-  padding: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
-.item-header {
+.crear-pedido-page .item-card {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  border-left: 3px solid #3b82f6 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  color: #e2e8f0;
+}
+
+.crear-pedido-page .item-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -267,27 +290,48 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.item-header h3 {
+.crear-pedido-page .item-header h3 {
   margin: 0;
   font-size: 1.125rem;
-  color: #ffffff;
+  color: #ffffff !important;
 }
 
-.btn-remove {
+.crear-pedido-page .item-card .form-group label {
+  color: #cbd5e1 !important;
+}
+
+.crear-pedido-page .item-card .form-group input,
+.crear-pedido-page .item-card .form-group select,
+.crear-pedido-page .item-card .form-group textarea {
+  background: rgba(2, 6, 23, 0.65) !important;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #f8fafc !important;
+}
+
+.crear-pedido-page .item-card .form-group input::placeholder,
+.crear-pedido-page .item-card .form-group textarea::placeholder {
+  color: #64748b;
+}
+
+.crear-pedido-page .item-card .btn-remove {
   padding: 6px 12px;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.35);
   border-radius: 6px;
-  color: #ef4444;
+  color: #fca5a5;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.875rem;
+  width: auto;
+  height: auto;
 }
 
-.btn-remove:hover {
-  background: rgba(239, 68, 68, 0.2);
+.crear-pedido-page .item-card .btn-remove:hover {
+  background: rgba(239, 68, 68, 0.28);
   border-color: #ef4444;
+  color: #fff;
+  transform: none;
 }
 
 .item-form-grid {

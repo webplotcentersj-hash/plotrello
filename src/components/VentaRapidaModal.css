@@ -137,6 +137,35 @@
   background: linear-gradient(135deg, #0f766e, #047857 55%, #115e59);
 }
 
+.venta-realizada-cartel-box--facturar {
+  background: linear-gradient(135deg, #b45309, #c2410c 55%, #9a3412);
+  border-color: rgba(254, 215, 170, 0.45);
+}
+
+.venta-realizada-cartel-acciones {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.venta-realizada-cartel-acciones .venta-realizada-cartel-btn {
+  width: 100%;
+}
+
+.venta-realizada-cartel-btn--afip {
+  background: #fff7ed !important;
+  color: #9a3412 !important;
+}
+
+.venta-realizada-cartel-btn--disabled,
+.venta-realizada-cartel-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.55) !important;
+  color: #7c2d12 !important;
+}
+
 .venta-realizada-cartel-texto {
   margin: 0 0 12px 0;
   font-size: 1.75rem;
@@ -713,13 +742,13 @@
   font-size: 1.25rem;
 }
 
-.items-list {
+.venta-rapida-modal .items-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.item-card {
+.venta-rapida-modal .item-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -729,7 +758,7 @@
     0 4px 14px rgba(15, 23, 42, 0.06);
 }
 
-.item-header {
+.venta-rapida-modal .item-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -737,7 +766,7 @@
   margin-bottom: 12px;
 }
 
-.item-header strong {
+.venta-rapida-modal .item-header strong {
   color: #0f172a;
   font-size: 1.05rem;
   font-weight: 700;

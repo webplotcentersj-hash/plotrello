@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
@@ -7,6 +7,7 @@ import './ComprasDashboardPage.css'
 
 const CARGAR_MAS = 15
 const INICIAL_TODOS = 30
+const PAGE_SIZE = 10
 
 const PERIODOS = [
   { value: '7', label: 'Últimos 7 días' },
@@ -44,26 +45,21 @@ const ESTADOS = [
 
 const PRIORIDADES = ['todos', 'Baja', 'Normal', 'Alta', 'Urgente'] as const
 
-const SECTORES_META: Record<string, { icono: string; color: string }> = {
-  'Taller Gráfico': { icono: '🧰', color: '#f97316' },
-  'Taller de Imprenta': { icono: '🖨️', color: '#8b5cf6' },
-  Metalúrgica: { icono: '⚙️', color: '#b45309' },
-  Instalaciones: { icono: '🪜', color: '#06b6d4' },
-  Administración: { icono: '📊', color: '#3b82f6' },
-  'Diseño Gráfico': { icono: '🎨', color: '#ec4899' },
-  Mostrador: { icono: '🏪', color: '#10b981' },
-  Caja: { icono: '💵', color: '#22c55e' },
-  Compras: { icono: '🛒', color: '#f59e0b' },
-  Gerencia: { icono: '🧭', color: '#6366f1' },
-  'Sin área': { icono: '📁', color: '#64748b' }
+function nombreProveedorPedido(pedido: PedidoCompra): string {
+  const fromJoin =
+    pedido.proveedor?.razon_social?.trim() ||
+    pedido.proveedor?.nombre?.trim() ||
+    ''
+  if (fromJoin) return fromJoin
+  const fromItem = pedido.items?.find((i) => (i.proveedor || '').trim())?.proveedor?.trim()
+  if (fromItem) return fromItem
+  return 'Sin proveedor'
 }
 
-function sectorDe(pedido: PedidoCompra): string {
-  return pedido.sector_solicitante?.trim() || 'Sin área'
-}
-
-function metaSector(sector: string) {
-  return SECTORES_META[sector] ?? { icono: '📁', color: '#64748b' }
+function claveProveedorPedido(pedido: PedidoCompra): string {
+  if (pedido.id_proveedor && pedido.id_proveedor > 0) return `id:${pedido.id_proveedor}`
+  const nombre = nombreProveedorPedido(pedido)
+  return nombre === 'Sin proveedor' ? 'sin' : `nom:${nombre.toLowerCase()}`
 }
 
 function getEstadoColor(estado: string): string {
@@ -90,70 +86,10 @@ function getPrioridadColor(prioridad: string): string {
   return colores[prioridad] || '#6b7280'
 }
 
-function PedidoCard({
-  pedido,
-  onOpen
-}: {
-  pedido: PedidoCompra
-  onOpen: () => void
-}) {
-  const esNuevo = !pedido.visto_por_compras_at
-  const sector = sectorDe(pedido)
-  const meta = metaSector(sector)
-
-  return (
-    <article
-      className={`pedido-card${esNuevo ? ' pedido-card--nuevo' : ''}`}
-      style={{ '--pedido-sector-color': meta.color } as CSSProperties}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onOpen()
-        }
-      }}
-      role="button"
-      tabIndex={0}
-    >
-      {esNuevo && <span className="pedido-nuevo-badge">● Nuevo</span>}
-      <div className="pedido-header">
-        <div className="pedido-numero">
-          <strong>{pedido.numero_pedido}</strong>
-          <span className="pedido-sector">
-            {meta.icono} {sector}
-          </span>
-        </div>
-        <div className="pedido-header__badges">
-          <span className="pedido-prioridad" style={{ color: getPrioridadColor(pedido.prioridad) }}>
-            {pedido.prioridad}
-          </span>
-          <span className="pedido-estado" style={{ backgroundColor: getEstadoColor(pedido.estado) }}>
-            {pedido.estado}
-          </span>
-        </div>
-      </div>
-      <div className="pedido-info">
-        <div className="info-row">
-          <span className="label">Solicitante</span>
-          <span>{pedido.nombre_solicitante}</span>
-        </div>
-        <div className="info-row">
-          <span className="label">Items</span>
-          <span>{pedido.items?.length || 0} productos</span>
-        </div>
-        <div className="info-row">
-          <span className="label">Fecha</span>
-          <span>{new Date(pedido.fecha_solicitud).toLocaleDateString('es-AR')}</span>
-        </div>
-      </div>
-      {pedido.motivo && (
-        <div className="pedido-motivo">
-          <strong>Motivo:</strong> {pedido.motivo}
-        </div>
-      )}
-      <span className="pedido-card__abrir">Abrir pedido →</span>
-    </article>
-  )
+function fmtFechaPedido(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 export default function ComprasDashboardPage() {
@@ -166,11 +102,12 @@ export default function ComprasDashboardPage() {
     location.pathname === '/compras/pedidos' ? 'Pendiente' : 'todos'
   )
   const [filtroPrioridad, setFiltroPrioridad] = useState<string>('todos')
-  const [filtroSector, setFiltroSector] = useState<string>('todos')
+  const [filtroProveedor, setFiltroProveedor] = useState<string>('todos')
   const [soloNuevos, setSoloNuevos] = useState(false)
   const [filtroPeriodo, setFiltroPeriodo] = useState<PeriodoFiltro>('7')
   const [buscar, setBuscar] = useState('')
   const [extraVisibles, setExtraVisibles] = useState(0)
+  const [pagina, setPagina] = useState(1)
 
   useEffect(() => {
     if (authLoading) return
@@ -183,7 +120,8 @@ export default function ComprasDashboardPage() {
 
   useEffect(() => {
     setExtraVisibles(0)
-  }, [filtroEstado, filtroPrioridad, filtroSector, soloNuevos, filtroPeriodo, buscar])
+    setPagina(1)
+  }, [filtroEstado, filtroPrioridad, filtroProveedor, soloNuevos, filtroPeriodo, buscar])
 
   const loadPedidos = async () => {
     setLoading(true)
@@ -201,15 +139,17 @@ export default function ComprasDashboardPage() {
 
   const cutoffPeriodo = useMemo(() => getCutoffPeriodo(filtroPeriodo), [filtroPeriodo])
 
-  const sectoresDisponibles = useMemo(
-    () =>
-      [...new Set(pedidos.map(sectorDe))].sort((a, b) => {
-        const countA = pedidos.filter((p) => sectorDe(p) === a).length
-        const countB = pedidos.filter((p) => sectorDe(p) === b).length
-        return countB - countA || a.localeCompare(b)
-      }),
-    [pedidos]
-  )
+  const proveedoresDisponibles = useMemo(() => {
+    const map = new Map<string, { clave: string; nombre: string; count: number }>()
+    for (const p of pedidos) {
+      const clave = claveProveedorPedido(p)
+      const nombre = nombreProveedorPedido(p)
+      const cur = map.get(clave)
+      if (cur) cur.count += 1
+      else map.set(clave, { clave, nombre, count: 1 })
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count || a.nombre.localeCompare(b.nombre, 'es'))
+  }, [pedidos])
 
   const pedidosFiltrados = useMemo(() => {
     let list = [...pedidos]
@@ -219,8 +159,8 @@ export default function ComprasDashboardPage() {
     if (filtroPrioridad !== 'todos') {
       list = list.filter((p) => p.prioridad === filtroPrioridad)
     }
-    if (filtroSector !== 'todos') {
-      list = list.filter((p) => sectorDe(p) === filtroSector)
+    if (filtroProveedor !== 'todos') {
+      list = list.filter((p) => claveProveedorPedido(p) === filtroProveedor)
     }
     if (soloNuevos) {
       list = list.filter((p) => !p.visto_por_compras_at)
@@ -232,6 +172,7 @@ export default function ComprasDashboardPage() {
           p.numero_pedido.toLowerCase().includes(q) ||
           p.nombre_solicitante.toLowerCase().includes(q) ||
           (p.motivo || '').toLowerCase().includes(q) ||
+          nombreProveedorPedido(p).toLowerCase().includes(q) ||
           (p.sector_solicitante || '').toLowerCase().includes(q)
       )
     }
@@ -243,7 +184,7 @@ export default function ComprasDashboardPage() {
         new Date(b.fecha_solicitud).getTime() - new Date(a.fecha_solicitud).getTime()
       )
     })
-  }, [pedidos, filtroEstado, filtroPrioridad, filtroSector, soloNuevos, buscar])
+  }, [pedidos, filtroEstado, filtroPrioridad, filtroProveedor, soloNuevos, buscar])
 
   const { enPeriodo, anterioresAlPeriodo } = useMemo(() => {
     if (filtroPeriodo === 'todos') {
@@ -267,20 +208,16 @@ export default function ComprasDashboardPage() {
     return [...enPeriodo, ...anterioresAlPeriodo.slice(0, extraVisibles)]
   }, [filtroPeriodo, pedidosFiltrados, enPeriodo, anterioresAlPeriodo, extraVisibles])
 
-  const pedidosPorSector = useMemo(() => {
-    const grupos = new Map<string, PedidoCompra[]>()
-    for (const pedido of pedidosVisibles) {
-      const sector = sectorDe(pedido)
-      const grupo = grupos.get(sector) ?? []
-      grupo.push(pedido)
-      grupos.set(sector, grupo)
-    }
-    return [...grupos.entries()].sort(([, a], [, b]) => {
-      const nuevosA = a.filter((p) => !p.visto_por_compras_at).length
-      const nuevosB = b.filter((p) => !p.visto_por_compras_at).length
-      return nuevosB - nuevosA || b.length - a.length
-    })
-  }, [pedidosVisibles])
+  const totalPaginas = Math.max(1, Math.ceil(pedidosVisibles.length / PAGE_SIZE))
+
+  useEffect(() => {
+    if (pagina > totalPaginas) setPagina(totalPaginas)
+  }, [pagina, totalPaginas])
+
+  const listaPagina = useMemo(() => {
+    const from = (pagina - 1) * PAGE_SIZE
+    return pedidosVisibles.slice(from, from + PAGE_SIZE)
+  }, [pedidosVisibles, pagina])
 
   const hayMasPorCargar =
     filtroPeriodo === 'todos'
@@ -354,8 +291,8 @@ export default function ComprasDashboardPage() {
             <span>nuevos sin leer</span>
           </button>
           <div className="compras-dash-stat">
-            <strong>{sectoresDisponibles.length}</strong>
-            <span>áreas activas</span>
+            <strong>{proveedoresDisponibles.length}</strong>
+            <span>proveedores</span>
           </div>
         </div>
         <div className="compras-dash-header__actions">
@@ -370,18 +307,11 @@ export default function ComprasDashboardPage() {
 
       <nav className="compras-dash-nav" aria-label="Accesos compras">
         <div className="compras-dash-nav__group">
-          <span className="compras-dash-nav__label">Operación</span>
           <button type="button" className="compras-dash-nav__btn" onClick={() => navigate('/compras/gestion-stock')}>
             📦 Stock
           </button>
           <button type="button" className="compras-dash-nav__btn" onClick={() => navigate('/compras/proveedores')}>
             🏢 Proveedores
-          </button>
-        </div>
-        <div className="compras-dash-nav__group">
-          <span className="compras-dash-nav__label">Análisis</span>
-          <button type="button" className="compras-dash-nav__btn" onClick={() => navigate('/compras/estadisticas')}>
-            📊 Estadísticas
           </button>
           <button type="button" className="compras-dash-nav__btn" onClick={() => navigate('/compras/reportes')}>
             📋 Reportes
@@ -393,7 +323,7 @@ export default function ComprasDashboardPage() {
         <div className="pedidos-section__head">
           <div>
             <h2>
-              {filtroEstado === 'Pendiente' ? 'Pedidos pendientes' : 'Pedidos recientes'}
+              {filtroEstado === 'Pendiente' ? 'Pedidos pendientes a proveedores' : 'Pedidos a proveedores'}
               <span className="pedidos-section-count">
                 {' '}
                 ({pedidosVisibles.length}
@@ -402,8 +332,8 @@ export default function ComprasDashboardPage() {
             </h2>
             <p className="pedidos-section__hint">
               {filtroPeriodo === 'todos'
-                ? 'Mostrando el historial completo por lotes. Usá el filtro de período para acotar fechas.'
-                : `Período: ${getPeriodoLabel(filtroPeriodo).toLowerCase()}. Los anteriores se cargan bajo demanda.`}
+                ? 'Historial de pedidos enviados a proveedores. Usá el filtro de período para acotar fechas.'
+                : `Período: ${getPeriodoLabel(filtroPeriodo).toLowerCase()}. Pedidos de compra a proveedores externos.`}
             </p>
           </div>
           <button type="button" className="cp-btn cp-btn--secondary cp-btn--sm" onClick={() => void loadPedidos()}>
@@ -418,7 +348,7 @@ export default function ComprasDashboardPage() {
             </span>
             <input
               type="search"
-              placeholder="Buscar N° pedido, solicitante, motivo, sector…"
+              placeholder="Buscar N° pedido, proveedor, solicitante, motivo…"
               value={buscar}
               onChange={(e) => setBuscar(e.target.value)}
               autoComplete="off"
@@ -452,12 +382,12 @@ export default function ComprasDashboardPage() {
               </select>
             </label>
             <label className="pedidos-filter-field">
-              <span>Área</span>
-              <select value={filtroSector} onChange={(e) => setFiltroSector(e.target.value)}>
-                <option value="todos">Todas las áreas</option>
-                {sectoresDisponibles.map((sector) => (
-                  <option key={sector} value={sector}>
-                    {metaSector(sector).icono} {sector}
+              <span>Proveedor</span>
+              <select value={filtroProveedor} onChange={(e) => setFiltroProveedor(e.target.value)}>
+                <option value="todos">Todos los proveedores</option>
+                {proveedoresDisponibles.map((prov) => (
+                  <option key={prov.clave} value={prov.clave}>
+                    {prov.nombre} ({prov.count})
                   </option>
                 ))}
               </select>
@@ -515,7 +445,10 @@ export default function ComprasDashboardPage() {
               <button
                 type="button"
                 className="cp-btn cp-btn--secondary"
-                onClick={() => setExtraVisibles(CARGAR_MAS)}
+                onClick={() => {
+                  setExtraVisibles(CARGAR_MAS)
+                  setPagina(1)
+                }}
               >
                 Ver pedidos anteriores ({anterioresAlPeriodo.length})
               </button>
@@ -523,7 +456,7 @@ export default function ComprasDashboardPage() {
               (buscar ||
                 filtroEstado !== 'todos' ||
                 filtroPrioridad !== 'todos' ||
-                filtroSector !== 'todos' ||
+                filtroProveedor !== 'todos' ||
                 soloNuevos ||
                 filtroPeriodo !== '7') && (
                 <button
@@ -533,7 +466,7 @@ export default function ComprasDashboardPage() {
                     setBuscar('')
                     setFiltroEstado('todos')
                     setFiltroPrioridad('todos')
-                    setFiltroSector('todos')
+                    setFiltroProveedor('todos')
                     setSoloNuevos(false)
                     setFiltroPeriodo('7')
                   }}
@@ -545,52 +478,128 @@ export default function ComprasDashboardPage() {
           </div>
         ) : (
           <>
-            <div className="pedidos-sectores">
-              {pedidosPorSector.map(([sector, pedidosSector]) => {
-                const meta = metaSector(sector)
-                const nuevos = pedidosSector.filter((p) => !p.visto_por_compras_at).length
-                return (
-                  <section
-                    key={sector}
-                    className="pedidos-sector-group"
-                    style={{ '--sector-color': meta.color } as CSSProperties}
-                  >
-                    <header className="pedidos-sector-group__header">
-                      <span className="pedidos-sector-group__icon" aria-hidden>
-                        {meta.icono}
-                      </span>
-                      <div>
-                        <h3>{sector}</h3>
-                        <p>
-                          {pedidosSector.length} {pedidosSector.length === 1 ? 'pedido' : 'pedidos'}
-                        </p>
-                      </div>
-                      {nuevos > 0 && (
-                        <span className="pedidos-sector-group__nuevos">
-                          {nuevos} {nuevos === 1 ? 'nuevo' : 'nuevos'}
-                        </span>
-                      )}
-                    </header>
-                    <div className="pedidos-list">
-                      {pedidosSector.map((pedido) => (
-                        <PedidoCard
-                          key={pedido.id}
-                          pedido={pedido}
-                          onOpen={() => navigate(`/compras/pedidos/${pedido.id}`)}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                )
-              })}
+            <div className="pedidos-table-meta">
+              <p>
+                Página {pagina} de {totalPaginas} · {PAGE_SIZE} por hoja
+              </p>
             </div>
+            <div className="pedidos-table-wrap">
+              <table className="pedidos-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>N°</th>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th>Solicitante</th>
+                    <th className="num">Items</th>
+                    <th>Prioridad</th>
+                    <th>Estado</th>
+                    <th>Motivo</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaPagina.map((pedido) => {
+                    const esNuevo = !pedido.visto_por_compras_at
+                    const proveedorNombre = nombreProveedorPedido(pedido)
+                    return (
+                      <tr
+                        key={pedido.id}
+                        className={esNuevo ? 'pedidos-table__row--nuevo' : undefined}
+                        onClick={() => navigate(`/compras/pedidos/${pedido.id}`)}
+                      >
+                        <td>
+                          {esNuevo ? <span className="pedidos-table__dot" title="Nuevo">●</span> : null}
+                        </td>
+                        <td className="pedidos-table__num">
+                          <strong>{pedido.numero_pedido}</strong>
+                        </td>
+                        <td>{fmtFechaPedido(pedido.fecha_solicitud)}</td>
+                        <td>
+                          <span className="pedidos-table__prov" title={proveedorNombre}>
+                            {proveedorNombre}
+                          </span>
+                          {pedido.sector_solicitante ? (
+                            <small className="pedidos-table__hint">
+                              pide {pedido.sector_solicitante}
+                            </small>
+                          ) : null}
+                        </td>
+                        <td>{pedido.nombre_solicitante}</td>
+                        <td className="num">{pedido.items?.length || 0}</td>
+                        <td>
+                          <span
+                            className="pedidos-table__prio"
+                            style={{ color: getPrioridadColor(pedido.prioridad) }}
+                          >
+                            {pedido.prioridad}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className="pedidos-table__estado"
+                            style={{ backgroundColor: getEstadoColor(pedido.estado) }}
+                          >
+                            {pedido.estado}
+                          </span>
+                        </td>
+                        <td className="pedidos-table__motivo" title={pedido.motivo || ''}>
+                          {pedido.motivo
+                            ? pedido.motivo.length > 48
+                              ? `${pedido.motivo.slice(0, 46)}…`
+                              : pedido.motivo
+                            : '—'}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="pedidos-table__btn"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/compras/pedidos/${pedido.id}`)
+                            }}
+                          >
+                            Abrir
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <nav className="pedidos-pager" aria-label="Paginación de pedidos">
+              <button
+                type="button"
+                className="pedidos-pager__arrow"
+                disabled={pagina <= 1}
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                aria-label="Página anterior"
+              >
+                ←
+              </button>
+              <span className="pedidos-pager__info">
+                {pagina} / {totalPaginas}
+              </span>
+              <button
+                type="button"
+                className="pedidos-pager__arrow"
+                disabled={pagina >= totalPaginas}
+                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                aria-label="Página siguiente"
+              >
+                →
+              </button>
+            </nav>
 
             {hayMasPorCargar && (
               <div className="pedidos-load-more">
                 <button
                   type="button"
                   className="cp-btn cp-btn--secondary"
-                  onClick={() =>
+                  onClick={() => {
                     setExtraVisibles((v) =>
                       filtroPeriodo === 'todos'
                         ? v + CARGAR_MAS
@@ -598,7 +607,8 @@ export default function ComprasDashboardPage() {
                           ? CARGAR_MAS
                           : v + CARGAR_MAS
                     )
-                  }
+                    setPagina(1)
+                  }}
                 >
                   {filtroPeriodo === 'todos'
                     ? `Cargar más pedidos (${Math.min(CARGAR_MAS, restantes)} de ${restantes})`
