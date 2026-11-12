@@ -1583,12 +1583,14 @@ const CRMVentasPage = () => {
       // Condición IVA del modal (si está abierto) → cliente → inferida por CUIT.
       let condicionIva: CondicionIvaCliente | null = null
       if (presupuestoModal?.id === presupuesto.id) {
-        condicionIva = normalizarCondicionIvaCliente(presupuestoCabeceraDraft.cliente_condicion_iva)
+        const fromDraft = normalizarCondicionIvaCliente(presupuestoCabeceraDraft.cliente_condicion_iva)
+        condicionIva = fromDraft || null
       }
       if (!condicionIva && presupuesto.id_cliente) {
         const cli = await apiService.getClientePorId(presupuesto.id_cliente)
         if (cli.success && cli.data) {
-          condicionIva = normalizarCondicionIvaCliente(cli.data.condicion_iva)
+          const fromCli = normalizarCondicionIvaCliente(cli.data.condicion_iva)
+          condicionIva = fromCli || null
         }
       }
       if (!condicionIva) {

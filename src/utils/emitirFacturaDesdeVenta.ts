@@ -152,8 +152,7 @@ export async function emitirFacturaDesdeVenta(
       cliente_nombre: nombreCliente,
       cliente_dni_cuit: cuit || null,
       cliente_direccion: direccion,
-      cliente_condicion_iva: condicion,
-      precios_con_iva: tipo !== 'Factura C'
+      cliente_condicion_iva: condicion
     })
     if (!patch.success) {
       return {
