@@ -552,6 +552,31 @@
   color: #94a3b8;
 }
 
+.prov-cuenta__reset-meta {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+
+.prov-cuenta__reset-meta strong {
+  color: #ffedd5;
+  font-weight: 700;
+}
+
+.prov-cuenta__reset-meta span {
+  color: #94a3b8;
+}
+
+.prov-cuenta__reset-btn {
+  border-color: rgba(248, 113, 113, 0.45) !important;
+  color: #fecaca !important;
+}
+
+.prov-cuenta__reset-btn:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.14) !important;
+}
+
 .prov-cuenta__leyenda-chips {
   list-style: none;
   margin: 16px 0 0;

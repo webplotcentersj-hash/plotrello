@@ -86,20 +86,35 @@ export default function ProveedorCuentaPanel({
   const [editandoSaldo, setEditandoSaldo] = useState(false)
   const [saldoEditDraft, setSaldoEditDraft] = useState('')
   const [guardandoSaldo, setGuardandoSaldo] = useState(false)
+  const [reseteando, setReseteando] = useState(false)
+  const [saldoDeuda, setSaldoDeuda] = useState<number | null>(null)
+  const [resetMeta, setResetMeta] = useState<{ por: string | null; at: string | null }>({
+    por: null,
+    at: null
+  })
 
   const load = useCallback(async () => {
     if (!idProveedor || idProveedor <= 0) {
       setRows([])
+      setSaldoDeuda(null)
+      setResetMeta({ por: null, at: null })
       setLoading(false)
       return
     }
     setLoading(true)
     setError(null)
-    const r = await apiService.getMovimientosProveedores({ idProveedor })
+    const [r, meta] = await Promise.all([
+      apiService.getMovimientosProveedores({ idProveedor }),
+      apiService.getCuentaProveedorResetMeta(idProveedor)
+    ])
     if (r.success && r.data) setRows(r.data.filter((m) => !m.es_saldo_inicial))
     else {
       setRows([])
       setError(r.error || 'No se pudo cargar la cuenta')
+    }
+    if (meta.success && meta.data) {
+      setSaldoDeuda(meta.data.saldo)
+      setResetMeta({ por: meta.data.reset_por, at: meta.data.reset_at })
     }
     setLoading(false)
   }, [idProveedor])
@@ -111,8 +126,9 @@ export default function ProveedorCuentaPanel({
   const saldo = useMemo(() => {
     const last = rows[rows.length - 1]
     if (last) return Number(last.saldo) || 0
+    if (saldoDeuda != null) return saldoDeuda
     return saldoCuentaProveedor({ saldo_listado: saldoListado ?? null })
-  }, [rows, saldoListado])
+  }, [rows, saldoDeuda, saldoListado])
 
   const estado = estadoCuentaProveedor(saldo)
 
@@ -133,7 +149,9 @@ export default function ProveedorCuentaPanel({
     const saldoActual =
       ultimo != null
         ? Number(ultimo.saldo) || 0
-        : saldoCuentaProveedor({ saldo_listado: saldoListado ?? null })
+        : saldoDeuda != null
+          ? saldoDeuda
+          : saldoCuentaProveedor({ saldo_listado: saldoListado ?? null })
     // Si no hay facturas en libro pero hay deuda de listado, igual se muestra.
     const debeVisible =
       totalDebe > 0.009 ? totalDebe : saldoActual > 0.009 ? saldoActual : 0
@@ -143,14 +161,19 @@ export default function ProveedorCuentaPanel({
       totalHaber,
       debeVisible,
       debeSinFactura,
-      origenSaldo: ultimo != null ? ('libro' as const) : ('listado' as const),
+      origenSaldo:
+        ultimo != null
+          ? ('libro' as const)
+          : resetMeta.at
+            ? ('reset' as const)
+            : ('listado' as const),
       facturas,
       pagos,
       conAdjunto,
       sinAdjunto: rows.length - conAdjunto,
       ultimoFecha: ultimo ? fmtFecha(ultimo.fecha_comprobante || ultimo.fecha_hora) : null
     }
-  }, [rows, saldoListado])
+  }, [rows, saldoDeuda, saldoListado, resetMeta.at])
 
   const visibles = useMemo(() => {
     const query = q.trim().toLowerCase()
@@ -218,6 +241,38 @@ export default function ProveedorCuentaPanel({
     setSaldoEditDraft('')
   }
 
+  const handleResetCuenta = async () => {
+    if (!idProveedor || idProveedor <= 0) {
+      setError('Este proveedor todavía no tiene ficha.')
+      return
+    }
+    const ok = window.confirm(
+      `Vas a resetear la cuenta de ${proveedorNombre || 'este proveedor'}:\n` +
+        `• Borra todos los movimientos del libro\n` +
+        `• Borra los pagos vinculados\n` +
+        `• Deja el saldo en $ 0,00\n\n` +
+        `Quedará registrado quién lo hizo. ¿Continuar?`
+    )
+    if (!ok) return
+
+    setReseteando(true)
+    setError(null)
+    setEditandoSaldo(false)
+    try {
+      const r = await apiService.resetCuentaProveedor(idProveedor)
+      if (!r.success || !r.data) throw new Error(r.error || 'No se pudo resetear la cuenta')
+      setSaldoDeuda(0)
+      setResetMeta({ por: r.data.reset_por, at: r.data.reset_at })
+      setRows([])
+      await load()
+      onChanged?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo resetear la cuenta')
+    } finally {
+      setReseteando(false)
+    }
+  }
+
   /** Ajusta el saldo con un movimiento trazable (factura o pago de diferencia). */
   const guardarSaldoEditado = async () => {
     if (!idProveedor || idProveedor <= 0) {
@@ -245,12 +300,17 @@ export default function ProveedorCuentaPanel({
     setError(null)
     try {
       const tipoAjuste: 'factura' | 'pago' = diff > 0 ? 'factura' : 'pago'
+      // Comprobante único: el índice unique (proveedor, fecha_hora, comprobante) choca si se ajusta 2 veces el mismo día.
+      const stamp = new Date()
+        .toISOString()
+        .replace(/[-:TZ.]/g, '')
+        .slice(0, 14)
       const r = await apiService.registrarEnCuentaProveedor({
         id_proveedor: idProveedor,
         tipo: tipoAjuste,
         monto: Math.abs(diff),
         fecha: getArgentinaDateString(),
-        comprobante: `AJUSTE-SALDO-${getArgentinaDateString()}`,
+        comprobante: `AJUSTE-SALDO-${getArgentinaDateString()}-${stamp}`,
         usuario: 'Ajuste manual de saldo'
       })
       if (!r.success) throw new Error(r.error || 'No se pudo ajustar el saldo')
@@ -454,8 +514,16 @@ export default function ProveedorCuentaPanel({
               Origen del saldo:{' '}
               {resumen.origenSaldo === 'libro'
                 ? 'último movimiento del libro'
-                : 'listado de deudas (aún sin factura en el libro)'}
+                : resumen.origenSaldo === 'reset'
+                  ? 'reset de cuenta'
+                  : 'listado de deudas (aún sin factura en el libro)'}
             </p>
+            {resetMeta.por && resetMeta.at ? (
+              <p className="prov-cuenta__reset-meta">
+                Último reset: <strong>{resetMeta.por}</strong>
+                <span> · {fmtFechaHora(resetMeta.at)}</span>
+              </p>
+            ) : null}
           </div>
           <div className="prov-cuenta__saldo-actions">
             <button
@@ -471,6 +539,15 @@ export default function ProveedorCuentaPanel({
             </button>
             <button type="button" className="cp-btn cp-btn--secondary" onClick={exportarCsv} disabled={rows.length === 0}>
               Exportar CSV
+            </button>
+            <button
+              type="button"
+              className="cp-btn cp-btn--ghost prov-cuenta__reset-btn"
+              disabled={reseteando || guardandoSaldo}
+              onClick={() => void handleResetCuenta()}
+              title="Borra movimientos y pagos, deja saldo en 0"
+            >
+              {reseteando ? 'Reseteando…' : 'Reset de cuenta'}
             </button>
           </div>
         </div>

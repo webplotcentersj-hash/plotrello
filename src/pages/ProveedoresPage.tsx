@@ -7,7 +7,6 @@ import type { ArticuloStock, Proveedor, ProveedorProducto } from '../types/pedid
 import ProveedorFinanzasHub from '../components/compras/ProveedorFinanzasHub'
 import {
   estadoCuentaProveedor,
-  inicialesProveedor,
   moneyProveedor,
   saldoCuentaProveedor
 } from '../utils/proveedorCuenta'
@@ -17,7 +16,30 @@ import {
   inferirCondicionIva,
   normalizarCondicionIvaCliente
 } from '../utils/afipFacturaUi'
+import { getArgentinaDateString } from '../utils/dateUtils'
 import './ProveedoresPage.css'
+
+const MESES_ES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre'
+] as const
+
+function etiquetaMesActualAR(): { clave: string; label: string } {
+  const hoy = getArgentinaDateString()
+  const [y, m] = hoy.split('-')
+  const mi = Math.max(0, Math.min(11, Number(m) - 1))
+  return { clave: `${y}-${m}`, label: `${MESES_ES[mi]} ${y}` }
+}
 
 type CatalogoProductoHit = {
   key: string
@@ -121,7 +143,14 @@ const ProveedoresPage = () => {
   })
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'deuda' | 'aldia' | 'favor'>('todos')
-  const [directorioAbierto, setDirectorioAbierto] = useState(false)
+  const [pagina, setPagina] = useState(1)
+  const PAGE_SIZE = 10
+  const [mesMovs, setMesMovs] = useState({
+    debe: 0,
+    haber: 0,
+    facturas: 0,
+    pagos: 0
+  })
   const [clientesSugeridos, setClientesSugeridos] = useState<ClienteRecord[]>([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [clienteVinculado, setClienteVinculado] = useState<ClienteRecord | null>(null)
@@ -144,9 +173,33 @@ const ProveedoresPage = () => {
   const loadProveedores = async () => {
     setLoading(true)
     try {
-      const response = await apiService.getProveedoresConFinanzas()
+      const { clave: mesClave } = etiquetaMesActualAR()
+      const [response, movsRes] = await Promise.all([
+        apiService.getProveedoresConFinanzas(),
+        apiService.getMovimientosProveedores()
+      ])
       if (response.success && response.data) {
         setProveedores(response.data)
+      }
+      if (movsRes.success && movsRes.data) {
+        let debe = 0
+        let haber = 0
+        let facturas = 0
+        let pagos = 0
+        for (const m of movsRes.data) {
+          if (m.es_saldo_inicial) continue
+          const fecha = String(m.fecha_comprobante || m.fecha_hora || '').slice(0, 7)
+          if (fecha !== mesClave) continue
+          const d = Number(m.debe) || 0
+          const h = Number(m.haber) || 0
+          debe += d
+          haber += h
+          if (h > 0.009 || /pago/i.test(m.tipo_movimiento || '')) pagos += 1
+          else if (d > 0.009) facturas += 1
+        }
+        setMesMovs({ debe, haber, facturas, pagos })
+      } else {
+        setMesMovs({ debe: 0, haber: 0, facturas: 0, pagos: 0 })
       }
     } catch (error) {
       console.error('Error cargando proveedores:', error)
@@ -490,6 +543,21 @@ const ProveedoresPage = () => {
     })
   }, [proveedoresFiltrados])
 
+  useEffect(() => {
+    setPagina(1)
+  }, [busqueda, filtroEstado])
+
+  const totalPaginas = Math.max(1, Math.ceil(listaOrdenada.length / PAGE_SIZE))
+
+  useEffect(() => {
+    if (pagina > totalPaginas) setPagina(totalPaginas)
+  }, [pagina, totalPaginas])
+
+  const listaPagina = useMemo(() => {
+    const from = (pagina - 1) * PAGE_SIZE
+    return listaOrdenada.slice(from, from + PAGE_SIZE)
+  }, [listaOrdenada, pagina])
+
   const totalSaldoDeuda = useMemo(
     () =>
       proveedoresFiltrados.reduce((s, p) => {
@@ -498,6 +566,85 @@ const ProveedoresPage = () => {
       }, 0),
     [proveedoresFiltrados]
   )
+
+  const cuentaGeneral = useMemo(() => {
+    let deuda = 0
+    let favor = 0
+    let nDeuda = 0
+    let nOk = 0
+    let nFavor = 0
+    for (const p of proveedores) {
+      const saldo = saldoCuentaProveedor(p.finanzas)
+      const cls = estadoCuentaProveedor(saldo).cls
+      if (cls === 'deuda') {
+        deuda += saldo
+        nDeuda += 1
+      } else if (cls === 'favor') {
+        favor += Math.abs(saldo)
+        nFavor += 1
+      } else {
+        nOk += 1
+      }
+    }
+    const neto = deuda - favor
+    const balance =
+      Math.abs(neto) < 0.01
+        ? ({ cls: 'ok' as const, label: 'Balanceado', frase: 'Cuentas al día en el conjunto' })
+        : neto > 0
+          ? ({
+              cls: 'deuda' as const,
+              label: 'Le debemos',
+              frase: `Deuda neta ${moneyProveedor(neto)}`
+            })
+          : ({
+              cls: 'favor' as const,
+              label: 'A favor',
+              frase: `Saldo a favor neto ${moneyProveedor(Math.abs(neto))}`
+            })
+
+    const mesNeto = mesMovs.debe - mesMovs.haber
+    const mesEstado =
+      Math.abs(mesNeto) < 0.01 && mesMovs.facturas + mesMovs.pagos === 0
+        ? ({
+            cls: 'ok' as const,
+            label: 'Sin movimientos',
+            frase: 'Todavía no hay facturas ni pagos este mes'
+          })
+        : Math.abs(mesNeto) < 0.01
+          ? ({
+              cls: 'ok' as const,
+              label: 'Mes equilibrado',
+              frase: 'Facturado y pagado quedaron parejos'
+            })
+          : mesNeto > 0
+            ? ({
+                cls: 'deuda' as const,
+                label: 'Subió la deuda',
+                frase: `Este mes la deuda creció ${moneyProveedor(mesNeto)}`
+              })
+            : ({
+                cls: 'favor' as const,
+                label: 'Bajamos deuda',
+                frase: `Este mes bajamos ${moneyProveedor(Math.abs(mesNeto))}`
+              })
+
+    return {
+      deuda,
+      favor,
+      neto,
+      nDeuda,
+      nOk,
+      nFavor,
+      total: proveedores.length,
+      balance,
+      mes: {
+        ...etiquetaMesActualAR(),
+        ...mesMovs,
+        neto: mesNeto,
+        estado: mesEstado
+      }
+    }
+  }, [proveedores, mesMovs])
 
   if (authLoading || loading) {
     return (
@@ -551,6 +698,83 @@ const ProveedoresPage = () => {
         </div>
       </header>
 
+      <section className="prov-cuenta-general" aria-label="Cuenta general de proveedores">
+        <div className="prov-cuenta-general__head">
+          <div>
+            <p className="prov-cuenta-general__eyebrow">Cuenta general</p>
+            <h2>Balance de proveedores</h2>
+            <p className="prov-cuenta-general__frase">{cuentaGeneral.balance.frase}</p>
+          </div>
+          <span className={`prov-estado-badge prov-estado-badge--${cuentaGeneral.balance.cls}`}>
+            {cuentaGeneral.balance.label}
+          </span>
+        </div>
+
+        <div className="prov-cuenta-general__kpis">
+          <article className="prov-cuenta-general__kpi prov-cuenta-general__kpi--deuda">
+            <em>Le debemos</em>
+            <b>{moneyProveedor(cuentaGeneral.deuda)}</b>
+            <small>
+              {cuentaGeneral.nDeuda} proveedor{cuentaGeneral.nDeuda === 1 ? '' : 'es'}
+            </small>
+          </article>
+          <article className="prov-cuenta-general__kpi prov-cuenta-general__kpi--favor">
+            <em>A favor nuestro</em>
+            <b>{moneyProveedor(cuentaGeneral.favor)}</b>
+            <small>
+              {cuentaGeneral.nFavor} proveedor{cuentaGeneral.nFavor === 1 ? '' : 'es'}
+            </small>
+          </article>
+          <article className="prov-cuenta-general__kpi prov-cuenta-general__kpi--neto">
+            <em>Balance neto</em>
+            <b>{moneyProveedor(Math.abs(cuentaGeneral.neto))}</b>
+            <small>
+              {Math.abs(cuentaGeneral.neto) < 0.01
+                ? 'en cero'
+                : cuentaGeneral.neto > 0
+                  ? 'deuda neta'
+                  : 'a favor neto'}
+              {' · '}
+              {cuentaGeneral.nOk} al día
+            </small>
+          </article>
+          <article
+            className={`prov-cuenta-general__kpi prov-cuenta-general__kpi--mes prov-cuenta-general__kpi--mes-${cuentaGeneral.mes.estado.cls}`}
+          >
+            <em>Estado del mes · {cuentaGeneral.mes.label}</em>
+            <b>{cuentaGeneral.mes.estado.label}</b>
+            <small>{cuentaGeneral.mes.estado.frase}</small>
+          </article>
+        </div>
+
+        <div className="prov-cuenta-general__mes">
+          <div>
+            <span>Facturado del mes</span>
+            <strong>{moneyProveedor(cuentaGeneral.mes.debe)}</strong>
+            <em>
+              {cuentaGeneral.mes.facturas} factura{cuentaGeneral.mes.facturas === 1 ? '' : 's'}
+            </em>
+          </div>
+          <div>
+            <span>Pagado del mes</span>
+            <strong>{moneyProveedor(cuentaGeneral.mes.haber)}</strong>
+            <em>
+              {cuentaGeneral.mes.pagos} pago{cuentaGeneral.mes.pagos === 1 ? '' : 's'}
+            </em>
+          </div>
+          <div>
+            <span>Resultado del mes</span>
+            <strong>
+              {cuentaGeneral.mes.neto > 0.009 ? '+' : cuentaGeneral.mes.neto < -0.009 ? '−' : ''}
+              {moneyProveedor(Math.abs(cuentaGeneral.mes.neto))}
+            </strong>
+            <em>
+              {cuentaGeneral.total} proveedor{cuentaGeneral.total === 1 ? '' : 'es'} en cartera
+            </em>
+          </div>
+        </div>
+      </section>
+
       <section className="search-section prov-dir-search">
         <input
           type="search"
@@ -562,10 +786,10 @@ const ProveedoresPage = () => {
         <div className="prov-dir-chips">
           {(
             [
-              ['todos', 'Todos'],
-              ['deuda', 'Le debemos'],
-              ['aldia', 'Al día'],
-              ['favor', 'A favor']
+              ['todos', `Todos (${cuentaGeneral.total})`],
+              ['deuda', `Le debemos (${cuentaGeneral.nDeuda})`],
+              ['aldia', `Al día (${cuentaGeneral.nOk})`],
+              ['favor', `A favor (${cuentaGeneral.nFavor})`]
             ] as const
           ).map(([key, label]) => (
             <button
@@ -581,102 +805,126 @@ const ProveedoresPage = () => {
       </section>
 
       <section className="proveedores-section">
-        <button
-          type="button"
-          className={`prov-dir-toggle${directorioAbierto || Boolean(busqueda.trim()) ? ' is-open' : ''}`}
-          aria-expanded={directorioAbierto || Boolean(busqueda.trim())}
-          onClick={() => setDirectorioAbierto((v) => !v)}
-        >
-          <span className="prov-dir-toggle__label">
-            Directorio
-            <em>
-              {proveedoresFiltrados.length}{' '}
-              {proveedoresFiltrados.length === 1 ? 'resultado' : 'resultados'}
-            </em>
-          </span>
-          <span className="prov-dir-toggle__hint">
-            {directorioAbierto || busqueda.trim()
-              ? 'Colapsar lista'
-              : 'Expandir lista'}
-          </span>
-          <span className="prov-dir-toggle__chev" aria-hidden>
-            {directorioAbierto || busqueda.trim() ? '▴' : '▾'}
-          </span>
-        </button>
+        <div className="prov-table-head">
+          <h2>Proveedores ({listaOrdenada.length})</h2>
+          {listaOrdenada.length > 0 ? (
+            <p className="prov-table-head__meta">
+              Página {pagina} de {totalPaginas} · {PAGE_SIZE} por hoja
+            </p>
+          ) : null}
+        </div>
 
-        {proveedoresFiltrados.length === 0 ? (
-          (directorioAbierto || busqueda.trim()) && (
-            <div className="empty-state">
-              <p>No hay proveedores para mostrar</p>
-              <button className="btn-primary" onClick={() => handleAbrirModal()}>
-                Crear Primer Proveedor
-              </button>
-            </div>
-          )
-        ) : directorioAbierto || busqueda.trim() ? (
-          <ul className="prov-dir">
-            {listaOrdenada.map((proveedor) => {
-              const nombre = displayNombre(proveedor)
-              const tel = displayTelefono(proveedor)
-              const estado = estadoCuentaProveedor(saldoCuentaProveedor(proveedor.finanzas))
-              return (
-                <li key={proveedor.id}>
-                  <article className="prov-dir-card">
-                    <button
-                      type="button"
-                      className="prov-dir-card__main"
-                      onClick={() => setProveedorTrazado(proveedor)}
-                    >
-                      <span className="prov-dir-card__avatar" aria-hidden>
-                        {inicialesProveedor(nombre)}
-                      </span>
-                      <span className="prov-dir-card__copy">
-                      <strong>{nombre}</strong>
-                      {proveedor.es_solo_listado ? (
-                        <span className="prov-dir-card__meta">Todavía no tiene ficha completa</span>
-                      ) : proveedor.nombre !== nombre ? (
-                        <span className="prov-dir-card__meta">{proveedor.nombre}</span>
-                      ) : proveedor.cuit ? (
-                        <span className="prov-dir-card__meta">CUIT {proveedor.cuit}</span>
-                      ) : tel ? (
-                        <span className="prov-dir-card__meta">{tel}</span>
-                      ) : (
-                        <span className="prov-dir-card__meta">
-                          {proveedor.finanzas.movimientos_count} movimiento
-                          {proveedor.finanzas.movimientos_count === 1 ? '' : 's'}
-                        </span>
-                      )}
-                      </span>
-                    </button>
-                    <div className={`prov-dir-card__estado prov-dir-card__estado--${estado.cls}`}>
-                      <span>{estado.label}</span>
-                      <strong>{estado.detalle}</strong>
-                    </div>
-                    <div className="prov-dir-card__acciones">
-                      <button type="button" className="btn-secondary" onClick={() => setProveedorTrazado(proveedor)}>
-                        Ver cuenta
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() =>
-                          proveedor.es_solo_listado
-                            ? handleAltaDesdeListado(proveedor)
-                            : handleAbrirModal(proveedor)
-                        }
-                      >
-                        {proveedor.es_solo_listado ? 'Completar ficha' : 'Editar'}
-                      </button>
-                    </div>
-                  </article>
-                </li>
-              )
-            })}
-          </ul>
+        {listaOrdenada.length === 0 ? (
+          <div className="empty-state">
+            <p>No hay proveedores para mostrar</p>
+            <button className="btn-primary" onClick={() => handleAbrirModal()}>
+              Crear Primer Proveedor
+            </button>
+          </div>
         ) : (
-          <p className="prov-dir-collapsed-hint">
-            Lista colapsada. Usá la búsqueda o expandí el directorio para ver las fichas.
-          </p>
+          <>
+            <div className="prov-table-wrap">
+              <table className="prov-table">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Proveedor</th>
+                    <th>CUIT</th>
+                    <th>Teléfono</th>
+                    <th className="num">Movimientos</th>
+                    <th className="num">Saldo</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaPagina.map((proveedor) => {
+                    const nombre = displayNombre(proveedor)
+                    const tel = displayTelefono(proveedor)
+                    const saldo = saldoCuentaProveedor(proveedor.finanzas)
+                    const estado = estadoCuentaProveedor(saldo)
+                    const codigo =
+                      proveedor.finanzas.codigo_deuda ||
+                      (proveedor.id > 0 ? `P${proveedor.id}` : '—')
+                    return (
+                      <tr key={`${proveedor.id}-${codigo}`}>
+                        <td className="prov-table__codigo">{codigo}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="prov-table__nombre"
+                            onClick={() => setProveedorTrazado(proveedor)}
+                          >
+                            {nombre}
+                          </button>
+                          {proveedor.es_solo_listado ? (
+                            <small className="prov-table__hint">Sin ficha completa</small>
+                          ) : proveedor.nombre !== nombre ? (
+                            <small className="prov-table__hint">{proveedor.nombre}</small>
+                          ) : null}
+                        </td>
+                        <td>{proveedor.cuit || '—'}</td>
+                        <td>{tel || '—'}</td>
+                        <td className="num">{proveedor.finanzas.movimientos_count}</td>
+                        <td className="num">{moneyProveedor(saldo)}</td>
+                        <td>
+                          <span className={`prov-estado-badge prov-estado-badge--${estado.cls}`}>
+                            {estado.label}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="prov-table__acciones">
+                            <button
+                              type="button"
+                              className="btn-edit"
+                              onClick={() => setProveedorTrazado(proveedor)}
+                            >
+                              Ver cuenta
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-edit"
+                              onClick={() =>
+                                proveedor.es_solo_listado
+                                  ? handleAltaDesdeListado(proveedor)
+                                  : handleAbrirModal(proveedor)
+                              }
+                            >
+                              {proveedor.es_solo_listado ? 'Completar' : 'Editar'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <nav className="prov-pager" aria-label="Paginación de proveedores">
+              <button
+                type="button"
+                className="prov-pager__arrow"
+                disabled={pagina <= 1}
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                aria-label="Página anterior"
+              >
+                ←
+              </button>
+              <span className="prov-pager__info">
+                {pagina} / {totalPaginas}
+              </span>
+              <button
+                type="button"
+                className="prov-pager__arrow"
+                disabled={pagina >= totalPaginas}
+                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                aria-label="Página siguiente"
+              >
+                →
+              </button>
+            </nav>
+          </>
         )}
       </section>
 

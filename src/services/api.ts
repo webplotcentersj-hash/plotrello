@@ -25034,6 +25034,70 @@ class ApiService {
     }
   }
 
+  /** Último reset de cuenta (quién / cuándo) desde deudas_proveedores. */
+  async getCuentaProveedorResetMeta(
+    idProveedor: number
+  ): Promise<ApiResponse<{ reset_por: string | null; reset_at: string | null; saldo: number }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { data, error } = await supabase
+        .from('deudas_proveedores')
+        .select('saldo, cuenta_reset_at, cuenta_reset_por')
+        .eq('id_proveedor', idProveedor)
+        .order('fecha_corte', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) return { success: false, error: error.message }
+      return {
+        success: true,
+        data: {
+          saldo: Number(data?.saldo) || 0,
+          reset_por: data?.cuenta_reset_por != null ? String(data.cuenta_reset_por) : null,
+          reset_at: data?.cuenta_reset_at != null ? String(data.cuenta_reset_at) : null
+        }
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
+  /**
+   * Borra movimientos y pagos del proveedor, deja saldo en 0 y registra quién hizo el reset.
+   */
+  async resetCuentaProveedor(
+    idProveedor: number
+  ): Promise<ApiResponse<{ saldo: number; reset_por: string; reset_at: string }>> {
+    if (!supabase) return { success: false, error: 'Supabase no configurado' }
+    try {
+      const { nombre } = this.getCurrentUser()
+      const { data, error } = await supabase.rpc('proveedor_reset_cuenta', {
+        p_id_proveedor: idProveedor,
+        p_usuario: nombre
+      })
+      if (error) return { success: false, error: error.message }
+      const payload = data as {
+        success?: boolean
+        saldo?: number
+        reset_por?: string
+        reset_at?: string
+        error?: string
+      } | null
+      if (payload && payload.success === false) {
+        return { success: false, error: payload.error || 'No se pudo resetear la cuenta' }
+      }
+      return {
+        success: true,
+        data: {
+          saldo: Number(payload?.saldo) || 0,
+          reset_por: String(payload?.reset_por || nombre),
+          reset_at: String(payload?.reset_at || new Date().toISOString())
+        }
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    }
+  }
+
   // ========== DEUDA CC PROVEEDORES (cuenta corriente detalle) ==========
   private async loadDeudaCcRows(): Promise<import('../types/api').DeudaCcProveedorRecord[]> {
     if (!supabase) return []

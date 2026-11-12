@@ -1267,6 +1267,8 @@ export interface DeudaProveedorRecord {
   id_proveedor?: number | null
   fecha_corte: string
   notas?: string | null
+  cuenta_reset_at?: string | null
+  cuenta_reset_por?: string | null
   created_at?: string
   updated_at?: string
 }
