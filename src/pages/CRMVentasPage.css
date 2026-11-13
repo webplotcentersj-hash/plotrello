@@ -1448,9 +1448,44 @@
 }
 
 .ventas-por-facturar__intro {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   color: #cbd5e1;
   font-size: 0.88rem;
+}
+
+.ventas-por-facturar__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.ventas-por-facturar__chips button {
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.55);
+  color: #cbd5e1;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.ventas-por-facturar__chips button.is-on {
+  border-color: rgba(96, 165, 250, 0.55);
+  background: rgba(59, 130, 246, 0.2);
+  color: #bfdbfe;
+}
+
+.ventas-por-facturar__chips button.is-transfer {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.ventas-por-facturar__chips button.is-transfer.is-on {
+  border-color: rgba(248, 113, 113, 0.65);
+  background: rgba(185, 28, 28, 0.28);
+  color: #fecaca;
 }
 
 .ventas-filtro-sin-factura {

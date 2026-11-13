@@ -400,6 +400,8 @@ const CRMVentasPage = () => {
   const [filtroEstadoPago, setFiltroEstadoPago] = useState<string>('todos')
   const [filtroSoloSinFactura, setFiltroSoloSinFactura] = useState(false)
   const [idsVentasFacturadas, setIdsVentasFacturadas] = useState<Set<number>>(() => new Set())
+  /** En «Por facturar»: todas o solo hechas con transferencia. */
+  const [filtroPorFacturarMedio, setFiltroPorFacturarMedio] = useState<'todos' | 'transferencia'>('todos')
   const [filtroMetodoPago, setFiltroMetodoPago] = useState<string>('todos')
   const [filtroVendedor, setFiltroVendedor] = useState<string>('todos')
   const [busquedaVenta, setBusquedaVenta] = useState('')
@@ -662,6 +664,19 @@ const CRMVentasPage = () => {
         .filter((v) => v.estado_pago !== 'Cancelado' && !idsVentasFacturadas.has(Number(v.id)))
         .sort(compararVentasRecientes),
     [ventas, idsVentasFacturadas]
+  )
+
+  const ventasSinFacturaTransferencia = useMemo(
+    () => ventasSinFactura.filter((v) => ventaEsTransferencia(v)),
+    [ventasSinFactura]
+  )
+
+  const ventasPorFacturarVisibles = useMemo(
+    () =>
+      filtroPorFacturarMedio === 'transferencia'
+        ? ventasSinFacturaTransferencia
+        : ventasSinFactura,
+    [filtroPorFacturarMedio, ventasSinFactura, ventasSinFacturaTransferencia]
   )
 
   // Al entrar a «Por facturar», refrescar IDs facturados para no mostrar ventas ya emitidas.
@@ -4359,9 +4374,25 @@ const CRMVentasPage = () => {
             Solo ventas sin factura AFIP vigente. Las ya facturadas (o con CAE) no aparecen. Transferencias van con
             alerta roja.
           </p>
+          <div className="ventas-por-facturar__chips" role="group" aria-label="Filtrar por medio de pago">
+            <button
+              type="button"
+              className={filtroPorFacturarMedio === 'todos' ? 'is-on' : ''}
+              onClick={() => setFiltroPorFacturarMedio('todos')}
+            >
+              Todas ({ventasSinFactura.length})
+            </button>
+            <button
+              type="button"
+              className={`is-transfer${filtroPorFacturarMedio === 'transferencia' ? ' is-on' : ''}`}
+              onClick={() => setFiltroPorFacturarMedio('transferencia')}
+            >
+              Transferencia ({ventasSinFacturaTransferencia.length})
+            </button>
+          </div>
           <div className="ventas-pipeline ventas-pipeline--por-facturar">
             {VENTA_PIPELINE_ESTADOS.filter((estado) => estado !== 'Cancelado').map((estado) => {
-              const columnVentas = ventasSinFactura.filter((v) => v.estado_pago === estado)
+              const columnVentas = ventasPorFacturarVisibles.filter((v) => v.estado_pago === estado)
               const columnTotal = columnVentas.reduce((sum, v) => sum + Number(v.valor_total || 0), 0)
               return (
                 <section key={estado} className="ventas-pipeline__col">
@@ -4454,9 +4485,15 @@ const CRMVentasPage = () => {
               )
             })}
           </div>
-          {ventasSinFactura.length === 0 && (
+          {ventasPorFacturarVisibles.length === 0 && (
             <div className="empty-state">
-              <p>Todas las ventas de este listado ya tienen factura.</p>
+              <p>
+                {filtroPorFacturarMedio === 'transferencia'
+                  ? ventasSinFactura.length === 0
+                    ? 'Todas las ventas de este listado ya tienen factura.'
+                    : 'No hay ventas por transferencia sin factura.'
+                  : 'Todas las ventas de este listado ya tienen factura.'}
+              </p>
             </div>
           )}
         </div>
