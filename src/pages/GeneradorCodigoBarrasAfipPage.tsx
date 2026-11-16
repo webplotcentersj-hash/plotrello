@@ -41,6 +41,10 @@ const TIPOS_COMPROBANTE: Array<{ grupo: string; opciones: Array<{ codigo: string
       { codigo: '15', label: 'Recibo C' },
       { codigo: '54', label: 'Recibo M' }
     ]
+  },
+  {
+    grupo: 'Remitos',
+    opciones: [{ codigo: '91', label: 'Remito R' }]
   }
 ]
 
