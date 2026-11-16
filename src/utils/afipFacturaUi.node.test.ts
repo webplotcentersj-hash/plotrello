@@ -7,6 +7,7 @@ import {
   inferirTipoFactura,
   letraComprobante,
   redondear2,
+  textoConfirmacionFactura,
   tiposFacturaPermitidos,
   validarReceptorComprobante
 } from './afipFacturaUi.ts'
@@ -78,5 +79,32 @@ describe('letra del comprobante', () => {
     assert.match(validarReceptorComprobante('Factura A', 'Responsable Inscripto', '123') || '', /CUIT válido/)
     assert.match(validarReceptorComprobante('Factura B', 'Monotributista', '20409378472') || '', /Factura A/)
     assert.equal(validarReceptorComprobante('Factura B', 'Consumidor Final', ''), null)
+  })
+})
+
+describe('textoConfirmacionFactura', () => {
+  const datos = {
+    tipo: 'Factura B' as const,
+    cliente: 'QUIROGA CECILIA',
+    documento: '23545734',
+    condicionIva: 'Consumidor Final' as const,
+    total: 22989.92,
+    numeroVenta: 'VENT-20261116-2215'
+  }
+  it('muestra letra, cliente, documento, condición y total antes de emitir', () => {
+    const t = textoConfirmacionFactura(datos)
+    assert.match(t, /¿Emitir Factura B en ARCA\?/)
+    assert.match(t, /QUIROGA CECILIA/)
+    assert.match(t, /23545734/)
+    assert.match(t, /Consumidor Final/)
+    assert.match(t, /VENT-20261116-2215/)
+    assert.match(t, /22\.989,92/)
+    assert.match(t, /nota de crédito/)
+  })
+  it('avisa cuando no hay documento', () => {
+    assert.match(textoConfirmacionFactura({ ...datos, documento: '' }), /sin documento/)
+  })
+  it('la letra del aviso coincide con la que se emite', () => {
+    assert.equal(letraComprobante(datos.tipo), 'B')
   })
 })

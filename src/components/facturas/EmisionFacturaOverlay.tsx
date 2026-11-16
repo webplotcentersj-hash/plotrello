@@ -25,12 +25,14 @@ function pesos(valor: number) {
 type Props = {
   cliente: string
   total: number
+  /** Letra real del comprobante (A/B/C). Sin dato, el sello no inventa una. */
+  letra?: 'A' | 'B' | 'C' | null
   etapa: EtapaEmision
   resultado: ResultadoFacturaVenta | null
   onClose: () => void
 }
 
-export default function EmisionFacturaOverlay({ cliente, total, etapa, resultado, onClose }: Props) {
+export default function EmisionFacturaOverlay({ cliente, total, letra, etapa, resultado, onClose }: Props) {
   const [pulso, setPulso] = useState(0)
   const [descargandoPdf, setDescargandoPdf] = useState(false)
   const indice = Math.max(0, PASOS.findIndex((paso) => paso.id === etapa))
@@ -48,7 +50,7 @@ export default function EmisionFacturaOverlay({ cliente, total, etapa, resultado
     <div className="emision-afip" role="dialog" aria-modal="true" aria-labelledby="emision-afip-titulo">
       <div className={`emision-afip__panel${ok ? ' emision-afip__panel--ok' : ''}${resultado && !ok ? ' emision-afip__panel--error' : ''}`}>
         <div className="emision-afip__sello" aria-hidden="true">
-          <span>A</span>
+          <span>{letra ?? '·'}</span>
         </div>
         <p className="emision-afip__kicker">Factura electrónica</p>
         <h2 id="emision-afip-titulo">{ok ? 'Autorizada' : resultado ? 'No se autorizó' : 'Emitiendo'}</h2>

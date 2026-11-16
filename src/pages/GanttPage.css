@@ -124,6 +124,10 @@
   display: flex;
   flex-direction: column;
   z-index: 2;
+  /* Al abrir desplazado a hoy, los nombres de las OP siguen visibles. */
+  position: sticky;
+  left: 0;
+  background: var(--gantt-surface);
 }
 
 .gantt-corner {

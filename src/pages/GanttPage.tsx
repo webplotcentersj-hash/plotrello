@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   addDays,
   differenceInCalendarDays,
@@ -23,6 +23,18 @@ const dayWidthByZoom: Record<ZoomLevel, number> = {
   week: 28,
   month: 14,
   quarter: 6
+}
+
+/** Días previos a hoy que quedan visibles al abrir, según el zoom. */
+const DIAS_ANTES_DE_HOY: Record<ZoomLevel, number> = {
+  week: 3,
+  month: 10,
+  quarter: 30
+}
+
+/** scrollLeft inicial: hoy cerca del borde izquierdo, dejando unos días de contexto. */
+function scrollInicialGantt(todayOffset: number, dayWidth: number, diasAntes: number): number {
+  return Math.max(0, (todayOffset - diasAntes) * dayWidth)
 }
 
 const normalizeDate = (value?: string) => {
@@ -62,6 +74,15 @@ const GanttPage = ({ tasks, onBack }: GanttPageProps) => {
   const timelineWidth = totalDays * dayWidth
   const todayOffset = differenceInCalendarDays(new Date(), mapped.min)
 
+  // La línea de tiempo arranca en la orden más vieja: sin esto se abría meses atrás y
+  // las barras de las órdenes actuales quedaban fuera de la vista (Gantt "vacío").
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = wrapperRef.current
+    if (!el) return
+    el.scrollLeft = scrollInicialGantt(todayOffset, dayWidth, DIAS_ANTES_DE_HOY[zoom])
+  }, [todayOffset, dayWidth, zoom, mapped.items.length])
+
   const formatTick = (index: number) => {
     const date = addDays(mapped.min, index)
     if (zoom === 'week') return format(date, 'EEE d', { locale: es })
@@ -99,7 +120,7 @@ const GanttPage = ({ tasks, onBack }: GanttPageProps) => {
       {mapped.items.length === 0 ? (
         <div className="gantt-empty">No hay órdenes para mostrar.</div>
       ) : (
-        <div className="gantt-wrapper">
+        <div className="gantt-wrapper" ref={wrapperRef}>
           <div
             className="gantt-inner"
             style={{

@@ -3,6 +3,7 @@ import apiService from '../../services/api'
 import type { Venta, VentaCobro } from '../../types/api'
 import { generarReciboCobrosVentaPDFCompleto } from '../../utils/crmExportUtils'
 import { formatArgentinaDate } from '../../utils/dateUtils'
+import { cobradoMostradoVenta } from '../../utils/devolucionVentaLogica'
 import { descargarReciboPdf } from '../../utils/documentos/reciboPdf'
 import './VentaCobrosPanel.css'
 
@@ -67,10 +68,7 @@ export default function VentaCobrosPanel({ venta, disabled, onVentaActualizada }
   }
 
   const total = Number(venta.valor_total) || 0
-  const pagado = useMemo(
-    () => cobros.reduce((s, c) => s + (Number(c.monto) || 0), 0),
-    [cobros]
-  )
+  const pagado = useMemo(() => cobradoMostradoVenta(venta, cobros), [venta, cobros])
   const saldo = Math.max(0, Math.round((total - pagado) * 100) / 100)
 
   const iniciarEdit = (c: VentaCobro) => {

@@ -20,7 +20,8 @@ export const TIPOS_COMPROBANTE: Record<string, string> = {
   '51': 'Factura M',
   '52': 'Nota de Débito M',
   '53': 'Nota de Crédito M',
-  '54': 'Recibo M'
+  '54': 'Recibo M',
+  '91': 'Remito R'
 }
 
 export type DatosCodigo = {

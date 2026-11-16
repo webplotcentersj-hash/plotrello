@@ -14,6 +14,7 @@ import type { PlantillaVenta } from '../features/copiar/plantillasCopia'
 import {
   CONDICIONES_IVA_CLIENTE,
   inferirCondicionIva,
+  letraComprobante,
   normalizarCondicionIvaCliente,
   type CondicionIvaCliente
 } from '../utils/afipFacturaUi'
@@ -239,6 +240,7 @@ const VentaRapidaModal = ({
   const [emisionAfip, setEmisionAfip] = useState<{
     etapa: EtapaEmision
     resultado: ResultadoFacturaVenta | null
+    letra?: 'A' | 'B' | 'C' | null
   } | null>(null)
   const [comprobanteArchivo, setComprobanteArchivo] = useState<File | null>(null)
   const [comprobanteIa, setComprobanteIa] = useState<ComprobanteMedioParsed | null>(null)
@@ -798,9 +800,18 @@ const VentaRapidaModal = ({
     setFacturandoAfip(true)
     setEmisionAfip({ etapa: 'comprobante', resultado: null })
     try {
-      const resultado = await emitirFacturaDesdeVenta(venta, (etapa) => {
-        setEmisionAfip((prev) => (prev ? { ...prev, etapa } : prev))
-      })
+      // Cobro MP confirmado en este mismo flujo: la factura es parte del cobro (sin confirmación extra).
+      const resultado = await emitirFacturaDesdeVenta(
+        venta,
+        (etapa) => {
+          setEmisionAfip((prev) => (prev ? { ...prev, etapa } : prev))
+        },
+        undefined,
+        {
+          onTipo: (tipo) =>
+            setEmisionAfip((prev) => (prev ? { ...prev, letra: letraComprobante(tipo) } : prev))
+        }
+      )
       setEmisionAfip((prev) => (prev ? { ...prev, etapa: 'cae', resultado } : prev))
       if (resultado.ok && resultado.facturaId) {
         setFacturaEmitidaEnSesion(true)
@@ -2833,6 +2844,7 @@ const VentaRapidaModal = ({
         <EmisionFacturaOverlay
           cliente={ventaCreada.cliente_nombre || 'Consumidor final'}
           total={Number(ventaCreada.valor_total) || 0}
+          letra={emisionAfip.letra ?? null}
           etapa={emisionAfip.etapa}
           resultado={emisionAfip.resultado}
           onClose={() => setEmisionAfip(null)}

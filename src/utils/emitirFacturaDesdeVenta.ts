@@ -3,7 +3,10 @@ import { supabase } from '../services/supabaseClient'
 import type { Venta } from '../types/api'
 import {
   type CondicionIvaCliente,
+  type DatosConfirmacionFactura,
+  type TipoFactura,
   inferirCondicionIva,
+  textoConfirmacionFactura,
   inferirTipoFactura,
   normalizarCondicionIvaCliente,
   validarReceptorComprobante
@@ -17,6 +20,18 @@ export type ResultadoFacturaVenta = {
   numero?: string | null
   cae?: string | null
   mensaje: string
+  /** El usuario no confirmó la emisión: no se creó ni se emitió nada. */
+  cancelado?: boolean
+}
+
+export type { DatosConfirmacionFactura }
+export { textoConfirmacionFactura }
+
+export type OpcionesEmisionFactura = {
+  /** Se llama con la letra ya resuelta, antes de crear el comprobante. */
+  onTipo?: (tipo: TipoFactura) => void
+  /** Si devuelve false, no se crea ni se emite nada. */
+  confirmar?: (datos: DatosConfirmacionFactura) => boolean | Promise<boolean>
 }
 
 export type EtapaEmision = 'comprobante' | 'arca' | 'cae'
@@ -33,7 +48,8 @@ export type EmitirFacturaVentaOverrides = {
 export async function emitirFacturaDesdeVenta(
   venta: Venta,
   onEtapa?: (etapa: EtapaEmision) => void,
-  overrides?: EmitirFacturaVentaOverrides
+  overrides?: EmitirFacturaVentaOverrides,
+  opciones?: OpcionesEmisionFactura
 ): Promise<ResultadoFacturaVenta> {
   onEtapa?.('comprobante')
   if (!supabase) {
@@ -96,6 +112,19 @@ export async function emitirFacturaDesdeVenta(
 
   const nombreCliente =
     String(overrides?.cliente_nombre ?? venta.cliente_nombre ?? '').trim() || 'Consumidor Final'
+
+  opciones?.onTipo?.(tipo)
+  if (opciones?.confirmar) {
+    const confirmado = await opciones.confirmar({
+      tipo,
+      cliente: nombreCliente,
+      documento: cuit,
+      condicionIva: condicion,
+      total: Number(venta.valor_total) || 0,
+      numeroVenta: String(venta.numero_venta || venta.id)
+    })
+    if (!confirmado) return { ok: false, cancelado: true, mensaje: 'Emisión cancelada.' }
+  }
 
   let facturaId = existente?.id as number | undefined
   if (!facturaId) {

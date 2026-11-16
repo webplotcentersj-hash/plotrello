@@ -12,6 +12,21 @@ export function montoCobradoVentaLocal(venta: Pick<Venta, 'valor_total' | 'estad
   return 0
 }
 
+/**
+ * Cobrado a mostrar en el panel de cobros. Las ventas cobradas en un solo paso
+ * (venta rápida, MP) no siempre tienen filas en el historial: sin filas, se usa
+ * lo que dice la venta en vez de mostrar "Cobrado $ 0" en una venta Pagada.
+ */
+export function cobradoMostradoVenta(
+  venta: Pick<Venta, 'valor_total' | 'estado_pago' | 'monto_pagado'>,
+  cobros: Array<{ monto: number | string | null | undefined }>
+): number {
+  if (cobros.length > 0) {
+    return Math.round(cobros.reduce((s, c) => s + (Number(c.monto) || 0), 0) * 100) / 100
+  }
+  return montoCobradoVentaLocal(venta)
+}
+
 export function ventaPuedeDevolverDinero(venta: Pick<Venta, 'estado_pago' | 'valor_total' | 'monto_pagado' | 'metodo_pago'>): boolean {
   if (venta.estado_pago === 'Cancelado') return false
   if ((venta.metodo_pago || '') === 'Cuenta Corriente' && venta.estado_pago === 'Pendiente') return false

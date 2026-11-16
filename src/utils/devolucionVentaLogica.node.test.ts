@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   clampMontoDevolucion,
+  cobradoMostradoVenta,
   esDevolucionTotalDinero,
   estadoPagoTrasDevolucion,
   montoCobradoVentaLocal,
@@ -32,6 +33,24 @@ describe('clampMontoDevolucion', () => {
     assert.equal(
       estadoPagoTrasDevolucion({ cobradoAntes: 50, montoDevuelto: 20, cancelarVenta: false }),
       'Parcial'
+    )
+  })
+})
+
+describe('cobradoMostradoVenta', () => {
+  it('venta Pagada sin filas de cobro muestra el total, no $ 0', () => {
+    assert.equal(cobradoMostradoVenta({ valor_total: 7377.72, estado_pago: 'Pagado', monto_pagado: 0 }, []), 7377.72)
+  })
+  it('venta Parcial sin filas usa monto_pagado', () => {
+    assert.equal(cobradoMostradoVenta({ valor_total: 100, estado_pago: 'Parcial', monto_pagado: 30 }, []), 30)
+  })
+  it('venta Pendiente sin filas queda en 0', () => {
+    assert.equal(cobradoMostradoVenta({ valor_total: 100, estado_pago: 'Pendiente', monto_pagado: 0 }, []), 0)
+  })
+  it('con filas de cobro manda el historial', () => {
+    assert.equal(
+      cobradoMostradoVenta({ valor_total: 100, estado_pago: 'Pagado', monto_pagado: 100 }, [{ monto: 40 }, { monto: '20.5' }]),
+      60.5
     )
   })
 })

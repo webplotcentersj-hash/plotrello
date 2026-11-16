@@ -21,10 +21,16 @@ import type {
 } from '../types/api'
 import type { ArticuloStock } from '../types/pedidos'
 import { formatArgentinaDate, getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
-import { emitirFacturaDesdeVenta, type EtapaEmision, type ResultadoFacturaVenta } from '../utils/emitirFacturaDesdeVenta'
+import {
+  emitirFacturaDesdeVenta,
+  textoConfirmacionFactura,
+  type EtapaEmision,
+  type ResultadoFacturaVenta
+} from '../utils/emitirFacturaDesdeVenta'
 import {
   CONDICIONES_IVA_CLIENTE,
   inferirCondicionIva,
+  letraComprobante,
   normalizarCondicionIvaCliente,
   type CondicionIvaCliente
 } from '../utils/afipFacturaUi'
@@ -489,6 +495,7 @@ const CRMVentasPage = () => {
   const [emisionAfip, setEmisionAfip] = useState<{
     cliente: string
     total: number
+    letra: 'A' | 'B' | 'C' | null
     etapa: EtapaEmision
     resultado: ResultadoFacturaVenta | null
   } | null>(null)
@@ -2383,21 +2390,36 @@ const CRMVentasPage = () => {
     }
 
     setFacturandoAfipId(ventaEmit.id)
-    setEmisionAfip({
-      cliente: ventaEmit.cliente_nombre || 'Consumidor final',
-      total: Number(ventaEmit.valor_total) || 0,
-      etapa: 'comprobante',
-      resultado: null
-    })
+    const clienteEmision = ventaEmit.cliente_nombre || 'Consumidor final'
+    const totalEmision = Number(ventaEmit.valor_total) || 0
     try {
       const resultado = await emitirFacturaDesdeVenta(
         ventaEmit,
         (etapa) => {
           setEmisionAfip((prev) => (prev ? { ...prev, etapa } : prev))
         },
-        overrides
+        overrides,
+        {
+          // La factura sale a ARCA y no se deshace: mostrar qué se emite y pedir el OK.
+          confirmar: (datos) => {
+            if (!window.confirm(textoConfirmacionFactura(datos))) return false
+            setEmisionAfip({
+              cliente: datos.cliente || clienteEmision,
+              total: totalEmision,
+              letra: letraComprobante(datos.tipo),
+              etapa: 'comprobante',
+              resultado: null
+            })
+            return true
+          }
+        }
       )
-      setEmisionAfip((prev) => (prev ? { ...prev, etapa: 'cae', resultado } : prev))
+      if (resultado.cancelado) return
+      setEmisionAfip((prev) =>
+        prev
+          ? { ...prev, etapa: 'cae', resultado }
+          : { cliente: clienteEmision, total: totalEmision, letra: null, etapa: 'cae', resultado }
+      )
       if (resultado.ok) {
         setIdsVentasFacturadas((prev) => {
           const next = new Set(prev)
@@ -6170,6 +6192,7 @@ const CRMVentasPage = () => {
         <EmisionFacturaOverlay
           cliente={emisionAfip.cliente}
           total={emisionAfip.total}
+          letra={emisionAfip.letra}
           etapa={emisionAfip.etapa}
           resultado={emisionAfip.resultado}
           onClose={() => setEmisionAfip(null)}

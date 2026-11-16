@@ -38,6 +38,15 @@ describe('analizarLectura', () => {
     assert.deepEqual(l.avisos, [])
   })
 
+  it('reconoce el Remito R (91) sin avisos', () => {
+    const l = analizarLectura(conDv(`30715518801910014${FACTURA_A.slice(17, 39)}`))
+    assert.equal(l.estado, 'valido')
+    if (l.estado !== 'valido') return
+    assert.equal(l.datos.tipoCodigo, '91')
+    assert.equal(l.datos.tipoNombre, 'Remito R')
+    assert.deepEqual(l.avisos, [])
+  })
+
   it('ignora espacios entre grupos al tipear', () => {
     const l = analizarLectura('30715518801 01 0014 86406405514474 20261016 7')
     assert.equal(l.estado, 'valido')

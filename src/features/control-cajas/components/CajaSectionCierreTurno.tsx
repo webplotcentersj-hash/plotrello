@@ -248,7 +248,7 @@ export default function CajaSectionCierreTurno({ usuarioNombre, usuarioId, isAdm
       return
     }
     if (calc.resto_efectivo + calc.resto_otros <= 0 && calc.fondo_monto <= 0) {
-      setMsg('No hay montos para transferir (contado − fondo − egresos).')
+      setMsg('No hay montos para transferir (contado − fondo).')
       return
     }
 

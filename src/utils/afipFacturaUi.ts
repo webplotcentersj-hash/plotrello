@@ -52,6 +52,32 @@ export function conceptoLabel(concepto: number | null | undefined): string {
   return CONCEPTOS_AFIP.find((c) => c.value === Number(concepto))?.label || 'Productos'
 }
 
+/** Lo que se va a emitir, para mostrarlo antes de ir a ARCA. */
+export type DatosConfirmacionFactura = {
+  tipo: TipoFactura
+  cliente: string
+  documento: string
+  condicionIva: CondicionIvaCliente
+  total: number
+  numeroVenta: string
+}
+
+/** Texto del aviso previo a emitir: la factura sale a ARCA y no se puede deshacer. */
+export function textoConfirmacionFactura(d: DatosConfirmacionFactura): string {
+  const total = d.total.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })
+  return [
+    `¿Emitir ${d.tipo} en ARCA?`,
+    '',
+    `Venta: ${d.numeroVenta}`,
+    `Cliente: ${d.cliente}`,
+    `CUIT/DNI: ${d.documento || 'sin documento'}`,
+    `Condición IVA: ${d.condicionIva}`,
+    `Total: ${total}`,
+    '',
+    'Se pide el CAE en el acto. Para corregirla después hay que emitir una nota de crédito.'
+  ].join('\n')
+}
+
 /** La letra es siempre el último carácter ("Nota de Crédito B" tiene una C en "Crédito"). */
 export function letraComprobante(tipo: string): 'A' | 'B' | 'C' {
   const letra = tipo.trim().slice(-1).toUpperCase()
