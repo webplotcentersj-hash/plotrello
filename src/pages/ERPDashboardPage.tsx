@@ -99,15 +99,6 @@ const CONTABLE_MODULES: ErpModuleDef[] = [
     keywords: ['costos', 'op', 'orden', 'margen']
   },
   {
-    id: 'compras',
-    title: 'Compras / Proveedores',
-    description: 'Pedidos, recepción y cuentas a pagar',
-    icon: '🛒',
-    path: '/erp/compras',
-    accent: '#f97316',
-    keywords: ['compras', 'proveedores', 'orden compra', 'cxp']
-  },
-  {
     id: 'gastos',
     title: 'Gastos',
     description: 'Gastos corrientes, tickets y estadísticas',

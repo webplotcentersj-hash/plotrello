@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
 import {
   Bar,
   BarChart,
@@ -12,11 +11,30 @@ import {
   YAxis
 } from 'recharts'
 import apiService from '../services/api'
+import { saldosCcPorCliente } from '../services/erpContableApi'
 import './ErpSectionPage.css'
+
+function inicioDia(d = new Date()): Date {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
+function diasDesdeHoy(fechaIso: string, hoy = inicioDia()): number {
+  const f = inicioDia(new Date(fechaIso))
+  return Math.round((f.getTime() - hoy.getTime()) / 86400000)
+}
+
+function fmtMoneyAr(n: number): string {
+  return `$${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function esPendienteCx(c: { estado?: string | null }): boolean {
+  return c.estado === 'Pendiente' || c.estado === 'Parcial'
+}
 
 export default function ErpTesoreriaPage() {
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
   const [searchParams] = useSearchParams()
   const estado = (searchParams.get('estado') || '').trim() || null
 
@@ -27,9 +45,7 @@ export default function ErpTesoreriaPage() {
   const [movs, setMovs] = useState<any[]>([])
   const [cuentas, setCuentas] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [alertasCxp, setAlertasCxp] = useState<
-    Array<{ id: number; mensaje: string | null; nivel: string; leida: boolean }>
-  >([])
+  const [ccResumen, setCcResumen] = useState({ clientes: 0, saldo: 0 })
 
   const today = useMemo(() => new Date(), [])
   const defaultFrom = useMemo(() => {
@@ -48,14 +64,28 @@ export default function ErpTesoreriaPage() {
     void Promise.all([
       apiService.getCuentasPorCobrar(estado ? ({ estado } as any) : undefined),
       apiService.getCuentasPorPagar(estado ? ({ estado } as any) : undefined),
-      apiService.erpSyncCxpDesdeFacturasCompra()
+      apiService.erpSyncCxpDesdeFacturasCompra(),
+      saldosCcPorCliente()
     ])
-      .then(([r1, r2]) => {
+      .then(([r1, r2, _sync, rCc]) => {
         if (cancelled) return
         if (r1.success && r1.data) setCxc(Array.isArray(r1.data) ? r1.data : [])
         else setCxc([])
         if (r2.success && r2.data) setCxp(Array.isArray(r2.data) ? r2.data : [])
         else setCxp([])
+        if (rCc.success && rCc.data) {
+          let saldo = 0
+          let clientes = 0
+          for (const s of rCc.data.values()) {
+            const neto = (Number(s.debe) || 0) - (Number(s.haber) || 0)
+            if (Math.abs(neto) < 0.01) continue
+            saldo += neto
+            clientes += 1
+          }
+          setCcResumen({ clientes, saldo: Math.round(saldo * 100) / 100 })
+        } else {
+          setCcResumen({ clientes: 0, saldo: 0 })
+        }
         if (!r1.success || !r2.success) {
           setError(r1.error || r2.error || 'No se pudieron cargar cuentas.')
         }
@@ -67,21 +97,6 @@ export default function ErpTesoreriaPage() {
       cancelled = true
     }
   }, [estado])
-
-  useEffect(() => {
-    if (!isAdmin) return
-    let cancelled = false
-    void (async () => {
-      await apiService.erpRefreshAlertasCxp(7)
-      const r = await apiService.getErpAlertasCxp({ soloNoLeidas: true })
-      if (!cancelled && r.success && r.data) {
-        setAlertasCxp(r.data.map((a) => ({ id: a.id, mensaje: a.mensaje, nivel: a.nivel, leida: a.leida })))
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [isAdmin])
 
   useEffect(() => {
     let cancelled = false
@@ -119,22 +134,56 @@ export default function ErpTesoreriaPage() {
     }
   }, [range.from, range.to, tipoMov, cuentaId])
 
-  const kpis = useMemo(() => {
-    const pendingCxc = cxc.filter((c: any) => c?.estado === 'Pendiente' || c?.estado === 'Parcial')
-    const pendingCxp = cxp.filter((c: any) => c?.estado === 'Pendiente' || c?.estado === 'Parcial')
-    const montoCxc = pendingCxc.reduce((sum: number, c: any) => sum + (Number(c?.monto_pendiente) || 0), 0)
-    const montoCxp = pendingCxp.reduce((sum: number, c: any) => sum + (Number(c?.monto_pendiente) || 0), 0)
-    const now = Date.now()
-    const vencidasCxc = cxc.filter((c: any) => c?.fecha_vencimiento && new Date(c.fecha_vencimiento).getTime() < now && c?.estado !== 'Pagado').length
-    const vencidasCxp = cxp.filter((c: any) => c?.fecha_vencimiento && new Date(c.fecha_vencimiento).getTime() < now && c?.estado !== 'Pagado').length
-    return { montoCxc, montoCxp, vencidasCxc, vencidasCxp }
-  }, [cxc, cxp])
-
   const kpisCaja = useMemo(() => {
     const ingresos = movs.filter((m: any) => m?.tipo === 'Cobro').reduce((s: number, m: any) => s + (Number(m?.monto) || 0), 0)
     const egresos = movs.filter((m: any) => m?.tipo === 'Pago').reduce((s: number, m: any) => s + (Number(m?.monto) || 0), 0)
     return { ingresos, egresos, neto: ingresos - egresos, cantidad: movs.length }
   }, [movs])
+
+  const resumenHub = useMemo(() => {
+    const hoy = inicioDia().getTime()
+    const cxcPend = cxc.filter((c: any) => esPendienteCx(c))
+    const cxpPend = cxp.filter((c: any) => esPendienteCx(c))
+    const montoCxc = cxcPend.reduce((s: number, c: any) => s + (Number(c?.monto_pendiente) || 0), 0)
+    const montoCxp = cxpPend.reduce((s: number, c: any) => s + (Number(c?.monto_pendiente) || 0), 0)
+    const cxpVencidas = cxpPend.filter(
+      (c: any) => c?.fecha_vencimiento && new Date(c.fecha_vencimiento).getTime() < hoy
+    ).length
+    const cxcVencidas = cxcPend.filter(
+      (c: any) => c?.fecha_vencimiento && new Date(c.fecha_vencimiento).getTime() < hoy
+    ).length
+    return {
+      montoCxc,
+      nCxc: cxcPend.length,
+      cxcVencidas,
+      montoCxp,
+      nCxp: cxpPend.length,
+      cxpVencidas,
+      nBancos: cuentas.length
+    }
+  }, [cxc, cxp, cuentas])
+
+  /** Vencidas recientes + por vencer (60 días); orden: más cerca de hoy. */
+  const vencimientosCercanos = useMemo(() => {
+    const hoy = inicioDia()
+    const filas = [
+      ...cxc.map((c: any) => ({ ...c, __tipo: 'Cobrar' as const })),
+      ...cxp.map((c: any) => ({ ...c, __tipo: 'Pagar' as const }))
+    ]
+      .filter((c: any) => {
+        if (!c?.fecha_vencimiento) return false
+        if (c.estado === 'Pagado' || c.estado === 'Cancelado') return false
+        const dias = diasDesdeHoy(String(c.fecha_vencimiento), hoy)
+        return dias >= -45 && dias <= 60
+      })
+      .map((c: any) => {
+        const dias = diasDesdeHoy(String(c.fecha_vencimiento), hoy)
+        return { ...c, __dias: dias }
+      })
+      .sort((a: any, b: any) => Math.abs(a.__dias) - Math.abs(b.__dias) || a.__dias - b.__dias)
+      .slice(0, 12)
+    return filas
+  }, [cxc, cxp])
 
   const flujoPorDia = useMemo(() => {
     const map = new Map<string, { fecha: string; ingresos: number; egresos: number; neto: number }>()
@@ -218,9 +267,6 @@ export default function ErpTesoreriaPage() {
           <button type="button" className="btn-primary" onClick={() => navigate('/caja/dashboard')}>
             Ir a Caja
           </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/tesoreria/cuentas')}>
-            Cuentas bancarias
-          </button>
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp/tesoreria/cheques')}>
             Cheques
           </button>
@@ -239,56 +285,17 @@ export default function ErpTesoreriaPage() {
         </div>
       )}
 
-      {isAdmin && alertasCxp.length > 0 && (
-        <div className="erp-alertas-panel erp-alertas-panel--danger">
-          <h3>⚠️ Alertas cuentas por pagar ({alertasCxp.length})</h3>
-          <ul className="erp-alertas-list">
-            {alertasCxp.slice(0, 5).map((a) => (
-              <li key={a.id} className="erp-alerta-item">
-                <span>{a.mensaje}</span>
-                <button type="button" className="btn-primary btn-sm" onClick={() => navigate('/erp/cuentas-por-pagar')}>
-                  Revisar
-                </button>
-              </li>
-            ))}
-          </ul>
+      {resumenHub.cxpVencidas > 0 && (
+        <div className="erp-alertas-panel erp-alertas-panel--danger erp-alertas-panel--compact">
+          <p>
+            <strong>{resumenHub.cxpVencidas}</strong> CxP vencida{resumenHub.cxpVencidas === 1 ? '' : 's'} ·{' '}
+            {fmtMoneyAr(resumenHub.montoCxp)} pendientes en total
+          </p>
+          <button type="button" className="btn-primary btn-sm" onClick={() => navigate('/erp/cuentas-por-pagar')}>
+            Ver CxP
+          </button>
         </div>
       )}
-
-      <div className="erp-stats-row">
-        <article className="erp-stat-card erp-stat-card--green">
-          <div className="erp-stat-card__icon">💵</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">
-              ${kpis.montoCxc.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </div>
-            <div className="erp-stat-card__label">Por cobrar</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--rose">
-          <div className="erp-stat-card__icon">💸</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">
-              ${kpis.montoCxp.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-            </div>
-            <div className="erp-stat-card__label">Por pagar</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--amber">
-          <div className="erp-stat-card__icon">📥</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{kpis.vencidasCxc}</div>
-            <div className="erp-stat-card__label">CxC vencidas</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--violet">
-          <div className="erp-stat-card__icon">📤</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{kpis.vencidasCxp}</div>
-            <div className="erp-stat-card__label">CxP vencidas</div>
-          </div>
-        </article>
-      </div>
 
       <div className="erp-quick-grid">
         <button
@@ -296,23 +303,21 @@ export default function ErpTesoreriaPage() {
           className="erp-quick-card"
           style={{ '--quick-accent': '#10b981' } as CSSProperties}
           onClick={() => navigate('/erp/cuentas-por-cobrar')}
+          disabled={loading}
         >
           <span className="erp-quick-card__glow" aria-hidden />
           <span className="erp-quick-card__icon">💳</span>
           <span className="erp-quick-card__title">Cuentas por cobrar</span>
-          <span className="erp-quick-card__desc">Facturas ERP + cuenta corriente</span>
-          <span className="erp-quick-card__arrow">→</span>
-        </button>
-        <button
-          type="button"
-          className="erp-quick-card"
-          style={{ '--quick-accent': '#f43f5e' } as CSSProperties}
-          onClick={() => navigate('/erp/cuentas-por-pagar')}
-        >
-          <span className="erp-quick-card__glow" aria-hidden />
-          <span className="erp-quick-card__icon">📋</span>
-          <span className="erp-quick-card__title">Cuentas por pagar</span>
-          <span className="erp-quick-card__desc">Deudas con proveedores</span>
+          <span className="erp-quick-card__metric">
+            {loading ? '…' : fmtMoneyAr(resumenHub.montoCxc)}
+          </span>
+          <span className="erp-quick-card__desc">
+            {loading
+              ? 'Cargando…'
+              : `${resumenHub.nCxc} abierta${resumenHub.nCxc === 1 ? '' : 's'}${
+                  resumenHub.cxcVencidas > 0 ? ` · ${resumenHub.cxcVencidas} vencida${resumenHub.cxcVencidas === 1 ? '' : 's'}` : ''
+                }`}
+          </span>
           <span className="erp-quick-card__arrow">→</span>
         </button>
         <button
@@ -320,11 +325,41 @@ export default function ErpTesoreriaPage() {
           className="erp-quick-card"
           style={{ '--quick-accent': '#0ea5e9' } as CSSProperties}
           onClick={() => navigate('/erp/cuentas-por-cobrar?tab=cuenta_corriente')}
+          disabled={loading}
         >
           <span className="erp-quick-card__glow" aria-hidden />
           <span className="erp-quick-card__icon">🤝</span>
           <span className="erp-quick-card__title">Cuenta corriente</span>
-          <span className="erp-quick-card__desc">Ventas fiadas del mostrador</span>
+          <span className="erp-quick-card__metric">
+            {loading ? '…' : fmtMoneyAr(ccResumen.saldo)}
+          </span>
+          <span className="erp-quick-card__desc">
+            {loading
+              ? 'Cargando…'
+              : `${ccResumen.clientes} cliente${ccResumen.clientes === 1 ? '' : 's'} con saldo · ventas fiadas`}
+          </span>
+          <span className="erp-quick-card__arrow">→</span>
+        </button>
+        <button
+          type="button"
+          className="erp-quick-card"
+          style={{ '--quick-accent': '#f43f5e' } as CSSProperties}
+          onClick={() => navigate('/erp/cuentas-por-pagar')}
+          disabled={loading}
+        >
+          <span className="erp-quick-card__glow" aria-hidden />
+          <span className="erp-quick-card__icon">📋</span>
+          <span className="erp-quick-card__title">Cuentas por pagar</span>
+          <span className="erp-quick-card__metric">
+            {loading ? '…' : fmtMoneyAr(resumenHub.montoCxp)}
+          </span>
+          <span className="erp-quick-card__desc">
+            {loading
+              ? 'Cargando…'
+              : `${resumenHub.nCxp} abierta${resumenHub.nCxp === 1 ? '' : 's'}${
+                  resumenHub.cxpVencidas > 0 ? ` · ${resumenHub.cxpVencidas} vencida${resumenHub.cxpVencidas === 1 ? '' : 's'}` : ''
+                }`}
+          </span>
           <span className="erp-quick-card__arrow">→</span>
         </button>
         <button
@@ -336,7 +371,10 @@ export default function ErpTesoreriaPage() {
           <span className="erp-quick-card__glow" aria-hidden />
           <span className="erp-quick-card__icon">🏛️</span>
           <span className="erp-quick-card__title">Cuentas bancarias</span>
-          <span className="erp-quick-card__desc">Catálogo para cobros y pagos</span>
+          <span className="erp-quick-card__metric">{resumenHub.nBancos}</span>
+          <span className="erp-quick-card__desc">
+            {resumenHub.nBancos === 1 ? 'cuenta activa' : 'cuentas activas'} · catálogo de cobros/pagos
+          </span>
           <span className="erp-quick-card__arrow">→</span>
         </button>
       </div>
@@ -344,8 +382,68 @@ export default function ErpTesoreriaPage() {
       <section className="erp-panel">
         <div className="erp-panel__head">
           <div>
-            <h2>Flujo de caja</h2>
-            <p className="erp-panel__hint">Pagos y cobros registrados en tesorería</p>
+            <h2>Vencimientos cercanos</h2>
+            <p className="erp-panel__hint">Últimos 45 días y próximos 60 · ordenados por cercanía a hoy</p>
+          </div>
+          <button type="button" className="btn-secondary btn-sm" onClick={() => navigate('/erp/cuentas-por-pagar')}>
+            Todas las CxP
+          </button>
+        </div>
+        {loading ? (
+          <div className="erp-loading-inline">
+            <div className="erp-loading-inline__spinner" aria-hidden />
+            <span>Cargando…</span>
+          </div>
+        ) : vencimientosCercanos.length === 0 ? (
+          <p className="erp-muted">No hay vencimientos en esa ventana.</p>
+        ) : (
+          <div className="erp-table-wrap">
+            <table className="erp-table">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Cliente / Proveedor</th>
+                  <th>Vencimiento</th>
+                  <th>Situación</th>
+                  <th>Pendiente</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vencimientosCercanos.map((c: any, idx: number) => {
+                  const dias = Number(c.__dias) || 0
+                  const situacion =
+                    dias < 0 ? `Vencida hace ${Math.abs(dias)}d` : dias === 0 ? 'Vence hoy' : `En ${dias}d`
+                  return (
+                    <tr key={`${c.__tipo}-${c.id ?? idx}`}>
+                      <td>
+                        <span className={c.__tipo === 'Cobrar' ? 'erp-pill ok' : 'erp-pill warn'}>{c.__tipo}</span>
+                      </td>
+                      <td>{c.cliente_nombre || c.proveedor_nombre || c.nombre || '—'}</td>
+                      <td>{new Date(c.fecha_vencimiento).toLocaleDateString('es-AR')}</td>
+                      <td>
+                        <span className={dias < 0 ? 'erp-pill danger' : dias <= 7 ? 'erp-pill warn' : 'erp-pill ok'}>
+                          {situacion}
+                        </span>
+                      </td>
+                      <td className="erp-td-monto">
+                        ${Number(c.monto_pendiente || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="erp-panel">
+        <div className="erp-panel__head">
+          <div>
+            <h2>Flujo de caja (ERP)</h2>
+            <p className="erp-panel__hint">
+              Cobros y pagos de tesorería en el período · la caja del mostrador está en Control de cajas
+            </p>
           </div>
           <button type="button" className="btn-secondary btn-sm" onClick={exportCajaCsv} disabled={loadingCaja}>
             Exportar CSV
@@ -496,54 +594,6 @@ export default function ErpTesoreriaPage() {
               </table>
             </div>
           </>
-        )}
-      </section>
-
-      <section className="erp-panel">
-        <div className="erp-panel__head">
-          <div>
-            <h2>Próximos vencimientos</h2>
-            <p className="erp-panel__hint">Vista rápida de cobros y pagos pendientes</p>
-          </div>
-        </div>
-        {loading ? (
-          <div className="erp-loading-inline">
-            <div className="erp-loading-inline__spinner" aria-hidden />
-            <span>Cargando…</span>
-          </div>
-        ) : (
-          <div className="erp-table-wrap">
-            <table className="erp-table">
-              <thead>
-                <tr>
-                  <th>Tipo</th>
-                  <th>Cliente / Proveedor</th>
-                  <th>Vencimiento</th>
-                  <th>Estado</th>
-                  <th>Pendiente</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...cxc.map((c: any) => ({ ...c, __tipo: 'Cobrar' })), ...cxp.map((c: any) => ({ ...c, __tipo: 'Pagar' }))]
-                  .filter((c: any) => c?.fecha_vencimiento)
-                  .sort((a: any, b: any) => new Date(a.fecha_vencimiento).getTime() - new Date(b.fecha_vencimiento).getTime())
-                  .slice(0, 12)
-                  .map((c: any, idx) => (
-                    <tr key={`${c.__tipo}-${c.id ?? idx}`}>
-                      <td>
-                        <span className={c.__tipo === 'Cobrar' ? 'erp-pill ok' : 'erp-pill warn'}>{c.__tipo}</span>
-                      </td>
-                      <td>{c.cliente_nombre || c.proveedor_nombre || c.nombre || '—'}</td>
-                      <td>{new Date(c.fecha_vencimiento).toLocaleDateString('es-AR')}</td>
-                      <td>{c.estado || '—'}</td>
-                      <td className="erp-td-monto">
-                        ${Number(c.monto_pendiente || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
         )}
       </section>
     </div>

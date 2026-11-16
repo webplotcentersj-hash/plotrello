@@ -639,7 +639,11 @@ export function nombreCliente(c: Pick<ClienteBasico, 'nombre' | 'apellido' | 'em
 export function listClientesBasicos() {
   return envolver(async () => {
     return traerTodo<ClienteBasico>((a, b) =>
-      cliente().from('clientes').select('id,nombre,apellido,empresa,dni_cuit').order('id', { ascending: true }).range(a, b)
+      cliente()
+        .from('clientes_publico')
+        .select('id,nombre,apellido,empresa,dni_cuit')
+        .order('id', { ascending: true })
+        .range(a, b)
     )
   })
 }
