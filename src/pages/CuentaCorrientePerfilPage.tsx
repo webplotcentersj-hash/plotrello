@@ -85,7 +85,7 @@ export default function CuentaCorrientePerfilPage() {
   const { idCliente: idParam } = useParams<{ idCliente: string }>()
   const idCliente = Number(idParam)
   const navigate = useNavigate()
-  const { isAdmin, usuario } = useAuth()
+  const { isAdmin, usuario, canWriteCuentaProveedor } = useAuth()
   const { config: configCondiciones } = useConfigCondicionesVenta()
 
   const mediosPagoCc = useMemo(
@@ -604,18 +604,20 @@ export default function CuentaCorrientePerfilPage() {
             <button type="button" className="cc-btn cc-btn--secondary" onClick={() => setShowScoring(true)}>
               Scoring
             </button>
-            <button
-              type="button"
-              className="cc-btn cc-btn--secondary"
-              onClick={() => setTab('compensacion')}
-              title={
-                proveedorVinculo
-                  ? `Compensar con proveedor ${proveedorVinculo.nombre}`
-                  : 'Compensar si también es proveedor (mismo CUIT)'
-              }
-            >
-              Compensar proveedor
-            </button>
+            {canWriteCuentaProveedor ? (
+              <button
+                type="button"
+                className="cc-btn cc-btn--secondary"
+                onClick={() => setTab('compensacion')}
+                title={
+                  proveedorVinculo
+                    ? `Compensar con proveedor ${proveedorVinculo.nombre}`
+                    : 'Compensar si también es proveedor (mismo CUIT)'
+                }
+              >
+                Compensar proveedor
+              </button>
+            ) : null}
             <button
               type="button"
               className="cc-btn cc-btn--primary"
@@ -733,7 +735,7 @@ export default function CuentaCorrientePerfilPage() {
         />
       )}
 
-      {tab === 'cuenta' && proveedorVinculo ? (
+      {tab === 'cuenta' && proveedorVinculo && canWriteCuentaProveedor ? (
         <button
           type="button"
           className="cc-comp-banner"
@@ -746,12 +748,19 @@ export default function CuentaCorrientePerfilPage() {
       <nav className="cc-perfil-tabs" role="tablist">
         {(
           [
-            ['cuenta', 'Estado de cuenta'],
-            ['ventas', `Ventas CC (${perfil.ventas_cc.length})`],
-            ['compensacion', proveedorVinculo ? 'Compensar proveedor' : 'Cliente / proveedor'],
-            ['pago', 'Registrar pago']
-          ] as const
-        ).map(([id, label]) => (
+            { id: 'cuenta' as const, label: 'Estado de cuenta' },
+            { id: 'ventas' as const, label: `Ventas CC (${perfil.ventas_cc.length})` },
+            ...(canWriteCuentaProveedor
+              ? [
+                  {
+                    id: 'compensacion' as const,
+                    label: proveedorVinculo ? 'Compensar proveedor' : 'Cliente / proveedor'
+                  }
+                ]
+              : []),
+            { id: 'pago' as const, label: 'Registrar pago' }
+          ]
+        ).map(({ id, label }) => (
           <button
             key={id}
             type="button"
@@ -1100,7 +1109,7 @@ export default function CuentaCorrientePerfilPage() {
         </section>
       )}
 
-      {tab === 'compensacion' && usuario?.id && (
+      {tab === 'compensacion' && usuario?.id && canWriteCuentaProveedor && (
         <section className="cc-perfil-section" id="cc-compensacion">
           <CcCompensacionProveedorPanel
             idCliente={idCliente}

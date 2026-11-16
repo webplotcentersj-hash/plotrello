@@ -91,6 +91,8 @@ type AuthContextValue = {
   isPresupuestos: boolean
   canManageImpresoras: boolean
   canManageCompras: boolean
+  /** Escritura cuenta proveedor: administración, gerencia o achavez@plotcenter.com.ar */
+  canWriteCuentaProveedor: boolean
   isGerencia: boolean
   canViewPedidoCompraDetalle: boolean
   canManageCaja: boolean
@@ -261,6 +263,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       !!usuario && (usuarioTieneRol(usuario, 'taller-grafico') || isAdmin)
     const canManageCompras =
       !!usuario && (usuarioTieneRol(usuario, 'compras') || isAdmin)
+    const canWriteCuentaProveedor =
+      !!usuario &&
+      (isAdmin ||
+        isGerencia ||
+        usuario.nombre.trim().toLowerCase() === 'achavez@plotcenter.com.ar')
     const canViewPedidoCompraDetalle =
       !!usuario && (usuarioTieneRol(usuario, 'compras') || isAdmin || isGerencia)
     const canManageCaja = !!usuario && (isCajaOperativa || isAdmin)
@@ -325,6 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isPresupuestos,
       canManageImpresoras,
       canManageCompras,
+      canWriteCuentaProveedor,
       isGerencia,
       canViewPedidoCompraDetalle,
       canManageCaja,

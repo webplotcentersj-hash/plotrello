@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from '../../hooks/useAuth'
 import apiService from '../../services/api'
 import type { MovimientoProveedorEnriquecido } from '../../types/api'
 import { getArgentinaDateString } from '../../utils/dateUtils'
@@ -92,6 +93,7 @@ export default function ProveedorCuentaPanel({
   saldoListado,
   onChanged
 }: Props) {
+  const { canWriteCuentaProveedor } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLInputElement>(null)
   const pendingAttachId = useRef<number | null>(null)
@@ -268,6 +270,10 @@ export default function ProveedorCuentaPanel({
   }
 
   const abrirEditarSaldo = () => {
+    if (!canWriteCuentaProveedor) {
+      setError('Solo administración, gerencia o el usuario autorizado pueden editar la cuenta.')
+      return
+    }
     setEditandoSaldo(true)
     setSaldoEditDraft(String(Number(saldo.toFixed(2))))
     setError(null)
@@ -279,6 +285,10 @@ export default function ProveedorCuentaPanel({
   }
 
   const handleResetCuenta = async () => {
+    if (!canWriteCuentaProveedor) {
+      setError('Solo administración, gerencia o el usuario autorizado pueden resetear la cuenta.')
+      return
+    }
     if (!idProveedor || idProveedor <= 0) {
       setError('Este proveedor todavía no tiene ficha.')
       return
@@ -312,6 +322,10 @@ export default function ProveedorCuentaPanel({
 
   /** Ajusta el saldo con un movimiento trazable (factura o pago de diferencia). */
   const guardarSaldoEditado = async () => {
+    if (!canWriteCuentaProveedor) {
+      setError('Solo administración, gerencia o el usuario autorizado pueden editar el saldo.')
+      return
+    }
     if (!idProveedor || idProveedor <= 0) {
       setError('Este proveedor todavía no tiene ficha.')
       return
@@ -370,6 +384,10 @@ export default function ProveedorCuentaPanel({
   }
 
   const handleRegistrar = async () => {
+    if (!canWriteCuentaProveedor) {
+      setError('Solo administración, gerencia o el usuario autorizado pueden cargar movimientos.')
+      return
+    }
     if (!idProveedor || idProveedor <= 0) {
       setError('Este proveedor todavía no tiene ficha. Completala antes de cargar la cuenta.')
       return
@@ -411,6 +429,10 @@ export default function ProveedorCuentaPanel({
   }
 
   const handleAdjuntarExistente = async (idMovimiento: number, files: FileList | null) => {
+    if (!canWriteCuentaProveedor) {
+      setError('Solo administración, gerencia o el usuario autorizado pueden adjuntar comprobantes.')
+      return
+    }
     if (!files?.length || !idProveedor) return
     setAdjuntandoId(idMovimiento)
     setError(null)
@@ -563,14 +585,16 @@ export default function ProveedorCuentaPanel({
               <>
                 <div className="prov-cuenta__hero-amount-row">
                   <strong className="prov-cuenta__hero-amount">{moneyProveedor(Math.abs(saldo))}</strong>
-                  <button
-                    type="button"
-                    className="prov-cuenta__edit-saldo"
-                    onClick={abrirEditarSaldo}
-                    title="Editar saldo"
-                  >
-                    Editar
-                  </button>
+                  {canWriteCuentaProveedor ? (
+                    <button
+                      type="button"
+                      className="prov-cuenta__edit-saldo"
+                      onClick={abrirEditarSaldo}
+                      title="Editar saldo"
+                    >
+                      Editar
+                    </button>
+                  ) : null}
                 </div>
                 <p className="prov-cuenta__hero-frase">{estado.frase}</p>
               </>
@@ -591,17 +615,19 @@ export default function ProveedorCuentaPanel({
             ) : null}
           </div>
           <div className="prov-cuenta__saldo-actions">
-            <button
-              type="button"
-              className="cp-btn cp-btn--secondary"
-              onClick={() => {
-                setTipo('pago')
-                setEditandoSaldo(false)
-                document.querySelector('.prov-cuenta__card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }}
-            >
-              Le pagamos
-            </button>
+            {canWriteCuentaProveedor ? (
+              <button
+                type="button"
+                className="cp-btn cp-btn--secondary"
+                onClick={() => {
+                  setTipo('pago')
+                  setEditandoSaldo(false)
+                  document.querySelector('.prov-cuenta__card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+              >
+                Le pagamos
+              </button>
+            ) : null}
             <button
               type="button"
               className="cp-btn cp-btn--secondary"
@@ -623,15 +649,17 @@ export default function ProveedorCuentaPanel({
             <button type="button" className="cp-btn cp-btn--secondary" onClick={exportarCsv} disabled={rows.length === 0}>
               Exportar CSV
             </button>
-            <button
-              type="button"
-              className="cp-btn cp-btn--ghost prov-cuenta__reset-btn"
-              disabled={reseteando || guardandoSaldo}
-              onClick={() => void handleResetCuenta()}
-              title="Borra movimientos y pagos, deja saldo en 0"
-            >
-              {reseteando ? 'Reseteando…' : 'Reset de cuenta'}
-            </button>
+            {canWriteCuentaProveedor ? (
+              <button
+                type="button"
+                className="cp-btn cp-btn--ghost prov-cuenta__reset-btn"
+                disabled={reseteando || guardandoSaldo}
+                onClick={() => void handleResetCuenta()}
+                title="Borra movimientos y pagos, deja saldo en 0"
+              >
+                {reseteando ? 'Reseteando…' : 'Reset de cuenta'}
+              </button>
+            ) : null}
           </div>
         </div>
         <ul className="prov-cuenta__leyenda-chips" aria-label="Cómo leer la cuenta">
@@ -693,6 +721,14 @@ export default function ProveedorCuentaPanel({
         </div>
       </section>
 
+      {!canWriteCuentaProveedor ? (
+        <p className="prov-cuenta__vacio">
+          Solo lectura: la carga de facturas, pagos, ajustes y adjuntos está limitada a administración,
+          gerencia o el usuario autorizado.
+        </p>
+      ) : null}
+
+      {canWriteCuentaProveedor ? (
       <form
         className={`prov-cuenta__card prov-cuenta__card--${tipo}`}
         onSubmit={(e) => {
@@ -822,6 +858,7 @@ export default function ProveedorCuentaPanel({
                 : 'Registrar pago (haber)'}
         </button>
       </form>
+      ) : null}
 
       {error && <p className="prov-cuenta__error">{error}</p>}
 
@@ -986,7 +1023,7 @@ export default function ProveedorCuentaPanel({
                               </a>
                             ))}
                           </div>
-                        ) : (
+                        ) : canWriteCuentaProveedor ? (
                           <button
                             type="button"
                             className="prov-mov__attach"
@@ -998,6 +1035,8 @@ export default function ProveedorCuentaPanel({
                           >
                             {adjuntandoId === r.id ? 'Subiendo…' : '+ Adjuntar'}
                           </button>
+                        ) : (
+                          <span className="prov-cuenta__meta">Sin adjunto</span>
                         )}
                       </td>
                     </tr>

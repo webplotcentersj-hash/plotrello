@@ -25011,12 +25011,12 @@ class ApiService {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
     try {
       const { data, error } = await supabase.rpc('proveedor_registrar_en_cuenta', {
+        p_actor_id: this.requireComercialActorId(),
         p_id_proveedor: input.id_proveedor,
         p_tipo: input.tipo,
         p_monto: input.monto,
         p_fecha: input.fecha,
         p_comprobante: input.comprobante || '',
-        p_usuario: input.usuario || null,
         p_url_adjunto: input.url_adjunto || null,
         p_url_adjuntos: input.url_adjuntos ?? [],
         p_fecha_vencimiento:
@@ -25042,6 +25042,7 @@ class ApiService {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
     try {
       const { error } = await supabase.rpc('proveedor_adjuntar_comprobante', {
+        p_actor_id: this.requireComercialActorId(),
         p_id_movimiento: idMovimiento,
         p_url_adjunto: adjuntos[0]?.url || '',
         p_url_adjuntos: adjuntos
@@ -25088,10 +25089,9 @@ class ApiService {
   ): Promise<ApiResponse<{ saldo: number; reset_por: string; reset_at: string }>> {
     if (!supabase) return { success: false, error: 'Supabase no configurado' }
     try {
-      const { nombre } = this.getCurrentUser()
       const { data, error } = await supabase.rpc('proveedor_reset_cuenta', {
-        p_id_proveedor: idProveedor,
-        p_usuario: nombre
+        p_actor_id: this.requireComercialActorId(),
+        p_id_proveedor: idProveedor
       })
       if (error) return { success: false, error: error.message }
       const payload = data as {
@@ -25108,7 +25108,7 @@ class ApiService {
         success: true,
         data: {
           saldo: Number(payload?.saldo) || 0,
-          reset_por: String(payload?.reset_por || nombre),
+          reset_por: String(payload?.reset_por || ''),
           reset_at: String(payload?.reset_at || new Date().toISOString())
         }
       }

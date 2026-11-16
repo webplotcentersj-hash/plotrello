@@ -516,7 +516,7 @@ Tabla por tabla, sin romper zona pública.
 
 ---
 
-## Paso 26 — Cuenta corriente: RPC con actor + sin DML anon + documentos privados ⏳ (2026-09-24)
+## Paso 26 — Cuenta corriente: RPC con actor + sin DML anon + documentos privados ✅ (2026-11-16)
 
 **Problema:** `clientes_cuenta_corriente` y `cc_cuenta_movimientos` seguían con escritura anon. Las RPC de alta, aprobación, scoring, límites, intereses y pagos tomaban el usuario del navegador sin controlar el rol (se podía aprobar una CC o subir un límite con la clave anon). `quitar_cliente_cuenta_corriente` borraba el libro completo aunque hubiera deuda. DNI / estatuto / pagaré en bucket público.
 
@@ -528,10 +528,12 @@ Tabla por tabla, sin romper zona pública.
 - Bucket privado `cc-documentos` (solo INSERT anon) + `/api/erp/cc-documento-url` (JWT staff → URL firmada 5 min). Las fichas viejas siguen con su URL pública.
 - Front: sin borrado directo de movimientos; panel de cobranzas sin ventana de 120 días; cobrado del mes sin tope de 50
 
-**Patch:** `supabase/patches/2026-09-24_paso26_cuenta_corriente_actor.sql` (aplicar ANTES del deploy)
+**Cierre en prod (2026-11-16):** los wrappers y el front ya estaban; faltaba REVOKE de RPC legacy + policies SELECT-only. Se aplicó `supabase/patches/2026-11-16_paso26_cc_cierre_revoke.sql` (también crea `cc_actualizar_scoring` / `cc_actualizar_condiciones_credito` que el front ya llamaba). Patch de diseño: `2026-09-24_paso26_cuenta_corriente_actor.sql`.
 
-**Verificar (después de deploy):**
+**Verificar:**
 1. Alta nueva con documentos → "Ver" abre el archivo (URL firmada)
 2. Aprobar / rechazar como admin; como vendedor → error "Solo administración…"
 3. Registrar pago en el perfil CC; quitar una ficha con saldo → rechazado
-4. Anon: `UPDATE clientes_cuenta_corriente SET limite_credito = 1e9` → falla
+4. Anon: `UPDATE clientes_cuenta_corriente SET limite_credito = 1e9` → falla; `cc_registrar_pago` / `quitar_cliente_cuenta_corriente` sin EXECUTE
+
+**Siguiente:** ficha `proveedores` (DML anon abierto), Paso 6.2 (`ordenes_trabajo` SELECT vía RPC), o presupuestos/CRM.
