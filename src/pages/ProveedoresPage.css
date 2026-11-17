@@ -638,6 +638,38 @@
   color: #93c5fd;
 }
 
+.prov-table__vto {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.prov-vto-chip {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  color: #e2e8f0;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.prov-vto-chip--vencida {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.prov-vto-chip--proxima {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.prov-vto-chip--ok {
+  color: #bbf7d0;
+  background: rgba(16, 185, 129, 0.14);
+}
+
 .prov-table__hint {
   display: block;
   margin-top: 2px;

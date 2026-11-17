@@ -13,9 +13,12 @@ import ProveedorFinanzasHub from '../components/compras/ProveedorFinanzasHub'
 import ProveedoresMesInformeModal from '../components/compras/ProveedoresMesInformeModal'
 import {
   estadoCuentaProveedor,
+  etiquetaEstadoVencimiento,
   facturasAlertaVencimiento,
+  facturasConVencimiento,
   moneyProveedor,
-  saldoCuentaProveedor
+  saldoCuentaProveedor,
+  type FacturaVencimientoItem
 } from '../utils/proveedorCuenta'
 import { descargarVencimientosProveedoresPdf } from '../utils/documentos/proveedorCuentaPdf'
 import { nombreCompletoCliente } from '../utils/buscarClienteMatch'
@@ -528,16 +531,92 @@ const ProveedoresPage = () => {
     [todosMovs, hoyIso]
   )
 
+  /** Solo cuentan vencimientos de proveedores con deuda: al día / a favor no van a «Vencen». */
+  const proveedoresConDeudaKeys = useMemo(() => {
+    const ids = new Set<number>()
+    const nombres = new Set<string>()
+    for (const p of proveedores) {
+      const cls = estadoCuentaProveedor(saldoCuentaProveedor(p.finanzas)).cls
+      if (cls !== 'deuda') continue
+      if (p.id > 0) ids.add(p.id)
+      const n = displayNombre(p).trim().toLowerCase()
+      if (n) nombres.add(n)
+    }
+    return { ids, nombres }
+  }, [proveedores])
+
+  const alertasVencimientoPendientes = useMemo(() => {
+    return alertasVencimiento.filter((f) => {
+      if (f.id_proveedor != null && f.id_proveedor > 0 && proveedoresConDeudaKeys.ids.has(f.id_proveedor)) {
+        return true
+      }
+      const n = (f.proveedor_nombre || '').trim().toLowerCase()
+      return Boolean(n && proveedoresConDeudaKeys.nombres.has(n))
+    })
+  }, [alertasVencimiento, proveedoresConDeudaKeys])
+
   const idsProveedorConVencimiento = useMemo(() => {
     const ids = new Set<number>()
     const nombres = new Set<string>()
-    for (const f of alertasVencimiento) {
+    for (const f of alertasVencimientoPendientes) {
       if (f.id_proveedor != null && f.id_proveedor > 0) ids.add(f.id_proveedor)
       const n = (f.proveedor_nombre || '').trim().toLowerCase()
       if (n) nombres.add(n)
     }
     return { ids, nombres }
-  }, [alertasVencimiento])
+  }, [alertasVencimientoPendientes])
+
+  /** Próximo vencimiento por proveedor (el más cercano / urgente). */
+  const vencimientoPorProveedor = useMemo(() => {
+    const byId = new Map<number, FacturaVencimientoItem>()
+    const byNombre = new Map<string, FacturaVencimientoItem>()
+    const rank = (e: FacturaVencimientoItem['estado']) =>
+      e === 'vencida' ? 0 : e === 'proxima' ? 1 : 2
+    const consider = (key: 'id' | 'nombre', id: number | null, nombre: string, f: FacturaVencimientoItem) => {
+      if (key === 'id' && id != null && id > 0) {
+        const prev = byId.get(id)
+        if (
+          !prev ||
+          rank(f.estado) < rank(prev.estado) ||
+          (rank(f.estado) === rank(prev.estado) && f.fecha_vencimiento < prev.fecha_vencimiento)
+        ) {
+          byId.set(id, f)
+        }
+      }
+      if (key === 'nombre' && nombre) {
+        const prev = byNombre.get(nombre)
+        if (
+          !prev ||
+          rank(f.estado) < rank(prev.estado) ||
+          (rank(f.estado) === rank(prev.estado) && f.fecha_vencimiento < prev.fecha_vencimiento)
+        ) {
+          byNombre.set(nombre, f)
+        }
+      }
+    }
+    for (const f of facturasConVencimiento(todosMovs, hoyIso)) {
+      consider('id', f.id_proveedor, '', f)
+      consider('nombre', null, (f.proveedor_nombre || '').trim().toLowerCase(), f)
+    }
+    return { byId, byNombre }
+  }, [todosMovs, hoyIso])
+
+  const vtoDeProveedor = (p: ProveedorConFinanzas): FacturaVencimientoItem | null => {
+    const cls = estadoCuentaProveedor(saldoCuentaProveedor(p.finanzas)).cls
+    if (cls !== 'deuda') return null
+    if (p.id > 0) {
+      const byId = vencimientoPorProveedor.byId.get(p.id)
+      if (byId) return byId
+    }
+    const n = displayNombre(p).trim().toLowerCase()
+    return (n && vencimientoPorProveedor.byNombre.get(n)) || null
+  }
+
+  const fmtVto = (iso: string): string => {
+    const [y, m, d] = iso.slice(0, 10).split('-')
+    if (!y || !m || !d) return iso
+    return `${d}/${m}/${y}`
+  }
 
   const proveedoresFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
@@ -548,6 +627,7 @@ const ProveedoresPage = () => {
       if (filtroEstado === 'aldia' && estado !== 'ok') return false
       if (filtroEstado === 'favor' && estado !== 'favor') return false
       if (filtroEstado === 'vence') {
+        if (estado !== 'deuda') return false
         const nombre = displayNombre(p).trim().toLowerCase()
         const matchId = p.id > 0 && idsProveedorConVencimiento.ids.has(p.id)
         const matchNombre = nombre ? idsProveedorConVencimiento.nombres.has(nombre) : false
@@ -836,21 +916,21 @@ const ProveedoresPage = () => {
         mesInicial={cuentaGeneral.mes.clave}
       />
 
-      {alertasVencimiento.length > 0 ? (
+      {alertasVencimientoPendientes.length > 0 ? (
         <div className="prov-dir-alerta-vto" role="status">
           <div>
             <strong>
-              {alertasVencimiento.some((a) => a.estado === 'vencida')
+              {alertasVencimientoPendientes.some((a) => a.estado === 'vencida')
                 ? 'Alertas de vencimiento'
                 : 'Próximos vencimientos'}
             </strong>
             <span>
-              {alertasVencimiento.filter((a) => a.estado === 'vencida').length} vencida
-              {alertasVencimiento.filter((a) => a.estado === 'vencida').length === 1 ? '' : 's'}
+              {alertasVencimientoPendientes.filter((a) => a.estado === 'vencida').length} vencida
+              {alertasVencimientoPendientes.filter((a) => a.estado === 'vencida').length === 1 ? '' : 's'}
               {' · '}
-              {alertasVencimiento.filter((a) => a.estado === 'proxima').length} por vencer
+              {alertasVencimientoPendientes.filter((a) => a.estado === 'proxima').length} por vencer
               {' · '}
-              {moneyProveedor(alertasVencimiento.reduce((s, a) => s + a.monto, 0))}
+              {moneyProveedor(alertasVencimientoPendientes.reduce((s, a) => s + a.monto, 0))}
             </span>
           </div>
           <div className="prov-dir-alerta-vto__actions">
@@ -865,9 +945,9 @@ const ProveedoresPage = () => {
               type="button"
               className="btn-primary"
               onClick={() =>
-                void descargarVencimientosProveedoresPdf(alertasVencimiento, {
+                void descargarVencimientosProveedoresPdf(alertasVencimientoPendientes, {
                   titulo: 'Vencimientos a proveedores',
-                  nota: 'Detalle de facturas vencidas y por vencer (14 días) con monto y fecha de vto.'
+                  nota: 'Solo proveedores con deuda. Facturas vencidas y por vencer (14 días).'
                 })
               }
             >
@@ -932,7 +1012,7 @@ const ProveedoresPage = () => {
                   <tr>
                     <th>Código</th>
                     <th>Proveedor</th>
-                    <th>CUIT</th>
+                    <th>Vencimiento</th>
                     <th>Teléfono</th>
                     <th className="num">Movimientos</th>
                     <th className="num">Saldo</th>
@@ -946,6 +1026,7 @@ const ProveedoresPage = () => {
                     const tel = displayTelefono(proveedor)
                     const saldo = saldoCuentaProveedor(proveedor.finanzas)
                     const estado = estadoCuentaProveedor(saldo)
+                    const vto = vtoDeProveedor(proveedor)
                     const codigo =
                       proveedor.finanzas.codigo_deuda ||
                       (proveedor.id > 0 ? `P${proveedor.id}` : '—')
@@ -964,9 +1045,22 @@ const ProveedoresPage = () => {
                             <small className="prov-table__hint">Sin ficha completa</small>
                           ) : proveedor.nombre !== nombre ? (
                             <small className="prov-table__hint">{proveedor.nombre}</small>
+                          ) : proveedor.cuit ? (
+                            <small className="prov-table__hint">CUIT {proveedor.cuit}</small>
                           ) : null}
                         </td>
-                        <td>{proveedor.cuit || '—'}</td>
+                        <td className="prov-table__vto">
+                          {vto ? (
+                            <span
+                              className={`prov-vto-chip prov-vto-chip--${vto.estado}`}
+                              title={etiquetaEstadoVencimiento(vto.estado)}
+                            >
+                              {fmtVto(vto.fecha_vencimiento)}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
                         <td>{tel || '—'}</td>
                         <td className="num">{proveedor.finanzas.movimientos_count}</td>
                         <td className="num">{moneyProveedor(saldo)}</td>

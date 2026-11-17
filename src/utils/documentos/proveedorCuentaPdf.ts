@@ -100,23 +100,23 @@ export async function buildVencimientosProveedoresPdf(
     'Resumen'
   )
 
+  // Anchos = 190 mm (CONTENT_W). Comprobante va como detalle bajo el proveedor para no solapar.
   const cols: Columna[] = [
     { titulo: 'Vto', ancho: 22 },
-    { titulo: 'Estado', ancho: 22 },
-    { titulo: 'Proveedor', ancho: 58 },
-    { titulo: 'Comprobante', ancho: 36 },
+    { titulo: 'Estado', ancho: 20 },
+    { titulo: 'Proveedor / comprobante', ancho: 98 },
     { titulo: 'Importe', ancho: 28, alinear: 'right' },
-    { titulo: 'Emisión', ancho: 24 }
+    { titulo: 'Emisión', ancho: 22 }
   ]
   const filas: FilaTabla[] = items.map((i) => ({
     celdas: [
       fechaDocumento(i.fecha_vencimiento),
-      etiquetaEstadoVencimiento(i.estado),
+      i.estado === 'vencida' ? 'Vencida' : i.estado === 'proxima' ? 'Próxima' : etiquetaEstadoVencimiento(i.estado),
       i.proveedor_nombre,
-      i.comprobante,
       money(i.monto),
       i.fecha_comprobante ? fechaDocumento(i.fecha_comprobante) : '—'
-    ]
+    ],
+    detalle: (i.comprobante || '').trim() || undefined
   }))
   pdf.tabla(cols, filas, { colDescripcion: 2, vacio: 'Sin facturas con vencimiento en alerta' })
 
