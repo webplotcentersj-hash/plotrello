@@ -127,8 +127,8 @@ export default function CuentaCorrienteRegistry({
       buckets[id].sort((a, b) => {
         const ca = cobroPorCliente.get(a.id_cliente)
         const cb = cobroPorCliente.get(b.id_cliente)
-        const sa = ca?.monto_pendiente ?? Number(a.saldo_actual) || 0
-        const sb = cb?.monto_pendiente ?? Number(b.saldo_actual) || 0
+        const sa = ca?.monto_pendiente ?? (Number(a.saldo_actual) || 0)
+        const sb = cb?.monto_pendiente ?? (Number(b.saldo_actual) || 0)
         return sb - sa
       })
     }
