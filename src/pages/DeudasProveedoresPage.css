@@ -1217,6 +1217,35 @@
   text-align: left;
 }
 
+.prov-cuenta__acciones-cell {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.prov-mov__imputar {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid #34d399;
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.prov-mov__imputar:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.28);
+  border-color: #6ee7b7;
+}
+
+.prov-mov__imputar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .prov-mov__montos {
   text-align: right;
 }

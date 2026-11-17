@@ -60,7 +60,7 @@ function problemaDesdeResultado(resultado: string | null | undefined): ProblemaA
   if (clase === 'arca_10016') {
     return {
       tipo: 'arca_10016',
-      label: 'Fecha/número no correlativo (10016)',
+      label: '10016 · fecha/nº',
       accion: 'Reintentar ARCA',
       nivel: 'danger',
       modo: 'reintentar'
@@ -69,7 +69,7 @@ function problemaDesdeResultado(resultado: string | null | undefined): ProblemaA
   if (clase === 'letra_iva') {
     return {
       tipo: 'letra_iva',
-      label: 'Condición IVA incompatible',
+      label: 'Condición IVA',
       accion: 'Ver / corregir',
       nivel: 'danger',
       modo: 'corregir'
@@ -78,13 +78,13 @@ function problemaDesdeResultado(resultado: string | null | undefined): ProblemaA
   if (clase === 'red') {
     return {
       tipo: 'red',
-      label: 'Error de conexión ARCA',
+      label: 'Conexión ARCA',
       accion: 'Reintentar ARCA',
       nivel: 'danger',
       modo: 'reintentar'
     }
   }
-  return { tipo: 'error', label: 'Error al enviar a ARCA', accion: 'Reintentar ARCA', nivel: 'danger', modo: 'reintentar' }
+  return { tipo: 'error', label: 'Error ARCA', accion: 'Reintentar ARCA', nivel: 'danger', modo: 'reintentar' }
 }
 
 export function problemaArca(f: FacturaArcaCampos): ProblemaArca | null {

@@ -168,10 +168,10 @@
 
 .fact-list__row {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) auto auto;
-  align-items: center;
+  grid-template-columns: minmax(7.5rem, 11rem) minmax(0, 1fr) auto auto;
+  align-items: start;
   gap: 12px;
-  padding: 9px 0;
+  padding: 10px 0;
   border-top: 1px solid #f1f5f9;
 }
 
@@ -204,21 +204,29 @@
   color: #0f172a;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  padding-top: 2px;
+  white-space: nowrap;
 }
 
 .fact-list__acciones {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   justify-content: flex-end;
+  padding-top: 1px;
 }
 
 .fact-tag {
   justify-self: start;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 0.74rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 4px 9px;
+  border-radius: 8px;
+  font-size: 0.72rem;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .fact-tag--danger {

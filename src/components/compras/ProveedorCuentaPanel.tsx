@@ -114,6 +114,7 @@ export default function ProveedorCuentaPanel({
   const [filtro, setFiltro] = useState<'todos' | 'factura' | 'pago'>('todos')
   const [ordenLibro, setOrdenLibro] = useState<'crono' | 'reciente'>('crono')
   const [adjuntandoId, setAdjuntandoId] = useState<number | null>(null)
+  const [imputandoId, setImputandoId] = useState<number | null>(null)
   const [editandoSaldo, setEditandoSaldo] = useState(false)
   const [saldoEditDraft, setSaldoEditDraft] = useState('')
   const [guardandoSaldo, setGuardandoSaldo] = useState(false)
@@ -425,6 +426,59 @@ export default function ProveedorCuentaPanel({
       setError(e instanceof Error ? e.message : 'No se pudo registrar')
     } finally {
       setSaving(false)
+    }
+  }
+
+  /** Pago contra una factura del libro: lee el debe y lo baja del saldo (haber). */
+  const handleImputarPago = async (r: MovimientoProveedorEnriquecido) => {
+    if (!canWriteCuentaProveedor) {
+      setError('Solo administración, gerencia o el usuario autorizado pueden imputar pagos.')
+      return
+    }
+    if (!idProveedor || idProveedor <= 0) return
+    const debe = Number(r.debe) || 0
+    if (!(debe > 0.009)) {
+      setError('Esa fila no tiene importe a pagar.')
+      return
+    }
+    const etiqueta = (r.comprobante || `factura #${r.id}`).trim()
+    const raw = window.prompt(
+      `Imputar pago a ${etiqueta}.\n\nEl sistema descuenta este monto de lo que se debe al proveedor.\nMonto (podés pagar parcial):`,
+      String(Number(debe.toFixed(2)))
+    )
+    if (raw == null) return
+    const valor = Number(String(raw).replace(/\s/g, '').replace(',', '.'))
+    if (!(valor > 0)) {
+      setError('Indicá un monto mayor a 0.')
+      return
+    }
+    if (
+      !window.confirm(
+        `¿Registrar pago de ${moneyProveedor(valor)} contra ${etiqueta}?\n\nSe carga al haber y baja el saldo de la cuenta.`
+      )
+    ) {
+      return
+    }
+    setImputandoId(r.id)
+    setError(null)
+    try {
+      const rPago = await apiService.registrarEnCuentaProveedor({
+        id_proveedor: idProveedor,
+        tipo: 'pago',
+        monto: valor,
+        fecha: getArgentinaDateString(),
+        comprobante: `Pago ${etiqueta}`.slice(0, 120)
+      })
+      if (!rPago.success) throw new Error(rPago.error || 'No se pudo imputar el pago')
+      setTipo('pago')
+      setMonto('')
+      setComprobante('')
+      await load()
+      onChanged?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo imputar el pago')
+    } finally {
+      setImputandoId(null)
     }
   }
 
@@ -958,6 +1012,7 @@ export default function ProveedorCuentaPanel({
                   <th className="num">Haber</th>
                   <th className="num">Saldo</th>
                   <th>Comprobantes</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -969,6 +1024,7 @@ export default function ProveedorCuentaPanel({
                   const estVto = pago
                     ? null
                     : estadoVencimientoFactura(r.fecha_vencimiento, hoyIso)
+                  const puedeImputar = !pago && debe > 0.009 && canWriteCuentaProveedor
                   return (
                     <tr
                       key={r.id}
@@ -1037,6 +1093,21 @@ export default function ProveedorCuentaPanel({
                           </button>
                         ) : (
                           <span className="prov-cuenta__meta">Sin adjunto</span>
+                        )}
+                      </td>
+                      <td className="prov-cuenta__acciones-cell">
+                        {puedeImputar ? (
+                          <button
+                            type="button"
+                            className="prov-mov__imputar"
+                            disabled={imputandoId === r.id || saving}
+                            title={`Descontar ${moneyProveedor(debe)} del saldo`}
+                            onClick={() => void handleImputarPago(r)}
+                          >
+                            {imputandoId === r.id ? 'Imputando…' : 'Imputar pago'}
+                          </button>
+                        ) : (
+                          <span className="prov-cuenta__meta">{pago ? '—' : ''}</span>
                         )}
                       </td>
                     </tr>

@@ -1333,6 +1333,28 @@
   gap: 16px;
 }
 
+.prov-datos-bancarios {
+  margin: 8px 0 20px;
+  padding: 16px 16px 4px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.prov-datos-bancarios legend {
+  padding: 0 6px;
+  font-weight: 650;
+  font-size: 0.9375rem;
+  color: #e2e8f0;
+}
+
+.prov-datos-bancarios__hint {
+  margin: 0 0 14px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: #94a3b8;
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;

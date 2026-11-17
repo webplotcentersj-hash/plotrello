@@ -129,6 +129,15 @@ export interface Proveedor {
   provincia?: string | null
   codigo_postal?: string | null
   sitio_web?: string | null
+  /** Datos bancarios para transferencias / pagos */
+  banco?: string | null
+  sucursal?: string | null
+  tipo_cuenta?: string | null
+  numero_cuenta?: string | null
+  cbu?: string | null
+  alias_cbu?: string | null
+  titular_cuenta?: string | null
+  cuit_titular?: string | null
   notas?: string | null
   activo: boolean
   calificacion: number

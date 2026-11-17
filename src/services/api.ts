@@ -12961,6 +12961,14 @@ class ApiService {
     provincia?: string
     codigo_postal?: string
     sitio_web?: string
+    banco?: string
+    sucursal?: string
+    tipo_cuenta?: string
+    numero_cuenta?: string
+    cbu?: string
+    alias_cbu?: string
+    titular_cuenta?: string
+    cuit_titular?: string
     notas?: string
   }): Promise<ApiResponse<Proveedor>> {
     if (supabase) {

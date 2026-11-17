@@ -134,7 +134,7 @@ const ProveedoresPage = () => {
     tiempo_entrega_dias: '',
     observaciones: ''
   })
-  const [formData, setFormData] = useState({
+  const formProveedorVacio = {
     nombre: '',
     razon_social: '',
     cuit: '',
@@ -147,8 +147,17 @@ const ProveedoresPage = () => {
     provincia: '',
     codigo_postal: '',
     sitio_web: '',
+    banco: '',
+    sucursal: '',
+    tipo_cuenta: '',
+    numero_cuenta: '',
+    cbu: '',
+    alias_cbu: '',
+    titular_cuenta: '',
+    cuit_titular: '',
     notas: ''
-  })
+  }
+  const [formData, setFormData] = useState(formProveedorVacio)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<
     'todos' | 'deuda' | 'aldia' | 'favor' | 'vence'
@@ -297,6 +306,7 @@ const ProveedoresPage = () => {
       setModoEdicion(true)
       setProveedorSeleccionado(proveedor.id > 0 ? (proveedor as Proveedor) : null)
       setFormData({
+        ...formProveedorVacio,
         nombre: proveedor.nombre,
         razon_social: proveedor.razon_social || '',
         cuit: proveedor.cuit || '',
@@ -309,26 +319,20 @@ const ProveedoresPage = () => {
         provincia: proveedor.provincia || '',
         codigo_postal: proveedor.codigo_postal || '',
         sitio_web: proveedor.sitio_web || '',
+        banco: proveedor.banco || '',
+        sucursal: proveedor.sucursal || '',
+        tipo_cuenta: proveedor.tipo_cuenta || '',
+        numero_cuenta: proveedor.numero_cuenta || '',
+        cbu: proveedor.cbu || '',
+        alias_cbu: proveedor.alias_cbu || '',
+        titular_cuenta: proveedor.titular_cuenta || '',
+        cuit_titular: proveedor.cuit_titular || '',
         notas: proveedor.notas || ''
       })
     } else {
       setModoEdicion(false)
       setProveedorSeleccionado(null)
-      setFormData({
-        nombre: '',
-        razon_social: '',
-        cuit: '',
-        condicion_iva: '',
-        contacto_nombre: '',
-        telefono: '',
-        email: '',
-        direccion: '',
-        ciudad: '',
-        provincia: '',
-        codigo_postal: '',
-        sitio_web: '',
-        notas: ''
-      })
+      setFormData({ ...formProveedorVacio })
     }
     setMostrarModal(true)
   }
@@ -339,18 +343,12 @@ const ProveedoresPage = () => {
     setModoEdicion(false)
     setProveedorSeleccionado(null)
     setFormData({
+      ...formProveedorVacio,
       nombre: p.razon_social?.split(',')[0]?.trim() || p.nombre,
       razon_social: p.razon_social || p.nombre,
       cuit: p.cuit || '',
       condicion_iva: normalizarCondicionIvaCliente(p.condicion_iva) || p.condicion_iva || '',
-      contacto_nombre: '',
       telefono: p.telefono || '',
-      email: '',
-      direccion: '',
-      ciudad: '',
-      provincia: '',
-      codigo_postal: '',
-      sitio_web: '',
       notas: p.finanzas.codigo_deuda ? `Código ERP: ${p.finanzas.codigo_deuda}` : ''
     })
     setMostrarModal(true)
@@ -1272,6 +1270,111 @@ const ProveedoresPage = () => {
                   placeholder="https://www.ejemplo.com"
                 />
               </div>
+
+              <fieldset className="prov-datos-bancarios">
+                <legend>Datos bancarios</legend>
+                <p className="prov-datos-bancarios__hint">
+                  Para transferencias y pagos. El CBU suele tener 22 dígitos; el alias es opcional.
+                </p>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Banco</label>
+                    <input
+                      type="text"
+                      value={formData.banco}
+                      onChange={(e) => setFormData({ ...formData, banco: e.target.value })}
+                      placeholder="Ej. Banco Nación, Galicia, Mercado Pago…"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Sucursal</label>
+                    <input
+                      type="text"
+                      value={formData.sucursal}
+                      onChange={(e) => setFormData({ ...formData, sucursal: e.target.value })}
+                      placeholder="N° o nombre de sucursal"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Tipo de cuenta</label>
+                    <select
+                      value={formData.tipo_cuenta}
+                      onChange={(e) => setFormData({ ...formData, tipo_cuenta: e.target.value })}
+                    >
+                      <option value="">Seleccionar…</option>
+                      <option value="Caja de ahorro">Caja de ahorro</option>
+                      <option value="Cuenta corriente">Cuenta corriente</option>
+                      <option value="Cuenta virtual / CVU">Cuenta virtual / CVU</option>
+                      <option value="Otra">Otra</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>N° de cuenta</label>
+                    <input
+                      type="text"
+                      value={formData.numero_cuenta}
+                      onChange={(e) => setFormData({ ...formData, numero_cuenta: e.target.value })}
+                      placeholder="Número de cuenta"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>CBU / CVU</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={formData.cbu}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          cbu: e.target.value.replace(/[^\d]/g, '').slice(0, 22)
+                        })
+                      }
+                      placeholder="22 dígitos"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Alias</label>
+                    <input
+                      type="text"
+                      value={formData.alias_cbu}
+                      onChange={(e) => setFormData({ ...formData, alias_cbu: e.target.value })}
+                      placeholder="alias.del.proveedor"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Titular de la cuenta</label>
+                    <input
+                      type="text"
+                      value={formData.titular_cuenta}
+                      onChange={(e) => setFormData({ ...formData, titular_cuenta: e.target.value })}
+                      placeholder="Si difiere del nombre del proveedor"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>CUIT del titular</label>
+                    <input
+                      type="text"
+                      value={formData.cuit_titular}
+                      onChange={(e) => setFormData({ ...formData, cuit_titular: e.target.value })}
+                      placeholder="20-12345678-9"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+              </fieldset>
+
               <div className="form-group">
                 <label>Notas</label>
                 <textarea
