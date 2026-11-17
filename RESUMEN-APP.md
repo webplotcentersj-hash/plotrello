@@ -46,7 +46,6 @@
 | `/` | BoardPage (tablero Kanban principal) |
 | `/statistics` | StatisticsPage |
 | `/calendario` | CalendarPage |
-| `/gantt` | GanttPage |
 | `/op/:opNumber` | OpViewPage |
 | `/chat` | ChatPage |
 | `/usuarios` | UsuariosPage |

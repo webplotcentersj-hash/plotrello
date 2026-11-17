@@ -45,7 +45,7 @@ En **Plot Lab** (encabezado) tenés:
 
 - **Reloj y clima** (widgets).
 - **Notificaciones** (campana): menciones de chat y avisos.
-- **Menú ☰ (acciones)**: accesos rápidos según tu rol — estadísticas, calendario, Gantt, usuarios, herramientas, mostrador, CRM ventas, compras, caja, diseño, RRHH, clientes, DT, taller gráfico, atención al público, flota, ERP, libro de actas, protocolos, galería, capacitaciones, **Mis evaluaciones**, menú diario, mis pedidos, chat, salir, etc.
+- **Menú ☰ (acciones)**: accesos rápidos según tu rol — estadísticas, calendario, usuarios, herramientas, mostrador, CRM ventas, compras, caja, diseño, RRHH, clientes, DT, taller gráfico, atención al público, flota, ERP, libro de actas, protocolos, galería, capacitaciones, **Mis evaluaciones**, menú diario, mis pedidos, chat, salir, etc.
 
 Los ítems visibles dependen de **rol** y permisos (administración, mostrador, compras, RRHH, etc.).
 
@@ -70,7 +70,6 @@ Los ítems visibles dependen de **rol** y permisos (administración, mostrador, 
 |------|-------------|
 | `/statistics` | Estadísticas y métricas sobre tareas y actividad. |
 | `/calendario` | Calendario de trabajos. |
-| `/gantt` | Diagrama de Gantt. |
 | `/chat` | Chat interno entre el equipo (canales/mensajes según implementación). |
 | `/usuarios` | Gestión de usuarios (según permisos). |
 | `/impresoras` | Estado/ocupación de impresoras. Botón flotante 🖨️ en el tablero. |

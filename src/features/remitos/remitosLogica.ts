@@ -1,10 +1,28 @@
 /**
+ * Remitos X (interno) y R (ARCA cód. 91, autoimpresor con CAI) con entregas parciales, devoluciones
+ * y traslados entre depósitos. Reglas de la base: supabase/patches/2026-11-03_remitos_parciales.sql
+ * y 2026-11-17_remitos_r_y_tipos.sql. Lo entregado de una línea es lo remitido menos lo devuelto.
+ *
  * Remito X con entregas parciales. Mismas reglas que remito_crear / remitos_pendientes en la base
  * (supabase/patches/2026-11-03_remitos_parciales.sql): lo pendiente de una línea es lo pedido menos
  * lo ya remitido en remitos no anulados. La base es la que valida; esto arma la pantalla y el PDF.
  */
 
 export type EstadoRemito = 'Emitido' | 'Anulado'
+
+/** X = interno no fiscal · R = remito fiscal de autoimpresor (código ARCA 91, con CAI). */
+export type TipoRemito = 'X' | 'R'
+
+/** Entrega al cliente, devolución del cliente o traslado entre depósitos propios. */
+export type ClaseRemito = 'Entrega' | 'Devolucion' | 'Traslado'
+
+export const CODIGO_ARCA_REMITO_R = 91
+
+export const CLASE_LABEL: Record<ClaseRemito, string> = {
+  Entrega: 'Entrega',
+  Devolucion: 'Devolución',
+  Traslado: 'Traslado'
+}
 
 export type RemitoItem = {
   id?: number
@@ -23,8 +41,13 @@ export type RemitoItem = {
 
 export type Remito = {
   id: number
-  tipo: 'X'
+  tipo: TipoRemito
+  /** Ausente en remitos anteriores al patch 2026-11-17: se toma como Entrega. */
+  clase?: ClaseRemito | null
   punto_venta: number
+  /** Solo Remito R: CAI con el que se emitió y su vencimiento. */
+  cai?: string | null
+  cai_vencimiento?: string | null
   numero: number
   estado: EstadoRemito
   id_venta?: number | null
@@ -35,11 +58,16 @@ export type Remito = {
   cliente_documento?: string | null
   cliente_domicilio?: string | null
   cliente_telefono?: string | null
+  cliente_condicion_iva?: string | null
   fecha_emision: string
   fecha_entrega?: string | null
   entregado_a?: string | null
   dni_retira?: string | null
   transportista?: string | null
+  transportista_cuit?: string | null
+  domicilio_entrega?: string | null
+  deposito_origen?: string | null
+  deposito_destino?: string | null
   observaciones?: string | null
   usuario_nombre?: string | null
   anulado_motivo?: string | null
@@ -72,6 +100,15 @@ export function cant3(n: number): number {
 
 export function numeroRemito(r: Pick<Remito, 'punto_venta' | 'numero'>): string {
   return `${String(r.punto_venta || 0).padStart(4, '0')}-${String(r.numero || 0).padStart(8, '0')}`
+}
+
+export function claseDe(r: Pick<Remito, 'clase'>): ClaseRemito {
+  return r.clase === 'Devolucion' || r.clase === 'Traslado' ? r.clase : 'Entrega'
+}
+
+/** "Remito R 0002-00000015", "Remito X 0001-00000003". */
+export function etiquetaRemito(r: Pick<Remito, 'tipo' | 'punto_venta' | 'numero'>): string {
+  return `Remito ${r.tipo === 'R' ? 'R' : 'X'} ${numeroRemito(r)}`
 }
 
 /** Respuesta de remitos_pendientes (la base cuenta lo remitido): una lista de líneas para la pantalla. */
@@ -138,8 +175,17 @@ export type ResultadoSeleccion = {
   errores: string[]
 }
 
+/** Cuánto se puede cargar en una línea: lo pendiente al entregar, lo ya entregado al devolver. */
+export function maximoLinea(l: LineaPendiente, clase: ClaseRemito = 'Entrega'): number {
+  return clase === 'Devolucion' ? Math.max(l.entregada, 0) : l.pendiente
+}
+
 /** Líneas a remitir y errores, a partir de lo que la persona cargó por línea. */
-export function validarSeleccion(lineas: LineaPendiente[], seleccion: SeleccionEntrega): ResultadoSeleccion {
+export function validarSeleccion(
+  lineas: LineaPendiente[],
+  seleccion: SeleccionEntrega,
+  clase: ClaseRemito = 'Entrega'
+): ResultadoSeleccion {
   const items: ResultadoSeleccion['items'] = []
   const errores: string[] = []
   for (const l of lineas) {
@@ -152,8 +198,13 @@ export function validarSeleccion(lineas: LineaPendiente[], seleccion: SeleccionE
     }
     const cantidad = cant3(numero)
     if (cantidad === 0) continue
-    if (cantidad > l.pendiente) {
-      errores.push(`"${l.descripcion}": quedan ${l.pendiente} por remitir y cargaste ${cantidad}`)
+    const maximo = maximoLinea(l, clase)
+    if (cantidad > maximo) {
+      errores.push(
+        clase === 'Devolucion'
+          ? `"${l.descripcion}": se entregaron ${maximo} y cargaste ${cantidad} para devolver`
+          : `"${l.descripcion}": quedan ${maximo} por remitir y cargaste ${cantidad}`
+      )
       continue
     }
     items.push({
@@ -176,22 +227,54 @@ export function seleccionTotal(lineas: LineaPendiente[]): Record<string, number>
   return out
 }
 
-/** Lo que queda por entregar de una línea después de este remito (null si la línea es libre). */
-export function saldoTrasEntrega(it: RemitoItem): number | null {
+/**
+ * Lo que queda por entregar de una línea después de este remito (null si la línea es libre).
+ * En una devolución lo devuelto vuelve a quedar pendiente.
+ */
+export function saldoTrasEntrega(it: RemitoItem, clase: ClaseRemito = 'Entrega'): number | null {
   if (it.cantidad_pedida === null || it.cantidad_pedida === undefined) return null
-  return Math.max(cant3(Number(it.cantidad_pedida) - Number(it.cantidad_previa ?? 0) - Number(it.cantidad)), 0)
+  const signo = clase === 'Devolucion' ? -1 : 1
+  return Math.max(cant3(Number(it.cantidad_pedida) - Number(it.cantidad_previa ?? 0) - signo * Number(it.cantidad)), 0)
 }
 
-/** Es parcial si después de este remito todavía queda algo pendiente en alguna línea controlada. */
-export function esRemitoParcial(r: Pick<Remito, 'items'>): boolean {
+/** Es parcial si es una entrega y después de ella todavía queda algo pendiente en alguna línea controlada. */
+export function esRemitoParcial(r: Pick<Remito, 'items' | 'clase'>): boolean {
+  if (claseDe(r) !== 'Entrega') return false
   return (r.items ?? []).some((it) => (saldoTrasEntrega(it) ?? 0) > 0)
 }
 
 /** Cuántos remitos vigentes tiene la venta/OP hasta este inclusive (orden de emisión). */
 export function numeroDeEntrega(remito: Remito, delMismoOrigen: Remito[]): number {
   return delMismoOrigen
-    .filter((r) => r.estado === 'Emitido' && (r.id < remito.id || r.id === remito.id))
+    .filter((r) => r.estado === 'Emitido' && claseDe(r) === claseDe(remito) && r.id <= remito.id)
     .length
+}
+
+export type CaiRemito = {
+  id: number
+  punto_venta: number
+  cai: string
+  fecha_vencimiento: string
+  numero_desde: number
+  numero_hasta: number
+  activo: boolean
+  observaciones?: string | null
+}
+
+export type EstadoCai = 'Vigente' | 'Por vencer' | 'Vencido' | 'Inactivo'
+
+/** Por vencer = faltan 30 días o menos. Fechas en aaaa-mm-dd. */
+export function estadoCai(c: Pick<CaiRemito, 'activo' | 'fecha_vencimiento'>, hoy: string): EstadoCai {
+  if (!c.activo) return 'Inactivo'
+  if (c.fecha_vencimiento < hoy) return 'Vencido'
+  const dias = (Date.parse(`${c.fecha_vencimiento}T00:00:00`) - Date.parse(`${hoy}T00:00:00`)) / 86400000
+  return dias <= 30 ? 'Por vencer' : 'Vigente'
+}
+
+/** Puntos de venta con un CAI activo y no vencido: los únicos donde se puede emitir un Remito R. */
+export function puntosVentaRemitoR(cais: CaiRemito[], hoy: string): number[] {
+  const pvs = new Set(cais.filter((c) => c.activo && c.fecha_vencimiento >= hoy).map((c) => c.punto_venta))
+  return [...pvs].sort((a, b) => a - b)
 }
 
 export function resumenRemitos(remitos: Remito[]): { emitidos: number; anulados: number } {

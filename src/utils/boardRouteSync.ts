@@ -3,7 +3,6 @@ export function routeNeedsBoardSync(pathname: string): boolean {
   if (pathname === '/' || pathname === '/tablero') return true
   if (pathname.startsWith('/statistics')) return true
   if (pathname.startsWith('/calendario')) return true
-  if (pathname.startsWith('/gantt')) return true
   if (pathname.startsWith('/asesor-presupuestos')) return true
   if (pathname.startsWith('/kanban-etapas/')) return true
   if (pathname.startsWith('/app-campo')) return true

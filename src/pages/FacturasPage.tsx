@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
 import type { FacturaVentaRecord } from '../types/api'
 import { formatFechaAr } from '../utils/afipFacturaUi'
 import { getArgentinaDateString } from '../utils/dateUtils'
 import AvisoCertificadoAfip from '../components/facturas/AvisoCertificadoAfip'
+import FacturacionResumenPanel from '../components/facturas/FacturacionResumenPanel'
+import { signoComprobante } from '../services/facturacionResumen'
 import { descargarPdfFactura } from '../utils/pdfFactura'
 import './FacturasPage.css'
 
@@ -21,6 +23,8 @@ export default function FacturasPage() {
   const [facturas, setFacturas] = useState<FacturaVentaRecord[]>([])
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [pdfId, setPdfId] = useState<number | null>(null)
+  const [exportando, setExportando] = useState(false)
+  const cargadoUnaVez = useRef(false)
   const [busqueda, setBusqueda] = useState('')
   const [pagina, setPagina] = useState(0)
   const [filtros, setFiltros] = useState({
@@ -103,6 +107,7 @@ export default function FacturasPage() {
       setFacturas([])
       setErrorCarga('No se pudieron cargar las facturas.')
     } finally {
+      cargadoUnaVez.current = true
       setLoading(false)
     }
   }
@@ -122,6 +127,47 @@ export default function FacturasPage() {
       alert(error instanceof Error ? error.message : 'No se pudo generar el PDF de la factura.')
     } finally {
       setPdfId(null)
+    }
+  }
+
+  const exportarExcel = async () => {
+    if (exportando || facturasVisibles.length === 0) return
+    setExportando(true)
+    try {
+      const XLSX = await import('xlsx')
+      const filas = facturasVisibles.map((f) => {
+        const s = signoComprobante(f.tipo_comprobante)
+        const total = (Number(f.total) || 0) * s
+        const iva = (Number(f.iva) || 0) * s
+        return {
+          Fecha: formatFechaAr(f.fecha_emision),
+          Tipo: f.tipo_comprobante,
+          Número: f.numero_factura,
+          Cliente: f.cliente_nombre,
+          'CUIT / DNI': f.cliente_dni_cuit || '',
+          'Condición IVA': f.cliente_condicion_iva || '',
+          Neto: Math.round((total - iva) * 100) / 100,
+          IVA: Math.round(iva * 100) / 100,
+          Total: Math.round(total * 100) / 100,
+          Estado: f.estado,
+          ARCA: f.estado_afip || '',
+          CAE: f.cae || f.numero_cae || '',
+          'Vto. CAE': f.fecha_vencimiento_cae ? formatFechaAr(f.fecha_vencimiento_cae) : '',
+          OP: f.numero_op || '',
+          'ID venta': f.id_venta ?? ''
+        }
+      })
+      const hoja = XLSX.utils.json_to_sheet(filas)
+      hoja['!cols'] = [12, 18, 16, 32, 15, 22, 14, 14, 14, 11, 12, 16, 11, 10, 9].map((wch) => ({ wch }))
+      const libro = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(libro, hoja, 'Facturas')
+      const rango = [filtros.fechaDesde, filtros.fechaHasta].filter(Boolean).join('_a_')
+      XLSX.writeFile(libro, `facturas_${rango || hoy}.xlsx`)
+    } catch (error) {
+      console.error('Error exportando facturas:', error)
+      alert('No se pudo generar el Excel.')
+    } finally {
+      setExportando(false)
     }
   }
 
@@ -150,7 +196,8 @@ export default function FacturasPage() {
     }
   }
 
-  if (loading) {
+  // Pantalla de carga solo la primera vez: al cambiar filtros no se desmonta el resumen.
+  if (loading && !cargadoUnaVez.current) {
     return (
       <div className="facturas-page">
         <div className="loading">Cargando facturas...</div>
@@ -173,6 +220,8 @@ export default function FacturasPage() {
       </div>
 
       <AvisoCertificadoAfip />
+
+      <FacturacionResumenPanel onFacturasCambiaron={() => void loadFacturas()} />
 
       <div className="facturas-filters">
         <input
@@ -221,9 +270,19 @@ export default function FacturasPage() {
           className="filter-input"
           placeholder="Hasta"
         />
+
+        <button
+          type="button"
+          className="btn-secondary facturas-export"
+          onClick={() => void exportarExcel()}
+          disabled={exportando || facturasVisibles.length === 0}
+          title="Descarga el listado con los filtros y la búsqueda actuales"
+        >
+          {exportando ? 'Exportando…' : `Exportar Excel (${facturasVisibles.length})`}
+        </button>
       </div>
 
-      <div className="facturas-table-container">
+      <div className="facturas-table-container" style={loading ? { opacity: 0.55 } : undefined} aria-busy={loading}>
         <table className="facturas-table">
           <thead>
             <tr>

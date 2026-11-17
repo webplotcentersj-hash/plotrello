@@ -279,3 +279,13 @@
   color: #718096;
 }
 
+
+.facturas-export {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.facturas-export:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

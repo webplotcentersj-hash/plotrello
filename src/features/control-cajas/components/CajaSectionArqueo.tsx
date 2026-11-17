@@ -4,10 +4,12 @@ import { useCajaOperativa } from '../../../hooks/useCajaOperativa'
 import { BILLETE_DENOMINACIONES, TURNOS_CAJA } from '../constants'
 import {
   arqueoBloqueadoHastaCierre,
+  listArqueos,
   listCajas,
   listEgresoSolicitudes,
   listMovimientos,
   listPlanillas,
+  listTransferenciaLotes,
   saveArqueo,
   updateCajaFondoFijo
 } from '../cajaRepository'
@@ -25,8 +27,15 @@ import { estadoArqueo } from '../movimientoCaja'
 import { fmtArs, fmtArs0, fmtDateAr, montoInputFromNumber, parseNum } from '../format'
 import { fondoFijoEfectivo } from '../fondoCaja'
 import {
+  type EventoFondo,
+  eventosFondoDesdeArqueos,
+  eventosFondoDesdeLotes,
+  fondoInicialDelDia
+} from '../fondoInicial'
+import {
   cajaFondoDestinoPorDefecto,
   cuadreArqueoConFondo,
+  DIFERENCIA_CONTEO_MAX,
   fondoParaOtraCajaDesdeArqueo,
   saldosFondoOtraCaja
 } from '../cierreTurno'
@@ -104,6 +113,20 @@ export default function CajaSectionArqueo({
         setEgresosDia(e)
       }
     )
+  }, [cajaSlug, fecha, movimientosRefreshKey])
+
+  /** Arqueos y cierres de todas las cajas: de ahí sale el fondo con que arrancó el cajón. */
+  const [eventosFondo, setEventosFondo] = useState<EventoFondo[]>([])
+  useEffect(() => {
+    if (!cajaSlug || !fecha) return
+    let cancelled = false
+    void Promise.all([listArqueos(), listTransferenciaLotes(300)]).then(([arqs, lotes]) => {
+      if (cancelled) return
+      setEventosFondo([...eventosFondoDesdeArqueos(arqs), ...eventosFondoDesdeLotes(lotes)])
+    })
+    return () => {
+      cancelled = true
+    }
   }, [cajaSlug, fecha, movimientosRefreshKey])
 
   useEffect(() => {
@@ -250,10 +273,22 @@ export default function CajaSectionArqueo({
     return combinarResumenPlotlab(resumenPlotlabApi, desdeMovs)
   }, [movimientos, fecha, cajaSlug, resumenPlotlabApi, cajaActiva?.id_usuario, usuarioId])
 
-  const efectivoObjetivoPlotlab =
-    cajaActiva && resumenPlotlab
-      ? efectivoObjetivoArqueoPlotLab(movimientos, fecha, cajaActiva, resumenPlotlab)
-      : null
+  const fondoInicial = useMemo(
+    () =>
+      cajaSlug && fecha
+        ? fondoInicialDelDia({
+            cajaSlug,
+            fecha,
+            eventos: eventosFondo,
+            fondoConfigurado: cajaActiva ? fondoFijoEfectivo(cajaActiva) : 0
+          })
+        : 0,
+    [cajaSlug, fecha, eventosFondo, cajaActiva]
+  )
+
+  const efectivoObjetivoPlotlab = cajaActiva
+    ? efectivoObjetivoArqueoPlotLab(movimientos, fecha, cajaActiva, resumenPlotlab, fondoInicial)
+    : null
 
   const alertaDoble = useMemo(
     () =>
@@ -713,10 +748,11 @@ export default function CajaSectionArqueo({
 
       {efectivoQuedaPlanilla == null && efectivoObjetivoPlotlab != null && (
         <div className="caja-cc-planilla-arqueo-hint caja-cc-planilla-arqueo-hint--plotlab">
-          <strong>Debés tener ahora (ventas neto − egresos):</strong>{' '}
+          <strong>Debés tener ahora (fondo inicial + ventas neto − egresos):</strong>{' '}
           <strong>$ {fmtArs(efectivoObjetivoPlotlab)}</strong>. Contá{' '}
-          <strong>lo que hay</strong> en el cajón. El fondo dejado sale de ese contado (no se suma ni
-          resta al objetivo). Tarjetas, transferencias y cuenta corriente no van en el arqueo.
+          <strong>lo que hay</strong> en el cajón, incluido el fondo con que arrancaste
+          {fondoInicial > 0 ? <> ($ {fmtArs(fondoInicial)})</> : null}. El fondo que dejás para el próximo
+          turno sale de ese contado. Tarjetas, transferencias y cuenta corriente no van en el arqueo.
         </div>
       )}
 
@@ -727,9 +763,9 @@ export default function CajaSectionArqueo({
       )}
 
       <div className="caja-cc-help">
-        Contá <strong>lo que hay</strong> ahora (billetes/monedas): ventas en efectivo neto (pagó − vuelto) −
-        egresos. El fondo dejado sale de ese contado (recorte para el próximo turno): no se suma al
-        objetivo ni se resta del cuadre. No incluyas tarjetas, transferencias ni cuenta corriente.
+        Contá <strong>lo que hay</strong> ahora (billetes/monedas): fondo con que arrancó el cajón + ventas en
+        efectivo neto (pagó − vuelto) − egresos. El fondo que dejás sale de ese contado (recorte para el
+        próximo turno) y no genera faltante ni sobrante. No incluyas tarjetas, transferencias ni cuenta corriente.
         {cajaActiva && cajaDestinoFondo && (
           <>
             {' '}
@@ -813,8 +849,8 @@ export default function CajaSectionArqueo({
         </h3>
         <p className="caja-cc-help">
           Del <strong>contado</strong> se reserva este monto para{' '}
-          <strong>{cajaDestinoFondo?.nombre || 'la caja del próximo turno'}</strong>. Sale de lo vendido: no
-          se suma al objetivo ni genera faltante/sobrante. Luego:{' '}
+          <strong>{cajaDestinoFondo?.nombre || 'la caja del próximo turno'}</strong>. Sale del contado: no
+          genera faltante ni sobrante. Luego:{' '}
           <code>contado − fondo = administración</code>.
         </p>
         <label className="caja-cc-field">
@@ -867,8 +903,8 @@ export default function CajaSectionArqueo({
             </div>
             <p className="caja-cc-field-hint">
               Ecuación: contado − fondo = admin. Los egresos del día ($ {fmtArs(egresosEfDia)}) ya salieron
-              del cajón, por eso no se restan de nuevo. El cuadre es contado vs objetivo (ventas − egresos),
-              sin sumar ni restar el fondo.
+              del cajón, por eso no se restan de nuevo. El cuadre es contado vs objetivo (fondo inicial +
+              ventas − egresos); el fondo que dejás no lo mueve.
               {onIrEgresos ? (
                 <>
                   {' '}
@@ -881,9 +917,9 @@ export default function CajaSectionArqueo({
                 ? ` Cuadre: contado $ ${fmtArs(total)} vs objetivo $ ${fmtArs(objetivoEfectivo)}${
                     cuadre.cuadra
                       ? sobranteAbsorbido
-                        ? ` — sobrante $ ${fmtArs(montoSobrante)} (menor a $ 10.000) va a admin.`
+                        ? ` — sobrante $ ${fmtArs(montoSobrante)} (menor a $ ${fmtArs0(DIFERENCIA_CONTEO_MAX)}) va a admin.`
                         : faltanteAbsorbido
-                          ? ` — diferencia $ ${fmtArs(montoFaltante)} (menor a $ 10.000, error de conteo).`
+                          ? ` — diferencia $ ${fmtArs(montoFaltante)} (menor a $ ${fmtArs0(DIFERENCIA_CONTEO_MAX)}, error de conteo).`
                           : cuadraConFondoDejado
                             ? ' — cuadra (fondo dejado es recorte del contado).'
                             : ' — cuadra.'
@@ -913,7 +949,7 @@ export default function CajaSectionArqueo({
       )}
       {efectivoObjetivoPlotlab != null && efectivoQuedaPlanilla == null && (
         <div className="caja-cc-result neutral">
-          <span>Objetivo según Plot Lab (ventas neto − egresos)</span>
+          <span>Objetivo según Plot Lab (fondo inicial + ventas neto − egresos)</span>
           <strong>$ {fmtArs(efectivoObjetivoPlotlab)}</strong>
         </div>
       )}
@@ -945,9 +981,9 @@ export default function CajaSectionArqueo({
                   ? 'Cuadra con planilla PDF'
                   : 'Cuadra con Plot Lab'
               : sobranteAbsorbido
-                ? `Sobrante $ ${fmtArs(montoSobrante)} (menor a $ 10.000) → se suma a administración`
+                ? `Sobrante $ ${fmtArs(montoSobrante)} (menor a $ ${fmtArs0(DIFERENCIA_CONTEO_MAX)}) → se suma a administración`
                 : faltanteAbsorbido
-                  ? `Diferencia $ ${fmtArs(montoFaltante)} (menor a $ 10.000, conteo) — egresos se descuentan de admin`
+                  ? `Diferencia $ ${fmtArs(montoFaltante)} (menor a $ ${fmtArs0(DIFERENCIA_CONTEO_MAX)}, conteo) — egresos se descuentan de admin`
                   : esFaltante
                   ? `Faltante $ ${fmtArs(montoFaltante)} — justificá`
                   : `Sobrante $ ${fmtArs(montoSobrante)} — justificá con comprobante`}
@@ -968,7 +1004,7 @@ export default function CajaSectionArqueo({
         >
           <h3>{esFaltante ? 'Justificar faltante' : 'Justificar sobrante'}</h3>
           <p className="caja-cc-help">
-            Contaste $ {fmtArs(total)} y el esperado (ventas) es $ {fmtArs(objetivoEfectivo ?? 0)}
+            Contaste $ {fmtArs(total)} y el esperado es $ {fmtArs(objetivoEfectivo ?? 0)}
             {fondoParaCuadre > 0 ? (
               <>
                 . El fondo $ {fmtArs(fondoParaCuadre)} queda en caja como recorte del contado (no mueve el

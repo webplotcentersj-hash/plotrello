@@ -1402,7 +1402,9 @@ export default function ErpGastosPage() {
                     ? 'Ticket con IA'
                     : trazado.origen === 'excel_afip'
                       ? 'Excel AFIP'
-                      : 'Manual'}{' '}
+                      : trazado.origen === 'gasto_fijo'
+                        ? 'Gasto fijo'
+                        : 'Manual'}{' '}
                   · {new Date(trazado.created_at).toLocaleString('es-AR')}
                 </span>
               </li>

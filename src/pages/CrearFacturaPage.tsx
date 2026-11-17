@@ -715,7 +715,8 @@ export default function CrearFacturaPage() {
       }
 
       alert(emitirAlGuardar ? 'Factura autorizada en AFIP y emitida.' : 'Factura creada en borrador.')
-      navigate(`/erp/facturas/${facturaId}`)
+      // Emitida: abrir el detalle con "Enviar al cliente" ya desplegado.
+      navigate(emitirAlGuardar ? `/erp/facturas/${facturaId}?enviar=1` : `/erp/facturas/${facturaId}`)
     } catch (error) {
       console.error('Error creando factura:', error)
       alert('Error al crear factura')

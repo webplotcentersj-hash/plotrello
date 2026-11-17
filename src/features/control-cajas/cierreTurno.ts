@@ -57,19 +57,23 @@ export function calcularCierreTurnoMontos(input: CierreTurnoInput): CierreTurnoC
   }
 }
 
-/** Diferencia de conteo absorbida (sobrante o faltante chico): no pide justificación. */
-export const DIFERENCIA_CONTEO_MAX = 10_000
+/**
+ * Diferencia de conteo absorbida (sobrante o faltante chico): no pide justificación.
+ * Era $ 10.000: un faltante de $ 9.999 por día pasaba sin explicación. Desde 2026-11-16, $ 500.
+ */
+export const DIFERENCIA_CONTEO_MAX = 500
 
 /** Redondeo de efectivo (monedas / centavos): misma tolerancia en arqueo, cierre de turno y conciliación. */
 export const TOLERANCIA_EFECTIVO = 1.5
 
 /**
- * Cuadre del arqueo vs objetivo Plot Lab (ventas neto − egresos):
+ * Cuadre del arqueo vs objetivo Plot Lab (fondo inicial + ventas neto − egresos):
  *
  *   Δ = CONTADO − OBJETIVO
  *
- * El fondo dejado SALE del contado (de lo vendido): es un recorte para el
- * próximo turno. NO se suma al objetivo ni se resta del esperado del cuadre.
+ * El fondo con que ARRANCÓ el cajón está en el objetivo (se vuelve a contar).
+ * El fondo que se DEJA sale del contado: es un recorte para el próximo turno
+ * y no mueve el cuadre.
  * Solo afecta el reparto a administración:
  *   restoAdmin = contado − fondo
  *

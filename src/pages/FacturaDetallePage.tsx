@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
 import { syncVentaPlotLabACaja } from '../features/control-cajas/plotlabVentaCajaSync'
 import type { CuentaPorCobrarRecord, FacturaVentaRecord, FacturaItemRecord } from '../types/api'
@@ -30,6 +30,7 @@ const ENVIO_AFIP_VENCIDO_MS = 3 * 60 * 1000
 export default function FacturaDetallePage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [factura, setFactura] = useState<(FacturaVentaRecord & { items?: FacturaItemRecord[] }) | null>(null)
   const [cxc, setCxc] = useState<CuentaPorCobrarRecord | null>(null)
@@ -99,6 +100,20 @@ export default function FacturaDetallePage() {
     }
   }, [id])
 
+  // ?enviar=1 (después de emitir): abrir directo "Enviar al cliente".
+  useEffect(() => {
+    if (searchParams.get('enviar') !== '1') return
+    setShowEnviar(true)
+    const next = new URLSearchParams(searchParams)
+    next.delete('enviar')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    if (!showEnviar) return
+    document.querySelector('.factura-envio')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [showEnviar, factura?.estado_afip])
+
   useEffect(() => {
     let cancelled = false
     void apiService.getCuentasBancarias({ activa: true }).then((r) => {
@@ -125,6 +140,24 @@ export default function FacturaDetallePage() {
       cancelled = true
     }
   }, [showEnviar, idCliente])
+
+  // Sin ficha de cliente (consumidor final de mostrador): usar el contacto cargado en la venta.
+  const idVenta = factura?.id_venta
+  useEffect(() => {
+    if (!showEnviar || idCliente || !idVenta) return
+    let cancelled = false
+    void apiService.getVenta(idVenta).then((r) => {
+      if (cancelled || !r.success || !r.data) return
+      const venta = r.data
+      setContacto((p) => ({
+        telefono: p.telefono || venta.cliente_telefono || '',
+        email: p.email || venta.cliente_email || ''
+      }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [showEnviar, idCliente, idVenta])
 
   const loadCxc = async (facturaId: number) => {
     try {
@@ -179,6 +212,8 @@ export default function FacturaDetallePage() {
         const cae = response.data?.cae ? ` CAE: ${response.data.cae}` : ''
         alert(soloEfectos ? 'Pendientes generados.' : `Comprobante autorizado en AFIP.${cae}`)
         if (response.warning) alert(`Atención:\n\n${response.warning}`)
+        // Recién autorizada: dejar listo el envío al cliente.
+        if (!soloEfectos && response.data?.estado_afip === 'Autorizada') setShowEnviar(true)
       } else {
         alert('No se pudo emitir: ' + (response.error || 'desconocido'))
       }

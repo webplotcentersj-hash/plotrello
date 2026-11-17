@@ -18,7 +18,6 @@
 7. [PlotAI - Asistente Inteligente](#plotai---asistente-inteligente)
 8. [Estadísticas y Reportes](#estadísticas-y-reportes)
 9. [Calendario](#calendario)
-10. [Diagrama de Gantt](#diagrama-de-gantt)
 11. [Gestión de Usuarios](#gestión-de-usuarios)
 12. [Sistema de Capacitaciones](#sistema-de-capacitaciones)
 13. [Sistema de Evaluaciones de Desempeño](#sistema-de-evaluaciones-de-desempeño)
@@ -56,7 +55,7 @@
 - ✅ **Plot Design** — bolsa de trabajos para diseñadores
 - ✅ **Consulta pública de OP** y **chat embed** para clientes
 - ✅ **Tótem de autogestión** (impresión y consultas en local)
-- ✅ **Estadísticas, calendario y Gantt**
+- ✅ **Estadísticas y calendario**
 - ✅ **Módulos por sector**: mostrador, compras, RRHH, caja, taller, instalaciones, metalúrgica
 - ✅ **Portal cliente** y **cuenta corriente**
 
@@ -209,7 +208,6 @@ Al hacer clic en el botón de menú (☰), verás:
 - 💬 **Chat**: Accede al sistema de chat
 - 📊 **Estadísticas**: (Solo administradores) Reportes y métricas
 - 📅 **Calendario**: Vista de calendario de entregas
-- 📈 **Gantt**: Diagrama de Gantt de proyectos
 - 🧊 **Modo compacto**: Alterna entre vista expandida/compacta
 - 👥 **Usuarios**: (Solo administradores) Gestión de usuarios
 - 🛠️ **Nueva Herramienta**: Crear herramientas personalizadas
@@ -735,50 +733,6 @@ El sidebar muestra:
 - Órdenes con entrega en los próximos días
 - Órdenes vencidas (en rojo)
 - Órdenes de hoy (resaltadas)
-
----
-
-## 10. Diagrama de Gantt
-
-### 10.1 Acceder al Gantt
-
-- Haz clic en **📈 Gantt** en el menú de acciones
-- O navega a `/gantt`
-
-### 10.2 Vista de Gantt
-
-El diagrama muestra:
-
-- **Barras horizontales** representando cada orden
-- **Eje temporal** en la parte superior
-- **Colores** según prioridad:
-  - 🔴 Alta prioridad
-  - 🟡 Media prioridad
-  - 🟢 Baja prioridad
-
-### 10.3 Niveles de Zoom
-
-Puedes cambiar el nivel de zoom:
-
-- **Semana**: Vista detallada de una semana
-- **Mes**: Vista mensual (por defecto)
-- **Trimestre**: Vista trimestral amplia
-
-### 10.4 Información de las Barras
-
-Cada barra muestra:
-
-- **Número de OP** y nombre del cliente
-- **Fecha de inicio** (creación)
-- **Fecha de fin** (entrega comprometida)
-- **Duración** calculada automáticamente
-
-### 10.5 Interactuar con el Gantt
-
-- **Scroll horizontal**: Navegar en el tiempo
-- **Scroll vertical**: Ver más órdenes
-- **Hover sobre una barra**: Ver información detallada
-- **Click en una barra**: Abrir la orden en el tablero
 
 ---
 
@@ -2128,7 +2082,6 @@ Accede a la gestión de ocupación de impresoras:
 ### 15.3 Gestión de Tiempo
 
 - **Revisa el calendario regularmente**: Planifica con anticipación
-- **Usa el Gantt para proyectos largos**: Visualiza dependencias
 - **Marca fechas de entrega realistas**: Evita retrasos
 - **Revisa fichas estancadas**: Identifica problemas temprano
 

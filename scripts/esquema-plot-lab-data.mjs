@@ -155,16 +155,15 @@ export const sections = [
   {
     id: 'estadisticas',
     num: '6',
-    title: 'Estadísticas, calendario y Gantt',
+    title: 'Estadísticas y calendario',
     problema:
       'El tablero muestra el presente pero gerencia necesita tendencias: cuántas OPs se retrasan, carga por sector, distribución en el tiempo. Sin vistas analíticas las decisiones de capacidad y contratación son a ciegas.',
     comoFunciona:
-      'StatisticsPage agrega métricas del tablero con Recharts (agentInsights, stats utils). CalendarPage superpone entregas y eventos. GanttPage muestra línea temporal de OPs. dashboard-pantallas adapta métricas para TVs en planta.',
+      'StatisticsPage agrega métricas del tablero con Recharts (agentInsights, stats utils). CalendarPage superpone entregas y eventos. dashboard-pantallas adapta métricas para TVs en planta.',
     quienUsa: 'Gerencia, administración, jefes de sector.',
     items: [
       { name: '/statistics', desc: 'Dashboard analítico producción.', detalle: 'Gráficos por sector, estado, responsable.' },
       { name: '/calendario', desc: 'Vista calendario de tareas.', detalle: 'Fechas prometidas y hitos.' },
-      { name: '/gantt', desc: 'Diagrama Gantt.', detalle: 'Solapamientos y duración de OPs.' },
       { name: '/dashboard-pantallas', desc: 'Modo TV / señalética.', detalle: 'Métricas en pantallas del taller o recepción.' },
       { name: 'Sprint snapshots', desc: 'plotAiRecordSprintSnapshot.', detalle: 'Histórico para predicción PlotAI.' }
     ]

@@ -2,7 +2,12 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   cant3,
+  claseDe,
   esRemitoParcial,
+  estadoCai,
+  etiquetaRemito,
+  maximoLinea,
+  puntosVentaRemitoR,
   estadoEntrega,
   lineasDesdePendientes,
   numeroDeEntrega,
@@ -11,6 +16,7 @@ import {
   saldoTrasEntrega,
   seleccionTotal,
   validarSeleccion,
+  type CaiRemito,
   type Remito
 } from './remitosLogica.ts'
 
@@ -155,5 +161,72 @@ describe('remito parcial', () => {
     assert.equal(numeroDeEntrega(a, [a, b, c]), 1)
     assert.equal(numeroDeEntrega(c, [a, b, c]), 2)
     assert.deepEqual(resumenRemitos([a, b, c]), { emitidos: 2, anulados: 1 })
+  })
+})
+
+describe('devoluciones', () => {
+  const lineas = lineasDesdePendientes(rpc({ v1: 6, v2: 0, o7: 12.5 }))
+
+  it('se puede devolver hasta lo entregado, no hasta lo pendiente', () => {
+    assert.equal(maximoLinea(lineas[0], 'Devolucion'), 6)
+    assert.equal(maximoLinea(lineas[0], 'Entrega'), 4)
+    assert.equal(maximoLinea(lineas[1], 'Devolucion'), 0, 'lo que nunca se entregó no se devuelve')
+    const ok = validarSeleccion(lineas, { 'v:1': '6', 'o:7': '2,5' }, 'Devolucion')
+    assert.deepEqual(ok.errores, [])
+    assert.equal(ok.items.length, 2)
+    const mal = validarSeleccion(lineas, { 'v:1': '7' }, 'Devolucion')
+    assert.match(mal.errores[0], /se entregaron 6 y cargaste 7 para devolver/)
+  })
+
+  it('lo devuelto vuelve a quedar pendiente y la devolución no es "parcial"', () => {
+    const item = { orden: 1, id_venta_item: 1, descripcion: 'x', cantidad: 2, cantidad_pedida: 10, cantidad_previa: 6 }
+    assert.equal(saldoTrasEntrega(item, 'Devolucion'), 6)
+    assert.equal(saldoTrasEntrega(item, 'Entrega'), 2)
+    assert.equal(esRemitoParcial({ clase: 'Devolucion', items: [item] }), false)
+  })
+
+  it('el número de entrega no cuenta devoluciones', () => {
+    const a = remito([{ v: 1, cantidad: 2 }])
+    const dev = { ...remito([{ v: 1, cantidad: 1 }]), clase: 'Devolucion' as const }
+    const b = remito([{ v: 1, cantidad: 3 }])
+    assert.equal(numeroDeEntrega(b, [a, dev, b]), 2)
+    assert.equal(claseDe(a), 'Entrega', 'los remitos viejos sin clase son entregas')
+  })
+})
+
+describe('Remito R y CAI', () => {
+  const cai = (c: Partial<CaiRemito>): CaiRemito => ({
+    id: 1,
+    punto_venta: 2,
+    cai: '71234567890123',
+    fecha_vencimiento: '2027-06-30',
+    numero_desde: 1,
+    numero_hasta: 500,
+    activo: true,
+    ...c
+  })
+
+  it('etiqueta con la letra', () => {
+    assert.equal(etiquetaRemito({ tipo: 'R', punto_venta: 2, numero: 15 }), 'Remito R 0002-00000015')
+    assert.equal(etiquetaRemito({ tipo: 'X', punto_venta: 1, numero: 3 }), 'Remito X 0001-00000003')
+  })
+
+  it('estado del CAI: vigente, por vencer (30 días), vencido o inactivo', () => {
+    assert.equal(estadoCai(cai({}), '2026-11-17'), 'Vigente')
+    assert.equal(estadoCai(cai({ fecha_vencimiento: '2026-12-10' }), '2026-11-17'), 'Por vencer')
+    assert.equal(estadoCai(cai({ fecha_vencimiento: '2026-11-17' }), '2026-11-17'), 'Por vencer', 'vence hoy: todavía sirve')
+    assert.equal(estadoCai(cai({ fecha_vencimiento: '2026-11-16' }), '2026-11-17'), 'Vencido')
+    assert.equal(estadoCai(cai({ activo: false }), '2026-11-17'), 'Inactivo')
+  })
+
+  it('solo se ofrecen puntos de venta con CAI activo y no vencido', () => {
+    const lista = [
+      cai({ id: 1, punto_venta: 3 }),
+      cai({ id: 2, punto_venta: 2 }),
+      cai({ id: 3, punto_venta: 2, numero_desde: 501, numero_hasta: 900 }),
+      cai({ id: 4, punto_venta: 5, fecha_vencimiento: '2026-01-01' }),
+      cai({ id: 5, punto_venta: 6, activo: false })
+    ]
+    assert.deepEqual(puntosVentaRemitoR(lista, '2026-11-17'), [2, 3])
   })
 })

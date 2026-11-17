@@ -1,6 +1,8 @@
 import { getArgentinaDateString } from '../../utils/dateUtils'
 import { calcularTotalesCoherentesDia, contarPlanillasDelDia, type TotalesCajaDia } from './cajaCoherencia'
 import { obtenerCajaOperativa } from './cajaOperativa'
+import { fondoFijoEfectivo } from './fondoCaja'
+import { eventosFondoDesdeArqueos, eventosFondoDesdeLotes, fondoInicialDelDia } from './fondoInicial'
 import {
   CONTEO_MOVIMIENTOS_VACIO,
   contarMovimientosCaja,
@@ -55,18 +57,22 @@ export async function loadEstadoOperativaHoy(
   usuarioNombre: string,
   fecha = getArgentinaDateString()
 ): Promise<CajaEstadoOperativaHoy> {
-  const [cajas, planillas, arqueos, lotes, egresos, traspasos, movimientos] = await Promise.all([
-    (async () => {
-      await obtenerCajaOperativa(usuarioId, usuarioNombre)
-      return listCajas()
-    })(),
-    listPlanillas(80),
-    listArqueos({ usuarioId }),
-    listTransferenciaLotes(50),
-    listEgresoSolicitudes(),
-    listTraspasos({ estado: 'pendiente' }),
-    listMovimientos({ usuarioId })
-  ])
+  const [cajas, planillas, arqueos, lotes, egresos, traspasos, movimientos, todosArqueos, lotesFondo] =
+    await Promise.all([
+      (async () => {
+        await obtenerCajaOperativa(usuarioId, usuarioNombre)
+        return listCajas()
+      })(),
+      listPlanillas(80),
+      listArqueos({ usuarioId }),
+      listTransferenciaLotes(50),
+      listEgresoSolicitudes(),
+      listTraspasos({ estado: 'pendiente' }),
+      listMovimientos({ usuarioId }),
+      // Fondo inicial: otras cajas también pueden dejarle fondo a esta.
+      listArqueos(),
+      listTransferenciaLotes(300)
+    ])
 
   const operativas = cajas.filter((c) => c.slug !== 'admin' && c.slug !== 'vuelto')
   const cajaSlug = resolveCajaSlugForUsuario(usuarioNombre, operativas, { usuarioId }) ?? null
@@ -106,9 +112,18 @@ export async function loadEstadoOperativaHoy(
     cajaSlug != null ? contarMovimientosCaja(movimientos, cajaSlug, fecha) : { ...CONTEO_MOVIMIENTOS_VACIO }
   const conteoMovimientosHistorico =
     cajaSlug != null ? contarMovimientosCaja(movimientos, cajaSlug, null) : { ...CONTEO_MOVIMIENTOS_VACIO }
+  const fondoInicial =
+    cajaSlug != null
+      ? fondoInicialDelDia({
+          cajaSlug,
+          fecha,
+          eventos: [...eventosFondoDesdeArqueos(todosArqueos), ...eventosFondoDesdeLotes(lotesFondo)],
+          fondoConfigurado: cajaRegistro ? fondoFijoEfectivo(cajaRegistro) : 0
+        })
+      : 0
   const efectivoTeorico =
     cajaRegistro != null
-      ? efectivoTeoricoDia(movimientos, fecha, cajaRegistro, resumenPlotlab)
+      ? efectivoTeoricoDia(movimientos, fecha, cajaRegistro, resumenPlotlab, fondoInicial)
       : null
   const turnoActivo = inferirTurnoActivo(fecha, cajaSlug, arqueos)
 

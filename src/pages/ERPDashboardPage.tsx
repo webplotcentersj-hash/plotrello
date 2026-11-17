@@ -2,167 +2,26 @@ import { useMemo, useState, useEffect, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type { FacturaVentaRecord, CuentaPorCobrarRecord } from '../types/api'
+import { ChevronRight, ExternalLink, Search, X } from 'lucide-react'
+import { CONTABLE_MODULES, ERP_GROUPS, GROUP_BY_ID, type ErpModuleDef } from './erpDashboardModules'
+import {
+  DIAS_VENTA_ATRASADA,
+  cargarFacturasConProblema,
+  cargarVentasPorFacturar,
+  resumirPorFacturar
+} from '../services/facturacionResumen'
+import { getArgentinaDateString } from '../utils/dateUtils'
 import './ERPDashboardPage.css'
 
-type ErpModuleDef = {
-  id: string
-  title: string
-  description: string
-  icon: string
-  path: string
-  accent: string
-  keywords: string[]
-  /** Abrir en pestaña nueva (p. ej. PWA del lector AFIP). */
-  openInNewTab?: boolean
-}
+type ModuleStat = { texto: string; tono: 'ok' | 'warn' | 'danger' | 'neutral' }
 
-const CONTABLE_MODULES: ErpModuleDef[] = [
-  {
-    id: 'tesoreria',
-    title: 'Tesorería',
-    description: 'Cobros, pagos, vencimientos y flujo de caja',
-    icon: '🏦',
-    path: '/erp/tesoreria',
-    accent: '#0ea5e9',
-    keywords: ['tesoreria', 'cobros', 'pagos', 'banco', 'caja', 'vencimientos']
-  },
-  {
-    id: 'contabilidad',
-    title: 'Contabilidad',
-    description: 'Asientos, plan de cuentas y reportes contables',
-    icon: '📚',
-    path: '/erp/contabilidad',
-    accent: '#8b5cf6',
-    keywords: ['contabilidad', 'asientos', 'libro', 'mayor', 'diario']
-  },
-  {
-    id: 'impuestos',
-    title: 'Impuestos',
-    description: 'AFIP, IVA y reportes impositivos',
-    icon: '🏛️',
-    path: '/erp/impuestos',
-    accent: '#f59e0b',
-    keywords: ['impuestos', 'iva', 'afip', 'arca', 'fiscal']
-  },
-  {
-    id: 'facturas',
-    title: 'Facturación',
-    description: 'Crear y gestionar facturas de venta',
-    icon: '🧾',
-    path: '/erp/facturas',
-    accent: '#059669',
-    keywords: ['factura', 'facturacion', 'comprobante', 'cae', 'venta']
-  },
-  {
-    id: 'remitos',
-    title: 'Remitos',
-    description: 'Remito X con entregas parciales y saldo pendiente',
-    icon: '📦',
-    path: '/remitos',
-    accent: '#0ea5e9',
-    keywords: ['remito', 'entrega', 'parcial', 'despacho', 'pendiente']
-  },
-  {
-    id: 'comisiones',
-    title: 'Comisiones',
-    description: 'Comisiones por ventas y liquidaciones mensuales',
-    icon: '🤝',
-    path: '/erp/comisiones',
-    accent: '#ec4899',
-    keywords: ['comisiones', 'vendedores', 'liquidacion', 'ventas', 'premios']
-  },
-  {
-    id: 'asientos',
-    title: 'Asientos contables',
-    description: 'Gestión con partida doble',
-    icon: '📝',
-    path: '/erp/asientos',
-    accent: '#6366f1',
-    keywords: ['asiento', 'partida', 'doble', 'contable']
-  },
-  {
-    id: 'plan-cuentas',
-    title: 'Plan de cuentas',
-    description: 'Estructura contable del negocio',
-    icon: '📋',
-    path: '/erp/plan-cuentas',
-    accent: '#14b8a6',
-    keywords: ['plan', 'cuentas', 'rubros', 'estructura']
-  },
-  {
-    id: 'costos',
-    title: 'Control de costos',
-    description: 'Costos por orden de trabajo',
-    icon: '📉',
-    path: '/erp/costos',
-    accent: '#ec4899',
-    keywords: ['costos', 'op', 'orden', 'margen']
-  },
-  {
-    id: 'gastos',
-    title: 'Gastos',
-    description: 'Gastos corrientes, tickets y estadísticas',
-    icon: '💼',
-    path: '/erp/gastos',
-    accent: '#a855f7',
-    keywords: ['gastos', 'ticket', 'rendicion', 'egreso']
-  },
-  {
-    id: 'stock',
-    title: 'Stock / Inventario',
-    description: 'Existencias, movimientos y reportes',
-    icon: '📦',
-    path: '/erp/stock',
-    accent: '#22c55e',
-    keywords: ['stock', 'inventario', 'deposito', 'existencias']
-  },
-  {
-    id: 'reportes',
-    title: 'Reportes financieros',
-    description: 'Resultados, balance y flujo de caja',
-    icon: '📊',
-    path: '/erp/reportes',
-    accent: '#3b82f6',
-    keywords: ['reportes', 'balance', 'resultados', 'kpi', 'informes']
-  },
-  {
-    id: 'admin',
-    title: 'Administración',
-    description: 'Circuitos, roles y checklist',
-    icon: '⚙️',
-    path: '/erp/admin',
-    accent: '#64748b',
-    keywords: ['admin', 'configuracion', 'circuitos', 'roles']
-  },
-  {
-    id: 'config-afip',
-    title: 'Configuración AFIP',
-    description: 'Facturación electrónica y homologación',
-    icon: '🔐',
-    path: '/erp/configuracion-afip',
-    accent: '#10b981',
-    keywords: ['afip', 'cae', 'certificado', 'punto venta', 'homologacion']
-  },
-  {
-    id: 'codigo-barras-afip',
-    title: 'Código de barras AFIP',
-    description: 'Generar ITF RG 1702 (CUIT, tipo, PV, CAE y vencimiento)',
-    icon: '🧾',
-    path: '/generador-codigo-barras-afip',
-    accent: '#0f766e',
-    keywords: ['codigo', 'barras', 'afip', 'itf', 'cae', 'cai', 'rg1702', 'generador']
-  },
-  {
-    id: 'lector-barras-afip',
-    title: 'Lector AFIP',
-    description: 'Leer con la cámara el código de barras de comprobantes',
-    icon: '📷',
-    path: '/lector-afip/',
-    accent: '#0369a1',
-    keywords: ['lector', 'escaner', 'camara', 'barras', 'afip', 'itf', 'cae', 'rg1702'],
-    openInNewTab: true
-  }
-]
+/** $1,3 M · $820 k · $950 */
+function fmtMoneyCorto(n: number): string {
+  const v = Math.abs(n)
+  if (v >= 1_000_000) return `$${(n / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })} M`
+  if (v >= 10_000) return `$${Math.round(n / 1000).toLocaleString('es-AR')} k`
+  return `$${Math.round(n).toLocaleString('es-AR')}`
+}
 
 function normalizeSearch(value: string): string {
   return value
@@ -175,7 +34,7 @@ function normalizeSearch(value: string): string {
 function moduleMatchesQuery(module: ErpModuleDef, query: string): boolean {
   if (!query) return true
   const haystack = normalizeSearch(
-    [module.title, module.description, module.icon, ...module.keywords].join(' ')
+    [module.title, module.description, GROUP_BY_ID[module.group].title, ...module.keywords].join(' ')
   )
   return query.split(/\s+/).every((token) => haystack.includes(token))
 }
@@ -194,6 +53,37 @@ export default function ERPDashboardPage() {
     facturasRecientes: [] as FacturaVentaRecord[],
     cuentasVencidas: [] as CuentaPorCobrarRecord[]
   })
+
+  /** Indicadores en vivo que se muestran dentro de algunas tarjetas de módulo. */
+  const [moduleStats, setModuleStats] = useState<Record<string, ModuleStat[]>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    const hoy = getArgentinaDateString()
+    void Promise.all([cargarVentasPorFacturar(), cargarFacturasConProblema()]).then(([ventasRes, problemasRes]) => {
+      if (cancelled) return
+      const items: ModuleStat[] = []
+      if (ventasRes.ok) {
+        const r = resumirPorFacturar(ventasRes.ventas, hoy)
+        items.push(
+          r.cantidad === 0
+            ? { texto: 'Todas las ventas facturadas', tono: 'ok' }
+            : {
+                texto: `${r.cantidad} por facturar · ${fmtMoneyCorto(r.monto)}`,
+                tono: r.atrasadas > 0 ? 'warn' : 'neutral'
+              }
+        )
+        if (r.atrasadas > 0) items.push({ texto: `${r.atrasadas} con más de ${DIAS_VENTA_ATRASADA} días`, tono: 'warn' })
+      }
+      if (problemasRes.ok && problemasRes.facturas.length > 0) {
+        items.push({ texto: `${problemasRes.facturas.length} con problema en ARCA`, tono: 'danger' })
+      }
+      setModuleStats((prev) => ({ ...prev, facturas: items }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const searchNorm = normalizeSearch(search)
   const filteredModules = useMemo(
@@ -362,7 +252,7 @@ export default function ERPDashboardPage() {
           </div>
           <label className="erp-search" htmlFor="erp-module-search">
             <span className="erp-search__icon" aria-hidden>
-              🔍
+              <Search size={17} />
             </span>
             <input
               id="erp-module-search"
@@ -381,7 +271,7 @@ export default function ERPDashboardPage() {
                 onClick={() => setSearch('')}
                 aria-label="Limpiar búsqueda"
               >
-                ✕
+                <X size={14} />
               </button>
             )}
           </label>
@@ -389,37 +279,72 @@ export default function ERPDashboardPage() {
 
         {filteredModules.length === 0 ? (
           <div className="erp-modules-empty">
-            <span className="erp-modules-empty__icon">🔎</span>
+            <span className="erp-modules-empty__icon">
+              <Search size={28} />
+            </span>
             <p>No hay módulos para «{search}»</p>
             <button type="button" className="erp-btn erp-btn--ghost" onClick={() => setSearch('')}>
               Limpiar búsqueda
             </button>
           </div>
         ) : (
-          <div className="erp-modules-grid">
-            {filteredModules.map((module) => (
-              <button
-                key={module.id}
-                type="button"
-                className="erp-module-card"
-                style={{ '--module-accent': module.accent } as CSSProperties}
-                onClick={() => {
-                  if (module.openInNewTab) {
-                    window.open(module.path, '_blank', 'noopener,noreferrer')
-                    return
-                  }
-                  navigate(module.path)
-                }}
-              >
-                <span className="erp-module-card__glow" aria-hidden />
-                <span className="erp-module-card__icon">{module.icon}</span>
-                <span className="erp-module-card__title">{module.title}</span>
-                <span className="erp-module-card__desc">{module.description}</span>
-                <span className="erp-module-card__arrow" aria-hidden>
-                  →
-                </span>
-              </button>
-            ))}
+          <div className="erp-module-groups">
+            {ERP_GROUPS.map((group) => {
+              const mods = filteredModules.filter((m) => m.group === group.id)
+              if (mods.length === 0) return null
+              return (
+                <div
+                  key={group.id}
+                  className="erp-module-group"
+                  style={{ '--module-accent': group.accent } as CSSProperties}
+                >
+                  <div className="erp-module-group__head">
+                    <span className="erp-module-group__dot" aria-hidden />
+                    <h3 className="erp-module-group__title">{group.title}</h3>
+                    <span className="erp-module-group__desc">{group.description}</span>
+                  </div>
+                  <div className="erp-modules-grid">
+                    {mods.map((module) => {
+                      const Icon = module.icon
+                      return (
+                        <button
+                          key={module.id}
+                          type="button"
+                          className="erp-module-card"
+                          onClick={() => {
+                            if (module.openInNewTab) {
+                              window.open(module.path, '_blank', 'noopener,noreferrer')
+                              return
+                            }
+                            navigate(module.path)
+                          }}
+                        >
+                          <span className="erp-module-card__icon" aria-hidden>
+                            <Icon size={22} strokeWidth={1.75} />
+                          </span>
+                          <span className="erp-module-card__body">
+                            <span className="erp-module-card__title">{module.title}</span>
+                            <span className="erp-module-card__desc">{module.description}</span>
+                            {moduleStats[module.id]?.length ? (
+                              <span className="erp-module-card__stats">
+                                {moduleStats[module.id].map((s) => (
+                                  <span key={s.texto} className={`erp-module-card__stat is-${s.tono}`}>
+                                    {s.texto}
+                                  </span>
+                                ))}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="erp-module-card__arrow" aria-hidden>
+                            {module.openInNewTab ? <ExternalLink size={16} /> : <ChevronRight size={18} />}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </section>

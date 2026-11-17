@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { descargarPdfFacturaAfip } from '../../services/afipApi'
 import { leerDisenoPdfFactura } from '../../utils/disenoPdfFactura'
 import type { EtapaEmision, ResultadoFacturaVenta } from '../../utils/emitirFacturaDesdeVenta'
@@ -33,6 +34,7 @@ type Props = {
 }
 
 export default function EmisionFacturaOverlay({ cliente, total, letra, etapa, resultado, onClose }: Props) {
+  const navigate = useNavigate()
   const [pulso, setPulso] = useState(0)
   const [descargandoPdf, setDescargandoPdf] = useState(false)
   const indice = Math.max(0, PASOS.findIndex((paso) => paso.id === etapa))
@@ -110,6 +112,19 @@ export default function EmisionFacturaOverlay({ cliente, total, letra, etapa, re
                 }}
               >
                 {descargandoPdf ? 'Descargando PDF…' : 'Descargar PDF'}
+              </button>
+            ) : null}
+            {ok && resultado.facturaId ? (
+              <button
+                type="button"
+                className="emision-afip__cerrar"
+                onClick={() => {
+                  const facturaId = resultado.facturaId
+                  onClose()
+                  navigate(`/erp/facturas/${facturaId}?enviar=1`)
+                }}
+              >
+                Enviar al cliente
               </button>
             ) : null}
             <button

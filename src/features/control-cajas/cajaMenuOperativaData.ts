@@ -83,25 +83,33 @@ export function efectivoTeoricoDia(
   movimientos: CajaMovimiento[],
   fecha: string,
   caja: Pick<CajaRegistro, 'slug' | 'fondo_fijo'> | null,
-  resumenPlotlab?: ResumenPlotlabVentasCaja | null
+  resumenPlotlab?: ResumenPlotlabVentasCaja | null,
+  /** Efectivo que ya estaba en el cajón al empezar el día (ver fondoInicialDelDia). */
+  fondoInicial = 0
 ): number | null {
   if (!caja) return null
   const fondo = fondoFijoEfectivo(caja)
   const t = calcularTeoricoFisicoCaja(movimientos, caja.slug, fecha, fecha, fondo)
   const ingresosFisicos = Math.max(t.ingresos_fisicos, resumenPlotlab?.efectivo ?? 0)
-  // Sin sumar fondo: el fondo sale del contado (de lo vendido).
-  return ingresosFisicos - t.egresos_fisicos + t.traspasos_fisicos
+  // El fondo con que arrancó el cajón se vuelve a contar: es parte de lo esperado.
+  // El fondo que se DEJA hoy sale del contado y no mueve el cuadre (ver cuadreArqueoConFondo).
+  return Math.max(0, fondoInicial) + ingresosFisicos - t.egresos_fisicos + t.traspasos_fisicos
 }
 
-/** Efectivo a contar según Plot Lab: cobros en efectivo − egresos (el fondo no se suma). */
+/**
+ * Efectivo a contar según Plot Lab: fondo inicial + cobros en efectivo − egresos ± traspasos.
+ * Hay objetivo aunque no haya ventas en efectivo: un día con solo egresos o solo fondo
+ * también se controla.
+ */
 export function efectivoObjetivoArqueoPlotLab(
   movimientos: CajaMovimiento[],
   fecha: string,
   caja: Pick<CajaRegistro, 'slug' | 'fondo_fijo'> | null,
-  resumenPlotlab: ResumenPlotlabVentasCaja | null
+  resumenPlotlab: ResumenPlotlabVentasCaja | null,
+  fondoInicial = 0
 ): number | null {
-  if (!caja || !resumenPlotlab || resumenPlotlab.efectivo <= 0) return null
-  return efectivoTeoricoDia(movimientos, fecha, caja, resumenPlotlab)
+  if (!caja) return null
+  return efectivoTeoricoDia(movimientos, fecha, caja, resumenPlotlab, fondoInicial)
 }
 
 export function etiquetaMedioMovimiento(m: CajaMovimiento): string {

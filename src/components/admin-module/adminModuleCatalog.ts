@@ -226,16 +226,6 @@ export const ADMIN_MODULE_CATALOG: AdminModuleDef[] = [
     accent: '#14b8a6'
   },
   {
-    id: 'gantt',
-    title: 'Gantt',
-    description: 'Planificación temporal de producción',
-    icon: '📊',
-    path: '/gantt',
-    category: 'produccion',
-    roles: 'admin',
-    accent: '#0ea5e9'
-  },
-  {
     id: 'galeria',
     title: 'Galería de trabajos',
     description: 'Portfolio y referencias visuales',

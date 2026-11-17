@@ -14,7 +14,10 @@ export type ComisionVendedor = {
   id_usuario: number
   nombre: string
   rol: string
-  porcentaje: number
+  /** null = usa el % general (requiere el patch 2026-11-17_comisiones_porcentaje_general.sql). */
+  porcentaje: number | null
+  /** Ausente si falta ese patch: entonces la base no distingue "general" de 0%. */
+  usa_general?: boolean
   activo: boolean
   ventas: number
 }
@@ -114,7 +117,8 @@ export function guardarConfigComisiones(payload: Partial<ComisionConfig>) {
   return rpc<{ config: ComisionConfig; vendedores: ComisionVendedor[] }>('comisiones_guardar_config', { p_payload: payload })
 }
 
-export function guardarVendedorComision(idUsuario: number, porcentaje: number, activo: boolean) {
+/** porcentaje null = usar el % general. */
+export function guardarVendedorComision(idUsuario: number, porcentaje: number | null, activo: boolean) {
   return rpc<{ config: ComisionConfig; vendedores: ComisionVendedor[] }>('comisiones_guardar_vendedor', {
     p_id_usuario: idUsuario,
     p_porcentaje: porcentaje,

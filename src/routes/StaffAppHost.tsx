@@ -15,7 +15,6 @@ const UsuariosPage = lazy(() => import('../pages/UsuariosPage'))
 const ImpresorasPage = lazy(() => import('../pages/ImpresorasPage'))
 const TotemImpresionBackofficePage = lazy(() => import('../pages/TotemImpresionBackofficePage'))
 const CalendarPage = lazy(() => import('../pages/CalendarPage'))
-const GanttPage = lazy(() => import('../pages/GanttPage'))
 const OpViewPage = lazy(() => import('../pages/OpViewPage'))
 const HerramientaPage = lazy(() => import('../pages/HerramientaPage'))
 const MostradorDashboardPage = lazy(() => import('../pages/MostradorDashboardPage'))
@@ -131,6 +130,7 @@ const ErpCrmPage = lazy(() => import('../pages/ErpCrmPage'))
 const ErpAdminPage = lazy(() => import('../pages/ErpAdminPage'))
 const ErpConfigCondicionesVentaPage = lazy(() => import('../pages/ErpConfigCondicionesVentaPage'))
 const ErpGastosPage = lazy(() => import('../pages/ErpGastosPage'))
+const ErpGastosFijosPage = lazy(() => import('../pages/ErpGastosFijosPage'))
 const TallerGraficoInventarioPage = lazy(() => import('../pages/TallerGraficoInventarioPage'))
 const MetalurgicaInventarioPage = lazy(() => import('../pages/MetalurgicaInventarioPage'))
 const SectorInventarioPage = lazy(() => import('../pages/SectorInventarioPage'))
@@ -1177,10 +1177,6 @@ function AppRoutes({
         element={<CalendarPage tasks={tasks} onBack={() => navigate('/')} />}
       />
       <Route
-        path="/gantt"
-        element={<GanttPage tasks={tasks} onBack={() => navigate('/')} />}
-      />
-      <Route
         path="/op/:opNumber"
         element={<OpViewPage tasks={tasks} sectores={sectores} />}
       />
@@ -1744,6 +1740,10 @@ function AppRoutes({
       <Route
         path="/erp/gastos"
         element={<ErpGastosPage />}
+      />
+      <Route
+        path="/erp/gastos-fijos"
+        element={<ErpGastosFijosPage />}
       />
       <Route
         path="/erp/admin"

@@ -1,4 +1,10 @@
-import type { PendientesRpc, Remito } from '../features/remitos/remitosLogica'
+import type {
+  CaiRemito,
+  ClaseRemito,
+  PendientesRpc,
+  Remito,
+  TipoRemito
+} from '../features/remitos/remitosLogica'
 import { supabase } from './supabaseClient'
 
 export type Resultado<T> = { success: boolean; data?: T; error?: string }
@@ -31,6 +37,16 @@ function nombreUsuario(): string | null {
   } catch {
     return null
   }
+}
+
+const PATCH_REMITO_R = 'supabase/patches/2026-11-17_remitos_r_y_tipos.sql'
+
+/** Si falta el patch del Remito R, decirlo en vez de mostrar el error crudo de Postgres. */
+function mensajePatch(raw: string): string {
+  if (/remitos_cai|remito_cai_guardar|column .*(clase|cai|deposito_)|remitos_tipo_check|PGRST20[25]/i.test(raw)) {
+    return `Falta ejecutar ${PATCH_REMITO_R} en Supabase.`
+  }
+  return raw
 }
 
 type FilaRemito = Omit<Remito, 'items'> & { items?: Remito['items'] | null }
@@ -168,6 +184,10 @@ export async function entregaRegistradaOp(idOp: number): Promise<Resultado<Entre
 }
 
 export type NuevoRemito = {
+  /** X (default) o R. El R usa el punto de venta de su CAI. */
+  tipo?: TipoRemito
+  clase?: ClaseRemito
+  punto_venta?: number
   id_venta?: number | null
   id_op?: number | null
   numero_op?: string | null
@@ -180,6 +200,11 @@ export type NuevoRemito = {
   entregado_a?: string | null
   dni_retira?: string | null
   transportista?: string | null
+  transportista_cuit?: string | null
+  cliente_condicion_iva?: string | null
+  domicilio_entrega?: string | null
+  deposito_origen?: string | null
+  deposito_destino?: string | null
   observaciones?: string | null
   items: Array<{
     id_venta_item?: number
@@ -195,11 +220,19 @@ export type NuevoRemito = {
 export async function crearRemito(remito: NuevoRemito): Promise<Resultado<Remito>> {
   if (!supabase) return { success: false, error: 'Supabase no configurado' }
   try {
+    const tipo = remito.tipo ?? 'X'
+    if (tipo === 'R' && !remito.punto_venta) return { success: false, error: 'Elegí el punto de venta del Remito R' }
     const { data, error } = await supabase.rpc('remito_crear', {
       p_actor_id: actorId(),
-      p_payload: { punto_venta: PUNTO_VENTA_REMITO, usuario_nombre: nombreUsuario(), ...remito }
+      p_payload: {
+        ...remito,
+        tipo,
+        clase: remito.clase ?? 'Entrega',
+        punto_venta: remito.punto_venta ?? PUNTO_VENTA_REMITO,
+        usuario_nombre: nombreUsuario()
+      }
     })
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: false, error: mensajePatch(error.message) }
     return { success: true, data: normalizar(data as FilaRemito) }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Error al emitir el remito' }
@@ -221,5 +254,63 @@ export async function anularRemito(idRemito: number, motivo: string): Promise<Re
     return { success: true, data: remito ?? normalizar({ ...(data as FilaRemito), items: [] }) }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Error al anular el remito' }
+  }
+}
+
+// ── CAI de autoimpresor (Remito R) ───────────────────────────────────────
+
+export async function listarCaiRemitos(): Promise<Resultado<CaiRemito[]>> {
+  if (!supabase) return { success: false, error: 'Supabase no configurado' }
+  try {
+    const { data, error } = await supabase
+      .from('remitos_cai')
+      .select('id, punto_venta, cai, fecha_vencimiento, numero_desde, numero_hasta, activo, observaciones')
+      .order('punto_venta')
+      .order('fecha_vencimiento', { ascending: false })
+    if (error) return { success: false, error: mensajePatch(error.message) }
+    return {
+      success: true,
+      data: ((data ?? []) as CaiRemito[]).map((c) => ({
+        ...c,
+        punto_venta: Number(c.punto_venta),
+        numero_desde: Number(c.numero_desde),
+        numero_hasta: Number(c.numero_hasta)
+      }))
+    }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Error al leer los CAI' }
+  }
+}
+
+export async function guardarCaiRemito(cai: Omit<CaiRemito, 'id'> & { id?: number }): Promise<Resultado<CaiRemito>> {
+  if (!supabase) return { success: false, error: 'Supabase no configurado' }
+  try {
+    const { data, error } = await supabase.rpc('remito_cai_guardar', { p_actor_id: actorId(), p_payload: cai })
+    if (error) return { success: false, error: mensajePatch(error.message) }
+    return { success: true, data: data as CaiRemito }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Error al guardar el CAI' }
+  }
+}
+
+/** Próximo número de Remito R del punto de venta (orientativo: la base asigna el definitivo). */
+export async function proximoNumeroRemitoR(puntoVenta: number, cais: CaiRemito[]): Promise<Resultado<number | null>> {
+  if (!supabase) return { success: false, error: 'Supabase no configurado' }
+  try {
+    const { data, error } = await supabase
+      .from('remitos')
+      .select('numero')
+      .eq('tipo', 'R')
+      .eq('punto_venta', puntoVenta)
+      .order('numero', { ascending: false })
+      .limit(1)
+    if (error) return { success: false, error: mensajePatch(error.message) }
+    const siguiente = (Number((data?.[0] as { numero?: number } | undefined)?.numero) || 0) + 1
+    const cai = cais
+      .filter((c) => c.activo && c.punto_venta === puntoVenta && c.numero_hasta >= siguiente)
+      .sort((a, b) => a.numero_desde - b.numero_desde)[0]
+    return { success: true, data: cai ? Math.max(siguiente, cai.numero_desde) : null }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Error al calcular el número' }
   }
 }

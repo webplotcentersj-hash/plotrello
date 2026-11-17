@@ -1,11 +1,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import {
-  MOMENTOS,
-  comisionDeVenta,
-  type MomentoComision
-} from '../features/comisiones/calculoComisiones'
+import ComisionesTablero from '../components/comisiones/ComisionesTablero'
+import ComisionesConfiguracion from '../components/comisiones/ComisionesConfiguracion'
+import { MOMENTOS } from '../features/comisiones/calculoComisiones'
 import {
   cambiarEstadoLiquidacion,
   generarLiquidacion,
@@ -36,13 +34,6 @@ const etiquetaMes = (yyyyMm: string) => {
   const nombre = MESES[Number(m) - 1] || yyyyMm
   return `${nombre} ${y}`
 }
-const variacion = (actual: number, anterior: number) => {
-  if (!anterior) return 'Sin mes anterior con ventas'
-  const delta = ((actual - anterior) / anterior) * 100
-  const abs = Math.abs(delta).toLocaleString('es-AR', { maximumFractionDigits: 1, minimumFractionDigits: 1 })
-  return delta >= 0 ? `${abs}% más que el mes anterior` : `${abs}% menos que el mes anterior`
-}
-
 const ESTADO_PILL: Record<string, string> = {
   pendiente: '',
   parcial: 'warn',
@@ -68,7 +59,6 @@ export default function ErpComisionesPage() {
   const [trabajando, setTrabajando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
-  const [simulador, setSimulador] = useState({ monto: 100000, porcentaje: 3 })
   const [busqueda, setBusqueda] = useState('')
   const [vendedorFiltro, setVendedorFiltro] = useState('todos')
 
@@ -109,64 +99,6 @@ export default function ErpComisionesPage() {
 
   const mesActualDatos = useMemo(() => porMes.find((p) => p.mes === mes) || null, [porMes, mes])
 
-  const totales = useMemo(() => {
-    const filas = mesActualDatos?.vendedores || []
-    return filas.reduce(
-      (acc, r) => ({
-        devengado: acc.devengado + (Number(r.devengado) || 0),
-        pendiente: acc.pendiente + (Number(r.pendiente) || 0),
-        base: acc.base + (Number(r.base_monto) || 0)
-      }),
-      { devengado: 0, pendiente: 0, base: 0 }
-    )
-  }, [mesActualDatos])
-
-  const mesPrevio = useMemo(() => {
-    const [y, m] = mes.split('-').map(Number)
-    const d = new Date(Date.UTC(y, m - 2, 1))
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-  }, [mes])
-  const mesPrevioDatos = useMemo(() => porMes.find((p) => p.mes === mesPrevio) || null, [porMes, mesPrevio])
-
-  const ventasDelMes = useMemo(
-    () => ventas.filter((v) => String(v.fecha_venta || '').slice(0, 7) === mes),
-    [ventas, mes]
-  )
-
-  const cobroDelMes = useMemo(() => {
-    const grupos = new Map<string, { cantidad: number; monto: number }>()
-    for (const v of ventasDelMes) {
-      const estado = v.estado_pago || 'Sin estado'
-      const actual = grupos.get(estado) || { cantidad: 0, monto: 0 }
-      actual.cantidad += 1
-      actual.monto += Number(v.monto_pagado) || 0
-      grupos.set(estado, actual)
-    }
-    return [...grupos.entries()].sort((a, b) => b[1].monto - a[1].monto)
-  }, [ventasDelMes])
-
-  const cobradoMes = useMemo(
-    () => ventasDelMes.reduce((suma, v) => suma + (Number(v.monto_pagado) || 0), 0),
-    [ventasDelMes]
-  )
-  const cobradoPorVendedor = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const v of ventasDelMes) {
-      const clave = String(v.id_vendedor ?? '')
-      map.set(clave, (map.get(clave) || 0) + (Number(v.monto_pagado) || 0))
-    }
-    return map
-  }, [ventasDelMes])
-
-  const ranking = useMemo(() => {
-    const filas = [...(mesActualDatos?.vendedores || [])].sort((a, b) => Number(b.base_monto) - Number(a.base_monto))
-    const max = Math.max(...filas.map((f) => Number(f.base_monto) || 0), 1)
-    return { filas, max, total: Number(mesActualDatos?.base_monto) || 0 }
-  }, [mesActualDatos])
-
-  const mesesCronologicos = useMemo(() => [...porMes].sort((a, b) => a.mes.localeCompare(b.mes)), [porMes])
-  const maxMes = useMemo(() => Math.max(...mesesCronologicos.map((p) => Number(p.base_monto) || 0), 1), [mesesCronologicos])
-
   const ventasVisibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
     return ventas.filter((v) => {
@@ -187,19 +119,6 @@ export default function ErpComisionesPage() {
     }
     return [...grupos.entries()].sort((a, b) => b[0].localeCompare(a[0]))
   }, [ventasVisibles])
-
-  const simulacion = useMemo(() => {
-    if (!config) return null
-    return comisionDeVenta(
-      { valor_total: simulador.monto, estado_pago: 'Pagado', facturada: true },
-        {
-        base: 'total',
-        momento: config.momento,
-        alicuotaIva: 0,
-        porcentaje: simulador.porcentaje
-      }
-    )
-  }, [config, simulador])
 
   const conAccion = async (
     accion: () => Promise<{ success: boolean; error?: string; mensaje?: string }>,
@@ -289,279 +208,38 @@ export default function ErpComisionesPage() {
         </div>
       )}
 
-      <div className="erp-stats-row">
-        <article className="erp-stat-card erp-stat-card--green">
-          <div className="erp-stat-card__icon">💵</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{pesos(totales.devengado)}</div>
-            <div className="erp-stat-card__label">Devengado del mes</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--amber">
-          <div className="erp-stat-card__icon">⏳</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{pesos(pendienteTotal)}</div>
-            <div className="erp-stat-card__label">Pendiente de pago (total)</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--sky">
-          <div className="erp-stat-card__icon">📊</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{pesos(totales.base)}</div>
-            <div className="erp-stat-card__label">Precio de venta del mes</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--violet">
-          <div className="erp-stat-card__icon">🧾</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{Number(mesActualDatos?.ventas) || 0}</div>
-            <div className="erp-stat-card__label">Ventas del mes</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--cyan">
-          <div className="erp-stat-card__icon">🏷️</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">
-              {pesos((Number(mesActualDatos?.ventas) || 0) > 0 ? (Number(mesActualDatos?.base_monto) || 0) / Number(mesActualDatos?.ventas) : 0)}
-            </div>
-            <div className="erp-stat-card__label">Ticket promedio</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--green">
-          <div className="erp-stat-card__icon">✅</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{pesos(cobradoMes)}</div>
-            <div className="erp-stat-card__label">
-              Cobrado
-              {(Number(mesActualDatos?.base_monto) || 0) > 0
-                ? ` · ${((cobradoMes / Number(mesActualDatos?.base_monto)) * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`
-                : ''}
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <section className="erp-panel">
-        <div className="erp-panel__head">
-          <h2>Estadísticas de {etiquetaMes(mes)}</h2>
-          <span className="erp-panel__hint">
-            {variacion(Number(mesActualDatos?.base_monto) || 0, Number(mesPrevioDatos?.base_monto) || 0)} en precio de venta
-            {' · '}
-            {variacion(Number(mesActualDatos?.ventas) || 0, Number(mesPrevioDatos?.ventas) || 0)} en cantidad
-          </span>
+      {config ? (
+        <ComisionesTablero
+          mes={mes}
+          onElegirMes={setMes}
+          momento={config.momento}
+          porcentajeGeneral={Number(config.porcentaje_default) || 0}
+          porMes={porMes}
+          ventas={ventas}
+          vendedores={vendedores}
+          pendienteTotal={pendienteTotal}
+          liquidaciones={liquidaciones}
+        />
+      ) : cargando ? (
+        <div className="erp-panel">
+          <span className="erp-muted">Calculando comisiones…</span>
         </div>
-        {config && Number(config.porcentaje_default) === 0 && totales.devengado === 0 && (
-          <p className="erp-muted comisiones-ayuda">
-            El porcentaje general está en 0, por eso la comisión del mes figura en $0. El precio y lo cobrado sí corresponden a las ventas.
-          </p>
-        )}
-        <div className="comisiones-estadisticas">
-          <div>
-            <h3 className="comisiones-subtitulo">Participación por vendedor</h3>
-            {ranking.filas.length === 0 ? (
-              <p className="erp-muted">Sin ventas en {etiquetaMes(mes)}.</p>
-            ) : (
-              <ul className="comisiones-ranking">
-                {ranking.filas.map((r) => {
-                  const parte = ranking.total > 0 ? (Number(r.base_monto) / ranking.total) * 100 : 0
-                  return (
-                    <li key={`${r.id_vendedor}-${r.nombre_vendedor}`}>
-                      <div className="comisiones-ranking__top">
-                        <strong>{r.nombre_vendedor}</strong>
-                        <span>
-                          {r.ventas} ventas · {pesos(r.base_monto)} · {parte.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%
-                        </span>
-                      </div>
-                      <div className="comisiones-barra" aria-hidden>
-                        <span style={{ width: `${(Number(r.base_monto) / ranking.max) * 100}%` }} />
-                      </div>
-                      <span className="erp-muted">
-                        Cobrado {pesos(cobradoPorVendedor.get(String(r.id_vendedor ?? '')) || 0)} · comisión {pesos(r.devengado)} · pendiente {pesos(r.pendiente)}
-                      </span>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
-          <div>
-            <h3 className="comisiones-subtitulo">Precio de venta por mes</h3>
-            <ul className="comisiones-ranking">
-              {mesesCronologicos.map((p) => (
-                <li key={p.mes}>
-                  <div className="comisiones-ranking__top">
-                    <strong>{etiquetaMes(p.mes)}</strong>
-                    <span>
-                      {p.ventas} ventas · {pesos(p.base_monto)}
-                    </span>
-                  </div>
-                  <div className="comisiones-barra" aria-hidden>
-                    <span
-                      className={p.mes === mes ? 'comisiones-barra__activa' : undefined}
-                      style={{ width: `${(Number(p.base_monto) / maxMes) * 100}%` }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <h3 className="comisiones-subtitulo">Estado de cobro</h3>
-            {cobroDelMes.length === 0 ? (
-              <p className="erp-muted">Sin ventas en {etiquetaMes(mes)}.</p>
-            ) : (
-              <ul className="comisiones-cobro">
-                {cobroDelMes.map(([estado, info]) => (
-                  <li key={estado}>
-                    <span>{estado}</span>
-                    <strong>
-                      {info.cantidad} · {pesos(info.monto)}
-                    </strong>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </section>
+      ) : null}
 
-      {config && (
-        <section className="erp-panel">
-          <div className="erp-panel__head">
-            <h2>Regla de cálculo</h2>
-            <span className="erp-panel__hint">Al cambiarla hay que recalcular el período</span>
-          </div>
-          <div className="comisiones-config">
-            <label className="erp-field">
-              <span className="erp-field__label">Se gana</span>
-              <select
-                value={config.momento}
-                disabled={trabajando}
-                onChange={(e) => handleGuardarConfig({ momento: e.target.value as MomentoComision })}
-              >
-                {MOMENTOS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="erp-field">
-              <span className="erp-field__label">% general</span>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                defaultValue={config.porcentaje_default}
-                disabled={trabajando}
-                onBlur={(e) => {
-                  const v = Number(e.target.value)
-                  if (Number.isFinite(v) && v !== Number(config.porcentaje_default)) handleGuardarConfig({ porcentaje_default: v })
-                }}
-              />
-            </label>
-          </div>
-          <p className="erp-muted comisiones-ayuda">
-            La comisión es un porcentaje del precio de venta. {MOMENTOS.find((m) => m.value === config.momento)?.ayuda}.
-          </p>
-
-          <div className="comisiones-simulador">
-            <strong>Simulador:</strong>
-            <label className="erp-field erp-field--inline">
-              <span className="erp-field__label">Precio de venta</span>
-              <input
-                type="number"
-                min="0"
-                step="1000"
-                value={simulador.monto}
-                onChange={(e) => setSimulador((s) => ({ ...s, monto: Number(e.target.value) || 0 }))}
-              />
-            </label>
-            <label className="erp-field erp-field--inline">
-              <span className="erp-field__label">%</span>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={simulador.porcentaje}
-                onChange={(e) => setSimulador((s) => ({ ...s, porcentaje: Number(e.target.value) || 0 }))}
-              />
-            </label>
-            {simulacion && (
-              <span className="erp-muted">
-                Sobre {pesos(simulacion.base_monto)} → comisión <strong>{pesos(simulacion.comision)}</strong>
-              </span>
-            )}
-          </div>
-        </section>
-      )}
-
-      <section className="erp-panel">
-        <div className="erp-panel__head">
-          <h2>Porcentaje por vendedor</h2>
-          <span className="erp-panel__hint">Sin porcentaje propio se usa el general ({config?.porcentaje_default ?? 0}%)</span>
-        </div>
-        <div className="erp-table-wrap">
-          <table className="erp-table">
-            <thead>
-              <tr>
-                <th>Vendedor</th>
-                <th>Rol</th>
-                <th>Ventas</th>
-                <th>%</th>
-                <th>Comisiona</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vendedores.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="erp-muted">
-                    {cargando ? 'Cargando…' : 'No hay usuarios con ventas registradas.'}
-                  </td>
-                </tr>
-              ) : (
-                vendedores.map((v) => (
-                  <tr key={v.id_usuario}>
-                    <td>{v.nombre}</td>
-                    <td className="erp-muted">{v.rol}</td>
-                    <td>{v.ventas}</td>
-                    <td>
-                      <input
-                        type="number"
-                        className="comisiones-input-pct"
-                        min="0"
-                        max="100"
-                        step="0.1"
-                        defaultValue={v.porcentaje}
-                        disabled={trabajando}
-                        onBlur={(e) => {
-                          const pct = Number(e.target.value)
-                          if (Number.isFinite(pct) && pct !== Number(v.porcentaje)) {
-                            void conAccion(() => guardarVendedorComision(v.id_usuario, pct, v.activo), `Actualizado ${v.nombre}.`)
-                          }
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={v.activo}
-                        disabled={trabajando}
-                        onChange={(e) =>
-                          void conAccion(
-                            () => guardarVendedorComision(v.id_usuario, v.porcentaje, e.target.checked),
-                            `Actualizado ${v.nombre}.`
-                          )
-                        }
-                      />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {config ? (
+        <ComisionesConfiguracion
+          config={config}
+          vendedores={vendedores}
+          mes={mes}
+          porMes={porMes}
+          ventas={ventas}
+          trabajando={trabajando}
+          onGuardarConfig={handleGuardarConfig}
+          onGuardarVendedor={(id, pct, activo, nombre) =>
+            conAccion(() => guardarVendedorComision(id, pct, activo), `Actualizado ${nombre}. Las comisiones se recalcularon.`)
+          }
+        />
+      ) : null}
 
       <section className="erp-panel">
         <div className="erp-panel__head">

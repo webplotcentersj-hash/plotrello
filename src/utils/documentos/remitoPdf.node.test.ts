@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 import type { Remito } from '../../features/remitos/remitosLogica.ts'
 import { assertContiene, leerPdf } from './leerPdfTest.ts'
-import { buildRemitoPdf, nombreArchivoRemito } from './remitoPdf.ts'
+import { validarCodigoBarrasAfip } from '../codigoBarrasAfip.ts'
+import { buildRemitoPdf, codigoBarrasRemitoR, nombreArchivoRemito } from './remitoPdf.ts'
 
 const LOGO = `data:image/png;base64,${readFileSync(new URL('../../../public/factura/plot-center-pc.png', import.meta.url)).toString('base64')}`
 const emisor = {
@@ -145,5 +146,86 @@ describe('Remito X (PDF)', () => {
     const raro: Remito = { ...base, cliente_nombre: 'ÑANDÚ & Hijos <S.A.> “Premium” – Ltda…', items: [{ orden: 1, descripcion: 'Cartel 50×50 – “luz” ½', cantidad: 1 }] }
     const { texto } = await leerPdf(await buildRemitoPdf(raro, emisor, { logoDataUrl: LOGO }))
     assertContiene(assert, texto, ['ÑANDÚ & Hijos <S.A.> "Premium" - Ltda...', 'Cartel 50'])
+  })
+})
+
+describe('Remito R y otras clases (PDF)', () => {
+  const remitoR: Remito = {
+    ...base,
+    tipo: 'R',
+    punto_venta: 2,
+    numero: 15,
+    cai: '71234567890123',
+    cai_vencimiento: '2027-06-30',
+    cliente_condicion_iva: 'Responsable Inscripto',
+    transportista: 'Transportes Andes',
+    transportista_cuit: '30-12345678-9'
+  }
+
+  it('lleva letra R, código 91, CAI, vencimiento y el código de barras RG 1702', async () => {
+    const barras = codigoBarrasRemitoR(remitoR, emisor.cuit)
+    assert.ok(barras && validarCodigoBarrasAfip(barras), 'código de 40 dígitos válido')
+    assert.equal(barras!.slice(0, 11), '30715518801', 'empieza con el CUIT del emisor')
+    assert.equal(barras!.slice(11, 13), '91', 'tipo de comprobante 91')
+    assert.equal(barras!.slice(13, 17), '0002', 'punto de venta del remito')
+    assert.equal(barras!.slice(17, 31), '71234567890123', 'CAI')
+    assert.equal(barras!.slice(31, 39), '20270630', 'vencimiento del CAI')
+
+    const { texto, paginas } = await leerPdf(await buildRemitoPdf(remitoR, emisor, { logoDataUrl: LOGO }))
+    assertContiene(assert, texto, [
+      'COD. 091',
+      'Remito N°: 0002-00000015',
+      'Condición IVA: Responsable Inscripto',
+      'CUIT transporte: 30-12345678-9',
+      'CAI N°: 71234567890123',
+      'Fecha de vencimiento: 30/06/2027',
+      barras!,
+      'Remito R - Documento no válido como factura'
+    ])
+    assert.ok(!texto.includes('NO FISCAL'), 'el R no dice "no fiscal"')
+    assert.equal(paginas, 1)
+    assert.equal(nombreArchivoRemito(remitoR), 'Remito_R_0002-00000015.pdf')
+  })
+
+  it('sin CUIT del emisor el R sale igual, con el CAI y sin código de barras', async () => {
+    assert.equal(codigoBarrasRemitoR(remitoR, ''), null)
+    const { texto } = await leerPdf(await buildRemitoPdf(remitoR, { ...emisor, cuit: '' }, { logoDataUrl: null }))
+    assertContiene(assert, texto, ['CAI N°: 71234567890123'])
+  })
+
+  it('devolución: título, columnas y saldo que vuelve a quedar pendiente', async () => {
+    const devolucion: Remito = {
+      ...base,
+      clase: 'Devolucion',
+      items: [{ orden: 1, id_venta_item: 1, descripcion: 'Cartel 1x1 en lona con bastidor', cantidad: 2, cantidad_pedida: 10, cantidad_previa: 6 }]
+    }
+    const { texto } = await leerPdf(await buildRemitoPdf(devolucion, emisor, { logoDataUrl: null }))
+    assertContiene(assert, texto, ['REMITO DE DEVOLUCIÓN', 'Devolución de mercadería', 'Devuelve', 'DEVOLUCIÓN', 'Entregó (firma y aclaración)'])
+    // pedido 10, entregado 6, devuelve 2 → saldo pendiente 6
+    assert.match(texto, /10 6 2 6/)
+    assert.ok(!texto.includes('ENTREGA PARCIAL'))
+  })
+
+  it('traslado: origen, destino y tabla simple', async () => {
+    const traslado: Remito = {
+      ...base,
+      clase: 'Traslado',
+      id_venta: null,
+      numero_venta: null,
+      id_op: null,
+      numero_op: null,
+      deposito_origen: 'Local central',
+      deposito_destino: 'Depósito Rawson',
+      items: [{ orden: 1, descripcion: 'Rollo vinilo blanco', unidad: 'u', cantidad: 3 }]
+    }
+    const { texto } = await leerPdf(await buildRemitoPdf(traslado, emisor, { logoDataUrl: null }))
+    assertContiene(assert, texto, [
+      'REMITO DE TRASLADO',
+      'Depósito de origen: Local central',
+      'Depósito de destino: Depósito Rawson',
+      'Rollo vinilo blanco',
+      '3 u',
+      'Recibió en destino'
+    ])
   })
 })

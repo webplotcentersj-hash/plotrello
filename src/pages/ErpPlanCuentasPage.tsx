@@ -1,147 +1,192 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
-import type { PlanCuentaRecord } from '../types/api'
+import {
+  USO_SISTEMA,
+  aplanar,
+  claveDe,
+  construirArbol,
+  controlesPlan,
+  ecuacionPatrimonial,
+  filtrarArbol,
+  necesitaReestructurar,
+  saldoNatural,
+  type CuentaPC,
+  type MovimientoPC,
+  type NodoPC,
+  type TipoCuenta
+} from '../features/plan-cuentas/planCuentas'
+import { descargarCsv } from '../utils/erpUi'
 import './ErpSectionPage.css'
 import './ErpPlanCuentasPage.css'
 
-type CuentaEnriquecida = PlanCuentaRecord & {
-  saldo_final: number | null
-  plotLink?: { label: string; path: string; hint: string }
-}
+const TIPOS: Array<{ tipo: TipoCuenta; label: string; clase: string }> = [
+  { tipo: 'Activo', label: 'Activo', clase: 'activo' },
+  { tipo: 'Pasivo', label: 'Pasivo', clase: 'pasivo' },
+  { tipo: 'Patrimonio', label: 'Patrimonio neto', clase: 'patrimonio' },
+  { tipo: 'Ingreso', label: 'Ingresos', clase: 'ingreso' },
+  { tipo: 'Costo', label: 'Costos', clase: 'costo' },
+  { tipo: 'Gasto', label: 'Gastos', clase: 'gasto' },
+  { tipo: 'Cuenta de Orden', label: 'De orden', clase: 'orden' }
+]
+const claseTipo = (t: string) => TIPOS.find((x) => x.tipo === t)?.clase ?? 'orden'
 
-const PLOT_LAB_CUENTAS: Record<string, { label: string; path: string; hint: string }> = {
-  '1.1.1.01': { label: 'Caja', path: '/erp/tesoreria', hint: 'Movimientos de caja Plot Lab' },
-  '1.1.1.02': { label: 'Bancos', path: '/erp/tesoreria', hint: 'Cuentas bancarias' },
-  '1.1.1.03': { label: 'Clientes', path: '/erp/cuentas-por-cobrar', hint: 'Ventas CRM y CxC' },
-  '1.1.2.01': { label: 'IVA ventas', path: '/erp/impuestos', hint: 'Libro IVA ventas / AFIP' },
-  '2.1.1.01': { label: 'Proveedores', path: '/erp/cuentas-por-pagar', hint: 'Compras y CxP' },
-  '2.1.2.01': { label: 'IVA compras', path: '/erp/impuestos?tab=compras', hint: 'Libro IVA compras' },
-  '4.1.1.01': { label: 'Ventas', path: '/erp/facturas', hint: 'Facturación emitida' }
-}
-
-const TIPOS = ['Activo', 'Pasivo', 'Patrimonio', 'Ingreso', 'Costo', 'Gasto', 'Cuenta de Orden'] as const
-
-function tipoClass(tipo: string): string {
-  const t = tipo.toLowerCase().replace(/\s+/g, '-')
-  if (t === 'activo') return 'plan-cuenta-tipo--activo'
-  if (t === 'pasivo') return 'plan-cuenta-tipo--pasivo'
-  if (t === 'patrimonio') return 'plan-cuenta-tipo--patrimonio'
-  if (t === 'ingreso') return 'plan-cuenta-tipo--ingreso'
-  if (t === 'costo' || t === 'gasto') return 'plan-cuenta-tipo--costo'
-  return 'plan-cuenta-tipo--orden'
-}
-
-function treeGlyph(nivel: number): string {
-  if (nivel <= 1) return '▣'
-  if (nivel === 2) return '▸'
-  if (nivel === 3) return '└'
-  return '·'
-}
+const pesos = (v: number) => v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const hoyAr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' })
 
 export default function ErpPlanCuentasPage() {
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
-  const [rows, setRows] = useState<CuentaEnriquecida[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [cuentas, setCuentas] = useState<CuentaPC[]>([])
+  const [movimientos, setMovimientos] = useState<Map<string, MovimientoPC>>(new Map())
   const [saldosOk, setSaldosOk] = useState(true)
-  const [fechaCorte, setFechaCorte] = useState(() => new Date().toISOString().split('T')[0])
-  const [filtros, setFiltros] = useState({
-    buscar: '',
-    tipo: '',
-    soloActivas: true,
-    soloConSaldo: false,
-    soloImputables: false
-  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [fechaCorte, setFechaCorte] = useState(hoyAr())
 
-  const load = async () => {
+  const [busqueda, setBusqueda] = useState('')
+  const [tipo, setTipo] = useState<TipoCuenta | ''>('')
+  const [soloConSaldo, setSoloConSaldo] = useState(false)
+  const [verBajas, setVerBajas] = useState(false)
+  const [abiertos, setAbiertos] = useState<Set<string> | null>(null)
+  const [controlAbierto, setControlAbierto] = useState<string | null>(null)
+
+  const cargar = useCallback(async () => {
     setLoading(true)
     setError(null)
-    try {
-      const [cuentasRes, balanceRes] = await Promise.all([
-        apiService.getPlanCuentas(filtros.soloActivas ? true : undefined),
-        apiService.getBalanceGeneral(fechaCorte)
-      ])
-
-      if (!cuentasRes.success || !cuentasRes.data) {
-        setRows([])
-        setError(cuentasRes.error || 'No se pudo cargar el plan de cuentas.')
-        return
-      }
-
-      const saldoMap = new Map<string, number>()
-      if (balanceRes.success && balanceRes.data) {
-        setSaldosOk(true)
-        for (const b of balanceRes.data) {
-          saldoMap.set(String(b.codigo_cuenta), Number(b.saldo_final) || 0)
-        }
-      } else {
-        setSaldosOk(false)
-      }
-
-      const enriched: CuentaEnriquecida[] = cuentasRes.data.map((c) => ({
-        ...c,
-        saldo_final: saldoMap.has(c.codigo) ? saldoMap.get(c.codigo)! : null,
-        plotLink: PLOT_LAB_CUENTAS[c.codigo]
-      }))
-
-      setRows(enriched)
-    } catch (e) {
-      setError('Error al cargar plan de cuentas')
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
-  }
+    const [cRes, bRes] = await Promise.all([apiService.getPlanCuentas(), apiService.getBalanceGeneral(fechaCorte)])
+    if (cRes.success && cRes.data) setCuentas(cRes.data as unknown as CuentaPC[])
+    else setError(cRes.error || 'No se pudo cargar el plan de cuentas.')
+    const m = new Map<string, MovimientoPC>()
+    if (bRes.success && bRes.data) {
+      for (const b of bRes.data) m.set(String(b.codigo_cuenta), { debe: Number(b.saldo_deudor) || 0, haber: Number(b.saldo_acreedor) || 0 })
+      setSaldosOk(true)
+    } else setSaldosOk(false)
+    setMovimientos(m)
+    setLoading(false)
+  }, [fechaCorte])
 
   useEffect(() => {
-    void load()
-  }, [fechaCorte, filtros.soloActivas])
+    void cargar()
+  }, [cargar])
 
-  const filtradas = useMemo(() => {
-    const q = filtros.buscar.trim().toLowerCase()
-    return rows.filter((c) => {
-      if (filtros.tipo && c.tipo !== filtros.tipo) return false
-      if (filtros.soloImputables && c.nivel < 4) return false
-      if (filtros.soloConSaldo && (c.saldo_final == null || Math.abs(c.saldo_final) < 0.01)) return false
-      if (!q) return true
-      return c.codigo.toLowerCase().includes(q) || c.nombre.toLowerCase().includes(q)
+  const visiblesBase = useMemo(() => cuentas.filter((c) => verBajas || c.activa), [cuentas, verBajas])
+  const arbol = useMemo(() => construirArbol(visiblesBase, movimientos), [visiblesBase, movimientos])
+  const todos = useMemo(() => aplanar(arbol), [arbol])
+  const ecuacion = useMemo(() => ecuacionPatrimonial(cuentas, movimientos), [cuentas, movimientos])
+  const controles = useMemo(() => controlesPlan(cuentas, movimientos), [cuentas, movimientos])
+  const reestructurar = useMemo(() => necesitaReestructurar(cuentas), [cuentas])
+
+  // Por defecto: abiertos los niveles 1 y 2 (se ven los rubros); el resto se despliega a pedido.
+  const abiertosEfectivos = useMemo(
+    () => abiertos ?? new Set(todos.filter((n) => n.codigo.split('.').length <= 2).map((n) => n.codigo)),
+    [abiertos, todos]
+  )
+
+  const filtrando = Boolean(busqueda.trim() || soloConSaldo)
+  const arbolVisible = useMemo(() => {
+    let base = tipo ? arbol.filter((r) => r.tipo === tipo) : arbol
+    const q = busqueda.trim().toLowerCase()
+    if (q || soloConSaldo) {
+      base = filtrarArbol(base, (n) => {
+        if (soloConSaldo && !(n.imputable && Math.abs(n.saldoDH) > 0.009)) return false
+        if (!q) return true
+        return `${n.codigo} ${n.nombre} ${n.descripcion ?? ''}`.toLowerCase().includes(q)
+      })
+    }
+    return base
+  }, [arbol, tipo, busqueda, soloConSaldo])
+
+  const alternar = (codigo: string) =>
+    setAbiertos(() => {
+      const n = new Set(abiertosEfectivos)
+      if (n.has(codigo)) n.delete(codigo)
+      else n.add(codigo)
+      return n
     })
-  }, [rows, filtros])
 
-  const kpis = useMemo(() => {
-    const activas = rows.filter((c) => c.activa).length
-    const imputables = rows.filter((c) => c.nivel >= 4).length
-    const conSaldo = rows.filter((c) => c.saldo_final != null && Math.abs(c.saldo_final) > 0.01).length
-    const saldoActivo = rows
-      .filter((c) => c.tipo === 'Activo' && c.nivel === 1)
-      .reduce((s, c) => s + (c.saldo_final || 0), 0)
-    const saldoIngresos = rows
-      .filter((c) => c.tipo === 'Ingreso')
-      .reduce((s, c) => s + Math.abs(c.saldo_final || 0), 0)
-    return { total: rows.length, activas, imputables, conSaldo, saldoActivo, saldoIngresos }
-  }, [rows])
+  const stats = useMemo(() => {
+    const imputables = todos.filter((n) => n.imputable).length
+    return {
+      total: todos.length,
+      imputables,
+      rubros: todos.length - imputables,
+      conMovimiento: todos.filter((n) => n.imputable && Math.abs(n.saldoDH) > 0.009).length,
+      sistema: todos.filter((n) => claveDe(n)).length
+    }
+  }, [todos])
 
-  const porTipo = useMemo(() => {
-    const m: Record<string, number> = {}
-    for (const t of TIPOS) m[t] = 0
-    for (const c of rows) m[c.tipo] = (m[c.tipo] || 0) + 1
-    return m
-  }, [rows])
+  const exportar = () =>
+    descargarCsv(
+      `Plan_de_cuentas_${fechaCorte}.csv`,
+      ['Código', 'Cuenta', 'Tipo', 'Naturaleza', 'Imputable', 'Activa', 'Uso en el sistema', 'Saldo al corte'],
+      todos.map((n) => [
+        n.codigo,
+        n.nombre,
+        n.tipo,
+        n.naturaleza,
+        n.imputable ? 'Sí' : 'No',
+        n.activa ? 'Sí' : 'No',
+        claveDe(n) ? USO_SISTEMA[claveDe(n)!]?.label ?? '' : '',
+        saldoNatural(n).toFixed(2).replace('.', ',')
+      ])
+    )
+
+  const renderNodo = (n: NodoPC, profundidad: number): ReactElement[] => {
+    const abierto = filtrando || abiertosEfectivos.has(n.codigo)
+    const clave = claveDe(n)
+    const uso = clave ? USO_SISTEMA[clave] : null
+    const saldo = saldoNatural(n)
+    const contrario = n.imputable && saldo < -0.009
+    const filas: ReactElement[] = [
+      <div
+        key={n.codigo}
+        className={`pc-fila pc-fila--n${Math.min(profundidad, 4)}${n.imputable ? ' is-hoja' : ' is-rubro'}${!n.activa ? ' is-baja' : ''}`}
+        style={{ paddingLeft: 12 + profundidad * 20 }}
+      >
+        <span className="pc-fila__caret">
+          {!n.imputable ? (
+            <button type="button" onClick={() => alternar(n.codigo)} aria-label={abierto ? 'Contraer' : 'Desplegar'} aria-expanded={abierto}>
+              {abierto ? '▾' : '▸'}
+            </button>
+          ) : null}
+        </span>
+        <code className="pc-fila__codigo">{n.codigo}</code>
+        <span className="pc-fila__nombre">
+          <span>{n.nombre}</span>
+          {n.descripcion ? <small>{n.descripcion}</small> : null}
+        </span>
+        <span className="pc-fila__badges">
+          {uso ? (
+            <button type="button" className="pc-badge pc-badge--sistema" title={`Usada por: ${uso.label}`} onClick={() => navigate(uso.path)}>
+              ⚙ {uso.label}
+            </button>
+          ) : null}
+          {n.regularizadora ? <span className="pc-badge pc-badge--reg" title="Saldo de signo contrario a su rubro">Regularizadora</span> : null}
+          {!n.activa ? <span className="pc-badge pc-badge--baja">Dada de baja</span> : null}
+        </span>
+        <span className={`pc-fila__saldo${contrario ? ' is-contrario' : ''}${Math.abs(n.saldoDH) < 0.01 ? ' is-cero' : ''}`}>
+          {Math.abs(n.saldoDH) < 0.01 ? '—' : `$ ${pesos(Math.abs(n.saldoDH))}`}
+          {Math.abs(n.saldoDH) >= 0.01 ? <em>{n.saldoDH > 0 ? 'D' : 'A'}</em> : null}
+        </span>
+      </div>
+    ]
+    if (abierto) for (const h of n.hijos) filas.push(...renderNodo(h, profundidad + 1))
+    return filas
+  }
+
+  const errores = controles.filter((c) => c.nivel === 'error').length
 
   return (
     <div className="erp-section plan-cuentas-page">
       <header className="erp-section-header">
         <div className="erp-section-header__brand">
           <div className="erp-section-header__icon" aria-hidden>
-            📋
+            🗂️
           </div>
           <div>
-            <p className="erp-section-header__eyebrow">Plot Lab · Contable</p>
+            <p className="erp-section-header__eyebrow">Contable</p>
             <h1>Plan de cuentas</h1>
-            <p className="erp-section-sub">
-              Estructura contable vinculada a facturación, ventas CRM, tesorería e impuestos
-            </p>
+            <p className="erp-section-sub">Estructura por rubros (RT 9 FACPCE) con saldos al corte y las cuentas que usa cada proceso</p>
           </div>
         </div>
         <div className="erp-section-actions">
@@ -149,7 +194,10 @@ export default function ErpPlanCuentasPage() {
             ← Contable
           </button>
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp/asientos')}>
-            Asientos
+            Libro Diario
+          </button>
+          <button type="button" className="btn-secondary" onClick={exportar} disabled={loading}>
+            Exportar CSV
           </button>
           <button type="button" className="btn-primary" onClick={() => navigate('/erp/contabilidad')}>
             Reportes
@@ -157,228 +205,195 @@ export default function ErpPlanCuentasPage() {
         </div>
       </header>
 
-      {error && (
-        <div className="erp-panel">
-          <span className="erp-pill danger">Error</span> <span className="erp-muted">{error}</span>
+      {error ? <div className="pc-aviso pc-aviso--error">{error}</div> : null}
+
+      {reestructurar ? (
+        <div className="pc-aviso pc-aviso--warn">
+          <strong>El plan tiene cuentas fuera de su rubro.</strong> IVA Débito Fiscal figura dentro del Activo, IVA Crédito Fiscal dentro del Pasivo
+          y Clientes dentro de Caja y bancos. Ejecutá <code>supabase/patches/2026-11-17_plan_cuentas_estructura.sql</code>: las mueve a su lugar
+          (sin tocar los asientos ya registrados), actualiza los asientos automáticos y completa la estructura.
         </div>
-      )}
+      ) : null}
+      {!saldosOk ? (
+        <div className="pc-aviso pc-aviso--warn">Los saldos no están disponibles (falta la función obtener_balance_general). El plan se muestra igual.</div>
+      ) : null}
 
-      {!saldosOk && (
-        <div className="erp-notice">
-          <span>
-            Los saldos no están disponibles (falta la función <code>obtener_balance_general</code> en Supabase). El
-            árbol de cuentas se muestra igual; aplicá el patch ERP contable para ver movimientos.
-          </span>
-        </div>
-      )}
-
-      <div className="erp-stats-row">
-        <article className="erp-stat-card erp-stat-card--green">
-          <div className="erp-stat-card__icon">🌳</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{loading ? '…' : kpis.total}</div>
-            <div className="erp-stat-card__label">Cuentas en el plan</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--cyan">
-          <div className="erp-stat-card__icon">✓</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{loading ? '…' : kpis.imputables}</div>
-            <div className="erp-stat-card__label">Imputables (nivel 4+)</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--violet">
-          <div className="erp-stat-card__icon">📊</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{loading ? '…' : kpis.conSaldo}</div>
-            <div className="erp-stat-card__label">Con saldo al corte</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--amber">
-          <div className="erp-stat-card__icon">🔗</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{Object.keys(PLOT_LAB_CUENTAS).length}</div>
-            <div className="erp-stat-card__label">Cuentas Plot Lab</div>
-          </div>
-        </article>
-      </div>
-
-      <div className="erp-quick-grid plan-cuentas-quick">
-        <button type="button" className="erp-quick-card" style={{ '--quick-accent': '#059669' } as CSSProperties} onClick={() => navigate('/erp/facturas')}>
-          <span className="erp-quick-card__glow" />
-          <span className="erp-quick-card__icon">🧾</span>
-          <span className="erp-quick-card__title">Facturación</span>
-          <span className="erp-quick-card__desc">4.1.1.01 Ventas · asientos automáticos</span>
-          <span className="erp-quick-card__arrow">→</span>
-        </button>
-        <button type="button" className="erp-quick-card" style={{ '--quick-accent': '#0ea5e9' } as CSSProperties} onClick={() => navigate('/erp/tesoreria')}>
-          <span className="erp-quick-card__glow" />
-          <span className="erp-quick-card__icon">🏦</span>
-          <span className="erp-quick-card__title">Tesorería</span>
-          <span className="erp-quick-card__desc">1.1.1.01 Caja · 1.1.1.02 Bancos</span>
-          <span className="erp-quick-card__arrow">→</span>
-        </button>
-        <button type="button" className="erp-quick-card" style={{ '--quick-accent': '#6366f1' } as CSSProperties} onClick={() => navigate('/erp/cuentas-por-cobrar')}>
-          <span className="erp-quick-card__glow" />
-          <span className="erp-quick-card__icon">💳</span>
-          <span className="erp-quick-card__title">CxC / Ventas</span>
-          <span className="erp-quick-card__desc">1.1.1.03 Clientes desde CRM</span>
-          <span className="erp-quick-card__arrow">→</span>
-        </button>
-        <button type="button" className="erp-quick-card" style={{ '--quick-accent': '#f59e0b' } as CSSProperties} onClick={() => navigate('/erp/impuestos')}>
-          <span className="erp-quick-card__glow" />
-          <span className="erp-quick-card__icon">🏛️</span>
-          <span className="erp-quick-card__title">Impuestos</span>
-          <span className="erp-quick-card__desc">IVA débito / crédito fiscal</span>
-          <span className="erp-quick-card__arrow">→</span>
-        </button>
-      </div>
-
-      <section className="erp-panel">
-        <div className="erp-toolbar">
-          <label className="erp-field" style={{ flex: 1, minWidth: 180 }}>
-            <span className="erp-field__label">Buscar</span>
-            <input
-              type="search"
-              placeholder="Código o nombre…"
-              value={filtros.buscar}
-              onChange={(e) => setFiltros((p) => ({ ...p, buscar: e.target.value }))}
-            />
-          </label>
-          <label className="erp-field">
-            <span className="erp-field__label">Tipo</span>
-            <select value={filtros.tipo} onChange={(e) => setFiltros((p) => ({ ...p, tipo: e.target.value }))}>
-              <option value="">Todos</option>
-              {TIPOS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="erp-field">
-            <span className="erp-field__label">Saldo al</span>
-            <input type="date" value={fechaCorte} onChange={(e) => setFechaCorte(e.target.value)} />
-          </label>
-          <label className="erp-field erp-field--check">
-            <span className="erp-field__label">&nbsp;</span>
-            <label className="plan-cuentas-check" style={{ margin: 0 }}>
-              <input
-                type="checkbox"
-                checked={filtros.soloActivas}
-                onChange={(e) => setFiltros((p) => ({ ...p, soloActivas: e.target.checked }))}
-              />
-              Solo activas
-            </label>
-          </label>
-          <label className="erp-field erp-field--check">
-            <span className="erp-field__label">&nbsp;</span>
-            <label className="plan-cuentas-check" style={{ margin: 0 }}>
-              <input
-                type="checkbox"
-                checked={filtros.soloImputables}
-                onChange={(e) => setFiltros((p) => ({ ...p, soloImputables: e.target.checked }))}
-              />
-              Solo imputables
-            </label>
-          </label>
-          <label className="erp-field erp-field--check">
-            <span className="erp-field__label">&nbsp;</span>
-            <label className="plan-cuentas-check" style={{ margin: 0 }}>
-              <input
-                type="checkbox"
-                checked={filtros.soloConSaldo}
-                onChange={(e) => setFiltros((p) => ({ ...p, soloConSaldo: e.target.checked }))}
-              />
-              Con saldo
-            </label>
-          </label>
-        </div>
-
-        <div className="plan-cuentas-resumen-tipos">
-          {TIPOS.filter((t) => porTipo[t] > 0).map((t) => (
-            <div key={t} className="plan-cuentas-tipo-chip">
-              <strong>{porTipo[t]}</strong>
-              <span>{t}</span>
+      {/* Ecuación patrimonial + resumen */}
+      <section className="pc-resumen">
+        <div className={`pc-ecuacion ${Math.abs(ecuacion.diferencia) < 0.01 ? 'is-ok' : 'is-error'}`}>
+          <p className="pc-label">
+            Ecuación patrimonial al{' '}
+            <input type="date" value={fechaCorte} onChange={(e) => e.target.value && setFechaCorte(e.target.value)} aria-label="Fecha de corte" />
+          </p>
+          <div className="pc-ecuacion__fila">
+            <div className="pc-ecuacion__termino pc-t--activo">
+              <span>Activo</span>
+              <strong>{pesos(ecuacion.activo)}</strong>
             </div>
+            <b className="pc-ecuacion__op">=</b>
+            <div className="pc-ecuacion__termino pc-t--pasivo">
+              <span>Pasivo</span>
+              <strong>{pesos(ecuacion.pasivo)}</strong>
+            </div>
+            <b className="pc-ecuacion__op">+</b>
+            <div className="pc-ecuacion__termino pc-t--patrimonio">
+              <span>Patrimonio neto</span>
+              <strong>{pesos(ecuacion.patrimonio)}</strong>
+            </div>
+            <b className="pc-ecuacion__op">+</b>
+            <div className={`pc-ecuacion__termino ${ecuacion.resultado >= 0 ? 'pc-t--ingreso' : 'pc-t--gasto'}`}>
+              <span>Resultado del ejercicio</span>
+              <strong>{pesos(ecuacion.resultado)}</strong>
+            </div>
+          </div>
+          <p className="pc-ecuacion__estado">
+            {Math.abs(ecuacion.diferencia) < 0.01
+              ? '✓ Balancea: la contabilidad cumple la partida doble.'
+              : `✗ Diferencia de $ ${pesos(Math.abs(ecuacion.diferencia))}: hay asientos desbalanceados.`}
+          </p>
+        </div>
+        <div className="pc-stats">
+          <div>
+            <strong>{stats.imputables}</strong>
+            <span>cuentas imputables</span>
+          </div>
+          <div>
+            <strong>{stats.rubros}</strong>
+            <span>rubros</span>
+          </div>
+          <div>
+            <strong>{stats.conMovimiento}</strong>
+            <span>con saldo</span>
+          </div>
+          <div>
+            <strong>{stats.sistema}</strong>
+            <span>usadas por el sistema</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Coherencia */}
+      {!loading && controles.length ? (
+        <section className={`pc-controles${errores ? ' has-error' : ''}`}>
+          <h2>
+            Coherencia del plan{' '}
+            <small>{errores ? `${errores} problema(s) a corregir` : 'sin errores de estructura'}</small>
+          </h2>
+          <ul>
+            {controles.map((c) => (
+              <li key={c.codigo} className={`is-${c.nivel}`}>
+                <button type="button" onClick={() => setControlAbierto((x) => (x === c.codigo ? null : c.codigo))} aria-expanded={controlAbierto === c.codigo}>
+                  <span>{c.texto}</span>
+                  <em>
+                    {c.cuentas.length} {controlAbierto === c.codigo ? '▾' : '▸'}
+                  </em>
+                </button>
+                {controlAbierto === c.codigo ? (
+                  <ul className="pc-controles__lista">
+                    {c.cuentas.map((x) => (
+                      <li key={x}>{x}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* Filtros */}
+      <div className="pc-filtros">
+        <input
+          type="search"
+          className="pc-buscar"
+          placeholder="Buscar código, cuenta o descripción…"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+        <div className="pc-tipos" role="tablist" aria-label="Tipo de cuenta">
+          <button type="button" role="tab" aria-selected={tipo === ''} className={tipo === '' ? 'is-on' : undefined} onClick={() => setTipo('')}>
+            Todas
+          </button>
+          {TIPOS.filter((t) => arbol.some((r) => r.tipo === t.tipo)).map((t) => (
+            <button
+              key={t.tipo}
+              type="button"
+              role="tab"
+              aria-selected={tipo === t.tipo}
+              className={`pc-tipo--${t.clase}${tipo === t.tipo ? ' is-on' : ''}`}
+              onClick={() => setTipo(t.tipo)}
+            >
+              {t.label}
+            </button>
           ))}
         </div>
-      </section>
-
-      <section className="erp-panel plan-cuentas-tree-panel">
-        <div className="erp-panel__head">
-          <div>
-            <h2>Árbol contable</h2>
-            <p className="erp-panel__hint">
-              {filtradas.length} cuenta{filtradas.length !== 1 ? 's' : ''} · saldos desde asientos Plot Lab
-            </p>
-          </div>
+        <label className="pc-check">
+          <input type="checkbox" checked={soloConSaldo} onChange={(e) => setSoloConSaldo(e.target.checked)} />
+          Solo con saldo
+        </label>
+        <label className="pc-check">
+          <input type="checkbox" checked={verBajas} onChange={(e) => setVerBajas(e.target.checked)} />
+          Ver dadas de baja
+        </label>
+        <div className="pc-expandir">
+          <button type="button" onClick={() => setAbiertos(new Set(todos.filter((n) => !n.imputable).map((n) => n.codigo)))}>
+            Desplegar todo
+          </button>
+          <button type="button" onClick={() => setAbiertos(new Set(todos.filter((n) => n.codigo.split('.').length === 1).map((n) => n.codigo)))}>
+            Solo rubros principales
+          </button>
         </div>
+      </div>
 
-        {loading ? (
-          <p className="erp-muted">Cargando plan de cuentas…</p>
-        ) : filtradas.length === 0 ? (
-          <p className="erp-muted">No hay cuentas que coincidan con los filtros.</p>
-        ) : (
-          <>
-            <div className="plan-cuentas-tree-head">
-              <span>Cuenta</span>
-              <span>Código</span>
-              <span>Tipo</span>
-              <span>Naturaleza</span>
-              <span>Saldo</span>
-              <span>Plot Lab</span>
-            </div>
-            <div className="plan-cuentas-tree-body">
-              {filtradas.map((c) => {
-                const saldo = c.saldo_final
-                const saldoCls =
-                  saldo == null || Math.abs(saldo) < 0.01
-                    ? 'plan-cuenta-saldo plan-cuenta-saldo--zero'
-                    : saldo < 0
-                      ? 'plan-cuenta-saldo plan-cuenta-saldo--neg'
-                      : 'plan-cuenta-saldo'
-                return (
-                  <div
-                    key={c.id}
-                    className={`plan-cuenta-row plan-cuenta-row--n${Math.min(c.nivel, 4)}${c.nivel >= 4 ? ' plan-cuenta-row--imputable' : ''}`}
-                  >
-                    <div className="plan-cuenta-nombre" style={{ paddingLeft: `${(c.nivel - 1) * 14}px` }}>
-                      <span className="plan-cuenta-nombre__indent" aria-hidden>
-                        {treeGlyph(c.nivel)}
-                      </span>
-                      <span className="plan-cuenta-nombre__text">{c.nombre}</span>
-                      {!c.activa && <span className="erp-pill warn">Inactiva</span>}
+      {/* Árbol */}
+      {loading ? (
+        <p className="pc-vacio">Cargando plan de cuentas…</p>
+      ) : arbolVisible.length === 0 ? (
+        <p className="pc-vacio">No hay cuentas que coincidan.</p>
+      ) : (
+        <div className="pc-arbol">
+          {arbolVisible.map((raiz) => {
+            const saldo = saldoNatural(raiz)
+            const abierta = filtrando || abiertosEfectivos.has(raiz.codigo)
+            const cantidad = aplanar([raiz]).filter((n) => n.imputable).length
+            return (
+              <section key={raiz.codigo} className={`pc-raiz pc-raiz--${claseTipo(raiz.tipo)}`}>
+                <button type="button" className="pc-raiz__head" onClick={() => alternar(raiz.codigo)} aria-expanded={abierta}>
+                  <span className="pc-raiz__codigo">{raiz.codigo}</span>
+                  <span className="pc-raiz__nombre">
+                    {raiz.nombre}
+                    <small>
+                      {cantidad} cuentas imputables · naturaleza {raiz.naturaleza.toLowerCase()}
+                    </small>
+                  </span>
+                  <span className="pc-raiz__saldo">
+                    {Math.abs(saldo) < 0.01 ? 'Sin saldo' : `$ ${pesos(saldo)}`}
+                  </span>
+                  <span className="pc-raiz__caret" aria-hidden>
+                    {abierta ? '▾' : '▸'}
+                  </span>
+                </button>
+                {abierta ? (
+                  <div className="pc-raiz__cuerpo">
+                    <div className="pc-cabecera">
+                      <span />
+                      <span>Código</span>
+                      <span>Cuenta</span>
+                      <span />
+                      <span className="pc-cabecera__saldo">Saldo al {fechaCorte.split('-').reverse().join('/')}</span>
                     </div>
-                    <span className="plan-cuenta-codigo">{c.codigo}</span>
-                    <span className={`plan-cuenta-tipo ${tipoClass(c.tipo)}`}>{c.tipo}</span>
-                    <span className="erp-muted">{c.naturaleza}</span>
-                    <span className={saldoCls}>
-                      {saldo != null
-                        ? `$${saldo.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
-                        : '—'}
-                    </span>
-                    <span>
-                      {c.plotLink ? (
-                        <button
-                          type="button"
-                          className="plan-cuenta-link"
-                          title={c.plotLink.hint}
-                          onClick={() => navigate(c.plotLink!.path)}
-                        >
-                          {c.plotLink.label} →
-                        </button>
-                      ) : (
-                        <span className="erp-muted">—</span>
-                      )}
-                    </span>
+                    {raiz.hijos.flatMap((h) => renderNodo(h, 0))}
                   </div>
-                )
-              })}
-            </div>
-          </>
-        )}
-      </section>
+                ) : null}
+              </section>
+            )
+          })}
+        </div>
+      )}
+      <p className="pc-pie">
+        D = saldo deudor · A = saldo acreedor. En rojo, cuentas con saldo contrario a su naturaleza. Las regularizadoras (amortizaciones,
+        previsiones, descuentos) tienen naturaleza opuesta a su rubro a propósito.
+      </p>
     </div>
   )
 }

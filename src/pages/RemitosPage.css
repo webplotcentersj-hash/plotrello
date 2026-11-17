@@ -107,3 +107,33 @@
     gap: 2px;
   }
 }
+
+.remitos-letra {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.remitos-letra--x {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.remitos-letra--r {
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+.remitos-cai-celda {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}

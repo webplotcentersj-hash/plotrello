@@ -1,436 +1,609 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
-import type { AsientoContableRecord } from '../types/api'
+import {
+  anularBorrador,
+  contabilizar,
+  crearContraasiento,
+  indiceEjercicio,
+  listarAsientos
+} from '../services/asientosApi'
+import { listPeriodosContables, type PeriodoContable } from '../services/erpContableApi'
+import {
+  buscarEnAsiento,
+  comprobanteRespaldatorio,
+  contraasiento,
+  controlesAsiento,
+  lineasFormaDiario,
+  nombreCuenta,
+  numerosDeOrden,
+  ordenCronologico,
+  puedeContabilizar,
+  resumenLibro,
+  type AsientoLD
+} from '../features/asientos/libroDiario'
+import { descargarLibroDiarioPdf, libroDiarioCsv } from '../utils/documentos/libroDiarioPdf'
+import { descargarCsv } from '../utils/erpUi'
 import './ErpSectionPage.css'
 import './AsientosContablesPage.css'
 
-type Pendientes = {
-  facturas: Array<{
-    id: number
-    numero_factura: string
-    cliente_nombre: string
-    total: number
-    fecha_emision: string
-    id_venta?: number | null
-  }>
-  cobrosPagos: Array<{
-    id: number
-    tipo: string
-    monto: number
-    fecha_pago: string
-    metodo_pago?: string | null
-  }>
+type Pendientes = { facturas: Array<{ id: number }>; cobrosPagos: Array<{ id: number }> }
+type FiltroEstado = '' | 'Contabilizado' | 'Borrador' | 'Anulado' | 'conProblemas'
+
+const POR_PAGINA = 40
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+const hoyAr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' })
+const fechaAr = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/')
+const pesos = (v: number) => v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const mesLabel = (ym: string) => `${MESES[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`
+const ultimoDia = (ym: string) => {
+  const [y, m] = ym.split('-').map(Number)
+  return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
+}
+const sumarMes = (ym: string, n: number) => {
+  const [y, m] = ym.split('-').map(Number)
+  const d = new Date(y, m - 1 + n, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 export default function AsientosContablesPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const hoy = hoyAr()
+
+  const [mes, setMes] = useState(hoy.slice(0, 7))
+  const [ejercicioCompleto, setEjercicioCompleto] = useState(false)
+  const [asientos, setAsientos] = useState<AsientoLD[]>([])
+  const [indice, setIndice] = useState<AsientoLD[]>([])
+  const [periodos, setPeriodos] = useState<PeriodoContable[]>([])
+  const [pendientes, setPendientes] = useState<Pendientes>({ facturas: [], cobrosPagos: [] })
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
-  const [asientos, setAsientos] = useState<(AsientoContableRecord & { detalles?: any[] })[]>([])
-  const [pendientes, setPendientes] = useState<Pendientes>({ facturas: [], cobrosPagos: [] })
-  const [syncMsg, setSyncMsg] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [filtros, setFiltros] = useState({
-    estado: searchParams.get('estado') || '',
-    tipo: searchParams.get('tipo') || '',
-    fechaDesde: '',
-    fechaHasta: ''
-  })
+  const [trabajando, setTrabajando] = useState(false)
+  const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
 
-  const loadPendientes = useCallback(async () => {
-    const r = await apiService.getErpPendientesAsientosSync()
-    if (r.success && r.data) setPendientes(r.data)
-    else setPendientes({ facturas: [], cobrosPagos: [] })
+  const [busqueda, setBusqueda] = useState('')
+  const [estado, setEstado] = useState<FiltroEstado>((searchParams.get('estado') as FiltroEstado) || '')
+  const [origen, setOrigen] = useState(searchParams.get('tipo') || '')
+  const [pagina, setPagina] = useState(0)
+  const [abiertos, setAbiertos] = useState<Set<number>>(new Set())
+  const [reversion, setReversion] = useState<{ asiento: AsientoLD; fecha: string; motivo: string } | null>(null)
+
+  const anio = mes.slice(0, 4)
+  const desde = ejercicioCompleto ? `${anio}-01-01` : `${mes}-01`
+  const hasta = ejercicioCompleto ? `${anio}-12-31` : ultimoDia(mes)
+
+  const cargar = useCallback(async () => {
+    setLoading(true)
+    const [lista, idx, pers, pend] = await Promise.all([
+      listarAsientos(desde, hasta),
+      indiceEjercicio(`${anio}-01-01`, `${anio}-12-31`),
+      listPeriodosContables(),
+      apiService.getErpPendientesAsientosSync()
+    ])
+    if (lista.success) setAsientos(lista.data)
+    else setAviso({ tipo: 'error', texto: lista.error })
+    if (idx.success) setIndice(idx.data)
+    if (pers.success) setPeriodos(pers.data)
+    setPendientes(pend.success && pend.data ? pend.data : { facturas: [], cobrosPagos: [] })
+    setLoading(false)
+  }, [desde, hasta, anio])
+
+  const sincronizar = useCallback(
+    async (silencioso: boolean) => {
+      setSyncing(true)
+      try {
+        const r = await apiService.erpSyncAsientosDesdeFacturacion()
+        if (r.success && r.data) {
+          const { facturas_generadas: f, cobros_generados: c, errores } = r.data
+          if (f + c > 0 || !silencioso) setAviso({ tipo: 'ok', texto: `Asientos generados: ${f} de facturas y ${c} de cobros/pagos.` })
+          if (errores.length) setAviso({ tipo: 'error', texto: errores.slice(0, 2).join(' · ') + (errores.length > 2 ? ` (+${errores.length - 2})` : '') })
+        } else if (!r.success && !silencioso) setAviso({ tipo: 'error', texto: r.error || 'No se pudo sincronizar' })
+      } finally {
+        setSyncing(false)
+      }
+    },
+    []
+  )
+
+  // Al entrar: genera los asientos automáticos que falten y después carga.
+  useEffect(() => {
+    void sincronizar(true).then(() => cargar())
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar
   }, [])
 
-  const loadAsientos = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const response = await apiService.getAsientosContables({
-        estado: filtros.estado ? (filtros.estado as 'Borrador' | 'Contabilizado' | 'Anulado') : undefined,
-        tipo_asiento: filtros.tipo || undefined,
-        fechaDesde: filtros.fechaDesde || undefined,
-        fechaHasta: filtros.fechaHasta || undefined
-      })
+  useEffect(() => {
+    if (!syncing) void cargar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recarga al cambiar el período
+  }, [desde, hasta])
 
-      if (response.success && response.data) setAsientos(response.data)
-      else {
-        setAsientos([])
-        if (!response.success) setError(response.error || 'No se pudieron cargar asientos.')
-      }
+  useEffect(() => setPagina(0), [busqueda, estado, origen, desde, hasta])
+
+  const orden = useMemo(() => numerosDeOrden(indice.length ? indice : asientos), [indice, asientos])
+  const resumen = useMemo(() => resumenLibro(asientos, hoy), [asientos, hoy])
+  const periodoCerrado = !ejercicioCompleto && periodos.some((p) => p.periodo === mes && p.estado === 'Cerrado')
+
+  const visibles = useMemo(() => {
+    const filtrados = asientos.filter((a) => {
+      if (estado === 'conProblemas') {
+        if (a.estado === 'Anulado' || !controlesAsiento(a).some((c) => c.nivel === 'error')) return false
+      } else if (estado && a.estado !== estado) return false
+      if (origen && a.tipo_asiento !== origen) return false
+      return buscarEnAsiento(a, busqueda.trim())
+    })
+    return ordenCronologico(filtrados)
+  }, [asientos, estado, origen, busqueda])
+
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / POR_PAGINA))
+  const pag = Math.min(pagina, totalPaginas - 1)
+  const pagina_ = visibles.slice(pag * POR_PAGINA, (pag + 1) * POR_PAGINA)
+  const borradoresValidos = asientos.filter((a) => puedeContabilizar(a))
+  const pendientesTotal = pendientes.facturas.length + pendientes.cobrosPagos.length
+  const origenes = useMemo(() => [...new Set(asientos.map((a) => a.tipo_asiento))].sort(), [asientos])
+
+  const alternar = (id: number) =>
+    setAbiertos((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+
+  const accion = async (fn: () => Promise<{ success: boolean; error?: string }>, ok: string) => {
+    setTrabajando(true)
+    setAviso(null)
+    const r = await fn()
+    setTrabajando(false)
+    setAviso(r.success ? { tipo: 'ok', texto: ok } : { tipo: 'error', texto: r.error || 'Error' })
+    await cargar()
+  }
+
+  const contabilizarUno = (a: AsientoLD) => {
+    if (!confirm(`¿Contabilizar ${a.numero_asiento}? Pasa al Libro Diario y después no se puede modificar (solo con contraasiento).`)) return
+    void accion(() => contabilizar(a.id), `${a.numero_asiento} contabilizado.`)
+  }
+
+  const contabilizarTodos = async () => {
+    if (!borradoresValidos.length) return
+    if (!confirm(`¿Contabilizar ${borradoresValidos.length} borrador(es) sin errores? Pasan al Libro Diario y quedan inalterables.`)) return
+    setTrabajando(true)
+    let hechos = 0
+    const fallas: string[] = []
+    for (const a of ordenCronologico(borradoresValidos)) {
+      const r = await contabilizar(a.id)
+      if (r.success) hechos++
+      else fallas.push(`${a.numero_asiento}: ${r.error}`)
+    }
+    setTrabajando(false)
+    setAviso(
+      fallas.length
+        ? { tipo: 'error', texto: `Contabilizados ${hechos}. No se pudo: ${fallas.slice(0, 2).join(' · ')}` }
+        : { tipo: 'ok', texto: `Contabilizados ${hechos} asiento(s).` }
+    )
+    await cargar()
+  }
+
+  const anular = (a: AsientoLD) => {
+    const motivo = prompt(`Motivo para anular el borrador ${a.numero_asiento}:`)
+    if (!motivo?.trim()) return
+    void accion(() => anularBorrador(a.id, motivo), `${a.numero_asiento} anulado (el número queda registrado).`)
+  }
+
+  const confirmarReversion = async () => {
+    if (!reversion || !reversion.motivo.trim()) return
+    const r = await crearContraasiento(reversion.asiento, reversion.fecha, reversion.motivo)
+    if (!r.success) {
+      setAviso({ tipo: 'error', texto: r.error })
+      return
+    }
+    setReversion(null)
+    setAviso({ tipo: 'ok', texto: `Contraasiento de ${reversion.asiento.numero_asiento} creado en borrador: revisalo y contabilizalo.` })
+    setEstado('')
+    await cargar()
+  }
+
+  const exportarPdf = async () => {
+    try {
+      await descargarLibroDiarioPdf(asientos, { desde, hasta, asientosEjercicio: indice.length ? indice.map((i) => ({ ...i })) : undefined })
     } catch (e) {
-      setError('Error al cargar asientos')
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
-  }, [filtros])
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      setSyncing(true)
-      setSyncMsg(null)
-      try {
-        const sync = await apiService.erpSyncAsientosDesdeFacturacion()
-        if (!cancelled && sync.success && sync.data) {
-          const { facturas_generadas, cobros_generados, errores } = sync.data
-          if (facturas_generadas > 0 || cobros_generados > 0) {
-            setSyncMsg(
-              `Generados ${facturas_generadas} asiento(s) desde facturas y ${cobros_generados} desde cobros/pagos.`
-            )
-          }
-          if (errores.length > 0) {
-            setError(
-              errores.slice(0, 3).join(' · ') + (errores.length > 3 ? ` (+${errores.length - 3} más)` : '')
-            )
-          }
-        }
-        if (!cancelled) await loadPendientes()
-      } finally {
-        if (!cancelled) setSyncing(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [loadPendientes])
-
-  useEffect(() => {
-    if (!syncing) void loadAsientos()
-  }, [filtros, loadAsientos, syncing])
-
-  const handleSyncManual = async () => {
-    setSyncing(true)
-    setSyncMsg(null)
-    setError(null)
-    try {
-      const sync = await apiService.erpSyncAsientosDesdeFacturacion()
-      if (!sync.success) {
-        setError(sync.error || 'Error al sincronizar')
-        return
-      }
-      const d = sync.data!
-      setSyncMsg(
-        `Sincronización: ${d.facturas_generadas} factura(s), ${d.cobros_generados} cobro(s)/pago(s).` +
-          (d.errores.length ? ` Advertencias: ${d.errores.length}.` : '')
-      )
-      if (d.errores.length) setError(d.errores.slice(0, 2).join(' · '))
-      await Promise.all([loadAsientos(), loadPendientes()])
-    } finally {
-      setSyncing(false)
+      setAviso({ tipo: 'error', texto: e instanceof Error ? e.message : 'No se pudo generar el PDF' })
     }
   }
 
-  const handleContabilizar = async (id: number) => {
-    if (!confirm('¿Contabilizar este asiento? No se podrá modificar después.')) return
-    const response = await apiService.contabilizarAsiento(id)
-    if (response.success) {
-      await loadAsientos()
-    } else {
-      alert('Error al contabilizar: ' + response.error)
-    }
-  }
-
-  const kpis = useMemo(() => {
-    const desdeFacturas = asientos.filter((a) => a.tipo_asiento === 'Facturación' || a.tipo_origen === 'factura').length
-    const desdeTesoreria = asientos.filter(
-      (a) => a.tipo_asiento === 'Tesorería' || a.tipo_asiento === 'Cobro' || a.tipo_origen === 'pago_cobro'
-    ).length
-    const contabilizados = asientos.filter((a) => a.estado === 'Contabilizado').length
-    return {
-      total: asientos.length,
-      desdeFacturas,
-      desdeTesoreria,
-      contabilizados,
-      pendientesFacturas: pendientes.facturas.length,
-      pendientesCobros: pendientes.cobrosPagos.length
-    }
-  }, [asientos, pendientes])
-
-  const origenLink = (asiento: AsientoContableRecord) => {
-    if (asiento.tipo_origen === 'factura' && asiento.id_origen) {
-      return (
-        <button type="button" className="asientos-link" onClick={() => navigate(`/erp/facturas/${asiento.id_origen}`)}>
-          Factura #{asiento.id_origen}
-        </button>
-      )
-    }
-    if (asiento.tipo_origen === 'pago_cobro' && asiento.id_origen) {
-      return <span className="erp-muted">Cobro/Pago #{asiento.id_origen}</span>
-    }
-    return null
-  }
+  const exportarCsv = () =>
+    descargarCsv(
+      `Libro_Diario_${desde}_a_${hasta}.csv`,
+      ['Fecha', 'N° orden', 'Asiento', 'Código', 'Cuenta', 'Debe', 'Haber', 'Leyenda', 'Comprobante'],
+      libroDiarioCsv(asientos, desde, hasta, indice.length ? indice : undefined)
+    )
 
   return (
     <div className="erp-section asientos-page">
       <header className="erp-section-header">
         <div className="erp-section-header__brand">
           <div className="erp-section-header__icon" aria-hidden>
-            📝
+            📒
           </div>
           <div>
-            <p className="erp-section-header__eyebrow">Contable</p>
+            <p className="erp-section-header__eyebrow">Contable · Libro Diario</p>
             <h1>Asientos contables</h1>
-            <p className="erp-section-sub">
-              Generados automáticamente desde facturación emitida y cobros/pagos de ventas
-            </p>
+            <p className="erp-section-sub">Partida doble, orden cronológico y asientos inalterables (CCyC arts. 320 a 331)</p>
           </div>
         </div>
         <div className="erp-section-actions">
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp')}>
             ← Contable
           </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/facturas')}>
-            Facturas
-          </button>
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp/asientos/herramientas')}>
-            Modelos, importar, inflación
+            Modelos e importación
           </button>
-          <button type="button" className="btn-primary" onClick={handleSyncManual} disabled={syncing}>
-            {syncing ? 'Sincronizando…' : '↻ Sincronizar'}
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/contabilidad/periodos')}>
+            Cierre de períodos
+          </button>
+          <button type="button" className="btn-primary" onClick={() => void sincronizar(false).then(() => cargar())} disabled={syncing}>
+            {syncing ? 'Sincronizando…' : '↻ Generar automáticos'}
           </button>
         </div>
       </header>
 
-      {syncMsg && (
-        <div className="erp-notice">
-          <span>{syncMsg}</span>
+      {/* Período */}
+      <div className="as-periodo">
+        <div className="as-periodo__nav">
+          <button type="button" className="as-icono" onClick={() => setMes((m) => sumarMes(m, ejercicioCompleto ? -12 : -1))} aria-label="Anterior">
+            ‹
+          </button>
+          <strong className="as-periodo__titulo">{ejercicioCompleto ? `Ejercicio ${anio}` : mesLabel(mes)}</strong>
+          <button type="button" className="as-icono" onClick={() => setMes((m) => sumarMes(m, ejercicioCompleto ? 12 : 1))} aria-label="Siguiente">
+            ›
+          </button>
+          <input type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} aria-label="Mes" />
+          <label className="as-check">
+            <input type="checkbox" checked={ejercicioCompleto} onChange={(e) => setEjercicioCompleto(e.target.checked)} />
+            Ejercicio completo
+          </label>
+          {!ejercicioCompleto ? (
+            <span className={`as-chip ${periodoCerrado ? 'as-chip--cerrado' : 'as-chip--abierto'}`}>
+              {periodoCerrado ? '🔒 Período cerrado' : 'Período abierto'}
+            </span>
+          ) : null}
         </div>
-      )}
-
-      {error && (
-        <div className="erp-panel">
-          <span className="erp-pill danger">Aviso</span> <span className="erp-muted">{error}</span>
+        <div className="as-periodo__export">
+          <button type="button" className="btn-secondary" onClick={() => void exportarPdf()} disabled={loading}>
+            Libro Diario PDF
+          </button>
+          <button type="button" className="btn-secondary" onClick={exportarCsv} disabled={loading}>
+            CSV
+          </button>
         </div>
-      )}
-
-      <div className="erp-stats-row">
-        <article className="erp-stat-card erp-stat-card--green">
-          <div className="erp-stat-card__icon">📒</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{loading ? '…' : kpis.total}</div>
-            <div className="erp-stat-card__label">Asientos en listado</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--cyan">
-          <div className="erp-stat-card__icon">🧾</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{loading ? '…' : kpis.desdeFacturas}</div>
-            <div className="erp-stat-card__label">Desde facturación</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--violet">
-          <div className="erp-stat-card__icon">💵</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">{loading ? '…' : kpis.desdeTesoreria}</div>
-            <div className="erp-stat-card__label">Desde cobros / pagos</div>
-          </div>
-        </article>
-        <article className="erp-stat-card erp-stat-card--amber">
-          <div className="erp-stat-card__icon">⏳</div>
-          <div className="erp-stat-card__body">
-            <div className="erp-stat-card__value">
-              {kpis.pendientesFacturas + kpis.pendientesCobros}
-            </div>
-            <div className="erp-stat-card__label">Pendientes de asiento</div>
-          </div>
-        </article>
       </div>
 
-      {(pendientes.facturas.length > 0 || pendientes.cobrosPagos.length > 0) && (
-        <section className="erp-panel asientos-pendientes">
-          <div className="erp-panel__head">
-            <div>
-              <h2>Pendientes de contabilizar</h2>
-              <p className="erp-panel__hint">Facturas emitidas y movimientos de tesorería sin asiento vinculado</p>
-            </div>
-            <button type="button" className="btn-primary btn-sm" onClick={handleSyncManual} disabled={syncing}>
-              Generar asientos
+      {aviso ? (
+        <div className={`as-aviso as-aviso--${aviso.tipo}`} role="status">
+          <span>{aviso.texto}</span>
+          <button type="button" onClick={() => setAviso(null)} aria-label="Cerrar aviso">
+            ×
+          </button>
+        </div>
+      ) : null}
+
+      {/* Resumen */}
+      <div className="as-kpis">
+        <div className="as-kpi">
+          <span>En el Libro Diario</span>
+          <strong>{loading ? '…' : resumen.contabilizados}</strong>
+          <small>asientos contabilizados</small>
+        </div>
+        <div className={`as-kpi ${resumen.balancea ? 'as-kpi--ok' : 'as-kpi--error'}`}>
+          <span>Debe = Haber</span>
+          <strong>$ {pesos(resumen.debe)}</strong>
+          <small>{resumen.balancea ? '✓ el período balancea' : `✗ diferencia $ ${pesos(Math.abs(resumen.debe - resumen.haber))}`}</small>
+        </div>
+        <div className={`as-kpi ${resumen.borradores ? 'as-kpi--warn' : ''}`}>
+          <span>Borradores</span>
+          <strong>{resumen.borradores}</strong>
+          {borradoresValidos.length ? (
+            <button type="button" className="as-link" onClick={() => void contabilizarTodos()} disabled={trabajando || periodoCerrado}>
+              Contabilizar {borradoresValidos.length} sin errores
+            </button>
+          ) : (
+            <small>{resumen.borradores ? 'con errores para corregir' : 'nada pendiente'}</small>
+          )}
+        </div>
+        <div className={`as-kpi ${pendientesTotal ? 'as-kpi--warn' : ''}`}>
+          <span>Sin asiento</span>
+          <strong>{pendientesTotal}</strong>
+          {pendientesTotal ? (
+            <button type="button" className="as-link" onClick={() => void sincronizar(false).then(() => cargar())} disabled={syncing}>
+              Generar ({pendientes.facturas.length} facturas, {pendientes.cobrosPagos.length} cobros)
+            </button>
+          ) : (
+            <small>facturas y cobros al día</small>
+          )}
+        </div>
+      </div>
+
+      {/* Controles normativos */}
+      {!loading && (resumen.conErrores || resumen.borradoresViejos || resumen.sinComprobante || resumen.fueraDeOrden || !resumen.balancea) ? (
+        <section className="as-controles">
+          <h2>Controles del Libro Diario</h2>
+          <ul>
+            {!resumen.balancea ? (
+              <li className="is-error">
+                <b>El período no balancea.</b> La suma del debe tiene que ser igual a la del haber (partida doble).
+              </li>
+            ) : null}
+            {resumen.conErrores ? (
+              <li className="is-error">
+                <b>{resumen.conErrores} asiento(s) con errores</b> que impiden contabilizarlos.{' '}
+                <button type="button" className="as-link" onClick={() => setEstado('conProblemas')}>
+                  Ver
+                </button>
+              </li>
+            ) : null}
+            {resumen.borradoresViejos ? (
+              <li className="is-warn">
+                <b>{resumen.borradoresViejos} borrador(es) de meses anteriores.</b> Contabilizalos o anulalos antes de cerrar el período.
+              </li>
+            ) : null}
+            {resumen.sinComprobante ? (
+              <li className="is-warn">
+                <b>{resumen.sinComprobante} asiento(s) sin comprobante respaldatorio.</b> Cada registro debe indicar la documentación que lo
+                respalda (art. 330 CCyC).
+              </li>
+            ) : null}
+            {resumen.fueraDeOrden ? (
+              <li className="is-info">
+                <b>{resumen.fueraDeOrden} asiento(s) cargados después con fecha anterior.</b> No es un error: el Libro Diario los ordena por
+                fecha y les asigna el N° de orden correlativo.
+              </li>
+            ) : null}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* Filtros */}
+      <div className="as-filtros">
+        <input
+          type="search"
+          className="as-buscar"
+          placeholder="Buscar por N°, leyenda, cuenta o comprobante…"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+        <div className="as-tabs" role="tablist" aria-label="Estado">
+          {(
+            [
+              ['', 'Todos'],
+              ['Contabilizado', 'Contabilizados'],
+              ['Borrador', 'Borradores'],
+              ['Anulado', 'Anulados'],
+              ['conProblemas', 'Con errores']
+            ] as Array<[FiltroEstado, string]>
+          ).map(([v, l]) => (
+            <button key={v} type="button" role="tab" aria-selected={estado === v} className={estado === v ? 'is-on' : undefined} onClick={() => setEstado(v)}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <select value={origen} onChange={(e) => setOrigen(e.target.value)} aria-label="Origen">
+          <option value="">Todo origen</option>
+          {origenes.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Libro */}
+      <section className="as-libro">
+        {loading ? (
+          <p className="as-vacio">Cargando asientos…</p>
+        ) : visibles.length === 0 ? (
+          <p className="as-vacio">No hay asientos con esos filtros en {ejercicioCompleto ? `el ejercicio ${anio}` : mesLabel(mes)}.</p>
+        ) : (
+          <table className="as-tabla">
+            <thead>
+              <tr>
+                <th className="as-col-orden" title="N° de orden en el Libro Diario (correlativo por fecha)">N°</th>
+                <th>Fecha</th>
+                <th>Leyenda</th>
+                <th className="num">Debe</th>
+                <th className="num">Haber</th>
+                <th>Estado</th>
+                <th aria-label="Detalle" />
+              </tr>
+            </thead>
+            <tbody>
+              {pagina_.map((a) => {
+                const abierto = abiertos.has(a.id)
+                const controles = a.estado === 'Anulado' ? [] : controlesAsiento(a)
+                const errores = controles.filter((c) => c.nivel === 'error')
+                const comprobante = comprobanteRespaldatorio(a)
+                return (
+                  <Fragment key={a.id}>
+                    <tr className={`as-fila as-fila--${a.estado.toLowerCase()}${abierto ? ' is-open' : ''}`} onClick={() => alternar(a.id)}>
+                      <td className="as-col-orden">{orden.get(a.id) ?? '—'}</td>
+                      <td className="as-fecha">{fechaAr(a.fecha)}</td>
+                      <td className="as-leyenda">
+                        <strong>{a.concepto}</strong>
+                        <span>
+                          {a.numero_asiento} · {a.tipo_asiento}
+                          {comprobante ? ` · ${comprobante}` : ''}
+                          {errores.length ? <em className="as-badge-error"> {errores.length} error(es)</em> : null}
+                        </span>
+                      </td>
+                      <td className="num">{pesos(a.total_debe)}</td>
+                      <td className="num">{pesos(a.total_haber)}</td>
+                      <td>
+                        <span className={`as-estado as-estado--${a.estado.toLowerCase()}`}>{a.estado}</span>
+                      </td>
+                      <td className="as-chevron" aria-hidden>
+                        {abierto ? '▾' : '▸'}
+                      </td>
+                    </tr>
+                    {abierto ? (
+                      <tr className="as-detalle">
+                        <td colSpan={7}>
+                          <div className="as-detalle__cuerpo">
+                            <table className="as-diario">
+                              <tbody>
+                                {lineasFormaDiario(a.detalles ?? []).map((l, i) => {
+                                  const haber = Number(l.haber) > 0
+                                  return (
+                                    <tr key={l.id ?? i}>
+                                      <td className={haber ? 'as-diario__haber' : undefined}>
+                                        {haber ? <span className="as-diario__a">a</span> : null}
+                                        {nombreCuenta(l)}
+                                        {l.concepto ? <small> — {l.concepto}</small> : null}
+                                      </td>
+                                      <td className="num">{Number(l.debe) > 0 ? pesos(Number(l.debe)) : ''}</td>
+                                      <td className="num">{haber ? pesos(Number(l.haber)) : ''}</td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                            {a.observaciones ? <p className="as-obs">{a.observaciones}</p> : null}
+                            {controles.length ? (
+                              <ul className="as-controles-asiento">
+                                {controles.map((c) => (
+                                  <li key={c.codigo} className={`is-${c.nivel}`}>
+                                    {c.texto}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            <div className="as-acciones">
+                              {a.estado === 'Borrador' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn-primary btn-sm"
+                                    disabled={trabajando || errores.length > 0 || periodoCerrado}
+                                    title={errores.length ? 'Corregí los errores antes de contabilizar' : undefined}
+                                    onClick={() => contabilizarUno(a)}
+                                  >
+                                    Contabilizar
+                                  </button>
+                                  <button type="button" className="btn-secondary btn-sm" disabled={trabajando || periodoCerrado} onClick={() => anular(a)}>
+                                    Anular borrador
+                                  </button>
+                                </>
+                              ) : null}
+                              {a.estado === 'Contabilizado' ? (
+                                <button
+                                  type="button"
+                                  className="btn-secondary btn-sm"
+                                  disabled={trabajando}
+                                  onClick={() => setReversion({ asiento: a, fecha: hoy, motivo: '' })}
+                                  title="Un asiento contabilizado no se modifica: se corrige con un contraasiento"
+                                >
+                                  Revertir con contraasiento
+                                </button>
+                              ) : null}
+                              {a.tipo_origen === 'factura' && a.id_origen ? (
+                                <button type="button" className="btn-secondary btn-sm" onClick={() => navigate(`/erp/facturas/${a.id_origen}`)}>
+                                  Ver factura
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                )
+              })}
+            </tbody>
+            {pag === totalPaginas - 1 ? (
+              <tfoot>
+                <tr>
+                  <td colSpan={3}>Totales ({visibles.length} asientos{estado || origen || busqueda ? ', filtrados' : ''})</td>
+                  <td className="num">{pesos(visibles.filter((a) => a.estado !== 'Anulado').reduce((s, a) => s + a.total_debe, 0))}</td>
+                  <td className="num">{pesos(visibles.filter((a) => a.estado !== 'Anulado').reduce((s, a) => s + a.total_haber, 0))}</td>
+                  <td colSpan={2} />
+                </tr>
+              </tfoot>
+            ) : null}
+          </table>
+        )}
+        {totalPaginas > 1 ? (
+          <div className="as-paginas">
+            <button type="button" className="as-icono" disabled={pag === 0} onClick={() => setPagina(pag - 1)} aria-label="Página anterior">
+              ‹
+            </button>
+            <span>
+              {pag * POR_PAGINA + 1}–{Math.min((pag + 1) * POR_PAGINA, visibles.length)} de {visibles.length}
+            </span>
+            <button
+              type="button"
+              className="as-icono"
+              disabled={pag >= totalPaginas - 1}
+              onClick={() => setPagina(pag + 1)}
+              aria-label="Página siguiente"
+            >
+              ›
             </button>
           </div>
-          <div className="asientos-pendientes-grid">
-            {pendientes.facturas.length > 0 && (
-              <div>
-                <h3>Facturas emitidas ({pendientes.facturas.length})</h3>
-                <ul className="asientos-pendientes-list">
-                  {pendientes.facturas.slice(0, 8).map((f) => (
-                    <li key={f.id}>
-                      <button type="button" className="asientos-link" onClick={() => navigate(`/erp/facturas/${f.id}`)}>
-                        {f.numero_factura}
-                      </button>
-                      <span className="erp-muted">
-                        {f.cliente_nombre} · ${Number(f.total).toLocaleString('es-AR')}
-                        {f.id_venta ? ` · Venta #${f.id_venta}` : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {pendientes.cobrosPagos.length > 0 && (
-              <div>
-                <h3>Cobros y pagos ({pendientes.cobrosPagos.length})</h3>
-                <ul className="asientos-pendientes-list">
-                  {pendientes.cobrosPagos.slice(0, 8).map((pc) => (
-                    <li key={pc.id}>
-                      <strong>{pc.tipo}</strong>
-                      <span className="erp-muted">
-                        ${Number(pc.monto).toLocaleString('es-AR')} · {pc.metodo_pago || '—'} ·{' '}
-                        {pc.fecha_pago ? new Date(pc.fecha_pago).toLocaleDateString('es-AR') : '—'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      <section className="erp-panel">
-        <div className="erp-toolbar">
-          <label className="erp-field">
-            <span className="erp-field__label">Estado</span>
-            <select value={filtros.estado} onChange={(e) => setFiltros((p) => ({ ...p, estado: e.target.value }))}>
-              <option value="">Todos</option>
-              <option value="Borrador">Borrador</option>
-              <option value="Contabilizado">Contabilizado</option>
-              <option value="Anulado">Anulado</option>
-            </select>
-          </label>
-          <label className="erp-field">
-            <span className="erp-field__label">Origen</span>
-            <select value={filtros.tipo} onChange={(e) => setFiltros((p) => ({ ...p, tipo: e.target.value }))}>
-              <option value="">Todos</option>
-              <option value="Facturación">Facturación</option>
-              <option value="Tesorería">Tesorería (cobros/pagos)</option>
-              <option value="Manual">Manual</option>
-            </select>
-          </label>
-          <label className="erp-field">
-            <span className="erp-field__label">Desde</span>
-            <input
-              type="date"
-              value={filtros.fechaDesde}
-              onChange={(e) => setFiltros((p) => ({ ...p, fechaDesde: e.target.value }))}
-            />
-          </label>
-          <label className="erp-field">
-            <span className="erp-field__label">Hasta</span>
-            <input
-              type="date"
-              value={filtros.fechaHasta}
-              onChange={(e) => setFiltros((p) => ({ ...p, fechaHasta: e.target.value }))}
-            />
-          </label>
-        </div>
+        ) : null}
       </section>
 
-      <div className="asientos-list">
-        {loading ? (
-          <div className="erp-panel">
-            <p className="erp-muted">Cargando asientos…</p>
-          </div>
-        ) : asientos.length === 0 ? (
-          <div className="erp-panel asientos-empty">
-            <p>No hay asientos en el período seleccionado.</p>
-            <p className="erp-muted">
-              Emití facturas desde <button type="button" className="asientos-link" onClick={() => navigate('/erp/facturas')}>Facturas</button>
-              {' '}o sincronizá cobros de ventas con el botón <strong>Sincronizar</strong>.
+      {reversion ? (
+        <div className="as-modal-fondo" role="dialog" aria-modal="true" aria-label="Contraasiento" onClick={() => setReversion(null)}>
+          <div className="as-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Revertir {reversion.asiento.numero_asiento}</h2>
+            <p className="as-modal__sub">
+              Un asiento contabilizado no se modifica ni se borra (art. 329 CCyC). Se crea un <b>contraasiento</b> con las mismas cuentas y
+              el debe y el haber invertidos, en borrador para que lo revises y lo contabilices. Después cargá el asiento correcto.
             </p>
-            {(kpis.pendientesFacturas > 0 || kpis.pendientesCobros > 0) && (
-              <button type="button" className="btn-primary" onClick={handleSyncManual} disabled={syncing}>
-                Generar {kpis.pendientesFacturas + kpis.pendientesCobros} asiento(s) pendiente(s)
+            <table className="as-diario">
+              <tbody>
+                {lineasFormaDiario(
+                  contraasiento(reversion.asiento, reversion.fecha, reversion.motivo || '…').detalles.map((d) => ({
+                    ...d,
+                    cuenta: reversion.asiento.detalles?.find((x) => x.id_cuenta === d.id_cuenta)?.cuenta
+                  }))
+                ).map((l, i) => (
+                  <tr key={i}>
+                    <td className={l.haber > 0 ? 'as-diario__haber' : undefined}>
+                      {l.haber > 0 ? <span className="as-diario__a">a</span> : null}
+                      {nombreCuenta(l)}
+                    </td>
+                    <td className="num">{l.debe > 0 ? pesos(l.debe) : ''}</td>
+                    <td className="num">{l.haber > 0 ? pesos(l.haber) : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="as-modal__campos">
+              <label>
+                <span>Fecha del contraasiento</span>
+                <input type="date" value={reversion.fecha} onChange={(e) => setReversion({ ...reversion, fecha: e.target.value })} />
+              </label>
+              <label>
+                <span>Motivo *</span>
+                <input
+                  type="text"
+                  value={reversion.motivo}
+                  onChange={(e) => setReversion({ ...reversion, motivo: e.target.value })}
+                  placeholder="Ej. cuenta mal imputada"
+                  autoFocus
+                />
+              </label>
+            </div>
+            <div className="as-modal__acciones">
+              <button type="button" className="btn-secondary" onClick={() => setReversion(null)}>
+                Cancelar
               </button>
-            )}
+              <button type="button" className="btn-primary" disabled={!reversion.motivo.trim() || trabajando} onClick={() => void confirmarReversion()}>
+                Crear contraasiento
+              </button>
+            </div>
           </div>
-        ) : (
-          asientos.map((asiento) => (
-            <article key={asiento.id} className="erp-panel asiento-card">
-              <div className="asiento-card__head">
-                <div>
-                  <h3>{asiento.numero_asiento}</h3>
-                  <p className="asiento-concepto">{asiento.concepto}</p>
-                  <div className="asiento-meta">
-                    <span>{new Date(asiento.fecha).toLocaleDateString('es-AR')}</span>
-                    <span className="separator">•</span>
-                    <span className="erp-pill">{asiento.tipo_asiento}</span>
-                    <span className={`erp-pill ${asiento.estado === 'Contabilizado' ? 'ok' : asiento.estado === 'Anulado' ? '' : 'warn'}`}>
-                      {asiento.estado}
-                    </span>
-                    {origenLink(asiento)}
-                  </div>
-                </div>
-                <div className="asiento-totales">
-                  <div>
-                    <span className="erp-muted">Debe</span>{' '}
-                    <strong>${asiento.total_debe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong>
-                  </div>
-                  <div>
-                    <span className="erp-muted">Haber</span>{' '}
-                    <strong>${asiento.total_haber.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong>
-                  </div>
-                  {Math.abs(asiento.total_debe - asiento.total_haber) > 0.01 && (
-                    <div className="asiento-desbalance">Desbalance</div>
-                  )}
-                </div>
-              </div>
-
-              {asiento.detalles && asiento.detalles.length > 0 && (
-                <div className="erp-table-wrap">
-                  <table className="erp-table">
-                    <thead>
-                      <tr>
-                        <th>Cuenta</th>
-                        <th>Concepto</th>
-                        <th>Debe</th>
-                        <th>Haber</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {asiento.detalles.map((detalle: any) => (
-                        <tr key={detalle.id}>
-                          <td>
-                            {detalle.cuenta?.codigo || '—'} — {detalle.cuenta?.nombre || 'Sin cuenta'}
-                          </td>
-                          <td>{detalle.concepto || '—'}</td>
-                          <td className="erp-td-monto">
-                            {detalle.debe > 0 ? `$${Number(detalle.debe).toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : '—'}
-                          </td>
-                          <td className="erp-td-monto">
-                            {detalle.haber > 0 ? `$${Number(detalle.haber).toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              <div className="erp-section-actions" style={{ marginTop: 12 }}>
-                {asiento.estado === 'Borrador' && (
-                  <button type="button" className="btn-primary btn-sm" onClick={() => handleContabilizar(asiento.id)}>
-                    Contabilizar
-                  </button>
-                )}
-                {asiento.tipo_origen === 'factura' && asiento.id_origen && (
-                  <button
-                    type="button"
-                    className="btn-secondary btn-sm"
-                    onClick={() => navigate(`/erp/facturas/${asiento.id_origen}`)}
-                  >
-                    Ver factura
-                  </button>
-                )}
-              </div>
-            </article>
-          ))
-        )}
-      </div>
+        </div>
+      ) : null}
     </div>
   )
 }

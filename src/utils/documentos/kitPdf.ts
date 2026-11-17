@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { formatFechaAr } from '../afipFacturaUi'
+import { codigoBarrasItf } from '../codigoBarrasAfip'
 import {
   LOGO_URL,
   cargarEmisor,
@@ -98,6 +99,11 @@ export class DocumentoPdf {
     const logo = opciones.logoDataUrl !== undefined ? opciones.logoDataUrl : await loadDataUrl(LOGO_URL)
     const datosEmisor = emisor ?? (await cargarEmisor())
     return new DocumentoPdf(cab, datosEmisor, logo)
+  }
+
+  /** Datos del emisor con los que se armó el encabezado (CUIT para el código de barras). */
+  get datosEmisor(): EmisorPdf {
+    return this.emisor
   }
 
   private etiquetaValor(label: string, value: string, x: number, y: number, maxAncho?: number): void {
@@ -393,6 +399,47 @@ export class DocumentoPdf {
     })
     doc.setTextColor(20, 20, 20)
     this.y += 10
+    return this
+  }
+
+  /**
+   * Bloque fiscal de comprobantes con CAI (Remito R): CAI, vencimiento y código de barras ITF de la
+   * RG 1702 con su número legible. `barras` son los 40 dígitos ya armados; si viene null se informa
+   * el CAI sin código (p. ej. CUIT del emisor sin cargar).
+   */
+  bloqueCai(cai: string, vencimiento: string, barras: string | null): this {
+    const { doc } = this
+    const alto = barras ? 26 : 12
+    this.asegurarEspacio(alto + 3)
+    const top = this.y
+    doc.setDrawColor(30, 30, 30)
+    doc.setLineWidth(0.3)
+    doc.rect(MARGIN, top, CONTENT_W, alto)
+    doc.setTextColor(20, 20, 20)
+    doc.setFontSize(8.5)
+    this.etiquetaValor('CAI N°: ', cai, MARGIN + 3, top + 6)
+    this.etiquetaValor('Fecha de vencimiento: ', fechaDocumento(vencimiento), MARGIN + 70, top + 6)
+
+    if (barras) {
+      // Módulo angosto 0,25 mm (la RG 1702 pide >= 0,191 mm), relación ancho/angosto 3.
+      const modulo = 0.25
+      const anchos = codigoBarrasItf(barras, 3)
+      const anchoTotal = anchos.reduce((a, b) => a + b, 0) * modulo
+      const x0 = MARGIN + (CONTENT_W - anchoTotal) / 2
+      const yb = top + 9
+      const altoBarras = 11
+      doc.setFillColor(0, 0, 0)
+      let x = x0
+      anchos.forEach((a, i) => {
+        if (i % 2 === 0) doc.rect(x, yb, a * modulo, altoBarras, 'F')
+        x += a * modulo
+      })
+      doc.setFont('courier', 'normal')
+      doc.setFontSize(8)
+      doc.text(barras, MARGIN + CONTENT_W / 2, yb + altoBarras + 3.6, { align: 'center' })
+      doc.setFont('helvetica', 'normal')
+    }
+    this.y = top + alto + 3
     return this
   }
 
