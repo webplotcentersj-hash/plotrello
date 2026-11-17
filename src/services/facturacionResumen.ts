@@ -13,21 +13,79 @@ export const DIAS_VENTA_ATRASADA = 7
 /** Mismo umbral que el servidor y FacturaDetallePage: un "Enviando" más viejo está colgado. */
 const ENVIO_AFIP_VENCIDO_MS = 3 * 60 * 1000
 
-export type ProblemaArcaTipo = 'rechazada' | 'error' | 'colgada' | 'sin_cae' | 'efectos' | 'borrador'
+export type ProblemaArcaTipo =
+  | 'rechazada'
+  | 'error'
+  | 'colgada'
+  | 'sin_cae'
+  | 'efectos'
+  | 'borrador'
+  | 'arca_10016'
+  | 'letra_iva'
+  | 'red'
+
+/** Cómo actuar desde el resumen: reintentar emisión o ir al detalle a corregir datos. */
+export type ProblemaArcaAccionModo = 'reintentar' | 'corregir' | 'efectos'
 
 export type ProblemaArca = {
   tipo: ProblemaArcaTipo
   label: string
-  /** Texto del botón para resolverlo (todos usan emitirFactura: autoriza o genera CxC/asiento). */
+  /** Texto del botón para resolverlo. */
   accion: string
   /** Gravedad para ordenar y colorear. */
   nivel: 'danger' | 'warn'
+  modo: ProblemaArcaAccionModo
 }
 
 type FacturaArcaCampos = Pick<
   FacturaVentaRecord,
-  'estado' | 'estado_afip' | 'cae' | 'efectos_aplicados_at' | 'updated_at'
+  'estado' | 'estado_afip' | 'cae' | 'efectos_aplicados_at' | 'updated_at' | 'resultado_afip'
 >
+
+/** Clasifica el texto de resultado_afip (rechazo fiscal vs red vs letra). */
+export function clasificarResultadoAfip(resultado: string | null | undefined): 'arca_10016' | 'letra_iva' | 'red' | 'otro' {
+  const t = String(resultado || '')
+  if (/10016|proximo a autorizar|próximo a autorizar|FECompUltimoAutorizado/i.test(t)) return 'arca_10016'
+  if (/comprobante A solo se emite|corresponde comprobante A|Responsables Inscriptos o Monotributistas/i.test(t)) {
+    return 'letra_iva'
+  }
+  if (/fetch failed|operation_failed|Failed to fetch|ECONNRESET|ETIMEDOUT|network|timeout|ABORTED/i.test(t)) {
+    return 'red'
+  }
+  return 'otro'
+}
+
+function problemaDesdeResultado(resultado: string | null | undefined): ProblemaArca {
+  const clase = clasificarResultadoAfip(resultado)
+  if (clase === 'arca_10016') {
+    return {
+      tipo: 'arca_10016',
+      label: 'Fecha/número no correlativo (10016)',
+      accion: 'Reintentar ARCA',
+      nivel: 'danger',
+      modo: 'reintentar'
+    }
+  }
+  if (clase === 'letra_iva') {
+    return {
+      tipo: 'letra_iva',
+      label: 'Condición IVA incompatible',
+      accion: 'Ver / corregir',
+      nivel: 'danger',
+      modo: 'corregir'
+    }
+  }
+  if (clase === 'red') {
+    return {
+      tipo: 'red',
+      label: 'Error de conexión ARCA',
+      accion: 'Reintentar ARCA',
+      nivel: 'danger',
+      modo: 'reintentar'
+    }
+  }
+  return { tipo: 'error', label: 'Error al enviar a ARCA', accion: 'Reintentar ARCA', nivel: 'danger', modo: 'reintentar' }
+}
 
 export function problemaArca(f: FacturaArcaCampos): ProblemaArca | null {
   const estado = String(f.estado || '')
@@ -37,19 +95,22 @@ export function problemaArca(f: FacturaArcaCampos): ProblemaArca | null {
 
   if (autorizada) {
     if (estado === 'Emitida' && !f.efectos_aplicados_at) {
-      return { tipo: 'efectos', label: 'Falta CxC / asiento', accion: 'Generar CxC / asiento', nivel: 'warn' }
+      return { tipo: 'efectos', label: 'Falta CxC / asiento', accion: 'Generar CxC / asiento', nivel: 'warn', modo: 'efectos' }
     }
     return null
   }
   if (afip === 'Enviando') {
     const reciente = Date.now() - new Date(f.updated_at || 0).getTime() < ENVIO_AFIP_VENCIDO_MS
     if (reciente) return null
-    return { tipo: 'colgada', label: 'Envío a ARCA colgado', accion: 'Reintentar ARCA', nivel: 'danger' }
+    return { tipo: 'colgada', label: 'Envío a ARCA colgado', accion: 'Reintentar ARCA', nivel: 'danger', modo: 'reintentar' }
   }
-  if (afip === 'Rechazada') return { tipo: 'rechazada', label: 'Rechazada por ARCA', accion: 'Reintentar ARCA', nivel: 'danger' }
-  if (afip === 'Error') return { tipo: 'error', label: 'Error al enviar a ARCA', accion: 'Reintentar ARCA', nivel: 'danger' }
-  if (estado === 'Emitida') return { tipo: 'sin_cae', label: 'Emitida sin CAE', accion: 'Autorizar ARCA', nivel: 'danger' }
-  if (estado === 'Borrador') return { tipo: 'borrador', label: 'Borrador sin emitir', accion: 'Emitir ARCA', nivel: 'warn' }
+  if (afip === 'Rechazada' || afip === 'Error') return problemaDesdeResultado(f.resultado_afip)
+  if (estado === 'Emitida') {
+    return { tipo: 'sin_cae', label: 'Emitida sin CAE', accion: 'Autorizar ARCA', nivel: 'danger', modo: 'reintentar' }
+  }
+  if (estado === 'Borrador') {
+    return { tipo: 'borrador', label: 'Borrador sin emitir', accion: 'Emitir ARCA', nivel: 'warn', modo: 'reintentar' }
+  }
   return null
 }
 

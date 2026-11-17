@@ -1,9 +1,17 @@
 import { buildWsfeVoucherData, tipoComprobanteToCbteTipo } from './mapFactura'
 import { createAfipClient, formatNumeroFactura } from './client'
+import { fechaEmisionAlineadaConUltimo, normalizarConcepto } from './fechas'
 import type { AfipConfigResumen, AutorizarFacturaResult, FacturaAfipInput, FacturaReferenciaAfip } from './types'
 
 /** AFIP respondió y rechazó el comprobante: el número no quedó usado. */
-export class AfipRechazoError extends Error {}
+export class AfipRechazoError extends Error {
+  constructor(
+    message: string,
+    public intento?: { numero: number; fecha: string }
+  ) {
+    super(message)
+  }
+}
 
 function extractAfipError(raw: unknown): string {
   if (!raw || typeof raw !== 'object') return 'Error desconocido de AFIP'
@@ -23,6 +31,10 @@ function extractAfipError(raw: unknown): string {
     if (resultado === 'R') return 'Comprobante rechazado por AFIP'
   }
   return 'No se pudo autorizar el comprobante en AFIP'
+}
+
+function conDetalleIntento(message: string, numero: number, fecha: string): string {
+  return `${message} · Intentado nº ${numero} con fecha ${fecha}`
 }
 
 /** Observaciones informativas que AFIP puede devolver aun aprobando. */
@@ -49,6 +61,20 @@ function servicioInformado(source: Record<string, unknown>): AutorizarFacturaRes
   }
 }
 
+function voucherCoincide(
+  info: Record<string, unknown> | null,
+  baseData: Record<string, unknown>
+): boolean {
+  return Boolean(
+    info &&
+      String(info.Resultado || 'A') === 'A' &&
+      Boolean(info.CodAutorizacion) &&
+      Math.abs(Number(info.ImpTotal) - Number(baseData.ImpTotal)) < 0.005 &&
+      Number(info.DocTipo) === Number(baseData.DocTipo) &&
+      Number(info.DocNro) === Number(baseData.DocNro)
+  )
+}
+
 export async function testAfipConexion(config: AfipConfigResumen | null) {
   const afip = createAfipClient({ config })
   const ws = afip.ElectronicBilling
@@ -66,7 +92,7 @@ export async function testAfipConexion(config: AfipConfigResumen | null) {
 }
 
 export type AutorizarOpciones = {
-  /** Fecha a informar (yyyy-mm-dd), ya ajustada al rango que acepta AFIP. */
+  /** Fecha candidata (yyyy-mm-dd); se alinea con el último autorizado antes de enviar. */
   fechaEmision: string
   /** Número enviado en un intento anterior que pudo haber llegado a AFIP sin respuesta. */
   numeroIntentoPrevio?: number | null
@@ -84,6 +110,7 @@ export async function autorizarFacturaAfip(
 ): Promise<AutorizarFacturaResult> {
   const puntoVenta = Number(factura.punto_venta || config?.punto_venta || 1)
   const cbteTipo = tipoComprobanteToCbteTipo(factura.tipo_comprobante)
+  const concepto = normalizarConcepto(factura.concepto)
 
   // Valida datos (letra, CUIT, importes) antes de hablar con AFIP
   const baseData = buildWsfeVoucherData(factura, {
@@ -101,21 +128,14 @@ export async function autorizarFacturaAfip(
   const previo = Number(opts.numeroIntentoPrevio || 0)
   if (previo > 0) {
     const info = (await ws.getVoucherInfo(previo, puntoVenta, cbteTipo)) as Record<string, unknown> | null
-    const coincide =
-      info &&
-      String(info.Resultado || 'A') === 'A' &&
-      Boolean(info.CodAutorizacion) &&
-      Math.abs(Number(info.ImpTotal) - Number(baseData.ImpTotal)) < 0.005 &&
-      Number(info.DocTipo) === Number(baseData.DocTipo) &&
-      Number(info.DocNro) === Number(baseData.DocNro)
-    if (coincide && !(await opts.numeroUsadoPorOtra(previo, puntoVenta))) {
+    if (voucherCoincide(info, baseData) && !(await opts.numeroUsadoPorOtra(previo, puntoVenta))) {
       return {
-        cae: String(info.CodAutorizacion),
-        caeVencimiento: afipDateToIso(info.FchVto),
+        cae: String(info!.CodAutorizacion),
+        caeVencimiento: afipDateToIso(info!.FchVto),
         numeroComprobante: previo,
         puntoVenta,
-        fechaEmision: afipDateToIso(info.CbteFch) || opts.fechaEmision,
-        servicio: servicioInformado(info),
+        fechaEmision: afipDateToIso(info!.CbteFch) || opts.fechaEmision,
+        servicio: servicioInformado(info!),
         resultado: 'A',
         observaciones: 'CAE recuperado de un intento anterior (AFIP ya lo había autorizado).',
         recuperado: true,
@@ -126,42 +146,50 @@ export async function autorizarFacturaAfip(
 
   // AFIP es la fuente de verdad de la numeración (cada tipo de comprobante tiene su propia secuencia)
   const ultimo = Number(await ws.getLastVoucher(puntoVenta, cbteTipo))
+  let fechaUltimo: string | null = null
+  let infoUltimo: Record<string, unknown> | null = null
+  if (ultimo > 0) {
+    infoUltimo = (await ws.getVoucherInfo(ultimo, puntoVenta, cbteTipo)) as Record<string, unknown> | null
+    fechaUltimo = afipDateToIso(infoUltimo?.CbteFch) || null
+  }
+
   // Un envío anterior pudo autorizar el último número y la respuesta no se guardó.
-  if (!(previo > 0) && ultimo > 0) {
-    const info = (await ws.getVoucherInfo(ultimo, puntoVenta, cbteTipo)) as Record<string, unknown> | null
-    const coincide =
-      info &&
-      String(info.Resultado || 'A') === 'A' &&
-      Boolean(info.CodAutorizacion) &&
-      Math.abs(Number(info.ImpTotal) - Number(baseData.ImpTotal)) < 0.005 &&
-      Number(info.DocTipo) === Number(baseData.DocTipo) &&
-      Number(info.DocNro) === Number(baseData.DocNro)
-    if (coincide && !(await opts.numeroUsadoPorOtra(ultimo, puntoVenta))) {
-      return {
-        cae: String(info.CodAutorizacion),
-        caeVencimiento: afipDateToIso(info.FchVto),
-        numeroComprobante: ultimo,
-        puntoVenta,
-        fechaEmision: afipDateToIso(info.CbteFch) || opts.fechaEmision,
-        servicio: servicioInformado(info),
-        resultado: 'A',
-        observaciones: 'CAE recuperado: ARCA ya había autorizado este comprobante.',
-        recuperado: true,
-        raw: info
-      }
+  if (!(previo > 0) && infoUltimo && voucherCoincide(infoUltimo, baseData) && !(await opts.numeroUsadoPorOtra(ultimo, puntoVenta))) {
+    return {
+      cae: String(infoUltimo.CodAutorizacion),
+      caeVencimiento: afipDateToIso(infoUltimo.FchVto),
+      numeroComprobante: ultimo,
+      puntoVenta,
+      fechaEmision: afipDateToIso(infoUltimo.CbteFch) || opts.fechaEmision,
+      servicio: servicioInformado(infoUltimo),
+      resultado: 'A',
+      observaciones: 'CAE recuperado: ARCA ya había autorizado este comprobante.',
+      recuperado: true,
+      raw: infoUltimo
     }
   }
+
   const numero = ultimo + 1
+  const fechaEmision = fechaEmisionAlineadaConUltimo(opts.fechaEmision, fechaUltimo, concepto)
+  const voucherData = buildWsfeVoucherData(factura, {
+    puntoVenta,
+    numeroComprobante: numero,
+    fechaEmision,
+    referencia: referencia || undefined,
+    condicionEmisor: config?.condicion_iva
+  })
+
   await opts.reservarNumero(numero)
 
   let raw: unknown
   try {
-    raw = await ws.createVoucher({ ...baseData, CbteDesde: numero, CbteHasta: numero }, true)
+    raw = await ws.createVoucher(voucherData, true)
   } catch (error) {
     // AfipWebServiceError trae código numérico: AFIP procesó y rechazó
     const code = (error as { code?: unknown })?.code
+    const msg = error instanceof Error ? error.message : 'Rechazado por AFIP'
     if (typeof code === 'number') {
-      throw new AfipRechazoError(error instanceof Error ? error.message : 'Rechazado por AFIP')
+      throw new AfipRechazoError(conDetalleIntento(msg, numero, fechaEmision), { numero, fecha: fechaEmision })
     }
     throw error
   }
@@ -172,7 +200,10 @@ export async function autorizarFacturaAfip(
 
   const resultado = String(first?.Resultado || '')
   if (resultado !== 'A') {
-    throw new AfipRechazoError(extractAfipError(raw))
+    throw new AfipRechazoError(conDetalleIntento(extractAfipError(raw), numero, fechaEmision), {
+      numero,
+      fecha: fechaEmision
+    })
   }
 
   return {
@@ -180,8 +211,8 @@ export async function autorizarFacturaAfip(
     caeVencimiento: afipDateToIso(first?.CAEFchVto),
     numeroComprobante: numero,
     puntoVenta,
-    fechaEmision: opts.fechaEmision,
-    servicio: servicioInformado(baseData),
+    fechaEmision,
+    servicio: servicioInformado(voucherData),
     resultado,
     observaciones: extractObservaciones(first),
     raw

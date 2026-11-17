@@ -47,6 +47,25 @@ export function fechaComprobanteParaAfip(
   return f < desde || f > hasta ? hoy : f
 }
 
+/**
+ * ARCA exige correlatividad de fecha: el próximo comprobante no puede ser anterior
+ * al último autorizado del mismo tipo/PV (obs. 10016). Se toma max(candidata, último)
+ * y se vuelve a aplicar el margen ±N días.
+ */
+export function fechaEmisionAlineadaConUltimo(
+  fechaCandidata: string | null | undefined,
+  fechaUltimo: string | null | undefined,
+  concepto: ConceptoAfip,
+  hoy: string = hoyArgentina()
+): string {
+  let f = fechaComprobanteParaAfip(fechaCandidata, concepto, hoy)
+  if (esFechaIso(fechaUltimo)) {
+    const u = fechaUltimo.slice(0, 10)
+    if (f < u) f = u
+  }
+  return fechaComprobanteParaAfip(f, concepto, hoy)
+}
+
 export type FechasServicio = { desde: string; hasta: string; vtoPago: string }
 
 /**

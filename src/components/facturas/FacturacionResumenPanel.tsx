@@ -75,10 +75,14 @@ export default function FacturacionResumenPanel({ onFacturasCambiaron }: Props) 
     return ((totales.actual.total - totales.anterior.total) / Math.abs(totales.anterior.total)) * 100
   }, [totales])
 
-  const reintentar = async (f: FacturaConProblema) => {
+  const resolverProblema = async (f: FacturaConProblema) => {
+    if (f.problema.modo === 'corregir') {
+      navigate(`/erp/facturas/${f.id}`)
+      return
+    }
     if (reintentandoId != null) return
     const aviso =
-      f.problema.tipo === 'efectos'
+      f.problema.modo === 'efectos'
         ? `¿Generar la cuenta por cobrar y el asiento de ${f.tipo_comprobante} ${f.numero_factura}?`
         : `¿Enviar ${f.tipo_comprobante} ${f.numero_factura} (${f.cliente_nombre}, ${pesos(f.total)}) a ARCA?\n\nSi ARCA la autoriza queda emitida con CAE y no se puede deshacer (solo con nota de crédito).`
     if (!window.confirm(aviso)) return
@@ -182,8 +186,8 @@ export default function FacturacionResumenPanel({ onFacturasCambiaron }: Props) 
                   <button
                     type="button"
                     className="fact-btn fact-btn--primary"
-                    disabled={reintentandoId != null}
-                    onClick={() => void reintentar(f)}
+                    disabled={reintentandoId != null && f.problema.modo !== 'corregir'}
+                    onClick={() => void resolverProblema(f)}
                   >
                     {reintentandoId === f.id ? 'Enviando…' : f.problema.accion}
                   </button>

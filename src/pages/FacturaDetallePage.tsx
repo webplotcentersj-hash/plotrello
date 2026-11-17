@@ -3,7 +3,15 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
 import { syncVentaPlotLabACaja } from '../features/control-cajas/plotlabVentaCajaSync'
 import type { CuentaPorCobrarRecord, FacturaVentaRecord, FacturaItemRecord } from '../types/api'
-import { conceptoLabel, formatFechaAr, hoyISO } from '../utils/afipFacturaUi'
+import {
+  CONDICIONES_IVA_CLIENTE,
+  conceptoLabel,
+  formatFechaAr,
+  hoyISO,
+  normalizarCondicionIvaCliente,
+  validarReceptorComprobante,
+  type CondicionIvaCliente
+} from '../utils/afipFacturaUi'
 import AvisoCertificadoAfip from '../components/facturas/AvisoCertificadoAfip'
 import { anularFacturaAfip } from '../utils/anularFacturaAfip'
 import { enviarFactura, puedeCompartirArchivos, type CanalEnvio } from '../utils/compartirFactura'
@@ -47,6 +55,9 @@ export default function FacturaDetallePage() {
   const [enviando, setEnviando] = useState<CanalEnvio | null>(null)
   const [resultadoEnvio, setResultadoEnvio] = useState<{ ok: boolean; texto: string } | null>(null)
   const [disenoPdf, setDisenoPdf] = useState<DisenoPdfFactura>(() => leerDisenoPdfFactura())
+  const [editCondicionIva, setEditCondicionIva] = useState<CondicionIvaCliente | ''>('')
+  const [editDocumento, setEditDocumento] = useState('')
+  const [guardandoReceptor, setGuardandoReceptor] = useState(false)
 
   const todayStr = useMemo(() => hoyISO(), [])
   type MetodoPago = 'Efectivo' | 'Transferencia' | 'Tarjeta' | 'Cheque' | 'Depósito' | 'Otro'
@@ -174,6 +185,8 @@ export default function FacturaDetallePage() {
       const response = await apiService.getFactura(facturaId)
       if (response.success && response.data) {
         setFactura(response.data)
+        setEditCondicionIva(normalizarCondicionIvaCliente(response.data.cliente_condicion_iva) || '')
+        setEditDocumento(String(response.data.cliente_dni_cuit || ''))
         const tipo = String((response.data as any)?.tipo_comprobante || '')
         const esNotaCredito = tipo.startsWith('Nota de Crédito')
         const total = Number((response.data as any)?.total || 0)
@@ -200,6 +213,17 @@ export default function FacturaDetallePage() {
   const handleEmitirAfip = async () => {
     if (!factura) return
     const soloEfectos = factura.estado_afip === 'Autorizada'
+    if (!soloEfectos) {
+      const condicion =
+        normalizarCondicionIvaCliente(editCondicionIva || factura.cliente_condicion_iva) ||
+        (factura.cliente_condicion_iva as CondicionIvaCliente | '' | null)
+      const doc = (editDocumento || factura.cliente_dni_cuit || '').trim()
+      const invalido = validarReceptorComprobante(factura.tipo_comprobante, condicion, doc)
+      if (invalido) {
+        alert(invalido + '\n\nCorregí la condición IVA / CUIT del cliente abajo y volvé a intentar.')
+        return
+      }
+    }
     const mensaje = soloEfectos
       ? '¿Generar la cuenta por cobrar y el asiento que quedaron pendientes?'
       : '¿Emitir este comprobante? Se autoriza en AFIP y, con el CAE, se genera la cuenta por cobrar y el asiento contable.'
@@ -223,6 +247,36 @@ export default function FacturaDetallePage() {
       alert('Error al emitir en AFIP')
     } finally {
       setLoadingAfip(false)
+    }
+  }
+
+  const handleGuardarReceptor = async () => {
+    if (!factura) return
+    const condicion = normalizarCondicionIvaCliente(editCondicionIva)
+    const doc = editDocumento.trim()
+    if (!condicion) {
+      alert('Elegí la condición IVA del cliente.')
+      return
+    }
+    const invalido = validarReceptorComprobante(factura.tipo_comprobante, condicion, doc)
+    if (invalido) {
+      alert(invalido)
+      return
+    }
+    setGuardandoReceptor(true)
+    try {
+      const r = await apiService.actualizarFactura(factura.id, {
+        cliente_condicion_iva: condicion,
+        cliente_dni_cuit: doc || null
+      })
+      if (!r.success) {
+        alert(r.error || 'No se pudo guardar.')
+        return
+      }
+      if (r.data) setFactura(r.data as FacturaVentaRecord & { items?: FacturaItemRecord[] })
+      else if (id) await loadFactura(parseInt(id))
+    } finally {
+      setGuardandoReceptor(false)
     }
   }
 
@@ -384,6 +438,11 @@ export default function FacturaDetallePage() {
   // Borrador o comprobante viejo emitido sin CAE
   const puedeEmitirAfip = (factura.estado === 'Borrador' || factura.estado === 'Emitida') && !autorizada && !envioEnCurso
   const efectosPendientes = factura.estado === 'Emitida' && autorizada && !factura.efectos_aplicados_at
+  const puedeEditarReceptor =
+    !autorizada &&
+    !String(factura.cae || '').trim() &&
+    (factura.estado === 'Borrador' || factura.estado === 'Emitida') &&
+    !envioEnCurso
 
   return (
     <div className="factura-detalle-page">
@@ -843,17 +902,61 @@ export default function FacturaDetallePage() {
               <label>Cliente</label>
               <div>{factura.cliente_nombre}</div>
             </div>
-            {factura.cliente_dni_cuit && (
-              <div className="info-item">
-                <label>DNI/CUIT</label>
-                <div>{factura.cliente_dni_cuit}</div>
-              </div>
-            )}
-            {factura.cliente_condicion_iva && (
-              <div className="info-item">
-                <label>Condición IVA</label>
-                <div>{factura.cliente_condicion_iva}</div>
-              </div>
+            {puedeEditarReceptor ? (
+              <>
+                <div className="info-item">
+                  <label>DNI/CUIT</label>
+                  <input
+                    className="erp-input"
+                    value={editDocumento}
+                    onChange={(e) => setEditDocumento(e.target.value)}
+                    placeholder="CUIT / DNI"
+                  />
+                </div>
+                <div className="info-item">
+                  <label>Condición IVA</label>
+                  <select
+                    className="erp-input"
+                    value={editCondicionIva}
+                    onChange={(e) => setEditCondicionIva(e.target.value as CondicionIvaCliente | '')}
+                  >
+                    <option value="">Elegir…</option>
+                    {CONDICIONES_IVA_CLIENTE.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="info-item full-width">
+                  <button
+                    type="button"
+                    className="fd-btn fd-btn--soft"
+                    onClick={() => void handleGuardarReceptor()}
+                    disabled={guardandoReceptor}
+                  >
+                    {guardandoReceptor ? 'Guardando…' : 'Guardar condición IVA / CUIT'}
+                  </button>
+                  <p className="erp-muted" style={{ marginTop: 8 }}>
+                    Si ARCA rechazó por letra A/B, corregí acá antes de reintentar.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                {factura.cliente_dni_cuit && (
+                  <div className="info-item">
+                    <label>DNI/CUIT</label>
+                    <div>{factura.cliente_dni_cuit}</div>
+                  </div>
+                )}
+                {factura.cliente_condicion_iva && (
+                  <div className="info-item">
+                    <label>Condición IVA</label>
+                    <div>{factura.cliente_condicion_iva}</div>
+                  </div>
+                )}
+              </>
             )}
             {factura.cliente_direccion && (
               <div className="info-item full-width">

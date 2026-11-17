@@ -316,7 +316,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       warning: warning || undefined
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Error autorizando en AFIP'
+    let message = error instanceof Error ? error.message : 'Error autorizando en AFIP'
+    if (error instanceof AfipRechazoError && error.intento && !/Intentado nº/.test(message)) {
+      message = `${message} · Intentado nº ${error.intento.numero} con fecha ${error.intento.fecha}`
+    }
     if (lockTomado) {
       // AFIP rechazó explícitamente: el número no se usó. Otro error (red/timeout): se verifica al reintentar.
       await marcarError(supabase, idFactura, message, error instanceof AfipRechazoError)

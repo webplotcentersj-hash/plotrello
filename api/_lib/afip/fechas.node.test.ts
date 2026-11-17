@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { FacturaInvalidaError } from './errors.ts'
-import { fechaComprobanteParaAfip, hoyArgentina, resolverFechasServicio } from './fechas.ts'
+import {
+  fechaComprobanteParaAfip,
+  fechaEmisionAlineadaConUltimo,
+  hoyArgentina,
+  resolverFechasServicio
+} from './fechas.ts'
 
 describe('fecha del comprobante (validación 10016)', () => {
   const hoy = '2026-09-22'
@@ -28,6 +33,28 @@ describe('fecha del comprobante (validación 10016)', () => {
     assert.equal(fechaComprobanteParaAfip(null, 1, hoy), hoy)
     // 23:30 del 22/09 en Argentina = 02:30 UTC del 23/09
     assert.equal(hoyArgentina(new Date('2026-09-23T02:30:00Z')), '2026-09-22')
+  })
+})
+
+describe('fecha alineada con último autorizado (10016 correlativo)', () => {
+  const hoy = '2026-11-17'
+
+  it('sube la fecha al último si la candidata es anterior', () => {
+    assert.equal(fechaEmisionAlineadaConUltimo('2026-11-12', '2026-11-14', 1, hoy), '2026-11-14')
+  })
+
+  it('sin último conserva el clamp habitual', () => {
+    assert.equal(fechaEmisionAlineadaConUltimo('2026-11-12', null, 1, hoy), '2026-11-12')
+    assert.equal(fechaEmisionAlineadaConUltimo('2026-10-01', null, 1, hoy), hoy)
+  })
+
+  it('si alinear al último lo saca del margen AFIP, usa hoy', () => {
+    // último muy futuro → max queda fuera de ±5 y el clamp vuelve a hoy
+    assert.equal(fechaEmisionAlineadaConUltimo('2026-11-12', '2026-11-30', 1, hoy), hoy)
+  })
+
+  it('no retrocede si la candidata ya es posterior al último', () => {
+    assert.equal(fechaEmisionAlineadaConUltimo('2026-11-16', '2026-11-14', 1, hoy), '2026-11-16')
   })
 })
 
