@@ -11,6 +11,65 @@
   color: var(--cc-text);
 }
 
+.cc-solicitudes {
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.35), rgba(30, 41, 59, 0.85));
+}
+
+.cc-solicitudes__head h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  color: #ffedd5;
+}
+
+.cc-solicitudes__head p {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: #fed7aa;
+}
+
+.cc-solicitudes__table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.cc-solicitudes__table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 560px;
+}
+
+.cc-solicitudes__table th,
+.cc-solicitudes__table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  vertical-align: middle;
+}
+
+.cc-solicitudes__table th {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fdba74;
+  background: rgba(30, 41, 59, 0.65);
+}
+
+.cc-solicitudes__table tr:last-child td {
+  border-bottom: none;
+}
+
+.cc-solicitudes__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .cuenta-corriente-loading {
   display: flex;
   flex-direction: column;

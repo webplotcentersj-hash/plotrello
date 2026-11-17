@@ -4,13 +4,11 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import CuentaCorrienteAltaForm from '../components/CuentaCorrienteAltaForm'
 import CuentaCorrienteScoringPanel from '../components/CuentaCorrienteScoringPanel'
-import CuentaCorrienteDashboard from '../components/CuentaCorrienteDashboard'
 import CuentaCorrienteRegistry from '../components/CuentaCorrienteRegistry'
 import { calcCarteraStatsCuentaCorriente } from '../utils/cuentaCorrienteStats'
 import { formatMontoArs } from '../utils/cuentaCorrienteLedger'
 import { downloadCarteraCsv } from '../utils/cuentaCorrienteExport'
 import CcExportMenu from '../components/CcExportMenu'
-import CuentaCorrienteCobranzasPanel from '../components/CuentaCorrienteCobranzasPanel'
 import CuentaCorrienteVencimientoAlertas from '../components/CuentaCorrienteVencimientoAlertas'
 import type { ClienteCuentaCorrienteRecord, ClienteRecord, CcCobranzasPanelData, ClienteCcEnriquecido } from '../types/api'
 import { normalizeEstadoCc, type EstadoCuentaCorriente } from '../constants/cuentaCorriente'
@@ -53,21 +51,14 @@ const CuentaCorrientePage = () => {
   const [scoringCliente, setScoringCliente] = useState<CuentaCorrienteRow | null>(null)
   const [recalculandoTodos, setRecalculandoTodos] = useState(false)
   const [cobranzas, setCobranzas] = useState<CcCobranzasPanelData | null>(null)
-  const [cobranzasLoading, setCobranzasLoading] = useState(false)
-  const [cobranzasError, setCobranzasError] = useState<string | null>(null)
 
   const loadCobranzas = async () => {
-    setCobranzasLoading(true)
-    setCobranzasError(null)
     try {
       void apiService.verificarAlertasVencimientoCc().catch(() => undefined)
       const res = await apiService.listCobranzasCcPanel()
       if (res.success && res.data) setCobranzas(res.data)
-      else setCobranzasError(res.error || 'No se pudieron cargar las cobranzas')
     } catch {
-      setCobranzasError('Error de conexión al cargar cobranzas')
-    } finally {
-      setCobranzasLoading(false)
+      /* el pipeline sigue con cartera aunque falle cobranzas */
     }
   }
 
@@ -565,24 +556,8 @@ const CuentaCorrientePage = () => {
         </div>
       )}
 
-      {modoForm === 'cerrado' && (
-        <>
-          {cobranzas && cobranzas.ventas_abiertas.length > 0 && (
-            <CuentaCorrienteVencimientoAlertas items={cobranzas.ventas_abiertas} />
-          )}
-          <CuentaCorrienteCobranzasPanel
-            data={cobranzas}
-            loading={cobranzasLoading}
-            error={cobranzasError}
-            onRefresh={() => void loadCobranzas()}
-          />
-          <CuentaCorrienteDashboard
-            registros={registros}
-            isAdmin={isAdmin}
-            onAprobar={(id) => void resolverSolicitud(id, 'aprobar')}
-            resolviendoId={resolviendoId}
-          />
-        </>
+      {modoForm === 'cerrado' && cobranzas && cobranzas.ventas_abiertas.length > 0 && (
+        <CuentaCorrienteVencimientoAlertas items={cobranzas.ventas_abiertas} />
       )}
 
       {modoForm === 'vincular' && !clienteVincular && (
@@ -727,6 +702,7 @@ const CuentaCorrientePage = () => {
         pendientes={pendientes}
         aprobados={aprobados}
         totalRegistros={registros.length}
+        ventasAbiertas={cobranzas?.ventas_abiertas ?? []}
         isAdmin={isAdmin}
         resolviendoId={resolviendoId}
         quitandoId={quitandoId}
