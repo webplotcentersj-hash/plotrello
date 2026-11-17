@@ -1,0 +1,72 @@
+/* Pestañas de vista de /erp/gastos: Tablero · Listado · Cargar gasto */
+.gp-vistas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.gp-vistas button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.75);
+  color: #cbd5e1;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+
+.gp-vistas button:hover {
+  border-color: rgba(56, 189, 248, 0.45);
+  transform: translateY(-1px);
+}
+
+.gp-vistas button.is-on {
+  border-color: #38bdf8;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(15, 23, 42, 0.85) 70%);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3) inset;
+}
+
+.gp-vistas__icono {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.6);
+  font-size: 1.1rem;
+}
+
+.gp-vistas strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #f8fafc;
+}
+
+.gp-vistas small {
+  display: block;
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+.gp-error {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.1);
+  color: #fecaca;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 640px) {
+  .gp-vistas {
+    grid-template-columns: 1fr;
+  }
+}

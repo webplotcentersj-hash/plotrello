@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { supabase } from '../services/supabaseClient'
 import { extraerDatosTicket, fileToDataUrl, type TicketExtract } from '../utils/extractTicketAi'
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
@@ -14,7 +13,9 @@ import {
   payloadGastoDesdeExcel,
   type CompraExcelParseResult
 } from '../utils/parseComprobantesComprasExcel'
+import GastosTablero from '../components/gastos/GastosTablero'
 import './ErpSectionPage.css'
+import './ErpGastosPage.css'
 
 type GastosFilter = 'todo' | 'corrientes' | 'tickets'
 type IvaFiltro = '' | 'con' | 'sin' | 'pendiente'
@@ -70,7 +71,6 @@ type GastoForm = {
   enviar_libro_iva: boolean
 }
 
-const PIE_COLORS = ['#f97316', '#38bdf8', '#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#94a3b8', '#e2e8f0']
 const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Débito', 'Transferencia', 'Cheque', 'Cuenta corriente', 'Mercado Pago', 'Otro'] as const
 const TIPOS_COMPROBANTE = ['Factura', 'Ticket', 'Recibo', 'Nota de Crédito', 'Nota de Débito'] as const
 const ALICUOTAS = ['21', '10.5', '27', '5', '2.5', '0'] as const
@@ -199,8 +199,8 @@ export default function ErpGastosPage() {
   const [mesFiltro, setMesFiltro] = useState('')
   const [excelPreview, setExcelPreview] = useState<CompraExcelParseResult | null>(null)
   const [excelImporting, setExcelImporting] = useState(false)
-  const [statsOpen, setStatsOpen] = useState(false)
-  const [listadoOpen, setListadoOpen] = useState(true)
+  const [vista, setVista] = useState<'tablero' | 'listado' | 'cargar'>('tablero')
+  const [mesTablero, setMesTablero] = useState(() => ymdToday().slice(0, 7))
   const [ticketOpen, setTicketOpen] = useState(false)
   const [excelOpen, setExcelOpen] = useState(false)
   const [mesesForzados, setMesesForzados] = useState<Record<string, boolean>>({})
@@ -268,7 +268,8 @@ export default function ErpGastosPage() {
     if (mesFiltro) list = list.filter((r) => String(r.fecha_gasto).slice(0, 7) === mesFiltro)
     if (fechaDesde) list = list.filter((r) => String(r.fecha_gasto).slice(0, 10) >= fechaDesde)
     if (fechaHasta) list = list.filter((r) => String(r.fecha_gasto).slice(0, 10) <= fechaHasta)
-    if (categoriaFiltro) list = list.filter((r) => (r.categoria || '') === categoriaFiltro)
+    if (categoriaFiltro === '__sin__') list = list.filter((r) => !(r.categoria || '').trim())
+    else if (categoriaFiltro) list = list.filter((r) => (r.categoria || '') === categoriaFiltro)
     if (metodoFiltro) list = list.filter((r) => (r.metodo_pago || '') === metodoFiltro)
     if (filter === 'corrientes') list = list.filter((r) => !r.ticket_url)
     if (filter === 'tickets') list = list.filter((r) => !!r.ticket_url)
@@ -330,40 +331,6 @@ export default function ErpGastosPage() {
   const toggleMes = (ym: string) => {
     setMesesForzados((prev) => ({ ...prev, [ym]: !mesAbierto(ym) }))
   }
-
-  const kpis = useMemo(() => {
-    const total = filteredRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0)
-    const iva = filteredRows.reduce((sum, r) => sum + (Number(r.iva) || 0), 0)
-    const neto = filteredRows.reduce((sum, r) => sum + (Number(r.neto) || 0), 0)
-    const count = filteredRows.length
-    const tickets = filteredRows.filter((r) => !!r.ticket_url).length
-    const proveedores = new Set(filteredRows.map((r) => (r.proveedor || '').trim()).filter(Boolean)).size
-    const enLibro = filteredRows.filter((r) => r.id_factura_compra).length
-    return { total, iva, neto, count, tickets, proveedores, enLibro }
-  }, [filteredRows])
-
-  const byCategoria = useMemo(() => {
-    const acc = new Map<string, number>()
-    for (const r of filteredRows) {
-      const k = (r.categoria || 'Sin categoría').trim() || 'Sin categoría'
-      acc.set(k, (acc.get(k) ?? 0) + (Number(r.total) || 0))
-    }
-    return Array.from(acc.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 8)
-  }, [filteredRows])
-
-  const byMes = useMemo(() => {
-    const acc = new Map<string, number>()
-    for (const r of filteredRows) {
-      const key = String(r.fecha_gasto || '').slice(0, 7) || '—'
-      acc.set(key, (acc.get(key) ?? 0) + (Number(r.total) || 0))
-    }
-    return Array.from(acc.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([mes, total]) => ({ mes, total }))
-  }, [filteredRows])
 
   const patchForm = (patch: Partial<GastoForm>) => setForm((p) => recalcForm(p, patch))
 
@@ -650,52 +617,86 @@ export default function ErpGastosPage() {
 
   return (
     <div className="erp-section">
-      <div className="erp-section-header">
-        <div>
-          <h1>Gastos</h1>
-          <p className="erp-section-sub">{subtitle}</p>
+      <header className="erp-section-header">
+        <div className="erp-section-header__brand">
+          <div className="erp-section-header__icon" aria-hidden>
+            💳
+          </div>
+          <div>
+            <p className="erp-section-header__eyebrow">Finanzas</p>
+            <h1>Gastos</h1>
+            <p className="erp-section-sub">{subtitle}</p>
+          </div>
         </div>
         <div className="erp-section-actions">
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp')}>
+            ← ERP
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/erp/gastos-fijos')}>
+            Gastos fijos
+          </button>
           <button type="button" className="btn-secondary" onClick={() => navigate('/erp/impuestos?tab=compras')}>
             Libro IVA compras
           </button>
-          <button type="button" className="btn-secondary" onClick={() => navigate('/erp')}>
-            ← Volver a ERP
-          </button>
         </div>
-      </div>
+      </header>
 
-      <div className={`erp-section-grid erp-gastos-grid${statsOpen ? '' : ' erp-gastos-grid--solo-form'}`}>
+      <nav className="gp-vistas" role="tablist" aria-label="Secciones de gastos">
+        {(
+          [
+            ['tablero', '📊', 'Tablero', 'Categorías, estadísticas y gráficos'],
+            ['listado', '📋', 'Listado', `${filteredRows.length} gastos${filteredRows.length !== rows.length ? ' (filtrado)' : ''}`],
+            ['cargar', '➕', 'Cargar gasto', 'Manual, ticket con IA o Excel AFIP']
+          ] as const
+        ).map(([v, icono, titulo, sub]) => (
+          <button key={v} type="button" role="tab" aria-selected={vista === v} className={vista === v ? 'is-on' : undefined} onClick={() => setVista(v)}>
+            <span className="gp-vistas__icono" aria-hidden>
+              {icono}
+            </span>
+            <span>
+              <strong>{titulo}</strong>
+              <small>{sub}</small>
+            </span>
+          </button>
+        ))}
+      </nav>
+
+      {error && vista !== 'cargar' ? <div className="gp-error">{error}</div> : null}
+
+      {vista === 'tablero' ? (
+        loading ? (
+          <p className="erp-muted">Cargando gastos…</p>
+        ) : (
+          <GastosTablero
+            rows={rows}
+            mes={mesTablero}
+            hoy={hoy}
+            onCambiarMes={setMesTablero}
+            onCargar={() => setVista('cargar')}
+            onVerCategoria={(cat) => {
+              setMesFiltro(mesTablero)
+              setCategoriaFiltro(cat === 'Sin categoría' ? '__sin__' : cat)
+              setIvaFiltro('')
+              setVista('listado')
+            }}
+            onVerSinLibro={() => {
+              setMesFiltro(mesTablero)
+              setCategoriaFiltro('')
+              setIvaFiltro('pendiente')
+              setVista('listado')
+            }}
+          />
+        )
+      ) : null}
+
+      {vista === 'cargar' ? (
+      <div className="erp-section-grid erp-gastos-grid erp-gastos-grid--solo-form">
         <div className="erp-panel erp-gastos-form">
-          <h2>Ingreso</h2>
+          <h2>Cargar gasto</h2>
           <p className="erp-muted">
             Carga manual, ticket con IA o Excel de AFIP (Comprobantes de Compras). El IVA va al libro. El listado se agrupa por mes.
           </p>
 
-          <div className="erp-gastos-tabs">
-            <button type="button" className={filter === 'todo' ? 'btn-primary' : 'btn-secondary'} onClick={() => setFilter('todo')}>
-              Todo
-            </button>
-            <button
-              type="button"
-              className={filter === 'corrientes' ? 'btn-primary' : 'btn-secondary'}
-              onClick={() => setFilter('corrientes')}
-            >
-              Gastos corrientes
-            </button>
-            <button type="button" className={filter === 'tickets' ? 'btn-primary' : 'btn-secondary'} onClick={() => setFilter('tickets')}>
-              Tickets
-            </button>
-            <button
-              type="button"
-              className={`erp-gastos-tabs__stats${statsOpen ? ' is-open' : ''}`}
-              aria-expanded={statsOpen}
-              onClick={() => setStatsOpen((v) => !v)}
-            >
-              <span aria-hidden>{statsOpen ? '▼' : '▶'}</span>
-              Estadísticas
-            </button>
-          </div>
 
           {error && (
             <p className="erp-muted" style={{ marginTop: 10, color: '#c53030' }}>
@@ -1072,105 +1073,12 @@ export default function ErpGastosPage() {
           </div>
         </div>
 
-        {statsOpen && (
-        <div className="erp-panel erp-gastos-stats">
-          <h2>Estadísticas</h2>
-          <div className="erp-kpi erp-gastos-kpis">
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">{money(kpis.total)}</div>
-              <div className="erp-kpi-label">Total (filtro)</div>
-            </div>
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">{money(kpis.neto)}</div>
-              <div className="erp-kpi-label">Neto</div>
-            </div>
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">{money(kpis.iva)}</div>
-              <div className="erp-kpi-label">IVA</div>
-            </div>
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">{kpis.count}</div>
-              <div className="erp-kpi-label">Gastos</div>
-            </div>
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">{kpis.tickets}</div>
-              <div className="erp-kpi-label">Con ticket</div>
-            </div>
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">{kpis.enLibro}</div>
-              <div className="erp-kpi-label">En libro IVA</div>
-            </div>
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">{kpis.proveedores}</div>
-              <div className="erp-kpi-label">Proveedores</div>
-            </div>
-            <div className="erp-kpi-item">
-              <div className="erp-kpi-value">{countHoy}</div>
-              <div className="erp-kpi-label">Hoy</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gap: 14 }}>
-            <div className="erp-chart-card">
-              <h3 className="erp-chart-title">Por categoría (torta)</h3>
-              <div className="erp-chart-wrap">
-                {byCategoria.length === 0 ? (
-                  <div className="erp-muted">Sin datos.</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={240}>
-                    <PieChart>
-                      <Pie data={byCategoria} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92} paddingAngle={2}>
-                        {byCategoria.map((_, i) => (
-                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(v: number) => [`$${Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 'Total']} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-
-            <div className="erp-chart-card">
-              <h3 className="erp-chart-title">Gasto por mes (barra)</h3>
-              <div className="erp-chart-wrap">
-                {byMes.length === 0 ? (
-                  <div className="erp-muted">—</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={byMes} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="mes" />
-                      <YAxis />
-                      <Tooltip formatter={(v: number) => [`$${Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`, 'Total']} />
-                      <Bar dataKey="total" fill="#4299e1" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        )}
       </div>
+      ) : null}
 
-      <div className={`erp-panel erp-gastos-listado${listadoOpen ? ' is-open' : ''}`}>
-        <button
-          type="button"
-          className="erp-gastos-collapse"
-          aria-expanded={listadoOpen}
-          onClick={() => setListadoOpen((v) => !v)}
-        >
-          <span className="erp-gastos-collapse__mark" aria-hidden>
-            {listadoOpen ? '▼' : '▶'}
-          </span>
-          <span className="erp-gastos-collapse__title">Listado</span>
-          <span className="erp-gastos-collapse__meta">
-            {filteredRows.length} gastos
-            {countHoy > 0 ? ` · ${countHoy} hoy` : ''}
-          </span>
-        </button>
-        {listadoOpen && (
+      {vista === 'listado' ? (
+      <div className="erp-panel erp-gastos-listado is-open">
+        {(
         <div className="erp-gastos-listado__body">
 
         <div className="erp-gastos-meses">
@@ -1226,6 +1134,7 @@ export default function ErpGastosPage() {
             <span className="erp-field__label">Categoría</span>
             <select className="erp-input" style={{ marginTop: 0 }} value={categoriaFiltro} onChange={(e) => setCategoriaFiltro(e.target.value)}>
               <option value="">Todas</option>
+              <option value="__sin__">Sin categoría</option>
               {categorias.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -1256,6 +1165,14 @@ export default function ErpGastosPage() {
               <option value="con">Con IVA</option>
               <option value="sin">Sin IVA</option>
               <option value="pendiente">Pendiente de libro</option>
+            </select>
+          </label>
+          <label className="erp-field">
+            <span className="erp-field__label">Comprobante</span>
+            <select className="erp-input" style={{ marginTop: 0 }} value={filter} onChange={(e) => setFilter(e.target.value as GastosFilter)}>
+              <option value="todo">Todos</option>
+              <option value="corrientes">Sin ticket adjunto</option>
+              <option value="tickets">Con ticket adjunto</option>
             </select>
           </label>
           <button type="button" className={soloHoy ? 'btn-primary' : 'btn-secondary'} onClick={() => setSoloHoy((v) => !v)}>
@@ -1473,6 +1390,7 @@ export default function ErpGastosPage() {
         </div>
         )}
       </div>
+      ) : null}
     </div>
   )
 }
