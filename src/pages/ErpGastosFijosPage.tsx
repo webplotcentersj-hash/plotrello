@@ -33,9 +33,6 @@ type PagoForm = { id_gasto_fijo: number; fecha: string; total: string; metodo_pa
 
 type Estado = 'pagado' | 'vencido' | 'por_vencer' | 'pendiente'
 
-/** Meses hacia adelante para buscar el próximo vencimiento (cubre los anuales). */
-const HORIZONTE_MESES = 12
-
 const vacio = (): Form => ({
   concepto: '',
   categoria: null,
@@ -96,7 +93,6 @@ export default function ErpGastosFijosPage() {
   const navigate = useNavigate()
   const [gastos, setGastos] = useState<GastoFijo[]>([])
   const [pagos, setPagos] = useState<PagoGastoFijo[]>([])
-  const [pagosProximos, setPagosProximos] = useState<PagoGastoFijo[]>([])
   const [categorias, setCategorias] = useState<string[]>([])
   const [periodo, setPeriodo] = useState(periodoActual())
   const [form, setForm] = useState<Form | null>(null)
@@ -120,18 +116,10 @@ export default function ErpGastosFijosPage() {
   const cargarPagos = async (p: string) => {
     const req = ++pagosReqId.current
     setLoadingPagos(true)
-    const actual = periodoActual()
-    // Incluye el mes visto (puede ser pasado) + horizonte desde hoy para el catálogo.
-    const desdeProx = p < actual ? p : actual
-    const hastaProx = sumarMeses(actual, HORIZONTE_MESES)
-    const [r, prox] = await Promise.all([
-      listPagosGastosFijos(p, p),
-      listPagosGastosFijos(desdeProx, hastaProx)
-    ])
+    const r = await listPagosGastosFijos(p, p)
     if (req !== pagosReqId.current) return
     if (r.success) setPagos(r.data)
     else setMsg({ tipo: 'error', texto: r.error })
-    if (prox.success) setPagosProximos(prox.data)
     setLoadingPagos(false)
   }
 
@@ -148,7 +136,6 @@ export default function ErpGastosFijosPage() {
     setPagoForm(null)
     // Limpia al instante para que no queden estados/pagos del mes anterior.
     setPagos([])
-    setPagosProximos([])
     void cargarPagos(periodo)
   }, [periodo])
 
@@ -185,29 +172,19 @@ export default function ErpGastosFijosPage() {
     return { previsto, pagado, pendiente, vencidos, mensualEq }
   }, [filasMes, gastos])
 
-  /** Próximo vencimiento impago desde el mes de la barra (no se queda anclado a “hoy”). */
-  const proximoVenc = useMemo(() => {
-    const m = new Map<number, string | null>()
-    const pagadoEn = (idGasto: number, p: string) => {
-      if (String(p) === periodo) {
-        return pagos.some((x) => Number(x.id_gasto_fijo) === Number(idGasto) && String(x.periodo_fijo) === p)
-      }
-      return pagosProximos.some(
-        (x) => Number(x.id_gasto_fijo) === Number(idGasto) && String(x.periodo_fijo) === p
-      )
-    }
+  /** Vencimiento del mes elegido en la barra (cambia con las flechas; no “salta” al próximo impago). */
+  const vencDelMes = useMemo(() => {
+    const m = new Map<number, { fecha: string | null; pagado: boolean; aplica: boolean }>()
     for (const g of gastos) {
-      let fecha: string | null = null
-      for (let i = 0; i <= HORIZONTE_MESES && !fecha; i++) {
-        const p = sumarMeses(periodo, i)
-        if (!aplicaEnPeriodo(g, p)) continue
-        if (pagadoEn(g.id, p)) continue
-        fecha = vencimientoEnPeriodo(g.dia_vencimiento, p)
-      }
-      m.set(g.id, fecha)
+      const aplica = aplicaEnPeriodo(g, periodo)
+      const fecha = aplica ? vencimientoEnPeriodo(g.dia_vencimiento, periodo) : null
+      const pagado =
+        !!fecha &&
+        pagos.some((x) => Number(x.id_gasto_fijo) === Number(g.id) && String(x.periodo_fijo) === periodo)
+      m.set(g.id, { fecha, pagado, aplica })
     }
     return m
-  }, [gastos, pagos, pagosProximos, periodo])
+  }, [gastos, pagos, periodo])
 
   const catalogo = useMemo(
     () =>
@@ -215,11 +192,17 @@ export default function ErpGastosFijosPage() {
         .filter((g) => verInactivos || g.activo)
         .sort((a, b) => {
           if (a.activo !== b.activo) return a.activo ? -1 : 1
-          const fa = proximoVenc.get(a.id) ?? '9999-99-99'
-          const fb = proximoVenc.get(b.id) ?? '9999-99-99'
-          return fa.localeCompare(fb) || a.concepto.localeCompare(b.concepto)
+          const va = vencDelMes.get(a.id)
+          const vb = vencDelMes.get(b.id)
+          // Primero los que vencen este mes; pagados al final del grupo.
+          const rank = (v?: { fecha: string | null; pagado: boolean; aplica: boolean }) => {
+            if (!v?.aplica || !v.fecha) return '3'
+            if (v.pagado) return `2-${v.fecha}`
+            return `1-${v.fecha}`
+          }
+          return rank(va).localeCompare(rank(vb)) || a.concepto.localeCompare(b.concepto)
         }),
-    [gastos, verInactivos, proximoVenc]
+    [gastos, verInactivos, vencDelMes]
   )
 
   const guardar = async () => {
@@ -638,7 +621,7 @@ export default function ErpGastosFijosPage() {
 
       <div className="erp-panel" key={`catalogo-${periodo}`}>
         <h2>
-          Gastos fijos cargados <small className="erp-muted">· desde {labelPeriodo(periodo)}</small>
+          Gastos fijos cargados <small className="erp-muted">· {labelPeriodo(periodo)}</small>
         </h2>
         <div className="erp-toolbar">
           <label className="erpx-checks" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -653,11 +636,11 @@ export default function ErpGastosFijosPage() {
             <table className="erp-table">
               <thead>
                 <tr>
-                  <th>Próximo venc.</th>
+                  <th>Venc. del mes</th>
                   <th>Concepto</th>
                   <th>Categoría</th>
                   <th>Frecuencia</th>
-                  <th>Vence</th>
+                  <th>Día</th>
                   <th className="erpx-right">Monto</th>
                   <th className="erpx-right">Equiv. mensual</th>
                   <th>Vigencia</th>
@@ -666,27 +649,23 @@ export default function ErpGastosFijosPage() {
                 </tr>
               </thead>
               <tbody>
-                {catalogo.map((g) => (
-                  <tr key={`${g.id}-${periodo}-${proximoVenc.get(g.id) ?? 'x'}`}>
+                {catalogo.map((g) => {
+                  const v = vencDelMes.get(g.id)
+                  return (
+                  <tr key={`${g.id}-${periodo}-${v?.fecha ?? 'na'}-${v?.pagado ? 'p' : 'x'}`}>
                     <td>
-                      {(() => {
-                        const f = g.activo ? proximoVenc.get(g.id) ?? null : null
-                        if (!f) return '—'
-                        const enMes = aplicaEnPeriodo(g, periodo)
-                          ? vencimientoEnPeriodo(g.dia_vencimiento, periodo)
-                          : null
-                        const pagadoMes = enMes
-                          ? pagos.some(
-                              (x) => Number(x.id_gasto_fijo) === Number(g.id) && String(x.periodo_fijo) === periodo
-                            )
-                          : false
-                        return (
-                          <span className={f < hoy && !pagadoMes ? 'erp-pill danger' : undefined}>
-                            {fmtFecha(f)}
-                            {pagadoMes ? <span className="erp-muted"> · pagado</span> : null}
-                          </span>
-                        )
-                      })()}
+                      {!g.activo || !v?.aplica || !v.fecha ? (
+                        <span className="erp-muted">No vence</span>
+                      ) : (
+                        <span
+                          className={
+                            v.pagado ? 'erp-pill ok' : v.fecha < hoy ? 'erp-pill danger' : undefined
+                          }
+                        >
+                          {fmtFecha(v.fecha)}
+                          {v.pagado ? ' · pagado' : ''}
+                        </span>
+                      )}
                     </td>
                     <td>
                       {g.concepto}
@@ -726,7 +705,8 @@ export default function ErpGastosFijosPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
