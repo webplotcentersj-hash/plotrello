@@ -124,8 +124,12 @@ export function equivalenteMensual(g: Pick<GastoFijo, 'monto' | 'frecuencia'>): 
 }
 
 export function sumarMeses(periodo: string, n: number): string {
-  const idx = mesIndex(periodo) + n
-  return `${Math.floor(idx / 12)}-${String((idx % 12) + 1).padStart(2, '0')}`
+  const [y0, m0] = String(periodo || '').split('-').map(Number)
+  const y = Number.isFinite(y0) ? y0 : new Date().getFullYear()
+  const m = Number.isFinite(m0) && m0 >= 1 && m0 <= 12 ? m0 : 1
+  // Date evita el bug de % negativo de JS al restar meses.
+  const d = new Date(y, m - 1 + n, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 export function labelPeriodo(periodo: string): string {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ErpPageHeader from '../components/erp/ErpPageHeader'
 import {
@@ -104,7 +104,10 @@ export default function ErpGastosFijosPage() {
   const [verInactivos, setVerInactivos] = useState(false)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadingPagos, setLoadingPagos] = useState(false)
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
+  /** Evita que una respuesta vieja pise el mes que el usuario ya eligió. */
+  const pagosReqId = useRef(0)
 
   const hoy = hoyIso()
 
@@ -115,14 +118,21 @@ export default function ErpGastosFijosPage() {
   }
 
   const cargarPagos = async (p: string) => {
+    const req = ++pagosReqId.current
+    setLoadingPagos(true)
     const actual = periodoActual()
+    // Incluye el mes visto (puede ser pasado) + horizonte desde hoy para el catálogo.
+    const desdeProx = p < actual ? p : actual
+    const hastaProx = sumarMeses(actual, HORIZONTE_MESES)
     const [r, prox] = await Promise.all([
       listPagosGastosFijos(p, p),
-      listPagosGastosFijos(actual, sumarMeses(actual, HORIZONTE_MESES))
+      listPagosGastosFijos(desdeProx, hastaProx)
     ])
+    if (req !== pagosReqId.current) return
     if (r.success) setPagos(r.data)
     else setMsg({ tipo: 'error', texto: r.error })
     if (prox.success) setPagosProximos(prox.data)
+    setLoadingPagos(false)
   }
 
   useEffect(() => {
@@ -136,6 +146,8 @@ export default function ErpGastosFijosPage() {
 
   useEffect(() => {
     setPagoForm(null)
+    // Limpia al instante para que no queden estados/pagos del mes anterior.
+    setPagos([])
     void cargarPagos(periodo)
   }, [periodo])
 
@@ -470,7 +482,10 @@ export default function ErpGastosFijosPage() {
       )}
 
       <div className="erp-panel">
-        <h2>Vencimientos de {labelPeriodo(periodo)}</h2>
+        <h2>
+          Vencimientos de {labelPeriodo(periodo)}
+          {loadingPagos ? <span className="erp-muted"> · actualizando…</span> : null}
+        </h2>
         <div className="erp-toolbar">
           <button type="button" className="btn-secondary" onClick={() => setPeriodo((p) => sumarMeses(p, -1))}>
             ← Mes anterior
