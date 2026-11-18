@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { clientesCcPerfil, clientesPerfil } from '../utils/clientesRoutes'
 import type {
@@ -52,13 +52,14 @@ type Props = {
 const COLS: Array<{
   id: PipelineColId
   label: string
+  hint: string
   color: string
 }> = [
-  { id: 'solicitud', label: 'Solicitud', color: '#fbbf24' },
-  { id: 'al_dia', label: 'Al día', color: '#34d399' },
-  { id: 'por_vencer', label: 'Por vencer', color: '#fb923c' },
-  { id: 'vencido', label: 'Vencido', color: '#f87171' },
-  { id: 'rechazada', label: 'Rechazada', color: '#94a3b8' }
+  { id: 'solicitud', label: 'Solicitud', hint: 'Altas a revisar', color: '#fbbf24' },
+  { id: 'al_dia', label: 'Al día', hint: 'Sin atraso', color: '#34d399' },
+  { id: 'por_vencer', label: 'Por vencer', hint: 'Próximos 7 días', color: '#fb923c' },
+  { id: 'vencido', label: 'Vencido', hint: 'Cobrar ya', color: '#f87171' },
+  { id: 'rechazada', label: 'Rechazada', hint: 'Fuera de cartera', color: '#94a3b8' }
 ]
 
 function pipelineCol(
@@ -91,6 +92,29 @@ export default function CuentaCorrienteRegistry({
 }: Props) {
   const navigate = useNavigate()
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [focusCol, setFocusCol] = useState<PipelineColId | null>(null)
+  const colRefs = useRef<Partial<Record<PipelineColId, HTMLElement | null>>>({})
+
+  const scrollToCol = (id: PipelineColId) => {
+    setFocusCol(id)
+    colRefs.current[id]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+  }
+
+  const cerrarDetalle = () => setSelectedId(null)
+
+  useEffect(() => {
+    if (selectedId == null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedId(null)
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [selectedId])
 
   const cobroPorCliente = useMemo(() => {
     const map = new Map<number, CobroResumen>()
@@ -164,6 +188,37 @@ export default function CuentaCorrienteRegistry({
           <p>{filtroLista.trim() ? `Sin resultados para «${filtroLista}».` : 'No hay clientes en cuenta corriente.'}</p>
         </div>
       ) : (
+        <>
+        <nav className="cc-pipeline-nav" aria-label="Etapas del pipeline">
+          {COLS.map((col, idx) => {
+            const cards = porColumna[col.id]
+            const total = cards.reduce((s, r) => {
+              const cobro = cobroPorCliente.get(r.id_cliente)
+              return s + (cobro?.monto_pendiente ?? Math.max(0, Number(r.saldo_actual) || 0))
+            }, 0)
+            const active = focusCol === col.id || (!focusCol && cards.length > 0 && idx === COLS.findIndex((c) => porColumna[c.id].length > 0))
+            return (
+              <button
+                key={col.id}
+                type="button"
+                className={`cc-pipeline-nav__item cc-pipeline-nav__item--${col.id}${active ? ' is-active' : ''}${cards.length === 0 ? ' is-empty' : ''}`}
+                style={{ ['--cc-stage' as string]: col.color }}
+                onClick={() => scrollToCol(col.id)}
+              >
+                <span className="cc-pipeline-nav__step">{idx + 1}</span>
+                <span className="cc-pipeline-nav__body">
+                  <span className="cc-pipeline-nav__label">{col.label}</span>
+                  <span className="cc-pipeline-nav__hint">{col.hint}</span>
+                </span>
+                <span className="cc-pipeline-nav__stats">
+                  <strong>{cards.length}</strong>
+                  <em className={total < 0.01 ? 'is-muted' : undefined}>{formatMontoArs(total)}</em>
+                </span>
+              </button>
+            )
+          })}
+        </nav>
+
         <div className="cc-pipeline">
           {COLS.map((col) => {
             const cards = porColumna[col.id]
@@ -172,10 +227,20 @@ export default function CuentaCorrienteRegistry({
               return s + (cobro?.monto_pendiente ?? Math.max(0, Number(r.saldo_actual) || 0))
             }, 0)
             return (
-              <section key={col.id} className={`cc-pipeline__col cc-pipeline__col--${col.id}`}>
+              <section
+                key={col.id}
+                ref={(el) => {
+                  colRefs.current[col.id] = el
+                }}
+                className={`cc-pipeline__col cc-pipeline__col--${col.id}${focusCol === col.id ? ' is-focus' : ''}`}
+                style={{ ['--cc-stage' as string]: col.color }}
+              >
                 <header className="cc-pipeline__col-head">
-                  <span className="cc-pipeline__dot" style={{ background: col.color }} aria-hidden />
-                  <h3>{col.label}</h3>
+                  <span className="cc-pipeline__dot" aria-hidden />
+                  <div className="cc-pipeline__titles">
+                    <h3>{col.label}</h3>
+                    <span className="cc-pipeline__hint">{col.hint}</span>
+                  </div>
                   <span className="cc-pipeline__count">{cards.length}</span>
                   <span className={`cc-pipeline__total${total < 0.01 ? ' cc-pipeline__total--muted' : ''}`}>
                     {formatMontoArs(total)}
@@ -270,9 +335,9 @@ export default function CuentaCorrienteRegistry({
                             <button
                               type="button"
                               className="cc-btn cc-btn--secondary cc-btn--sm"
-                              onClick={() => setSelectedId(selectedId === r.id ? null : r.id)}
+                              onClick={() => setSelectedId(r.id)}
                             >
-                              {selectedId === r.id ? 'Cerrar' : 'Detalle'}
+                              Detalle
                             </button>
                           </div>
                         </article>
@@ -284,104 +349,137 @@ export default function CuentaCorrienteRegistry({
             )
           })}
         </div>
+        </>
       )}
 
       {selected && (
-        <div className="cc-pipeline-detail" role="dialog" aria-label="Detalle de cuenta">
-          <header className="cc-pipeline-detail__head">
-            <div>
-              <h3>{selected.razon_social || selected.cliente?.nombre || 'Cliente'}</h3>
-              <p>
-                {selected.cuit || 'Sin CUIT'} · {normalizeEstadoCc(selected)}
-              </p>
-            </div>
-            <button type="button" className="cc-btn cc-btn--secondary cc-btn--sm" onClick={() => setSelectedId(null)}>
-              Cerrar
-            </button>
-          </header>
-
-          {selectedCobro && selectedCobro.ventas.length > 0 && (
-            <div className="cc-pipeline-detail__ventas">
-              <h4>Ventas abiertas</h4>
-              <div className="cc-pipeline-detail__table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Venta</th>
-                      <th>Vendedor</th>
-                      <th className="num">Pendiente</th>
-                      <th>Vence</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedCobro.ventas.map((v) => {
-                      const st = estadoCobroVenta(v.dias_vencido)
-                      return (
-                        <tr key={v.id_venta}>
-                          <td>#{v.numero_venta}</td>
-                          <td>{v.nombre_vendedor}</td>
-                          <td className="num">{formatMontoArs(v.monto_pendiente)}</td>
-                          <td>{v.fecha_vencimiento}</td>
-                          <td>
-                            <span className={`cc-cob-badge ${st.cls}`}>{st.label}</span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+        <div
+          className="cc-pipeline-modal-overlay"
+          role="presentation"
+          onClick={cerrarDetalle}
+        >
+          <div
+            className="cc-pipeline-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cc-pipeline-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="cc-pipeline-modal__head">
+              <div>
+                <h3 id="cc-pipeline-modal-title">
+                  {selected.razon_social || selected.cliente?.nombre || 'Cliente'}
+                </h3>
+                <p>
+                  {selected.cuit || 'Sin CUIT'} · {normalizeEstadoCc(selected)}
+                  {selectedCobro && selectedCobro.ventas.length > 0
+                    ? ` · ${selectedCobro.ventas.length} venta${selectedCobro.ventas.length === 1 ? '' : 's'} · ${formatMontoArs(selectedCobro.monto_pendiente)}`
+                    : ''}
+                </p>
               </div>
-            </div>
-          )}
+              <button
+                type="button"
+                className="cc-pipeline-modal__close"
+                onClick={cerrarDetalle}
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
+            </header>
 
-          <div className="cc-pipeline-detail__actions">
-            <button
-              type="button"
-              className="cc-btn cc-btn--secondary cc-btn--sm"
-              onClick={() => navigate(clientesPerfil(selected.id_cliente))}
-            >
-              Ficha cliente
-            </button>
-            {normalizeEstadoCc(selected) === 'aprobada' && (
-              <>
-                <button
-                  type="button"
-                  className="cc-btn cc-btn--primary cc-btn--sm"
-                  onClick={() => navigate(clientesCcPerfil(selected.id_cliente))}
-                >
-                  Ver cuenta
-                </button>
-                <button
-                  type="button"
-                  className="cc-btn cc-btn--secondary cc-btn--sm"
-                  onClick={() => onScoring(selected)}
-                >
-                  Scoring
-                </button>
-              </>
-            )}
-            {(isAdmin || normalizeEstadoCc(selected) !== 'aprobada') && (
+            <div className="cc-pipeline-modal__body">
+              {selectedCobro && selectedCobro.ventas.length > 0 ? (
+                <div className="cc-pipeline-detail__ventas">
+                  <h4>Ventas abiertas</h4>
+                  <div className="cc-pipeline-detail__table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Venta</th>
+                          <th>Vendedor</th>
+                          <th className="num">Pendiente</th>
+                          <th>Vence</th>
+                          <th>Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedCobro.ventas.map((v) => {
+                          const st = estadoCobroVenta(v.dias_vencido)
+                          return (
+                            <tr key={v.id_venta}>
+                              <td>#{v.numero_venta}</td>
+                              <td>{v.nombre_vendedor}</td>
+                              <td className="num">{formatMontoArs(v.monto_pendiente)}</td>
+                              <td>{v.fecha_vencimiento}</td>
+                              <td>
+                                <span className={`cc-cob-badge ${st.cls}`}>{st.label}</span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className="cc-pipeline-modal__empty">Sin ventas abiertas en cuenta corriente.</p>
+              )}
+            </div>
+
+            <footer className="cc-pipeline-modal__footer">
               <button
                 type="button"
                 className="cc-btn cc-btn--secondary cc-btn--sm"
-                onClick={() => onEditar(selected)}
+                onClick={() => navigate(clientesPerfil(selected.id_cliente))}
               >
-                {normalizeEstadoCc(selected) === 'rechazada' ? 'Reenviar' : 'Editar ficha'}
+                Ficha cliente
               </button>
-            )}
-            {(isAdmin ||
-              normalizeEstadoCc(selected) === 'rechazada' ||
-              normalizeEstadoCc(selected) === 'pendiente') && (
-              <button
-                type="button"
-                className="cc-btn cc-btn--danger cc-btn--sm"
-                disabled={quitandoId === selected.id_cliente}
-                onClick={() => onQuitar(selected.id_cliente)}
-              >
-                {quitandoId === selected.id_cliente ? 'Quitando…' : 'Quitar'}
-              </button>
-            )}
+              {normalizeEstadoCc(selected) === 'aprobada' && (
+                <>
+                  <button
+                    type="button"
+                    className="cc-btn cc-btn--primary cc-btn--sm"
+                    onClick={() => navigate(clientesCcPerfil(selected.id_cliente))}
+                  >
+                    Ver cuenta
+                  </button>
+                  <button
+                    type="button"
+                    className="cc-btn cc-btn--secondary cc-btn--sm"
+                    onClick={() => {
+                      onScoring(selected)
+                      cerrarDetalle()
+                    }}
+                  >
+                    Scoring
+                  </button>
+                </>
+              )}
+              {(isAdmin || normalizeEstadoCc(selected) !== 'aprobada') && (
+                <button
+                  type="button"
+                  className="cc-btn cc-btn--secondary cc-btn--sm"
+                  onClick={() => {
+                    onEditar(selected)
+                    cerrarDetalle()
+                  }}
+                >
+                  {normalizeEstadoCc(selected) === 'rechazada' ? 'Reenviar' : 'Editar ficha'}
+                </button>
+              )}
+              {(isAdmin ||
+                normalizeEstadoCc(selected) === 'rechazada' ||
+                normalizeEstadoCc(selected) === 'pendiente') && (
+                <button
+                  type="button"
+                  className="cc-btn cc-btn--danger cc-btn--sm"
+                  disabled={quitandoId === selected.id_cliente}
+                  onClick={() => onQuitar(selected.id_cliente)}
+                >
+                  {quitandoId === selected.id_cliente ? 'Quitando…' : 'Quitar'}
+                </button>
+              )}
+            </footer>
           </div>
         </div>
       )}

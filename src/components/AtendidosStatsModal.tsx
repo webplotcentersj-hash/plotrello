@@ -307,7 +307,7 @@ export default function AtendidosStatsModal({ open, onClose }: Props) {
       presencial: presencialByH[h],
       virtual: virtualByH[h],
       total: presencialByH[h] + virtualByH[h]
-    })).filter((r) => r.hora >= '07:00' && r.hora <= '21:00')
+    })).filter((r) => r.hora >= '07:00' && r.hora <= '18:00')
   }, [ventas, atenciones, ancla, vistaCal])
 
   const resumen = useMemo(() => {

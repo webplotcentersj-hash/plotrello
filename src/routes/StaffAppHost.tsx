@@ -124,6 +124,7 @@ const ErpCuentasPorPagarPage = lazy(() => import('../pages/ErpCuentasPorPagarPag
 const ErpPlanCuentasPage = lazy(() => import('../pages/ErpPlanCuentasPage.tsx'))
 const ErpCostosPage = lazy(() => import('../pages/ErpCostosPage.tsx'))
 const ErpReportesPage = lazy(() => import('../pages/ErpReportesPage.tsx'))
+const ErpBalanceEconomicoPage = lazy(() => import('../pages/ErpBalanceEconomicoPage.tsx'))
 const ErpComprasPage = lazy(() => import('../pages/ErpComprasPage'))
 const ErpStockPage = lazy(() => import('../pages/ErpStockPage'))
 const ErpCrmPage = lazy(() => import('../pages/ErpCrmPage'))
@@ -1764,6 +1765,10 @@ function AppRoutes({
       <Route
         path="/erp/reportes"
         element={<ErpReportesPage />}
+      />
+      <Route
+        path="/erp/balance-economico"
+        element={<ErpBalanceEconomicoPage />}
       />
       <Route
         path="/erp/configuracion-afip"

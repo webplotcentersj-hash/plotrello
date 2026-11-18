@@ -11,6 +11,7 @@ import {
   NotebookPen,
   Package,
   Receipt,
+  Scale,
   ScanLine,
   Settings,
   ShieldCheck,
@@ -133,6 +134,27 @@ export const CONTABLE_MODULES: ErpModuleDef[] = [
     icon: ChartColumn,
     path: '/erp/reportes',
     keywords: ['reportes', 'balance', 'resultados', 'kpi', 'informes']
+  },
+  {
+    id: 'balance-economico',
+    group: 'finanzas',
+    title: 'Balance económico',
+    description: 'Ventas (incl. CC), gastos, proveedores, egresos y liquidaciones',
+    icon: Scale,
+    path: '/erp/balance-economico',
+    keywords: [
+      'balance',
+      'economico',
+      'ventas',
+      'cuenta corriente',
+      'gastos',
+      'fijos',
+      'proveedores',
+      'egresos',
+      'sueldos',
+      'liquidacion',
+      'empleados'
+    ]
   },
   // Contabilidad e impuestos
   {

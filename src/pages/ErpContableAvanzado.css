@@ -143,6 +143,27 @@
   font-size: 0.82rem;
 }
 
+.gf-cat-suministro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.gf-suministro {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+
+.gf-suministro__copy {
+  padding: 2px 8px !important;
+  height: auto !important;
+  font-size: 0.72rem !important;
+}
+
 @media print {
   .erpx-noprint {
     display: none !important;

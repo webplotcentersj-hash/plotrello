@@ -843,19 +843,31 @@ function Dona({ datos, centro, sub }: { datos: Array<{ nombre: string; valor: nu
 }
 
 function Aging({ datos, color }: { datos: Array<{ tramo: string; importe: number; cantidad: number }>; color: string }) {
+  const total = datos.reduce((s, d) => s + d.importe, 0)
+  const max = Math.max(...datos.map((d) => d.importe), 1)
   return (
-    <ResponsiveContainer width="100%" height={170}>
-      <BarChart data={datos} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
-        <XAxis type="number" hide />
-        <YAxis type="category" dataKey="tramo" stroke="#94a3b8" tickLine={false} axisLine={false} fontSize={11} width={80} />
-        <Tooltip {...tooltipEstilo} cursor={{ fill: 'rgba(148,163,184,.08)' }} formatter={(v: number) => [pesos(v), 'Pendiente']} />
-        <Bar dataKey="importe" radius={[0, 5, 5, 0]} maxBarSize={18}>
-          {datos.map((d, i) => (
-            <Cell key={d.tramo} fill={i === 0 ? '#475569' : color} fillOpacity={i === 0 ? 1 : 0.45 + i * 0.13} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <ul className="rp-aging" aria-label="Antigüedad por tramo">
+      {datos.map((d, i) => {
+        const pctTramo = total > 0 ? (d.importe / total) * 100 : 0
+        const fill = i === 0 ? '#475569' : color
+        const opacity = i === 0 ? 1 : 0.45 + i * 0.13
+        return (
+          <li key={d.tramo} className="rp-aging__row">
+            <div className="rp-aging__meta">
+              <span className="rp-aging__tramo">{d.tramo}</span>
+              <span className="rp-aging__cant">{d.cantidad ? `${d.cantidad}` : '—'}</span>
+              <strong className="rp-aging__importe">{pesos(d.importe)}</strong>
+            </div>
+            <div className="rp-aging__track" title={`${pct(pctTramo)} del total`}>
+              <span
+                className="rp-aging__bar"
+                style={{ width: `${(d.importe / max) * 100}%`, background: fill, opacity }}
+              />
+            </div>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

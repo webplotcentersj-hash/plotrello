@@ -41,6 +41,7 @@ const vacio = (): Form => ({
   categoria: null,
   proveedor: null,
   proveedor_cuit: null,
+  numero_suministro: null,
   monto: '',
   moneda: 'ARS',
   frecuencia: 'mensual',
@@ -52,6 +53,28 @@ const vacio = (): Form => ({
   activo: true,
   observaciones: null
 })
+
+async function copiarTexto(texto: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(texto)
+    return true
+  } catch {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = texto
+      ta.setAttribute('readonly', '')
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
+      document.body.appendChild(ta)
+      ta.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(ta)
+      return ok
+    } catch {
+      return false
+    }
+  }
+}
 
 function aForm(g: GastoFijo): Form {
   return { ...g, monto: String(g.monto), dia_vencimiento: String(g.dia_vencimiento) }
@@ -121,7 +144,10 @@ export default function ErpGastosFijosPage() {
       .filter((g) => g.activo && aplicaEnPeriodo(g, periodo))
       .map((g) => {
         const vence = vencimientoEnPeriodo(g.dia_vencimiento, periodo)
-        const pago = pagos.find((p) => p.id_gasto_fijo === g.id) ?? null
+        const pago =
+          pagos.find(
+            (p) => Number(p.id_gasto_fijo) === Number(g.id) && String(p.periodo_fijo) === periodo
+          ) ?? null
         let estado: Estado = 'pendiente'
         if (pago) estado = 'pagado'
         else if (vence < hoy) estado = 'vencido'
@@ -155,7 +181,12 @@ export default function ErpGastosFijosPage() {
       for (let i = 0; i <= HORIZONTE_MESES && !fecha; i++) {
         const p = sumarMeses(actual, i)
         if (!aplicaEnPeriodo(g, p)) continue
-        if (pagosProximos.some((x) => x.id_gasto_fijo === g.id && x.periodo_fijo === p)) continue
+        if (
+          pagosProximos.some(
+            (x) => Number(x.id_gasto_fijo) === Number(g.id) && String(x.periodo_fijo) === p
+          )
+        )
+          continue
         fecha = vencimientoEnPeriodo(g.dia_vencimiento, p)
       }
       m.set(g.id, fecha)
@@ -194,6 +225,7 @@ export default function ErpGastosFijosPage() {
       categoria: limpio(form.categoria),
       proveedor: limpio(form.proveedor),
       proveedor_cuit: limpio(form.proveedor_cuit),
+      numero_suministro: limpio(form.numero_suministro),
       centro_costo: limpio(form.centro_costo),
       observaciones: limpio(form.observaciones),
       mes_fin: form.mes_fin || null,
@@ -223,7 +255,15 @@ export default function ErpGastosFijosPage() {
     void cargarGastos()
   }
 
+  const pagoDelPeriodo = (idGasto: number) =>
+    pagos.find((p) => Number(p.id_gasto_fijo) === Number(idGasto) && String(p.periodo_fijo) === periodo) ??
+    null
+
   const abrirPago = (g: GastoFijo) => {
+    if (pagoDelPeriodo(g.id)) {
+      setMsg({ tipo: 'error', texto: `Ya hay un pago de "${g.concepto}" en ${labelPeriodo(periodo)}. Anulalo si necesitás corregirlo.` })
+      return
+    }
     setPagoForm({
       id_gasto_fijo: g.id,
       fecha: hoy,
@@ -238,6 +278,11 @@ export default function ErpGastosFijosPage() {
     const g = gastos.find((x) => x.id === pagoForm.id_gasto_fijo)
     const total = numero(pagoForm.total)
     if (!g) return
+    if (pagoDelPeriodo(g.id)) {
+      setMsg({ tipo: 'error', texto: `Ese período ya tiene un pago registrado para "${g.concepto}".` })
+      setPagoForm(null)
+      return
+    }
     if (total == null || total <= 0) return setMsg({ tipo: 'error', texto: 'Ingresá el monto pagado.' })
     if (!pagoForm.fecha) return setMsg({ tipo: 'error', texto: 'Indicá la fecha de pago.' })
     setBusy(true)
@@ -251,14 +296,33 @@ export default function ErpGastosFijosPage() {
     if (!r.success) return setMsg({ tipo: 'error', texto: r.error })
     setMsg({ tipo: 'ok', texto: `Pago de "${g.concepto}" registrado en Gastos (${labelPeriodo(periodo)}).` })
     setPagoForm(null)
+    // Actualización optimista: el botón pasa a «Anular» sin esperar el refetch.
+    setPagos((prev) => {
+      const row: PagoGastoFijo = {
+        id: Number(r.data.id),
+        id_gasto_fijo: Number(r.data.id_gasto_fijo ?? g.id),
+        periodo_fijo: String(r.data.periodo_fijo || periodo),
+        fecha_gasto: String(r.data.fecha_gasto || pagoForm.fecha),
+        total: Number(r.data.total) || total,
+        metodo_pago: r.data.metodo_pago ?? pagoForm.metodo_pago
+      }
+      const sinDup = prev.filter(
+        (p) => !(Number(p.id_gasto_fijo) === row.id_gasto_fijo && String(p.periodo_fijo) === row.periodo_fijo)
+      )
+      return [...sinDup, row]
+    })
     void cargarPagos(periodo)
   }
 
   const anularPago = async (g: GastoFijo, pago: PagoGastoFijo) => {
     if (!window.confirm(`¿Anular el pago de "${g.concepto}" de ${labelPeriodo(periodo)}? Se borra el gasto de ${fmtMoney(pago.total)}.`)) return
+    setBusy(true)
     const r = await anularPagoGastoFijo(pago.id)
+    setBusy(false)
     if (!r.success) return setMsg({ tipo: 'error', texto: r.error })
     setMsg({ tipo: 'ok', texto: `Pago de "${g.concepto}" anulado.` })
+    setPagos((prev) => prev.filter((p) => Number(p.id) !== Number(pago.id)))
+    setPagoForm((pf) => (pf?.id_gasto_fijo === g.id ? null : pf))
     void cargarPagos(periodo)
   }
 
@@ -321,6 +385,14 @@ export default function ErpGastosFijosPage() {
             <label className="erp-field">
               <span className="erp-field__label">CUIT proveedor</span>
               <input value={form.proveedor_cuit ?? ''} onChange={(e) => setForm({ ...form, proveedor_cuit: e.target.value })} />
+            </label>
+            <label className="erp-field">
+              <span className="erp-field__label">Nº de suministro</span>
+              <input
+                value={form.numero_suministro ?? ''}
+                onChange={(e) => setForm({ ...form, numero_suministro: e.target.value })}
+                placeholder="Cliente / medidor / NIS…"
+              />
             </label>
             <label className="erp-field">
               <span className="erp-field__label">Monto estimado *</span>
@@ -464,7 +536,18 @@ export default function ErpGastosFijosPage() {
                       {g.concepto}
                       {g.proveedor ? <span className="erp-muted"> · {g.proveedor}</span> : null}
                     </td>
-                    <td>{g.categoria || '—'}</td>
+                    <td>
+                      <CategoriaSuministro
+                        categoria={g.categoria}
+                        numero={g.numero_suministro}
+                        onCopiado={(ok) =>
+                          setMsg({
+                            tipo: ok ? 'ok' : 'error',
+                            texto: ok ? 'Nº de suministro copiado.' : 'No se pudo copiar.'
+                          })
+                        }
+                      />
+                    </td>
                     <td className="erpx-right">{fmtMoney(g.monto)}</td>
                     <td className="erpx-right">{pago ? fmtMoney(pago.total) : '—'}</td>
                     <td>{estadoPill(estado, pago)}</td>
@@ -475,7 +558,12 @@ export default function ErpGastosFijosPage() {
                             Anular pago
                           </button>
                         ) : (
-                          <button type="button" className="erpx-btn-sm" onClick={() => abrirPago(g)}>
+                          <button
+                            type="button"
+                            className="erpx-btn-sm"
+                            disabled={busy}
+                            onClick={() => abrirPago(g)}
+                          >
                             Registrar pago
                           </button>
                         )}
@@ -571,7 +659,18 @@ export default function ErpGastosFijosPage() {
                       {g.concepto}
                       {g.proveedor ? <span className="erp-muted"> · {g.proveedor}</span> : null}
                     </td>
-                    <td>{g.categoria || '—'}</td>
+                    <td>
+                      <CategoriaSuministro
+                        categoria={g.categoria}
+                        numero={g.numero_suministro}
+                        onCopiado={(ok) =>
+                          setMsg({
+                            tipo: ok ? 'ok' : 'error',
+                            texto: ok ? 'Nº de suministro copiado.' : 'No se pudo copiar.'
+                          })
+                        }
+                      />
+                    </td>
                     <td>{FRECUENCIA_LABEL[g.frecuencia]}</td>
                     <td>Día {g.dia_vencimiento}</td>
                     <td className="erpx-right">{fmtMoney(g.monto)}</td>
@@ -600,6 +699,36 @@ export default function ErpGastosFijosPage() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function CategoriaSuministro({
+  categoria,
+  numero,
+  onCopiado
+}: {
+  categoria: string | null
+  numero: string | null
+  onCopiado: (ok: boolean) => void
+}) {
+  const nro = (numero || '').trim()
+  return (
+    <div className="gf-cat-suministro">
+      <span>{categoria || '—'}</span>
+      {nro ? (
+        <span className="gf-suministro">
+          <span className="erp-muted">Nº {nro}</span>
+          <button
+            type="button"
+            className="erpx-btn-sm gf-suministro__copy"
+            title="Copiar nº de suministro"
+            onClick={() => void copiarTexto(nro).then(onCopiado)}
+          >
+            Copiar
+          </button>
+        </span>
+      ) : null}
     </div>
   )
 }

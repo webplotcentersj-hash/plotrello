@@ -34,6 +34,8 @@ export type GastoFijo = {
   categoria: string | null
   proveedor: string | null
   proveedor_cuit: string | null
+  /** Nº de suministro / cliente del servicio (luz, agua, gas…). */
+  numero_suministro: string | null
   monto: number
   moneda: string
   frecuencia: Frecuencia
@@ -142,6 +144,7 @@ export function listGastosFijos() {
     lanzar(error)
     return ((data ?? []) as GastoFijo[]).map((g) => ({
       ...g,
+      numero_suministro: g.numero_suministro ? String(g.numero_suministro) : null,
       monto: Number(g.monto) || 0,
       dia_vencimiento: Number(g.dia_vencimiento) || 1
     }))
@@ -179,7 +182,13 @@ export function listPagosGastosFijos(desde: string, hasta: string) {
       .gte('periodo_fijo', desde)
       .lte('periodo_fijo', hasta)
     lanzar(error)
-    return ((data ?? []) as PagoGastoFijo[]).map((p) => ({ ...p, total: Number(p.total) || 0 }))
+    return ((data ?? []) as PagoGastoFijo[]).map((p) => ({
+      ...p,
+      id: Number(p.id),
+      id_gasto_fijo: Number(p.id_gasto_fijo),
+      periodo_fijo: String(p.periodo_fijo || ''),
+      total: Number(p.total) || 0
+    }))
   })
 }
 
@@ -209,7 +218,14 @@ export function registrarPagoGastoFijo(
       .select('id,id_gasto_fijo,periodo_fijo,fecha_gasto,total,metodo_pago')
       .single()
     lanzar(error)
-    return data as PagoGastoFijo
+    const row = data as PagoGastoFijo
+    return {
+      ...row,
+      id: Number(row.id),
+      id_gasto_fijo: Number(row.id_gasto_fijo),
+      periodo_fijo: String(row.periodo_fijo || periodo),
+      total: Number(row.total) || 0
+    }
   })
 }
 

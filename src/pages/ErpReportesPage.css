@@ -344,6 +344,62 @@
   color: #64748b;
 }
 
+.rp-aging {
+  margin: 4px 0 8px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rp-aging__row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rp-aging__meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 0.8rem;
+}
+
+.rp-aging__tramo {
+  color: #cbd5e1;
+  min-width: 0;
+}
+
+.rp-aging__cant {
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+}
+
+.rp-aging__importe {
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  font-size: 0.82rem;
+}
+
+.rp-aging__track {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  overflow: hidden;
+}
+
+.rp-aging__bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  min-width: 0;
+  transition: width 0.25s ease;
+}
+
 .rp-top {
   margin: 6px 0 0;
   padding: 0;
@@ -397,6 +453,22 @@
 
 .rp-tabla .is-neg {
   color: #fca5a5;
+}
+
+.rp-tabla .is-ok {
+  color: #6ee7b7;
+}
+
+.rp-tabla tr.is-total td {
+  border-top: 1px solid rgba(148, 163, 184, 0.28);
+  font-weight: 700;
+  color: #f8fafc;
+  padding-top: 12px;
+}
+
+.rp-dona-wrap {
+  display: grid;
+  gap: 8px;
 }
 
 .rp-muted {
