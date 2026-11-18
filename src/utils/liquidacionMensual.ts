@@ -149,18 +149,65 @@ export const MONTOS_VACIOS: MontosLiquidacion = {
   netoManual: null
 }
 
-/** Referencia del régimen general, sin reducción pyme y sin ART. Se editan en la pantalla. */
-export const CARGAS_SOCIALES_DEFAULT: CargaSocialDef[] = [
+/**
+ * Alícuotas de ley / LCT alineadas al recibo (libro de sueldos):
+ * aportes trabajador 11+3+3; contribuciones con alícuotas del régimen aplicable
+ * (SIPA 10,77 · INSSJP 1,59 · AAFF 4,7 · FNE 0,94 · OS 6). ART queda en 0 para cargar la de la empresa.
+ */
+export const CARGAS_SOCIALES_BASE_LEY: CargaSocialDef[] = [
   { id: 'ap-jub', nombre: 'Jubilación (SIPA)', lado: 'aporte', porcentaje: 11 },
   { id: 'ap-pami', nombre: 'PAMI (INSSJP)', lado: 'aporte', porcentaje: 3 },
   { id: 'ap-os', nombre: 'Obra social', lado: 'aporte', porcentaje: 3 },
-  { id: 'co-jub', nombre: 'Jubilación (SIPA)', lado: 'contribucion', porcentaje: 10.17 },
-  { id: 'co-pami', nombre: 'PAMI (INSSJP)', lado: 'contribucion', porcentaje: 1.5 },
-  { id: 'co-af', nombre: 'Asignaciones familiares', lado: 'contribucion', porcentaje: 4.44 },
-  { id: 'co-fne', nombre: 'Fondo Nacional de Empleo', lado: 'contribucion', porcentaje: 0.89 },
+  { id: 'co-jub', nombre: 'Jubilación (SIPA)', lado: 'contribucion', porcentaje: 10.77 },
+  { id: 'co-pami', nombre: 'PAMI (INSSJP)', lado: 'contribucion', porcentaje: 1.59 },
+  { id: 'co-af', nombre: 'Asignaciones familiares', lado: 'contribucion', porcentaje: 4.7 },
+  { id: 'co-fne', nombre: 'Fondo Nacional de Empleo', lado: 'contribucion', porcentaje: 0.94 },
   { id: 'co-os', nombre: 'Obra social', lado: 'contribucion', porcentaje: 6 },
   { id: 'co-art', nombre: 'ART', lado: 'contribucion', porcentaje: 0 }
 ]
+
+/** Cuota sindical típica CCT gráficos 0409/05 (FATIGA/FAIGA), alineada al libro. */
+export const CARGAS_SINDICATO_CCT: CargaSocialDef[] = [
+  { id: 'ap-sind', nombre: 'Sindicato (convenio)', lado: 'aporte', porcentaje: 2 },
+  { id: 'co-sind', nombre: 'Sindicato (convenio)', lado: 'contribucion', porcentaje: 0.75 }
+]
+
+/** Convenio por defecto de Plot Center en liquidación / recibos. */
+export const CCT_LIQUIDACION_DEFAULT = '0409/05'
+
+function cctEnConvenioLiq(codigo: string | null | undefined): boolean {
+  const c = String(codigo || '').trim()
+  return c !== '' && c !== '9999/99'
+}
+
+/** Cargas según convenio: con sindicato si aplica CCT (ej. 0409/05); sin sindicato si 9999/99. */
+export function cargasSocialesSegunConvenio(
+  cctCodigo: string | null | undefined = CCT_LIQUIDACION_DEFAULT
+): CargaSocialDef[] {
+  const base = CARGAS_SOCIALES_BASE_LEY.map((c) => ({ ...c }))
+  if (!cctEnConvenioLiq(cctCodigo ?? CCT_LIQUIDACION_DEFAULT)) return base
+  const aportes = base.filter((c) => c.lado === 'aporte')
+  const contrib = base.filter((c) => c.lado === 'contribucion' && c.id !== 'co-art')
+  const art = base.filter((c) => c.id === 'co-art')
+  return [
+    ...aportes,
+    ...CARGAS_SINDICATO_CCT.filter((c) => c.lado === 'aporte').map((c) => ({ ...c })),
+    ...contrib,
+    ...CARGAS_SINDICATO_CCT.filter((c) => c.lado === 'contribucion').map((c) => ({ ...c })),
+    ...art
+  ]
+}
+
+/** Default de pantalla: ley + convenio gráficos Plot. */
+export const CARGAS_SOCIALES_DEFAULT: CargaSocialDef[] = cargasSocialesSegunConvenio(CCT_LIQUIDACION_DEFAULT)
+
+/** True si no hay alícuotas cargadas (todo en 0 salvo ART). */
+export function cargasParecenSinConfigurar(cargas: CargaSocialDef[] | null | undefined): boolean {
+  if (!Array.isArray(cargas) || cargas.length === 0) return true
+  return cargas
+    .filter((c) => c.id !== 'co-art')
+    .every((c) => !(Number(c.porcentaje) > 0))
+}
 
 /** % del sueldo base por cada año cumplido (uso habitual CCT / convenio). */
 export const PCT_ANTIGUEDAD_LEGAL_DEFAULT = 1
@@ -199,21 +246,41 @@ export function mesAnterior(yyyyMm: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-function normalizarCargas(raw: unknown): CargaSocialDef[] {
-  if (!Array.isArray(raw)) return CARGAS_SOCIALES_DEFAULT.map((c) => ({ ...c }))
+/**
+ * Normaliza cargas guardadas. Si vienen vacías / todas en 0, precarga ley + convenio.
+ * Si hay valores, completa ids faltantes (p. ej. sindicato) desde el template del CCT.
+ */
+export function normalizarCargas(
+  raw: unknown,
+  cctCodigo: string | null | undefined = CCT_LIQUIDACION_DEFAULT
+): CargaSocialDef[] {
+  const plantilla = cargasSocialesSegunConvenio(cctCodigo)
+  if (!Array.isArray(raw) || cargasParecenSinConfigurar(raw as CargaSocialDef[])) {
+    return plantilla
+  }
   const porId = new Map<string, CargaSocialDef>()
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue
     const row = item as Partial<CargaSocialDef>
     if (!row.id || (row.lado !== 'aporte' && row.lado !== 'contribucion')) continue
+    const pctRaw = typeof row.porcentaje === 'number' ? row.porcentaje : Number(row.porcentaje)
+    const pct = Number.isFinite(pctRaw) && pctRaw >= 0 ? round2(pctRaw) : 0
     porId.set(row.id, {
       id: row.id,
       nombre: String(row.nombre || row.id),
       lado: row.lado,
-      porcentaje: num(row.porcentaje)
+      porcentaje: pct
     })
   }
-  return CARGAS_SOCIALES_DEFAULT.map((def) => porId.get(def.id) ?? { ...def })
+  return plantilla.map((def) => {
+    const saved = porId.get(def.id)
+    if (!saved) return { ...def }
+    // 0 en un ítem que por ley/convenio tiene alícuota → usar default (salvo ART).
+    if (def.id !== 'co-art' && !(saved.porcentaje > 0) && def.porcentaje > 0) {
+      return { ...def }
+    }
+    return { ...saved, nombre: saved.nombre || def.nombre }
+  })
 }
 
 function normalizarMontos(raw: unknown): MontosLiquidacion {
@@ -254,7 +321,8 @@ function escribirTodo(data: Record<string, MesGuardado>) {
 
 function normalizarPctAntiguedad(raw: unknown): number {
   const v = typeof raw === 'number' ? raw : Number(raw)
-  if (!Number.isFinite(v) || v < 0) return PCT_ANTIGUEDAD_LEGAL_DEFAULT
+  // 0 se trata como “sin configurar” (queda el 1% habitual por año de CCT).
+  if (!Number.isFinite(v) || v <= 0) return PCT_ANTIGUEDAD_LEGAL_DEFAULT
   return round2(v)
 }
 

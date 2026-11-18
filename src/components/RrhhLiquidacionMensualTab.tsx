@@ -24,15 +24,19 @@ import { formatHoras } from '../services/relojBiometricoService'
 import { exportarLiquidacionMensualXlsx } from '../utils/exportLiquidacionMensual'
 import { exportarLiquidacionMensualPdf } from '../utils/exportLiquidacionMensualPdf'
 import {
+  CCT_LIQUIDACION_DEFAULT,
   MONTOS_VACIOS,
   PCT_ANTIGUEDAD_LEGAL_DEFAULT,
   TARDANZAS_POR_DIA_DESCUENTO,
   VALOR_DIA_DESCUENTO_DEFAULT,
   armarLiquidacionEmpleado,
   cargarMesLiquidacion,
+  cargasParecenSinConfigurar,
+  cargasSocialesSegunConvenio,
   guardarMesLiquidacion,
   mesAnterior,
   mesDeFecha,
+  normalizarCargas,
   totalesLiquidacion,
   type CargaSocialDef,
   type MontosLiquidacion
@@ -209,11 +213,20 @@ export default function RrhhLiquidacionMensualTab({
       if (res.success && res.data) {
         setIdPeriodo(res.data.id)
         const cfg = res.data.config_json || {}
-        const cargasCfg = Array.isArray(cfg.cargas) ? cfg.cargas : local.cargas
+        const cctCfg =
+          typeof cfg.cctCodigo === 'string' && cfg.cctCodigo.trim()
+            ? String(cfg.cctCodigo).trim()
+            : CCT_LIQUIDACION_DEFAULT
+        const cargasCfg = normalizarCargas(
+          Array.isArray(cfg.cargas) ? cfg.cargas : local.cargas,
+          cctCfg
+        )
+        const pctRaw =
+          cfg.pctAntiguedadLegal != null ? Number(cfg.pctAntiguedadLegal) : local.pctAntiguedadLegal
         const pct =
-          cfg.pctAntiguedadLegal != null
-            ? Number(cfg.pctAntiguedadLegal)
-            : local.pctAntiguedadLegal
+          Number.isFinite(pctRaw) && pctRaw > 0
+            ? Math.round(pctRaw * 100) / 100
+            : PCT_ANTIGUEDAD_LEGAL_DEFAULT
         const valorDiaCfg =
           cfg.valorDiaDescuento != null ? Number(cfg.valorDiaDescuento) : local.valorDiaDescuento
         const montosCfg =
@@ -238,20 +251,37 @@ export default function RrhhLiquidacionMensualTab({
                   : null
           }
         }
-        setCargas(
-          Array.isArray(cargasCfg)
-            ? (cargasCfg as CargaSocialDef[])
-            : local.cargas
-        )
+        setCargas(cargasCfg)
         setMontos(Object.keys(montosMap).length ? montosMap : local.montos)
-        setPctAntiguedadLegal(
-          Number.isFinite(pct) && pct >= 0 ? Math.round(pct * 100) / 100 : local.pctAntiguedadLegal
-        )
+        setPctAntiguedadLegal(pct)
         setValorDiaDescuento(
           Number.isFinite(valorDiaCfg) && valorDiaCfg >= 0
             ? Math.round(valorDiaCfg * 100) / 100
             : local.valorDiaDescuento
         )
+        // Si en BD estaban en 0, persistir la precarga ley/convenio para el próximo ingreso.
+        if (
+          cargasParecenSinConfigurar(Array.isArray(cfg.cargas) ? (cfg.cargas as CargaSocialDef[]) : null) ||
+          !(Number(cfg.pctAntiguedadLegal) > 0)
+        ) {
+          void apiService.rrhhLiquidacionPeriodoUpsert({
+            periodo: mes,
+            valor_hora_default: Number(res.data.valor_hora_default) || leerPrecioDefault(),
+            config_json: {
+              ...cfg,
+              cctCodigo: cctCfg,
+              cargas: cargasCfg,
+              pctAntiguedadLegal: pct,
+              valorDiaDescuento:
+                Number.isFinite(valorDiaCfg) && valorDiaCfg >= 0
+                  ? Math.round(valorDiaCfg * 100) / 100
+                  : local.valorDiaDescuento,
+              montos:
+                montosCfg ??
+                Object.fromEntries(Object.entries(local.montos).map(([k, v]) => [String(k), v]))
+            }
+          })
+        }
         const vh = Number(res.data.valor_hora_default) || 0
         if (vh > 0) {
           setPrecioDefault(vh)
@@ -284,12 +314,18 @@ export default function RrhhLiquidacionMensualTab({
         setPagosPorUsuario({})
         setDeudas([])
         // Crear período en BD al abrir el mes
+        const cargasInicial = normalizarCargas(local.cargas, CCT_LIQUIDACION_DEFAULT)
+        const pctInicial =
+          local.pctAntiguedadLegal > 0 ? local.pctAntiguedadLegal : PCT_ANTIGUEDAD_LEGAL_DEFAULT
+        setCargas(cargasInicial)
+        setPctAntiguedadLegal(pctInicial)
         const crear = await apiService.rrhhLiquidacionPeriodoUpsert({
           periodo: mes,
           valor_hora_default: leerPrecioDefault(),
           config_json: {
-            cargas: local.cargas,
-            pctAntiguedadLegal: local.pctAntiguedadLegal,
+            cctCodigo: CCT_LIQUIDACION_DEFAULT,
+            cargas: cargasInicial,
+            pctAntiguedadLegal: pctInicial,
             valorDiaDescuento: local.valorDiaDescuento,
             montos: Object.fromEntries(Object.entries(local.montos).map(([k, v]) => [k, v]))
           }
@@ -907,10 +943,10 @@ export default function RrhhLiquidacionMensualTab({
         <details className="liq-cargas">
           <summary>Cargas sociales del mes</summary>
           <p>
-            Alícuotas de referencia del régimen general, sin reducción pyme. Se calculan sobre el sueldo base + antigüedad
-            proporcional y los <strong>aportes se descuentan del neto</strong> (del base/haberes). Las contribuciones
-            suman al costo empresa. ART arranca en 0 para que cargues la de la empresa. La antigüedad legal es % del
-            sueldo base por cada año cumplido; se prorratea según ingreso y días laborables.
+            Precargadas según ley argentina (SIPA / INSSJP / OS / AAFF / FNE) y convenio {CCT_LIQUIDACION_DEFAULT}{' '}
+            (gráficos · cuota sindical). Se calculan sobre sueldo base + antigüedad proporcional: los{' '}
+            <strong>aportes se descuentan del neto</strong>; las contribuciones suman al costo empresa. ART queda en 0
+            para cargar la de la empresa. Antigüedad legal: % del sueldo base por año cumplido (prorrateado).
           </p>
           <div className="liq-cargas-grid">
             <label className="liq-campo">
@@ -926,36 +962,44 @@ export default function RrhhLiquidacionMensualTab({
               </label>
             ))}
           </div>
+          <button
+            type="button"
+            className="liq-btn-excel"
+            style={{ marginTop: 10 }}
+            onClick={() => {
+              const next = cargasSocialesSegunConvenio(CCT_LIQUIDACION_DEFAULT)
+              persistir(next, persistRef.current.montos, PCT_ANTIGUEDAD_LEGAL_DEFAULT)
+            }}
+          >
+            Restablecer ley + convenio {CCT_LIQUIDACION_DEFAULT}
+          </button>
         </details>
       </div>
 
+      <p className="liq-tabla-hint">
+        Vista de liquidación: cargá sueldo y neto acá. Clic en el nombre para asistencia, ventas, horas extra y el
+        desglose completo.
+      </p>
       <div className="liq-scroll">
-        <table className="liq-tabla">
+        <table className="liq-tabla liq-tabla--compacta">
           <thead>
             <tr>
               <th>Empleado</th>
-              <th>Antigüedad</th>
-              <th>Ventas</th>
-              <th>Facturado</th>
-              <th>OPs</th>
-              <th>Trabajo</th>
-              <th>Novedades</th>
-              <th title="Días con marca / días que debía asistir (hasta hoy)">Días c/ marca / exigibles</th>
-              <th>Puntualidad</th>
-              <th>Tardanzas</th>
-              <th>Ausencias</th>
-              <th>Justificados</th>
-              <th>Sin marca</th>
-              <th>Horas</th>
-              <th>Extra</th>
-              <th>HE 50%</th>
-              <th>HE 100%</th>
-              <th>Faltas</th>
-              <th>Permisos</th>
-              <th className="liq-sticky liq-sticky-precio">Precio hora</th>
-              <th className="liq-sticky liq-sticky-sueldo">Sueldo base</th>
-              <th className="liq-sticky liq-sticky-sin">Sin declarar</th>
-              <th className="liq-sticky liq-sticky-neto">Neto</th>
+              <th title="Desde el ingreso del legajo">Antigüedad</th>
+              <th title="Días con marca / días que debía · puntualidad">Asistencia</th>
+              <th title="Faltas injustificadas, tardanzas que descuentan, suspensiones">Descuentos</th>
+              <th className="liq-sticky liq-sticky-precio" title="Para horas extra 50% y 100%">
+                $/hora extra
+              </th>
+              <th className="liq-sticky liq-sticky-sueldo" title="Remuneración en blanco (base del recibo)">
+                Sueldo blanco
+              </th>
+              <th className="liq-sticky liq-sticky-sin" title="Monto fuera de recibo / no declarado">
+                Fuera de blanco
+              </th>
+              <th className="liq-sticky liq-sticky-neto" title="Neto a pagar (editable; auto = calculado)">
+                Neto a pagar
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -963,44 +1007,52 @@ export default function RrhhLiquidacionMensualTab({
               const m = montos[f.id] ?? MONTOS_VACIOS
               const puntualColor =
                 f.puntualidadPct >= 90 ? '#16a34a' : f.puntualidadPct >= 70 ? '#d97706' : '#dc2626'
+              const descParts: string[] = []
+              if (f.faltas > 0) descParts.push(`${f.faltas} falta${f.faltas === 1 ? '' : 's'}`)
+              if (f.diasDescuentoTardanzas > 0) {
+                descParts.push(
+                  `${f.diasDescuentoTardanzas}d tarde`
+                )
+              } else if (f.tardanzas > 0) {
+                descParts.push(`${f.tardanzas} tarde`)
+              }
+              if (f.diasSuspension > 0) descParts.push(`${f.diasSuspension} susp.`)
+              if (f.diasMediaJornada > 0) descParts.push(`${f.diasMediaJornada} ½j`)
               return (
                 <Fragment key={f.id}>
                   <tr>
                     <td>
                       <button type="button" className="liq-nombre" onClick={() => setAbierto(abierto === f.id ? null : f.id)}>
                         {f.nombre}
+                        <span className="liq-nombre-hint">{abierto === f.id ? 'cerrar' : 'detalle'}</span>
                       </button>
                     </td>
                     <td title={f.fechaIngreso ? `Ingreso ${f.fechaIngreso}` : undefined}>
                       {f.antiguedadMeses != null ? f.antiguedadLabel : '—'}
                     </td>
-                    <td>{f.ventas || '—'}</td>
-                    <td>{f.plataVendida ? formatArs(f.plataVendida) : '—'}</td>
-                    <td>{f.opsMovidas || '—'}</td>
-                    <td>{f.trabajos || '—'}</td>
-                    <td>{f.novedades.length}</td>
-                    <td title="Días con marca / días que debía asistir (hasta hoy)">
-                      {f.diasConEntrada ? `${f.diasConEntrada} / ${f.diasExigibles}` : '—'}
-                    </td>
                     <td>
-                      {f.diasConEntrada ? (
-                        <span className="liq-pct" style={{ color: puntualColor }}>
-                          {f.puntualidadPct}%
-                        </span>
+                      {f.diasConEntrada || f.diasExigibles ? (
+                        <div className="liq-cell-stack">
+                          <span>
+                            {f.diasConEntrada}/{f.diasExigibles} días
+                          </span>
+                          <span className="liq-pct" style={{ color: puntualColor }}>
+                            {f.puntualidadPct}% punt.
+                          </span>
+                        </div>
                       ) : (
                         '—'
                       )}
                     </td>
-                    <td>{f.tardanzas || '—'}{f.minutosTarde > 0 ? <span className="liq-sub"> {f.minutosTarde} min</span> : null}</td>
-                    <td>{f.ausencias || '—'}</td>
-                    <td>{f.diasJustificados || '—'}</td>
-                    <td>{f.sinMarca || '—'}</td>
-                    <td>{f.totalHoras ? f.totalHoras.toFixed(1) : '—'}</td>
-                    <td>{f.totalHorasExtra > 0 ? formatHoras(f.totalHorasExtra) : '—'}</td>
-                    <td>{f.extra50 > 0 ? `${f.extra50.toFixed(1)} hs` : '—'}</td>
-                    <td>{f.extra100 > 0 ? `${f.extra100.toFixed(1)} hs` : '—'}</td>
-                    <td>{f.faltas || '—'}</td>
-                    <td>{f.permisos.length || '—'}</td>
+                    <td>
+                      {descParts.length ? (
+                        <span className={f.faltas > 0 || f.diasSuspension > 0 ? 'liq-desc-warn' : undefined}>
+                          {descParts.join(' · ')}
+                        </span>
+                      ) : (
+                        <span className="liq-muted-inline">Sin descuentos</span>
+                      )}
+                    </td>
                     <td className="liq-sticky liq-sticky-precio">
                       <Numero
                         className="liq-num"
@@ -1043,7 +1095,7 @@ export default function RrhhLiquidacionMensualTab({
                   </tr>
                   {abierto === f.id && (
                     <tr className="liq-detalle">
-                      <td colSpan={23}>
+                      <td colSpan={8}>
                         <div className="liq-detalle-panel">
                           <header className="liq-detalle-hero">
                             <div>
@@ -1701,30 +1753,31 @@ export default function RrhhLiquidacionMensualTab({
           {filas.length > 0 && (
             <tfoot>
               <tr>
-                <td>Total</td>
+                <td>Total · {filas.length} empleados</td>
                 <td />
-                <td>{filas.reduce((a, f) => a + f.ventas, 0)}</td>
-                <td>{formatArs(filas.reduce((a, f) => a + f.plataVendida, 0))}</td>
-                <td>{filas.reduce((a, f) => a + f.opsMovidas, 0)}</td>
-                <td>{filas.reduce((a, f) => a + f.trabajos, 0)}</td>
-                <td>{filas.reduce((a, f) => a + f.novedades.length, 0)}</td>
                 <td>
-                  {totales.diasConEntrada} / {totales.diasExigibles}
+                  <div className="liq-cell-stack">
+                    <span>
+                      {totales.diasConEntrada}/{totales.diasExigibles} días
+                    </span>
+                    <span className="liq-sub">
+                      {totales.puntualidadPromedio ? `${totales.puntualidadPromedio}% punt.` : '—'}
+                    </span>
+                  </div>
                 </td>
-                <td>{totales.puntualidadPromedio ? `${totales.puntualidadPromedio}%` : '—'}</td>
-                <td>{totales.tardanzas || '—'}</td>
-                <td>{totales.ausencias || '—'}</td>
-                <td>{totales.justificados || '—'}</td>
-                <td>{totales.sinMarca || '—'}</td>
-                <td>{totales.totalHoras ? totales.totalHoras.toFixed(1) : '—'}</td>
-                <td>{totales.totalHorasExtra > 0 ? formatHoras(totales.totalHorasExtra) : '—'}</td>
-                <td>{totales.extra50 > 0 ? `${totales.extra50.toFixed(1)} hs` : '—'}</td>
-                <td>{totales.extra100 > 0 ? `${totales.extra100.toFixed(1)} hs` : '—'}</td>
-                <td>{totales.faltas || '—'}</td>
-                <td>{totales.permisos || '—'}</td>
+                <td>
+                  {totales.faltas
+                    ? `${totales.faltas} falta${totales.faltas === 1 ? '' : 's'}`
+                    : 'Sin faltas'}
+                  {totales.tardanzas ? ` · ${totales.tardanzas} tarde` : ''}
+                </td>
                 <td className="liq-sticky liq-sticky-precio" />
-                <td className="liq-sticky liq-sticky-sueldo" />
-                <td className="liq-sticky liq-sticky-sin" />
+                <td className="liq-sticky liq-sticky-sueldo">
+                  {formatArs(filas.reduce((a, f) => a + (montos[f.id]?.sueldoBase || 0), 0))}
+                </td>
+                <td className="liq-sticky liq-sticky-sin">
+                  {formatArs(filas.reduce((a, f) => a + (montos[f.id]?.sueldoSinDeclarar || 0), 0))}
+                </td>
                 <td className="liq-sticky liq-sticky-neto liq-neto">{formatArs(totales.neto)}</td>
               </tr>
             </tfoot>

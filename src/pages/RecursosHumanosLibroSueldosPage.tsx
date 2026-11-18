@@ -29,6 +29,8 @@ import {
   importeToEdit,
   mergeAlicuotas,
   parseImporteInput,
+  adicionalAntiguedadCalculado,
+  adicionalAntiguedadNecesitaPrecarga,
   aniosAntiguedadAlPeriodo,
   antiguedadMesesAlPeriodo,
   fichaDesdeItem,
@@ -37,6 +39,7 @@ import {
   liquidarRecibo,
   mesesReconocidosEfectivos,
   montoExtraEfectivo,
+  montosSueldoBaseDesdeLiqConfig,
   numerosLiquidacion,
   tituloReciboPeriodo,
   type RrhhLibroSueldos,
@@ -121,7 +124,9 @@ const RecursosHumanosLibroSueldosPage = () => {
       libroId: number,
       scvoDefault: number,
       prevItems: RrhhLibroSueldosItem[],
-      fichas: RrhhSueldoFicha[]
+      fichas: RrhhSueldoFicha[],
+      liqMontos: Record<number, number>,
+      pctAntiguedad: number
     ): Promise<ItemDraft[]> => {
       const [orgRes, puestoRes, legRes] = await Promise.all([
         rrhhLegajosOrgListar(),
@@ -157,6 +162,25 @@ const RecursosHumanosLibroSueldosPage = () => {
             ficha?.cct_codigo ||
             leg?.convenio_cct ||
             (/admin/i.test(categoria) ? '9999/99' : '0409/05')
+          const basicoPrev = Number(prev?.sueldo_basico) || 0
+          const basicoFicha = Number(ficha?.sueldo_basico) || 0
+          const basicoLiq = liqMontos[r.id_usuario] || 0
+          const basicoLeg =
+            leg?.retribucion_pactada != null && Number.isFinite(Number(leg.retribucion_pactada))
+              ? Number(leg.retribucion_pactada)
+              : 0
+          // Prioridad: mes anterior / ficha → sueldo base de liquidación mensual → retribución del legajo.
+          const sueldoBasico =
+            basicoPrev > 0 ? basicoPrev : basicoFicha > 0 ? basicoFicha : basicoLiq > 0 ? basicoLiq : basicoLeg
+          const aniosItem = prev?.anios_antiguedad ?? anios
+          const adicionalPrev = prev?.adicional_antiguedad ?? ficha?.adicional_antiguedad ?? 0
+          const adicionalAntiguedad = adicionalAntiguedadNecesitaPrecarga(
+            adicionalPrev,
+            sueldoBasico,
+            pctAntiguedad
+          )
+            ? adicionalAntiguedadCalculado(sueldoBasico, aniosItem, pctAntiguedad)
+            : Number(adicionalPrev) || 0
           return {
             id: prev?.id,
             id_libro: libroId,
@@ -173,23 +197,18 @@ const RecursosHumanosLibroSueldosPage = () => {
             fecha_ingreso: fechaIngreso,
             antiguedad_reconocida: mesesReconocidosEfectivos({
               antiguedad_reconocida: prev?.antiguedad_reconocida ?? ficha?.antiguedad_reconocida ?? meses,
-              anios_antiguedad: prev?.anios_antiguedad ?? anios,
+              anios_antiguedad: aniosItem,
               fecha_ingreso: fechaIngreso,
               periodo
             }),
-            anios_antiguedad: prev?.anios_antiguedad ?? anios,
+            anios_antiguedad: aniosItem,
             dias: prev?.dias || 30,
             etiqueta_basico:
               prev?.etiqueta_basico ||
               ficha?.etiqueta_basico ||
               (medio ? 'Sueldo básico medio día' : 'Sueldo básico'),
-            sueldo_basico:
-              prev?.sueldo_basico ??
-              ficha?.sueldo_basico ??
-              (leg?.retribucion_pactada != null && Number.isFinite(Number(leg.retribucion_pactada))
-                ? Number(leg.retribucion_pactada)
-                : 0),
-            adicional_antiguedad: prev?.adicional_antiguedad ?? ficha?.adicional_antiguedad ?? 0,
+            sueldo_basico: sueldoBasico,
+            adicional_antiguedad: adicionalAntiguedad,
             scvo: prev?.scvo ?? ficha?.scvo ?? scvoDefault,
             banco: prev?.banco ?? ficha?.banco ?? leg?.banco ?? null,
             cbu: prev?.cbu ?? ficha?.cbu ?? leg?.cbu ?? null,
@@ -222,11 +241,17 @@ const RecursosHumanosLibroSueldosPage = () => {
     setError(null)
     setMsg(null)
     try {
-      const [libRes, fichasRes] = await Promise.all([
+      const [libRes, fichasRes, liqRes, legRes] = await Promise.all([
         rrhhLibroSueldosObtener(periodo),
-        rrhhSueldoFichasListar()
+        rrhhSueldoFichasListar(),
+        apiService.rrhhLiquidacionPeriodoObtener(periodo),
+        apiService.obtenerLegajosBasico()
       ])
       if (!libRes.success) throw new Error(libRes.error || 'No se pudo leer el libro')
+      const { montos: liqMontos, pctAntiguedad } = montosSueldoBaseDesdeLiqConfig(
+        liqRes.success && liqRes.data ? liqRes.data.config_json : null
+      )
+      const legBy = legRes.success && legRes.data ? legRes.data : {}
       let actual = libRes.data
       if (!actual) {
         const created = await rrhhLibroSueldosUpsert({
@@ -250,15 +275,46 @@ const RecursosHumanosLibroSueldosPage = () => {
       const itemsRes = await rrhhLibroSueldosItemsListar(actual.id)
       if (!itemsRes.success) throw new Error(itemsRes.error || 'No se pudieron leer los ítems')
       if (itemsRes.data && itemsRes.data.length > 0) {
-        const normalizados = itemsRes.data.map((it) => ({
-          ...it,
-          antiguedad_reconocida: mesesReconocidosEfectivos({
-            antiguedad_reconocida: it.antiguedad_reconocida,
-            anios_antiguedad: it.anios_antiguedad,
-            fecha_ingreso: it.fecha_ingreso,
-            periodo
-          })
-        }))
+        const normalizados = itemsRes.data.map((it) => {
+          const leg = legBy[it.id_usuario]
+          const basicoLiq = liqMontos[it.id_usuario] || 0
+          const basicoLeg =
+            leg?.retribucion_pactada != null && Number.isFinite(Number(leg.retribucion_pactada))
+              ? Number(leg.retribucion_pactada)
+              : 0
+          const sueldoBasico =
+            Number(it.sueldo_basico) > 0
+              ? Number(it.sueldo_basico)
+              : basicoLiq > 0
+                ? basicoLiq
+                : basicoLeg
+          const anios =
+            it.anios_antiguedad ||
+            aniosAntiguedadAlPeriodo(it.fecha_ingreso || leg?.fecha_ingreso || null, periodo)
+          const adicional = adicionalAntiguedadNecesitaPrecarga(
+            it.adicional_antiguedad,
+            sueldoBasico,
+            pctAntiguedad
+          )
+            ? adicionalAntiguedadCalculado(sueldoBasico, anios, pctAntiguedad)
+            : Number(it.adicional_antiguedad) || 0
+          return {
+            ...it,
+            cuil: it.cuil || leg?.cuil || '',
+            categoria: it.categoria || leg?.categoria || leg?.puesto || it.categoria,
+            fecha_ingreso: it.fecha_ingreso || leg?.fecha_ingreso || null,
+            n_legajo: it.n_legajo || leg?.n_legajo || it.n_legajo,
+            sueldo_basico: sueldoBasico,
+            anios_antiguedad: anios,
+            adicional_antiguedad: adicional,
+            antiguedad_reconocida: mesesReconocidosEfectivos({
+              antiguedad_reconocida: it.antiguedad_reconocida,
+              anios_antiguedad: anios,
+              fecha_ingreso: it.fecha_ingreso || leg?.fecha_ingreso || null,
+              periodo
+            })
+          }
+        })
         setItems(normalizados)
         setSel(normalizados[0]?.id_usuario ?? null)
       } else {
@@ -268,7 +324,14 @@ const RecursosHumanosLibroSueldosPage = () => {
           const prev = await rrhhLibroSueldosItemsListar(prevLib.data.id)
           if (prev.success && prev.data) prevItems = prev.data
         }
-        const altas = await armarAltas(actual.id, actual.scvo_default, prevItems, fichasRes.data || [])
+        const altas = await armarAltas(
+          actual.id,
+          actual.scvo_default,
+          prevItems,
+          fichasRes.data || [],
+          liqMontos,
+          pctAntiguedad
+        )
         setItems(altas)
         setSel(altas[0]?.id_usuario ?? null)
       }
@@ -883,10 +946,18 @@ const RecursosHumanosLibroSueldosPage = () => {
                           disabled={cerrado}
                           onChange={(e) => {
                             const fi = e.target.value || null
+                            const anios = aniosAntiguedadAlPeriodo(fi, periodo)
                             patchItem(it.id_usuario, {
                               fecha_ingreso: fi,
                               antiguedad_reconocida: antiguedadMesesAlPeriodo(fi, periodo),
-                              anios_antiguedad: aniosAntiguedadAlPeriodo(fi, periodo)
+                              anios_antiguedad: anios,
+                              adicional_antiguedad: adicionalAntiguedadNecesitaPrecarga(
+                                it.adicional_antiguedad,
+                                it.sueldo_basico,
+                                1
+                              )
+                                ? adicionalAntiguedadCalculado(it.sueldo_basico, anios, 1)
+                                : it.adicional_antiguedad
                             })
                           }}
                         />
@@ -895,7 +966,18 @@ const RecursosHumanosLibroSueldosPage = () => {
                         <ImporteField
                           value={it.sueldo_basico}
                           disabled={cerrado}
-                          onCommit={(n) => patchItem(it.id_usuario, { sueldo_basico: n })}
+                          onCommit={(n) =>
+                            patchItem(it.id_usuario, {
+                              sueldo_basico: n,
+                              adicional_antiguedad: adicionalAntiguedadNecesitaPrecarga(
+                                it.adicional_antiguedad,
+                                n,
+                                1
+                              )
+                                ? adicionalAntiguedadCalculado(n, it.anios_antiguedad, 1)
+                                : it.adicional_antiguedad
+                            })
+                          }
                         />
                       </td>
                       <td>

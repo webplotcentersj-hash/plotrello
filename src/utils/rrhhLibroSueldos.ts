@@ -417,6 +417,61 @@ export function mesesReconocidosEfectivos(opts: {
   return raw || calc
 }
 
+/** % del básico por año de antigüedad (misma regla que liquidación mensual). */
+export const PCT_ANTIGUEDAD_LIBRO_DEFAULT = 1
+
+/** Adicional de antigüedad = básico × años × (% / 100). */
+export function adicionalAntiguedadCalculado(
+  sueldoBasico: number,
+  anios: number,
+  pctPorAnio: number = PCT_ANTIGUEDAD_LIBRO_DEFAULT
+): number {
+  const b = Number(sueldoBasico) || 0
+  const a = Math.max(0, Math.floor(Number(anios) || 0))
+  const pRaw = Number(pctPorAnio)
+  const p = Number.isFinite(pRaw) && pRaw >= 0 ? pRaw : PCT_ANTIGUEDAD_LIBRO_DEFAULT
+  if (!(b > 0) || a <= 0 || !(p > 0)) return 0
+  return Math.round(b * a * (p / 100) * 100) / 100
+}
+
+/**
+ * Detecta antigüedad vacía o un valor confundido con el % (ej. 1 en vez del monto).
+ * En esos casos conviene recalcular desde el básico.
+ */
+export function adicionalAntiguedadNecesitaPrecarga(
+  adicional: number | null | undefined,
+  sueldoBasico: number,
+  pctPorAnio: number = PCT_ANTIGUEDAD_LIBRO_DEFAULT
+): boolean {
+  const b = Number(sueldoBasico) || 0
+  if (!(b > 0)) return false
+  const a = Number(adicional) || 0
+  if (!(a > 0)) return true
+  const p = Number.isFinite(Number(pctPorAnio)) ? Number(pctPorAnio) : PCT_ANTIGUEDAD_LIBRO_DEFAULT
+  return a <= Math.max(p, 1) + 0.001 && b > 1000
+}
+
+/** Lee sueldoBase por usuario desde config_json de rrhh_liquidacion_periodos. */
+export function montosSueldoBaseDesdeLiqConfig(
+  config: Record<string, unknown> | null | undefined
+): { montos: Record<number, number>; pctAntiguedad: number } {
+  const rawMontos =
+    config && typeof config === 'object' && config.montos && typeof config.montos === 'object'
+      ? (config.montos as Record<string, { sueldoBase?: unknown }>)
+      : {}
+  const montos: Record<number, number> = {}
+  for (const [id, row] of Object.entries(rawMontos)) {
+    const n = Number(row?.sueldoBase)
+    if (Number.isFinite(n) && n > 0) montos[Number(id)] = Math.round(n * 100) / 100
+  }
+  const pctRaw = config?.pctAntiguedadLegal
+  const pctNum = pctRaw == null || pctRaw === '' ? NaN : Number(pctRaw)
+  // 0 o inválido → default del libro (1% por año); si en liquidación pusieron un % > 0, se respeta.
+  const pctAntiguedad =
+    Number.isFinite(pctNum) && pctNum > 0 ? Math.round(pctNum * 100) / 100 : PCT_ANTIGUEDAD_LIBRO_DEFAULT
+  return { montos, pctAntiguedad }
+}
+
 export function formatArs2(n: number | null | undefined): string {
   if (n == null || Number.isNaN(Number(n))) return ''
   return new Intl.NumberFormat('es-AR', {

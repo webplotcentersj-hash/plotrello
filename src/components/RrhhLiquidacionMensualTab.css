@@ -66,6 +66,13 @@
   margin-top: 12px;
 }
 
+.liq-tabla-hint {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
 .liq-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -108,6 +115,35 @@
   min-width: 2084px;
 }
 
+.liq-tabla--compacta {
+  min-width: 980px;
+}
+
+.liq-cell-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.25;
+}
+
+.liq-desc-warn {
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.liq-muted-inline {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.liq-nombre-hint {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .liq-tabla th,
 .liq-tabla td {
   padding: 10px 8px;
@@ -129,25 +165,39 @@
 }
 
 .liq-sticky-precio {
-  right: 508px;
-  min-width: 164px;
+  right: 470px;
+  min-width: 140px;
   box-shadow: -8px 0 12px -10px rgba(0, 0, 0, 0.55);
 }
 
 .liq-sticky-sueldo {
-  right: 344px;
-  min-width: 164px;
+  right: 320px;
+  min-width: 150px;
 }
 
 .liq-sticky-sin {
-  right: 180px;
-  min-width: 164px;
+  right: 170px;
+  min-width: 150px;
 }
 
 .liq-sticky-neto {
   right: 0;
-  min-width: 180px;
+  min-width: 170px;
   padding-right: 12px;
+}
+
+.liq-tabla--compacta .liq-sticky-precio {
+  right: 470px;
+}
+
+.liq-tabla--compacta th.liq-sticky-sueldo,
+.liq-tabla--compacta th.liq-sticky-sin,
+.liq-tabla--compacta th.liq-sticky-neto,
+.liq-tabla--compacta th.liq-sticky-precio {
+  font-size: 0.75rem;
+  white-space: normal;
+  line-height: 1.2;
+  max-width: 150px;
 }
 
 .liq-neto-edit {
@@ -276,6 +326,11 @@
 }
 
 .liq-nombre {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
   background: none;
   border: 0;
   color: #93c5fd;

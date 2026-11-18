@@ -73,7 +73,8 @@ describe('liquidación mensual', () => {
     assert.equal(fila.descuentoTardanzas, 0)
     assert.equal(fila.diasDescuentoTardanzas, 0)
     assert.equal(fila.valorDiaDescuento, VALOR_DIA_DESCUENTO_DEFAULT)
-    assert.equal(fila.totalAportes, 51000)
+    // 11+3+3 aportes ley + 2% sindicato CCT 0409/05 = 19% de 300.000
+    assert.equal(fila.totalAportes, 57000)
     assert.equal(fila.haberes, 305000)
     assert.equal(fila.netoCalculado, roundExpected(fila.haberes - fila.descuentoFaltas - fila.descuentoTardanzas - fila.totalAportes))
     assert.equal(fila.neto, fila.netoCalculado)
@@ -265,7 +266,8 @@ describe('liquidación mensual', () => {
       fechaHasta: '2026-10-31'
     })
 
-    assert.equal(fila.totalAportes, 51000)
+    // 11+3+3 aportes ley + 2% sindicato CCT 0409/05 = 19% de 300.000
+    assert.equal(fila.totalAportes, 57000)
     assert.equal(fila.netoManual, true)
     assert.equal(fila.neto, 200000)
     assert.equal(
