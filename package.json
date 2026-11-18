@@ -37,6 +37,8 @@
     "test:foto-totem": "npx tsx --test src/utils/totemPhotoEdit.node.test.ts",
     "test:comisiones": "npx tsx --test src/features/comisiones/calculoComisiones.node.test.ts src/features/comisiones/analisisComisiones.node.test.ts",
     "test:documentos": "npx tsx --test src/features/remitos/remitosLogica.node.test.ts src/utils/documentos/remitoPdf.node.test.ts src/utils/documentos/presupuestoPdf.node.test.ts src/utils/documentos/documentosVarios.node.test.ts",
+    "test:tema": "npx tsx --test scripts/tema-dia/postcssTemaDia.node.test.ts",
+    "test:mobile": "npx tsx --test scripts/mobile/postcssGridMovil.node.test.ts",
     "test:copiar": "npx tsx --test src/features/copiar/plantillasCopia.node.test.ts",
     "afip:cert-prod": "node --env-file=.env.local scripts/afip-create-cert-prod.mjs"
   },

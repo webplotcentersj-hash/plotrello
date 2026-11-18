@@ -329,3 +329,192 @@
     overscroll-behavior-x: contain;
   }
 }
+
+/* ==========================================================================
+ * Toda la app en teléfono (≤600px)
+ * Reglas transversales: las pantallas cargan su CSS después que este archivo,
+ * por eso lo que define el "molde" mobile va con !important.
+ * ========================================================================== */
+
+/* iPhone hace zoom al enfocar un campo con letra menor a 16px */
+@media (max-width: 768px) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='button']):not([type='submit']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    overflow-x: clip;
+  }
+
+  img,
+  video,
+  iframe {
+    max-width: 100%;
+  }
+
+  /* Tocar sin el retardo de doble toque y sin el resaltado gris de Android */
+  button,
+  a,
+  [role='button'],
+  label,
+  summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@media (max-width: 600px) {
+  /* --- Modales: hoja que sube desde abajo, a todo el ancho --- */
+  .modal-overlay {
+    padding: 0 !important;
+    align-items: end !important;
+    justify-items: stretch !important;
+    justify-content: stretch !important;
+    /* Si el overlay es grid, su columna no puede crecer más que la pantalla */
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .modal-overlay > .modal-content,
+  .modal-overlay > .modal,
+  .modal-overlay > [role='dialog'] {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    max-height: 94dvh !important;
+    margin: 0 !important;
+    border-radius: 18px 18px 0 0 !important;
+  }
+
+  .modal-content .modal-header,
+  .modal .modal-header {
+    padding: 14px 16px !important;
+    gap: 10px;
+  }
+
+  .modal-content .modal-header h2,
+  .modal .modal-header h2 {
+    font-size: 1.15rem !important;
+    line-height: 1.25;
+  }
+
+  .modal-content .modal-body,
+  .modal .modal-body {
+    padding: 14px 16px !important;
+  }
+
+  .modal-content .modal-footer,
+  .modal .modal-footer,
+  .modal-content .modal-actions {
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) !important;
+    gap: 8px !important;
+  }
+
+  .modal-close,
+  .modal-content .close-button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* Botones y campos con tamaño cómodo para el dedo */
+@media (max-width: 768px) and (pointer: coarse) {
+  /* :where() = especificidad cero: cualquier min-height propio de una pantalla gana */
+  :where(
+      button:not([class*='chip']):not([class*='dot']):not([class*='swatch']):not([class*='day']),
+      [role='button'],
+      select,
+      input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file'])
+    ) {
+    min-height: 36px;
+  }
+}
+
+/* Con un modal abierto, los botones flotantes no tapan su pie */
+@media (max-width: 768px) {
+  body:has(.modal-overlay) .staff-floating-dock,
+  body:has(.modal-overlay) .tema-toggle-flotante {
+    display: none !important;
+  }
+}
+
+/* Barras de pestañas: si no entran, se deslizan en vez de cortarse */
+@media (max-width: 768px) {
+  :where([class$='-tabs'], [class*='-tabs '], [role='tablist']) {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  :where([class$='-tabs'], [class*='-tabs '], [role='tablist'])::-webkit-scrollbar {
+    display: none;
+  }
+
+  :where([class$='-tabs'], [class*='-tabs '], [role='tablist']) > :where(button, a, [role='tab']) {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 600px) {
+  /* --- Tarjetas de KPI / resumen: de a dos por fila en vez de una --- */
+  :where(
+      [class$='kpis'], [class*='kpis '],
+      [class$='kpi-grid'], [class*='kpi-grid '],
+      [class$='stats-grid'], [class*='stats-grid '],
+      [class$='metrics-grid'], [class*='metrics-grid '],
+      [class$='resumen-grid'], [class*='resumen-grid ']
+    ) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  :where(
+      [class$='kpis'], [class*='kpis '],
+      [class$='kpi-grid'], [class*='kpi-grid '],
+      [class$='stats-grid'], [class*='stats-grid '],
+      [class$='metrics-grid'], [class*='metrics-grid '],
+      [class$='resumen-grid'], [class*='resumen-grid ']
+    ) > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* --- Encabezados de pantalla: título + acciones que bajan prolijas --- */
+  :where([class$='-header'], [class*='-header ']):not([class*='modal']):not(.tp-header) {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  :where([class$='-header'], [class*='-header ']):not([class*='modal']) :where(h1) {
+    font-size: clamp(1.3rem, 6vw, 1.65rem) !important;
+    line-height: 1.2;
+  }
+
+  :where([class$='-header'], [class*='-header ']):not([class*='modal']) :where(button, a) {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 600px) {
+  /* --- Barras de filtros: los campos llenan la fila en vez de quedar sueltos --- */
+  :where([class$='-filters'], [class*='-filters '], [class$='-toolbar'], [class*='-toolbar '])
+    > :where(input, select) {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  :where([class$='-filters'], [class*='-filters '], [class$='-toolbar'], [class*='-toolbar '])
+    > :where(input[type='text'], input[type='search'], input:not([type])) {
+    flex-basis: 100%;
+  }
+}

@@ -13,7 +13,7 @@
 
 .facturas-header h1 {
   margin: 0;
-  color: #1a202c;
+  color: var(--text-primary, #1a202c);
   font-size: 2rem;
 }
 
@@ -104,6 +104,7 @@
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  overflow-x: auto;
 }
 
 .facturas-pager {

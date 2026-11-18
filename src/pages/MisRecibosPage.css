@@ -421,3 +421,10 @@
     width: 100%;
   }
 }
+
+/* Teléfono: el resplandor decorativo no debe ensanchar la pantalla */
+@media (max-width: 768px) {
+  .mis-recibos-page {
+    overflow-x: clip;
+  }
+}

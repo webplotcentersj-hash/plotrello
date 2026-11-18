@@ -369,3 +369,10 @@
   background: rgba(239, 68, 68, 0.18);
   border-color: rgba(239, 68, 68, 0.55);
 }
+
+/* Teléfono: el resplandor decorativo no debe ensanchar la pantalla */
+@media (max-width: 768px) {
+  .rrhh-recibos-page {
+    overflow-x: clip;
+  }
+}

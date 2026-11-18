@@ -1,0 +1,60 @@
+.tema-toggle-flotante {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 900;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  background: rgba(31, 34, 51, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  opacity: 0.72;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tema-toggle-flotante:hover,
+.tema-toggle-flotante:focus-visible {
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+/* Teléfono: pestañita pegada al borde derecho, a media altura, para no pisar
+   los botones flotantes de abajo (Atención, notas, barra de escribir). */
+@media (max-width: 768px) {
+  .tema-toggle-flotante {
+    left: auto;
+    right: 0;
+    bottom: auto;
+    top: 58%;
+    width: 30px;
+    height: 34px;
+    min-height: 0;
+    font-size: 14px;
+    border-radius: 10px 0 0 10px;
+    border-right: none;
+    opacity: 0.6;
+  }
+
+  .tema-toggle-flotante:hover,
+  .tema-toggle-flotante:focus-visible {
+    transform: none;
+  }
+
+  body:has(.chat-page, .mensajeria-page, .mensajeria-shell) .tema-toggle-flotante {
+    display: none;
+  }
+}
+
+@media print {
+  .tema-toggle-flotante {
+    display: none;
+  }
+}

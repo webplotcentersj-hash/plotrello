@@ -1159,3 +1159,142 @@
   color: var(--brand);
 }
 
+
+/* Teléfono: canales arriba como pestañas deslizables y el chat a todo el ancho */
+@media (max-width: 640px) {
+  .chat-page {
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  .chat-sidebar {
+    width: 100%;
+    flex: 0 0 auto;
+    overflow: visible;
+    border-right: none;
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .chat-sidebar .sidebar-header {
+    padding: 8px 12px;
+  }
+
+  .chat-sidebar .sidebar-logo {
+    height: 26px;
+  }
+
+  .chat-sidebar .sidebar-section {
+    padding: 0 0 8px;
+    border-bottom: none;
+  }
+
+  .chat-sidebar .sidebar-section .section-header,
+  .chat-sidebar .sidebar-section:has(.members-list) {
+    display: none;
+  }
+
+  .chat-sidebar .channels-list {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    padding: 0 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .chat-sidebar .channels-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chat-sidebar .channel-item {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--surface-border);
+    border-left-width: 1px;
+    white-space: nowrap;
+  }
+
+  .chat-main {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .chat-header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .channel-info {
+    min-width: 0;
+  }
+
+  .channel-info h3 {
+    font-size: 1rem;
+  }
+
+  .channel-info p {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+    padding: 8px 12px;
+  }
+
+  .chat-filters > input[type='text'] {
+    grid-column: 1 / -1;
+  }
+
+  .chat-filters input[type='text'],
+  .chat-filters select,
+  .chat-filters input[type='date'] {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .chat-filters .filter-inline {
+    min-width: 0;
+    font-size: 0.8rem;
+  }
+
+  .chat-filters .filter-clear {
+    grid-column: 1 / -1;
+  }
+
+  .messages-container {
+    padding: 12px;
+  }
+
+  .chat-input-area {
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  }
+
+  /* Campo de texto arriba a todo el ancho; zumbido, sirena, adjuntar, emoji y enviar abajo */
+  .chat-input-area .input-wrapper {
+    flex-wrap: wrap;
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .chat-input-area .input-container {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .chat-input-area .input-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  /* Atajos de teclado: no aplican en el celular */
+  .chat-input-area .input-hint {
+    display: none;
+  }
+}

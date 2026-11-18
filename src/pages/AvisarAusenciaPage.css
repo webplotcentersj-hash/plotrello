@@ -381,3 +381,14 @@
     padding-top: 32px;
   }
 }
+
+@media (max-width: 420px) {
+  .avisar-ausencia-dates {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .avisar-ausencia-dates input {
+    width: 100%;
+    min-width: 0;
+  }
+}

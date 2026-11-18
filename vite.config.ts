@@ -3,10 +3,32 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import postcssTemaDia from './scripts/tema-dia/postcssTemaDia.ts'
+import postcssGridMovil from './scripts/mobile/postcssGridMovil.ts'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
+/**
+ * CSS que reciben el modo día generado. Quedan afuera los que ya tienen su propio
+ * tema claro (portal de clientes, tótem) y las apps aparte (admin, tablets).
+ */
+const RE_SIN_TEMA_DIA =
+  /\/src\/(tema-dia\.css|styles\/cliente|components\/cliente\/|pages\/(Totem(?!ImpresionBackoffice)|totem|ClienteLogin)|admin\/|tablet-firma\/|tablet-reloj\/)/
+
+function cssConTemaDia(archivo: string): boolean {
+  return archivo.includes('/src/') && !archivo.includes('/node_modules/') && !RE_SIN_TEMA_DIA.test(archivo)
+}
+
 export default defineConfig({
+  css: {
+    postcss: {
+      plugins: [
+        // Grillas que no desbordan en el celular (todo el CSS propio, tótem y portal incluidos)
+        postcssGridMovil({ incluir: (archivo) => archivo.includes('/src/') && !archivo.includes('/node_modules/') }),
+        postcssTemaDia({ incluir: cssConTemaDia })
+      ]
+    }
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')

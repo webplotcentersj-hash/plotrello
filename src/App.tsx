@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
+import TemaRuta from './components/TemaRuta'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import GlobalAlertScreen from './components/GlobalAlertScreen'
 import PwaUpdateToast from './components/PwaUpdateToast'
@@ -189,6 +190,7 @@ function AppInner() {
       <BrowserRouter>
         <MensajeriaVoiceCallProvider>
           <EnvDebugGate />
+          <TemaRuta mostrarBoton={isStaffAuthenticated} />
           <Routes>
           <Route
             path="/embed/chat"

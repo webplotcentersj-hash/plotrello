@@ -2357,3 +2357,76 @@
 .task-edit-espejo-desc strong {
   color: #e2e8f0;
 }
+
+/* Teléfono: el pie del alta de OP en dos filas compactas para dejarle la
+   pantalla al formulario (antes ocupaba media hoja). */
+@media (max-width: 600px) {
+  .modal-footer--create {
+    display: grid !important;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 6px !important;
+  }
+
+  .modal-footer--create .create-cobro-checks {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    margin: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .modal-footer--create .create-cobro-checks::-webkit-scrollbar {
+    display: none;
+  }
+
+  .modal-footer--create .create-pagado-check {
+    flex: 0 0 auto;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.74rem;
+    white-space: nowrap;
+  }
+
+  .modal-footer--create .btn-cancel,
+  .modal-footer--create .btn-draft {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .modal-footer--create .footer-actions {
+    margin-left: 0;
+    display: flex;
+  }
+
+  .modal-footer--create .footer-actions {
+    min-width: 0;
+  }
+
+  .modal-footer--create .btn-create {
+    width: 100%;
+    min-width: 0;
+    padding: 0.55rem 0.6rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .create-modal .modal-body {
+    padding: 12px 14px 20px !important;
+  }
+
+  .modal-content .form-group {
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .modal-content .form-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+  }
+}

@@ -5814,7 +5814,23 @@
 
 /* —— Phone ≤768: reafirmar (estilos base posteriores no deben pisar) —— */
 @media (max-width: 768px) {
+  .caja-dashboard-page .caja-cc-layout {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .caja-dashboard-page .caja-cc-calendario-nav {
+    width: 100%;
+    flex-shrink: 1;
+  }
+
+  .caja-dashboard-page .caja-cc-calendario-month {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
   .caja-dashboard-page .caja-cc-sidebar {
+    max-height: none;
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -5835,6 +5851,7 @@
 
   .caja-dashboard-page .caja-cc-nav-item {
     flex: 0 0 auto;
+    width: auto;
     min-height: 40px;
     padding: 6px 12px;
     white-space: nowrap;

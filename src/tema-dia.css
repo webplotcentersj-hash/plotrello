@@ -1,9 +1,9 @@
 /*
- * Modo día del tablero Plot Lab.
- * Todo cuelga de [data-tema='dia'] en <html>, así gana por especificidad
- * sin depender del orden en que se carguen los CSS de cada componente.
- * Cubre el tablero (header, filtros, columnas, fichas). Los modales y las
- * demás pantallas siguen en oscuro hasta migrarlas.
+ * Modo día de Plot Lab: ajustes a mano.
+ * El grueso del modo día se genera solo en el build (scripts/tema-dia/postcssTemaDia.mjs)
+ * a partir de los colores oscuros de cada CSS, con [data-tema='dia'] delante.
+ * Este archivo usa :root[data-tema='dia'] (una clase más de peso) para que estos
+ * retoques le ganen a lo generado sin depender del orden de carga.
  */
 
 :root[data-tema='dia'] {
@@ -23,7 +23,7 @@
 
 /* ---- Cáscara del tablero ---- */
 
-[data-tema='dia'] .tp-header {
+:root[data-tema='dia'] .tp-header {
   --header-fondo-velo: 0.84;
   background-color: #fff;
   background-image:
@@ -41,7 +41,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-[data-tema='dia'] .filters-bar {
+:root[data-tema='dia'] .filters-bar {
   --filtros-fondo-velo: 0.8;
   background-color: #fff;
   background-image: linear-gradient(
@@ -52,7 +52,7 @@
   border-color: rgba(15, 23, 42, 0.12);
 }
 
-[data-tema='dia'] .board-panel {
+:root[data-tema='dia'] .board-panel {
   --board-fondo-velo: 0.86;
   background-color: #fff;
   background-image: linear-gradient(
@@ -66,7 +66,7 @@
 
 /* ---- Columnas y fichas ---- */
 
-[data-tema='dia'] .board-column {
+:root[data-tema='dia'] .board-column {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--column-accent) 20%, #fff) 0%,
@@ -76,63 +76,69 @@
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
 }
 
-[data-tema='dia'] .task-card {
+:root[data-tema='dia'] .task-card {
   background: #fff;
   border-color: rgba(15, 23, 42, 0.1);
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.1);
   backdrop-filter: none;
 }
 
-[data-tema='dia'] .task-card .task-minimized-label,
-[data-tema='dia'] .task-card h4 {
+:root[data-tema='dia'] .task-card .task-minimized-label,
+:root[data-tema='dia'] .task-card h4 {
   text-shadow: none;
 }
 
-[data-tema='dia'] .task-min-op {
+:root[data-tema='dia'] .task-min-op {
   background: rgba(15, 23, 42, 0.06);
   border-color: rgba(15, 23, 42, 0.14);
 }
 
-[data-tema='dia'] .task-meta {
+:root[data-tema='dia'] .task-meta {
   border-bottom-color: rgba(15, 23, 42, 0.1);
 }
 
 /* ---- Controles de la barra de filtros ---- */
 
-[data-tema='dia'] .search-filter input {
+:root[data-tema='dia'] .search-filter input {
   background: #fff;
   border-color: rgba(15, 23, 42, 0.16);
   color: var(--text-primary);
 }
 
-[data-tema='dia'] .priority-group button {
+:root[data-tema='dia'] .priority-group button {
   color: rgba(19, 24, 41, 0.6);
 }
 
-[data-tema='dia'] .priority-group button:hover:not(.active) {
+:root[data-tema='dia'] .priority-group button:hover:not(.active) {
   background: rgba(15, 23, 42, 0.06);
   color: rgba(19, 24, 41, 0.92);
 }
 
-[data-tema='dia'] .insights-toggle-btn {
+:root[data-tema='dia'] .insights-toggle-btn {
   color: rgba(19, 24, 41, 0.72);
 }
 
-[data-tema='dia'] .insights-toggle-btn:hover {
+:root[data-tema='dia'] .insights-toggle-btn:hover {
   background: rgba(15, 23, 42, 0.07);
   border-color: rgba(15, 23, 42, 0.12);
   color: #131829;
 }
 
-[data-tema='dia'] .header-util-tools .header-board-tool {
+:root[data-tema='dia'] .header-util-tools .header-board-tool {
   color: #fff;
 }
 
-[data-tema='dia'] .header-util-tools .header-board-tool:hover {
+:root[data-tema='dia'] .header-util-tools .header-board-tool:hover {
   color: #fff;
 }
 
-[data-tema='dia'] .chip-dot {
+:root[data-tema='dia'] .chip-dot {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
   border-color: rgba(15, 23, 42, 0.35);
+}
+
+/* Encabezado de columna relleno con el color del sector: el título usa el
+   color de texto que la app calcula para ese fondo (oscuro o claro). */
+:root[data-tema='dia'] .board-column--header-filled h3 {
+  color: color-mix(in srgb, var(--column-header-fg, #0f172a) 82%, transparent);
 }
