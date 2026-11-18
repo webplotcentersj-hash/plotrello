@@ -148,6 +148,7 @@ export default function ErpGastosFijosPage() {
     setPagoForm(null)
     // Limpia al instante para que no queden estados/pagos del mes anterior.
     setPagos([])
+    setPagosProximos([])
     void cargarPagos(periodo)
   }, [periodo])
 
@@ -184,27 +185,29 @@ export default function ErpGastosFijosPage() {
     return { previsto, pagado, pendiente, vencidos, mensualEq }
   }, [filasMes, gastos])
 
-  /** Próximo vencimiento impago desde el mes actual (incluye el vencido de este mes si no se pagó). */
+  /** Próximo vencimiento impago desde el mes de la barra (no se queda anclado a “hoy”). */
   const proximoVenc = useMemo(() => {
-    const actual = periodoActual()
     const m = new Map<number, string | null>()
+    const pagadoEn = (idGasto: number, p: string) => {
+      if (String(p) === periodo) {
+        return pagos.some((x) => Number(x.id_gasto_fijo) === Number(idGasto) && String(x.periodo_fijo) === p)
+      }
+      return pagosProximos.some(
+        (x) => Number(x.id_gasto_fijo) === Number(idGasto) && String(x.periodo_fijo) === p
+      )
+    }
     for (const g of gastos) {
       let fecha: string | null = null
       for (let i = 0; i <= HORIZONTE_MESES && !fecha; i++) {
-        const p = sumarMeses(actual, i)
+        const p = sumarMeses(periodo, i)
         if (!aplicaEnPeriodo(g, p)) continue
-        if (
-          pagosProximos.some(
-            (x) => Number(x.id_gasto_fijo) === Number(g.id) && String(x.periodo_fijo) === p
-          )
-        )
-          continue
+        if (pagadoEn(g.id, p)) continue
         fecha = vencimientoEnPeriodo(g.dia_vencimiento, p)
       }
       m.set(g.id, fecha)
     }
     return m
-  }, [gastos, pagosProximos])
+  }, [gastos, pagos, pagosProximos, periodo])
 
   const catalogo = useMemo(
     () =>
@@ -212,8 +215,8 @@ export default function ErpGastosFijosPage() {
         .filter((g) => verInactivos || g.activo)
         .sort((a, b) => {
           if (a.activo !== b.activo) return a.activo ? -1 : 1
-          const fa = proximoVenc.get(a.id) ?? '9999'
-          const fb = proximoVenc.get(b.id) ?? '9999'
+          const fa = proximoVenc.get(a.id) ?? '9999-99-99'
+          const fb = proximoVenc.get(b.id) ?? '9999-99-99'
           return fa.localeCompare(fb) || a.concepto.localeCompare(b.concepto)
         }),
     [gastos, verInactivos, proximoVenc]
@@ -633,8 +636,10 @@ export default function ErpGastosFijosPage() {
         )}
       </div>
 
-      <div className="erp-panel">
-        <h2>Gastos fijos cargados</h2>
+      <div className="erp-panel" key={`catalogo-${periodo}`}>
+        <h2>
+          Gastos fijos cargados <small className="erp-muted">· desde {labelPeriodo(periodo)}</small>
+        </h2>
         <div className="erp-toolbar">
           <label className="erpx-checks" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <input type="checkbox" checked={verInactivos} onChange={(e) => setVerInactivos(e.target.checked)} />
@@ -662,12 +667,25 @@ export default function ErpGastosFijosPage() {
               </thead>
               <tbody>
                 {catalogo.map((g) => (
-                  <tr key={g.id}>
+                  <tr key={`${g.id}-${periodo}-${proximoVenc.get(g.id) ?? 'x'}`}>
                     <td>
                       {(() => {
-                        const f = g.activo ? proximoVenc.get(g.id) : null
+                        const f = g.activo ? proximoVenc.get(g.id) ?? null : null
                         if (!f) return '—'
-                        return <span className={f < hoy ? 'erp-pill danger' : undefined}>{fmtFecha(f)}</span>
+                        const enMes = aplicaEnPeriodo(g, periodo)
+                          ? vencimientoEnPeriodo(g.dia_vencimiento, periodo)
+                          : null
+                        const pagadoMes = enMes
+                          ? pagos.some(
+                              (x) => Number(x.id_gasto_fijo) === Number(g.id) && String(x.periodo_fijo) === periodo
+                            )
+                          : false
+                        return (
+                          <span className={f < hoy && !pagadoMes ? 'erp-pill danger' : undefined}>
+                            {fmtFecha(f)}
+                            {pagadoMes ? <span className="erp-muted"> · pagado</span> : null}
+                          </span>
+                        )
                       })()}
                     </td>
                     <td>

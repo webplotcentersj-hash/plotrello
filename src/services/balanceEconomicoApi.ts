@@ -162,25 +162,44 @@ export function egresosCajaDelPeriodo(desde: string, hasta: string) {
 /** Pagos de liquidación / sueldos registrados en RRHH. */
 export function liquidacionesEmpleadosDelPeriodo(desde: string, hasta: string) {
   return envolver(async () => {
-    type Fila = {
-      fecha: string
-      monto: number
-      id_usuario: number
-      usuario: { nombre: string | null } | null
-    }
+    type Fila = { fecha: string; monto: number; id_usuario: number }
     const filas = await paginar<Fila>((a, b) =>
       cliente()
         .from('rrhh_liquidacion_pagos')
-        .select('fecha, monto, id_usuario, usuario:usuarios!id_usuario(nombre)')
+        .select('fecha, monto, id_usuario')
         .gte('fecha', desde)
         .lte('fecha', hasta)
         .order('id', { ascending: true })
         .range(a, b)
     )
-    return filas.map<LiquidacionEmpleadoEco>((f) => ({
-      fecha: String(f.fecha || '').slice(0, 10),
-      monto: Number(f.monto) || 0,
-      empleado: (f.usuario?.nombre || '').trim() || `Empleado #${f.id_usuario}`
-    }))
+    // No joinear `usuarios` (permission denied). Nombres vía RPC / vista pública.
+    const ids = [...new Set(filas.map((f) => Number(f.id_usuario)).filter((id) => Number.isFinite(id) && id > 0))]
+    const nombres = new Map<number, string>()
+    if (ids.length) {
+      const { data: porIds } = await cliente().rpc('obtener_usuarios_por_ids', { p_ids: ids })
+      if (Array.isArray(porIds)) {
+        for (const u of porIds as Array<{ id?: number; nombre?: string | null }>) {
+          const id = Number(u.id)
+          const nom = String(u.nombre || '').trim()
+          if (id && nom) nombres.set(id, nom)
+        }
+      }
+      if (nombres.size < ids.length) {
+        const { data: pub } = await cliente().from('usuarios_publico').select('id, nombre').in('id', ids)
+        for (const u of pub ?? []) {
+          const id = Number((u as { id: number }).id)
+          const nom = String((u as { nombre: string | null }).nombre || '').trim()
+          if (id && nom && !nombres.has(id)) nombres.set(id, nom)
+        }
+      }
+    }
+    return filas.map<LiquidacionEmpleadoEco>((f) => {
+      const id = Number(f.id_usuario)
+      return {
+        fecha: String(f.fecha || '').slice(0, 10),
+        monto: Number(f.monto) || 0,
+        empleado: nombres.get(id) || `Empleado #${id}`
+      }
+    })
   })
 }
