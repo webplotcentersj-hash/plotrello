@@ -1,9 +1,10 @@
 /**
  * ERP · Gastos fijos: catálogo de gastos recurrentes y su pago por período.
- * Cada pago se registra como una fila de erp_gastos (id_gasto_fijo + periodo_fijo),
- * así entra en el listado y las estadísticas de /erp/gastos.
+ * Cada pago (total o parcial) es una fila de erp_gastos (id_gasto_fijo + periodo_fijo);
+ * puede haber varios por el mismo período hasta saldar el previsto.
+ * Entra en /erp/gastos, balance y reportes como cualquier gasto.
  *
- * Requiere ejecutar supabase/patches/2026-11-17_erp_gastos_fijos.sql.
+ * Requiere 2026-11-17_erp_gastos_fijos.sql y 2026-11-18_erp_gastos_fijos_pagos_parciales.sql.
  */
 import { supabase } from './supabaseClient'
 
@@ -60,6 +61,7 @@ export type PagoGastoFijo = {
 }
 
 const PATCH = 'supabase/patches/2026-11-17_erp_gastos_fijos.sql'
+const PATCH_PARCIALES = 'supabase/patches/2026-11-18_erp_gastos_fijos_pagos_parciales.sql'
 
 function cliente() {
   if (!supabase) throw new Error('Supabase no configurado')
@@ -77,9 +79,28 @@ function mensajeError(e: unknown): string {
     return `Falta ejecutar ${PATCH} en Supabase.`
   }
   if (/erp_gastos_fijo_periodo_uidx|duplicate key/i.test(raw)) {
-    return 'Ese período ya tiene un pago registrado.'
+    return `No se pudo registrar el pago parcial. Ejecutá ${PATCH_PARCIALES} en Supabase.`
   }
   return raw
+}
+
+/** Suma de pagos de un gasto fijo en un período. */
+export function totalPagadoPeriodo(pagos: PagoGastoFijo[], idGasto: number, periodo: string): number {
+  return pagos
+    .filter((p) => Number(p.id_gasto_fijo) === Number(idGasto) && String(p.periodo_fijo) === periodo)
+    .reduce((s, p) => s + (Number(p.total) || 0), 0)
+}
+
+export function pagosDeGastoPeriodo(pagos: PagoGastoFijo[], idGasto: number, periodo: string): PagoGastoFijo[] {
+  return pagos
+    .filter((p) => Number(p.id_gasto_fijo) === Number(idGasto) && String(p.periodo_fijo) === periodo)
+    .sort((a, b) => String(a.fecha_gasto).localeCompare(String(b.fecha_gasto)) || a.id - b.id)
+}
+
+/** Tolerancia de centavos para considerar saldado. */
+export function saldoPendienteGasto(previsto: number, pagado: number): number {
+  const s = Math.round((Number(previsto) || 0) * 100) / 100 - Math.round((Number(pagado) || 0) * 100) / 100
+  return s > 0.009 ? s : 0
 }
 
 async function envolver<T>(fn: () => Promise<T>): Promise<ErpResp<T>> {
@@ -199,9 +220,17 @@ export function listPagosGastosFijos(desde: string, hasta: string) {
 export function registrarPagoGastoFijo(
   g: GastoFijo,
   periodo: string,
-  pago: { fecha: string; total: number; metodo_pago: string | null; observaciones?: string | null }
+  pago: {
+    fecha: string
+    total: number
+    metodo_pago: string | null
+    observaciones?: string | null
+    /** Si el pago no cubre el total del período, se etiqueta como parcial en la descripción. */
+    parcial?: boolean
+  }
 ) {
   return envolver(async () => {
+    const etiqueta = pago.parcial ? ' · pago parcial' : ''
     const { data, error } = await cliente()
       .from('erp_gastos')
       .insert({
@@ -209,7 +238,7 @@ export function registrarPagoGastoFijo(
         proveedor: g.proveedor,
         proveedor_cuit: g.proveedor_cuit,
         categoria: g.categoria,
-        descripcion: `${g.concepto} · ${labelPeriodo(periodo)}`,
+        descripcion: `${g.concepto} · ${labelPeriodo(periodo)}${etiqueta}`,
         centro_costo: g.centro_costo,
         total: pago.total,
         moneda: g.moneda || 'ARS',

@@ -13,8 +13,11 @@ import {
   listCategoriasGastos,
   listGastosFijos,
   listPagosGastosFijos,
+  pagosDeGastoPeriodo,
   registrarPagoGastoFijo,
+  saldoPendienteGasto,
   sumarMeses,
+  totalPagadoPeriodo,
   vencimientoEnPeriodo,
   type Frecuencia,
   type GastoFijo,
@@ -31,7 +34,7 @@ type Form = Omit<GastoFijoInput, 'monto' | 'dia_vencimiento'> & { monto: string;
 
 type PagoForm = { id_gasto_fijo: number; fecha: string; total: string; metodo_pago: string; observaciones: string }
 
-type Estado = 'pagado' | 'vencido' | 'por_vencer' | 'pendiente'
+type Estado = 'pagado' | 'parcial' | 'vencido' | 'por_vencer' | 'pendiente'
 
 const vacio = (): Form => ({
   concepto: '',
@@ -144,20 +147,20 @@ export default function ErpGastosFijosPage() {
       .filter((g) => g.activo && aplicaEnPeriodo(g, periodo))
       .map((g) => {
         const vence = vencimientoEnPeriodo(g.dia_vencimiento, periodo)
-        const pago =
-          pagos.find(
-            (p) => Number(p.id_gasto_fijo) === Number(g.id) && String(p.periodo_fijo) === periodo
-          ) ?? null
+        const pagosFila = pagosDeGastoPeriodo(pagos, g.id, periodo)
+        const pagado = totalPagadoPeriodo(pagos, g.id, periodo)
+        const pendiente = saldoPendienteGasto(g.monto, pagado)
         let estado: Estado = 'pendiente'
-        if (pago) estado = 'pagado'
+        if (pendiente <= 0.009 && pagado > 0.009) estado = 'pagado'
+        else if (pagado > 0.009) estado = 'parcial'
         else if (vence < hoy) estado = 'vencido'
         else if (diasEntre(hoy, vence) <= 5) estado = 'por_vencer'
-        return { g, vence, pago, estado }
+        return { g, vence, pagosFila, pagado, pendiente, estado }
       })
-      // Primero lo que falta pagar (el vencimiento más próximo arriba); los pagados al final.
+      // Primero lo que falta pagar; saldados al final.
       .sort(
         (a, b) =>
-          Number(!!a.pago) - Number(!!b.pago) ||
+          Number(a.pendiente <= 0.009) - Number(b.pendiente <= 0.009) ||
           a.vence.localeCompare(b.vence) ||
           a.g.concepto.localeCompare(b.g.concepto)
       )
@@ -165,23 +168,27 @@ export default function ErpGastosFijosPage() {
 
   const kpis = useMemo(() => {
     const previsto = filasMes.reduce((s, f) => s + f.g.monto, 0)
-    const pagado = filasMes.reduce((s, f) => s + (f.pago?.total ?? 0), 0)
-    const pendiente = filasMes.filter((f) => !f.pago).reduce((s, f) => s + f.g.monto, 0)
+    const pagado = filasMes.reduce((s, f) => s + f.pagado, 0)
+    const pendiente = filasMes.reduce((s, f) => s + f.pendiente, 0)
     const vencidos = filasMes.filter((f) => f.estado === 'vencido').length
     const mensualEq = gastos.filter((g) => g.activo).reduce((s, g) => s + equivalenteMensual(g), 0)
     return { previsto, pagado, pendiente, vencidos, mensualEq }
   }, [filasMes, gastos])
 
-  /** Vencimiento del mes elegido en la barra (cambia con las flechas; no “salta” al próximo impago). */
+  /** Vencimiento del mes elegido en la barra (cambia con las flechas). */
   const vencDelMes = useMemo(() => {
-    const m = new Map<number, { fecha: string | null; pagado: boolean; aplica: boolean }>()
+    const m = new Map<number, { fecha: string | null; pagado: boolean; parcial: boolean; aplica: boolean }>()
     for (const g of gastos) {
       const aplica = aplicaEnPeriodo(g, periodo)
       const fecha = aplica ? vencimientoEnPeriodo(g.dia_vencimiento, periodo) : null
-      const pagado =
-        !!fecha &&
-        pagos.some((x) => Number(x.id_gasto_fijo) === Number(g.id) && String(x.periodo_fijo) === periodo)
-      m.set(g.id, { fecha, pagado, aplica })
+      const abonado = totalPagadoPeriodo(pagos, g.id, periodo)
+      const pendiente = saldoPendienteGasto(g.monto, abonado)
+      m.set(g.id, {
+        fecha,
+        pagado: aplica && pendiente <= 0.009 && abonado > 0.009,
+        parcial: aplica && abonado > 0.009 && pendiente > 0.009,
+        aplica
+      })
     }
     return m
   }, [gastos, pagos, periodo])
@@ -194,10 +201,10 @@ export default function ErpGastosFijosPage() {
           if (a.activo !== b.activo) return a.activo ? -1 : 1
           const va = vencDelMes.get(a.id)
           const vb = vencDelMes.get(b.id)
-          // Primero los que vencen este mes; pagados al final del grupo.
-          const rank = (v?: { fecha: string | null; pagado: boolean; aplica: boolean }) => {
-            if (!v?.aplica || !v.fecha) return '3'
-            if (v.pagado) return `2-${v.fecha}`
+          const rank = (v?: { fecha: string | null; pagado: boolean; parcial: boolean; aplica: boolean }) => {
+            if (!v?.aplica || !v.fecha) return '4'
+            if (v.pagado) return `3-${v.fecha}`
+            if (v.parcial) return `2-${v.fecha}`
             return `1-${v.fecha}`
           }
           return rank(va).localeCompare(rank(vb)) || a.concepto.localeCompare(b.concepto)
@@ -253,19 +260,20 @@ export default function ErpGastosFijosPage() {
     void cargarGastos()
   }
 
-  const pagoDelPeriodo = (idGasto: number) =>
-    pagos.find((p) => Number(p.id_gasto_fijo) === Number(idGasto) && String(p.periodo_fijo) === periodo) ??
-    null
-
   const abrirPago = (g: GastoFijo) => {
-    if (pagoDelPeriodo(g.id)) {
-      setMsg({ tipo: 'error', texto: `Ya hay un pago de "${g.concepto}" en ${labelPeriodo(periodo)}. Anulalo si necesitás corregirlo.` })
+    const abonado = totalPagadoPeriodo(pagos, g.id, periodo)
+    const pendiente = saldoPendienteGasto(g.monto, abonado)
+    if (pendiente <= 0.009) {
+      setMsg({
+        tipo: 'error',
+        texto: `"${g.concepto}" ya está saldado en ${labelPeriodo(periodo)}. Anulá un movimiento si necesitás corregir.`
+      })
       return
     }
     setPagoForm({
       id_gasto_fijo: g.id,
       fecha: hoy,
-      total: String(g.monto),
+      total: String(pendiente),
       metodo_pago: g.metodo_pago || 'Transferencia',
       observaciones: ''
     })
@@ -276,25 +284,41 @@ export default function ErpGastosFijosPage() {
     const g = gastos.find((x) => x.id === pagoForm.id_gasto_fijo)
     const total = numero(pagoForm.total)
     if (!g) return
-    if (pagoDelPeriodo(g.id)) {
-      setMsg({ tipo: 'error', texto: `Ese período ya tiene un pago registrado para "${g.concepto}".` })
+    const abonado = totalPagadoPeriodo(pagos, g.id, periodo)
+    const pendiente = saldoPendienteGasto(g.monto, abonado)
+    if (pendiente <= 0.009) {
+      setMsg({ tipo: 'error', texto: `"${g.concepto}" ya está saldado en ${labelPeriodo(periodo)}.` })
       setPagoForm(null)
       return
     }
     if (total == null || total <= 0) return setMsg({ tipo: 'error', texto: 'Ingresá el monto pagado.' })
     if (!pagoForm.fecha) return setMsg({ tipo: 'error', texto: 'Indicá la fecha de pago.' })
+    if (total - pendiente > 0.009) {
+      return setMsg({
+        tipo: 'error',
+        texto: `El monto supera el saldo pendiente (${fmtMoney(pendiente)}).`
+      })
+    }
+    const quedaPendiente = saldoPendienteGasto(pendiente, total) > 0.009
     setBusy(true)
     const r = await registrarPagoGastoFijo(g, periodo, {
       fecha: pagoForm.fecha,
       total,
       metodo_pago: pagoForm.metodo_pago || null,
-      observaciones: pagoForm.observaciones.trim() || null
+      observaciones: pagoForm.observaciones.trim() || null,
+      parcial: quedaPendiente || abonado > 0.009
     })
     setBusy(false)
     if (!r.success) return setMsg({ tipo: 'error', texto: r.error })
-    setMsg({ tipo: 'ok', texto: `Pago de "${g.concepto}" registrado en Gastos (${labelPeriodo(periodo)}).` })
+    const resto = saldoPendienteGasto(pendiente, total)
+    setMsg({
+      tipo: 'ok',
+      texto:
+        resto > 0.009
+          ? `Pago parcial de "${g.concepto}" registrado. Queda ${fmtMoney(resto)}.`
+          : `Pago de "${g.concepto}" registrado en Gastos (${labelPeriodo(periodo)}).`
+    })
     setPagoForm(null)
-    // Actualización optimista: el botón pasa a «Anular» sin esperar el refetch.
     setPagos((prev) => {
       const row: PagoGastoFijo = {
         id: Number(r.data.id),
@@ -304,28 +328,44 @@ export default function ErpGastosFijosPage() {
         total: Number(r.data.total) || total,
         metodo_pago: r.data.metodo_pago ?? pagoForm.metodo_pago
       }
-      const sinDup = prev.filter(
-        (p) => !(Number(p.id_gasto_fijo) === row.id_gasto_fijo && String(p.periodo_fijo) === row.periodo_fijo)
-      )
-      return [...sinDup, row]
+      if (prev.some((p) => Number(p.id) === row.id)) return prev
+      return [...prev, row]
     })
     void cargarPagos(periodo)
   }
 
   const anularPago = async (g: GastoFijo, pago: PagoGastoFijo) => {
-    if (!window.confirm(`¿Anular el pago de "${g.concepto}" de ${labelPeriodo(periodo)}? Se borra el gasto de ${fmtMoney(pago.total)}.`)) return
+    if (
+      !window.confirm(
+        `¿Anular este pago de "${g.concepto}" (${fmtMoney(pago.total)} · ${fmtFecha(pago.fecha_gasto)})? Se borra el movimiento en Gastos.`
+      )
+    ) {
+      return
+    }
     setBusy(true)
     const r = await anularPagoGastoFijo(pago.id)
     setBusy(false)
     if (!r.success) return setMsg({ tipo: 'error', texto: r.error })
-    setMsg({ tipo: 'ok', texto: `Pago de "${g.concepto}" anulado.` })
+    setMsg({ tipo: 'ok', texto: `Pago de "${g.concepto}" anulado (${fmtMoney(pago.total)}).` })
     setPagos((prev) => prev.filter((p) => Number(p.id) !== Number(pago.id)))
     setPagoForm((pf) => (pf?.id_gasto_fijo === g.id ? null : pf))
     void cargarPagos(periodo)
   }
 
-  const estadoPill = (estado: Estado, pago: PagoGastoFijo | null) => {
-    if (estado === 'pagado' && pago) return <span className="erp-pill ok">Pagado {fmtFecha(pago.fecha_gasto)}</span>
+  const estadoPill = (
+    estado: Estado,
+    opts: { ultimoPago?: PagoGastoFijo | null; pagado?: number; pendiente?: number } = {}
+  ) => {
+    if (estado === 'pagado' && opts.ultimoPago) {
+      return <span className="erp-pill ok">Pagado {fmtFecha(opts.ultimoPago.fecha_gasto)}</span>
+    }
+    if (estado === 'parcial') {
+      return (
+        <span className="erp-pill warn">
+          Parcial · falta {fmtMoney(opts.pendiente ?? 0)}
+        </span>
+      )
+    }
     if (estado === 'vencido') return <span className="erp-pill danger">Vencido</span>
     if (estado === 'por_vencer') return <span className="erp-pill warn">Por vencer</span>
     return <span className="erp-pill">Pendiente</span>
@@ -530,7 +570,9 @@ export default function ErpGastosFijosPage() {
                 </tr>
               </thead>
               <tbody>
-                {filasMes.map(({ g, vence, pago, estado }) => (
+                {filasMes.map(({ g, vence, pagosFila, pagado, pendiente, estado }) => {
+                  const ultimo = pagosFila[pagosFila.length - 1] ?? null
+                  return (
                   <tr key={g.id}>
                     <td>{fmtFecha(vence)}</td>
                     <td>
@@ -550,45 +592,76 @@ export default function ErpGastosFijosPage() {
                       />
                     </td>
                     <td className="erpx-right">{fmtMoney(g.monto)}</td>
-                    <td className="erpx-right">{pago ? fmtMoney(pago.total) : '—'}</td>
-                    <td>{estadoPill(estado, pago)}</td>
+                    <td className="erpx-right">
+                      {pagado > 0.009 ? (
+                        <span title={pagosFila.map((p) => `${fmtFecha(p.fecha_gasto)} ${fmtMoney(p.total)}`).join(' · ')}>
+                          {fmtMoney(pagado)}
+                          {pagosFila.length > 1 ? (
+                            <span className="erp-muted"> · {pagosFila.length}</span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>{estadoPill(estado, { ultimoPago: ultimo, pagado, pendiente })}</td>
                     <td>
-                      <div className="erp-section-actions">
-                        {pago ? (
-                          <button type="button" className="erpx-btn-sm" onClick={() => void anularPago(g, pago)}>
-                            Anular pago
-                          </button>
-                        ) : (
+                      <div className="erp-section-actions" style={{ flexWrap: 'wrap', gap: 6 }}>
+                        {pendiente > 0.009 ? (
                           <button
                             type="button"
                             className="erpx-btn-sm"
                             disabled={busy}
                             onClick={() => abrirPago(g)}
                           >
-                            Registrar pago
+                            {pagado > 0.009 ? 'Registrar otro pago' : 'Registrar pago'}
                           </button>
-                        )}
+                        ) : null}
+                        {pagosFila.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="erpx-btn-sm"
+                            disabled={busy}
+                            title={`${fmtFecha(p.fecha_gasto)} · ${p.metodo_pago || 'sin medio'}`}
+                            onClick={() => void anularPago(g, p)}
+                          >
+                            Anular {fmtMoney(p.total)}
+                          </button>
+                        ))}
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
 
-        {pagoForm && (
+        {pagoForm && (() => {
+          const gPago = gastos.find((x) => x.id === pagoForm.id_gasto_fijo)
+          const abonado = gPago ? totalPagadoPeriodo(pagos, gPago.id, periodo) : 0
+          const saldo = gPago ? saldoPendienteGasto(gPago.monto, abonado) : 0
+          return (
           <div className="erp-panel" style={{ marginTop: 12 }}>
             <h2>
-              Pago de {gastos.find((x) => x.id === pagoForm.id_gasto_fijo)?.concepto} · {labelPeriodo(periodo)}
+              {abonado > 0.009 ? 'Pago parcial' : 'Pago'} de {gPago?.concepto} · {labelPeriodo(periodo)}
             </h2>
+            {gPago ? (
+              <p className="erp-muted" style={{ marginTop: 0 }}>
+                Previsto {fmtMoney(gPago.monto)}
+                {abonado > 0.009 ? ` · ya pagado ${fmtMoney(abonado)}` : ''}
+                {' · '}saldo {fmtMoney(saldo)}
+              </p>
+            ) : null}
             <div className="erpx-form">
               <label className="erp-field">
                 <span className="erp-field__label">Fecha de pago</span>
                 <input type="date" value={pagoForm.fecha} onChange={(e) => setPagoForm({ ...pagoForm, fecha: e.target.value })} />
               </label>
               <label className="erp-field">
-                <span className="erp-field__label">Monto pagado</span>
+                <span className="erp-field__label">Monto de este pago</span>
                 <input inputMode="decimal" value={pagoForm.total} onChange={(e) => setPagoForm({ ...pagoForm, total: e.target.value })} />
               </label>
               <label className="erp-field">
@@ -606,7 +679,9 @@ export default function ErpGastosFijosPage() {
                 <input value={pagoForm.observaciones} onChange={(e) => setPagoForm({ ...pagoForm, observaciones: e.target.value })} />
               </label>
             </div>
-            <p className="erp-muted">Se registra como un gasto en la sección Gastos, vinculado a este gasto fijo y período.</p>
+            <p className="erp-muted">
+              Cada pago genera un movimiento en Gastos (origen gasto fijo), con trazabilidad por período. Podés cargar varios hasta saldar.
+            </p>
             <div className="erpx-actions">
               <button type="button" className="btn-primary" disabled={busy} onClick={() => void confirmarPago()}>
                 Registrar pago
@@ -616,7 +691,8 @@ export default function ErpGastosFijosPage() {
               </button>
             </div>
           </div>
-        )}
+          )
+        })()}
       </div>
 
       <div className="erp-panel" key={`catalogo-${periodo}`}>
@@ -652,18 +728,24 @@ export default function ErpGastosFijosPage() {
                 {catalogo.map((g) => {
                   const v = vencDelMes.get(g.id)
                   return (
-                  <tr key={`${g.id}-${periodo}-${v?.fecha ?? 'na'}-${v?.pagado ? 'p' : 'x'}`}>
+                  <tr key={`${g.id}-${periodo}-${v?.fecha ?? 'na'}-${v?.pagado ? 'p' : v?.parcial ? 'r' : 'x'}`}>
                     <td>
                       {!g.activo || !v?.aplica || !v.fecha ? (
                         <span className="erp-muted">No vence</span>
                       ) : (
                         <span
                           className={
-                            v.pagado ? 'erp-pill ok' : v.fecha < hoy ? 'erp-pill danger' : undefined
+                            v.pagado
+                              ? 'erp-pill ok'
+                              : v.parcial
+                                ? 'erp-pill warn'
+                                : v.fecha < hoy
+                                  ? 'erp-pill danger'
+                                  : undefined
                           }
                         >
                           {fmtFecha(v.fecha)}
-                          {v.pagado ? ' · pagado' : ''}
+                          {v.pagado ? ' · pagado' : v.parcial ? ' · parcial' : ''}
                         </span>
                       )}
                     </td>
