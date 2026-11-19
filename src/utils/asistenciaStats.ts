@@ -69,6 +69,8 @@ export type StatsEmpleadoAsistencia = {
   diasExigibles: number
   /** Días puntuales / días exigibles. Quien casi no marca no puede dar 100%. */
   puntualidadPct: number
+  /** Cada tardanza contada (fecha y minutos), para filtrar por ingreso en liquidación. */
+  tardanzasDetalle?: { fecha: string; minutos: number }[]
 }
 
 export type ExtraDiaDetalle = {
@@ -352,6 +354,9 @@ export function detectarTardeMarcacion(
       return { tarde: false, minutos: 0 }
     }
   }
+  // Sin horario esperado el reloj no puede decidir: vale la novedad de tardanza cargada.
+  const novT = novs.find((n) => n.codigo === 'tardanza')
+  if (novT) return { tarde: true, minutos: novT.duracion_minutos ?? 0 }
   return { tarde: false, minutos: 0 }
 }
 
@@ -624,6 +629,7 @@ export function calcularStatsAsistencia(params: {
     let extra100 = 0
     let minutosTardeTotal = 0
     let faltasExigibles = 0
+    const tardanzasDetalle: { fecha: string; minutos: number }[] = []
 
     for (const f of dias) {
       const a = porUsuarioDia.get(`${id}|${f}`)
@@ -662,6 +668,7 @@ export function calcularStatsAsistencia(params: {
         if (ev.esTarde) {
           tardanzas++
           minutosTardeTotal += ev.minutosTarde
+          tardanzasDetalle.push({ fecha: f, minutos: ev.minutosTarde })
         }
         continue
       }
@@ -694,7 +701,8 @@ export function calcularStatsAsistencia(params: {
       costoExtra: calcularCostoHorasExtra(extra50, extra100, valorHoraBase),
       minutosTardeTotal,
       diasExigibles,
-      puntualidadPct
+      puntualidadPct,
+      tardanzasDetalle
     })
   }
 

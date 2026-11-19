@@ -4,14 +4,55 @@ import {
   CARGAS_SOCIALES_DEFAULT,
   VALOR_DIA_DESCUENTO_DEFAULT,
   armarLiquidacionEmpleado,
+  contarTardanzasParaDescuento,
   descuentoPorFaltas,
   descuentoPorTardanzas,
-  diasDescuentoPorTardanzas
+  diasDescuentoPorTardanzas,
+  montosHeredadosMesNuevo,
+  normalizarCargas,
+  normalizarMontos,
+  normalizarPctAntiguedad
 } from './liquidacionMensual.ts'
-import { calcularHorasExtraDiaDetalle } from './asistenciaStats.ts'
+import { calcularHorasExtraDiaDetalle, calcularStatsAsistencia, diasEntre } from './asistenciaStats.ts'
 import { nombreFeriado } from './feriadosArgentina.ts'
-import type { Asistencia } from '../types/api.ts'
+import type { Asistencia, RrhhNovedad } from '../types/api.ts'
 import type { StatsEmpleadoAsistencia } from './asistenciaStats.ts'
+
+function marca(fecha: string, hhmm: string): Asistencia {
+  return {
+    id: 0,
+    id_usuario: 1,
+    fecha,
+    hora_entrada: `${fecha}T${hhmm}:00-03:00`,
+    hora_salida: `${fecha}T17:00:00-03:00`,
+    horas_trabajadas: 8,
+    tipo_registro: 'normal',
+    observaciones: null,
+    created_at: '',
+    updated_at: ''
+  }
+}
+
+function novTardanza(id: number, fecha: string): RrhhNovedad {
+  return {
+    id,
+    id_usuario: 1,
+    id_solicitud_permiso: null,
+    grupo: 'tardanza_retiro',
+    codigo: 'tardanza',
+    fecha_desde: fecha,
+    fecha_hasta: fecha,
+    duracion_minutos: 20,
+    horas_extra_cantidad: null,
+    observaciones: null,
+    adjuntos: [],
+    registrado_por: null,
+    firma_data_url: null,
+    firmado_at: null,
+    created_at: '',
+    updated_at: ''
+  }
+}
 
 function stats(parcial: Partial<StatsEmpleadoAsistencia>): StatsEmpleadoAsistencia {
   return {
@@ -40,7 +81,7 @@ describe('liquidación mensual', () => {
     assert.equal(descuentoPorFaltas(2, 52232), 104464)
   })
 
-  it('descuenta 1 día cada 3 tardanzas', () => {
+  it('cada 3 tardanzas = 1 falta equivalente', () => {
     assert.equal(diasDescuentoPorTardanzas(0), 0)
     assert.equal(diasDescuentoPorTardanzas(2), 0)
     assert.equal(diasDescuentoPorTardanzas(3), 1)
@@ -49,6 +90,34 @@ describe('liquidación mensual', () => {
     assert.equal(descuentoPorTardanzas(3), VALOR_DIA_DESCUENTO_DEFAULT)
     assert.equal(descuentoPorTardanzas(6, 52232), 104464)
     assert.equal(descuentoPorTardanzas(2), 0)
+  })
+
+  it('cuenta tardanzas del detalle de asistencia sin las previas al ingreso', () => {
+    const r = contarTardanzasParaDescuento({
+      stats: {
+        tardanzas: 3,
+        minutosTardeTotal: 45,
+        tardanzasDetalle: [
+          { fecha: '2026-11-03', minutos: 15 },
+          { fecha: '2026-11-05', minutos: 15 },
+          { fecha: '2026-11-10', minutos: 15 }
+        ]
+      },
+      fechaIngreso: '2026-11-04',
+      fechaDesde: '2026-11-01',
+      fechaHasta: '2026-11-30'
+    })
+    assert.equal(r.tardanzas, 2)
+    assert.equal(r.minutos, 30)
+    // Stats sin detalle (formato viejo): se usa el total tal cual.
+    assert.equal(
+      contarTardanzasParaDescuento({
+        stats: { tardanzas: 3, minutosTardeTotal: 0 },
+        fechaDesde: '2026-11-01',
+        fechaHasta: '2026-11-30'
+      }).tardanzas,
+      3
+    )
   })
 
   it('arma el neto con extras, faltas a valor día y aportes', () => {
@@ -73,8 +142,9 @@ describe('liquidación mensual', () => {
     assert.equal(fila.descuentoTardanzas, 0)
     assert.equal(fila.diasDescuentoTardanzas, 0)
     assert.equal(fila.valorDiaDescuento, VALOR_DIA_DESCUENTO_DEFAULT)
-    // 11+3+3 aportes ley + 2% sindicato CCT 0409/05 = 19% de 300.000
-    assert.equal(fila.totalAportes, 57000)
+    // 11+3+3 aportes ley + 2% sindicato CCT 0409/05 = 19% de (300.000 + 5.000 de horas extra)
+    assert.equal(fila.baseImponible, 305000)
+    assert.equal(fila.totalAportes, 57950)
     assert.equal(fila.haberes, 305000)
     assert.equal(fila.netoCalculado, roundExpected(fila.haberes - fila.descuentoFaltas - fila.descuentoTardanzas - fila.totalAportes))
     assert.equal(fila.neto, fila.netoCalculado)
@@ -247,8 +317,160 @@ describe('liquidación mensual', () => {
     assert.equal(fila.faltas, 0)
     assert.equal(fila.descuentoFaltas, 0)
     assert.equal(fila.diasDescuentoTardanzas, 1)
+    assert.equal(fila.faltasEquivalentes, 1)
     assert.equal(fila.descuentoTardanzas, 52232)
     assert.equal(fila.netoCalculado, fila.haberes - 52232 - fila.totalAportes)
+  })
+
+  it('tardanzas con la misma regla que Asistencia: reloj decide, novedad sin marca cuenta, ingreso filtra', () => {
+    const horario = { entrada: '08:00', salida: '17:00', horas: 9, trabajaSabado: false }
+    const horariosPorMes = { '2026-11': { 1: horario } }
+    const dias = diasEntre('2026-11-01', '2026-11-30')
+    const asistencia = [
+      marca('2026-11-03', '09:00'), // reloj: tarde
+      marca('2026-11-12', '08:05') // reloj: a horario (la novedad vieja no cuenta)
+    ]
+    const novedades = [
+      novTardanza(1, '2026-11-03'),
+      novTardanza(2, '2026-11-05'), // sin marca: vale la novedad
+      novTardanza(3, '2026-11-10'),
+      novTardanza(4, '2026-11-12')
+    ]
+    const [st] = calcularStatsAsistencia({
+      asistencia,
+      novedades,
+      dias,
+      nombres: new Map([[1, 'Ana']]),
+      horariosPorMes
+    })
+    const base = {
+      id: 1,
+      nombre: 'Ana',
+      stats: st,
+      montos: { netoManual: null, precioHora: 0, sueldoBase: 300000, sueldoSinDeclarar: 0 },
+      precioHoraDefault: 0,
+      cargas: CARGAS_SOCIALES_DEFAULT,
+      valorDiaDescuento: 52232,
+      novedades,
+      permisos: [],
+      dias,
+      fechaDesde: '2026-11-01',
+      fechaHasta: '2026-11-30',
+      asistencia,
+      horariosPorMes
+    }
+    const fila = armarLiquidacionEmpleado(base)
+    assert.equal(fila.tardanzas, 3)
+    assert.equal(fila.diasDescuentoTardanzas, 1)
+    assert.equal(fila.descuentoTardanzas, 52232)
+
+    // Ingresó el 04/11: la tardanza del 03/11 no es suya.
+    const conIngreso = armarLiquidacionEmpleado({ ...base, fechaIngreso: '2026-11-04' })
+    assert.equal(conIngreso.tardanzas, 2)
+    assert.equal(conIngreso.descuentoTardanzas, 0)
+  })
+
+  it('franco de rotativo en día de semana no es falta', () => {
+    const horario = { entrada: '08:00', salida: '17:00', horas: 9, trabajaSabado: false }
+    const dias = ['2026-10-05', '2026-10-06']
+    const base = {
+      id: 1,
+      nombre: 'Ana',
+      stats: stats({}),
+      montos: { netoManual: null, precioHora: 0, sueldoBase: 300000, sueldoSinDeclarar: 0 },
+      precioHoraDefault: 0,
+      cargas: CARGAS_SOCIALES_DEFAULT,
+      novedades: [],
+      permisos: [],
+      dias,
+      fechaDesde: '2026-10-05',
+      fechaHasta: '2026-10-06',
+      asistencia: [marca('2026-10-05', '08:00')],
+      horariosPorMes: { '2026-10': { 1: horario } }
+    }
+    assert.deepEqual(armarLiquidacionEmpleado(base).fechasFaltas, ['2026-10-06'])
+    // Rotativo de 2 días desde el 05/10: trabaja, franco, trabaja, franco…
+    const conFranco = armarLiquidacionEmpleado({
+      ...base,
+      horarioEsperadoCtx: {
+        overridesPorUsuarioDia: {},
+        plantillas: [
+          {
+            id: 9,
+            nombre: 'Día por medio',
+            ciclo_dias: 2,
+            fecha_ancla: '2026-10-05',
+            color: '#000',
+            activo: true,
+            slots: [
+              { dia_offset: 0, etiqueta: 'Turno', hora_entrada: '08:00', hora_salida: '17:00', es_franco: false },
+              { dia_offset: 1, etiqueta: 'Franco', hora_entrada: null, hora_salida: null, es_franco: true }
+            ]
+          }
+        ],
+        asignaciones: [
+          { id: 1, id_rotacion: 9, id_usuario: 1, fase_offset: 0, fecha_desde: '2026-10-01', fecha_hasta: null, activo: true }
+        ]
+      }
+    })
+    assert.deepEqual(conFranco.fechasFaltas, [])
+    assert.equal(conFranco.diasNoTrabaja, 1)
+    assert.equal(conFranco.diasLaborablesPeriodo, 1)
+    assert.equal(conFranco.descuentoFaltas, 0)
+  })
+
+  it('fuera de convenio no paga cuota sindical', () => {
+    const base = {
+      id: 1,
+      nombre: 'Ana',
+      stats: stats({}),
+      precioHoraDefault: 0,
+      cargas: CARGAS_SOCIALES_DEFAULT,
+      novedades: [],
+      permisos: [],
+      dias: ['2026-10-05'],
+      fechaDesde: '2026-10-05',
+      fechaHasta: '2026-10-05',
+      asistencia: [marca('2026-10-05', '08:00')]
+    }
+    const dentro = armarLiquidacionEmpleado({
+      ...base,
+      montos: { netoManual: null, precioHora: 0, sueldoBase: 100000, sueldoSinDeclarar: 0 }
+    })
+    const fuera = armarLiquidacionEmpleado({
+      ...base,
+      montos: { netoManual: null, precioHora: 0, sueldoBase: 100000, sueldoSinDeclarar: 0, fueraConvenio: true }
+    })
+    assert.ok(dentro.aportes.some((c) => c.id === 'ap-sind'))
+    assert.ok(!fuera.aportes.some((c) => c.id === 'ap-sind'))
+    assert.ok(!fuera.contribuciones.some((c) => c.id === 'co-sind'))
+    assert.equal(roundExpected(dentro.totalAportes - fuera.totalAportes), 2000)
+  })
+
+  it('un mes nuevo hereda sueldos pero no el neto manual', () => {
+    const heredados = montosHeredadosMesNuevo({
+      7: { precioHora: 1000, sueldoBase: 500000, sueldoSinDeclarar: 20000, netoManual: 410000, fueraConvenio: true }
+    })
+    assert.equal(heredados[7].sueldoBase, 500000)
+    assert.equal(heredados[7].sueldoSinDeclarar, 20000)
+    assert.equal(heredados[7].fueraConvenio, true)
+    assert.equal(heredados[7].netoManual, null)
+  })
+
+  it('el sueldo en blanco es la base del recibo y el dato viejo “En blanco” no se pierde', () => {
+    const m = normalizarMontos({ sueldoBase: 400000, sueldoSinDeclarar: 50000, sueldoBlanco: 380000 })
+    assert.equal(m.sueldoBase, 400000)
+    assert.equal(m.sueldoBlanco, 380000)
+    assert.equal('sueldoBlanco' in normalizarMontos({ sueldoBase: 1 }), false)
+  })
+
+  it('un 0 explícito en alícuotas y antigüedad se respeta en config v2', () => {
+    const conCero = CARGAS_SOCIALES_DEFAULT.map((c) => (c.id === 'ap-sind' ? { ...c, porcentaje: 0 } : c))
+    assert.equal(normalizarCargas(conCero, '0409/05', false).find((c) => c.id === 'ap-sind')?.porcentaje, 2)
+    assert.equal(normalizarCargas(conCero, '0409/05', true).find((c) => c.id === 'ap-sind')?.porcentaje, 0)
+    assert.equal(normalizarPctAntiguedad(0), 1)
+    assert.equal(normalizarPctAntiguedad(0, true), 0)
+    assert.equal(normalizarPctAntiguedad(undefined, true), 1)
   })
 
   it('respeta neto manual editable y sigue descontando aportes del calculado', () => {
@@ -266,8 +488,9 @@ describe('liquidación mensual', () => {
       fechaHasta: '2026-10-31'
     })
 
-    // 11+3+3 aportes ley + 2% sindicato CCT 0409/05 = 19% de 300.000
-    assert.equal(fila.totalAportes, 57000)
+    // 11+3+3 aportes ley + 2% sindicato CCT 0409/05 = 19% de (300.000 + 5.000 de horas extra)
+    assert.equal(fila.baseImponible, 305000)
+    assert.equal(fila.totalAportes, 57950)
     assert.equal(fila.netoManual, true)
     assert.equal(fila.neto, 200000)
     assert.equal(

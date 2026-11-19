@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
 import {
@@ -40,6 +40,8 @@ import {
   RRHH_NOVEDAD_GRUPOS as GRUPOS,
   etiquetaCodigoRrhhNovedad as etiquetaCodigo
 } from '../utils/rrhhNovedadCatalog'
+import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
+import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
 import { nombreSinDominioCorreo } from '../utils/userDisplayName'
 import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnread'
 import { calcularIndicadoresNovedadesOrganizacion } from '../utils/rrhhNovedadesSectorStats'
@@ -55,6 +57,14 @@ import {
 } from '../utils/rrhhNovedadDates'
 import { filtrarUsuariosRrhhOperarios, idsUsuariosGenericosRrhh } from '../utils/rrhhUsuariosExcluidos'
 import { novedadEmpleadoIncorrecto } from '../utils/rrhhNovedadEmpleadoObs'
+import {
+  sincronizarNovedadesDesdeAsistencia
+} from '../utils/rrhhAsistenciaNovedadSync'
+import type { HorarioEsperadoCtx, HorarioFijoAsistencia } from '../utils/asistenciaStats'
+import {
+  diasDescuentoPorTardanzas,
+  TARDANZAS_POR_DIA_DESCUENTO
+} from '../utils/liquidacionMensual'
 import './RecursosHumanosNovedadesPage.css'
 
 type GrupoCounts = Partial<Record<RrhhNovedadGrupo, number>>
@@ -120,6 +130,8 @@ const RecursosHumanosNovedadesPage = () => {
   const [editId, setEditId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [iaLoading, setIaLoading] = useState(false)
+  const [syncTardanzasMsg, setSyncTardanzasMsg] = useState<string | null>(null)
+  const syncTardanzasRef = useRef(false)
 
   const [form, setForm] = useState({
     id_usuario: 0,
@@ -134,16 +146,29 @@ const RecursosHumanosNovedadesPage = () => {
   })
   const [adjuntos, setAdjuntos] = useState<RrhhNovedadAdjunto[]>([])
 
+  const calendarDesde = useMemo(
+    () => format(startOfMonth(calendarMonth), 'yyyy-MM-dd'),
+    [calendarMonth]
+  )
+  const calendarHasta = useMemo(
+    () => format(endOfMonth(calendarMonth), 'yyyy-MM-dd'),
+    [calendarMonth]
+  )
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
+      // Incluir el mes del calendario aunque el filtro de listado sea más angosto.
+      const fechaDesdeLoad = filtroDesde < calendarDesde ? filtroDesde : calendarDesde
+      const fechaHastaLoad = filtroHasta > calendarHasta ? filtroHasta : calendarHasta
       const [u, n, s, legajosRes] = await Promise.all([
         apiService.getUsuarios(),
         apiService.rrhhNovedadesListar({
           idUsuario: filtroUsuario || undefined,
-          grupo: filtroGrupo || undefined,
-          fechaDesde: filtroDesde,
-          fechaHasta: filtroHasta
+          // Sin filtrar por grupo: el calendario necesita tardanzas aunque el listado filtre otro grupo.
+          grupo: undefined,
+          fechaDesde: fechaDesdeLoad,
+          fechaHasta: fechaHastaLoad
         }),
         apiService.obtenerSolicitudesPermisos(null, null, null, null, null),
         apiService.obtenerLegajosBasico()
@@ -171,7 +196,7 @@ const RecursosHumanosNovedadesPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [filtroUsuario, filtroGrupo, filtroDesde, filtroHasta])
+  }, [filtroUsuario, filtroDesde, filtroHasta, calendarDesde, calendarHasta])
 
   useEffect(() => {
     if (authLoading) return
@@ -182,21 +207,99 @@ const RecursosHumanosNovedadesPage = () => {
     void load()
   }, [authLoading, canAccess, navigate, load])
 
+  const syncMesKey = `${calendarDesde}|${filtroUsuario || 'all'}`
+  const syncMesHechoRef = useRef<string | null>(null)
+
+  /** Trae tardanzas del reloj al calendario (misma sync que Horarios → Asistencia). */
+  useEffect(() => {
+    if (authLoading || !canAccess || !usuario?.id || loading) return
+    if (syncTardanzasRef.current || syncMesHechoRef.current === syncMesKey) return
+    const diasMes = eachDayOfInterval({
+      start: startOfMonth(calendarMonth),
+      end: endOfMonth(calendarMonth)
+    }).map((d) => format(d, 'yyyy-MM-dd'))
+    if (!diasMes.length) return
+
+    let cancelled = false
+    syncTardanzasRef.current = true
+    ;(async () => {
+      try {
+        const mesYm = format(calendarMonth, 'yyyy-MM')
+        const [asisRes, fijRes, rotMod, rtRes] = await Promise.all([
+          apiService.obtenerAsistencia(filtroUsuario || null, calendarDesde, calendarHasta),
+          apiService.obtenerHorariosFijos(mesYm),
+          import('../services/rrhhTurnosRotativosService').then((m) => m.listarRotacionesCompletas()),
+          apiService.obtenerTurnos(null, calendarDesde, calendarHasta)
+        ])
+        if (cancelled) return
+        if (!asisRes.success || !asisRes.data?.length) {
+          syncMesHechoRef.current = syncMesKey
+          return
+        }
+
+        const horariosPorMes: Record<string, Record<number, HorarioFijoAsistencia>> = {
+          [mesYm]: fijRes.success && fijRes.data ? fijRes.data : {}
+        }
+        const overridesPorUsuarioDia: Record<string, { entrada: string; salida: string }> = {}
+        if (rtRes.success && rtRes.data) {
+          for (const t of rtRes.data) {
+            const f = String(t.fecha || '').slice(0, 10)
+            if (!f) continue
+            overridesPorUsuarioDia[`${t.id_usuario}|${f}`] = {
+              entrada: String(t.hora_entrada || '').slice(0, 5),
+              salida: String(t.hora_salida || '').slice(0, 5)
+            }
+          }
+        }
+        const horarioEsperadoCtx: HorarioEsperadoCtx = {
+          plantillas: rotMod.plantillas,
+          asignaciones: rotMod.asignaciones,
+          overridesPorUsuarioDia
+        }
+
+        const r = await sincronizarNovedadesDesdeAsistencia({
+          asistencia: asisRes.data,
+          novedades,
+          dias: diasMes,
+          horariosPorMes,
+          horarioEsperadoCtx,
+          registradoPor: usuario.id
+        })
+        if (cancelled) return
+        syncMesHechoRef.current = syncMesKey
+        if (r.creadas > 0 || r.eliminadas > 0) {
+          setSyncTardanzasMsg(
+            r.creadas > 0
+              ? `${r.creadas} tardanza${r.creadas === 1 ? '' : 's'} del reloj cargada${r.creadas === 1 ? '' : 's'} en el calendario`
+              : null
+          )
+          await load()
+        }
+      } finally {
+        syncTardanzasRef.current = false
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync una vez por mes visible
+  }, [authLoading, canAccess, usuario?.id, loading, syncMesKey, calendarMonth, calendarDesde, calendarHasta, filtroUsuario, load])
+
   const nombreUsuario = useMemo(() => {
     const m = new Map<number, string>()
-    usuarios.forEach((u) => m.set(u.id, u.nombre))
+    usuarios.forEach((u) => m.set(u.id, nombreVisibleDesdeRecord(u)))
     return m
   }, [usuarios])
 
-  /** Nombre para mostrar: sin dominio si el dato es un email. */
+  /** Nombre del legajo (nunca email completo). */
   const empleadoMostrar = useCallback(
     (idUsuario: number, sinNombre: 'id' | 'usuario-hash' = 'id') => {
       const raw = nombreUsuario.get(idUsuario)
       if (raw == null || String(raw).trim() === '') {
         return sinNombre === 'usuario-hash' ? `Usuario #${idUsuario}` : String(idUsuario)
       }
-      const v = nombreSinDominioCorreo(raw)
-      return v || (sinNombre === 'usuario-hash' ? `Usuario #${idUsuario}` : String(idUsuario))
+      return etiquetaUsuarioNombre(raw, idUsuario)
     },
     [nombreUsuario]
   )
@@ -225,14 +328,19 @@ const RecursosHumanosNovedadesPage = () => {
     return partes.join(' · ')
   }, [filtroUsuario, filtroGrupo, filtroDesde, filtroHasta, empleadoMostrar])
 
+  const novedadesParaIndicadores = useMemo(
+    () => (filtroGrupo ? novedades.filter((n) => n.grupo === filtroGrupo) : novedades),
+    [novedades, filtroGrupo]
+  )
+
   const indicadoresOrg = useMemo(
     () =>
-      calcularIndicadoresNovedadesOrganizacion(novedades, legajos, usuarios, {
+      calcularIndicadoresNovedadesOrganizacion(novedadesParaIndicadores, legajos, usuarios, {
         usuariosScope,
         periodoDesde: parseFechaFiltro(filtroDesde, addMonths(new Date(), -2)),
         periodoHasta: parseFechaFiltro(filtroHasta, new Date())
       }),
-    [novedades, legajos, usuarios, usuariosScope, filtroDesde, filtroHasta]
+    [novedadesParaIndicadores, legajos, usuarios, usuariosScope, filtroDesde, filtroHasta]
   )
 
   const chartSector = useMemo(
@@ -270,7 +378,10 @@ const RecursosHumanosNovedadesPage = () => {
   const permisosAprobadosCalendario = useMemo(() => {
     const activos = new Set(usuarios.map((u) => u.id))
     return solicitudes.filter(
-      (s) => activos.has(s.id_usuario) && (filtroUsuario === '' || s.id_usuario === filtroUsuario)
+      (s) =>
+        s.estado === 'aprobado' &&
+        activos.has(s.id_usuario) &&
+        (filtroUsuario === '' || s.id_usuario === filtroUsuario)
     )
   }, [solicitudes, usuarios, filtroUsuario])
 
@@ -659,7 +770,7 @@ const RecursosHumanosNovedadesPage = () => {
               <option value="">Todos</option>
               {usuarios.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.nombre}
+                  {etiquetaUsuarioNombre(u.nombre, u.id)}
                 </option>
               ))}
             </select>
@@ -746,6 +857,10 @@ const RecursosHumanosNovedadesPage = () => {
               <article className="rrhh-nov-gestion-kpi">
                 <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.tardanzasMes}</span>
                 <span className="rrhh-nov-gestion-kpi-label">Llegadas tarde</span>
+                <span className="rrhh-nov-gestion-kpi-hint">
+                  Cada {TARDANZAS_POR_DIA_DESCUENTO} = 1 falta · equiv.{' '}
+                  {diasDescuentoPorTardanzas(indicadoresOrg.tardanzasMes)}
+                </span>
               </article>
               <article className="rrhh-nov-gestion-kpi">
                 <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.disciplinariasMes}</span>
@@ -851,6 +966,16 @@ const RecursosHumanosNovedadesPage = () => {
             →
           </button>
         </div>
+        {syncTardanzasMsg ? (
+          <p className="rrhh-novedades-calendar-sync" role="status">
+            {syncTardanzasMsg}
+          </p>
+        ) : (
+          <p className="rrhh-novedades-calendar-sync rrhh-novedades-calendar-sync--muted">
+            Las tardanzas del reloj se sincronizan solas al abrir el mes (chips «T …′»). Cada 3
+            tardanzas = 1 falta en liquidación.
+          </p>
+        )}
 
         <div className="rrhh-novedades-calendar-weekdays">
           {['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'].map((d) => (
@@ -1054,7 +1179,7 @@ const RecursosHumanosNovedadesPage = () => {
                   <option value="">Todos</option>
                   {usuarios.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.nombre}
+                      {etiquetaUsuarioNombre(u.nombre, u.id)}
                     </option>
                   ))}
                 </select>
@@ -1311,11 +1436,18 @@ const RecursosHumanosNovedadesPage = () => {
                 }
               >
                 <option value={0}>Elegir…</option>
-                {usuarios.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.nombre}
-                  </option>
-                ))}
+                {[...usuarios]
+                  .sort((a, b) =>
+                    etiquetaUsuarioNombre(a.nombre, a.id).localeCompare(
+                      etiquetaUsuarioNombre(b.nombre, b.id),
+                      'es'
+                    )
+                  )
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {etiquetaUsuarioNombre(u.nombre, u.id)}
+                    </option>
+                  ))}
               </select>
             </label>
 
@@ -1480,7 +1612,7 @@ const RecursosHumanosNovedadesPage = () => {
                   e.target.value = ''
                 }}
               />
-              <label className="rrhh-novedades-ia-row">
+              <div className="rrhh-novedades-ia-row">
                 <span>O procesar con IA (Gemini) + adjuntar:</span>
                 <input
                   type="file"
@@ -1493,23 +1625,25 @@ const RecursosHumanosNovedadesPage = () => {
                   }}
                 />
                 {iaLoading ? <span className="rrhh-novedades-ia-loading">Procesando…</span> : null}
-              </label>
-              <ul className="rrhh-novedades-adj-list">
-                {adjuntos.map((a, i) => (
-                  <li key={a.url + i}>
-                    <a href={a.url} target="_blank" rel="noreferrer">
-                      {a.nombre}
-                    </a>{' '}
-                    <button
-                      type="button"
-                      className="linklike danger"
-                      onClick={() => setAdjuntos((x) => x.filter((_, j) => j !== i))}
-                    >
-                      Quitar
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              </div>
+              {adjuntos.length > 0 ? (
+                <ul className="rrhh-novedades-adj-list">
+                  {adjuntos.map((a, i) => (
+                    <li key={a.url + i}>
+                      <a href={a.url} target="_blank" rel="noreferrer">
+                        {a.nombre}
+                      </a>{' '}
+                      <button
+                        type="button"
+                        className="linklike danger"
+                        onClick={() => setAdjuntos((x) => x.filter((_, j) => j !== i))}
+                      >
+                        Quitar
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
 
             <div className="rrhh-novedades-modal-actions">

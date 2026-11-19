@@ -915,14 +915,7 @@ const RecursosHumanosLibroSueldosPage = () => {
                           onChange={(e) => patchItem(it.id_usuario, { n_legajo: Number(e.target.value) || 0 })}
                         />
                       </td>
-                      <td>
-                        <input
-                          type="text"
-                          value={it.apellido_nombre}
-                          disabled={cerrado}
-                          onChange={(e) => patchItem(it.id_usuario, { apellido_nombre: e.target.value })}
-                        />
-                      </td>
+                      <td className="rrhh-libro-nombre-cell">{it.apellido_nombre || '—'}</td>
                       <td>
                         <input
                           type="text"

@@ -1,55 +1,117 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import {
-  deudasAplicables,
-  periodoHabilitaArrastreAuto,
-  resumenLiquidacionDeuda
-} from './liquidacionDeudas.ts'
 import type { RrhhLiquidacionDeuda, RrhhLiquidacionPago } from '../types/api.ts'
+import {
+  excedenteSinAplicar,
+  normalizarAplicaciones,
+  repartirFifo,
+  resumenLiquidacionDeuda,
+  saldoParaArrastre,
+  totalAplicadoADeudas
+} from './liquidacionDeudas.ts'
+import { conceptosMiLiquidacionDigital, valorDiaPeriodo } from './rrhhLiquidacion.ts'
 
-function deuda(parcial: Partial<RrhhLiquidacionDeuda> & Pick<RrhhLiquidacionDeuda, 'id' | 'tipo'>): RrhhLiquidacionDeuda {
+function deuda(id: number, pendiente: number): RrhhLiquidacionDeuda {
   return {
+    id,
     id_usuario: 1,
+    tipo: 'especial',
     concepto: null,
-    monto: parcial.monto_pendiente ?? 100,
-    monto_pendiente: 100,
+    monto: pendiente,
+    monto_pendiente: pendiente,
     periodo_origen: null,
-    periodo_destino: null,
-    id_periodo_origen: null,
-    activa: true,
-    registrado_por: null,
-    created_at: '',
-    updated_at: '',
-    ...parcial
-  }
+    periodo_destino: '2026-11',
+    activa: pendiente > 0
+  } as unknown as RrhhLiquidacionDeuda
 }
 
-describe('liquidacion deudas', () => {
-  it('suma neto + deudas − pagos', () => {
+function pago(id: number, monto: number): RrhhLiquidacionPago {
+  return { id, id_usuario: 1, monto } as unknown as RrhhLiquidacionPago
+}
+
+describe('deudas y pagos de liquidación', () => {
+  it('lo pagado de más que bajó una deuda no se descuenta dos veces', () => {
+    // Neto 100, deuda 50, paga 150: 50 van a la deuda (queda en 0) → saldo 0, no −50.
     const r = resumenLiquidacionDeuda({
-      netoMes: 100000,
-      deudas: [deuda({ id: 1, tipo: 'especial', monto_pendiente: 20000 })],
-      pagos: [{ id: 1, id_periodo: 1, id_usuario: 1, fecha: '2026-11-01', monto: 30000, url_recibo: null, notas: null, registrado_por: null, created_at: '', updated_at: '' } satisfies RrhhLiquidacionPago]
+      netoMes: 100,
+      deudas: [deuda(1, 0)],
+      pagos: [pago(1, 150)],
+      aplicadoADeudas: 50
     })
-    assert.equal(r.totalALiquidar, 120000)
-    assert.equal(r.pagado, 30000)
-    assert.equal(r.saldo, 90000)
+    assert.equal(r.saldo, 0)
+    assert.equal(r.pagado, 150)
   })
 
-  it('arrastre solo aplica al período destino', () => {
-    const list = [
-      deuda({ id: 1, tipo: 'arrastre', periodo_destino: '2026-11', monto_pendiente: 50 }),
-      deuda({ id: 2, tipo: 'arrastre', periodo_destino: '2026-10', monto_pendiente: 80 }),
-      deuda({ id: 3, tipo: 'mes_anterior', monto_pendiente: 10 })
-    ]
-    const a = deudasAplicables(list, 1, '2026-11')
-    assert.equal(a.length, 2)
-    assert.ok(a.every((d) => d.id !== 2))
+  it('un pago nuevo solo aplica su propio excedente', () => {
+    // Ya se aplicaron 50 del primer pago; un segundo pago de 10 solo tiene 10 de excedente.
+    assert.equal(excedenteSinAplicar({ netoMes: 100, pagado: 150, aplicadoADeudas: 50 }), 0)
+    assert.equal(excedenteSinAplicar({ netoMes: 100, pagado: 160, aplicadoADeudas: 50 }), 10)
+    assert.equal(excedenteSinAplicar({ netoMes: 100, pagado: 80, aplicadoADeudas: 0 }), 0)
+    // Sin deudas que bajar, el excedente queda como pago de más (saldo negativo).
+    const r = resumenLiquidacionDeuda({ netoMes: 100, deudas: [], pagos: [pago(1, 160)], aplicadoADeudas: 50 })
+    assert.equal(r.saldo, -10)
   })
 
-  it('habilita arrastre automático desde el mes actual', () => {
-    assert.equal(periodoHabilitaArrastreAuto('2026-11', '2026-11-02T12:00:00.000Z'), true)
-    assert.equal(periodoHabilitaArrastreAuto('2026-12', '2026-11-02T12:00:00.000Z'), true)
-    assert.equal(periodoHabilitaArrastreAuto('2026-10', '2026-11-02T12:00:00.000Z'), false)
+  it('reparte el excedente por orden de alta', () => {
+    const rep = repartirFifo([deuda(5, 30), deuda(2, 40)], 50)
+    assert.deepEqual(
+      rep.map((x) => [x.deuda.id, x.aplica]),
+      [
+        [2, 40],
+        [5, 10]
+      ]
+    )
+  })
+
+  it('arrastre: neto − pagos al neto + arrastre anterior pendiente', () => {
+    // Neto 100, arrastre previo 50 sin pagar, pagó 100 → debe 50 (antes se perdía).
+    assert.equal(
+      saldoParaArrastre({ netoMes: 100, pagado: 100, aplicadoADeudas: 0, arrastreAnteriorPendiente: 50 }),
+      50
+    )
+    // Pagó 150 y 50 bajaron el arrastre anterior (pendiente 0) → nada que arrastrar.
+    assert.equal(
+      saldoParaArrastre({ netoMes: 100, pagado: 150, aplicadoADeudas: 50, arrastreAnteriorPendiente: 0 }),
+      0
+    )
+  })
+
+  it('normaliza y suma aplicaciones por empleado', () => {
+    const aps = normalizarAplicaciones([
+      { idUsuario: 1, idDeuda: 2, idPago: 3, monto: 40 },
+      { idUsuario: 1, idDeuda: 5, idPago: 3, monto: 10 },
+      { idUsuario: 2, idDeuda: 6, idPago: 4, monto: 99 },
+      { basura: true }
+    ])
+    assert.equal(aps.length, 3)
+    assert.equal(totalAplicadoADeudas(aps, 1), 50)
+  })
+
+  it('el cierre digital usa el valor día configurado del período', () => {
+    assert.equal(valorDiaPeriodo({ valorDiaDescuento: 60000 }), 60000)
+    assert.equal(valorDiaPeriodo({}), 52232)
+    const conceptos = conceptosMiLiquidacionDigital(
+      {
+        id_usuario: 1,
+        nombre: 'Ana',
+        dias_trabajados: 20,
+        tardanzas: 3,
+        minutos_tarde: 60,
+        ausencias: 0,
+        he50: 0,
+        he100: 0,
+        costo_he: 0,
+        faltas_injustificadas: 0,
+        anticipacion_sueldo: 0,
+        descuento_comida: 0,
+        detalle_json: {}
+      } as never,
+      0,
+      undefined,
+      undefined,
+      undefined,
+      60000
+    )
+    assert.equal(conceptos.find((c) => c.codigo === 'FTARD')?.importe, 60000)
   })
 })

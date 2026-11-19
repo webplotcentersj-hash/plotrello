@@ -124,11 +124,19 @@ const RecursosHumanosPermisosPage = () => {
                 ? diasEnAnio(solicitud.fecha_inicio, solicitud.fecha_fin, anio)
                 : 0
           alert(
-            `Vacaciones aprobadas (${diasPedido} días). Saldo estimado ${anio}: ${saldo.saldo} días restantes.`
+            `Vacaciones aprobadas (${diasPedido} días). Saldo estimado ${anio}: ${saldo.saldo} días restantes. Ya figura en Novedades y no descuenta en liquidación.`
           )
         } catch {
           /* aviso opcional */
         }
+      } else if (
+        solicitud.tipo_solicitud === 'ausencia' ||
+        solicitud.tipo_solicitud === 'permiso' ||
+        solicitud.tipo_solicitud === 'otro'
+      ) {
+        alert(
+          'Solicitud aprobada. Se cargó en el calendario de Novedades y queda justificada para la liquidación de sueldos.'
+        )
       }
       loadSolicitudes()
       setMostrarModalAprobar(false)

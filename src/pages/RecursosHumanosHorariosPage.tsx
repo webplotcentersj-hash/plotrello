@@ -54,7 +54,6 @@ import { etiquetaUsuarioNombre } from '../utils/etiquetaUsuarioNombre'
 import { getStaffAuthToken } from '../services/staffSession'
 import {
   formatHoras,
-  etiquetaHorarioSabado,
   horarioSabadoEfectivo,
   HORARIO_SABADO
 } from '../services/relojBiometricoService'
@@ -996,47 +995,61 @@ const HorariosTab = ({ usuarios, usuarioSeleccionado }: {
                       />
                     </td>
                     <td className="rrhh-fijos-sab">
-                      <label
-                        className="rrhh-fijos-sab-label"
+                      <div
+                        className={`rrhh-fijos-sab-row${trabajaSab ? '' : ' is-off'}`}
                         title={
-                          !trabajaSab
-                            ? 'Lun–Vie (sábado todo extra)'
-                            : `Trabaja sábado ${sab?.entrada || '09:00'} a ${sab?.salida || '14:00'}`
+                          !tieneHorario
+                            ? 'Definí primero el horario fijo'
+                            : !trabajaSab
+                              ? 'Sábado libre (todo el día cuenta como extra)'
+                              : `Sábado ${sab?.entrada || HORARIO_SABADO.entrada}–${sab?.salida || HORARIO_SABADO.salida}`
                         }
                       >
-                        <input
-                          type="checkbox"
-                          checked={f?.trabajaSabado !== false}
-                          disabled={!tieneHorario || guardandoFijo === u.id}
-                          onChange={(e) => guardarSabado(u.id, e.target.checked)}
-                        />
-                        <span>{trabajaSab ? etiquetaHorarioSabado(f) : '—'}</span>
-                      </label>
-                      {trabajaSab ? (
-                        <div className="rrhh-fijos-sab-times">
+                        <label className="rrhh-fijos-sab-check">
                           <input
-                            type="time"
-                            className="rrhh-fijos-sab-time"
-                            value={sab?.entrada || HORARIO_SABADO.entrada}
-                            disabled={guardandoFijo === u.id}
-                            title="Entrada sábado"
-                            onChange={(e) =>
-                              guardarHorarioSabado(u.id, e.target.value, sab?.salida || HORARIO_SABADO.salida)
-                            }
+                            type="checkbox"
+                            checked={f?.trabajaSabado !== false}
+                            disabled={!tieneHorario || guardandoFijo === u.id}
+                            onChange={(e) => guardarSabado(u.id, e.target.checked)}
+                            aria-label="Trabaja sábado"
                           />
-                          <span>–</span>
-                          <input
-                            type="time"
-                            className="rrhh-fijos-sab-time"
-                            value={sab?.salida || HORARIO_SABADO.salida}
-                            disabled={guardandoFijo === u.id}
-                            title="Salida sábado"
-                            onChange={(e) =>
-                              guardarHorarioSabado(u.id, sab?.entrada || HORARIO_SABADO.entrada, e.target.value)
-                            }
-                          />
-                        </div>
-                      ) : null}
+                        </label>
+                        {trabajaSab ? (
+                          <div className="rrhh-fijos-sab-times">
+                            <input
+                              type="time"
+                              className="reloj-fijo-input rrhh-fijos-sab-time"
+                              value={sab?.entrada || HORARIO_SABADO.entrada}
+                              disabled={guardandoFijo === u.id}
+                              title="Entrada sábado"
+                              onChange={(e) =>
+                                guardarHorarioSabado(
+                                  u.id,
+                                  e.target.value,
+                                  sab?.salida || HORARIO_SABADO.salida
+                                )
+                              }
+                            />
+                            <span className="reloj-fijo-sep">–</span>
+                            <input
+                              type="time"
+                              className="reloj-fijo-input rrhh-fijos-sab-time"
+                              value={sab?.salida || HORARIO_SABADO.salida}
+                              disabled={guardandoFijo === u.id}
+                              title="Salida sábado"
+                              onChange={(e) =>
+                                guardarHorarioSabado(
+                                  u.id,
+                                  sab?.entrada || HORARIO_SABADO.entrada,
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        ) : (
+                          <span className="rrhh-fijos-sab-libre">Libre</span>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <button className="rrhh-fijos-legajo-btn" onClick={() => setLegajoUsuario(u)}>

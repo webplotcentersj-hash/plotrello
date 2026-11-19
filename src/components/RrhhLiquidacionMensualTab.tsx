@@ -18,6 +18,7 @@ import {
   calcularStatsAsistencia,
   diasEntre,
   formatArs,
+  type HorarioEsperadoCtx,
   type HorarioFijoAsistencia
 } from '../utils/asistenciaStats'
 import { formatHoras } from '../services/relojBiometricoService'
@@ -25,6 +26,7 @@ import { exportarLiquidacionMensualXlsx } from '../utils/exportLiquidacionMensua
 import { exportarLiquidacionMensualPdf } from '../utils/exportLiquidacionMensualPdf'
 import {
   CCT_LIQUIDACION_DEFAULT,
+  CONFIG_LIQUIDACION_VERSION,
   MONTOS_VACIOS,
   PCT_ANTIGUEDAD_LEGAL_DEFAULT,
   TARDANZAS_POR_DIA_DESCUENTO,
@@ -36,7 +38,10 @@ import {
   guardarMesLiquidacion,
   mesAnterior,
   mesDeFecha,
+  montosHeredadosMesNuevo,
   normalizarCargas,
+  normalizarMontos,
+  normalizarPctAntiguedad,
   totalesLiquidacion,
   type CargaSocialDef,
   type MontosLiquidacion
@@ -44,10 +49,18 @@ import {
 import {
   deudasAplicables,
   etiquetaDeudaTipo,
+  excedenteSinAplicar,
+  normalizarAplicaciones,
   periodoHabilitaArrastreAuto,
   periodoOrigenArrastre,
-  resumenLiquidacionDeuda
+  repartirFifo,
+  resumenLiquidacionDeuda,
+  saldoParaArrastre,
+  totalAplicadoADeudas,
+  totalPagos,
+  type AplicacionDeuda
 } from '../utils/liquidacionDeudas'
+import { ultimoDiaMes } from '../utils/asistenciaStats'
 import { filtrarUsuariosLiquidacionMensual } from '../utils/rrhhUsuariosExcluidos'
 import { feriadosEntre } from '../utils/feriadosArgentina'
 import './RrhhLiquidacionMensualTab.css'
@@ -78,7 +91,8 @@ function Numero({
   placeholder,
   className,
   mostrarCero = false,
-  ceroOk = false
+  ceroOk = false,
+  onClear
 }: {
   value: number
   onCommit: (n: number) => void
@@ -87,6 +101,8 @@ function Numero({
   mostrarCero?: boolean
   /** Permite 0 (p. ej. neto manual o alícuotas). */
   ceroOk?: boolean
+  /** Si se define, vaciar el campo llama a esto en vez de guardar 0 (p. ej. neto → auto). */
+  onClear?: () => void
 }) {
   const visible = value || mostrarCero ? String(value) : ''
   const [texto, setTexto] = useState(visible)
@@ -106,10 +122,14 @@ function Numero({
 
   const parse = (raw: string) => (ceroOk ? aNumeroCeroOk(raw) : aNumero(raw))
 
-  const guardar = (raw: string, forzar = false) => {
+  const guardar = (raw: string) => {
+    if (onClear && raw.trim() === '') {
+      onClear()
+      return
+    }
     const n = parse(raw)
-    // En blur forzamos commit para que el neto (u otros) se guarden aunque no haya cambiado el dígito.
-    if (!forzar && n === value) return
+    // Solo si cambió: entrar y salir del campo no debe fijar el valor (p. ej. el neto calculado).
+    if (n === value) return
     onCommit(n)
   }
 
@@ -136,7 +156,7 @@ function Numero({
           timerRef.current = null
         }
         setFoco(false)
-        guardar(texto, true)
+        if (texto !== visible) guardar(texto)
       }}
     />
   )
@@ -182,6 +202,14 @@ export default function RrhhLiquidacionMensualTab({
   const [fechasIngreso, setFechasIngreso] = useState<Record<number, string | null>>({})
   const [abierto, setAbierto] = useState<number | null>(null)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
+  const [horarioEsperadoCtx, setHorarioEsperadoCtx] = useState<HorarioEsperadoCtx | null>(null)
+  /** Pagos excedentes ya aplicados a deudas en este período (config_json.aplicacionesDeuda). */
+  const [aplicaciones, setAplicaciones] = useState<AplicacionDeuda[]>([])
+  /**
+   * Último config_json conocido del período. Cada guardado parte de acá para no
+   * borrar claves que no maneja esa edición (cctCodigo, netos, aplicaciones…).
+   */
+  const cfgRef = useRef<Record<string, unknown>>({})
   const [actividad, setActividad] = useState<Map<number, { ventas: number; plata: number; ops: number; trabajos: number }>>(new Map())
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** Evita que edits rápidos de varios empleados se pisen por closures stale. */
@@ -213,20 +241,22 @@ export default function RrhhLiquidacionMensualTab({
       if (res.success && res.data) {
         setIdPeriodo(res.data.id)
         const cfg = res.data.config_json || {}
+        cfgRef.current = { ...cfg }
+        setAplicaciones(normalizarAplicaciones(cfg.aplicacionesDeuda))
+        const v2 = Number(cfg.version) >= CONFIG_LIQUIDACION_VERSION
         const cctCfg =
           typeof cfg.cctCodigo === 'string' && cfg.cctCodigo.trim()
             ? String(cfg.cctCodigo).trim()
             : CCT_LIQUIDACION_DEFAULT
         const cargasCfg = normalizarCargas(
           Array.isArray(cfg.cargas) ? cfg.cargas : local.cargas,
-          cctCfg
+          cctCfg,
+          v2 && Array.isArray(cfg.cargas)
         )
-        const pctRaw =
-          cfg.pctAntiguedadLegal != null ? Number(cfg.pctAntiguedadLegal) : local.pctAntiguedadLegal
-        const pct =
-          Number.isFinite(pctRaw) && pctRaw > 0
-            ? Math.round(pctRaw * 100) / 100
-            : PCT_ANTIGUEDAD_LEGAL_DEFAULT
+        const pct = normalizarPctAntiguedad(
+          cfg.pctAntiguedadLegal != null ? cfg.pctAntiguedadLegal : local.pctAntiguedadLegal,
+          v2 && cfg.pctAntiguedadLegal != null
+        )
         const valorDiaCfg =
           cfg.valorDiaDescuento != null ? Number(cfg.valorDiaDescuento) : local.valorDiaDescuento
         const montosCfg =
@@ -234,52 +264,43 @@ export default function RrhhLiquidacionMensualTab({
             ? (cfg.montos as Record<string, MontosLiquidacion>)
             : null
         const montosMap: Record<number, MontosLiquidacion> = {}
-        const origen = montosCfg ?? Object.fromEntries(Object.entries(local.montos).map(([k, v]) => [k, v]))
-        for (const [id, row] of Object.entries(origen)) {
-          const r = row as Partial<MontosLiquidacion>
-          montosMap[Number(id)] = {
-            ...MONTOS_VACIOS,
-            precioHora: Number(r.precioHora) || 0,
-            sueldoBase: Number(r.sueldoBase) || 0,
-            sueldoBlanco: Number(r.sueldoBlanco) || 0,
-            sueldoSinDeclarar: Number(r.sueldoSinDeclarar) || 0,
-            netoManual:
-              r.netoManual == null || r.netoManual === ('' as unknown)
-                ? null
-                : Number.isFinite(Number(r.netoManual))
-                  ? Math.round(Number(r.netoManual) * 100) / 100
-                  : null
-          }
+        if (montosCfg) {
+          for (const [id, row] of Object.entries(montosCfg)) montosMap[Number(id)] = normalizarMontos(row)
         }
+        // Período sin montos propios: hereda sueldos del mes anterior, sin el neto manual.
+        const montosIniciales = montosCfg ? montosMap : montosHeredadosMesNuevo(local.montos)
         setCargas(cargasCfg)
-        setMontos(Object.keys(montosMap).length ? montosMap : local.montos)
+        setMontos(montosIniciales)
         setPctAntiguedadLegal(pct)
         setValorDiaDescuento(
           Number.isFinite(valorDiaCfg) && valorDiaCfg >= 0
             ? Math.round(valorDiaCfg * 100) / 100
             : local.valorDiaDescuento
         )
-        // Si en BD estaban en 0, persistir la precarga ley/convenio para el próximo ingreso.
+        // Config vieja (v1) o sin montos: persistir ya normalizada como v2, así desde ahora
+        // un 0 explícito en alícuotas / antigüedad se respeta.
         if (
-          cargasParecenSinConfigurar(Array.isArray(cfg.cargas) ? (cfg.cargas as CargaSocialDef[]) : null) ||
-          !(Number(cfg.pctAntiguedadLegal) > 0)
+          !v2 ||
+          !montosCfg ||
+          cargasParecenSinConfigurar(Array.isArray(cfg.cargas) ? (cfg.cargas as CargaSocialDef[]) : null)
         ) {
+          const nextCfg = {
+            ...cfg,
+            version: CONFIG_LIQUIDACION_VERSION,
+            cctCodigo: cctCfg,
+            cargas: cargasCfg,
+            pctAntiguedadLegal: pct,
+            valorDiaDescuento:
+              Number.isFinite(valorDiaCfg) && valorDiaCfg >= 0
+                ? Math.round(valorDiaCfg * 100) / 100
+                : local.valorDiaDescuento,
+            montos: Object.fromEntries(Object.entries(montosIniciales).map(([k, v]) => [String(k), v]))
+          }
+          cfgRef.current = nextCfg
           void apiService.rrhhLiquidacionPeriodoUpsert({
             periodo: mes,
             valor_hora_default: Number(res.data.valor_hora_default) || leerPrecioDefault(),
-            config_json: {
-              ...cfg,
-              cctCodigo: cctCfg,
-              cargas: cargasCfg,
-              pctAntiguedadLegal: pct,
-              valorDiaDescuento:
-                Number.isFinite(valorDiaCfg) && valorDiaCfg >= 0
-                  ? Math.round(valorDiaCfg * 100) / 100
-                  : local.valorDiaDescuento,
-              montos:
-                montosCfg ??
-                Object.fromEntries(Object.entries(local.montos).map(([k, v]) => [String(k), v]))
-            }
+            config_json: nextCfg
           })
         }
         const vh = Number(res.data.valor_hora_default) || 0
@@ -306,31 +327,37 @@ export default function RrhhLiquidacionMensualTab({
         if (!cancelado && deudasRes.success && deudasRes.data) setDeudas(deudasRes.data)
       } else {
         setIdPeriodo(null)
-        setCargas(local.cargas)
-        setMontos(local.montos)
-        setPctAntiguedadLegal(local.pctAntiguedadLegal)
+        // Mes nuevo en BD: hereda sueldos del mes anterior, sin el neto manual.
+        const montosIniciales = montosHeredadosMesNuevo(local.montos)
+        setMontos(montosIniciales)
         setValorDiaDescuento(local.valorDiaDescuento)
         setPrecioDefault(leerPrecioDefault())
         setPagosPorUsuario({})
         setDeudas([])
-        // Crear período en BD al abrir el mes
-        const cargasInicial = normalizarCargas(local.cargas, CCT_LIQUIDACION_DEFAULT)
-        const pctInicial =
-          local.pctAntiguedadLegal > 0 ? local.pctAntiguedadLegal : PCT_ANTIGUEDAD_LEGAL_DEFAULT
+        setAplicaciones([])
+        // Crear período en BD al abrir el mes (local ya viene normalizado).
+        const cargasInicial = local.cargas
+        const pctInicial = local.pctAntiguedadLegal
         setCargas(cargasInicial)
         setPctAntiguedadLegal(pctInicial)
-        const crear = await apiService.rrhhLiquidacionPeriodoUpsert({
-          periodo: mes,
-          valor_hora_default: leerPrecioDefault(),
-          config_json: {
-            cctCodigo: CCT_LIQUIDACION_DEFAULT,
-            cargas: cargasInicial,
-            pctAntiguedadLegal: pctInicial,
-            valorDiaDescuento: local.valorDiaDescuento,
-            montos: Object.fromEntries(Object.entries(local.montos).map(([k, v]) => [k, v]))
-          }
-        })
-        if (!cancelado && crear.success && crear.data) setIdPeriodo(crear.data.id)
+        const nextCfg = {
+          version: CONFIG_LIQUIDACION_VERSION,
+          cctCodigo: CCT_LIQUIDACION_DEFAULT,
+          cargas: cargasInicial,
+          pctAntiguedadLegal: pctInicial,
+          valorDiaDescuento: local.valorDiaDescuento,
+          montos: Object.fromEntries(Object.entries(montosIniciales).map(([k, v]) => [String(k), v]))
+        }
+        cfgRef.current = nextCfg
+        // Solo crear si la BD confirmó que no existe: con error de red no pisar un período real.
+        if (res.success) {
+          const crear = await apiService.rrhhLiquidacionPeriodoUpsert({
+            periodo: mes,
+            valor_hora_default: leerPrecioDefault(),
+            config_json: nextCfg
+          })
+          if (!cancelado && crear.success && crear.data) setIdPeriodo(crear.data.id)
+        }
         const deudasRes = await apiService.rrhhLiquidacionDeudasListar({ soloActivas: true })
         if (!cancelado && deudasRes.success && deudasRes.data) setDeudas(deudasRes.data)
       }
@@ -341,6 +368,41 @@ export default function RrhhLiquidacionMensualTab({
       cancelado = true
     }
   }, [mes])
+
+  // Rotativos + ajustes de turno del período (misma regla que la pestaña Asistencia):
+  // sin esto un franco de rotativo en día de semana salía como falta injustificada.
+  useEffect(() => {
+    let cancelado = false
+    void Promise.all([
+      import('../services/rrhhTurnosRotativosService').then((m) => m.listarRotacionesCompletas()),
+      apiService.obtenerTurnos(null, fechaDesde, fechaHasta)
+    ])
+      .then(([rot, rt]) => {
+        if (cancelado) return
+        const overridesPorUsuarioDia: Record<string, { entrada: string; salida: string }> = {}
+        if (rt.success && rt.data) {
+          for (const t of rt.data) {
+            const f = String(t.fecha || '').slice(0, 10)
+            if (!f) continue
+            overridesPorUsuarioDia[`${t.id_usuario}|${f}`] = {
+              entrada: String(t.hora_entrada || '').slice(0, 5),
+              salida: String(t.hora_salida || '').slice(0, 5)
+            }
+          }
+        }
+        setHorarioEsperadoCtx({
+          plantillas: rot.plantillas,
+          asignaciones: rot.asignaciones,
+          overridesPorUsuarioDia
+        })
+      })
+      .catch(() => {
+        if (!cancelado) setHorarioEsperadoCtx(null)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [fechaDesde, fechaHasta])
 
   useEffect(() => {
     let cancelado = false
@@ -478,9 +540,10 @@ export default function RrhhLiquidacionMensualTab({
         nombres,
         horariosPorMes,
         idsConHorario,
-        valorHoraBase: 0
+        valorHoraBase: 0,
+        horarioEsperadoCtx
       }),
-    [asistencia, novedades, dias, nombres, horariosPorMes, idsConHorario]
+    [asistencia, novedades, dias, nombres, horariosPorMes, idsConHorario, horarioEsperadoCtx]
   )
 
   const filas = useMemo(() => {
@@ -501,6 +564,7 @@ export default function RrhhLiquidacionMensualTab({
         permisos,
         asistencia,
         horariosPorMes,
+        horarioEsperadoCtx,
         dias,
         fechaDesde,
         fechaHasta
@@ -511,7 +575,7 @@ export default function RrhhLiquidacionMensualTab({
         ? { ...fila, ventas: act.ventas, plataVendida: act.plata, opsMovidas: act.ops, trabajos: act.trabajos }
         : fila
     })
-  }, [listo, stats, empleados, nombres, fechasIngreso, montos, precioDefault, cargas, pctAntiguedadLegal, valorDiaDescuento, novedades, permisos, asistencia, horariosPorMes, dias, fechaDesde, fechaHasta, actividad])
+  }, [listo, stats, empleados, nombres, fechasIngreso, montos, precioDefault, cargas, pctAntiguedadLegal, valorDiaDescuento, novedades, permisos, asistencia, horariosPorMes, horarioEsperadoCtx, dias, fechaDesde, fechaHasta, actividad])
 
   const totales = useMemo(() => totalesLiquidacion(filas), [filas])
 
@@ -547,15 +611,36 @@ export default function RrhhLiquidacionMensualTab({
           return null
         }
       })()
+      // Neto del mes origen: el manual si lo hubo; si no, el calculado que quedó guardado
+      // al ver ese mes (config_json.netos).
+      const netosPrev =
+        cfg.netos && typeof cfg.netos === 'object' ? (cfg.netos as Record<string, unknown>) : {}
+      const aplicacionesPrev = normalizarAplicaciones(cfg.aplicacionesDeuda)
+      // Arrastre que llegó al mes origen: lo que siga pendiente pasa también.
+      const arrastresPrevRes = await apiService.rrhhLiquidacionDeudasListar({
+        soloActivas: false,
+        periodoDestino: origen
+      })
+      const arrastrePrevPend: Record<number, number> = {}
+      for (const d of arrastresPrevRes.success ? arrastresPrevRes.data ?? [] : []) {
+        if (d.tipo !== 'arrastre' || !d.activa) continue
+        arrastrePrevPend[d.id_usuario] = (arrastrePrevPend[d.id_usuario] || 0) + (d.monto_pendiente || 0)
+      }
       const nuevas: RrhhLiquidacionDeuda[] = []
       for (const u of empleados) {
         const row = montosPrev[String(u.id)]
-        const netoPrev =
-          row?.netoManual != null && Number.isFinite(Number(row.netoManual))
-            ? Math.round(Number(row.netoManual) * 100) / 100
-            : 0
-        const pagadoPrev = pagosMap[u.id] || 0
-        const saldoImpago = Math.round((netoPrev - pagadoPrev) * 100) / 100
+        const netoManualPrev =
+          row?.netoManual != null && Number.isFinite(Number(row.netoManual)) ? Number(row.netoManual) : null
+        const netoSnap = Number(netosPrev[String(u.id)])
+        const netoPrev = netoManualPrev ?? (Number.isFinite(netoSnap) ? netoSnap : null)
+        // Sin neto conocido del mes origen no se toca el arrastre (antes lo ponía en 0).
+        if (netoPrev == null) continue
+        const saldoImpago = saldoParaArrastre({
+          netoMes: netoPrev,
+          pagado: pagosMap[u.id] || 0,
+          aplicadoADeudas: totalAplicadoADeudas(aplicacionesPrev, u.id),
+          arrastreAnteriorPendiente: arrastrePrevPend[u.id] || 0
+        })
         const res = await apiService.rrhhLiquidacionDeudaAsegurarArrastre({
           id_usuario: u.id,
           periodo_destino: mes,
@@ -607,28 +692,74 @@ export default function RrhhLiquidacionMensualTab({
     )
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      // Siempre el snapshot más reciente al flush (varios edits seguidos).
-      const latest = persistRef.current
-      setGuardandoBd(true)
-      void apiService
-        .rrhhLiquidacionPeriodoUpsert({
-          periodo: mes,
-          valor_hora_default: latest.precioDefault,
-          config_json: {
-            cargas: latest.cargas,
-            pctAntiguedadLegal: latest.pctAntiguedadLegal,
-            valorDiaDescuento: latest.valorDiaDescuento,
-            montos: Object.fromEntries(
-              Object.entries(latest.montos).map(([k, v]) => [String(k), v])
-            )
-          }
-        })
-        .then((res) => {
-          if (res.success && res.data) setIdPeriodo(res.data.id)
-        })
-        .finally(() => setGuardandoBd(false))
+      saveTimerRef.current = null
+      void guardarConfig({})
     }, 450)
   }
+
+  /**
+   * Upsert del config_json del período. Parte del último config conocido (cfgRef)
+   * más el estado editable actual, así no se pierden cctCodigo, netos ni aplicaciones.
+   */
+  const guardarConfig = async (patch: Record<string, unknown>) => {
+    const latest = persistRef.current
+    const nextCfg: Record<string, unknown> = {
+      ...cfgRef.current,
+      version: CONFIG_LIQUIDACION_VERSION,
+      cctCodigo:
+        typeof cfgRef.current.cctCodigo === 'string' && cfgRef.current.cctCodigo
+          ? cfgRef.current.cctCodigo
+          : CCT_LIQUIDACION_DEFAULT,
+      cargas: latest.cargas,
+      pctAntiguedadLegal: latest.pctAntiguedadLegal,
+      valorDiaDescuento: latest.valorDiaDescuento,
+      montos: Object.fromEntries(Object.entries(latest.montos).map(([k, v]) => [String(k), v])),
+      ...patch
+    }
+    cfgRef.current = nextCfg
+    setGuardandoBd(true)
+    try {
+      const res = await apiService.rrhhLiquidacionPeriodoUpsert({
+        periodo: mes,
+        valor_hora_default: latest.precioDefault,
+        config_json: nextCfg
+      })
+      if (res.success && res.data) setIdPeriodo(res.data.id)
+      return res.success
+    } finally {
+      setGuardandoBd(false)
+    }
+  }
+
+  /**
+   * Guarda el neto de cada empleado (manual o calculado) en config_json.netos,
+   * para que el mes siguiente pueda arrastrar el saldo impago aunque no haya neto manual.
+   * Solo con el mes completo a la vista y una vez cargados los horarios.
+   */
+  const mesCompleto = fechaDesde === `${mes}-01` && fechaHasta === ultimoDiaMes(mes)
+  useEffect(() => {
+    if (!listo || !mesCompleto || !filas.length || !Object.keys(horariosPorMes).length) return
+    const prev =
+      cfgRef.current.netos && typeof cfgRef.current.netos === 'object'
+        ? (cfgRef.current.netos as Record<string, number>)
+        : {}
+    const next: Record<string, number> = { ...prev }
+    let cambio = false
+    for (const f of filas) {
+      const k = String(f.id)
+      if (next[k] !== f.neto) {
+        next[k] = f.neto
+        cambio = true
+      }
+    }
+    if (!cambio) return
+    const t = setTimeout(() => {
+      void guardarConfig({ netos: next })
+    }, 1500)
+    return () => clearTimeout(t)
+    // guardarConfig lee refs; no hace falta como dependencia.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listo, mesCompleto, filas, horariosPorMes])
 
   const persistir = (
     nextCargas: CargaSocialDef[],
@@ -655,6 +786,7 @@ export default function RrhhLiquidacionMensualTab({
   const cambiarMonto = (id: number, campo: keyof MontosLiquidacion, valor: string) => {
     const prevMontos = persistRef.current.montos
     const prev = prevMontos[id] ?? MONTOS_VACIOS
+    if (campo === 'fueraConvenio') return
     if (campo === 'netoManual') {
       const raw = String(valor).trim()
       const next: MontosLiquidacion = {
@@ -685,9 +817,15 @@ export default function RrhhLiquidacionMensualTab({
     persistir(e.cargas, e.montos, pct)
   }
 
+  const cambiarFueraConvenio = (id: number, fuera: boolean) => {
+    const prevMontos = persistRef.current.montos
+    const prev = prevMontos[id] ?? MONTOS_VACIOS
+    persistir(persistRef.current.cargas, { ...prevMontos, [id]: { ...prev, fueraConvenio: fuera } })
+  }
+
   const cambiarValorDia = (valor: string) => {
-    const n = aNumeroCeroOk(valor)
-    const dia = n > 0 ? n : VALOR_DIA_DESCUENTO_DEFAULT
+    // 0 es válido: no descuenta faltas ni tardanzas (mismo criterio que el cálculo).
+    const dia = aNumeroCeroOk(valor)
     const e = persistRef.current
     persistir(e.cargas, e.montos, e.pctAntiguedadLegal, e.precioDefault, dia)
   }
@@ -770,24 +908,34 @@ export default function RrhhLiquidacionMensualTab({
         ...prev,
         [idUsuario]: { fecha: getArgentinaDateString(), monto: '', notas: '', recibo: null }
       }))
-      // Excedente sobre el neto del mes se aplica a deudas pendientes (FIFO).
+      // Excedente sobre el neto del mes se aplica a deudas pendientes (FIFO). Solo la parte
+      // todavía no aplicada: un pago nuevo no vuelve a aplicar el excedente de pagos anteriores.
       const fila = filas.find((x) => x.id === idUsuario)
-      const netoMes = fila?.neto ?? 0
-      const pagado = nextPagos.reduce((s, p) => s + p.monto, 0)
-      let leftover = Math.round((pagado - netoMes) * 100) / 100
-      if (leftover > 0) {
-        const aplicables = deudasAplicables(deudas, idUsuario, mes).slice().sort((a, b) => a.id - b.id)
+      const aplicadoPrevio = totalAplicadoADeudas(aplicaciones, idUsuario)
+      const excedente = excedenteSinAplicar({
+        netoMes: fila?.neto ?? 0,
+        pagado: totalPagos(nextPagos),
+        aplicadoADeudas: aplicadoPrevio
+      })
+      if (excedente > 0) {
+        const reparto = repartirFifo(deudasAplicables(deudas, idUsuario, mes), excedente)
         const updated: RrhhLiquidacionDeuda[] = []
-        for (const d of aplicables) {
-          if (leftover <= 0) break
-          const aplica = Math.min(d.monto_pendiente, leftover)
+        const nuevasAplic: AplicacionDeuda[] = []
+        for (const { deuda: d, aplica } of reparto) {
           const pendiente = Math.round((d.monto_pendiente - aplica) * 100) / 100
-          leftover = Math.round((leftover - aplica) * 100) / 100
           const up = await apiService.rrhhLiquidacionDeudaActualizar(d.id, {
             monto_pendiente: pendiente,
             activa: pendiente > 0
           })
-          if (up.success && up.data) updated.push(up.data)
+          if (up.success && up.data) {
+            updated.push(up.data)
+            nuevasAplic.push({ idUsuario, idDeuda: d.id, idPago: res.data.id, monto: aplica })
+          }
+        }
+        if (nuevasAplic.length) {
+          const todas = [...aplicaciones, ...nuevasAplic]
+          setAplicaciones(todas)
+          await guardarConfig({ aplicacionesDeuda: todas })
         }
         if (updated.length) {
           setDeudas((prev) => {
@@ -814,6 +962,35 @@ export default function RrhhLiquidacionMensualTab({
       ...prev,
       [pago.id_usuario]: (prev[pago.id_usuario] ?? []).filter((p) => p.id !== pago.id)
     }))
+    // Si parte de ese pago había bajado deudas, devolverles ese monto.
+    const delPago = aplicaciones.filter((a) => a.idPago === pago.id)
+    if (!delPago.length) return
+    const todasDeudas = await apiService.rrhhLiquidacionDeudasListar({
+      idUsuario: pago.id_usuario,
+      soloActivas: false
+    })
+    const porId = new Map((todasDeudas.success ? todasDeudas.data ?? [] : []).map((d) => [d.id, d]))
+    const restauradas: RrhhLiquidacionDeuda[] = []
+    for (const a of delPago) {
+      const d = porId.get(a.idDeuda)
+      if (!d) continue
+      const pendiente = Math.round(((d.monto_pendiente || 0) + a.monto) * 100) / 100
+      const up = await apiService.rrhhLiquidacionDeudaActualizar(d.id, {
+        monto_pendiente: pendiente,
+        activa: pendiente > 0
+      })
+      if (up.success && up.data) restauradas.push(up.data)
+    }
+    const restantes = aplicaciones.filter((a) => a.idPago !== pago.id)
+    setAplicaciones(restantes)
+    await guardarConfig({ aplicacionesDeuda: restantes })
+    if (restauradas.length) {
+      setDeudas((prev) => {
+        const byId = new Map(restauradas.map((d) => [d.id, d]))
+        const sinEstas = prev.filter((d) => !byId.has(d.id))
+        return [...restauradas.filter((d) => d.activa && d.monto_pendiente > 0), ...sinEstas]
+      })
+    }
   }
 
   const draftDeuda = (idUsuario: number) =>
@@ -936,7 +1113,7 @@ export default function RrhhLiquidacionMensualTab({
             onCommit={(n) => cambiarValorDia(String(n))}
           />
           <span>
-            Falta injustificada = 1 día a este valor. Cada {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 día. Se descuenta
+            Falta injustificada = 1 día a este valor. Cada {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 falta. Se descuenta
             del neto.
           </span>
         </label>
@@ -944,20 +1121,22 @@ export default function RrhhLiquidacionMensualTab({
           <summary>Cargas sociales del mes</summary>
           <p>
             Precargadas según ley argentina (SIPA / INSSJP / OS / AAFF / FNE) y convenio {CCT_LIQUIDACION_DEFAULT}{' '}
-            (gráficos · cuota sindical). Se calculan sobre sueldo base + antigüedad proporcional: los{' '}
-            <strong>aportes se descuentan del neto</strong>; las contribuciones suman al costo empresa. ART queda en 0
-            para cargar la de la empresa. Antigüedad legal: % del sueldo base por año cumplido (prorrateado).
+            (gráficos · cuota sindical). Se calculan sobre sueldo en blanco + antigüedad proporcional + horas extra:
+            los <strong>aportes se descuentan del neto</strong>; las contribuciones suman al costo empresa. ART queda en
+            0 para cargar la de la empresa. Un 0 cargado acá se respeta. La cuota sindical no se aplica a quien esté
+            marcado “fuera de convenio” en su detalle. Antigüedad legal: % del sueldo en blanco por año cumplido
+            (prorrateado; 0 = sin adicional).
           </p>
           <div className="liq-cargas-grid">
             <label className="liq-campo">
               Antigüedad legal (por año)
-              <Numero mostrarCero value={pctAntiguedadLegal} onCommit={(n) => cambiarPctAntiguedad(String(n))} />
-              <span>% del sueldo base × años · proporcional a días que debía</span>
+              <Numero mostrarCero ceroOk value={pctAntiguedadLegal} onCommit={(n) => cambiarPctAntiguedad(String(n))} />
+              <span>% del sueldo en blanco × años · proporcional a días que debía</span>
             </label>
             {cargas.map((c) => (
               <label key={c.id} className="liq-campo">
                 {c.lado === 'aporte' ? 'Aporte' : 'Contribución'} · {c.nombre}
-                <Numero mostrarCero value={c.porcentaje} onCommit={(n) => cambiarCarga(c.id, String(n))} />
+                <Numero mostrarCero ceroOk value={c.porcentaje} onCommit={(n) => cambiarCarga(c.id, String(n))} />
                 <span>%</span>
               </label>
             ))}
@@ -1011,7 +1190,7 @@ export default function RrhhLiquidacionMensualTab({
               if (f.faltas > 0) descParts.push(`${f.faltas} falta${f.faltas === 1 ? '' : 's'}`)
               if (f.diasDescuentoTardanzas > 0) {
                 descParts.push(
-                  `${f.diasDescuentoTardanzas}d tarde`
+                  `${f.diasDescuentoTardanzas} falta${f.diasDescuentoTardanzas === 1 ? '' : 's'} (${f.tardanzas} tarde)`
                 )
               } else if (f.tardanzas > 0) {
                 descParts.push(`${f.tardanzas} tarde`)
@@ -1056,9 +1235,18 @@ export default function RrhhLiquidacionMensualTab({
                     <td className="liq-sticky liq-sticky-precio">
                       <Numero
                         className="liq-num"
-                        value={m.precioHora}
+                        value={m.precioHora > 0 ? m.precioHora : precioDefault}
                         placeholder={precioDefault ? String(precioDefault) : '0'}
-                        onCommit={(n) => cambiarMonto(f.id, 'precioHora', String(n))}
+                        onCommit={(n) => {
+                          // Vacío / 0 → sigue el precio global; otro valor = override del empleado.
+                          const efectivo = n > 0 ? n : 0
+                          const igualAlDefault = precioDefault > 0 && efectivo === precioDefault
+                          cambiarMonto(
+                            f.id,
+                            'precioHora',
+                            String(igualAlDefault || efectivo <= 0 ? 0 : efectivo)
+                          )
+                        }}
                       />
                     </td>
                     <td className="liq-sticky liq-sticky-sueldo">
@@ -1075,9 +1263,10 @@ export default function RrhhLiquidacionMensualTab({
                           ceroOk
                           value={f.neto}
                           placeholder={f.netoCalculado ? String(f.netoCalculado) : '0'}
-                          onCommit={(n) => {
-                            // Siempre persistir el valor del input en BD (también si coincide con el calculado).
-                            cambiarMonto(f.id, 'netoManual', String(n))
+                          onCommit={(n) => cambiarMonto(f.id, 'netoManual', String(n))}
+                          // Vaciar el campo vuelve al neto calculado (no lo deja en $0).
+                          onClear={() => {
+                            if (f.netoManual) cambiarMonto(f.id, 'netoManual', '')
                           }}
                         />
                         {f.netoManual ? (
@@ -1106,7 +1295,8 @@ export default function RrhhLiquidacionMensualTab({
                               const rHero = resumenLiquidacionDeuda({
                                 netoMes: f.neto,
                                 deudas: deudasAplicables(deudas, f.id, mes),
-                                pagos: pagosPorUsuario[f.id] ?? []
+                                pagos: pagosPorUsuario[f.id] ?? [],
+                                aplicadoADeudas: totalAplicadoADeudas(aplicaciones, f.id)
                               })
                               return (
                                 <div className="liq-detalle-kpis">
@@ -1275,7 +1465,7 @@ export default function RrhhLiquidacionMensualTab({
                               <h4>Faltas, suspensión y tardanzas</h4>
                               <p className="liq-hint">
                                 Valor día {formatArs(f.valorDiaDescuento)}. Solo injustificadas descuentan · cada{' '}
-                                {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 día. Suspensión = 1 día · media jornada
+                                {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 falta. Suspensión = 1 día · media jornada
                                 post-suspensión = ½ día.
                               </p>
                               {f.diasSuspension > 0 ? (
@@ -1357,9 +1547,9 @@ export default function RrhhLiquidacionMensualTab({
                               <p className="liq-footnote">
                                 Tardanzas: {f.tardanzas}
                                 {f.diasDescuentoTardanzas > 0
-                                  ? ` → ${f.diasDescuentoTardanzas} día${f.diasDescuentoTardanzas === 1 ? '' : 's'} (−${formatArs(f.descuentoTardanzas)})`
+                                  ? ` → ${f.diasDescuentoTardanzas} falta${f.diasDescuentoTardanzas === 1 ? '' : 's'} (−${formatArs(f.descuentoTardanzas)})`
                                   : f.tardanzas > 0
-                                    ? ` (faltan ${TARDANZAS_POR_DIA_DESCUENTO - (f.tardanzas % TARDANZAS_POR_DIA_DESCUENTO)} para 1 día)`
+                                    ? ` (faltan ${TARDANZAS_POR_DIA_DESCUENTO - (f.tardanzas % TARDANZAS_POR_DIA_DESCUENTO)} para 1 falta)`
                                     : ' · sin descuento'}
                               </p>
                             </section>
@@ -1427,7 +1617,7 @@ export default function RrhhLiquidacionMensualTab({
                                   </dd>
                                 </div>
                                 <div>
-                                  <dt>Sueldo base</dt>
+                                  <dt>Sueldo en blanco</dt>
                                   <dd>
                                     {formatArs(f.sueldoBase)}
                                     {f.factorProporcional < 1
@@ -1461,7 +1651,24 @@ export default function RrhhLiquidacionMensualTab({
 
                             <section className="liq-panel">
                               <h4>Cargas sociales</h4>
+                              <label
+                                className="liq-check"
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, margin: '0 0 8px' }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={f.fueraConvenio}
+                                  onChange={(e) => cambiarFueraConvenio(f.id, e.target.checked)}
+                                />{' '}
+                                Fuera de convenio (sin cuota sindical)
+                              </label>
                               <dl className="liq-dl">
+                                <div>
+                                  <dt>Base imponible</dt>
+                                  <dd title="Sueldo en blanco proporcional + antigüedad + horas extra">
+                                    {formatArs(f.baseImponible)}
+                                  </dd>
+                                </div>
                                 {f.aportes.map((c) => (
                                   <div key={c.id}>
                                     <dt>
@@ -1507,7 +1714,8 @@ export default function RrhhLiquidacionMensualTab({
                                 const r = resumenLiquidacionDeuda({
                                   netoMes: f.neto,
                                   deudas: deudasEmp,
-                                  pagos
+                                  pagos,
+                                  aplicadoADeudas: totalAplicadoADeudas(aplicaciones, f.id)
                                 })
                                 const d = draftPago(f.id)
                                 const dd = draftDeuda(f.id)
@@ -1529,6 +1737,9 @@ export default function RrhhLiquidacionMensualTab({
                                       <div>
                                         <span>Pagado</span>
                                         <strong>{formatArs(r.pagado)}</strong>
+                                        {r.aplicadoADeudas > 0 ? (
+                                          <small>{formatArs(r.aplicadoADeudas)} fue a deudas</small>
+                                        ) : null}
                                       </div>
                                       <div>
                                         <span>Saldo</span>
@@ -1766,10 +1977,12 @@ export default function RrhhLiquidacionMensualTab({
                   </div>
                 </td>
                 <td>
-                  {totales.faltas
-                    ? `${totales.faltas} falta${totales.faltas === 1 ? '' : 's'}`
+                  {totales.faltasEquivalentes
+                    ? `${totales.faltasEquivalentes} falta${totales.faltasEquivalentes === 1 ? '' : 's'} equiv.`
                     : 'Sin faltas'}
-                  {totales.tardanzas ? ` · ${totales.tardanzas} tarde` : ''}
+                  {totales.tardanzas
+                    ? ` · ${totales.tardanzas} tarde${totales.diasDescuentoTardanzas ? ` (${totales.diasDescuentoTardanzas}→falta)` : ''}`
+                    : ''}
                 </td>
                 <td className="liq-sticky liq-sticky-precio" />
                 <td className="liq-sticky liq-sticky-sueldo">

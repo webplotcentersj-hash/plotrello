@@ -51,7 +51,7 @@ export function exportarLiquidacionMensualXlsx(opts: {
       'HE 50% (hs)': f.extra50,
       'HE 100% (hs)': f.extra100,
       'Precio hora': f.precioHora,
-      'Sueldo base': f.sueldoBase,
+      'Sueldo en blanco': f.sueldoBase,
       'Sueldo sin declarar': f.sueldoSinDeclarar,
       Ventas: f.ventas,
       Facturado: f.plataVendida,
@@ -62,7 +62,9 @@ export function exportarLiquidacionMensualXlsx(opts: {
       'Descuento faltas': f.descuentoFaltas,
       'Descuento tardanzas': f.descuentoTardanzas,
       'Descuento suspensión': f.descuentoSuspensiones,
-      'Descuento media jornada': f.descuentoMediaJornada
+      'Descuento media jornada': f.descuentoMediaJornada,
+      'Base imponible': f.baseImponible,
+      'Fuera de convenio': f.fueraConvenio ? 'Sí' : 'No'
     }
     for (const c of f.aportes) row[`Aporte ${c.nombre} (${c.porcentaje}%)`] = c.importe
     for (const c of f.contribuciones) row[`Contribución ${c.nombre} (${c.porcentaje}%)`] = c.importe
@@ -112,7 +114,7 @@ export function exportarLiquidacionMensualXlsx(opts: {
       'HE 50% (hs)': tot.extra50,
       'HE 100% (hs)': tot.extra100,
       'Precio hora': '',
-      'Sueldo base': filas.reduce((a, f) => a + f.sueldoBase, 0),
+      'Sueldo en blanco': filas.reduce((a, f) => a + f.sueldoBase, 0),
       'Sueldo sin declarar': filas.reduce((a, f) => a + f.sueldoSinDeclarar, 0),
       Ventas: filas.reduce((a, f) => a + f.ventas, 0),
       Facturado: filas.reduce((a, f) => a + f.plataVendida, 0),
@@ -179,7 +181,7 @@ export function exportarLiquidacionMensualXlsx(opts: {
     Concepto: c.nombre,
     Tipo: c.lado === 'aporte' ? 'Aporte del trabajador' : 'Contribución patronal',
     'Alícuota %': c.porcentaje,
-    Base: 'Sueldo base'
+    Base: 'Sueldo en blanco + antigüedad + horas extra'
   }))
 
   const wb = XLSX.utils.book_new()

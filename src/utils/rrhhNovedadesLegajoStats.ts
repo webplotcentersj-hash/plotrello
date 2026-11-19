@@ -10,6 +10,7 @@ import {
   novedadEnMes,
   type NovedadClasificacionLegajo
 } from './rrhhNovedadClasificacionLegajo'
+import { diasDescuentoPorTardanzas, TARDANZAS_POR_DIA_DESCUENTO } from './liquidacionMensual'
 
 export type PuntoEvolucionNovedad = {
   mes: string
@@ -169,10 +170,11 @@ export function calcularIndicadoresNovedadesLegajo(
     })
   }
 
-  if (llegadasTardeMes >= 3) {
+  if (llegadasTardeMes >= TARDANZAS_POR_DIA_DESCUENTO) {
+    const faltasEquiv = diasDescuentoPorTardanzas(llegadasTardeMes)
     alertas.push({
       nivel: llegadasTardeMes >= 5 ? 'critical' : 'warning',
-      mensaje: `${llegadasTardeMes} llegada${llegadasTardeMes === 1 ? '' : 's'} tarde este mes.`
+      mensaje: `${llegadasTardeMes} llegada${llegadasTardeMes === 1 ? '' : 's'} tarde este mes → ${faltasEquiv} falta${faltasEquiv === 1 ? '' : 's'} equivalente${faltasEquiv === 1 ? '' : 's'} (cada ${TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 falta en liquidación).`
     })
   }
 

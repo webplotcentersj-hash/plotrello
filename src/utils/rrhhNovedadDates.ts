@@ -69,9 +69,17 @@ export function findPerdidaBeneficioComidaActiva(
 }
 
 export function permisoEnDia(p: SolicitudPermiso, dayStr: string): boolean {
-  if (!p.fecha_inicio) return false
-  const desde = String(p.fecha_inicio).slice(0, 10)
-  const hasta = String(p.fecha_fin || p.fecha_inicio).slice(0, 10)
+  // Misma regla que liquidación: fallback a fecha_solicitud si falta inicio.
+  const desde = String(p.fecha_inicio || p.fecha_solicitud || '').slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde)) return false
+  let hasta = String(p.fecha_fin || p.fecha_inicio || p.fecha_solicitud || '').slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(hasta) || hasta < desde) hasta = desde
+  // Evitar typos de año (ej. 20206) que pintan meses enteros.
+  const y0 = Number(desde.slice(0, 4))
+  const y1 = Number(hasta.slice(0, 4))
+  if (y0 < 2000 || y0 > 2100 || y1 < 2000 || y1 > 2100 || y1 - y0 > 1) {
+    hasta = desde
+  }
   return desde <= dayStr && hasta >= dayStr
 }
 

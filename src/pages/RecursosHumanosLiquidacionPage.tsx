@@ -27,7 +27,8 @@ import {
   periodoRango,
   rangoNovedadCorto,
   totalesConceptosDigital,
-  totalesLineas
+  totalesLineas,
+  valorDiaPeriodo
 } from '../utils/rrhhLiquidacion'
 import { exportarLiquidacionXlsx } from '../utils/exportLiquidacionXlsx'
 import { novedadEmpleadoIncorrecto } from '../utils/rrhhNovedadEmpleadoObs'
@@ -282,9 +283,16 @@ const RecursosHumanosLiquidacionPage = () => {
   const conceptosSel = useMemo(
     () =>
       lineaSel
-        ? conceptosMiLiquidacionDigital(lineaSel, valorHora, novedadesSelOk, periodo, nombres)
+        ? conceptosMiLiquidacionDigital(
+            lineaSel,
+            valorHora,
+            novedadesSelOk,
+            periodo,
+            nombres,
+            valorDiaPeriodo(periodoDb?.config_json)
+          )
         : [],
-    [lineaSel, valorHora, novedadesSelOk, periodo, nombres]
+    [lineaSel, valorHora, novedadesSelOk, periodo, nombres, periodoDb]
   )
   const totConceptosSel = useMemo(() => totalesConceptosDigital(conceptosSel), [conceptosSel])
   const conteosPorEmpleado = useMemo(() => {

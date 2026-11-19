@@ -18467,7 +18467,11 @@ class ApiService {
 
       if (error) throw error
 
-      const solicitudActualizada = data as SolicitudPermiso
+      const solicitudActualizada = {
+        ...(solicitud || {}),
+        ...(data as SolicitudPermiso),
+        estado
+      } as SolicitudPermiso
 
       // Notificar al usuario que creó la solicitud
       if (solicitud && solicitud.id_usuario) {
@@ -18476,10 +18480,20 @@ class ApiService {
         const nombreAprobador = usuarioAprobador?.nombre || 'RRHH'
 
         if (estado === 'aprobado') {
+          // Calendario de novedades + asistencia justificada + liquidación (no descuenta).
+          try {
+            const { impactarPermisoAprobado } = await import('../utils/rrhhPermisoAprobadoImpactoAplicar')
+            await impactarPermisoAprobado({
+              solicitud: { ...solicitudActualizada, estado: 'aprobado' },
+              idAprobador
+            })
+          } catch (e) {
+            console.warn('Impacto permiso aprobado (novedad/asistencia):', e)
+          }
           await this.createNotification({
             user_id: solicitud.id_usuario,
             title: `✅ Solicitud Aprobada`,
-            description: `Tu solicitud "${solicitud.titulo}" ha sido aprobada por ${nombreAprobador}.${observaciones ? ` Observaciones: ${observaciones}` : ''}`,
+            description: `Tu solicitud "${solicitud.titulo}" ha sido aprobada por ${nombreAprobador}. Impacta en novedades y liquidación.${observaciones ? ` Observaciones: ${observaciones}` : ''}`,
             type: 'success',
             solicitud_id: solicitud.id
           })
@@ -19137,6 +19151,8 @@ class ApiService {
   /**
    * Crea/actualiza arrastre del saldo impago del mes anterior hacia `periodo`
    * (neto − pagos del período origen). Idempotente por usuario+periodo_destino.
+   * Un arrastre ya cerrado (saldado con pagos o anulado a mano) no se recrea, y
+   * si sigue activo se conserva lo que ya se le aplicó de pagos excedentes.
    */
   async rrhhLiquidacionDeudaAsegurarArrastre(input: {
     id_usuario: number
@@ -19155,9 +19171,15 @@ class ApiService {
         .eq('id_usuario', input.id_usuario)
         .eq('tipo', 'arrastre')
         .eq('periodo_destino', input.periodo_destino)
-        .eq('activa', true)
+        .order('id', { ascending: false })
+        .limit(1)
         .maybeSingle()
       if (exErr) throw exErr
+
+      // Cerrado (pagado o anulado): se respeta, no se vuelve a crear.
+      if (existing && (existing as { activa?: boolean }).activa === false) {
+        return { success: true, data: null }
+      }
 
       if (saldo <= 0) {
         if (existing) {
@@ -19170,11 +19192,15 @@ class ApiService {
       }
 
       if (existing) {
+        const ex = existing as { monto?: number; monto_pendiente?: number }
+        const yaAplicado = Math.max(0, (Number(ex.monto) || 0) - (Number(ex.monto_pendiente) || 0))
+        const pendiente = Math.round(Math.max(0, saldo - yaAplicado) * 100) / 100
         const { data, error } = await supabase
           .from('rrhh_liquidacion_deudas')
           .update({
             monto: saldo,
-            monto_pendiente: saldo,
+            monto_pendiente: pendiente,
+            activa: pendiente > 0,
             periodo_origen: input.periodo_origen,
             id_periodo_origen: input.id_periodo_origen ?? null,
             concepto: `Saldo impago ${input.periodo_origen}`,

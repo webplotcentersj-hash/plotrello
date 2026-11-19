@@ -7,6 +7,8 @@ import { diaEnMediaJornadaPostSuspension, diaEnSuspension } from './rrhhSuspensi
 import {
   MULTIPLICADOR_HE100,
   MULTIPLICADOR_HE50,
+  horarioEsperadoDesdeCtx,
+  type HorarioEsperadoCtx,
   type HorarioFijoAsistencia,
   type StatsEmpleadoAsistencia
 } from './asistenciaStats'
@@ -15,12 +17,32 @@ import { antiguedadMesesAlPeriodo } from './rrhhLibroSueldos'
 
 export type MontosLiquidacion = {
   precioHora: number
+  /**
+   * Sueldo en blanco: base del recibo, de la antigüedad y de aportes/contribuciones.
+   * (Se llama sueldoBase por compatibilidad con lo ya guardado en la BD.)
+   */
   sueldoBase: number
-  sueldoBlanco: number
+  /**
+   * @deprecated Columna “En blanco” del primer modelo (antes de oct-2026), cuando sueldoBase
+   * era el total pactado. Desde entonces el sueldo en blanco es sueldoBase. Se conserva
+   * el valor viejo al guardar para no perder datos, pero no entra en el cálculo.
+   */
+  sueldoBlanco?: number
   sueldoSinDeclarar: number
   /** Si no es null, reemplaza el neto calculado (editable y persistido). */
   netoManual: number | null
+  /** Fuera de convenio: no se le aplica la cuota sindical. */
+  fueraConvenio?: boolean
 }
+
+/**
+ * Versión del formato de config del período.
+ * v2: un 0 explícito en alícuotas / antigüedad se respeta (antes 0 = “sin configurar”).
+ */
+export const CONFIG_LIQUIDACION_VERSION = 2
+
+/** Ids de cargas del sindicato (no aplican a quien está fuera de convenio). */
+export const IDS_CARGAS_SINDICATO = new Set(['ap-sind', 'co-sind'])
 
 export type CargaSocialDef = {
   id: string
@@ -77,6 +99,8 @@ export type LiquidacionEmpleado = {
   minutosTarde: number
   ausencias: number
   faltas: number
+  /** Faltas injustificadas + faltas equivalentes por bloques de 3 tardanzas. */
+  faltasEquivalentes: number
   /** Solo injustificadas (descuentan valor día). */
   fechasFaltas: string[]
   /** Justificadas / licencia / permiso: sin descuento. */
@@ -112,8 +136,10 @@ export type LiquidacionEmpleado = {
   extra100: number
   precioHora: number
   sueldoBase: number
-  sueldoBlanco: number
   sueldoSinDeclarar: number
+  fueraConvenio: boolean
+  /** Base de aportes/contribuciones: sueldo en blanco proporcional + antigüedad + horas extra. */
+  baseImponible: number
   importeExtra50: number
   importeExtra100: number
   descuentoFaltas: number
@@ -124,7 +150,7 @@ export type LiquidacionEmpleado = {
   descuentoMediaJornada: number
   /** Valor día usado para faltas / bloques de tardanzas. */
   valorDiaDescuento: number
-  /** Días descontados por bloques de 3 tardanzas. */
+  /** Faltas equivalentes por bloques de 3 tardanzas (misma cifra que descuenta). */
   diasDescuentoTardanzas: number
   aportes: ItemCarga[]
   contribuciones: ItemCarga[]
@@ -144,9 +170,9 @@ export type LiquidacionEmpleado = {
 export const MONTOS_VACIOS: MontosLiquidacion = {
   precioHora: 0,
   sueldoBase: 0,
-  sueldoBlanco: 0,
   sueldoSinDeclarar: 0,
-  netoManual: null
+  netoManual: null,
+  fueraConvenio: false
 }
 
 /**
@@ -209,7 +235,7 @@ export function cargasParecenSinConfigurar(cargas: CargaSocialDef[] | null | und
     .every((c) => !(Number(c.porcentaje) > 0))
 }
 
-/** % del sueldo base por cada año cumplido (uso habitual CCT / convenio). */
+/** % del sueldo en blanco por cada año cumplido (uso habitual CCT / convenio). */
 export const PCT_ANTIGUEDAD_LEGAL_DEFAULT = 1
 
 /** Valor fijo de un día para descontar faltas injustificadas y bloques de tardanzas. */
@@ -221,6 +247,7 @@ export const TARDANZAS_POR_DIA_DESCUENTO = 3
 const LS_KEY = 'rrhh-liquidacion-v1'
 
 type MesGuardado = {
+  version?: number
   cargas: CargaSocialDef[]
   montos: Record<string, MontosLiquidacion>
   pctAntiguedadLegal?: number
@@ -249,13 +276,17 @@ export function mesAnterior(yyyyMm: string): string {
 /**
  * Normaliza cargas guardadas. Si vienen vacías / todas en 0, precarga ley + convenio.
  * Si hay valores, completa ids faltantes (p. ej. sindicato) desde el template del CCT.
+ * Con `respetarCeros` (config v2) un 0 cargado a mano se mantiene; en configs viejas
+ * un 0 en un ítem con alícuota de ley se toma como “sin configurar”.
  */
 export function normalizarCargas(
   raw: unknown,
-  cctCodigo: string | null | undefined = CCT_LIQUIDACION_DEFAULT
+  cctCodigo: string | null | undefined = CCT_LIQUIDACION_DEFAULT,
+  respetarCeros = false
 ): CargaSocialDef[] {
   const plantilla = cargasSocialesSegunConvenio(cctCodigo)
-  if (!Array.isArray(raw) || cargasParecenSinConfigurar(raw as CargaSocialDef[])) {
+  if (!Array.isArray(raw) || raw.length === 0) return plantilla
+  if (!respetarCeros && cargasParecenSinConfigurar(raw as CargaSocialDef[])) {
     return plantilla
   }
   const porId = new Map<string, CargaSocialDef>()
@@ -275,15 +306,16 @@ export function normalizarCargas(
   return plantilla.map((def) => {
     const saved = porId.get(def.id)
     if (!saved) return { ...def }
-    // 0 en un ítem que por ley/convenio tiene alícuota → usar default (salvo ART).
-    if (def.id !== 'co-art' && !(saved.porcentaje > 0) && def.porcentaje > 0) {
+    // Config vieja: 0 en un ítem que por ley/convenio tiene alícuota → usar default (salvo ART).
+    if (!respetarCeros && def.id !== 'co-art' && !(saved.porcentaje > 0) && def.porcentaje > 0) {
       return { ...def }
     }
     return { ...saved, nombre: saved.nombre || def.nombre }
   })
 }
 
-function normalizarMontos(raw: unknown): MontosLiquidacion {
+/** Normaliza un registro de montos (BD o localStorage). */
+export function normalizarMontos(raw: unknown): MontosLiquidacion {
   const row = raw && typeof raw === 'object' ? (raw as Partial<MontosLiquidacion>) : {}
   const netoRaw = row.netoManual
   let netoManual: number | null = null
@@ -291,13 +323,30 @@ function normalizarMontos(raw: unknown): MontosLiquidacion {
     const n = typeof netoRaw === 'number' ? netoRaw : Number(netoRaw)
     if (Number.isFinite(n) && n >= 0) netoManual = round2(n)
   }
+  const legadoBlanco = num(row.sueldoBlanco)
   return {
     precioHora: num(row.precioHora),
     sueldoBase: num(row.sueldoBase),
-    sueldoBlanco: num(row.sueldoBlanco),
     sueldoSinDeclarar: num(row.sueldoSinDeclarar),
-    netoManual
+    netoManual,
+    fueraConvenio: row.fueraConvenio === true,
+    // Dato de la columna “En blanco” anterior a oct-2026: se conserva tal cual al guardar.
+    ...(legadoBlanco > 0 ? { sueldoBlanco: legadoBlanco } : {})
   }
+}
+
+/**
+ * Montos que se heredan al abrir un mes nuevo: sueldos, precio y convenio.
+ * El neto manual es del mes en que se cargó y NO pasa al siguiente.
+ */
+export function montosHeredadosMesNuevo(
+  origen: Record<string | number, unknown>
+): Record<number, MontosLiquidacion> {
+  const out: Record<number, MontosLiquidacion> = {}
+  for (const [id, row] of Object.entries(origen)) {
+    out[Number(id)] = { ...normalizarMontos(row), netoManual: null }
+  }
+  return out
 }
 
 function leerTodo(): Record<string, MesGuardado> {
@@ -319,10 +368,15 @@ function escribirTodo(data: Record<string, MesGuardado>) {
   }
 }
 
-function normalizarPctAntiguedad(raw: unknown): number {
+/**
+ * % de antigüedad por año. En configs viejas 0 = “sin configurar” (1% de CCT);
+ * con `respetarCero` (config v2) un 0 cargado a mano desactiva el adicional.
+ */
+export function normalizarPctAntiguedad(raw: unknown, respetarCero = false): number {
+  if (raw == null || raw === '') return PCT_ANTIGUEDAD_LEGAL_DEFAULT
   const v = typeof raw === 'number' ? raw : Number(raw)
-  // 0 se trata como “sin configurar” (queda el 1% habitual por año de CCT).
-  if (!Number.isFinite(v) || v <= 0) return PCT_ANTIGUEDAD_LEGAL_DEFAULT
+  if (!Number.isFinite(v) || v < 0) return PCT_ANTIGUEDAD_LEGAL_DEFAULT
+  if (v === 0 && !respetarCero) return PCT_ANTIGUEDAD_LEGAL_DEFAULT
   return round2(v)
 }
 
@@ -341,20 +395,24 @@ export function cargarMesLiquidacion(mes: string): {
   const todo = leerTodo()
   const propio = todo[mes]
   const base = propio ?? todo[mesAnterior(mes)]
-  const cargas = normalizarCargas(base?.cargas)
-  const pctAntiguedadLegal = normalizarPctAntiguedad(
-    propio?.pctAntiguedadLegal ?? base?.pctAntiguedadLegal ?? PCT_ANTIGUEDAD_LEGAL_DEFAULT
-  )
+  const v2 = (base?.version ?? 0) >= CONFIG_LIQUIDACION_VERSION
+  const cargas = normalizarCargas(base?.cargas, CCT_LIQUIDACION_DEFAULT, v2)
+  const pctAntiguedadLegal = normalizarPctAntiguedad(base?.pctAntiguedadLegal, v2)
   const valorDiaDescuento = normalizarValorDia(
     propio?.valorDiaDescuento ?? base?.valorDiaDescuento ?? VALOR_DIA_DESCUENTO_DEFAULT
   )
-  const montos: Record<number, MontosLiquidacion> = {}
-  const origen = propio?.montos ?? base?.montos ?? {}
-  for (const [id, row] of Object.entries(origen)) {
-    montos[Number(id)] = normalizarMontos(row)
+  let montos: Record<number, MontosLiquidacion> = {}
+  if (propio) {
+    for (const [id, row] of Object.entries(propio.montos ?? {})) {
+      montos[Number(id)] = normalizarMontos(row)
+    }
+  } else {
+    // Mes nuevo: hereda sueldos del anterior, pero no el neto manual.
+    montos = montosHeredadosMesNuevo(base?.montos ?? {})
   }
   if (!propio) {
     todo[mes] = {
+      version: CONFIG_LIQUIDACION_VERSION,
       cargas,
       montos: Object.fromEntries(Object.entries(montos).map(([id, m]) => [id, m])),
       pctAntiguedadLegal,
@@ -374,9 +432,10 @@ export function guardarMesLiquidacion(
 ) {
   const todo = leerTodo()
   todo[mes] = {
-    cargas: normalizarCargas(cargas),
+    version: CONFIG_LIQUIDACION_VERSION,
+    cargas: normalizarCargas(cargas, CCT_LIQUIDACION_DEFAULT, true),
     montos: Object.fromEntries(Object.entries(montos).map(([id, m]) => [id, normalizarMontos(m)])),
-    pctAntiguedadLegal: normalizarPctAntiguedad(pctAntiguedadLegal),
+    pctAntiguedadLegal: normalizarPctAntiguedad(pctAntiguedadLegal, true),
     valorDiaDescuento: normalizarValorDia(valorDiaDescuento)
   }
   escribirTodo(todo)
@@ -396,7 +455,7 @@ export function descuentoPorFaltas(
 }
 
 /**
- * Cada 3 tardanzas = 1 día de descuento al valor día fijo.
+ * Cada 3 tardanzas = 1 falta (1 día de descuento al valor día fijo).
  * Las tardanzas sueltas (resto) no descuentan hasta completar el bloque.
  */
 export function descuentoPorTardanzas(
@@ -410,12 +469,43 @@ export function descuentoPorTardanzas(
   return round2(dias * valorDia)
 }
 
+/** Cantidad de faltas equivalentes por bloques de tardanzas (cada 3 = 1). */
 export function diasDescuentoPorTardanzas(
   tardanzas: number,
   porBloque: number = TARDANZAS_POR_DIA_DESCUENTO
 ): number {
   if (tardanzas <= 0 || porBloque <= 0) return 0
   return Math.floor(tardanzas / porBloque)
+}
+
+/**
+ * Tardanzas del mes para descuento. La fuente es la estadística de asistencia
+ * (misma regla que la pestaña Asistencia): el reloj decide si hay horario esperado
+ * y, sin horario, vale la novedad `tardanza`. Se descartan las previas al ingreso
+ * y las que caen fuera del período.
+ */
+export function contarTardanzasParaDescuento(params: {
+  stats: Pick<StatsEmpleadoAsistencia, 'tardanzas' | 'minutosTardeTotal' | 'tardanzasDetalle'> | null
+  fechaIngreso?: string | null
+  fechaDesde: string
+  fechaHasta: string
+}): { tardanzas: number; minutos: number; fechas: string[] } {
+  const st = params.stats
+  if (!st) return { tardanzas: 0, minutos: 0, fechas: [] }
+  if (!st.tardanzasDetalle) {
+    return { tardanzas: st.tardanzas || 0, minutos: st.minutosTardeTotal || 0, fechas: [] }
+  }
+  const desde = params.fechaDesde.slice(0, 10)
+  const hasta = params.fechaHasta.slice(0, 10)
+  const ingreso = params.fechaIngreso?.slice(0, 10) || ''
+  const validas = st.tardanzasDetalle.filter(
+    (t) => t.fecha >= desde && t.fecha <= hasta && (!ingreso || t.fecha >= ingreso)
+  )
+  return {
+    tardanzas: validas.length,
+    minutos: validas.reduce((a, t) => a + (t.minutos || 0), 0),
+    fechas: validas.map((t) => t.fecha)
+  }
 }
 
 function permisoSolapa(p: SolicitudPermiso, desde: string, hasta: string): boolean {
@@ -516,6 +606,8 @@ export function armarLiquidacionEmpleado(params: {
   fechaHasta: string
   asistencia?: Asistencia[]
   horariosPorMes?: Record<string, Record<number, HorarioFijoAsistencia>>
+  /** Rotativos / francos / ajustes de turno (misma regla que la pestaña Asistencia). */
+  horarioEsperadoCtx?: HorarioEsperadoCtx | null
 }): LiquidacionEmpleado {
   const periodo = params.fechaHasta.slice(0, 7)
   const fechaIngreso = params.fechaIngreso?.slice(0, 10) || null
@@ -523,8 +615,10 @@ export function armarLiquidacionEmpleado(params: {
   const antiguedadMeses = tieneIngreso ? antiguedadMesesAlPeriodo(fechaIngreso, periodo) : null
   const antiguedadAnios = antiguedadMeses != null ? Math.floor(antiguedadMeses / 12) : 0
   const antiguedadLabel = fmtAntiguedad(antiguedadMeses)
+  // El valor que llega ya viene normalizado por la pantalla: un 0 es explícito.
   const pctAntiguedadLegal = normalizarPctAntiguedad(
-    params.pctAntiguedadLegal ?? PCT_ANTIGUEDAD_LEGAL_DEFAULT
+    params.pctAntiguedadLegal ?? PCT_ANTIGUEDAD_LEGAL_DEFAULT,
+    true
   )
 
   const precioHora = params.montos.precioHora > 0 ? params.montos.precioHora : params.precioHoraDefault
@@ -565,8 +659,10 @@ export function armarLiquidacionEmpleado(params: {
     const yaIngreso = !fechaIngreso || fecha >= fechaIngreso
     const enSuspension = diaEnSuspension(params.novedades, params.id, fecha)
     const enMediaJornada = diaEnMediaJornadaPostSuspension(params.novedades, params.id, fecha)
+    const esFranco =
+      horarioEsperadoDesdeCtx(params.id, fecha, horario, params.horarioEsperadoCtx)?.esFranco === true
 
-    if (esDiaLaborableEmpleado(fecha, horario)) {
+    if (esDiaLaborableEmpleado(fecha, horario) && !esFranco) {
       diasLaborablesPeriodo += 1
     }
 
@@ -589,7 +685,8 @@ export function armarLiquidacionEmpleado(params: {
       }
       continue
     }
-    if (dia === 6 && horario?.trabajaSabado !== true) {
+    // Sábado que no trabaja o franco del rotativo: no se debe ni descuenta.
+    if ((dia === 6 && horario?.trabajaSabado !== true) || esFranco) {
       diasNoTrabaja += 1
       if (vino) noTrabajaVino += 1
       continue
@@ -648,21 +745,34 @@ export function armarLiquidacionEmpleado(params: {
   horasFeriado = round2(horasFeriado)
   const importeDomingo = round2(horasDomingo * precioHora * MULTIPLICADOR_HE100)
   const importeFeriado = round2(horasFeriado * precioHora * MULTIPLICADOR_HE100)
-  const minutosTarde = stats?.minutosTardeTotal ?? 0
-  const tardanzasCount = stats?.tardanzas ?? 0
+  const tard = contarTardanzasParaDescuento({
+    stats,
+    fechaIngreso,
+    fechaDesde: params.fechaDesde,
+    fechaHasta: params.fechaHasta
+  })
+  const tardanzasCount = tard.tardanzas
+  const minutosTarde = tard.minutos
   const valorDiaDescuento = normalizarValorDia(
     params.valorDiaDescuento ?? VALOR_DIA_DESCUENTO_DEFAULT
   )
-  // Falta injustificada = 1 día a valor fijo. Cada 3 tardanzas = 1 día.
+  // Falta injustificada = 1 día. Cada 3 tardanzas = 1 falta (mismo valor día).
   const descuentoFaltas = descuentoPorFaltas(faltas, valorDiaDescuento)
   const diasDescTard = diasDescuentoPorTardanzas(tardanzasCount)
   const descuentoTardanzas = descuentoPorTardanzas(tardanzasCount, valorDiaDescuento)
+  const faltasEquivalentes = faltas + diasDescTard
   // Suspensión sin goce = 1 valor día. Media jornada post-suspensión = ½ valor día.
   const descuentoSuspensiones = round2(diasSuspension * valorDiaDescuento)
   const descuentoMediaJornada = round2(diasMediaJornada * valorDiaDescuento * 0.5)
-  const baseImponible = round2(sueldoBaseProporcional + adicionalAntiguedad)
+  // Las horas extra son remunerativas (LCT): integran la base de aportes y contribuciones.
+  const baseImponible = round2(
+    sueldoBaseProporcional + adicionalAntiguedad + importeExtra50 + importeExtra100
+  )
+  const fueraConvenio = params.montos.fueraConvenio === true
 
-  const items = params.cargas.map((c) => ({
+  const items = params.cargas
+    .filter((c) => !(fueraConvenio && IDS_CARGAS_SINDICATO.has(c.id)))
+    .map((c) => ({
     id: c.id,
     nombre: c.nombre,
     lado: c.lado,
@@ -734,10 +844,11 @@ export function armarLiquidacionEmpleado(params: {
     diasConEntrada: stats?.diasConEntrada ?? 0,
     diasExigibles: stats?.diasExigibles ?? 0,
     puntualidadPct: stats?.puntualidadPct ?? 0,
-    tardanzas: stats?.tardanzas ?? 0,
+    tardanzas: tardanzasCount,
     minutosTarde,
     ausencias: stats?.ausencias ?? 0,
     faltas,
+    faltasEquivalentes,
     fechasFaltas,
     fechasJustificadas,
     fechasSuspensiones,
@@ -769,8 +880,9 @@ export function armarLiquidacionEmpleado(params: {
     extra100,
     precioHora,
     sueldoBase: sueldoBaseProporcional,
-    sueldoBlanco: params.montos.sueldoBlanco,
     sueldoSinDeclarar: sueldoSinDeclararProporcional,
+    fueraConvenio,
+    baseImponible,
     importeExtra50,
     importeExtra100,
     descuentoFaltas,
@@ -807,6 +919,8 @@ export function totalesLiquidacion(filas: LiquidacionEmpleado[]) {
     tardanzas: filas.reduce((a, f) => a + f.tardanzas, 0),
     ausencias: filas.reduce((a, f) => a + f.ausencias, 0),
     faltas: filas.reduce((a, f) => a + f.faltas, 0),
+    faltasEquivalentes: filas.reduce((a, f) => a + f.faltasEquivalentes, 0),
+    diasDescuentoTardanzas: filas.reduce((a, f) => a + f.diasDescuentoTardanzas, 0),
     justificados: filas.reduce((a, f) => a + f.diasJustificados, 0),
     sinMarca: filas.reduce((a, f) => a + f.sinMarca, 0),
     totalHoras: sum((f) => f.totalHoras),

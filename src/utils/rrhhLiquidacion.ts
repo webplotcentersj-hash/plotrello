@@ -1,5 +1,7 @@
 import type { Asistencia, MenuDescuentoBeneficioComida, RrhhLiquidacionLinea, RrhhNovedad } from '../types/api'
 import {
+  MULTIPLICADOR_HE100,
+  MULTIPLICADOR_HE50,
   calcularStatsAsistencia,
   diasEntre,
   ultimoDiaMes,
@@ -10,6 +12,17 @@ import { novedadEnDia } from './rrhhNovedadDates'
 import { etiquetaCodigoRrhhNovedad, etiquetaGrupoRrhhNovedad } from './rrhhNovedadCatalog'
 import { novedadEmpleadoIncorrecto } from './rrhhNovedadEmpleadoObs'
 import { HE_DECLARADA_MARKER } from '../types/api'
+import {
+  diasDescuentoPorTardanzas,
+  TARDANZAS_POR_DIA_DESCUENTO,
+  VALOR_DIA_DESCUENTO_DEFAULT
+} from './liquidacionMensual'
+
+/** Valor día de descuento guardado en la liquidación del período (o el default). */
+export function valorDiaPeriodo(config: Record<string, unknown> | null | undefined): number {
+  const v = Number(config?.valorDiaDescuento)
+  return Number.isFinite(v) && v >= 0 && config?.valorDiaDescuento != null ? v : VALOR_DIA_DESCUENTO_DEFAULT
+}
 
 export function periodoRango(periodo: string): { desde: string; hasta: string } {
   return { desde: `${periodo}-01`, hasta: ultimoDiaMes(periodo) }
@@ -278,7 +291,9 @@ export function conceptosMiLiquidacionDigital(
   valorHora: number,
   novedadesEmp?: RrhhNovedad[],
   periodo?: string,
-  nombresPorId?: Map<number, string>
+  nombresPorId?: Map<number, string>,
+  /** Valor día configurado en la liquidación del período (config_json.valorDiaDescuento). */
+  valorDiaDescuento: number = VALOR_DIA_DESCUENTO_DEFAULT
 ): ConceptoLiquidacionDigital[] {
   const diasMes = periodo ? diasEntre(periodoRango(periodo).desde, periodoRango(periodo).hasta) : []
   const fromNov =
@@ -306,7 +321,7 @@ export function conceptosMiLiquidacionDigital(
       concepto: 'Horas extra 50%',
       cantidad: l.he50.toFixed(2),
       unidad: 'hs',
-      importe: valorHora > 0 ? Math.round(l.he50 * valorHora * 1.5 * 100) / 100 : null,
+      importe: valorHora > 0 ? Math.round(l.he50 * valorHora * MULTIPLICADOR_HE50 * 100) / 100 : null,
       debCred: 'C'
     })
   }
@@ -316,7 +331,7 @@ export function conceptosMiLiquidacionDigital(
       concepto: 'Horas extra 100%',
       cantidad: l.he100.toFixed(2),
       unidad: 'hs',
-      importe: valorHora > 0 ? Math.round(l.he100 * valorHora * 2 * 100) / 100 : null,
+      importe: valorHora > 0 ? Math.round(l.he100 * valorHora * MULTIPLICADOR_HE100 * 100) / 100 : null,
       debCred: 'C'
     })
   }
@@ -328,6 +343,17 @@ export function conceptosMiLiquidacionDigital(
       unidad: 'un',
       importe: null,
       debCred: '—'
+    })
+  }
+  const faltasPorTardanzas = diasDescuentoPorTardanzas(l.tardanzas)
+  if (faltasPorTardanzas > 0) {
+    rows.push({
+      codigo: 'FTARD',
+      concepto: `Falta por tardanzas (cada ${TARDANZAS_POR_DIA_DESCUENTO})`,
+      cantidad: String(faltasPorTardanzas),
+      unidad: 'días',
+      importe: Math.round(faltasPorTardanzas * valorDiaDescuento * 100) / 100,
+      debCred: 'D'
     })
   }
   if (vac > 0) {

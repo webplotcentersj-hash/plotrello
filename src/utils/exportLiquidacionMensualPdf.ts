@@ -26,6 +26,12 @@ function diaSemana(iso: string): string {
 
 const plural = (n: number, uno: string, varios: string): string => `${n} ${n === 1 ? uno : varios}`
 
+/** Todos los descuentos que restan del neto (mismo total que usa el cálculo). */
+const descuentosLaborales = (f: LiquidacionEmpleado): number =>
+  Math.round(
+    (f.descuentoFaltas + f.descuentoTardanzas + f.descuentoSuspensiones + f.descuentoMediaJornada) * 100
+  ) / 100
+
 const C = {
   ink: [15, 23, 42] as Rgb,
   muted: [71, 85, 105] as Rgb,
@@ -516,7 +522,7 @@ export async function exportarLiquidacionMensualPdf(opts: {
     filas: filas.map((f) => [
       { t: f.nombre, bold: true },
       importe(f.haberes),
-      importe(f.descuentoFaltas + f.descuentoTardanzas, C.rose),
+      importe(descuentosLaborales(f), C.rose),
       importe(f.totalAportes),
       importe(f.neto, C.green),
       importe(f.costoEmpresa, C.brand)
@@ -524,7 +530,7 @@ export async function exportarLiquidacionMensualPdf(opts: {
     total: [
       'Total',
       ars(tot.haberes),
-      ars(filas.reduce((a, f) => a + f.descuentoFaltas + f.descuentoTardanzas, 0)),
+      ars(filas.reduce((a, f) => a + descuentosLaborales(f), 0)),
       ars(tot.aportes),
       ars(tot.neto),
       ars(tot.costoEmpresa)
@@ -537,10 +543,11 @@ export async function exportarLiquidacionMensualPdf(opts: {
   )
 
   const criterios = [
-    'Los aportes y las contribuciones se calculan sobre el sueldo base.',
+    'Aportes y contribuciones: sobre sueldo en blanco + antigüedad + horas extra.',
     'Un domingo o un feriado se paga al doble solo si el empleado vino; si no vino, no es falta.',
     'Las horas de domingo y feriado están incluidas en las horas extra al 100%.',
-    'Cada falta se descuenta como remuneración / 30. El sábado libre y el día que no le toca no se descuentan.'
+    'Falta injustificada y cada 3 tardanzas = 1 valor día fijo; suspensión = 1 día; media jornada = ½.',
+    'El sábado libre, el franco del rotativo y el día que no le toca no se descuentan.'
   ]
   const altoCriterios = 10 + criterios.length * 4.8
   ensure(altoCriterios + 4)
@@ -608,7 +615,7 @@ export async function exportarLiquidacionMensualPdf(opts: {
     const haberes: Celda[][] = [
       [
         {
-          t: 'Sueldo base',
+          t: 'Sueldo en blanco',
           sub:
             f.factorProporcional < 1
               ? `Proporcional ${f.diasDebia}/${f.diasLaborablesPeriodo} días`
@@ -669,13 +676,29 @@ export async function exportarLiquidacionMensualPdf(opts: {
                 t: 'Tardanzas',
                 sub:
                   f.diasDescuentoTardanzas > 0
-                    ? `${f.tardanzas} · ${plural(f.diasDescuentoTardanzas, 'día', 'días')} (cada 3)`
+                    ? `${f.tardanzas} · ${plural(f.diasDescuentoTardanzas, 'falta', 'faltas')} (cada 3)`
                     : `${f.tardanzas} (sin bloque completo)`
               },
               importe(f.descuentoTardanzas, C.rose)
-            ]
+            ],
+            ...(f.diasSuspension > 0
+              ? [
+                  [
+                    { t: 'Suspensión', sub: `${plural(f.diasSuspension, 'día', 'días')} sin goce` },
+                    importe(f.descuentoSuspensiones, C.rose)
+                  ] as Celda[]
+                ]
+              : []),
+            ...(f.diasMediaJornada > 0
+              ? [
+                  [
+                    { t: 'Media jornada', sub: `${plural(f.diasMediaJornada, 'día', 'días')} · ½ valor día` },
+                    importe(f.descuentoMediaJornada, C.rose)
+                  ] as Celda[]
+                ]
+              : [])
           ],
-          total: ['Total descuentos', { t: ars(f.descuentoFaltas + f.descuentoTardanzas), color: C.rose }]
+          total: ['Total descuentos', { t: ars(descuentosLaborales(f)), color: C.rose }]
         }
       ],
       [
@@ -755,7 +778,12 @@ export async function exportarLiquidacionMensualPdf(opts: {
     tarjetaEmpleado(f)
     tarjetas(
       [
-        { label: 'Neto a pagar', value: ars(f.neto), sub: 'Haberes - descuentos - aportes', color: C.green },
+        {
+          label: 'Neto a pagar',
+          value: ars(f.neto),
+          sub: f.netoManual ? `Manual · calculado ${ars(f.netoCalculado)}` : 'Haberes - descuentos - aportes',
+          color: C.green
+        },
         { label: 'Costo empresa', value: ars(f.costoEmpresa), sub: 'Con contribuciones patronales', color: C.brand },
         { label: 'Días trabajados', value: `${f.diasVino} / ${f.diasDebia}`, sub: 'Vino / debía venir', color: C.blue },
         {
