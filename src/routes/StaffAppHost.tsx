@@ -28,6 +28,7 @@ const BuscarClientePage = lazy(() => import('../pages/BuscarClientePage'))
 const ClientesDashboardPage = lazy(() => import('../pages/ClientesDashboardPage'))
 const AgregarClientePage = lazy(() => import('../pages/AgregarClientePage'))
 const SolicitudesAltaClientePage = lazy(() => import('../pages/SolicitudesAltaClientePage'))
+const RecibirArchivosQrPage = lazy(() => import('../pages/RecibirArchivosQrPage'))
 const EntregaPage = lazy(() => import('../pages/EntregaPage'))
 const MostradorCalendarioPage = lazy(() => import('../pages/MostradorCalendarioPage'))
 const ReportesMostradorPage = lazy(() => import('../pages/ReportesMostradorPage'))
@@ -1279,6 +1280,10 @@ function AppRoutes({
       <Route
         path="/mostrador/entrega/:id"
         element={<EntregaPage />}
+      />
+      <Route
+        path="/mostrador/archivos-qr"
+        element={<RecibirArchivosQrPage />}
       />
       <Route
         path="/mostrador/calendario"

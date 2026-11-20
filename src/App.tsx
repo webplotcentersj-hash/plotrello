@@ -46,6 +46,7 @@ const FirmaClientePage = lazy(() => import('./pages/FirmaClientePage'))
 const BriefPublicoPage = lazy(() => import('./pages/BriefPublicoPage'))
 const ReclamosPublicoPage = lazy(() => import('./pages/ReclamosPublicoPage'))
 const SolicitudAltaClientePage = lazy(() => import('./pages/SolicitudAltaClientePage'))
+const EnviarArchivosQrPage = lazy(() => import('./pages/EnviarArchivosQrPage'))
 const PresupuestoPublicoPage = lazy(() => import('./pages/PresupuestoPublicoPage'))
 const CvPublicoPage = lazy(() => import('./pages/CvPublicoPage'))
 const PostulacionExternaPage = lazy(() => import('./pages/PostulacionExternaPage'))
@@ -88,7 +89,7 @@ function EnvDebugGate() {
   const { pathname } = useLocation()
   if (pathname === '/app-campo' || pathname === '/phi' || pathname.startsWith('/phi/')) return null
   if (pathname === '/postulacion-operarios' || pathname === '/operario-bolsa/solicitud') return null
-  if (pathname === '/alta-cliente') return null
+  if (pathname === '/alta-cliente' || pathname.startsWith('/enviar-archivos')) return null
   if (pathname.startsWith('/operario-externo')) return null
   return <EnvDebug />
 }
@@ -444,6 +445,22 @@ function AppInner() {
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
                 <SolicitudAltaClientePage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/enviar-archivos"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
+                <EnviarArchivosQrPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/enviar-archivos/:sessionId"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
+                <EnviarArchivosQrPage />
               </Suspense>
             }
           />

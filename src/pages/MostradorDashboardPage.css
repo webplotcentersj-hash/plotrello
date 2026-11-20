@@ -48,7 +48,7 @@
 
 .md-dock {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -95,6 +95,9 @@
 }
 .md-dock-btn[data-tone='orange'] .md-dock-btn__glyph {
   background: linear-gradient(145deg, #fb923c, #ea580c);
+}
+.md-dock-btn[data-tone='violet'] .md-dock-btn__glyph {
+  background: linear-gradient(145deg, #a78bfa, #7c3aed);
 }
 
 .md-dock-btn__copy {

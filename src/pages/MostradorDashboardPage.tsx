@@ -7,6 +7,8 @@ import apiService from '../services/api'
 import RegistrarAtencionModal from '../components/RegistrarAtencionModal'
 import type { OrdenTrabajo, Venta, PedidoClienteRecord } from '../types/api'
 import { supabase } from '../services/supabaseClient'
+import { listarEnviosArchivosQr } from '../services/envioArchivosQrService'
+import { MOSTRADOR_ARCHIVOS_QR } from '../utils/envioArchivosQr'
 import { getArgentinaDateString, isoToArgentinaDateKey } from '../utils/dateUtils'
 import { idVendedorParaConsulta } from '../utils/ventasCajaScope'
 import { HeaderNavGlyph, type HeaderGlyphId, type HeaderGlyphTone } from '../components/HeaderNavGlyph'
@@ -109,6 +111,19 @@ const MostradorDashboardPage = () => {
   const [registrandoRapido, setRegistrandoRapido] = useState(false)
   const [cantidadVirtual, setCantidadVirtual] = useState('1')
   const [cantidadConsulta, setCantidadConsulta] = useState('1')
+  const [enviosQrNuevos, setEnviosQrNuevos] = useState(0)
+
+  // Envíos por QR fijo sin atender (si el patch no está aplicado, simplemente queda en 0).
+  useEffect(() => {
+    if (!usuario?.id) return
+    let vivo = true
+    void listarEnviosArchivosQr(usuario.id, 'nuevo').then((r) => {
+      if (vivo && r.success) setEnviosQrNuevos(r.data.length)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [usuario?.id])
   const handleRegistrarAtencionSuccess = async () => {
     await loadAtencionesHoy()
     if (isAdmin) {
@@ -847,6 +862,21 @@ const MostradorDashboardPage = () => {
               <small>Atajo V</small>
             </span>
           </button>
+          <button
+            type="button"
+            className="md-dock-btn"
+            data-tone="violet"
+            onClick={() => navigate(MOSTRADOR_ARCHIVOS_QR)}
+          >
+            <span className="md-dock-btn__glyph" aria-hidden>
+              <HeaderNavGlyph id="qr" size={18} />
+            </span>
+            <span className="md-dock-btn__copy">
+              <strong>Archivos por QR</strong>
+              <small>{enviosQrNuevos > 0 ? `${enviosQrNuevos} sin ver` : 'Desde el celular'}</small>
+            </span>
+            {enviosQrNuevos > 0 && <span className="md-dock-btn__badge">{enviosQrNuevos}</span>}
+          </button>
         </section>
       </header>
 
@@ -1038,6 +1068,14 @@ const MostradorDashboardPage = () => {
             glyph="users"
             tone="sky"
             onClick={() => navigate(CLIENTES_DASHBOARD)}
+          />
+          <NavTile
+            title="Archivos por QR"
+            desc="El cliente envía desde el celular"
+            glyph="qr"
+            tone="violet"
+            badge={enviosQrNuevos}
+            onClick={() => navigate(MOSTRADOR_ARCHIVOS_QR)}
           />
           <NavTile
             title="Calendario"

@@ -354,6 +354,14 @@ const NotificationsDropdown = ({ onNotificationClick, workPoolScope }: Notificat
         navigate('/clientes/solicitudes')
         return
       }
+      // Archivos enviados por el QR fijo (/enviar-archivos)
+      if (
+        notification.origen === 'envio_archivos_qr' ||
+        String(notification.related_id || '').startsWith('envio-archivos-qr:')
+      ) {
+        navigate('/mostrador/archivos-qr')
+        return
+      }
       // Reclamo de atención al público
       if (notification.reclamo_id != null) {
         navigate(`/atencion-publico?tab=reclamos`)
