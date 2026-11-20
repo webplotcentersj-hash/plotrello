@@ -126,7 +126,14 @@ BEGIN
     'solicitud-alta-cliente:' || v_id
   FROM public.usuarios u
   WHERE COALESCE(u.activo, true) = true
-    AND u.rol = ANY (ARRAY['admin', 'gerencia', 'presupuestos', 'mostrador', 'caja']);
+    AND u.rol = ANY (ARRAY[
+      'administracion',
+      'admin',
+      'gerencia',
+      'presupuestos',
+      'mostrador',
+      'caja'
+    ]);
 
   RETURN v_id;
 END;
