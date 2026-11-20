@@ -163,7 +163,8 @@
 .library-button-container .ventas-nav-button,
 .library-button-container .caja-button,
 .library-button-container .compras-button,
-.library-button-container .erp-button {
+.library-button-container .erp-button,
+.library-button-container .qr-archivos-button {
   height: 34px;
   min-width: 0;
   padding: 0 12px;
@@ -200,7 +201,8 @@
 .library-button-container .ventas-nav-button:hover,
 .library-button-container .caja-button:hover,
 .library-button-container .compras-button:hover,
-.library-button-container .erp-button:hover {
+.library-button-container .erp-button:hover,
+.library-button-container .qr-archivos-button:hover {
   transform: translateY(-1px);
   box-shadow:
     0 6px 14px rgba(0, 0, 0, 0.28),
@@ -218,7 +220,8 @@
 .library-button-container .ventas-nav-button:active,
 .library-button-container .caja-button:active,
 .library-button-container .compras-button:active,
-.library-button-container .erp-button:active {
+.library-button-container .erp-button:active,
+.library-button-container .qr-archivos-button:active {
   transform: translateY(0);
 }
 
@@ -349,6 +352,21 @@
 
 .library-button-container .erp-button:hover {
   filter: brightness(1.07);
+}
+
+.library-button-container .qr-archivos-button {
+  background: linear-gradient(145deg, #d8b4fe, #a855f7 55%, #7e22ce);
+  color: #faf5ff;
+  border: 1px solid rgba(243, 232, 255, 0.4);
+}
+
+.library-button-container .qr-archivos-button:hover {
+  filter: brightness(1.07);
+}
+
+.library-button-container .qr-archivos-button .btn-ico {
+  display: inline-flex;
+  align-items: center;
 }
 
 [data-tema='dia'] .library-button-container {

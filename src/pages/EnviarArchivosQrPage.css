@@ -384,6 +384,33 @@
   transition: border-color 0.25s, background 0.25s;
 }
 
+.env-qr-lista li {
+  position: relative;
+  overflow: hidden;
+}
+
+.env-qr-item-barra {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, rgba(235, 103, 27, 0.08), rgba(235, 103, 27, 0.2));
+  transition: width 0.3s ease;
+  pointer-events: none;
+}
+
+.env-qr-lista li > :not(.env-qr-item-barra) {
+  position: relative;
+}
+
+.env-qr-enviar-sub {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
 .env-qr-lista li.is-up {
   border-color: rgba(235, 103, 27, 0.55);
   background: rgba(235, 103, 27, 0.08);

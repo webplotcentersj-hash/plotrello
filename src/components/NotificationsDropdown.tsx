@@ -25,6 +25,12 @@ import {
 } from '../utils/briefsPendientesNuevos'
 import { filtrarNotificacionesOperarioExterno } from '../features/work-pool/operarioExternoNotificaciones'
 import type { WorkPoolProduct } from '../types/workPool'
+import {
+  mostradorArchivosQrPath,
+  notificationIsEnvioArchivosQr,
+  parseEnvioArchivosQrId
+} from '../utils/envioArchivosQr'
+import { CLIENTES_SOLICITUDES } from '../utils/solicitudAltaCliente'
 
 function notificationIsWorkPoolBolsa(n: Pick<Notification, 'title' | 'origen'>): boolean {
   if (n.origen === 'work_pool_postulacion') return false
@@ -221,12 +227,23 @@ const NotificationsDropdown = ({ onNotificationClick, workPoolScope }: Notificat
               icon: '/vite.svg',
               tag: `notification-${newNotification.id}`
             })
-            if (!workPoolScope && notificationTargetsMenuDiario(newNotification)) {
-              bn.onclick = () => {
-                window.focus()
+            bn.onclick = () => {
+              window.focus()
+              if (notificationIsEnvioArchivosQr(newNotification)) {
+                navigate(
+                  mostradorArchivosQrPath({
+                    id: parseEnvioArchivosQrId(newNotification.related_id)
+                  })
+                )
+              } else if (
+                newNotification.origen === 'solicitud_alta_cliente' ||
+                String(newNotification.related_id || '').startsWith('solicitud-alta-cliente:')
+              ) {
+                navigate(CLIENTES_SOLICITUDES)
+              } else if (!workPoolScope && notificationTargetsMenuDiario(newNotification)) {
                 navigate('/menu-diario')
-                bn.close()
               }
+              bn.close()
             }
           }
         }
@@ -351,15 +368,16 @@ const NotificationsDropdown = ({ onNotificationClick, workPoolScope }: Notificat
         notification.origen === 'solicitud_alta_cliente' ||
         String(notification.related_id || '').startsWith('solicitud-alta-cliente:')
       ) {
-        navigate('/clientes/solicitudes')
+        navigate(CLIENTES_SOLICITUDES)
         return
       }
-      // Archivos enviados por el QR fijo (/enviar-archivos)
-      if (
-        notification.origen === 'envio_archivos_qr' ||
-        String(notification.related_id || '').startsWith('envio-archivos-qr:')
-      ) {
-        navigate('/mostrador/archivos-qr')
+      // Archivos enviados por el QR fijo (/enviar-archivos) → herramienta del mostrador
+      if (notificationIsEnvioArchivosQr(notification)) {
+        navigate(
+          mostradorArchivosQrPath({
+            id: parseEnvioArchivosQrId(notification.related_id)
+          })
+        )
         return
       }
       // Reclamo de atención al público

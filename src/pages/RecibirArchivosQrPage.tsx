@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toDataURL } from 'qrcode'
 import { useAuth } from '../hooks/useAuth'
 import {
@@ -171,12 +171,14 @@ export default function RecibirArchivosQrPage() {
   const [copiado, setCopiado] = useState(false)
 
   // ——— Bandeja ———
+  const [searchParams, setSearchParams] = useSearchParams()
   const [filtro, setFiltro] = useState<Filtro>('nuevo')
   const [envios, setEnvios] = useState<EnvioArchivosQr[]>([])
   const [cargando, setCargando] = useState(true)
   const [errorBandeja, setErrorBandeja] = useState<string | null>(null)
   const [buscar, setBuscar] = useState('')
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [destacarId, setDestacarId] = useState<number | null>(null)
 
   const nuevoQr = useCallback(async () => {
     setCreando(true)
@@ -283,6 +285,37 @@ export default function RecibirArchivosQrPage() {
     const t = window.setInterval(() => void cargarBandeja(true), POLL_BANDEJA_MS)
     return () => window.clearInterval(t)
   }, [cargarBandeja])
+
+  /** Desde la campana / notificación del SO: ?id= o ?codigo= abre la bandeja en ese envío. */
+  useEffect(() => {
+    const idRaw = searchParams.get('id')
+    const codigoRaw = searchParams.get('codigo')
+    if (!idRaw && !codigoRaw) return
+    if (envios.length === 0 && cargando) return
+
+    const idNum = idRaw ? Number(idRaw) : NaN
+    const codigo = (codigoRaw || '').replace(/\D/g, '').slice(0, 4)
+    const match =
+      (Number.isFinite(idNum) && idNum > 0 ? envios.find((e) => e.id === idNum) : undefined) ||
+      (codigo ? envios.find((e) => e.codigo === codigo) : undefined)
+
+    if (match) {
+      setFiltro('todos')
+      setBuscar(match.codigo)
+      setDestacarId(match.id)
+      window.setTimeout(() => {
+        document.getElementById(`envio-qr-${match.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 80)
+    } else if (codigo) {
+      setFiltro('todos')
+      setBuscar(codigo)
+    }
+
+    const next = new URLSearchParams(searchParams)
+    next.delete('id')
+    next.delete('codigo')
+    setSearchParams(next, { replace: true })
+  }, [envios, cargando, searchParams, setSearchParams])
 
   const conteo = useMemo(() => {
     const c: Record<Filtro, number> = { nuevo: 0, recibido: 0, archivado: 0, todos: envios.length }
@@ -660,7 +693,11 @@ export default function RecibirArchivosQrPage() {
         ) : (
           <div className="rqr-envios">
             {visibles.map((e) => (
-              <article key={e.id} className={`rqr-envio is-${e.estado}`}>
+              <article
+                key={e.id}
+                id={`envio-qr-${e.id}`}
+                className={`rqr-envio is-${e.estado}${destacarId === e.id ? ' is-destacado' : ''}`}
+              >
                 <div className="rqr-envio-head">
                   <span className="rqr-codigo" aria-label={`Código ${e.codigo}`}>
                     {e.codigo.split('').map((d, i) => (

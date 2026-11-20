@@ -14,6 +14,11 @@ import {
   notificationIsTotemSolicitudAsesor,
   notificationIsTotemSolicitudDisenador
 } from '../utils/totemNotifications'
+import {
+  mostradorArchivosQrPath,
+  notificationIsEnvioArchivosQr,
+  parseEnvioArchivosQrId
+} from '../utils/envioArchivosQr'
 import './ChatFloatingButton.css'
 
 type ChatFloatingButtonBaseProps = {
@@ -253,7 +258,13 @@ const ChatFloatingButton = (props: ChatFloatingButtonProps) => {
         prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
       )
     }
-    if (notificationIsTotemImpresionPedido(notification)) {
+    if (notificationIsEnvioArchivosQr(notification)) {
+      navigate(
+        mostradorArchivosQrPath({
+          id: parseEnvioArchivosQrId(notification.related_id)
+        })
+      )
+    } else if (notificationIsTotemImpresionPedido(notification)) {
       navigate('/impresoras/totem')
     } else if (notificationIsTotemSolicitudAsesor(notification)) {
       navigate('/asesor')

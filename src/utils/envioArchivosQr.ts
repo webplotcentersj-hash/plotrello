@@ -7,6 +7,37 @@ export const enviarArchivosSesion = (sessionId: string) => `${ENVIAR_ARCHIVOS_PU
 /** Pantalla del personal: QR en pantalla + bandeja de envíos por QR fijo. */
 export const MOSTRADOR_ARCHIVOS_QR = '/mostrador/archivos-qr'
 
+/** Notificación de un envío por QR fijo. */
+export function notificationIsEnvioArchivosQr(n: {
+  origen?: string | null
+  related_id?: string | null
+  title?: string | null
+}): boolean {
+  if (n.origen === 'envio_archivos_qr') return true
+  if (String(n.related_id || '').startsWith('envio-archivos-qr:')) return true
+  const title = (n.title ?? '').toLowerCase()
+  return title.includes('archivos recibidos por qr') || title.includes('archivos por qr')
+}
+
+export function parseEnvioArchivosQrId(relatedId?: string | null): number | null {
+  const m = /^envio-archivos-qr:(\d+)$/i.exec(String(relatedId || '').trim())
+  if (!m) return null
+  const id = Number(m[1])
+  return Number.isFinite(id) && id > 0 ? id : null
+}
+
+/** Ruta de la herramienta, opcionalmente enfocada en un envío. */
+export function mostradorArchivosQrPath(opts?: {
+  id?: number | null
+  codigo?: string | null
+}): string {
+  const q = new URLSearchParams()
+  if (opts?.id && opts.id > 0) q.set('id', String(opts.id))
+  if (opts?.codigo) q.set('codigo', String(opts.codigo).replace(/\D/g, '').slice(0, 4))
+  const s = q.toString()
+  return s ? `${MOSTRADOR_ARCHIVOS_QR}?${s}` : MOSTRADOR_ARCHIVOS_QR
+}
+
 export const ENVIO_MAX_ARCHIVOS = TOTEM_PRINT_MAX_FILES
 export const ENVIO_MAX_BYTES = TOTEM_PRINT_MAX_FILE_BYTES
 export const ENVIO_MAX_MB = TOTEM_PRINT_MAX_FILE_MB

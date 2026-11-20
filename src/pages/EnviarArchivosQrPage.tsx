@@ -37,7 +37,7 @@ export default function EnviarArchivosQrPage() {
   const [aviso, setAviso] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
-  const [hechos, setHechos] = useState(0)
+  const [avance, setAvance] = useState<number[]>([])
   const [codigo, setCodigo] = useState<string | null>(null)
   const [honeypot, setHoneypot] = useState('')
   const [arrastrando, setArrastrando] = useState(false)
@@ -78,17 +78,17 @@ export default function EnviarArchivosQrPage() {
     if (!files.length || enviando) return
     setEnviando(true)
     setError(null)
-    setHechos(0)
+    setAvance(files.map(() => 0))
     try {
       if (modoSesion) {
-        const r = await enviarArchivosSesionQr(sessionId!, files, setHechos)
+        const r = await enviarArchivosSesionQr(sessionId!, files, setAvance)
         if (!r.success) {
           setError(/vencida|cerrada|inexistente/i.test(r.error) ? 'El QR venció. Pedí que te muestren uno nuevo.' : r.error)
           return
         }
         setVista('enviado')
       } else {
-        const r = await enviarArchivosQrFijo(files, honeypot, setHechos)
+        const r = await enviarArchivosQrFijo(files, honeypot, setAvance)
         if (!r.success) {
           setError(r.error)
           return
@@ -104,7 +104,9 @@ export default function EnviarArchivosQrPage() {
   const lleno = files.length >= ENVIO_MAX_ARCHIVOS
   const totalBytes = files.reduce((s, f) => s + f.size, 0)
   const paso = vista === 'enviado' ? 2 : files.length ? 1 : 0
-  const progreso = files.length ? Math.round((hechos / files.length) * 100) : 0
+  const bytesHechos = files.reduce((s, f, i) => s + f.size * (avance[i] ?? 0), 0)
+  const progreso = totalBytes ? Math.round((bytesHechos * 100) / totalBytes) : 0
+  const hechos = avance.filter((v) => v >= 1).length
 
   return (
     <div className="env-qr-page">
@@ -264,10 +266,13 @@ export default function EnviarArchivosQrPage() {
                   </div>
                   <ul className="env-qr-lista">
                     {files.map((f, i) => {
-                      const ok = enviando && i < hechos
-                      const subiendo = enviando && i === hechos
+                      const v = avance[i] ?? 0
+                      const ok = enviando && v >= 1
+                      const subiendo = enviando && !ok
+                      const pct = Math.round(v * 100)
                       return (
                         <li key={`${f.name}-${f.size}`} className={`${ok ? 'is-ok' : ''}${subiendo ? ' is-up' : ''}`}>
+                          {subiendo && <span className="env-qr-item-barra" style={{ width: `${pct}%` }} aria-hidden />}
                           <span className="env-qr-thumb" data-pdf={esPdf(f.name) || undefined}>
                             {previews[i] ? (
                               <img src={previews[i]!} alt="" />
@@ -277,11 +282,19 @@ export default function EnviarArchivosQrPage() {
                           </span>
                           <span className="env-qr-nombre">
                             <strong>{f.name}</strong>
-                            <small>{ok ? 'Enviado' : subiendo ? 'Enviando…' : formatearBytes(f.size)}</small>
+                            <small>
+                              {ok
+                                ? 'Enviado'
+                                : subiendo
+                                  ? pct > 0
+                                    ? `${pct}% · ${formatearBytes(f.size)}`
+                                    : 'En espera…'
+                                  : formatearBytes(f.size)}
+                            </small>
                           </span>
                           {enviando ? (
                             <span className={`env-qr-estado-item${ok ? ' is-ok' : ''}`} aria-hidden>
-                              {ok ? '✓' : subiendo ? <span className="env-qr-spinner is-sm" /> : null}
+                              {ok ? '✓' : pct > 0 ? <span className="env-qr-spinner is-sm" /> : null}
                             </span>
                           ) : (
                             <button
@@ -324,7 +337,12 @@ export default function EnviarArchivosQrPage() {
                 <button type="button" className="env-qr-enviar" disabled={!files.length || enviando} onClick={() => void enviar()}>
                   {enviando ? (
                     <>
-                      Enviando {Math.min(hechos + 1, files.length)} de {files.length}…
+                      Enviando… {progreso}%
+                      {files.length > 1 && (
+                        <span className="env-qr-enviar-sub">
+                          {hechos}/{files.length}
+                        </span>
+                      )}
                     </>
                   ) : (
                     <>

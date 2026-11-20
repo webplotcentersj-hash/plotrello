@@ -6,6 +6,8 @@ import { useAuth } from '../hooks/useAuth'
 import { getApiService } from '../services/apiLoader'
 import { VENTAS } from '../utils/ventasRoutes'
 import { CLIENTES_CUENTA_CORRIENTE, CLIENTES_DASHBOARD } from '../utils/clientesRoutes'
+import { MOSTRADOR_ARCHIVOS_QR } from '../utils/envioArchivosQr'
+import { HeaderNavGlyph } from './HeaderNavGlyph'
 import VentaRapidaModal from './VentaRapidaModal'
 import BuscadorPrecios from './BuscadorPrecios'
 import './FiltersBar.css'
@@ -105,6 +107,8 @@ const FiltersBar = ({
       else if (key === 'p') a.navigate('/ventas?tab=presupuestos')
       else if (key === 'j' && (a.canManageCaja || a.showAccionesMostrador)) {
         a.navigate(isAdmin ? '/caja/dashboard/admin' : '/caja/dashboard/caja')
+      } else if (key === 'q' && a.showAccionesMostrador) {
+        a.navigate(MOSTRADOR_ARCHIVOS_QR)
       } else if (key === 'b') a.onOpenLibrary?.()
       else if (key === 'r') window.dispatchEvent(new Event('plotlab-abrir-precios'))
     }
@@ -118,7 +122,7 @@ const FiltersBar = ({
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return
       }
       const key = event.key.toLowerCase()
-      if (key.length !== 1 || !'eufpjbr'.includes(key)) return
+      if (key.length !== 1 || !'eufpjqbr'.includes(key)) return
       event.preventDefault()
       event.stopPropagation()
       ir(key)
@@ -322,6 +326,20 @@ const FiltersBar = ({
                     title="Panel ERP"
                   >
                     ERP
+                  </button>
+                )}
+                {showAccionesMostrador && (
+                  <button
+                    type="button"
+                    className="qr-archivos-button"
+                    onClick={() => navigate(MOSTRADOR_ARCHIVOS_QR)}
+                    title="Archivos enviados desde el celular por QR"
+                  >
+                    <span className="btn-ico" aria-hidden>
+                      <HeaderNavGlyph id="qr" size={14} />
+                    </span>
+                    QR
+                    <Atajo teclas="q" />
                   </button>
                 )}
               </div>

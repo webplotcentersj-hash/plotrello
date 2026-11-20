@@ -5,8 +5,11 @@ import {
   ENVIO_MAX_BYTES,
   agregarArchivosElegidos,
   formatearBytes,
+  mostradorArchivosQrPath,
   nombreSeguroStorage,
-  parseArchivosEnviados
+  notificationIsEnvioArchivosQr,
+  parseArchivosEnviados,
+  parseEnvioArchivosQrId
 } from './envioArchivosQr.ts'
 
 const f = (name: string, size = 1000) => ({ name, size })
@@ -50,5 +53,13 @@ describe('envío de archivos por QR', () => {
     assert.equal(formatearBytes(512), '512 B')
     assert.equal(formatearBytes(2048), '2 KB')
     assert.equal(formatearBytes(3.5 * 1024 * 1024), '3.5 MB')
+  })
+
+  it('detecta notificaciones de envío QR y arma la ruta a la herramienta', () => {
+    assert.equal(notificationIsEnvioArchivosQr({ origen: 'envio_archivos_qr' }), true)
+    assert.equal(notificationIsEnvioArchivosQr({ related_id: 'envio-archivos-qr:12' }), true)
+    assert.equal(parseEnvioArchivosQrId('envio-archivos-qr:12'), 12)
+    assert.equal(mostradorArchivosQrPath({ id: 12 }), '/mostrador/archivos-qr?id=12')
+    assert.equal(mostradorArchivosQrPath({ codigo: '0857' }), '/mostrador/archivos-qr?codigo=0857')
   })
 })

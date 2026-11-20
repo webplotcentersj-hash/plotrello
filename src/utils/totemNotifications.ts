@@ -207,10 +207,33 @@ export function formatTotemNotificationForDisplay(
 }
 
 export function formatNotificationForDisplay(
-  n: Pick<Notification, 'title' | 'description' | 'type'>
+  n: Pick<Notification, 'title' | 'description' | 'type' | 'origen' | 'related_id'>
 ): { title: string; description: string; icon: string; actionLabel?: string } {
   if (notificationIsTotemRelated(n)) {
     return formatTotemNotificationForDisplay(n)
+  }
+  const origen = String(n.origen || '')
+  const related = String(n.related_id || '')
+  const titleLow = (n.title ?? '').toLowerCase()
+  if (
+    origen === 'envio_archivos_qr' ||
+    related.startsWith('envio-archivos-qr:') ||
+    titleLow.includes('archivos recibidos por qr')
+  ) {
+    return {
+      title: n.title ?? 'Archivos por QR',
+      description: n.description ?? '',
+      icon: '📱',
+      actionLabel: 'Abrir archivos QR'
+    }
+  }
+  if (origen === 'solicitud_alta_cliente' || related.startsWith('solicitud-alta-cliente:')) {
+    return {
+      title: n.title ?? 'Solicitud de alta',
+      description: n.description ?? '',
+      icon: '👤',
+      actionLabel: 'Ver solicitudes'
+    }
   }
   return {
     title: n.title ?? 'Notificación',
