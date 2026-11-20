@@ -1,0 +1,268 @@
+.alta-cli-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #050608 0%, #0b0d17 50%, #0d1018 100%);
+  padding: 32px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.alta-cli-card {
+  width: 100%;
+  max-width: 620px;
+  background: rgba(8, 10, 18, 0.98);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.alta-cli-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 28px 32px;
+  background: linear-gradient(135deg, rgba(235, 103, 27, 0.22) 0%, rgba(235, 103, 27, 0.08) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.alta-cli-logo {
+  height: 52px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.alta-cli-header h1 {
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+}
+
+.alta-cli-header p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.94rem;
+}
+
+.alta-cli-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 26px 32px 30px;
+}
+
+.alta-cli-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.alta-cli-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.alta-cli-label,
+.alta-cli-iva legend {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.alta-cli-campo input,
+.alta-cli-campo textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.alta-cli-campo input:focus,
+.alta-cli-campo textarea:focus {
+  outline: none;
+  border-color: #eb671b;
+  background: rgba(235, 103, 27, 0.06);
+}
+
+.alta-cli-campo.has-error input,
+.alta-cli-campo.has-error textarea {
+  border-color: #f87171;
+}
+
+.alta-cli-ayuda {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.alta-cli-error {
+  font-size: 0.8rem;
+  color: #fca5a5;
+}
+
+.alta-cli-iva {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alta-cli-iva-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.alta-cli-iva-op {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.alta-cli-iva-op input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.alta-cli-iva-op:hover {
+  border-color: rgba(235, 103, 27, 0.5);
+}
+
+.alta-cli-iva-op.is-on {
+  border-color: #eb671b;
+  background: rgba(235, 103, 27, 0.14);
+}
+
+.alta-cli-iva-op:focus-within {
+  outline: 2px solid rgba(235, 103, 27, 0.6);
+  outline-offset: 1px;
+}
+
+.alta-cli-iva.has-error .alta-cli-iva-op {
+  border-color: rgba(248, 113, 113, 0.6);
+}
+
+.alta-cli-iva-nombre {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.alta-cli-iva-ayuda {
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.alta-cli-hp {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.alta-cli-error-envio {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.1);
+  color: #fecaca;
+  font-size: 0.9rem;
+}
+
+.alta-cli-submit {
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f07a33, #eb671b);
+  color: #fff;
+  font-size: 1.02rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.alta-cli-submit:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.alta-cli-submit:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.alta-cli-legal {
+  margin: 0;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+
+.alta-cli-ok {
+  padding: 44px 32px 48px;
+  text-align: center;
+}
+
+.alta-cli-ok-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  font-weight: 700;
+  background: rgba(34, 197, 94, 0.16);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  color: #86efac;
+}
+
+.alta-cli-ok h2 {
+  margin: 0 0 8px;
+}
+
+.alta-cli-ok p {
+  margin: 0 auto;
+  max-width: 420px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+@media (max-width: 560px) {
+  .alta-cli-page {
+    padding: 0;
+  }
+  .alta-cli-card {
+    border-radius: 0;
+    border: 0;
+    min-height: 100vh;
+  }
+  .alta-cli-header,
+  .alta-cli-form {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .alta-cli-row {
+    grid-template-columns: 1fr;
+  }
+  .alta-cli-iva-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

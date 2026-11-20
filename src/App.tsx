@@ -45,6 +45,7 @@ const GeneradorCodigoBarrasAfipPage = lazy(() => import('./pages/GeneradorCodigo
 const FirmaClientePage = lazy(() => import('./pages/FirmaClientePage'))
 const BriefPublicoPage = lazy(() => import('./pages/BriefPublicoPage'))
 const ReclamosPublicoPage = lazy(() => import('./pages/ReclamosPublicoPage'))
+const SolicitudAltaClientePage = lazy(() => import('./pages/SolicitudAltaClientePage'))
 const PresupuestoPublicoPage = lazy(() => import('./pages/PresupuestoPublicoPage'))
 const CvPublicoPage = lazy(() => import('./pages/CvPublicoPage'))
 const PostulacionExternaPage = lazy(() => import('./pages/PostulacionExternaPage'))
@@ -87,6 +88,7 @@ function EnvDebugGate() {
   const { pathname } = useLocation()
   if (pathname === '/app-campo' || pathname === '/phi' || pathname.startsWith('/phi/')) return null
   if (pathname === '/postulacion-operarios' || pathname === '/operario-bolsa/solicitud') return null
+  if (pathname === '/alta-cliente') return null
   if (pathname.startsWith('/operario-externo')) return null
   return <EnvDebug />
 }
@@ -434,6 +436,14 @@ function AppInner() {
             element={
               <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
                 <ReclamosPublicoPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/alta-cliente"
+            element={
+              <Suspense fallback={<div style={{ padding: '20px', textAlign: 'center', color: '#fff' }}>Cargando...</div>}>
+                <SolicitudAltaClientePage />
               </Suspense>
             }
           />

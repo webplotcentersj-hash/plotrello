@@ -11,6 +11,8 @@ import {
   CLIENTES_WEB_GESTION
 } from '../utils/clientesRoutes'
 import { VENTAS } from '../utils/ventasRoutes'
+import { CLIENTES_SOLICITUDES } from '../utils/solicitudAltaCliente'
+import { listarSolicitudesAltaCliente } from '../services/solicitudesAltaClienteService'
 import './ClientesDashboardPage.css'
 
 type NavTileProps = {
@@ -46,8 +48,8 @@ function NavTile({ title, desc, icon, accent, badge, onClick }: NavTileProps) {
 
 export default function ClientesDashboardPage() {
   const navigate = useNavigate()
-  const { canAccessMostradorViews, canAccessClientesConsulta, loading: authLoading } = useAuth()
-  const [stats, setStats] = useState({ ccPendientes: 0, ccAprobados: 0 })
+  const { canAccessMostradorViews, canAccessClientesConsulta, loading: authLoading, usuario } = useAuth()
+  const [stats, setStats] = useState({ ccPendientes: 0, ccAprobados: 0, solicitudesPendientes: 0 })
 
   useEffect(() => {
     if (authLoading) return
@@ -59,12 +61,19 @@ export default function ClientesDashboardPage() {
     void apiService.listClientesCuentaCorriente().then((res) => {
       if (!res.success || !res.data) return
       const rows = res.data
-      setStats({
+      setStats((s) => ({
+        ...s,
         ccPendientes: rows.filter((r) => r.estado === 'pendiente').length,
         ccAprobados: rows.filter((r) => r.estado === 'aprobada').length
-      })
+      }))
     })
-  }, [authLoading, canAccessClientesConsulta, canAccessMostradorViews, navigate])
+    if (usuario?.id) {
+      // Si el patch de solicitudes todavía no está en la base, simplemente no hay badge.
+      void listarSolicitudesAltaCliente(usuario.id, 'pendiente').then((res) => {
+        if (res.success) setStats((s) => ({ ...s, solicitudesPendientes: res.data.length }))
+      })
+    }
+  }, [authLoading, canAccessClientesConsulta, canAccessMostradorViews, navigate, usuario?.id])
 
   if (authLoading) {
     return (
@@ -125,6 +134,16 @@ export default function ClientesDashboardPage() {
               icon="➕"
               accent="add"
               onClick={() => navigate(CLIENTES_AGREGAR)}
+            />
+          )}
+          {canAccessMostradorViews && (
+            <NavTile
+              title="Solicitudes de alta"
+              desc="Formulario que completa el cliente nuevo"
+              icon="📝"
+              accent="add"
+              badge={stats.solicitudesPendientes}
+              onClick={() => navigate(CLIENTES_SOLICITUDES)}
             />
           )}
           <NavTile

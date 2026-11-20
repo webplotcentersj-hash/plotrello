@@ -346,6 +346,14 @@ const NotificationsDropdown = ({ onNotificationClick, workPoolScope }: Notificat
         navigate(`/atencion-publico?solicitud_chat=${notification.solicitud_chat_id}`)
         return
       }
+      // Solicitud de alta de cliente (formulario público /alta-cliente)
+      if (
+        notification.origen === 'solicitud_alta_cliente' ||
+        String(notification.related_id || '').startsWith('solicitud-alta-cliente:')
+      ) {
+        navigate('/clientes/solicitudes')
+        return
+      }
       // Reclamo de atención al público
       if (notification.reclamo_id != null) {
         navigate(`/atencion-publico?tab=reclamos`)
