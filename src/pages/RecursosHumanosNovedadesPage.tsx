@@ -858,8 +858,8 @@ const RecursosHumanosNovedadesPage = () => {
                 <span className="rrhh-nov-gestion-kpi-value">{indicadoresOrg.tardanzasMes}</span>
                 <span className="rrhh-nov-gestion-kpi-label">Llegadas tarde</span>
                 <span className="rrhh-nov-gestion-kpi-hint">
-                  Cada {TARDANZAS_POR_DIA_DESCUENTO} = 1 falta · equiv.{' '}
-                  {diasDescuentoPorTardanzas(indicadoresOrg.tardanzasMes)}
+                  Equiv. {diasDescuentoPorTardanzas(indicadoresOrg.tardanzasMes)} falta(s) si se usa “cada{' '}
+                  {TARDANZAS_POR_DIA_DESCUENTO} = 1”
                 </span>
               </article>
               <article className="rrhh-nov-gestion-kpi">

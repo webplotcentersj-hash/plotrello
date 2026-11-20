@@ -19,6 +19,7 @@ import {
   avisosCategoriaCierre,
   armarLineasLiquidacion,
   conceptosMiLiquidacionDigital,
+  criterioTardanzasPeriodo,
   conteosNovedadCierre,
   etiquetaNovedadCierre,
   etiquetaPeriodoEs,
@@ -289,7 +290,8 @@ const RecursosHumanosLiquidacionPage = () => {
             novedadesSelOk,
             periodo,
             nombres,
-            valorDiaPeriodo(periodoDb?.config_json)
+            valorDiaPeriodo(periodoDb?.config_json),
+            criterioTardanzasPeriodo(periodoDb?.config_json)
           )
         : [],
     [lineaSel, valorHora, novedadesSelOk, periodo, nombres, periodoDb]

@@ -31,11 +31,18 @@ import {
   parseImporteInput,
   adicionalAntiguedadCalculado,
   adicionalAntiguedadNecesitaPrecarga,
+  aplicarLiquidacionAItem,
+  conceptosParaArca,
+  conceptosParaArcaCsv,
+  legalDelLibro,
   aniosAntiguedadAlPeriodo,
   antiguedadMesesAlPeriodo,
+  fechaCortaEs,
   fichaDesdeItem,
   formatAntiguedadReconocida,
   formatArs2,
+  formatCuil,
+  labelPeriodoMes,
   liquidarRecibo,
   mesesReconocidosEfectivos,
   montoExtraEfectivo,
@@ -46,7 +53,10 @@ import {
   type RrhhLibroSueldosItem,
   type RrhhSueldoFicha
 } from '../utils/rrhhLibroSueldos'
-import { descargarTxtLsd } from '../utils/exportLibroSueldosLsd'
+import { avisosItemLsd, descargarTxtLsd } from '../utils/exportLibroSueldosLsd'
+import { datosLibroDesdeLiquidacion } from '../utils/rrhhLibroDesdeLiquidacion'
+import { completarItemDesdeLegajo, faltantesItem, fechaPagoLegal } from '../utils/rrhhLibroHidratar'
+import { NOMBRE_LEGAL_CARGA, falAplica } from '../utils/rrhhCargasLegales'
 import { exportarLibroSueldosXlsx } from '../utils/exportLibroSueldosXlsx'
 import { descargarElementoPdf, elementoAPdfBlob } from '../utils/exportReciboSueldoPdf'
 import { nombreSinDominioCorreo } from '../utils/userDisplayName'
@@ -110,6 +120,10 @@ const RecursosHumanosLibroSueldosPage = () => {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  /** Empleados cuyos datos vienen de la Liquidación mensual del período. */
+  const [sincro, setSincro] = useState<{ generado: string | null; ids: Set<number> } | null>(null)
+  /** Hay datos en pantalla (editados o traídos de legajo / liquidación) que no están en la base. */
+  const [sinGuardar, setSinGuardar] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
 
   const cerrado = libro?.estado === 'cerrado'
@@ -212,7 +226,9 @@ const RecursosHumanosLibroSueldosPage = () => {
             scvo: prev?.scvo ?? ficha?.scvo ?? scvoDefault,
             banco: prev?.banco ?? ficha?.banco ?? leg?.banco ?? null,
             cbu: prev?.cbu ?? ficha?.cbu ?? leg?.cbu ?? null,
-            forma_pago: prev?.forma_pago || ficha?.forma_pago || '1',
+            // Art. 124 LCT: el sueldo se paga por acreditación en cuenta.
+            forma_pago:
+              prev?.forma_pago || ficha?.forma_pago || ((prev?.cbu ?? ficha?.cbu ?? leg?.cbu) ? '3' : '1'),
             conyuge: prev?.conyuge ?? ficha?.conyuge ?? false,
             hijos: prev?.hijos ?? ficha?.hijos ?? 0,
             cct: prev?.cct ?? ficha?.cct ?? cctEnConvenio(cctCodigo),
@@ -248,9 +264,9 @@ const RecursosHumanosLibroSueldosPage = () => {
         apiService.obtenerLegajosBasico()
       ])
       if (!libRes.success) throw new Error(libRes.error || 'No se pudo leer el libro')
-      const { montos: liqMontos, pctAntiguedad } = montosSueldoBaseDesdeLiqConfig(
-        liqRes.success && liqRes.data ? liqRes.data.config_json : null
-      )
+      const liqCfg = liqRes.success && liqRes.data ? liqRes.data.config_json : null
+      const { montos: liqMontos, pctAntiguedad } = montosSueldoBaseDesdeLiqConfig(liqCfg)
+      const sincro = datosLibroDesdeLiquidacion(liqCfg, periodo)
       const legBy = legRes.success && legRes.data ? legRes.data : {}
       let actual = libRes.data
       if (!actual) {
@@ -271,7 +287,39 @@ const RecursosHumanosLibroSueldosPage = () => {
         if (!created.success || !created.data) throw new Error(created.error || 'No se pudo crear el libro')
         actual = created.data
       }
+      // Libro abierto + liquidación del período: parámetros, cargas y datos legales vienen de ahí.
+      const sincronizar = actual.estado !== 'cerrado' && sincro != null
+      if (sincronizar && sincro) {
+        actual = {
+          ...actual,
+          importe_detraer: sincro.legal.parametros.detraccion,
+          alicuotas: { ...actual.alicuotas, legal: sincro.legal }
+        }
+      }
       setLibro(actual)
+      setSincro(
+        sincronizar && sincro
+          ? { generado: sincro.generado, ids: new Set(Object.keys(sincro.snapshots).map(Number)) }
+          : null
+      )
+      // Fecha de pago: si no hay, la límite legal (4.º día hábil del mes siguiente, art. 128 LCT).
+      if (!actual.fecha_pago && actual.estado !== 'cerrado') {
+        actual = { ...actual, fecha_pago: fechaPagoLegal(periodo) }
+        setLibro(actual)
+      }
+      const aplicarSincro = (lista: ItemDraft[], esAlta = false): ItemDraft[] => {
+        const cerradoLib = actual!.estado === 'cerrado'
+        return lista.map((it) => {
+          // Datos registrales y familia desde el legajo (no en libros cerrados).
+          let out = cerradoLib ? it : completarItemDesdeLegajo(it, legBy[it.id_usuario])
+          if (!sincronizar || !sincro) return out
+          const snap = sincro.snapshots[String(it.id_usuario)]
+          if (snap) out = aplicarLiquidacionAItem(out, snap, actual!.cct_default || '0409/05')
+          // Libro nuevo: entra en nómina quien está en la liquidación del período.
+          else if (esAlta && Object.keys(sincro.snapshots).length > 0) out = { ...out, incluido: false }
+          return out
+        })
+      }
       const itemsRes = await rrhhLibroSueldosItemsListar(actual.id)
       if (!itemsRes.success) throw new Error(itemsRes.error || 'No se pudieron leer los ítems')
       if (itemsRes.data && itemsRes.data.length > 0) {
@@ -315,8 +363,35 @@ const RecursosHumanosLibroSueldosPage = () => {
             })
           }
         })
-        setItems(normalizados)
-        setSel(normalizados[0]?.id_usuario ?? null)
+        const finales = aplicarSincro(normalizados)
+        setItems(finales)
+        setSel(finales[0]?.id_usuario ?? null)
+        // ¿Lo traído de legajo / liquidación difiere de lo guardado?
+        const firma = (lista: ItemDraft[]) =>
+          JSON.stringify(
+            lista.map((it) => [
+              it.id_usuario,
+              it.incluido,
+              it.cuil,
+              it.cbu,
+              it.banco,
+              it.codigo_os,
+              it.categoria,
+              it.conyuge,
+              it.hijos,
+              it.forma_pago,
+              it.sueldo_basico,
+              it.adicional_antiguedad,
+              it.dias,
+              it.cct_codigo,
+              it.modalidad,
+              (it.extras || []).map((x) => [x.id, x.monto, x.cantidad ?? null])
+            ])
+          )
+        const libroCambio =
+          JSON.stringify(libRes.data?.alicuotas ?? {}) !== JSON.stringify(actual.alicuotas) ||
+          (libRes.data?.fecha_pago ?? null) !== actual.fecha_pago
+        setSinGuardar(libroCambio || firma(finales) !== firma(itemsRes.data))
       } else {
         const prevLib = await rrhhLibroSueldosObtener(periodoAnterior(periodo))
         let prevItems: RrhhLibroSueldosItem[] = []
@@ -332,8 +407,11 @@ const RecursosHumanosLibroSueldosPage = () => {
           liqMontos,
           pctAntiguedad
         )
-        setItems(altas)
-        setSel(altas[0]?.id_usuario ?? null)
+        const finales = aplicarSincro(altas, true)
+        setItems(finales)
+        setSel(finales[0]?.id_usuario ?? null)
+        // Nómina nueva armada en pantalla: todavía no está en la base.
+        setSinGuardar(finales.length > 0)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar')
@@ -358,10 +436,12 @@ const RecursosHumanosLibroSueldosPage = () => {
         return { ...it, ...p }
       })
     )
+    setSinGuardar(true)
   }
 
   const patchLibro = (patch: Partial<RrhhLibroSueldos>) => {
     setLibro((prev) => (prev ? { ...prev, ...patch } : prev))
+    setSinGuardar(true)
   }
 
   const guardar = async (): Promise<boolean> => {
@@ -402,6 +482,7 @@ const RecursosHumanosLibroSueldosPage = () => {
       await rrhhSueldoFichasUpsert(items.map((it) => fichaDesdeItem({ ...it, id: it.id || 0, id_libro: up.data!.id })))
       setLibro(up.data)
       if (itemsRes.data) setItems(itemsRes.data)
+      setSinGuardar(false)
       setMsg('Libro guardado. Las fichas quedan para el mes siguiente.')
       return true
     } catch (e) {
@@ -433,6 +514,12 @@ const RecursosHumanosLibroSueldosPage = () => {
   }, [itemsFiltrados, sel])
 
   const itemSel = items.find((i) => i.id_usuario === sel) || itemsFiltrados[0] || items[0] || null
+  const legalLibro = useMemo(() => (libro ? legalDelLibro(libro) : null), [libro])
+  const conceptosArca = useMemo(() => conceptosParaArca(items), [items])
+  /** Básico, antigüedad, días, convenio y jornada vienen de la liquidación: no se editan acá. */
+  const deLiq = (idUsuario: number) => !!sincro?.ids.has(idUsuario)
+  const selDeLiq = itemSel ? deLiq(itemSel.id_usuario) : false
+  const avisosSel = itemSel ? avisosItemLsd({ ...itemSel, id: itemSel.id || 0, id_libro: itemSel.id_libro || 0 }) : []
   const itemsDeferred = useDeferredValue(items)
   const libroDeferred = useDeferredValue(libro)
   const selDeferred = useDeferredValue(sel)
@@ -451,11 +538,23 @@ const RecursosHumanosLibroSueldosPage = () => {
     })
   }, [busy, libro, items, sel, libroDeferred, itemsDeferred, selDeferred])
 
-  const netos = useMemo(() => {
-    const m = new Map<number, number>()
+  /** Por empleado: bruto, neto y datos que faltan (una sola pasada para tabla y resumen). */
+  const resumenPorEmpleado = useMemo(() => {
+    const m = new Map<
+      number,
+      { bruto: number; neto: number; aportes: number; contribuciones: number; costo: number; faltan: string[] }
+    >()
     if (!libro) return m
     for (const it of items) {
-      m.set(it.id_usuario, numerosLiquidacion(it as RrhhLibroSueldosItem, libro).neto)
+      const n = numerosLiquidacion(it as RrhhLibroSueldosItem, libro)
+      m.set(it.id_usuario, {
+        bruto: n.bruto,
+        neto: n.neto,
+        aportes: n.descuentos,
+        contribuciones: n.contribuciones,
+        costo: n.costoEmpleador,
+        faltan: faltantesItem(it)
+      })
     }
     return m
   }, [items, libro])
@@ -472,24 +571,25 @@ const RecursosHumanosLibroSueldosPage = () => {
     setItems((prev) =>
       prev.map((it) => (idsFiltrados.has(it.id_usuario) ? { ...it, incluido } : it))
     )
+    setSinGuardar(true)
   }
 
   const totales = useMemo(() => {
-    if (!libro) return { neto: 0, bruto: 0, costo: 0, n: 0 }
-    let n = 0
-    let bruto = 0
-    let neto = 0
-    let costo = 0
+    const t = { n: 0, bruto: 0, aportes: 0, contribuciones: 0, neto: 0, costo: 0, conFaltantes: 0 }
     for (const it of items) {
       if (!it.incluido) continue
-      const t = numerosLiquidacion(it as RrhhLibroSueldosItem, libro)
-      n += 1
-      bruto += t.bruto
-      neto += t.neto
-      costo += t.costoEmpleador
+      const r = resumenPorEmpleado.get(it.id_usuario)
+      if (!r) continue
+      t.n += 1
+      t.bruto += r.bruto
+      t.aportes += r.aportes
+      t.contribuciones += r.contribuciones
+      t.neto += r.neto
+      t.costo += r.costo
+      if (r.faltan.length) t.conFaltantes += 1
     }
-    return { n, bruto, neto, costo }
-  }, [items, libro])
+    return t
+  }, [items, resumenPorEmpleado])
 
   const exportarPdfUno = async () => {
     if (!previewRef.current || !itemSel) return
@@ -606,261 +706,196 @@ const RecursosHumanosLibroSueldosPage = () => {
     )
   }
 
+  const cambiarEstado = async (estado: 'borrador' | 'cerrado') => {
+    if (!libro) return
+    if (
+      estado === 'cerrado' &&
+      !window.confirm(
+        'Al cerrar el libro queda congelado: no se edita ni se vuelve a sincronizar con la liquidación. ¿Cerrar?'
+      )
+    ) {
+      return
+    }
+    if (estado === 'cerrado') {
+      const ok = await guardar()
+      if (!ok) return
+    }
+    setBusy(true)
+    try {
+      const res = await rrhhLibroSueldosUpsert({ periodo, patch: { estado } })
+      if (!res.success || !res.data) throw new Error(res.error || 'No se pudo cambiar el estado')
+      setLibro(res.data)
+      setMsg(estado === 'cerrado' ? 'Libro cerrado.' : 'Libro reabierto: vuelve a tomar los datos de la liquidación.')
+      if (estado === 'borrador') void cargar()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al cambiar el estado')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const descargarTxt = () => {
+    if (!libro) return
+    const r = descargarTxtLsd(
+      libro,
+      items.map((i) => ({ ...i, id: i.id || 0, id_libro: libro.id }))
+    )
+    if (r.errores.length) setError(r.errores.join(' · '))
+    else setMsg(`TXT ARCA: ${r.nTrab} trabajadores (ANSI, sin comprimir).`)
+  }
+
+  const resumenSel = itemSel ? resumenPorEmpleado.get(itemSel.id_usuario) : undefined
+
   return (
     <div className="rrhh-ext-page rrhh-libro-page">
-      <header className="rrhh-ext-header">
-        <div>
+      <header className="libro-head">
+        <div className="libro-head-title">
           <h1>Libro de sueldos</h1>
-          <p>
-            Recibo LCT mensual (modelo Plot Center) y archivo TXT para el{' '}
-            <a href="https://www.arca.gob.ar/librodesueldosdigital/" target="_blank" rel="noreferrer">
-              Libro de sueldos digital de ARCA
-            </a>
-            .
-          </p>
+          <div className="libro-chips">
+            <span className={`libro-chip ${cerrado ? 'is-lock' : 'is-draft'}`}>{cerrado ? 'Cerrado' : 'Borrador'}</span>
+            {sincro ? (
+              <span className="libro-chip is-ok" title="Básico, antigüedad, horas extra, inasistencias y cargas vienen de la Liquidación mensual">
+                Datos de Liquidación
+                {sincro.generado ? ` · ${new Date(sincro.generado).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
+              </span>
+            ) : (
+              <span className="libro-chip is-warn" title="Abrí la Liquidación mensual del período (mes completo) para traer los datos">
+                {cerrado ? 'Datos congelados' : 'Sin liquidación del período'}
+              </span>
+            )}
+            {sinGuardar && !cerrado ? <span className="libro-chip is-warn">Cambios sin guardar</span> : null}
+          </div>
         </div>
-        <button type="button" className="rrhh-ext-btn ghost" onClick={() => navigate('/rrhh')}>
-          Volver
-        </button>
+        <div className="libro-head-actions">
+          <label className="libro-periodo">
+            <span>Período</span>
+            <input type="month" value={periodo} onChange={(e) => setPeriodo(e.target.value)} disabled={busy} />
+          </label>
+          <button type="button" className="rrhh-ext-btn primary" onClick={() => void guardar()} disabled={busy || cerrado}>
+            {busy ? 'Procesando…' : 'Guardar'}
+          </button>
+          <button type="button" className="rrhh-ext-btn" onClick={() => navigate('/rrhh/liquidacion')}>
+            Liquidación
+          </button>
+          <button type="button" className="rrhh-ext-btn ghost" onClick={() => navigate('/rrhh')}>
+            Volver
+          </button>
+        </div>
       </header>
 
       {error ? <p className="rrhh-ext-error">{error}</p> : null}
       {msg ? <p className="rrhh-libro-msg">{msg}</p> : null}
 
-      <p className="rrhh-libro-note">
-        Empleador según Simplificación registral: PLOT CENTER SRL · CUIT 30-71551880-1 · jurisdicción San Juan ·
-        CCT 0409/05 Gráficos y 9999/99 excluido · ART sin contrato LRT · SCVO Experta S880. Parametrizá una vez en
-        ARCA los códigos SUELDO, ANTIG, SIND, JUB, INSSJP y OS y subí el TXT en Liquidaciones.{' '}
-        <a href="https://www.arca.gob.ar/librodesueldosdigital/" target="_blank" rel="noreferrer">
-          Libro de sueldos digital
-        </a>
-        {' · '}
-        <a href="https://www.arca.gob.ar/LibrodeSueldosDigital/ayuda/disenios.asp" target="_blank" rel="noreferrer">
-          Diseños de registro
-        </a>
-        .
-      </p>
+      <section className="libro-kpis" aria-label="Totales del período">
+        <article className="libro-kpi">
+          <span className="libro-kpi-label">En nómina</span>
+          <strong className="libro-kpi-value">
+            {totales.n}
+            <small> / {items.length}</small>
+          </strong>
+          <span className="libro-kpi-hint">{labelPeriodoMes(periodo)}</span>
+        </article>
+        <article className="libro-kpi">
+          <span className="libro-kpi-label">Remuneración bruta</span>
+          <strong className="libro-kpi-value">{formatArs2(totales.bruto)}</strong>
+          <span className="libro-kpi-hint">Remunerativo declarado</span>
+        </article>
+        <article className="libro-kpi">
+          <span className="libro-kpi-label">Aportes y descuentos</span>
+          <strong className="libro-kpi-value is-neg">−{formatArs2(totales.aportes)}</strong>
+          <span className="libro-kpi-hint">Jubilación, INSSJP, OS, sindicato</span>
+        </article>
+        <article className="libro-kpi is-main">
+          <span className="libro-kpi-label">Neto a pagar</span>
+          <strong className="libro-kpi-value">{formatArs2(totales.neto)}</strong>
+          <span className="libro-kpi-hint">
+            {libro?.fecha_pago ? `Pago hasta ${fechaCortaEs(libro.fecha_pago)}` : 'Sin fecha de pago'}
+          </span>
+        </article>
+        <article className="libro-kpi">
+          <span className="libro-kpi-label">Contribuciones</span>
+          <strong className="libro-kpi-value">{formatArs2(totales.contribuciones)}</strong>
+          <span className="libro-kpi-hint">SIPA, OS, AAFF, FNE, ART, SCVO</span>
+        </article>
+        <article className="libro-kpi">
+          <span className="libro-kpi-label">Costo laboral</span>
+          <strong className="libro-kpi-value">{formatArs2(totales.costo)}</strong>
+          <span className="libro-kpi-hint">Bruto + no remunerativo + contribuciones</span>
+        </article>
+      </section>
 
-      <div className="rrhh-libro-toolbar">
-        <label>
-          Período
-          <input
-            type="month"
-            value={periodo}
-            onChange={(e) => setPeriodo(e.target.value)}
-            disabled={busy}
-          />
-        </label>
-        <label>
-          Razón social
-          <input
-            value={libro?.empresa_nombre || ''}
-            onChange={(e) => patchLibro({ empresa_nombre: e.target.value })}
-            disabled={cerrado}
-          />
-        </label>
-        <label>
-          CUIT empleador
-          <input
-            value={libro?.empresa_cuit || ''}
-            onChange={(e) => patchLibro({ empresa_cuit: e.target.value })}
-            disabled={cerrado}
-          />
-        </label>
-        <label>
-          Domicilio
-          <input
-            value={libro?.empresa_domicilio || ''}
-            onChange={(e) => patchLibro({ empresa_domicilio: e.target.value })}
-            disabled={cerrado}
-          />
-        </label>
-        <label>
-          Jurisdicción
-          <input
-            value={libro?.jurisdiccion || ''}
-            onChange={(e) => patchLibro({ jurisdiccion: e.target.value })}
-            disabled={cerrado}
-          />
-        </label>
-        <label>
-          Banco / acreditación
-          <input
-            value={libro?.banco || ''}
-            onChange={(e) => patchLibro({ banco: e.target.value || null })}
-            disabled={cerrado}
-          />
-        </label>
-        <label>
-          Fecha de pago
-          <input
-            type="date"
-            value={libro?.fecha_pago || ''}
-            onChange={(e) => patchLibro({ fecha_pago: e.target.value || null })}
-            disabled={cerrado}
-          />
-        </label>
-        <label>
-          SCVO default
-          <ImporteField
-            value={libro?.scvo_default ?? 0}
-            disabled={cerrado}
-            onCommit={(n) => patchLibro({ scvo_default: n })}
-          />
-        </label>
-        <label>
-          Base OS (× bruto)
-          <ImporteField
-            value={libro?.os_base_mult ?? 2}
-            disabled={cerrado}
-            onCommit={(n) => patchLibro({ os_base_mult: n || 2 })}
-          />
-        </label>
-        <label>
-          N° liq. ARCA
-          <input
-            type="number"
-            value={libro?.nro_liquidacion ?? 1}
-            onChange={(e) => patchLibro({ nro_liquidacion: Number(e.target.value) || 1 })}
-            disabled={cerrado}
-          />
-        </label>
-        <label>
-          Código OS default
-          <input
-            value={libro?.codigo_os_default || ''}
-            onChange={(e) => patchLibro({ codigo_os_default: e.target.value || null })}
-            disabled={cerrado}
-            placeholder="6 dígitos"
-          />
-        </label>
-        <label>
-          Importe a detraer
-          <ImporteField
-            value={libro?.importe_detraer ?? 0}
-            disabled={cerrado}
-            onCommit={(n) => patchLibro({ importe_detraer: n })}
-          />
-        </label>
-        <label>
-          ART
-          <input
-            value={libro?.art_codigo || ''}
-            onChange={(e) => patchLibro({ art_codigo: e.target.value })}
-            disabled={cerrado}
-          />
-        </label>
-        <label>
-          SCVO compañía
-          <input
-            value={libro?.scvo_cia || ''}
-            onChange={(e) => patchLibro({ scvo_cia: e.target.value })}
-            disabled={cerrado}
-          />
-        </label>
-      </div>
-
-      <div className="rrhh-ext-card" style={{ marginBottom: 14 }}>
-        <h3>Alícuotas del recibo (editables)</h3>
-        <p className="rrhh-libro-note" style={{ marginBottom: 8 }}>
-          Porcentajes como en el Excel (ej. 10,77). Se aplican a toda la nómina del período.
+      {totales.conFaltantes > 0 ? (
+        <p className="libro-alerta">
+          {totales.conFaltantes} empleado{totales.conFaltantes === 1 ? '' : 's'} en nómina con datos incompletos (marcados en
+          la tabla). Lo ideal es completarlos en su legajo: el libro los toma de ahí al abrir el período.
         </p>
-        <div className="rrhh-libro-ali">
-          {ALICUOTA_CAMPOS.map((c) => {
-            const a = mergeAlicuotas(libro?.alicuotas)
-            return (
-              <label key={c.key}>
-                {c.label} %
-                <ImporteField
-                  value={Math.round(a[c.key] * 10000) / 100}
-                  disabled={cerrado}
-                  onCommit={(n) =>
-                    patchLibro({
-                      alicuotas: { ...a, [c.key]: n / 100 }
-                    })
-                  }
-                />
-              </label>
-            )
-          })}
-        </div>
-      </div>
+      ) : null}
 
-      <div className="rrhh-libro-actions" style={{ marginBottom: 14 }}>
+      <div className="libro-toolbar">
         <label className="rrhh-libro-search">
           <span className="sr-only">Buscar empleado</span>
           <input
             type="search"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar empleado (nombre, CUIL, legajo…)"
+            placeholder="Buscar por nombre, CUIL, legajo o categoría…"
             autoComplete="off"
           />
         </label>
-        <button type="button" className="rrhh-ext-btn primary" onClick={() => void guardar()} disabled={busy || cerrado}>
-          Guardar
-        </button>
-        <button
-          type="button"
-          className="rrhh-ext-btn"
-          onClick={() => libro && exportarLibroSueldosXlsx(libro, items.map((i) => ({ ...i, id: i.id || 0, id_libro: libro.id })))}
-          disabled={!libro || busy}
-        >
-          Excel libro
-        </button>
-        <button type="button" className="rrhh-ext-btn" onClick={() => void exportarPdfUno()} disabled={!liq || busy}>
-          PDF este recibo
-        </button>
-        <button
-          type="button"
-          className="rrhh-ext-btn"
-          onClick={() => {
-            if (!libro) return
-            const r = descargarTxtLsd(
-              libro,
-              items.map((i) => ({ ...i, id: i.id || 0, id_libro: libro.id }))
-            )
-            if (r.errores.length) setError(r.errores.join(' · '))
-            else setMsg(`TXT ARCA: ${r.nTrab} trabajadores (ANSI, sin comprimir).`)
-          }}
-          disabled={!libro || busy}
-        >
-          TXT ARCA / F.931
-        </button>
-        <button
-          type="button"
-          className="rrhh-ext-btn primary"
-          onClick={() => void enviarEmpleados()}
-          disabled={busy || cerrado}
-          title="Publica el PDF de cada empleado marcado en Mis recibos (/mis-recibos) y le manda una notificación. No envía mail."
-        >
-          Enviar recibos a empleados
-        </button>
-        <span className="rrhh-ext-badge">
-          {totales.n} incl. · bruto {formatArs2(totales.bruto)} · neto {formatArs2(totales.neto)} · costo{' '}
-          {formatArs2(totales.costo)}
-        </span>
+        <div className="libro-toolbar-group">
+          <button
+            type="button"
+            className="rrhh-ext-btn"
+            onClick={() =>
+              libro && exportarLibroSueldosXlsx(libro, items.map((i) => ({ ...i, id: i.id || 0, id_libro: libro.id })))
+            }
+            disabled={!libro || busy}
+          >
+            Excel
+          </button>
+          <button type="button" className="rrhh-ext-btn" onClick={() => void exportarPdfUno()} disabled={!liq || busy}>
+            PDF recibo
+          </button>
+          <button type="button" className="rrhh-ext-btn" onClick={descargarTxt} disabled={!libro || busy}>
+            TXT ARCA
+          </button>
+          <button
+            type="button"
+            className="rrhh-ext-btn primary"
+            onClick={() => void enviarEmpleados()}
+            disabled={busy || cerrado}
+            title="Publica el PDF de cada empleado marcado en Mis recibos (/mis-recibos) y le manda una notificación. No envía mail."
+          >
+            Enviar recibos
+          </button>
+          {cerrado ? (
+            <button type="button" className="rrhh-ext-btn ghost" onClick={() => void cambiarEstado('borrador')} disabled={busy}>
+              Reabrir
+            </button>
+          ) : (
+            <button type="button" className="rrhh-ext-btn ghost" onClick={() => void cambiarEstado('cerrado')} disabled={busy || !libro}>
+              Cerrar libro
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="rrhh-libro-grid">
-        <div className="rrhh-ext-card">
-          <h3>
-            Nómina
-            {busqueda.trim() ? (
-              <span className="rrhh-libro-nomina-count">
-                {' '}
-                · {itemsFiltrados.length} de {items.length}
-              </span>
-            ) : null}
-          </h3>
+      <div className="libro-main">
+        <section className="rrhh-ext-card libro-nomina">
+          <div className="libro-card-head">
+            <h3>Nómina</h3>
+            <span className="libro-muted">
+              {busqueda.trim() ? `${itemsFiltrados.length} de ${items.length}` : `${items.length} empleados`}
+            </span>
+          </div>
           <div className="rrhh-libro-table-wrap">
-            <table className="rrhh-ext-table rrhh-libro-table">
+            <table className="rrhh-ext-table libro-tabla">
               <thead>
                 <tr>
                   <th>
                     <input
                       type="checkbox"
-                      title={todosIncluidos ? 'Desmarcar todos' : 'Marcar todos'}
+                      title={todosIncluidos ? 'Sacar todos de la nómina' : 'Incluir todos'}
                       checked={todosIncluidos}
                       disabled={cerrado || itemsFiltrados.length === 0}
                       ref={(el) => {
@@ -872,394 +907,708 @@ const RecursosHumanosLibroSueldosPage = () => {
                   </th>
                   <th>Leg.</th>
                   <th>Empleado</th>
-                  <th>CUIL</th>
-                  <th>Categoría</th>
-                  <th>Ingreso</th>
-                  <th>Básico</th>
-                  <th>Antig. $</th>
-                  <th>SCVO</th>
-                  <th>Neto</th>
+                  <th className="num">Bruto</th>
+                  <th className="num">Neto</th>
+                  <th>Estado</th>
                 </tr>
               </thead>
               <tbody>
                 {itemsFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={{ textAlign: 'center', opacity: 0.7, padding: 16 }}>
-                      {items.length === 0
-                        ? 'Sin empleados en este período.'
-                        : 'Ningún empleado coincide con la búsqueda.'}
+                    <td colSpan={6} className="libro-vacio">
+                      {items.length === 0 ? 'Sin empleados en este período.' : 'Ningún empleado coincide con la búsqueda.'}
                     </td>
                   </tr>
                 ) : null}
                 {itemsFiltrados.map((it) => {
-                  const n = netos.get(it.id_usuario) || 0
+                  const r = resumenPorEmpleado.get(it.id_usuario)
                   return (
                     <tr
                       key={it.id_usuario}
-                      className={sel === it.id_usuario ? 'is-sel' : ''}
+                      className={`${sel === it.id_usuario ? 'is-sel' : ''}${it.incluido ? '' : ' is-off'}`}
                       onClick={() => setSel(it.id_usuario)}
                     >
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={it.incluido}
                           disabled={cerrado}
+                          title={it.incluido ? 'En nómina' : 'Fuera de nómina'}
                           onChange={(e) => patchItem(it.id_usuario, { incluido: e.target.checked })}
                         />
                       </td>
+                      <td className="libro-leg">{it.n_legajo || '—'}</td>
                       <td>
-                        <input
-                          type="number"
-                          value={it.n_legajo}
-                          disabled={cerrado}
-                          onChange={(e) => patchItem(it.id_usuario, { n_legajo: Number(e.target.value) || 0 })}
-                        />
+                        <div className="libro-emp-nombre">{it.apellido_nombre || '—'}</div>
+                        <div className="libro-emp-sub">
+                          {it.categoria || 'Sin categoría'}
+                          {it.cuil ? ` · ${formatCuil(it.cuil)}` : ''}
+                        </div>
                       </td>
-                      <td className="rrhh-libro-nombre-cell">{it.apellido_nombre || '—'}</td>
+                      <td className="num">{formatArs2(r?.bruto ?? 0)}</td>
+                      <td className="num libro-neto">{formatArs2(r?.neto ?? 0)}</td>
                       <td>
-                        <input
-                          type="text"
-                          value={it.cuil}
-                          disabled={cerrado}
-                          onChange={(e) => patchItem(it.id_usuario, { cuil: e.target.value })}
-                        />
+                        <div className="libro-estado">
+                          {deLiq(it.id_usuario) ? (
+                            <span className="libro-tag is-ok" title="Datos de la Liquidación mensual">
+                              Liq.
+                            </span>
+                          ) : null}
+                          {it.cct_codigo && !cctEnConvenio(it.cct_codigo) ? (
+                            <span className="libro-tag" title="Fuera de convenio">
+                              F/C
+                            </span>
+                          ) : null}
+                          {String(it.modalidad) === '008' ? (
+                            <span className="libro-tag" title="Jornada parcial">
+                              Parcial
+                            </span>
+                          ) : null}
+                          {r?.faltan.length ? (
+                            <span className="libro-tag is-warn" title={`Falta: ${r.faltan.join(', ')}`}>
+                              Falta {r.faltan.length}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
-                      <td>
-                        <input
-                          type="text"
-                          value={it.categoria || ''}
-                          disabled={cerrado}
-                          onChange={(e) => patchItem(it.id_usuario, { categoria: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="date"
-                          value={it.fecha_ingreso || ''}
-                          disabled={cerrado}
-                          onChange={(e) => {
-                            const fi = e.target.value || null
-                            const anios = aniosAntiguedadAlPeriodo(fi, periodo)
-                            patchItem(it.id_usuario, {
-                              fecha_ingreso: fi,
-                              antiguedad_reconocida: antiguedadMesesAlPeriodo(fi, periodo),
-                              anios_antiguedad: anios,
-                              adicional_antiguedad: adicionalAntiguedadNecesitaPrecarga(
-                                it.adicional_antiguedad,
-                                it.sueldo_basico,
-                                1
-                              )
-                                ? adicionalAntiguedadCalculado(it.sueldo_basico, anios, 1)
-                                : it.adicional_antiguedad
-                            })
-                          }}
-                        />
-                      </td>
-                      <td>
-                        <ImporteField
-                          value={it.sueldo_basico}
-                          disabled={cerrado}
-                          onCommit={(n) =>
-                            patchItem(it.id_usuario, {
-                              sueldo_basico: n,
-                              adicional_antiguedad: adicionalAntiguedadNecesitaPrecarga(
-                                it.adicional_antiguedad,
-                                n,
-                                1
-                              )
-                                ? adicionalAntiguedadCalculado(n, it.anios_antiguedad, 1)
-                                : it.adicional_antiguedad
-                            })
-                          }
-                        />
-                      </td>
-                      <td>
-                        <ImporteField
-                          value={it.adicional_antiguedad}
-                          disabled={cerrado}
-                          onCommit={(n) => patchItem(it.id_usuario, { adicional_antiguedad: n })}
-                        />
-                      </td>
-                      <td>
-                        <ImporteField
-                          value={it.scvo}
-                          disabled={cerrado}
-                          onCommit={(n) => patchItem(it.id_usuario, { scvo: n })}
-                        />
-                      </td>
-                      <td>{formatArs2(n)}</td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
           </div>
+        </section>
 
+        <section className="rrhh-ext-card libro-detalle">
           {itemSel ? (
-            <div className="rrhh-libro-emp">
-              <label>
-                Etiqueta básico
-                <input
-                  className="rrhh-ext-form"
-                  value={itemSel.etiqueta_basico}
-                  disabled={cerrado}
-                  onChange={(e) => patchItem(itemSel.id_usuario, { etiqueta_basico: e.target.value })}
-                />
-              </label>
-              <label>
-                Días
-                <input
-                  type="number"
-                  value={itemSel.dias}
-                  disabled={cerrado}
-                  onChange={(e) => patchItem(itemSel.id_usuario, { dias: Number(e.target.value) || 30 })}
-                />
-              </label>
-              <label>
-                Años antigüedad (concepto)
-                <input
-                  type="number"
-                  value={itemSel.anios_antiguedad}
-                  disabled={cerrado}
-                  onChange={(e) => patchItem(itemSel.id_usuario, { anios_antiguedad: Number(e.target.value) || 0 })}
-                />
-              </label>
-              <label>
-                Antigüedad reconocida (meses)
-                <input
-                  type="number"
-                  min={0}
-                  value={itemSel.antiguedad_reconocida}
-                  disabled={cerrado}
-                  onChange={(e) =>
-                    patchItem(itemSel.id_usuario, { antiguedad_reconocida: Number(e.target.value) || 0 })
-                  }
-                />
-                <small style={{ display: 'block', opacity: 0.75, marginTop: 4 }}>
-                  En recibo:{' '}
-                  {formatAntiguedadReconocida(itemSel.antiguedad_reconocida) || '—'}
-                </small>
-              </label>
-              <label>
-                Convenio CCT
-                <input
-                  list="rrhh-ccts"
-                  value={itemSel.cct_codigo || ''}
-                  disabled={cerrado}
-                  onChange={(e) =>
-                    patchItem(itemSel.id_usuario, {
-                      cct_codigo: e.target.value || null,
-                      cct: cctEnConvenio(e.target.value)
-                    })
-                  }
-                />
-                <datalist id="rrhh-ccts">
-                  {CCTS_PLOT.map((c) => (
-                    <option key={c.codigo} value={c.codigo}>
-                      {c.label}
-                    </option>
-                  ))}
-                </datalist>
-              </label>
-              <label>
-                Banco
-                <input
-                  value={itemSel.banco || ''}
-                  disabled={cerrado}
-                  onChange={(e) => patchItem(itemSel.id_usuario, { banco: e.target.value || null })}
-                />
-              </label>
-              <label>
-                CBU
-                <input
-                  value={itemSel.cbu || ''}
-                  disabled={cerrado}
-                  onChange={(e) => patchItem(itemSel.id_usuario, { cbu: e.target.value || null })}
-                />
-              </label>
-              <label>
-                Modalidad ARCA
-                <select
-                  value={itemSel.modalidad}
-                  disabled={cerrado}
-                  onChange={(e) => patchItem(itemSel.id_usuario, { modalidad: e.target.value })}
-                >
-                  <option value="001">001 · Tiempo indeterminado</option>
-                  <option value="008">008 · Tiempo parcial</option>
-                </select>
-              </label>
-              <label>
-                Código obra social
-                <input
-                  value={itemSel.codigo_os || ''}
-                  disabled={cerrado}
-                  onChange={(e) => patchItem(itemSel.id_usuario, { codigo_os: e.target.value || null })}
-                />
-              </label>
-              <label>
-                Forma de pago
-                <select
-                  value={itemSel.forma_pago}
-                  disabled={cerrado}
-                  onChange={(e) => patchItem(itemSel.id_usuario, { forma_pago: e.target.value })}
-                >
-                  <option value="1">Efectivo</option>
-                  <option value="2">Cheque</option>
-                  <option value="3">Acreditación en cuenta</option>
-                </select>
-              </label>
-            </div>
-          ) : null}
-
-          {itemSel ? (
-            <div className="rrhh-libro-extras">
-              <div className="rrhh-libro-extras-head">
-                <h4>Conceptos extra de {itemSel.apellido_nombre || 'empleado'}</h4>
-                <button
-                  type="button"
-                  className="rrhh-ext-btn"
-                  disabled={cerrado}
-                  onClick={() =>
-                    patchItem(itemSel.id_usuario, (it) => ({
-                      extras: [...(it.extras || []), extraVacio()]
-                    }))
-                  }
-                >
-                  Agregar concepto
-                </button>
+            <>
+              <div className="libro-card-head">
+                <div>
+                  <h3>{itemSel.apellido_nombre || 'Empleado'}</h3>
+                  <span className="libro-muted">
+                    Legajo {itemSel.n_legajo || '—'}
+                    {itemSel.fecha_ingreso ? ` · ingreso ${fechaCortaEs(itemSel.fecha_ingreso)}` : ''}
+                    {itemSel.anios_antiguedad ? ` · ${itemSel.anios_antiguedad} año${itemSel.anios_antiguedad === 1 ? '' : 's'}` : ''}
+                  </span>
+                </div>
+                {resumenSel ? (
+                  <div className="libro-detalle-neto">
+                    <span>Neto</span>
+                    <strong>{formatArs2(resumenSel.neto)}</strong>
+                  </div>
+                ) : null}
               </div>
-              {(itemSel.extras || []).map((x) => (
-                <div key={x.id} className="rrhh-libro-extra-row">
+
+              {selDeLiq ? (
+                <p className="libro-nota-liq">
+                  Básico, antigüedad, días, convenio, jornada, horas extra e inasistencias vienen de la Liquidación
+                  mensual: se corrigen allá.
+                </p>
+              ) : null}
+              {resumenSel?.faltan.length ? (
+                <p className="libro-alerta">Falta cargar: {resumenSel.faltan.join(', ')}.</p>
+              ) : null}
+              {avisosSel.length ? <p className="libro-alerta">{avisosSel.join(' · ')}</p> : null}
+
+              <fieldset className="libro-grupo">
+                <legend>Haberes</legend>
+                <label>
+                  Etiqueta del básico
                   <input
-                    placeholder="Concepto"
-                    value={x.concepto}
+                    value={itemSel.etiqueta_basico}
+                    disabled={cerrado}
+                    onChange={(e) => patchItem(itemSel.id_usuario, { etiqueta_basico: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Sueldo básico
+                  <ImporteField
+                    value={itemSel.sueldo_basico}
+                    disabled={cerrado || selDeLiq}
+                    onCommit={(n) =>
+                      patchItem(itemSel.id_usuario, {
+                        sueldo_basico: n,
+                        adicional_antiguedad: adicionalAntiguedadNecesitaPrecarga(itemSel.adicional_antiguedad, n, 1)
+                          ? adicionalAntiguedadCalculado(n, itemSel.anios_antiguedad, 1)
+                          : itemSel.adicional_antiguedad
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  Adicional antigüedad
+                  <ImporteField
+                    value={itemSel.adicional_antiguedad}
+                    disabled={cerrado || selDeLiq}
+                    onCommit={(n) => patchItem(itemSel.id_usuario, { adicional_antiguedad: n })}
+                  />
+                </label>
+                <label>
+                  Días pagos
+                  <input
+                    type="number"
+                    value={itemSel.dias}
+                    disabled={cerrado || selDeLiq}
+                    onChange={(e) => patchItem(itemSel.id_usuario, { dias: Number(e.target.value) || 30 })}
+                  />
+                </label>
+                <label>
+                  Años de antigüedad
+                  <input
+                    type="number"
+                    value={itemSel.anios_antiguedad}
+                    disabled={cerrado || selDeLiq}
+                    onChange={(e) => patchItem(itemSel.id_usuario, { anios_antiguedad: Number(e.target.value) || 0 })}
+                  />
+                </label>
+                <label>
+                  Antigüedad reconocida (meses)
+                  <input
+                    type="number"
+                    min={0}
+                    value={itemSel.antiguedad_reconocida}
+                    disabled={cerrado}
+                    onChange={(e) =>
+                      patchItem(itemSel.id_usuario, { antiguedad_reconocida: Number(e.target.value) || 0 })
+                    }
+                  />
+                  <small>En recibo: {formatAntiguedadReconocida(itemSel.antiguedad_reconocida) || '—'}</small>
+                </label>
+                <label>
+                  Seguro de vida (SCVO)
+                  <ImporteField
+                    value={itemSel.scvo}
+                    disabled={cerrado}
+                    onCommit={(n) => patchItem(itemSel.id_usuario, { scvo: n })}
+                  />
+                </label>
+              </fieldset>
+
+              <fieldset className="libro-grupo">
+                <legend>Datos registrales</legend>
+                <label>
+                  N.º legajo
+                  <input
+                    type="number"
+                    value={itemSel.n_legajo}
+                    disabled={cerrado}
+                    onChange={(e) => patchItem(itemSel.id_usuario, { n_legajo: Number(e.target.value) || 0 })}
+                  />
+                </label>
+                <label>
+                  CUIL
+                  <input
+                    value={itemSel.cuil}
+                    disabled={cerrado}
+                    onChange={(e) => patchItem(itemSel.id_usuario, { cuil: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Categoría
+                  <input
+                    value={itemSel.categoria || ''}
+                    disabled={cerrado}
+                    onChange={(e) => patchItem(itemSel.id_usuario, { categoria: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Fecha de ingreso
+                  <input
+                    type="date"
+                    value={itemSel.fecha_ingreso || ''}
                     disabled={cerrado}
                     onChange={(e) => {
-                      const v = e.target.value
-                      patchItem(itemSel.id_usuario, (it) => ({
-                        extras: (it.extras || []).map((r) =>
-                          r.id === x.id ? { ...r, concepto: v } : r
-                        )
-                      }))
+                      const fi = e.target.value || null
+                      const anios = aniosAntiguedadAlPeriodo(fi, periodo)
+                      patchItem(itemSel.id_usuario, {
+                        fecha_ingreso: fi,
+                        antiguedad_reconocida: antiguedadMesesAlPeriodo(fi, periodo),
+                        ...(selDeLiq
+                          ? {}
+                          : {
+                              anios_antiguedad: anios,
+                              adicional_antiguedad: adicionalAntiguedadNecesitaPrecarga(
+                                itemSel.adicional_antiguedad,
+                                itemSel.sueldo_basico,
+                                1
+                              )
+                                ? adicionalAntiguedadCalculado(itemSel.sueldo_basico, anios, 1)
+                                : itemSel.adicional_antiguedad
+                            })
+                      })
                     }}
                   />
+                </label>
+                <label>
+                  Convenio (CCT)
+                  <input
+                    list="rrhh-ccts"
+                    value={itemSel.cct_codigo || ''}
+                    disabled={cerrado || selDeLiq}
+                    title={selDeLiq ? 'Se marca en Liquidación (fuera de convenio)' : undefined}
+                    onChange={(e) =>
+                      patchItem(itemSel.id_usuario, {
+                        cct_codigo: e.target.value || null,
+                        cct: cctEnConvenio(e.target.value)
+                      })
+                    }
+                  />
+                  <datalist id="rrhh-ccts">
+                    {CCTS_PLOT.map((c) => (
+                      <option key={c.codigo} value={c.codigo}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </datalist>
+                </label>
+                <label>
+                  Modalidad ARCA
                   <select
-                    value={x.tipo}
-                    disabled={cerrado}
-                    onChange={(e) => {
-                      const tipo = e.target.value as typeof x.tipo
-                      patchItem(itemSel.id_usuario, (it) => ({
-                        extras: (it.extras || []).map((r) =>
-                          r.id === x.id ? { ...r, tipo } : r
-                        )
-                      }))
-                    }}
+                    value={itemSel.modalidad}
+                    disabled={cerrado || selDeLiq}
+                    title={selDeLiq ? 'Se marca en Liquidación (jornada parcial)' : undefined}
+                    onChange={(e) => patchItem(itemSel.id_usuario, { modalidad: e.target.value })}
                   >
-                    <option value="remunerativo">Remunerativo</option>
-                    <option value="no_remunerativo">No remunerativo</option>
-                    <option value="descuento">Descuento</option>
-                    <option value="empleador">Costo empleador</option>
+                    <option value="001">001 · Tiempo indeterminado</option>
+                    <option value="008">008 · Tiempo parcial</option>
                   </select>
+                </label>
+                <label>
+                  Código obra social
                   <input
-                    placeholder="Unidad o %"
-                    title='Monto fijo, o dejá monto en 0 y poné p. ej. "22%" para calcular sobre el bruto'
-                    value={x.unidad}
+                    value={itemSel.codigo_os || ''}
                     disabled={cerrado}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      patchItem(itemSel.id_usuario, (it) => ({
-                        extras: (it.extras || []).map((r) =>
-                          r.id === x.id ? { ...r, unidad: v } : r
-                        )
-                      }))
-                    }}
+                    placeholder="6 dígitos"
+                    onChange={(e) => patchItem(itemSel.id_usuario, { codigo_os: e.target.value || null })}
                   />
-                  <div className="rrhh-libro-extra-monto">
-                    <ImporteField
-                      value={x.monto}
+                </label>
+                <label>
+                  Cónyuge / hijos (F.931)
+                  <span className="libro-inline">
+                    <select
+                      value={itemSel.conyuge ? '1' : '0'}
                       disabled={cerrado}
-                      onCommit={(n) =>
-                        patchItem(itemSel.id_usuario, (it) => ({
-                          extras: (it.extras || []).map((r) =>
-                            r.id === x.id ? { ...r, monto: n } : r
-                          )
-                        }))
+                      onChange={(e) => patchItem(itemSel.id_usuario, { conyuge: e.target.value === '1' })}
+                    >
+                      <option value="0">Sin cónyuge</option>
+                      <option value="1">Con cónyuge</option>
+                    </select>
+                    <input
+                      type="number"
+                      min={0}
+                      value={itemSel.hijos}
+                      disabled={cerrado}
+                      title="Hijos"
+                      onChange={(e) =>
+                        patchItem(itemSel.id_usuario, { hijos: Math.max(0, Number(e.target.value) || 0) })
                       }
                     />
-                    {libro && itemSel && x.monto === 0 && x.unidad.includes('%') ? (
-                      <span
-                        className="rrhh-libro-extra-calc"
-                        title={
-                          x.tipo === 'remunerativo'
-                            ? 'Calculado sobre básico + antigüedad'
-                            : 'Calculado sobre el bruto'
-                        }
-                      >
-                        ≈{' '}
-                        {formatArs2(
-                          (() => {
-                            const nums = numerosLiquidacion(
-                              {
-                                ...itemSel,
-                                id: itemSel.id || 0,
-                                id_libro: itemSel.id_libro || libro.id
-                              },
-                              libro
-                            )
-                            const base =
-                              x.tipo === 'remunerativo'
-                                ? nums.basico + nums.antig
-                                : nums.bruto
-                            return montoExtraEfectivo(x, base).monto
-                          })()
-                        )}
-                      </span>
-                    ) : null}
-                  </div>
-                  <input
-                    placeholder="Cód. LSD"
-                    value={x.codigo_lsd}
+                  </span>
+                </label>
+              </fieldset>
+
+              <fieldset className="libro-grupo">
+                <legend>Pago</legend>
+                <label>
+                  Forma de pago
+                  <select
+                    value={itemSel.forma_pago}
                     disabled={cerrado}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      patchItem(itemSel.id_usuario, (it) => ({
-                        extras: (it.extras || []).map((r) =>
-                          r.id === x.id ? { ...r, codigo_lsd: v } : r
-                        )
-                      }))
-                    }}
+                    onChange={(e) => patchItem(itemSel.id_usuario, { forma_pago: e.target.value })}
+                  >
+                    <option value="3">Acreditación en cuenta</option>
+                    <option value="1">Efectivo</option>
+                    <option value="2">Cheque</option>
+                  </select>
+                </label>
+                <label>
+                  Banco
+                  <input
+                    value={itemSel.banco || ''}
+                    disabled={cerrado}
+                    onChange={(e) => patchItem(itemSel.id_usuario, { banco: e.target.value || null })}
                   />
+                </label>
+                <label className="libro-span2">
+                  CBU
+                  <input
+                    value={itemSel.cbu || ''}
+                    disabled={cerrado}
+                    inputMode="numeric"
+                    placeholder="22 dígitos"
+                    onChange={(e) => patchItem(itemSel.id_usuario, { cbu: e.target.value || null })}
+                  />
+                </label>
+              </fieldset>
+
+              <div className="rrhh-libro-extras">
+                <div className="rrhh-libro-extras-head">
+                  <h4>Conceptos del recibo</h4>
                   <button
                     type="button"
-                    className="rrhh-ext-btn ghost"
+                    className="rrhh-ext-btn"
                     disabled={cerrado}
                     onClick={() =>
                       patchItem(itemSel.id_usuario, (it) => ({
-                        extras: (it.extras || []).filter((r) => r.id !== x.id)
+                        extras: [...(it.extras || []), extraVacio()]
                       }))
                     }
                   >
-                    Quitar
+                    Agregar concepto
                   </button>
                 </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="rrhh-ext-card">
-          <h3>Vista del recibo</h3>
-          <div className="rrhh-libro-preview">
-            {liq ? (
-              <div ref={previewRef}>
-                <ReciboSueldoLct liq={liq} />
+                {(itemSel.extras || []).length === 0 ? (
+                  <p className="libro-muted">Sin conceptos extra (premios, retenciones, adelantos…).</p>
+                ) : null}
+                {(itemSel.extras || []).map((x) => {
+                  const bloqueado = cerrado || x.origen === 'liq'
+                  const setX = (p: Partial<typeof x>) =>
+                    patchItem(itemSel.id_usuario, (it) => ({
+                      extras: (it.extras || []).map((r) => (r.id === x.id ? { ...r, ...p } : r))
+                    }))
+                  return (
+                    <div key={x.id} className={`rrhh-libro-extra-row${x.origen === 'liq' ? ' is-liq' : ''}`}>
+                      <input
+                        placeholder="Concepto"
+                        value={x.concepto}
+                        disabled={bloqueado}
+                        onChange={(e) => setX({ concepto: e.target.value })}
+                      />
+                      <select
+                        value={x.tipo}
+                        disabled={bloqueado}
+                        onChange={(e) => setX({ tipo: e.target.value as typeof x.tipo })}
+                      >
+                        <option value="remunerativo">Remunerativo</option>
+                        <option value="no_remunerativo">No remunerativo</option>
+                        <option value="descuento">Descuento</option>
+                        <option value="empleador">Costo empleador</option>
+                      </select>
+                      <input
+                        placeholder="Unidad o %"
+                        title='Monto fijo, o dejá monto en 0 y poné p. ej. "22%" para calcular sobre el bruto'
+                        value={x.origen === 'liq' && x.cantidad != null ? `${x.cantidad} ${x.unidad}` : x.unidad}
+                        disabled={bloqueado}
+                        onChange={(e) => setX({ unidad: e.target.value })}
+                      />
+                      <div className="rrhh-libro-extra-monto">
+                        <ImporteField value={x.monto} disabled={bloqueado} onCommit={(n) => setX({ monto: n })} />
+                        {libro && x.monto === 0 && x.unidad.includes('%') ? (
+                          <span
+                            className="rrhh-libro-extra-calc"
+                            title={x.tipo === 'remunerativo' ? 'Calculado sobre básico + antigüedad' : 'Calculado sobre el bruto'}
+                          >
+                            ≈{' '}
+                            {formatArs2(
+                              (() => {
+                                const nums = numerosLiquidacion(
+                                  { ...itemSel, id: itemSel.id || 0, id_libro: itemSel.id_libro || libro.id },
+                                  libro
+                                )
+                                const base = x.tipo === 'remunerativo' ? nums.basico + nums.antig : nums.bruto
+                                return montoExtraEfectivo(x, base).monto
+                              })()
+                            )}
+                          </span>
+                        ) : null}
+                      </div>
+                      <input
+                        placeholder="Cód. ARCA"
+                        value={x.codigo_lsd}
+                        disabled={bloqueado}
+                        onChange={(e) => setX({ codigo_lsd: e.target.value })}
+                      />
+                      {x.origen === 'liq' ? (
+                        <span className="libro-tag is-ok" title="Viene de la Liquidación mensual">
+                          Liq.
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="rrhh-ext-btn ghost"
+                          disabled={cerrado}
+                          onClick={() =>
+                            patchItem(itemSel.id_usuario, (it) => ({
+                              extras: (it.extras || []).filter((r) => r.id !== x.id)
+                            }))
+                          }
+                        >
+                          Quitar
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-            ) : (
-              <p>Elegí un empleado y cargá el básico.</p>
-            )}
-          </div>
-        </div>
+            </>
+          ) : (
+            <p className="libro-muted">Elegí un empleado de la nómina.</p>
+          )}
+        </section>
       </div>
+
+      <section className="rrhh-ext-card libro-recibo">
+        <div className="libro-card-head">
+          <h3>Recibo {itemSel ? `· ${itemSel.apellido_nombre}` : ''}</h3>
+          <span className="libro-muted">Así lo recibe el empleado en Mis recibos (Decreto 407/2026)</span>
+        </div>
+        <div className="rrhh-libro-preview">
+          {liq ? (
+            <div ref={previewRef}>
+              <ReciboSueldoLct liq={liq} />
+            </div>
+          ) : (
+            <p>Elegí un empleado y cargá el básico.</p>
+          )}
+        </div>
+      </section>
+
+      <details className="rrhh-ext-card libro-plegable">
+        <summary>
+          <strong>Empleador y datos para ARCA</strong>
+          <span className="libro-muted">
+            {libro?.empresa_nombre} · CUIT {formatCuil(libro?.empresa_cuit)} · pago {fechaCortaEs(libro?.fecha_pago) || '—'}
+          </span>
+        </summary>
+        <div className="rrhh-libro-toolbar">
+          <label>
+            Razón social
+            <input
+              value={libro?.empresa_nombre || ''}
+              onChange={(e) => patchLibro({ empresa_nombre: e.target.value })}
+              disabled={cerrado}
+            />
+          </label>
+          <label>
+            CUIT empleador
+            <input
+              value={libro?.empresa_cuit || ''}
+              onChange={(e) => patchLibro({ empresa_cuit: e.target.value })}
+              disabled={cerrado}
+            />
+          </label>
+          <label>
+            Domicilio
+            <input
+              value={libro?.empresa_domicilio || ''}
+              onChange={(e) => patchLibro({ empresa_domicilio: e.target.value })}
+              disabled={cerrado}
+            />
+          </label>
+          <label>
+            Jurisdicción
+            <input
+              value={libro?.jurisdiccion || ''}
+              onChange={(e) => patchLibro({ jurisdiccion: e.target.value })}
+              disabled={cerrado}
+            />
+          </label>
+          <label>
+            Banco (último depósito)
+            <input
+              value={libro?.banco || ''}
+              onChange={(e) => patchLibro({ banco: e.target.value || null })}
+              disabled={cerrado}
+            />
+          </label>
+          <label>
+            Fecha de pago
+            <input
+              type="date"
+              value={libro?.fecha_pago || ''}
+              onChange={(e) => patchLibro({ fecha_pago: e.target.value || null })}
+              disabled={cerrado}
+            />
+            <small>Límite legal: {fechaCortaEs(fechaPagoLegal(periodo))} (art. 128 LCT)</small>
+          </label>
+          <label>
+            SCVO default
+            <ImporteField
+              value={libro?.scvo_default ?? 0}
+              disabled={cerrado}
+              onCommit={(n) => patchLibro({ scvo_default: n })}
+            />
+          </label>
+          <label>
+            N.º liquidación ARCA
+            <input
+              type="number"
+              value={libro?.nro_liquidacion ?? 1}
+              onChange={(e) => patchLibro({ nro_liquidacion: Number(e.target.value) || 1 })}
+              disabled={cerrado}
+            />
+          </label>
+          <label>
+            Código OS default
+            <input
+              value={libro?.codigo_os_default || ''}
+              onChange={(e) => patchLibro({ codigo_os_default: e.target.value || null })}
+              disabled={cerrado}
+              placeholder="6 dígitos"
+            />
+          </label>
+          <label>
+            Importe a detraer
+            <ImporteField
+              value={libro?.importe_detraer ?? 0}
+              disabled={cerrado || legalLibro?.origen === 'liquidacion'}
+              onCommit={(n) => patchLibro({ importe_detraer: n })}
+            />
+          </label>
+          <label>
+            Código ART
+            <input
+              value={libro?.art_codigo || ''}
+              onChange={(e) => patchLibro({ art_codigo: e.target.value })}
+              disabled={cerrado}
+            />
+          </label>
+          <label>
+            Compañía SCVO
+            <input
+              value={libro?.scvo_cia || ''}
+              onChange={(e) => patchLibro({ scvo_cia: e.target.value })}
+              disabled={cerrado}
+            />
+          </label>
+        </div>
+      </details>
+
+      {legalLibro?.origen === 'liquidacion' ? (
+        <details className="rrhh-ext-card libro-plegable">
+          <summary>
+            <strong>Cargas sociales y parámetros legales</strong>
+            <span className="libro-muted">de la Liquidación · se editan allá</span>
+          </summary>
+          <div className="libro-cargas">
+            {legalLibro.cargas.map((c) => (
+              <div key={c.id} className="libro-carga">
+                <span>
+                  {c.lado === 'aporte' ? 'Aporte' : 'Contribución'} · {NOMBRE_LEGAL_CARGA[c.id] || c.nombre}
+                </span>
+                <strong>{c.porcentaje.toLocaleString('es-AR')} %</strong>
+              </div>
+            ))}
+            <div className="libro-carga">
+              <span>Tope de aportes</span>
+              <strong>{formatArs2(legalLibro.parametros.topeAportes)}</strong>
+            </div>
+            <div className="libro-carga">
+              <span>Fondo de Asistencia Laboral</span>
+              <strong>
+                {falAplica(periodo, legalLibro.parametros)
+                  ? `${legalLibro.parametros.falPct.toLocaleString('es-AR')} %`
+                  : `desde ${legalLibro.parametros.falDesde}`}
+              </strong>
+            </div>
+            <div className="libro-carga">
+              <span>ART suma fija</span>
+              <strong>{formatArs2(legalLibro.parametros.artFijo)}</strong>
+            </div>
+            <div className="libro-carga">
+              <span>Detracción</span>
+              <strong>{formatArs2(legalLibro.parametros.detraccion)}</strong>
+            </div>
+          </div>
+        </details>
+      ) : (
+        <details className="rrhh-ext-card libro-plegable">
+          <summary>
+            <strong>Alícuotas del libro</strong>
+            <span className="libro-muted">
+              {cerrado ? 'libro cerrado' : 'este período no tiene Liquidación mensual'} · editables
+            </span>
+          </summary>
+          <p className="rrhh-libro-note">
+            Se usan las alícuotas propias del libro (ej. 10,77). Los aportes igual se topan y el sindicato solo aplica
+            dentro de convenio.
+          </p>
+          <div className="rrhh-libro-ali">
+            {ALICUOTA_CAMPOS.map((c) => {
+              const a = mergeAlicuotas(libro?.alicuotas)
+              return (
+                <label key={c.key}>
+                  {c.label} %
+                  <ImporteField
+                    value={Math.round(a[c.key] * 10000) / 100}
+                    disabled={cerrado}
+                    onCommit={(n) => patchLibro({ alicuotas: { ...a, [c.key]: n / 100 } })}
+                  />
+                </label>
+              )
+            })}
+          </div>
+        </details>
+      )}
+
+      <details className="rrhh-ext-card libro-plegable">
+        <summary>
+          <strong>Conceptos para dar de alta en ARCA</strong>
+          <span className="libro-muted">{conceptosArca.length} códigos · una sola vez en Libro de sueldos digital</span>
+        </summary>
+        <ol className="rrhh-libro-note">
+          <li>Entrá a ARCA › Libro de sueldos digital › Conceptos › Alta.</li>
+          <li>
+            Por cada fila cargá el <strong>código</strong> y la descripción tal cual, y asocialo al concepto de ARCA de
+            la columna “Asociar a”.
+          </li>
+          <li>Los “Remunerativo (resta)” van con signo negativo: el TXT los manda como débito y bajan la base de aportes.</li>
+          <li>Después subí el TXT del período. Si ARCA rechaza un código, falta darlo de alta.</li>
+        </ol>
+        <div className="rrhh-libro-table-wrap">
+          <table className="rrhh-ext-table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th>Tipo</th>
+                <th>Unidad</th>
+                <th>Asociar a</th>
+              </tr>
+            </thead>
+            <tbody>
+              {conceptosArca.map((c) => (
+                <tr key={c.codigo}>
+                  <td>
+                    <code>{c.codigo}</code>
+                  </td>
+                  <td>{c.descripcion}</td>
+                  <td>{c.tipo}</td>
+                  <td>{c.unidad}</td>
+                  <td>
+                    {c.asociar}
+                    {c.delSistema ? '' : ' (concepto extra)'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <button
+          type="button"
+          className="rrhh-ext-btn"
+          style={{ marginTop: 8 }}
+          onClick={() => {
+            const blob = new Blob(['﻿' + conceptosParaArcaCsv(conceptosArca)], { type: 'text/csv;charset=utf-8' })
+            const a = document.createElement('a')
+            a.href = URL.createObjectURL(blob)
+            a.download = 'conceptos_lsd_arca.csv'
+            a.click()
+            URL.revokeObjectURL(a.href)
+          }}
+        >
+          Descargar lista (CSV)
+        </button>
+        <p className="rrhh-libro-note" style={{ marginTop: 10 }}>
+          <a href="https://www.arca.gob.ar/librodesueldosdigital/" target="_blank" rel="noreferrer">
+            Libro de sueldos digital
+          </a>
+          {' · '}
+          <a href="https://www.arca.gob.ar/LibrodeSueldosDigital/ayuda/disenios.asp" target="_blank" rel="noreferrer">
+            Diseños de registro
+          </a>
+        </p>
+      </details>
     </div>
   )
 }

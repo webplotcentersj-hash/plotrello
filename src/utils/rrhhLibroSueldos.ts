@@ -1,4 +1,19 @@
 import { numeroALetras } from './crmExportUtils'
+import {
+  EMPLEADO_LEGAL_DEFAULT,
+  NOMBRE_LEGAL_CARGA,
+  calcularCargasLegales,
+  normalizarEmpleadoLegal,
+  normalizarParametrosLegales,
+  parametrosLegalesDefault,
+  remuneracionDeclarada,
+  type CargaSocialDef,
+  type CodigoConceptoDeclarado,
+  type EmpleadoLegal,
+  type ItemCarga,
+  type LegalLibro,
+  type SnapshotLibroEmpleado
+} from './rrhhCargasLegales'
 
 /** Alícuotas del modelo Plot Center (recibo LCT mensual). */
 export const ALICUOTAS_LCT_DEFAULT = {
@@ -37,6 +52,10 @@ export type ReciboExtra = {
   base: number | null
   monto: number
   codigo_lsd: string
+  /** Cantidad para el LSD (horas, días). */
+  cantidad?: number
+  /** 'liq' = lo generó la Liquidación mensual (se reemplaza al sincronizar). */
+  origen?: 'liq'
 }
 
 export function extraVacio(): ReciboExtra {
@@ -213,7 +232,8 @@ export type RrhhLibroSueldos = {
   codigo_localidad: string
   codigo_os_default: string | null
   importe_detraer: number
-  alicuotas: Partial<AlicuotasLct>
+  /** Alícuotas del modelo viejo + `legal`: parámetros y cargas traídos de la liquidación. */
+  alicuotas: Partial<AlicuotasLct> & { legal?: LegalLibro }
   notas: string | null
   id_lote_recibos: number | null
   created_by: number | null
@@ -289,6 +309,8 @@ export type ReciboEmpresa = {
 }
 
 export type ReciboLinea = {
+  /** Id de la carga social (ap-jub, co-os…) cuando la línea viene del motor de cargas. */
+  id?: string
   concepto: string
   unidad: string
   base: number | null
@@ -317,6 +339,11 @@ export type ReciboLiquidado = {
   empresa: ReciboEmpresa
   bruto: number
   baseOs: number
+  /** Bases imponibles (LSD registro 04 / SICOSS). */
+  bases: { remuneracion: number; aportes: number; aportesOs: number; os: number; contribSs: number }
+  /** La remuneración superó la base imponible máxima de aportes. */
+  topeAplicado: boolean
+  empleado: EmpleadoLegal
   neto: number
   descuentos: number
   contribuciones: number
@@ -517,11 +544,105 @@ type LibroLiq = Pick<
   | 'os_base_mult'
   | 'alicuotas'
   | 'dias_base'
+  | 'importe_detraer'
 >
 
+/** Alícuotas del modelo viejo del libro → cargas del motor común (ids de la liquidación). */
+export function cargasDesdeAlicuotas(a: AlicuotasLct): CargaSocialDef[] {
+  const pct = (n: number) => round2(n * 10000) / 100
+  return [
+    { id: 'ap-jub', nombre: 'Jubilación (SIPA)', lado: 'aporte', porcentaje: pct(a.jubilacion) },
+    { id: 'ap-pami', nombre: 'PAMI (INSSJP)', lado: 'aporte', porcentaje: pct(a.inssjpTrabajador) },
+    { id: 'ap-os', nombre: 'Obra social', lado: 'aporte', porcentaje: pct(a.osTrabajador) },
+    { id: 'ap-sind', nombre: 'Sindicato (convenio)', lado: 'aporte', porcentaje: pct(a.sindicatoTrabajador) },
+    { id: 'co-jub', nombre: 'Jubilación (SIPA)', lado: 'contribucion', porcentaje: pct(a.sipaEmpleador) },
+    { id: 'co-pami', nombre: 'PAMI (INSSJP)', lado: 'contribucion', porcentaje: pct(a.inssjpEmpleador) },
+    { id: 'co-af', nombre: 'Asignaciones familiares', lado: 'contribucion', porcentaje: pct(a.asignaciones) },
+    { id: 'co-fne', nombre: 'Fondo Nacional de Empleo', lado: 'contribucion', porcentaje: pct(a.fne) },
+    { id: 'co-os', nombre: 'Obra social', lado: 'contribucion', porcentaje: pct(a.osEmpleador) },
+    { id: 'co-sind', nombre: 'Sindicato (convenio)', lado: 'contribucion', porcentaje: pct(a.sindicatoEmpleador) },
+    { id: 'co-art', nombre: 'ART', lado: 'contribucion', porcentaje: 0 }
+  ]
+}
+
+/** Lee el bloque legal guardado en el libro (alicuotas.legal). */
+export function legalGuardado(libro: Pick<RrhhLibroSueldos, 'alicuotas' | 'periodo'>): LegalLibro | null {
+  const raw = (libro.alicuotas as { legal?: unknown } | null | undefined)?.legal
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Partial<LegalLibro>
+  if (!Array.isArray(r.cargas) || !r.cargas.length) return null
+  const empleados: Record<string, EmpleadoLegal> = {}
+  for (const [id, e] of Object.entries(r.empleados || {})) empleados[id] = normalizarEmpleadoLegal(e)
+  return {
+    version: 1,
+    origen: r.origen === 'liquidacion' ? 'liquidacion' : 'libro',
+    parametros: normalizarParametrosLegales(r.parametros, libro.periodo),
+    cargas: r.cargas.map((c) => ({
+      id: String(c.id),
+      nombre: String(c.nombre || c.id),
+      lado: c.lado === 'aporte' ? 'aporte' : 'contribucion',
+      porcentaje: Number(c.porcentaje) || 0
+    })),
+    empleados
+  }
+}
+
+/**
+ * Contexto legal del libro: el que vino de la liquidación del período, o (libros viejos)
+ * el armado desde las alícuotas propias del libro.
+ */
+export function legalDelLibro(libro: LibroLiq): LegalLibro {
+  const g = legalGuardado(libro)
+  if (g) return g
+  const parametros = parametrosLegalesDefault(libro.periodo)
+  return {
+    version: 1,
+    origen: 'libro',
+    parametros: { ...parametros, detraccion: round2(Number(libro.importe_detraer) || 0) },
+    cargas: cargasDesdeAlicuotas(mergeAlicuotas(libro.alicuotas)),
+    empleados: {}
+  }
+}
+
+/** Datos legales del empleado: los de la liquidación o, si no hay, los de su ítem del libro. */
+export function empleadoLegalDeItem(
+  item: Pick<RrhhLibroSueldosItem, 'id_usuario' | 'cct' | 'cct_codigo' | 'modalidad'>,
+  legal: LegalLibro,
+  brutoParaLegado: number,
+  osBaseMult: number
+): EmpleadoLegal {
+  const guardado = legal.empleados[String(item.id_usuario)]
+  if (guardado) return guardado
+  const enConvenio = item.cct_codigo ? cctEnConvenio(item.cct_codigo) : item.cct !== false
+  const jornadaParcial = String(item.modalidad || '').replace(/\D/g, '').padStart(3, '0') === '008'
+  const mult = Number(osBaseMult) > 0 ? Number(osBaseMult) : 2
+  return {
+    ...EMPLEADO_LEGAL_DEFAULT,
+    enConvenio,
+    jornadaParcial,
+    // Libros viejos: la base OS de jornada completa era bruto × multiplicador.
+    sueldoJornadaCompleta: jornadaParcial ? round2(brutoParaLegado * mult) : 0
+  }
+}
+
+/** Códigos LSD de los aportes del trabajador (por id de carga). */
+const LSD_POR_CARGA: Record<string, string> = {
+  'ap-jub': CONCEPTOS_LSD.jub.codigo,
+  'ap-pami': CONCEPTOS_LSD.inssjp.codigo,
+  'ap-os': CONCEPTOS_LSD.os.codigo,
+  'ap-sind': CONCEPTOS_LSD.sind.codigo
+}
+
+export function codigoLsdDeCarga(id: string): string {
+  return LSD_POR_CARGA[id] || id.toUpperCase().slice(0, 10)
+}
+
+function cargaSuma(items: ItemCarga[], ...ids: string[]): number {
+  return round2(items.filter((i) => ids.includes(i.id)).reduce((s, i) => s + i.importe, 0))
+}
+
 export function numerosLiquidacion(item: RrhhLibroSueldosItem, libro: LibroLiq) {
-  const a = mergeAlicuotas(libro.alicuotas)
-  const osMult = Number(libro.os_base_mult) > 0 ? Number(libro.os_base_mult) : 2
+  const legal = legalDelLibro(libro)
   const extras = item.extras || []
   const basico = round2(item.sueldo_basico)
   const antig = round2(item.adicional_antiguedad)
@@ -531,7 +652,8 @@ export function numerosLiquidacion(item: RrhhLibroSueldosItem, libro: LibroLiq) 
       .filter((x) => x.tipo === 'remunerativo')
       .reduce((s, x) => s + montoExtraEfectivo(x, baseHaberes).monto, 0)
   )
-  const bruto = round2(basico + antig + extraRem)
+  // Inasistencias / suspensiones entran como remunerativo negativo: el bruto nunca baja de 0.
+  const bruto = Math.max(0, round2(basico + antig + extraRem))
   const extraNoRem = round2(
     extras
       .filter((x) => x.tipo === 'no_remunerativo')
@@ -547,24 +669,23 @@ export function numerosLiquidacion(item: RrhhLibroSueldosItem, libro: LibroLiq) 
       .filter((x) => x.tipo === 'empleador')
       .reduce((s, x) => s + montoExtraEfectivo(x, bruto).monto, 0)
   )
-  const baseOs = round2(bruto * osMult)
+  const empleado = empleadoLegalDeItem(item, legal, bruto, Number(libro.os_base_mult))
+  const calc = calcularCargasLegales({
+    periodo: libro.periodo,
+    remuneracion: bruto,
+    cargas: legal.cargas,
+    parametros: legal.parametros,
+    empleado
+  })
   const scvo = round2(item.scvo)
-  const sipa = round2(bruto * a.sipaEmpleador)
-  const inssjpE = round2(bruto * a.inssjpEmpleador)
-  const osE = round2(baseOs * a.osEmpleador)
-  const af = round2(bruto * a.asignaciones)
-  const fne = round2(bruto * a.fne)
-  const sindE = round2(bruto * a.sindicatoEmpleador)
-  const contribuciones = round2(sipa + inssjpE + osE + af + fne + sindE + scvo + extraEmp)
-  const sindT = round2(bruto * a.sindicatoTrabajador)
-  const jub = round2(bruto * a.jubilacion)
-  const inssjpT = round2(bruto * a.inssjpTrabajador)
-  const osT = round2(baseOs * a.osTrabajador)
-  const descuentos = round2(sindT + jub + inssjpT + osT + extraDesc)
+  const contribuciones = round2(calc.totalContribuciones + scvo + extraEmp)
+  const descuentos = round2(calc.totalAportes + extraDesc)
   const neto = round2(bruto + extraNoRem - descuentos)
   const costoEmpleador = round2(bruto + extraNoRem + contribuciones)
   return {
-    a,
+    legal,
+    empleado,
+    calc,
     extras,
     extraRem,
     extraNoRem,
@@ -573,19 +694,9 @@ export function numerosLiquidacion(item: RrhhLibroSueldosItem, libro: LibroLiq) 
     basico,
     antig,
     bruto,
-    baseOs,
+    baseOs: calc.baseOs,
     scvo,
-    sipa,
-    inssjpE,
-    osE,
-    af,
-    fne,
-    sindE,
     contribuciones,
-    sindT,
-    jub,
-    inssjpT,
-    osT,
     descuentos,
     neto,
     costoEmpleador,
@@ -596,107 +707,74 @@ export function numerosLiquidacion(item: RrhhLibroSueldosItem, libro: LibroLiq) 
 export function liquidarRecibo(opts: { item: RrhhLibroSueldosItem; libro: LibroLiq }): ReciboLiquidado {
   const { item, libro } = opts
   const n = numerosLiquidacion(item, libro)
-  const {
-    a,
-    extras,
-    basico,
-    antig,
-    bruto,
-    baseOs,
-    scvo,
-    sipa,
-    inssjpE,
-    osE,
-    af,
-    fne,
-    sindE,
-    contribuciones,
-    sindT,
-    jub,
-    inssjpT,
-    osT,
-    descuentos,
-    neto,
-    costoEmpleador,
-    anios
-  } = n
+  const { calc, extras, basico, antig, bruto, scvo, contribuciones, descuentos, neto, costoEmpleador, anios } = n
 
-  const lineasEmpleador: ReciboLinea[] = [
-    {
-      concepto: 'SIPA – Ley 24.241',
-      unidad: formatPct(a.sipaEmpleador),
-      base: bruto,
-      montoEmpleador: sipa,
-      remunerativo: null,
-      noRemunerativo: null,
-      descuento: null,
-      pct: a.sipaEmpleador
-    },
-    {
-      concepto: 'Ley 19.032 – INSSJP',
-      unidad: formatPct(a.inssjpEmpleador),
-      base: bruto,
-      montoEmpleador: inssjpE,
-      remunerativo: null,
-      noRemunerativo: null,
-      descuento: null,
-      pct: a.inssjpEmpleador
-    },
-    {
-      concepto: 'Obra Social',
-      unidad: formatPct(a.osEmpleador),
-      base: baseOs,
-      montoEmpleador: osE,
-      remunerativo: null,
-      noRemunerativo: null,
-      descuento: null,
-      pct: a.osEmpleador
-    },
-    {
-      concepto: 'Asignaciones Familiares',
-      unidad: formatPct(a.asignaciones),
-      base: bruto,
-      montoEmpleador: af,
-      remunerativo: null,
-      noRemunerativo: null,
-      descuento: null,
-      pct: a.asignaciones
-    },
-    {
-      concepto: 'Fondo Nacional de Empleo',
-      unidad: formatPct(a.fne),
-      base: bruto,
-      montoEmpleador: fne,
-      remunerativo: null,
-      noRemunerativo: null,
-      descuento: null,
-      pct: a.fne
-    },
-    {
-      concepto: 'Sindicato',
-      unidad: formatPct(a.sindicatoEmpleador),
-      base: bruto,
-      montoEmpleador: sindE,
-      remunerativo: null,
-      noRemunerativo: null,
-      descuento: null,
-      pct: a.sindicatoEmpleador
-    },
-    {
-      concepto: 'scvo',
-      unidad: '',
-      base: null,
-      montoEmpleador: scvo,
-      remunerativo: null,
-      noRemunerativo: null,
-      descuento: null
-    }
-  ]
+  const lineasEmpleador: ReciboLinea[] = calc.contribuciones.map((c) => ({
+    id: c.id,
+    concepto: NOMBRE_LEGAL_CARGA[c.id] || c.nombre,
+    unidad: c.fijo ? `${formatPct(c.porcentaje / 100)} + fijo` : formatPct(c.porcentaje / 100),
+    base: c.base ?? bruto,
+    montoEmpleador: c.importe,
+    remunerativo: null,
+    noRemunerativo: null,
+    descuento: null,
+    pct: c.porcentaje / 100
+  }))
+  lineasEmpleador.push({
+    id: 'scvo',
+    concepto: 'Seguro colectivo de vida obligatorio (Dto. 1567/74)',
+    unidad: '',
+    base: null,
+    montoEmpleador: scvo,
+    remunerativo: null,
+    noRemunerativo: null,
+    descuento: null
+  })
 
+  const conceptoExtra = (x: ReciboExtra) => {
+    const baseDef = x.tipo === 'remunerativo' ? round2(basico + antig) : bruto
+    const ef = montoExtraEfectivo(x, baseDef)
+    return { x, ef }
+  }
+
+  const haberesExtras: ReciboLinea[] = extras
+    .filter((x) => x.tipo === 'remunerativo' || x.tipo === 'no_remunerativo')
+    .map(conceptoExtra)
+    .filter(({ x, ef }) => x.concepto.trim() || ef.monto)
+    .map(({ x, ef }) => ({
+      concepto: x.concepto || '(concepto)',
+      unidad: x.cantidad != null && x.cantidad !== 0 ? String(x.cantidad) : x.unidad,
+      base: ef.base,
+      remunerativo: x.tipo === 'remunerativo' ? ef.monto : null,
+      noRemunerativo: x.tipo === 'no_remunerativo' ? ef.monto : null,
+      descuento: null,
+      montoEmpleador: null,
+      pct: ef.pct ?? undefined
+    }))
+
+  const descuentosExtras: ReciboLinea[] = extras
+    .filter((x) => x.tipo === 'descuento')
+    .map(conceptoExtra)
+    .filter(({ x, ef }) => x.concepto.trim() || ef.monto)
+    .map(({ x, ef }) => ({
+      concepto: x.concepto || '(concepto)',
+      unidad: x.unidad,
+      base: ef.base,
+      remunerativo: null,
+      noRemunerativo: null,
+      descuento: ef.monto,
+      montoEmpleador: null,
+      pct: ef.pct ?? undefined
+    }))
+
+  // Días del básico: los pagos + los que se descuentan aparte (inasistencias, suspensión).
+  const diasDescontados = extras
+    .filter((x) => x.origen === 'liq' && (x.codigo_lsd === 'INASIST' || x.codigo_lsd === 'SUSPSG'))
+    .reduce((s, x) => s + (Number(x.cantidad) || 0), 0)
   const lineasTrabajador: ReciboLinea[] = [
     {
       concepto: item.etiqueta_basico || 'Sueldo básico',
-      unidad: String(item.dias || libro.dias_base || 30),
+      unidad: String((item.dias || libro.dias_base || 30) + diasDescontados),
       base: null,
       remunerativo: basico,
       noRemunerativo: null,
@@ -710,64 +788,18 @@ export function liquidarRecibo(opts: { item: RrhhLibroSueldosItem; libro: LibroL
       noRemunerativo: null,
       descuento: null
     },
-    {
-      concepto: 'Sindicato',
-      unidad: formatPct(a.sindicatoTrabajador),
-      base: bruto,
+    ...haberesExtras,
+    ...calc.aportes.map((c) => ({
+      id: c.id,
+      concepto: NOMBRE_LEGAL_CARGA[c.id] || c.nombre,
+      unidad: formatPct(c.porcentaje / 100),
+      base: c.base ?? bruto,
       remunerativo: null,
       noRemunerativo: null,
-      descuento: sindT,
-      pct: a.sindicatoTrabajador
-    },
-    {
-      concepto: 'Jubilación - Ley 24.241',
-      unidad: formatPct(a.jubilacion),
-      base: bruto,
-      remunerativo: null,
-      noRemunerativo: null,
-      descuento: jub,
-      pct: a.jubilacion
-    },
-    {
-      concepto: 'Ley 19.032 - INSSJP',
-      unidad: formatPct(a.inssjpTrabajador),
-      base: bruto,
-      remunerativo: null,
-      noRemunerativo: null,
-      descuento: inssjpT,
-      pct: a.inssjpTrabajador
-    },
-    {
-      concepto: 'Obra Social',
-      unidad: formatPct(a.osTrabajador),
-      base: baseOs,
-      remunerativo: null,
-      noRemunerativo: null,
-      descuento: osT,
-      pct: a.osTrabajador
-    },
-    ...extras
-      .filter((x) => x.tipo !== 'empleador')
-      .map((x) => {
-        const baseDef = x.tipo === 'remunerativo' ? round2(basico + antig) : bruto
-        const ef = montoExtraEfectivo(x, baseDef)
-        return {
-          x,
-          ef,
-          linea: {
-            concepto: x.concepto || '(concepto)',
-            unidad: x.unidad,
-            base: ef.base,
-            remunerativo: x.tipo === 'remunerativo' ? ef.monto : null,
-            noRemunerativo: x.tipo === 'no_remunerativo' ? ef.monto : null,
-            descuento: x.tipo === 'descuento' ? ef.monto : null,
-            montoEmpleador: null as number | null,
-            pct: ef.pct ?? undefined
-          }
-        }
-      })
-      .filter(({ x, ef }) => x.concepto.trim() || ef.monto)
-      .map(({ linea }) => linea)
+      descuento: c.importe,
+      pct: c.porcentaje / 100
+    })),
+    ...descuentosExtras
   ]
 
   for (const x of extras.filter((e) => e.tipo === 'empleador')) {
@@ -785,6 +817,8 @@ export function liquidarRecibo(opts: { item: RrhhLibroSueldosItem; libro: LibroL
     })
   }
 
+  const co = calc.contribuciones
+  const ap = calc.aportes
   return {
     item,
     empresa: {
@@ -796,7 +830,16 @@ export function liquidarRecibo(opts: { item: RrhhLibroSueldosItem; libro: LibroL
       periodo: libro.periodo
     },
     bruto,
-    baseOs,
+    baseOs: calc.baseOs,
+    bases: {
+      remuneracion: bruto,
+      aportes: calc.baseAportes,
+      aportesOs: calc.baseAportesOs,
+      os: calc.baseOs,
+      contribSs: calc.baseContribSs
+    },
+    topeAplicado: calc.topeAplicado,
+    empleado: n.empleado,
     neto,
     descuentos,
     contribuciones,
@@ -804,18 +847,136 @@ export function liquidarRecibo(opts: { item: RrhhLibroSueldosItem; libro: LibroL
     lineasEmpleador,
     lineasTrabajador,
     composicion: {
-      sindicalEmpleador: sindE,
-      sindicalTrabajador: sindT,
-      ssEmpleador: round2(sipa + af + fne),
-      ssTrabajador: jub,
-      osEmpleador: osE,
-      osTrabajador: osT,
-      inssjpEmpleador: inssjpE,
-      inssjpTrabajador: inssjpT,
-      art: 0,
+      sindicalEmpleador: cargaSuma(co, 'co-sind'),
+      sindicalTrabajador: cargaSuma(ap, 'ap-sind'),
+      ssEmpleador: cargaSuma(co, 'co-jub', 'co-af', 'co-fne', 'co-fal'),
+      ssTrabajador: cargaSuma(ap, 'ap-jub'),
+      osEmpleador: cargaSuma(co, 'co-os'),
+      osTrabajador: cargaSuma(ap, 'ap-os'),
+      inssjpEmpleador: cargaSuma(co, 'co-pami'),
+      inssjpTrabajador: cargaSuma(ap, 'ap-pami'),
+      art: cargaSuma(co, 'co-art'),
       scvo
     },
     netoEnLetras: netoEnLetras(neto)
+  }
+}
+
+export type ConceptoParaArca = {
+  codigo: string
+  descripcion: string
+  tipo: 'Remunerativo' | 'Remunerativo (resta)' | 'No remunerativo' | 'Descuento'
+  unidad: string
+  /** Qué concepto de ARCA elegir al asociarlo en el módulo Conceptos del LSD. */
+  asociar: string
+  /** Lo genera el sistema (true) o lo cargó alguien como concepto extra del libro. */
+  delSistema: boolean
+}
+
+/** Conceptos que usa el TXT y hay que dar de alta (una sola vez) en ARCA › LSD › Conceptos. */
+export const CONCEPTOS_ARCA_SISTEMA: ConceptoParaArca[] = [
+  { codigo: 'SUELDO', descripcion: 'Sueldo básico', tipo: 'Remunerativo', unidad: 'Días', asociar: 'Sueldo / salario básico', delSistema: true },
+  { codigo: 'ANTIG', descripcion: 'Adicional por antigüedad', tipo: 'Remunerativo', unidad: 'Años', asociar: 'Adicional por antigüedad', delSistema: true },
+  { codigo: 'HE50', descripcion: 'Horas extra 50% (art. 201 LCT)', tipo: 'Remunerativo', unidad: 'Horas', asociar: 'Horas extras al 50%', delSistema: true },
+  { codigo: 'HE100', descripcion: 'Horas extra 100% (art. 201 LCT)', tipo: 'Remunerativo', unidad: 'Horas', asociar: 'Horas extras al 100%', delSistema: true },
+  { codigo: 'INASIST', descripcion: 'Inasistencias injustificadas', tipo: 'Remunerativo (resta)', unidad: 'Días', asociar: 'Inasistencias injustificadas (descuento remunerativo)', delSistema: true },
+  { codigo: 'SUSPSG', descripcion: 'Suspensión sin goce (art. 218 LCT)', tipo: 'Remunerativo (resta)', unidad: 'Días', asociar: 'Suspensión sin goce de haberes (descuento remunerativo)', delSistema: true },
+  { codigo: 'MEDIAJ', descripcion: 'Media jornada sin goce', tipo: 'Remunerativo (resta)', unidad: 'Días', asociar: 'Inasistencias / horas no trabajadas (descuento remunerativo)', delSistema: true },
+  { codigo: 'TARDANZA', descripcion: 'Tardanzas (tiempo no trabajado)', tipo: 'Remunerativo (resta)', unidad: 'Horas', asociar: 'Horas no trabajadas (descuento remunerativo)', delSistema: true },
+  { codigo: 'JUB', descripcion: 'Jubilación – Ley 24.241', tipo: 'Descuento', unidad: '%', asociar: 'Aporte SIPA', delSistema: true },
+  { codigo: 'INSSJP', descripcion: 'INSSJP – Ley 19.032', tipo: 'Descuento', unidad: '%', asociar: 'Aporte INSSJP (Ley 19.032)', delSistema: true },
+  { codigo: 'OS', descripcion: 'Obra Social – Ley 23.660', tipo: 'Descuento', unidad: '%', asociar: 'Aporte obra social', delSistema: true },
+  { codigo: 'SIND', descripcion: 'Cuota sindical (CCT)', tipo: 'Descuento', unidad: '%', asociar: 'Cuota sindical', delSistema: true }
+]
+
+/** Lista para ARCA: los del sistema + los códigos de conceptos extra usados en el período. */
+export function conceptosParaArca(items: Array<Pick<RrhhLibroSueldosItem, 'extras'>>): ConceptoParaArca[] {
+  const out = [...CONCEPTOS_ARCA_SISTEMA]
+  const vistos = new Set(out.map((c) => c.codigo))
+  for (const it of items) {
+    for (const x of it.extras || []) {
+      if (x.tipo === 'empleador' || x.origen === 'liq') continue
+      const cod = (x.codigo_lsd || x.concepto || '').replace(/\s+/g, '').slice(0, 10)
+      if (!cod || vistos.has(cod)) continue
+      vistos.add(cod)
+      out.push({
+        codigo: cod,
+        descripcion: x.concepto || cod,
+        tipo:
+          x.tipo === 'descuento' ? 'Descuento' : x.tipo === 'no_remunerativo' ? 'No remunerativo' : 'Remunerativo',
+        unidad: x.unidad.includes('%') ? '%' : x.unidad || '—',
+        asociar: 'Elegir el concepto ARCA equivalente',
+        delSistema: false
+      })
+    }
+  }
+  return out
+}
+
+export function conceptosParaArcaCsv(lista: ConceptoParaArca[]): string {
+  const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`
+  const filas = [
+    ['Código', 'Descripción', 'Tipo', 'Unidad', 'Asociar en ARCA a', 'Origen'],
+    ...lista.map((c) => [c.codigo, c.descripcion, c.tipo, c.unidad, c.asociar, c.delSistema ? 'Sistema' : 'Concepto extra'])
+  ]
+  return filas.map((f) => f.map(esc).join(';')).join('\r\n')
+}
+
+/** Código LSD de los conceptos que arma la liquidación. */
+export const LSD_CONCEPTO_DECLARADO: Record<CodigoConceptoDeclarado, string> = {
+  SUELDO: CONCEPTOS_LSD.sueldo.codigo,
+  ANTIG: CONCEPTOS_LSD.antig.codigo,
+  HE50: 'HE50',
+  HE100: 'HE100',
+  INASIST: 'INASIST',
+  SUSP: 'SUSPSG',
+  MEDIAJ: 'MEDIAJ',
+  TARDANZA: 'TARDANZA'
+}
+
+/**
+ * Aplica al ítem del libro lo que liquidó la Liquidación mensual: básico y antigüedad
+ * proporcionales, días pagos, horas extra, inasistencias, suspensiones, convenio y jornada.
+ * Los conceptos extra cargados a mano en el libro se conservan.
+ */
+export function aplicarLiquidacionAItem<T extends Pick<
+  RrhhLibroSueldosItem,
+  | 'sueldo_basico'
+  | 'adicional_antiguedad'
+  | 'anios_antiguedad'
+  | 'dias'
+  | 'cct'
+  | 'cct_codigo'
+  | 'modalidad'
+  | 'extras'
+>>(item: T, snap: SnapshotLibroEmpleado, cctDefault: string): T {
+  const decl = remuneracionDeclarada(snap)
+  const manuales = (item.extras || []).filter((x) => x.origen !== 'liq')
+  const auto: ReciboExtra[] = decl.conceptos
+    .filter((c) => c.codigo !== 'SUELDO' && c.codigo !== 'ANTIG')
+    .map((c) => ({
+      id: `liq-${c.codigo}`,
+      concepto: c.concepto,
+      tipo: 'remunerativo',
+      unidad: c.unidad === 'H' ? 'hs' : 'días',
+      cantidad: c.cantidad,
+      base: null,
+      monto: c.importe,
+      codigo_lsd: LSD_CONCEPTO_DECLARADO[c.codigo],
+      origen: 'liq'
+    }))
+  const cct = snap.legal.enConvenio ? (cctEnConvenio(cctDefault) ? cctDefault : '0409/05') : '9999/99'
+  const modalidadActual = String(item.modalidad || '001')
+  return {
+    ...item,
+    sueldo_basico: decl.basico,
+    adicional_antiguedad: decl.antiguedad,
+    anios_antiguedad: Math.max(0, Math.floor(snap.antiguedadAnios)),
+    dias: decl.diasPagos || item.dias,
+    cct: snap.legal.enConvenio,
+    cct_codigo: cct,
+    modalidad: snap.legal.jornadaParcial ? '008' : modalidadActual === '008' ? '001' : modalidadActual,
+    extras: [...manuales, ...auto]
   }
 }
 

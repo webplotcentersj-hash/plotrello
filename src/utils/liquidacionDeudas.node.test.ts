@@ -110,8 +110,37 @@ describe('deudas y pagos de liquidación', () => {
       undefined,
       undefined,
       undefined,
-      60000
+      60000,
+      'bloques'
     )
     assert.equal(conceptos.find((c) => c.codigo === 'FTARD')?.importe, 60000)
+  })
+
+  it('el cierre digital descuenta solo los minutos tarde con el criterio por defecto', () => {
+    const conceptos = conceptosMiLiquidacionDigital(
+      {
+        id_usuario: 1,
+        nombre: 'Ana',
+        dias_trabajados: 20,
+        tardanzas: 3,
+        minutos_tarde: 60,
+        ausencias: 0,
+        he50: 0,
+        he100: 0,
+        costo_he: 0,
+        faltas_injustificadas: 0,
+        anticipacion_sueldo: 0,
+        descuento_comida: 0,
+        detalle_json: {}
+      } as never,
+      0,
+      undefined,
+      undefined,
+      undefined,
+      60000
+    )
+    assert.equal(conceptos.find((c) => c.codigo === 'FTARD'), undefined)
+    // 60 min × (60.000 ÷ 8 h)
+    assert.equal(conceptos.find((c) => c.codigo === 'TARD')?.importe, 7500)
   })
 })

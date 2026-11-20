@@ -1,7 +1,8 @@
 import {
   CONCEPTOS_LSD,
-  cctEnConvenio,
+  codigoLsdDeCarga,
   cuitDigitos,
+  montoExtraEfectivo,
   cuilDigitos,
   fechaCortaEs,
   liquidarRecibo,
@@ -102,19 +103,35 @@ function rec03(cuil: string, codigo: string, cantidad: number, unidad: string, i
 
 function rec04(liq: ReciboLiquidado, libro: RrhhLibroSueldos): string {
   const item = liq.item
-  const bruto = liq.bruto
+  const b = liq.bases
   const act = (item.actividad || libro.codigo_actividad || '049').replace(/\D/g, '').padStart(3, '0').slice(-3)
   const loc = (libro.codigo_localidad || '00').replace(/\D/g, '').padStart(2, '0').slice(-2)
   const os = (item.codigo_os || libro.codigo_os_default || '').replace(/\D/g, '').padStart(6, '0').slice(-6)
   const sit = (item.situacion_revista || '01').replace(/\D/g, '').padStart(2, '0').slice(-2)
   const zeros15 = padDec(0, 13, 2)
-  const bi = padDec(bruto, 13, 2)
+  const rem = padDec(b.remuneracion, 13, 2)
+  // Bases imponibles 1–10 (criterio SICOSS): 1 aportes SIPA y 5 aportes INSSJP con tope;
+  // 2/3 contribuciones sin tope; 4 aportes OS (jornada completa si es parcial, con tope);
+  // 8 contribuciones OS (jornada completa si es parcial); 9 LRT.
+  const bases = [
+    b.aportes,
+    b.remuneracion,
+    b.remuneracion,
+    b.aportesOs,
+    b.aportes,
+    b.remuneracion,
+    b.remuneracion,
+    b.os,
+    b.remuneracion,
+    b.remuneracion
+  ].map((n) => padDec(n, 13, 2))
+  const enConvenio = liq.empleado.enConvenio
   return (
     '04' +
     padNum(cuilDigitos(item.cuil), 11) +
     (item.conyuge ? '1' : '0') +
     padNum(item.hijos || 0, 2) +
-    (item.cct_codigo ? (cctEnConvenio(item.cct_codigo) ? '1' : '0') : item.cct ? '1' : '0') +
+    (enConvenio ? '1' : '0') +
     (item.cobertura_scvo ? '1' : '0') +
     '0' +
     padStr(libro.tipo_empleador || '1', 1) +
@@ -143,66 +160,71 @@ function rec04(liq: ReciboLiquidado, libro: RrhhLibroSueldos): string {
     zeros15 +
     zeros15 +
     zeros15 +
-    bi +
-    bi +
-    bi +
-    bi +
-    bi +
-    bi +
-    bi +
-    bi +
-    bi +
-    bi +
+    bases.join('') +
     zeros15 +
     zeros15 +
-    bi +
+    rem +
     padDec(libro.importe_detraer || 0, 13, 2)
   )
 }
 
 function conceptos03(liq: ReciboLiquidado): string[] {
-  const cuil = liq.item.cuil
-  const dias = liq.item.dias || 30
-  const anios = liq.item.anios_antiguedad || 0
+  const item = liq.item
+  const cuil = item.cuil
+  const dias = item.dias || 30
+  const anios = item.anios_antiguedad || 0
   const lines: string[] = []
-  if (liq.item.sueldo_basico > 0) {
-    lines.push(rec03(cuil, CONCEPTOS_LSD.sueldo.codigo, dias, 'D', liq.item.sueldo_basico, 'C'))
+  if (item.sueldo_basico > 0) {
+    lines.push(rec03(cuil, CONCEPTOS_LSD.sueldo.codigo, dias, 'D', item.sueldo_basico, 'C'))
   }
-  if (liq.item.adicional_antiguedad > 0) {
-    lines.push(rec03(cuil, CONCEPTOS_LSD.antig.codigo, anios, 'A', liq.item.adicional_antiguedad, 'C'))
+  if (item.adicional_antiguedad > 0) {
+    lines.push(rec03(cuil, CONCEPTOS_LSD.antig.codigo, anios, 'A', item.adicional_antiguedad, 'C'))
   }
-  for (const x of liq.item.extras || []) {
-    if (!(x.monto > 0) || x.tipo === 'empleador') continue
+  const baseHaberes = round2(item.sueldo_basico + item.adicional_antiguedad)
+  for (const x of item.extras || []) {
+    if (x.tipo === 'empleador') continue
+    // Monto efectivo: incluye los conceptos cargados como % (antes se perdían en el TXT).
+    const ef = montoExtraEfectivo(x, x.tipo === 'remunerativo' ? baseHaberes : liq.bruto)
+    if (!ef.monto) continue
     const cod = (x.codigo_lsd || x.concepto || 'EXTRA').replace(/\s+/g, '').slice(0, 10)
-    const dc = x.tipo === 'descuento' ? 'D' : 'C'
-    lines.push(rec03(cuil, cod, 0, x.unidad.slice(0, 1), x.monto, dc))
+    // Descuentos e importes negativos (inasistencias, suspensiones) van como débito.
+    const dc = x.tipo === 'descuento' || ef.monto < 0 ? 'D' : 'C'
+    const unidad = x.origen === 'liq' ? (x.unidad === 'hs' ? 'H' : 'D') : x.unidad.slice(0, 1)
+    const cant = x.cantidad ?? (ef.pct != null ? ef.pct * 100 : 0)
+    lines.push(rec03(cuil, cod, cant, ef.pct != null ? '%' : unidad, Math.abs(ef.monto), dc))
   }
-  const desc = liq.lineasTrabajador.filter((l) => (l.descuento || 0) > 0)
-  const map: Record<string, { codigo: string; pct: number }> = {
-    Sindicato: { codigo: CONCEPTOS_LSD.sind.codigo, pct: 2 },
-    'Jubilación - Ley 24.241': { codigo: CONCEPTOS_LSD.jub.codigo, pct: 11 },
-    'Ley 19.032 - INSSJP': { codigo: CONCEPTOS_LSD.inssjp.codigo, pct: 3 },
-    'Obra Social': { codigo: CONCEPTOS_LSD.os.codigo, pct: 3 }
-  }
-  for (const l of desc) {
-    const m = map[l.concepto]
-    if (!m || !l.descuento) continue
-    const pct = (l.pct || 0) * 100
-    lines.push(rec03(cuil, m.codigo, pct, '%', l.descuento, 'D'))
+  for (const l of liq.lineasTrabajador) {
+    if (!l.id || !(l.descuento || 0)) continue
+    lines.push(rec03(cuil, codigoLsdDeCarga(l.id), (l.pct || 0) * 100, '%', l.descuento || 0, 'D'))
   }
   return lines
 }
 
 export function validarItemLsd(item: RrhhLibroSueldosItem): string[] {
   const errs: string[] = []
-  if (cuilDigitos(item.cuil).length !== 11) errs.push(`${item.apellido_nombre || 'Empleado'}: CUIL de 11 dígitos`)
-  const extraRem = (item.extras || [])
+  const nombre = item.apellido_nombre || 'Empleado'
+  if (cuilDigitos(item.cuil).length !== 11) errs.push(`${nombre}: CUIL de 11 dígitos`)
+  const baseHaberes = round2(item.sueldo_basico + item.adicional_antiguedad)
+  const extraHab = (item.extras || [])
     .filter((x) => x.tipo === 'remunerativo' || x.tipo === 'no_remunerativo')
-    .reduce((s, x) => s + (Number(x.monto) || 0), 0)
-  if (!(item.sueldo_basico > 0) && !(item.adicional_antiguedad > 0) && !(extraRem > 0)) {
-    errs.push(`${item.apellido_nombre || 'Empleado'}: sin haberes`)
+    .reduce((s, x) => s + Math.max(0, montoExtraEfectivo(x, baseHaberes).monto), 0)
+  if (!(item.sueldo_basico > 0) && !(item.adicional_antiguedad > 0) && !(extraHab > 0)) {
+    errs.push(`${nombre}: sin haberes`)
+  }
+  if (String(item.forma_pago || '').startsWith('3') && String(item.cbu || '').replace(/\D/g, '').length !== 22) {
+    errs.push(`${nombre}: acreditación en cuenta sin CBU de 22 dígitos`)
   }
   return errs
+}
+
+/** Avisos que no frenan el TXT pero conviene revisar (art. 124 LCT, etc.). */
+export function avisosItemLsd(item: RrhhLibroSueldosItem): string[] {
+  const out: string[] = []
+  const nombre = item.apellido_nombre || 'Empleado'
+  if (!String(item.forma_pago || '').startsWith('3')) {
+    out.push(`${nombre}: el sueldo debe pagarse por acreditación en cuenta (art. 124 LCT)`)
+  }
+  return out
 }
 
 export function armarTxtLsd(libro: RrhhLibroSueldos, items: RrhhLibroSueldosItem[]): {

@@ -14,6 +14,23 @@ import {
 } from './asistenciaStats'
 import { fmtAntiguedad } from './rrhhDesvinculacionesStats'
 import { antiguedadMesesAlPeriodo } from './rrhhLibroSueldos'
+import {
+  EMPLEADO_LEGAL_DEFAULT,
+  HORAS_JORNADA_DEFAULT,
+  IDS_CARGAS_SINDICATO,
+  calcularCargasLegales,
+  importeMinutosNoTrabajados,
+  parametrosLegalesDefault,
+  remuneracionDeclarada,
+  type CargaSocialDef,
+  type EmpleadoLegal,
+  type ItemCarga,
+  type ParametrosLegales,
+  type RemuneracionDeclaradaInput
+} from './rrhhCargasLegales'
+
+export type { CargaSocialDef, ItemCarga }
+export { IDS_CARGAS_SINDICATO }
 
 export type MontosLiquidacion = {
   precioHora: number
@@ -33,6 +50,12 @@ export type MontosLiquidacion = {
   netoManual: number | null
   /** Fuera de convenio: no se le aplica la cuota sindical. */
   fueraConvenio?: boolean
+  /** Contrato a tiempo parcial (art. 92 ter LCT): OS sobre jornada completa. */
+  jornadaParcial?: boolean
+  /** Sueldo de jornada completa de la categoría (base de obra social si es parcial). */
+  sueldoJornadaCompleta?: number
+  /** Alta en el Régimen de Incentivo a la Formalización Laboral (Ley 27.802). */
+  rifl?: boolean
 }
 
 /**
@@ -40,24 +63,6 @@ export type MontosLiquidacion = {
  * v2: un 0 explícito en alícuotas / antigüedad se respeta (antes 0 = “sin configurar”).
  */
 export const CONFIG_LIQUIDACION_VERSION = 2
-
-/** Ids de cargas del sindicato (no aplican a quien está fuera de convenio). */
-export const IDS_CARGAS_SINDICATO = new Set(['ap-sind', 'co-sind'])
-
-export type CargaSocialDef = {
-  id: string
-  nombre: string
-  lado: 'aporte' | 'contribucion'
-  porcentaje: number
-}
-
-export type ItemCarga = {
-  id: string
-  nombre: string
-  lado: 'aporte' | 'contribucion'
-  porcentaje: number
-  importe: number
-}
 
 export type LineaNovedadLiquidacion = {
   desde: string
@@ -165,6 +170,19 @@ export type LiquidacionEmpleado = {
   netoManual: boolean
   costoEmpresa: number
   baseDistinta: boolean
+  /** Base de obra social (jornada completa si es parcial). */
+  baseOs: number
+  /** La remuneración superó la base imponible máxima: aportes topados. */
+  topeAplicado: boolean
+  /** Datos legales del empleado usados en el cálculo. */
+  legal: EmpleadoLegal
+  /** Jornada parcial sin sueldo de jornada completa cargado: se usó sueldo × 2. */
+  jornadaCompletaEstimada: boolean
+  criterioTardanzas: CriterioTardanzas
+  /** Horas de su jornada (horario del período, o 8). */
+  horasJornada: number
+  /** Entrada de la remuneración declarada (lo que lee el Libro de sueldos). */
+  declarado: RemuneracionDeclaradaInput
 }
 
 export const MONTOS_VACIOS: MontosLiquidacion = {
@@ -241,8 +259,21 @@ export const PCT_ANTIGUEDAD_LEGAL_DEFAULT = 1
 /** Valor fijo de un día para descontar faltas injustificadas y bloques de tardanzas. */
 export const VALOR_DIA_DESCUENTO_DEFAULT = 52232
 
-/** Cada N tardanzas equivalen a 1 día de descuento. */
+/** Cada N tardanzas equivalen a 1 día de descuento (solo con el criterio 'bloques'). */
 export const TARDANZAS_POR_DIA_DESCUENTO = 3
+
+/**
+ * Cómo se descuentan las tardanzas:
+ * - 'minutos' (default): solo el tiempo no trabajado, al valor hora de su jornada. Es lo que
+ *   permite la LCT (art. 69 prohíbe las multas; art. 131 limita las retenciones).
+ * - 'bloques': criterio interno anterior, cada 3 tardanzas = 1 día. No pasa al recibo/libro.
+ */
+export type CriterioTardanzas = 'minutos' | 'bloques'
+export const CRITERIO_TARDANZAS_DEFAULT: CriterioTardanzas = 'minutos'
+
+export function normalizarCriterioTardanzas(raw: unknown): CriterioTardanzas {
+  return raw === 'bloques' ? 'bloques' : CRITERIO_TARDANZAS_DEFAULT
+}
 
 const LS_KEY = 'rrhh-liquidacion-v1'
 
@@ -324,12 +355,17 @@ export function normalizarMontos(raw: unknown): MontosLiquidacion {
     if (Number.isFinite(n) && n >= 0) netoManual = round2(n)
   }
   const legadoBlanco = num(row.sueldoBlanco)
+  const jornadaCompleta = num(row.sueldoJornadaCompleta)
   return {
     precioHora: num(row.precioHora),
     sueldoBase: num(row.sueldoBase),
     sueldoSinDeclarar: num(row.sueldoSinDeclarar),
     netoManual,
     fueraConvenio: row.fueraConvenio === true,
+    // Se guarda también el false explícito: pisa lo que diga el legajo.
+    ...(typeof row.jornadaParcial === 'boolean' ? { jornadaParcial: row.jornadaParcial } : {}),
+    ...(jornadaCompleta > 0 ? { sueldoJornadaCompleta: jornadaCompleta } : {}),
+    ...(row.rifl === true ? { rifl: true } : {}),
     // Dato de la columna “En blanco” anterior a oct-2026: se conserva tal cual al guardar.
     ...(legadoBlanco > 0 ? { sueldoBlanco: legadoBlanco } : {})
   }
@@ -608,6 +644,12 @@ export function armarLiquidacionEmpleado(params: {
   horariosPorMes?: Record<string, Record<number, HorarioFijoAsistencia>>
   /** Rotativos / francos / ajustes de turno (misma regla que la pestaña Asistencia). */
   horarioEsperadoCtx?: HorarioEsperadoCtx | null
+  /** Tope de aportes, FAL, ART fija, detracción, RIFL (default: los del período). */
+  parametrosLegales?: ParametrosLegales
+  /** Minutos no trabajados (default) o cada 3 tardanzas = 1 día. */
+  criterioTardanzas?: CriterioTardanzas
+  /** El legajo dice "medio día": se toma como jornada parcial si no se marcó otra cosa. */
+  jornadaParcialLegajo?: boolean
 }): LiquidacionEmpleado {
   const periodo = params.fechaHasta.slice(0, 7)
   const fechaIngreso = params.fechaIngreso?.slice(0, 10) || null
@@ -756,31 +798,68 @@ export function armarLiquidacionEmpleado(params: {
   const valorDiaDescuento = normalizarValorDia(
     params.valorDiaDescuento ?? VALOR_DIA_DESCUENTO_DEFAULT
   )
-  // Falta injustificada = 1 día. Cada 3 tardanzas = 1 falta (mismo valor día).
+  const criterioTardanzas = normalizarCriterioTardanzas(params.criterioTardanzas)
+  const horarioPeriodo = params.horariosPorMes?.[periodo]?.[params.id]
+  const horasJornada =
+    horarioPeriodo && Number(horarioPeriodo.horas) > 0 ? Number(horarioPeriodo.horas) : HORAS_JORNADA_DEFAULT
+  // Falta injustificada = 1 día. Tardanzas: solo los minutos no trabajados (default) o,
+  // con el criterio 'bloques', cada 3 tardanzas = 1 falta (mismo valor día).
   const descuentoFaltas = descuentoPorFaltas(faltas, valorDiaDescuento)
-  const diasDescTard = diasDescuentoPorTardanzas(tardanzasCount)
-  const descuentoTardanzas = descuentoPorTardanzas(tardanzasCount, valorDiaDescuento)
+  const diasDescTard = criterioTardanzas === 'bloques' ? diasDescuentoPorTardanzas(tardanzasCount) : 0
+  const descuentoTardanzas =
+    criterioTardanzas === 'bloques'
+      ? descuentoPorTardanzas(tardanzasCount, valorDiaDescuento)
+      : importeMinutosNoTrabajados(minutosTarde, valorDiaDescuento, horasJornada)
   const faltasEquivalentes = faltas + diasDescTard
   // Suspensión sin goce = 1 valor día. Media jornada post-suspensión = ½ valor día.
   const descuentoSuspensiones = round2(diasSuspension * valorDiaDescuento)
   const descuentoMediaJornada = round2(diasMediaJornada * valorDiaDescuento * 0.5)
-  // Las horas extra son remunerativas (LCT): integran la base de aportes y contribuciones.
-  const baseImponible = round2(
-    sueldoBaseProporcional + adicionalAntiguedad + importeExtra50 + importeExtra100
-  )
   const fueraConvenio = params.montos.fueraConvenio === true
-
-  const items = params.cargas
-    .filter((c) => !(fueraConvenio && IDS_CARGAS_SINDICATO.has(c.id)))
-    .map((c) => ({
-    id: c.id,
-    nombre: c.nombre,
-    lado: c.lado,
-    porcentaje: c.porcentaje,
-    importe: round2(baseImponible * (c.porcentaje / 100))
-  }))
-  const aportes = items.filter((c) => c.lado === 'aporte')
-  const contribuciones = items.filter((c) => c.lado === 'contribucion')
+  // Remuneración declarada (la misma que usa el Libro de sueldos): sueldo en blanco
+  // proporcional + antigüedad + horas extra − inasistencias / suspensiones sin goce y
+  // minutos de tardanza no trabajados, que no son remuneración. El criterio 'bloques'
+  // (3 tardanzas = 1 día) es una multa y no pasa al recibo.
+  const declarado: RemuneracionDeclaradaInput = {
+    minutosTardanza: criterioTardanzas === 'minutos' ? minutosTarde : 0,
+    horasJornada,
+    sueldoMensual: params.montos.sueldoBase,
+    factorProporcional,
+    antiguedadAnios,
+    pctAntiguedad: pctAntiguedadLegal,
+    horasHe50: extra50,
+    importeHe50: importeExtra50,
+    horasHe100: extra100,
+    importeHe100: importeExtra100,
+    diasInasistencia: faltas,
+    diasSuspension,
+    diasMediaJornada
+  }
+  const baseImponible = remuneracionDeclarada(declarado).remuneracion
+  // Jornada parcial: lo marcado en la liquidación; si nunca se marcó, lo del legajo ("medio día").
+  const jornadaParcial = params.montos.jornadaParcial ?? params.jornadaParcialLegajo === true
+  const jornadaCompletaCargada = params.montos.sueldoJornadaCompleta ?? 0
+  // Sin sueldo de jornada completa cargado: se estima como medio día (sueldo × 2).
+  const jornadaCompletaEstimada = jornadaParcial && !(jornadaCompletaCargada > 0)
+  const legal: EmpleadoLegal = {
+    ...EMPLEADO_LEGAL_DEFAULT,
+    enConvenio: !fueraConvenio,
+    jornadaParcial,
+    sueldoJornadaCompleta: jornadaCompletaEstimada
+      ? round2(params.montos.sueldoBase * 2)
+      : jornadaParcial
+        ? jornadaCompletaCargada
+        : 0,
+    rifl: params.montos.rifl === true
+  }
+  const calc = calcularCargasLegales({
+    periodo,
+    remuneracion: baseImponible,
+    cargas: params.cargas,
+    parametros: params.parametrosLegales ?? parametrosLegalesDefault(periodo),
+    empleado: legal
+  })
+  const aportes = calc.aportes
+  const contribuciones = calc.contribuciones
   const totalAportes = round2(aportes.reduce((a, c) => a + c.importe, 0))
   const totalContribuciones = round2(contribuciones.reduce((a, c) => a + c.importe, 0))
   const haberes = round2(remuneracion + importeExtra50 + importeExtra100)
@@ -829,6 +908,13 @@ export function armarLiquidacionEmpleado(params: {
   const baseDistinta = false
 
   return {
+    baseOs: calc.baseOs,
+    topeAplicado: calc.topeAplicado,
+    legal,
+    jornadaCompletaEstimada,
+    criterioTardanzas,
+    horasJornada,
+    declarado,
     id: params.id,
     nombre: params.nombre,
     fechaIngreso,

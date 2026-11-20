@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import apiService from '../services/api'
 import type {
   Asistencia,
@@ -27,6 +28,9 @@ import { exportarLiquidacionMensualPdf } from '../utils/exportLiquidacionMensual
 import {
   CCT_LIQUIDACION_DEFAULT,
   CONFIG_LIQUIDACION_VERSION,
+  CRITERIO_TARDANZAS_DEFAULT,
+  normalizarCriterioTardanzas,
+  type CriterioTardanzas,
   MONTOS_VACIOS,
   PCT_ANTIGUEDAD_LEGAL_DEFAULT,
   TARDANZAS_POR_DIA_DESCUENTO,
@@ -46,6 +50,14 @@ import {
   type CargaSocialDef,
   type MontosLiquidacion
 } from '../utils/liquidacionMensual'
+import {
+  falAplica,
+  normalizarParametrosLegales,
+  parametrosLegalesDefault,
+  topesSipaPeriodo,
+  type ParametrosLegales,
+  type SnapshotLibroEmpleado
+} from '../utils/rrhhCargasLegales'
 import {
   deudasAplicables,
   etiquetaDeudaTipo,
@@ -180,10 +192,12 @@ export default function RrhhLiquidacionMensualTab({
   fechaHasta: string
 }) {
   const mes = mesDeFecha(fechaDesde)
+  const navigate = useNavigate()
   const [cargas, setCargas] = useState<CargaSocialDef[]>([])
   const [montos, setMontos] = useState<Record<number, MontosLiquidacion>>({})
   const [pctAntiguedadLegal, setPctAntiguedadLegal] = useState(PCT_ANTIGUEDAD_LEGAL_DEFAULT)
   const [valorDiaDescuento, setValorDiaDescuento] = useState(VALOR_DIA_DESCUENTO_DEFAULT)
+  const [legal, setLegal] = useState<ParametrosLegales>(() => parametrosLegalesDefault(mes))
   const [listo, setListo] = useState(false)
   const [precioDefault, setPrecioDefault] = useState(leerPrecioDefault)
   const [idPeriodo, setIdPeriodo] = useState<number | null>(null)
@@ -200,6 +214,8 @@ export default function RrhhLiquidacionMensualTab({
   const [guardandoDeuda, setGuardandoDeuda] = useState<number | null>(null)
   const arrastreHechoRef = useRef<string | null>(null)
   const [fechasIngreso, setFechasIngreso] = useState<Record<number, string | null>>({})
+  const [mediaJornadaLegajo, setMediaJornadaLegajo] = useState<Set<number>>(new Set())
+  const [criterioTardanzas, setCriterioTardanzas] = useState<CriterioTardanzas>(CRITERIO_TARDANZAS_DEFAULT)
   const [abierto, setAbierto] = useState<number | null>(null)
   const [horariosPorMes, setHorariosPorMes] = useState<Record<string, Record<number, HorarioFijoAsistencia>>>({})
   const [horarioEsperadoCtx, setHorarioEsperadoCtx] = useState<HorarioEsperadoCtx | null>(null)
@@ -218,14 +234,16 @@ export default function RrhhLiquidacionMensualTab({
     montos,
     pctAntiguedadLegal,
     precioDefault,
-    valorDiaDescuento
+    valorDiaDescuento,
+    legal
   })
   persistRef.current = {
     cargas,
     montos,
     pctAntiguedadLegal,
     precioDefault,
-    valorDiaDescuento
+    valorDiaDescuento,
+    legal
   }
 
   const dias = useMemo(() => diasEntre(fechaDesde, fechaHasta), [fechaDesde, fechaHasta])
@@ -238,6 +256,26 @@ export default function RrhhLiquidacionMensualTab({
       const local = cargarMesLiquidacion(mes)
       const res = await apiService.rrhhLiquidacionPeriodoObtener(mes)
       if (cancelado) return
+      // Parámetros legales: los del período; si no tiene, hereda FAL/ART/detracción/RIFL del
+      // mes anterior pero con el tope y la base mínima publicados para este período.
+      let legalMes = parametrosLegalesDefault(mes)
+      const cfgLegal = res.success && res.data ? res.data.config_json?.legal : null
+      if (cfgLegal && typeof cfgLegal === 'object') {
+        legalMes = normalizarParametrosLegales(cfgLegal, mes)
+      } else {
+        const prevRes = await apiService.rrhhLiquidacionPeriodoObtener(mesAnterior(mes))
+        if (cancelado) return
+        const prevLegal = prevRes.success && prevRes.data ? prevRes.data.config_json?.legal : null
+        if (prevLegal && typeof prevLegal === 'object') {
+          const heredado = normalizarParametrosLegales(prevLegal, mes)
+          legalMes = { ...heredado, topeAportes: legalMes.topeAportes, baseMinima: legalMes.baseMinima }
+        }
+      }
+      setLegal(legalMes)
+      persistRef.current = { ...persistRef.current, legal: legalMes }
+      setCriterioTardanzas(
+        normalizarCriterioTardanzas(res.success && res.data ? res.data.config_json?.criterioTardanzas : null)
+      )
       if (res.success && res.data) {
         setIdPeriodo(res.data.id)
         const cfg = res.data.config_json || {}
@@ -288,6 +326,7 @@ export default function RrhhLiquidacionMensualTab({
             ...cfg,
             version: CONFIG_LIQUIDACION_VERSION,
             cctCodigo: cctCfg,
+            legal: legalMes,
             cargas: cargasCfg,
             pctAntiguedadLegal: pct,
             valorDiaDescuento:
@@ -343,6 +382,7 @@ export default function RrhhLiquidacionMensualTab({
         const nextCfg = {
           version: CONFIG_LIQUIDACION_VERSION,
           cctCodigo: CCT_LIQUIDACION_DEFAULT,
+          legal: legalMes,
           cargas: cargasInicial,
           pctAntiguedadLegal: pctInicial,
           valorDiaDescuento: local.valorDiaDescuento,
@@ -409,10 +449,16 @@ export default function RrhhLiquidacionMensualTab({
     void apiService.obtenerLegajosBasico().then((res) => {
       if (cancelado || !res.success || !res.data) return
       const map: Record<number, string | null> = {}
+      const medios = new Set<number>()
       for (const [id, leg] of Object.entries(res.data)) {
         map[Number(id)] = leg.fecha_ingreso ? String(leg.fecha_ingreso).slice(0, 10) : null
+        // Legajo "medio día" o modalidad 008 (tiempo parcial): jornada parcial por defecto.
+        if (/medio/i.test(String(leg.tipo_servicio || '')) || String(leg.modalidad_contrato || '') === '008') {
+          medios.add(Number(id))
+        }
       }
       setFechasIngreso(map)
+      setMediaJornadaLegajo(medios)
     })
     return () => {
       cancelado = true
@@ -560,6 +606,9 @@ export default function RrhhLiquidacionMensualTab({
         cargas,
         pctAntiguedadLegal,
         valorDiaDescuento,
+        parametrosLegales: legal,
+        criterioTardanzas,
+        jornadaParcialLegajo: mediaJornadaLegajo.has(u.id),
         novedades,
         permisos,
         asistencia,
@@ -575,7 +624,7 @@ export default function RrhhLiquidacionMensualTab({
         ? { ...fila, ventas: act.ventas, plataVendida: act.plata, opsMovidas: act.ops, trabajos: act.trabajos }
         : fila
     })
-  }, [listo, stats, empleados, nombres, fechasIngreso, montos, precioDefault, cargas, pctAntiguedadLegal, valorDiaDescuento, novedades, permisos, asistencia, horariosPorMes, horarioEsperadoCtx, dias, fechaDesde, fechaHasta, actividad])
+  }, [listo, stats, empleados, nombres, fechasIngreso, montos, precioDefault, cargas, pctAntiguedadLegal, valorDiaDescuento, legal, criterioTardanzas, mediaJornadaLegajo, novedades, permisos, asistencia, horariosPorMes, horarioEsperadoCtx, dias, fechaDesde, fechaHasta, actividad])
 
   const totales = useMemo(() => totalesLiquidacion(filas), [filas])
 
@@ -713,6 +762,7 @@ export default function RrhhLiquidacionMensualTab({
       cargas: latest.cargas,
       pctAntiguedadLegal: latest.pctAntiguedadLegal,
       valorDiaDescuento: latest.valorDiaDescuento,
+      legal: latest.legal,
       montos: Object.fromEntries(Object.entries(latest.montos).map(([k, v]) => [String(k), v])),
       ...patch
     }
@@ -752,9 +802,28 @@ export default function RrhhLiquidacionMensualTab({
         cambio = true
       }
     }
-    if (!cambio) return
+    // Lo que lee el Libro de sueldos: remuneración declarada + datos legales por empleado.
+    const libroPrev =
+      cfgRef.current.libro && typeof cfgRef.current.libro === 'object'
+        ? (cfgRef.current.libro as Record<string, SnapshotLibroEmpleado>)
+        : {}
+    const libroNext: Record<string, SnapshotLibroEmpleado> = { ...libroPrev }
+    let cambioLibro = false
+    for (const f of filas) {
+      const k = String(f.id)
+      const datos = { ...f.declarado, legal: f.legal }
+      const anterior = libroPrev[k]
+      const igual =
+        anterior &&
+        JSON.stringify({ ...anterior, generado: undefined }) === JSON.stringify({ ...datos, generado: undefined })
+      if (!igual) {
+        libroNext[k] = { ...datos, generado: new Date().toISOString() }
+        cambioLibro = true
+      }
+    }
+    if (!cambio && !cambioLibro) return
     const t = setTimeout(() => {
-      void guardarConfig({ netos: next })
+      void guardarConfig({ netos: next, libro: libroNext })
     }, 1500)
     return () => clearTimeout(t)
     // guardarConfig lee refs; no hace falta como dependencia.
@@ -773,7 +842,8 @@ export default function RrhhLiquidacionMensualTab({
       montos: nextMontos,
       pctAntiguedadLegal: nextPct,
       precioDefault: nextPrecio,
-      valorDiaDescuento: nextValorDia
+      valorDiaDescuento: nextValorDia,
+      legal: persistRef.current.legal
     }
     setCargas(nextCargas)
     setMontos(nextMontos)
@@ -821,6 +891,23 @@ export default function RrhhLiquidacionMensualTab({
     const prevMontos = persistRef.current.montos
     const prev = prevMontos[id] ?? MONTOS_VACIOS
     persistir(persistRef.current.cargas, { ...prevMontos, [id]: { ...prev, fueraConvenio: fuera } })
+  }
+
+  /** Jornada parcial / RIFL / sueldo de jornada completa del empleado. */
+  const cambiarDatoLegal = (
+    id: number,
+    patch: Partial<Pick<MontosLiquidacion, 'jornadaParcial' | 'rifl' | 'sueldoJornadaCompleta'>>
+  ) => {
+    const prevMontos = persistRef.current.montos
+    const prev = prevMontos[id] ?? MONTOS_VACIOS
+    persistir(persistRef.current.cargas, { ...prevMontos, [id]: normalizarMontos({ ...prev, ...patch }) })
+  }
+
+  const cambiarLegal = (patch: Partial<ParametrosLegales>) => {
+    const next = normalizarParametrosLegales({ ...persistRef.current.legal, ...patch }, mes)
+    persistRef.current = { ...persistRef.current, legal: next }
+    setLegal(next)
+    persistirBd()
   }
 
   const cambiarValorDia = (valor: string) => {
@@ -1090,6 +1177,17 @@ export default function RrhhLiquidacionMensualTab({
           <button type="button" className="liq-btn-excel" onClick={exportarExcel} disabled={!filas.length}>
             Excel
           </button>
+          <a
+            className="liq-btn-excel"
+            href="/rrhh/libro-sueldos"
+            title="Recibos y TXT ARCA con estos mismos datos"
+            onClick={(e) => {
+              e.preventDefault()
+              navigate('/rrhh/libro-sueldos')
+            }}
+          >
+            Libro de sueldos
+          </a>
         </div>
       </div>
 
@@ -1113,21 +1211,84 @@ export default function RrhhLiquidacionMensualTab({
             onCommit={(n) => cambiarValorDia(String(n))}
           />
           <span>
-            Falta injustificada = 1 día a este valor. Cada {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 falta. Se descuenta
-            del neto.
+            Falta injustificada = 1 día a este valor.{' '}
+            {criterioTardanzas === 'minutos'
+              ? 'Tardanzas: solo los minutos no trabajados (valor día ÷ horas de su jornada).'
+              : `Cada ${TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 falta.`}{' '}
+            Se descuenta del neto.
+          </span>
+        </label>
+        <label className="liq-campo">
+          Tardanzas
+          <select
+            value={criterioTardanzas}
+            onChange={(e) => {
+              const c = normalizarCriterioTardanzas(e.target.value)
+              setCriterioTardanzas(c)
+              void guardarConfig({ criterioTardanzas: c })
+            }}
+          >
+            <option value="minutos">Minutos no trabajados (LCT)</option>
+            <option value="bloques">Cada {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 falta</option>
+          </select>
+          <span>
+            {criterioTardanzas === 'minutos'
+              ? 'Pasa al recibo como “Tardanzas (tiempo no trabajado)”.'
+              : 'Descontar un día entero por tardanzas es una multa (art. 69 LCT): no pasa al recibo ni al libro.'}
           </span>
         </label>
         <details className="liq-cargas">
           <summary>Cargas sociales del mes</summary>
           <p>
             Precargadas según ley argentina (SIPA / INSSJP / OS / AAFF / FNE) y convenio {CCT_LIQUIDACION_DEFAULT}{' '}
-            (gráficos · cuota sindical). Se calculan sobre sueldo en blanco + antigüedad proporcional + horas extra:
-            los <strong>aportes se descuentan del neto</strong>; las contribuciones suman al costo empresa. ART queda en
-            0 para cargar la de la empresa. Un 0 cargado acá se respeta. La cuota sindical no se aplica a quien esté
-            marcado “fuera de convenio” en su detalle. Antigüedad legal: % del sueldo en blanco por año cumplido
-            (prorrateado; 0 = sin adicional).
+            (gráficos · cuota sindical). Se calculan sobre sueldo en blanco + antigüedad proporcional + horas extra −
+            inasistencias injustificadas y suspensiones (no son remuneración): los{' '}
+            <strong>aportes se descuentan del neto</strong>; las contribuciones suman al costo empresa. Los aportes
+            se topan en la base imponible máxima. ART queda en 0 para cargar la de la empresa. Un 0 cargado acá se
+            respeta. La cuota sindical no se aplica a quien esté marcado “fuera de convenio” en su detalle.
+            Antigüedad: % del sueldo en blanco por año cumplido según el CCT (prorrateado; 0 = sin adicional).
+            Estos mismos datos arman el <strong>Libro de sueldos</strong> del período.
           </p>
           <div className="liq-cargas-grid">
+            <label className="liq-campo">
+              Tope aportes (base máx.)
+              <Numero value={legal.topeAportes} onCommit={(n) => cambiarLegal({ topeAportes: n })} />
+              <span>
+                Jubilación, INSSJP y OS del trabajador no superan este tope. Publicado para{' '}
+                {topesSipaPeriodo(mes).desde}: {formatArs(topesSipaPeriodo(mes).maxima)} (
+                {topesSipaPeriodo(mes).norma})
+                {topesSipaPeriodo(mes).desactualizado ? ' · verificá el tope nuevo de ANSES' : ''}.
+              </span>
+            </label>
+            <label className="liq-campo">
+              Fondo de Asistencia Laboral %
+              <Numero mostrarCero ceroOk value={legal.falPct} onCommit={(n) => cambiarLegal({ falPct: n })} />
+              <span>2,5 MiPyME con certificado · 1 el resto. Se descuenta de la contribución SIPA.</span>
+            </label>
+            <label className="liq-campo">
+              FAL desde
+              <input
+                type="month"
+                value={legal.falDesde}
+                onChange={(e) => e.target.value && cambiarLegal({ falDesde: e.target.value })}
+              />
+              <span>{falAplica(mes, legal) ? 'Aplica en este período.' : 'No aplica en este período.'}</span>
+            </label>
+            <label className="liq-campo">
+              ART suma fija por trabajador
+              <Numero mostrarCero ceroOk value={legal.artFijo} onCommit={(n) => cambiarLegal({ artFijo: n })} />
+              <span>La alícuota % de la ART va en “Contribución · ART”.</span>
+            </label>
+            <label className="liq-campo">
+              Detracción (Ley 27.541)
+              <Numero mostrarCero ceroOk value={legal.detraccion} onCommit={(n) => cambiarLegal({ detraccion: n })} />
+              <span>Se resta de la base de contribuciones SIPA/INSSJP/AAFF/FNE.</span>
+            </label>
+            <label className="liq-campo">
+              RIFL % total
+              <Numero mostrarCero ceroOk value={legal.riflPct} onCommit={(n) => cambiarLegal({ riflPct: n })} />
+              <span>Altas 05/2026–04/2027 marcadas RIFL en su detalle (Ley 27.802).</span>
+            </label>
             <label className="liq-campo">
               Antigüedad legal (por año)
               <Numero mostrarCero ceroOk value={pctAntiguedadLegal} onCommit={(n) => cambiarPctAntiguedad(String(n))} />
@@ -1193,7 +1354,11 @@ export default function RrhhLiquidacionMensualTab({
                   `${f.diasDescuentoTardanzas} falta${f.diasDescuentoTardanzas === 1 ? '' : 's'} (${f.tardanzas} tarde)`
                 )
               } else if (f.tardanzas > 0) {
-                descParts.push(`${f.tardanzas} tarde`)
+                descParts.push(
+                  f.criterioTardanzas === 'minutos' && f.minutosTarde > 0
+                    ? `${f.tardanzas} tarde (${f.minutosTarde} min)`
+                    : `${f.tardanzas} tarde`
+                )
               }
               if (f.diasSuspension > 0) descParts.push(`${f.diasSuspension} susp.`)
               if (f.diasMediaJornada > 0) descParts.push(`${f.diasMediaJornada} ½j`)
@@ -1464,9 +1629,11 @@ export default function RrhhLiquidacionMensualTab({
                             <section className="liq-panel">
                               <h4>Faltas, suspensión y tardanzas</h4>
                               <p className="liq-hint">
-                                Valor día {formatArs(f.valorDiaDescuento)}. Solo injustificadas descuentan · cada{' '}
-                                {TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 falta. Suspensión = 1 día · media jornada
-                                post-suspensión = ½ día.
+                                Valor día {formatArs(f.valorDiaDescuento)}. Solo injustificadas descuentan ·{' '}
+                                {f.criterioTardanzas === 'minutos'
+                                  ? `tardanzas: minutos no trabajados (jornada de ${f.horasJornada} h)`
+                                  : `cada ${TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 falta`}
+                                . Suspensión = 1 día · media jornada post-suspensión = ½ día.
                               </p>
                               {f.diasSuspension > 0 ? (
                                 <>
@@ -1546,7 +1713,11 @@ export default function RrhhLiquidacionMensualTab({
                               ) : null}
                               <p className="liq-footnote">
                                 Tardanzas: {f.tardanzas}
-                                {f.diasDescuentoTardanzas > 0
+                                {f.criterioTardanzas === 'minutos'
+                                  ? f.descuentoTardanzas > 0
+                                    ? ` · ${f.minutosTarde} min no trabajados (−${formatArs(f.descuentoTardanzas)})`
+                                    : ' · sin descuento'
+                                  : f.diasDescuentoTardanzas > 0
                                   ? ` → ${f.diasDescuentoTardanzas} falta${f.diasDescuentoTardanzas === 1 ? '' : 's'} (−${formatArs(f.descuentoTardanzas)})`
                                   : f.tardanzas > 0
                                     ? ` (faltan ${TARDANZAS_POR_DIA_DESCUENTO - (f.tardanzas % TARDANZAS_POR_DIA_DESCUENTO)} para 1 falta)`
@@ -1662,13 +1833,64 @@ export default function RrhhLiquidacionMensualTab({
                                 />{' '}
                                 Fuera de convenio (sin cuota sindical)
                               </label>
+                              <label
+                                className="liq-check"
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, margin: '0 0 8px' }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={f.legal.jornadaParcial}
+                                  onChange={(e) => cambiarDatoLegal(f.id, { jornadaParcial: e.target.checked })}
+                                />{' '}
+                                Jornada parcial (OS sobre jornada completa, art. 92 ter LCT)
+                              </label>
+                              {f.legal.jornadaParcial ? (
+                                <label className="liq-campo" style={{ margin: '0 0 8px' }}>
+                                  Sueldo de jornada completa de su categoría
+                                  <Numero
+                                    value={f.jornadaCompletaEstimada ? 0 : f.legal.sueldoJornadaCompleta}
+                                    placeholder={String(f.legal.sueldoJornadaCompleta || 0)}
+                                    onCommit={(n) => cambiarDatoLegal(f.id, { sueldoJornadaCompleta: n })}
+                                  />
+                                  <span
+                                    style={f.jornadaCompletaEstimada ? { color: '#b45309', fontWeight: 600 } : undefined}
+                                  >
+                                    {f.jornadaCompletaEstimada
+                                      ? `Estimado como medio día (sueldo × 2 = ${formatArs(f.legal.sueldoJornadaCompleta)}). Cargá el sueldo de convenio de su categoría a jornada completa.`
+                                      : 'Base de obra social.'}
+                                  </span>
+                                </label>
+                              ) : null}
+                              <label
+                                className="liq-check"
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, margin: '0 0 8px' }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={f.legal.rifl}
+                                  onChange={(e) => cambiarDatoLegal(f.id, { rifl: e.target.checked })}
+                                />{' '}
+                                Alta RIFL (contribuciones SS {legal.riflPct}%, Ley 27.802)
+                              </label>
                               <dl className="liq-dl">
                                 <div>
                                   <dt>Base imponible</dt>
-                                  <dd title="Sueldo en blanco proporcional + antigüedad + horas extra">
+                                  <dd title="Sueldo en blanco proporcional + antigüedad + horas extra − inasistencias y suspensiones (no son remuneración)">
                                     {formatArs(f.baseImponible)}
                                   </dd>
                                 </div>
+                                {f.topeAplicado ? (
+                                  <div>
+                                    <dt>Aportes topados en</dt>
+                                    <dd>{formatArs(legal.topeAportes)}</dd>
+                                  </div>
+                                ) : null}
+                                {f.baseOs !== f.baseImponible ? (
+                                  <div>
+                                    <dt>Base obra social</dt>
+                                    <dd>{formatArs(f.baseOs)}</dd>
+                                  </div>
+                                ) : null}
                                 {f.aportes.map((c) => (
                                   <div key={c.id}>
                                     <dt>

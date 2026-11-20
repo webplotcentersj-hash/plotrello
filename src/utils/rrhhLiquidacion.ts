@@ -13,10 +13,19 @@ import { etiquetaCodigoRrhhNovedad, etiquetaGrupoRrhhNovedad } from './rrhhNoved
 import { novedadEmpleadoIncorrecto } from './rrhhNovedadEmpleadoObs'
 import { HE_DECLARADA_MARKER } from '../types/api'
 import {
+  CRITERIO_TARDANZAS_DEFAULT,
   diasDescuentoPorTardanzas,
+  normalizarCriterioTardanzas,
   TARDANZAS_POR_DIA_DESCUENTO,
-  VALOR_DIA_DESCUENTO_DEFAULT
+  VALOR_DIA_DESCUENTO_DEFAULT,
+  type CriterioTardanzas
 } from './liquidacionMensual'
+import { HORAS_JORNADA_DEFAULT, importeMinutosNoTrabajados } from './rrhhCargasLegales'
+
+/** Criterio de tardanzas guardado en la liquidación del período (default: minutos). */
+export function criterioTardanzasPeriodo(config: Record<string, unknown> | null | undefined): CriterioTardanzas {
+  return normalizarCriterioTardanzas(config?.criterioTardanzas)
+}
 
 /** Valor día de descuento guardado en la liquidación del período (o el default). */
 export function valorDiaPeriodo(config: Record<string, unknown> | null | undefined): number {
@@ -293,7 +302,9 @@ export function conceptosMiLiquidacionDigital(
   periodo?: string,
   nombresPorId?: Map<number, string>,
   /** Valor día configurado en la liquidación del período (config_json.valorDiaDescuento). */
-  valorDiaDescuento: number = VALOR_DIA_DESCUENTO_DEFAULT
+  valorDiaDescuento: number = VALOR_DIA_DESCUENTO_DEFAULT,
+  /** Criterio de tardanzas del período (config_json.criterioTardanzas). */
+  criterioTardanzas: CriterioTardanzas = CRITERIO_TARDANZAS_DEFAULT
 ): ConceptoLiquidacionDigital[] {
   const diasMes = periodo ? diasEntre(periodoRango(periodo).desde, periodoRango(periodo).hasta) : []
   const fromNov =
@@ -336,16 +347,21 @@ export function conceptosMiLiquidacionDigital(
     })
   }
   if (l.tardanzas > 0) {
+    const minutos = Math.max(0, Number(l.minutos_tarde) || 0)
+    const importeMin =
+      criterioTardanzas === 'minutos'
+        ? importeMinutosNoTrabajados(minutos, valorDiaDescuento, HORAS_JORNADA_DEFAULT)
+        : 0
     rows.push({
       codigo: 'TARD',
-      concepto: 'Tardanzas',
-      cantidad: String(l.tardanzas),
-      unidad: 'un',
-      importe: null,
-      debCred: '—'
+      concepto: criterioTardanzas === 'minutos' ? 'Tardanzas (minutos no trabajados)' : 'Tardanzas',
+      cantidad: criterioTardanzas === 'minutos' ? String(minutos) : String(l.tardanzas),
+      unidad: criterioTardanzas === 'minutos' ? 'min' : 'un',
+      importe: importeMin > 0 ? importeMin : null,
+      debCred: importeMin > 0 ? 'D' : '—'
     })
   }
-  const faltasPorTardanzas = diasDescuentoPorTardanzas(l.tardanzas)
+  const faltasPorTardanzas = criterioTardanzas === 'bloques' ? diasDescuentoPorTardanzas(l.tardanzas) : 0
   if (faltasPorTardanzas > 0) {
     rows.push({
       codigo: 'FTARD',

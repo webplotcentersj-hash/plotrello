@@ -174,7 +174,7 @@ export function calcularIndicadoresNovedadesLegajo(
     const faltasEquiv = diasDescuentoPorTardanzas(llegadasTardeMes)
     alertas.push({
       nivel: llegadasTardeMes >= 5 ? 'critical' : 'warning',
-      mensaje: `${llegadasTardeMes} llegada${llegadasTardeMes === 1 ? '' : 's'} tarde este mes → ${faltasEquiv} falta${faltasEquiv === 1 ? '' : 's'} equivalente${faltasEquiv === 1 ? '' : 's'} (cada ${TARDANZAS_POR_DIA_DESCUENTO} tardanzas = 1 falta en liquidación).`
+      mensaje: `${llegadasTardeMes} llegada${llegadasTardeMes === 1 ? '' : 's'} tarde este mes → ${faltasEquiv} falta${faltasEquiv === 1 ? '' : 's'} equivalente${faltasEquiv === 1 ? '' : 's'} si la liquidación usa el criterio “cada ${TARDANZAS_POR_DIA_DESCUENTO} = 1 falta”; con el criterio legal solo se descuentan los minutos no trabajados.`
     })
   }
 

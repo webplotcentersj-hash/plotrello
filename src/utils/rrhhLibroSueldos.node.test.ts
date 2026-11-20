@@ -82,21 +82,51 @@ function libroAgosto(): RrhhLibroSueldos {
 }
 
 describe('libro de sueldos LCT', () => {
-  it('repite el recibo de Evelyn (agosto 2026)', () => {
+  it('recibo de Evelyn (agosto 2026): jornada parcial y fuera de convenio', () => {
     const liq = liquidarRecibo({ item: itemEvelyn(), libro: libroAgosto() })
+    const emp = (id: string) => liq.lineasEmpleador.find((l) => l.id === id)?.montoEmpleador
+    const trab = (id: string) => liq.lineasTrabajador.find((l) => l.id === id)?.descuento
     assert.equal(liq.bruto, 145064.45)
+    // Medio día (modalidad 008): OS sobre jornada completa (art. 92 ter LCT) = bruto × 2.
     assert.equal(liq.baseOs, 290128.9)
-    assert.equal(liq.lineasEmpleador[0].montoEmpleador, 15623.44)
-    assert.equal(liq.lineasEmpleador[1].montoEmpleador, 2306.52)
-    assert.equal(liq.lineasEmpleador[2].montoEmpleador, 17407.73)
-    assert.equal(liq.lineasEmpleador[3].montoEmpleador, 6818.03)
-    assert.equal(liq.lineasEmpleador[4].montoEmpleador, 1363.61)
-    assert.equal(liq.lineasEmpleador[5].montoEmpleador, 1087.98)
-    assert.equal(liq.lineasEmpleador[6].montoEmpleador, 424.62)
-    assert.equal(liq.contribuciones, 45031.93)
-    assert.equal(liq.descuentos, 31914.18)
-    assert.equal(liq.neto, 113150.27)
+    assert.equal(emp('co-jub'), 15623.44)
+    assert.equal(emp('co-pami'), 2306.52)
+    assert.equal(emp('co-os'), 17407.73)
+    assert.equal(emp('co-af'), 6818.03)
+    assert.equal(emp('co-fne'), 1363.61)
+    // 9999/99 (excluida de convenio): sin cuota ni contribución sindical.
+    assert.equal(emp('co-sind'), undefined)
+    assert.equal(trab('ap-sind'), undefined)
+    assert.equal(liq.lineasEmpleador.find((l) => l.id === 'scvo')?.montoEmpleador, 424.62)
+    assert.equal(liq.contribuciones, 43943.95)
+    // 11% + 3% sobre bruto, 3% OS sobre jornada completa.
+    assert.equal(trab('ap-jub'), 15957.09)
+    assert.equal(trab('ap-pami'), 4351.93)
+    assert.equal(trab('ap-os'), 8703.87)
+    assert.equal(liq.descuentos, 29012.89)
+    assert.equal(liq.neto, 116051.56)
     assert.equal(round2(liq.bruto + liq.contribuciones), liq.costoEmpleador)
+  })
+
+  it('cobra sindicato solo dentro de convenio', () => {
+    const dentro = liquidarRecibo({ item: { ...itemEvelyn(), cct_codigo: '0409/05' }, libro: libroAgosto() })
+    assert.equal(dentro.lineasTrabajador.find((l) => l.id === 'ap-sind')?.descuento, 2901.29)
+    assert.equal(dentro.lineasEmpleador.find((l) => l.id === 'co-sind')?.montoEmpleador, 1087.98)
+  })
+
+  it('jornada completa: la base de obra social es el bruto', () => {
+    const liq = liquidarRecibo({ item: { ...itemEvelyn(), modalidad: '001' }, libro: libroAgosto() })
+    assert.equal(liq.baseOs, liq.bruto)
+  })
+
+  it('topa los aportes en la base imponible máxima y no las contribuciones', () => {
+    const item = { ...itemEvelyn(), modalidad: '001', sueldo_basico: 6000000, adicional_antiguedad: 0 }
+    const libro = { ...libroAgosto(), periodo: '2026-11' }
+    const liq = liquidarRecibo({ item, libro })
+    assert.equal(liq.topeAplicado, true)
+    assert.equal(liq.bases.aportes, 4861685.38)
+    assert.equal(liq.lineasTrabajador.find((l) => l.id === 'ap-jub')?.descuento, round2(4861685.38 * 0.11))
+    assert.equal(liq.lineasEmpleador.find((l) => l.id === 'co-jub')?.montoEmpleador, round2(6000000 * 0.1077))
   })
 
   it('titula el recibo por mes', () => {
@@ -165,7 +195,7 @@ describe('libro de sueldos LCT', () => {
     assert.ok(linea)
     assert.equal(linea!.descuento, esperado)
     assert.equal(linea!.base, base.bruto)
-    const idxOs = conPct.lineasTrabajador.findIndex((l) => l.concepto === 'Obra Social')
+    const idxOs = conPct.lineasTrabajador.findIndex((l) => l.id === 'ap-os')
     const idxRet = conPct.lineasTrabajador.findIndex((l) => l.concepto === 'Retención Judicial')
     assert.ok(idxOs >= 0 && idxRet > idxOs)
   })

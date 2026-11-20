@@ -18113,6 +18113,8 @@ class ApiService {
           modo_liquidacion?: string | null
           modalidad_contrato?: string | null
           convenio_cct?: string | null
+          conyuge?: boolean | null
+          hijos?: number | null
         }
       >
     >
@@ -18127,7 +18129,7 @@ class ApiService {
       const { data, error } = await supabase
         .from('legajos_empleados')
         .select(
-          'id_usuario, nombre, apellido, sector, fecha_ingreso, email, dni, cuil, n_legajo, banco, cbu, obra_social, codigo_os, tipo_servicio, categoria, puesto, retribucion_pactada, modo_liquidacion, modalidad_contrato, convenio_cct'
+          'id_usuario, nombre, apellido, sector, fecha_ingreso, email, dni, cuil, n_legajo, banco, cbu, obra_social, codigo_os, tipo_servicio, categoria, puesto, retribucion_pactada, modo_liquidacion, modalidad_contrato, convenio_cct, conyuge, hijos'
         )
 
       if (error) {
@@ -18155,6 +18157,8 @@ class ApiService {
         modo_liquidacion?: string | null
         modalidad_contrato?: string | null
         convenio_cct?: string | null
+        conyuge?: boolean | null
+        hijos?: number | null
       }>) || []
 
       if (soloActivos) {
@@ -18192,6 +18196,8 @@ class ApiService {
           modo_liquidacion?: string | null
           modalidad_contrato?: string | null
           convenio_cct?: string | null
+          conyuge?: boolean | null
+          hijos?: number | null
         }
       > = {}
       for (const row of rows) {
@@ -18217,7 +18223,9 @@ class ApiService {
           retribucion_pactada: ret != null && Number.isFinite(ret) ? ret : null,
           modo_liquidacion: row.modo_liquidacion ?? null,
           modalidad_contrato: row.modalidad_contrato ?? null,
-          convenio_cct: row.convenio_cct ?? null
+          convenio_cct: row.convenio_cct ?? null,
+          conyuge: row.conyuge ?? null,
+          hijos: row.hijos != null && Number.isFinite(Number(row.hijos)) ? Math.max(0, Math.floor(Number(row.hijos))) : null
         }
       }
 

@@ -13,7 +13,6 @@ import type {
   RrhhPuesto
 } from '../types/api'
 import type {
-  AlicuotasLct,
   ReciboExtra,
   RrhhLibroSueldos,
   RrhhLibroSueldosItem,
@@ -767,7 +766,9 @@ function parseExtras(raw: unknown): ReciboExtra[] {
       unidad: String(r.unidad || ''),
       base: r.base == null || r.base === '' ? null : num(r.base),
       monto: num(r.monto),
-      codigo_lsd: String(r.codigo_lsd || '')
+      codigo_lsd: String(r.codigo_lsd || ''),
+      ...(r.cantidad != null && r.cantidad !== '' ? { cantidad: num(r.cantidad) } : {}),
+      ...(r.origen === 'liq' ? { origen: 'liq' as const } : {})
     }
   })
 }
@@ -795,7 +796,9 @@ function mapLibro(row: Record<string, unknown>): RrhhLibroSueldos {
     codigo_localidad: String(row.codigo_localidad || '00'),
     codigo_os_default: row.codigo_os_default == null ? null : String(row.codigo_os_default),
     importe_detraer: num(row.importe_detraer),
-    alicuotas: (row.alicuotas && typeof row.alicuotas === 'object' ? row.alicuotas : {}) as Partial<AlicuotasLct>,
+    alicuotas: (row.alicuotas && typeof row.alicuotas === 'object'
+      ? row.alicuotas
+      : {}) as RrhhLibroSueldos['alicuotas'],
     notas: row.notas == null ? null : String(row.notas),
     id_lote_recibos: row.id_lote_recibos == null ? null : num(row.id_lote_recibos),
     created_by: row.created_by == null ? null : num(row.created_by),

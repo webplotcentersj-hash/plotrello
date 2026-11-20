@@ -137,14 +137,18 @@ describe('liquidación mensual', () => {
 
     assert.equal(fila.importeExtra50, 3000)
     assert.equal(fila.importeExtra100, 2000)
-    // 1 falta injustificada detectada en fechasFaltas → $52.232; 1 tardanza no completa bloque
+    // 1 falta injustificada detectada en fechasFaltas → $52.232. Tardanza: solo los 60 minutos
+    // no trabajados (valor día ÷ 8 h sin horario cargado), no un día entero.
     assert.equal(fila.descuentoFaltas, fila.faltas * VALOR_DIA_DESCUENTO_DEFAULT)
-    assert.equal(fila.descuentoTardanzas, 0)
+    assert.equal(fila.criterioTardanzas, 'minutos')
+    assert.equal(fila.descuentoTardanzas, 6529)
     assert.equal(fila.diasDescuentoTardanzas, 0)
     assert.equal(fila.valorDiaDescuento, VALOR_DIA_DESCUENTO_DEFAULT)
-    // 11+3+3 aportes ley + 2% sindicato CCT 0409/05 = 19% de (300.000 + 5.000 de horas extra)
-    assert.equal(fila.baseImponible, 305000)
-    assert.equal(fila.totalAportes, 57950)
+    // Base = 300.000 + 5.000 de horas extra − 1 inasistencia (300.000 / 30) − 1 h de tardanza
+    // (10.000 / 8): no son remuneración. 11+3+3 aportes ley + 2% sindicato = 19% de 293.750.
+    assert.equal(fila.faltas, 1)
+    assert.equal(fila.baseImponible, 293750)
+    assert.equal(fila.totalAportes, 55812.5)
     assert.equal(fila.haberes, 305000)
     assert.equal(fila.netoCalculado, roundExpected(fila.haberes - fila.descuentoFaltas - fila.descuentoTardanzas - fila.totalAportes))
     assert.equal(fila.neto, fila.netoCalculado)
@@ -289,6 +293,7 @@ describe('liquidación mensual', () => {
       precioHoraDefault: 0,
       cargas: CARGAS_SOCIALES_DEFAULT,
       valorDiaDescuento: 52232,
+      criterioTardanzas: 'bloques',
       novedades: [],
       permisos: [],
       dias: ['2026-10-01'],
@@ -357,7 +362,8 @@ describe('liquidación mensual', () => {
       fechaDesde: '2026-11-01',
       fechaHasta: '2026-11-30',
       asistencia,
-      horariosPorMes
+      horariosPorMes,
+      criterioTardanzas: 'bloques' as const
     }
     const fila = armarLiquidacionEmpleado(base)
     assert.equal(fila.tardanzas, 3)
@@ -488,9 +494,9 @@ describe('liquidación mensual', () => {
       fechaHasta: '2026-10-31'
     })
 
-    // 11+3+3 aportes ley + 2% sindicato CCT 0409/05 = 19% de (300.000 + 5.000 de horas extra)
-    assert.equal(fila.baseImponible, 305000)
-    assert.equal(fila.totalAportes, 57950)
+    // 19% de (300.000 + 5.000 de horas extra − 10.000 de la inasistencia − 1.250 de 1 h tarde)
+    assert.equal(fila.baseImponible, 293750)
+    assert.equal(fila.totalAportes, 55812.5)
     assert.equal(fila.netoManual, true)
     assert.equal(fila.neto, 200000)
     assert.equal(
@@ -608,6 +614,91 @@ describe('liquidación mensual', () => {
     assert.equal(conAnios.adicionalAntiguedadCompleto, 18000)
     assert.equal(conAnios.factorProporcional, 1)
     assert.equal(conAnios.adicionalAntiguedad, 18000)
+  })
+})
+
+describe('liquidación ↔ libro: tardanzas y jornada parcial', () => {
+  const base = {
+    id: 1,
+    nombre: 'Ana',
+    stats: null,
+    precioHoraDefault: 0,
+    cargas: CARGAS_SOCIALES_DEFAULT,
+    novedades: [],
+    permisos: [],
+    dias: ['2026-10-01'],
+    fechaDesde: '2026-10-01',
+    fechaHasta: '2026-10-31'
+  }
+
+  it('legajo "medio día": jornada parcial con jornada completa estimada en sueldo × 2', () => {
+    const fila = armarLiquidacionEmpleado({
+      ...base,
+      montos: { netoManual: null, precioHora: 0, sueldoBase: 200000, sueldoSinDeclarar: 0 },
+      jornadaParcialLegajo: true
+    })
+    assert.equal(fila.legal.jornadaParcial, true)
+    assert.equal(fila.jornadaCompletaEstimada, true)
+    assert.equal(fila.baseOs, 400000)
+  })
+
+  it('lo marcado en la liquidación pisa al legajo; el sueldo cargado reemplaza la estimación', () => {
+    const noParcial = armarLiquidacionEmpleado({
+      ...base,
+      montos: { netoManual: null, precioHora: 0, sueldoBase: 200000, sueldoSinDeclarar: 0, jornadaParcial: false },
+      jornadaParcialLegajo: true
+    })
+    assert.equal(noParcial.legal.jornadaParcial, false)
+    assert.equal(noParcial.baseOs, noParcial.baseImponible)
+    const cargado = armarLiquidacionEmpleado({
+      ...base,
+      montos: {
+        netoManual: null,
+        precioHora: 0,
+        sueldoBase: 200000,
+        sueldoSinDeclarar: 0,
+        jornadaParcial: true,
+        sueldoJornadaCompleta: 450000
+      }
+    })
+    assert.equal(cargado.jornadaCompletaEstimada, false)
+    assert.equal(cargado.baseOs, 450000)
+    // El false explícito se conserva al guardar / heredar.
+    assert.equal(normalizarMontos({ sueldoBase: 1, jornadaParcial: false }).jornadaParcial, false)
+  })
+
+  it('criterio "bloques" descuenta del neto pero no baja la remuneración del recibo', () => {
+    const stTarde = {
+      ...stats({ ausencias: 0, tardanzas: 3, minutosTardeTotal: 30, extra50: 0, extra100: 0 })
+    }
+    const asistenciaPresente: Asistencia[] = [
+      {
+        id: 1,
+        id_usuario: 1,
+        fecha: '2026-10-01',
+        hora_entrada: '2026-10-01T08:10:00-03:00',
+        hora_salida: '2026-10-01T17:00:00-03:00',
+        horas_trabajadas: 8,
+        tipo_registro: 'tarde',
+        observaciones: null,
+        created_at: '',
+        updated_at: ''
+      }
+    ]
+    const montos = { netoManual: null, precioHora: 0, sueldoBase: 300000, sueldoSinDeclarar: 0 }
+    const bloques = armarLiquidacionEmpleado({
+      ...base,
+      stats: stTarde,
+      montos,
+      asistencia: asistenciaPresente,
+      criterioTardanzas: 'bloques'
+    })
+    assert.equal(bloques.descuentoTardanzas, VALOR_DIA_DESCUENTO_DEFAULT)
+    assert.equal(bloques.baseImponible, 300000)
+    const minutos = armarLiquidacionEmpleado({ ...base, stats: stTarde, montos, asistencia: asistenciaPresente })
+    // 30 min × (52.232 ÷ 8 h) en el neto; 30 min × (10.000 ÷ 8 h) en la remuneración declarada.
+    assert.equal(minutos.descuentoTardanzas, 3264.5)
+    assert.equal(minutos.baseImponible, 299375)
   })
 })
 

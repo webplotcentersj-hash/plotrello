@@ -23,13 +23,7 @@ function moneyKeep(n: number | null | undefined) {
 }
 
 
-const YELLOW_EMP = new Set([
-  'SIPA – Ley 24.241',
-  'Ley 19.032 – INSSJP',
-  'Obra Social',
-  'Asignaciones Familiares',
-  'Fondo Nacional de Empleo'
-])
+const YELLOW_EMP = new Set(['co-jub', 'co-pami', 'co-os', 'co-af', 'co-fne', 'co-fal'])
 
 type Slice = { label: string; value: number; color: string }
 
@@ -175,10 +169,12 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
     { label: 'Costo SCVO', value: c.scvo, color: '#9a3412' }
   ]
 
-  const empLineas = liq.lineasEmpleador.filter((l) => l.concepto !== 'scvo' || (l.montoEmpleador || 0) > 0)
-  const scvoLinea = liq.lineasEmpleador.find((l) => l.concepto === 'scvo')
-  const haberes = liq.lineasTrabajador.filter((l) => (l.remunerativo || 0) > 0 || (l.noRemunerativo || 0) > 0)
+  const empLineas = liq.lineasEmpleador.filter((l) => l.id !== 'scvo')
+  const scvoLinea = liq.lineasEmpleador.find((l) => l.id === 'scvo')
+  // Incluye importes negativos (inasistencias / suspensiones sin goce).
+  const haberes = liq.lineasTrabajador.filter((l) => (l.remunerativo || 0) !== 0 || (l.noRemunerativo || 0) !== 0)
   const desc = liq.lineasTrabajador.filter((l) => (l.descuento || 0) > 0)
+  const cct = item.cct_codigo || (item.cct ? 'En convenio' : '')
 
   return (
     <div className="recibo-lct">
@@ -220,6 +216,13 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
           <tr>
             <td colSpan={12} className="title">
               RECIBO DE SUELDO – LCT – MENSUAL
+            </td>
+          </tr>
+          <tr>
+            <td colSpan={12} className="hd-grey">
+              1 · DATOS DEL EMPLEADOR Y DEL TRABAJADOR
+              {cct ? ` · CCT ${cct}` : ''}
+              {liq.empleado.jornadaParcial ? ' · Jornada parcial' : ''}
             </td>
           </tr>
           <tr>
@@ -306,6 +309,11 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
             </td>
           </tr>
           <tr>
+            <td colSpan={12} className="hd-grey">
+              2 · CONTRIBUCIONES PATRONALES Y COSTO LABORAL (art. 140 LCT, Ley 27.802)
+            </td>
+          </tr>
+          <tr>
             <td colSpan={10} className="bar-green">
               COSTO TOTAL EMPLEADOR
             </td>
@@ -325,14 +333,12 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
               MONTO
             </td>
           </tr>
-          {empLineas
-            .filter((l) => l.concepto !== 'scvo')
-            .map((l) => (
-              <EmpRow key={l.concepto} linea={l} yellow={YELLOW_EMP.has(l.concepto)} />
-            ))}
+          {empLineas.map((l) => (
+            <EmpRow key={l.id || l.concepto} linea={l} yellow={YELLOW_EMP.has(l.id || '')} />
+          ))}
           {scvoLinea ? (
             <tr>
-              <td colSpan={7}>scvo</td>
+              <td colSpan={7}>{scvoLinea.concepto}</td>
               <td />
               <td colSpan={2} />
               <td colSpan={2} className="num">
@@ -352,6 +358,12 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
             </td>
             <td colSpan={2} className="bar-blue num">
               {formatArs2(liq.contribuciones)}
+            </td>
+          </tr>
+          <tr>
+            <td colSpan={12} className="hd-grey">
+              3 · REMUNERACIÓN BRUTA Y DEDUCCIONES
+              {liq.topeAplicado ? ` · Aportes topados en ${formatArs2(liq.bases.aportes)} (base imponible máxima)` : ''}
             </td>
           </tr>
           <tr>
@@ -445,6 +457,11 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
             </td>
           </tr>
           <tr>
+            <td colSpan={12} className="hd-grey">
+              4 · REMUNERACIÓN NETA
+            </td>
+          </tr>
+          <tr>
             <td colSpan={2} className="neto">
               SUELDO NETO
             </td>
@@ -514,7 +531,8 @@ const ReciboSueldoLct = memo(function ReciboSueldoLct({ liq }: Props) {
             </tbody>
           </table>
           <p className="nota">
-            Nota: Seguridad social del Empleador incluye SIPA, Fondo Nacional de Empleo y Asignaciones Familiares
+            Nota: Seguridad social del Empleador incluye SIPA, Fondo Nacional de Empleo, Asignaciones Familiares y
+            Fondo de Asistencia Laboral
           </p>
         </div>
 
