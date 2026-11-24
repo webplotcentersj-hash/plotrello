@@ -84,7 +84,8 @@ test('ventas: nota de crédito con importes negativos sale positiva', () => {
   const cab = lineas(r.ventasCbte)[0]
   assert.equal(cab.slice(8, 11), '003')
   assert.equal(cab.slice(108, 123), '000000000012100')
-  assert.equal(r.resumen.ventas.total, 121)
+  // En el TXT va positiva; en el resumen la nota de crédito resta
+  assert.equal(r.resumen.ventas.total, -121)
 })
 
 test('compras: factura A discrimina IVA y percepciones suman al total', () => {

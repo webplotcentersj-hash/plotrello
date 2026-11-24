@@ -502,6 +502,8 @@ const CRMVentasPage = () => {
 
   const busquedaOportunidadRef = useRef<HTMLInputElement>(null)
   const busquedaVentaRef = useRef<HTMLInputElement>(null)
+  /** Condición IVA tal como se cargó en el modal de la venta: si el usuario no la tocó, no se escribe ni se fuerza. */
+  const ivaVentaCargadoRef = useRef<CondicionIvaCliente | ''>('')
   const busquedaPresupuestoRef = useRef<HTMLInputElement>(null)
   const [mostrarBuscadorClientes, setMostrarBuscadorClientes] = useState(false)
   const [mostrarModalPresupuesto, setMostrarModalPresupuesto] = useState(false)
@@ -515,7 +517,7 @@ const CRMVentasPage = () => {
     cliente_telefono: '',
     cliente_email: '',
     cliente_dni_cuit: '',
-    cliente_condicion_iva: 'Consumidor Final' as CondicionIvaCliente,
+    cliente_condicion_iva: 'Consumidor Final' as CondicionIvaCliente | '',
     observaciones: '',
     fecha_venta: ''
   })
@@ -542,7 +544,7 @@ const CRMVentasPage = () => {
     cliente_dni_cuit: '',
     cliente_empresa: '',
     cliente_direccion: '',
-    cliente_condicion_iva: 'Consumidor Final' as CondicionIvaCliente,
+    cliente_condicion_iva: 'Consumidor Final' as CondicionIvaCliente | '',
     fecha_vencimiento: '',
     observaciones_cliente: '',
     observaciones_internas: '',
@@ -758,7 +760,7 @@ const CRMVentasPage = () => {
       cliente_telefono: ventaModal.cliente_telefono || '',
       cliente_email: ventaModal.cliente_email || '',
       cliente_dni_cuit: cuitInicial,
-      cliente_condicion_iva: inferirCondicionIva(cuitInicial),
+      cliente_condicion_iva: (ivaVentaCargadoRef.current = inferirCondicionIva(cuitInicial)),
       observaciones: ventaModal.observaciones || '',
       fecha_venta: isoToArgentinaDateKey(ventaModal.fecha_venta)
     })
@@ -783,6 +785,7 @@ const CRMVentasPage = () => {
         if (cancelled || !cli.success || !cli.data) return
         const iva = normalizarCondicionIvaCliente(cli.data.condicion_iva)
         if (!iva) return
+        ivaVentaCargadoRef.current = iva
         setVentaCabeceraDraft((prev) => ({ ...prev, cliente_condicion_iva: iva }))
       })
     }
@@ -856,10 +859,12 @@ const CRMVentasPage = () => {
 
       if (ventaModal.id_cliente && usuario?.id) {
         const iva = normalizarCondicionIvaCliente(ventaCabeceraDraft.cliente_condicion_iva)
+        // Solo si el usuario la cambió en el modal: si no, se pisaría lo editado en la ficha mientras tanto.
+        const ivaCambiada = iva && iva !== ivaVentaCargadoRef.current
         const cliUp = await apiService.actualizarClienteDatos(
           ventaModal.id_cliente,
           {
-            condicion_iva: iva || ventaCabeceraDraft.cliente_condicion_iva,
+            condicion_iva: ivaCambiada ? iva : undefined,
             dni_cuit: ventaCabeceraDraft.cliente_dni_cuit.trim() || undefined,
             telefono: ventaCabeceraDraft.cliente_telefono.trim() || undefined,
             email: ventaCabeceraDraft.cliente_email.trim() || undefined
@@ -1618,7 +1623,7 @@ const CRMVentasPage = () => {
       if (!condicionIva) {
         condicionIva = inferirCondicionIva(
           presupuestoCabeceraDraft.cliente_dni_cuit || presupuesto.cliente_dni_cuit
-        )
+        ) || null
       }
 
       // Persistir en ficha cliente antes de abrir venta rápida / facturación.
@@ -1747,7 +1752,7 @@ const CRMVentasPage = () => {
         const cliUp = await apiService.actualizarClienteDatos(
           presupuestoModal.id_cliente,
           {
-            condicion_iva: iva || presupuestoCabeceraDraft.cliente_condicion_iva,
+            condicion_iva: iva || undefined,
             dni_cuit: presupuestoCabeceraDraft.cliente_dni_cuit.trim() || undefined,
             telefono: presupuestoCabeceraDraft.cliente_telefono.trim() || undefined,
             email: presupuestoCabeceraDraft.cliente_email.trim() || undefined,
@@ -2385,7 +2390,11 @@ const CRMVentasPage = () => {
       overrides = {
         cliente_nombre: ventaEmit.cliente_nombre,
         cliente_dni_cuit: ventaEmit.cliente_dni_cuit,
-        cliente_condicion_iva: ventaCabeceraDraft.cliente_condicion_iva
+        // Sin cambio en el modal, la condición sale de la ficha del cliente al momento de emitir.
+        cliente_condicion_iva:
+          ventaCabeceraDraft.cliente_condicion_iva !== ivaVentaCargadoRef.current
+            ? ventaCabeceraDraft.cliente_condicion_iva
+            : undefined
       }
     }
 
@@ -3881,10 +3890,11 @@ const CRMVentasPage = () => {
                         onChange={(e) =>
                           setVentaCabeceraDraft((prev) => ({
                             ...prev,
-                            cliente_condicion_iva: e.target.value as CondicionIvaCliente
+                            cliente_condicion_iva: e.target.value as CondicionIvaCliente | ''
                           }))
                         }
                       >
+                        <option value="">Elegir…</option>
                         {CONDICIONES_IVA_CLIENTE.map((c) => (
                           <option key={c} value={c}>
                             {c}
@@ -4892,7 +4902,7 @@ const CRMVentasPage = () => {
                             : 'Vinculá un cliente de la ficha para editar la condición de IVA'
                         }
                         onChange={(e) => {
-                          const iva = e.target.value as CondicionIvaCliente
+                          const iva = e.target.value as CondicionIvaCliente | ''
                           setPresupuestoCabeceraDraft((prev) => ({
                             ...prev,
                             cliente_condicion_iva: iva
@@ -4900,6 +4910,7 @@ const CRMVentasPage = () => {
                           if (esClienteIvaExento(iva)) setPresupuestoSacarIva(true)
                         }}
                       >
+                        <option value="">Elegir…</option>
                         {CONDICIONES_IVA_CLIENTE.map((c) => (
                           <option key={c} value={c}>
                             {c}

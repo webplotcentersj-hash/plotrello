@@ -6,12 +6,14 @@ import {
   type DatosConfirmacionFactura,
   type TipoFactura,
   inferirCondicionIva,
+  MSG_FALTA_CONDICION_IVA,
   textoConfirmacionFactura,
   inferirTipoFactura,
   normalizarCondicionIvaCliente,
   validarReceptorComprobante
 } from './afipFacturaUi'
 import { getArgentinaDateString } from './dateUtils'
+import { estadoFacturacionVenta, mensajeFacturaVigente } from './facturaVigenteVenta'
 import { precioUnitarioTrasDescuentoPesos } from './unidadPrecio'
 
 export type ResultadoFacturaVenta = {
@@ -61,10 +63,11 @@ export async function emitirFacturaDesdeVenta(
     return { ok: false, mensaje: cfg.error || 'Falta la configuración AFIP.' }
   }
 
-  // Solo Facturas (no NC/ND). Si hay NC autorizada, la FA previa ya quedó anulada → se puede reemitir.
+  // Se puede volver a facturar solo si la factura anterior quedó anulada entera por notas de
+  // crédito AUTORIZADAS. Si no, se avisa: nunca se devuelve la factura vieja como si fuera nueva.
   const { data: comprobantes, error: errorExistente } = await supabase
     .from('facturas_venta')
-    .select('id, numero_factura, estado_afip, cae, tipo_comprobante, estado')
+    .select('id, numero_factura, estado_afip, cae, tipo_comprobante, estado, total, id_factura_referencia')
     .eq('id_venta', venta.id)
     .neq('estado', 'Anulada')
     .order('id', { ascending: false })
@@ -72,40 +75,36 @@ export async function emitirFacturaDesdeVenta(
 
   const rows = Array.isArray(comprobantes) ? comprobantes : []
   const facturas = rows.filter((r) => String(r.tipo_comprobante || '').startsWith('Factura'))
-  const tieneNcAutorizada = rows.some(
-    (r) =>
-      String(r.tipo_comprobante || '').startsWith('Nota de Crédito') &&
-      String(r.estado_afip || '') === 'Autorizada'
-  )
-  const facturaAutorizadaVigente = facturas.find(
-    (r) => String(r.estado_afip || '') === 'Autorizada' && !tieneNcAutorizada
-  )
-  if (facturaAutorizadaVigente) {
-    return {
-      ok: true,
-      facturaId: facturaAutorizadaVigente.id,
-      numero: facturaAutorizadaVigente.numero_factura,
-      cae: facturaAutorizadaVigente.cae,
-      mensaje: `Esta venta ya tiene la factura ${facturaAutorizadaVigente.numero_factura}. Para anularla emití una nota de crédito.`
-    }
+  const estadoVenta = estadoFacturacionVenta(rows)
+  if (estadoVenta.vigente) {
+    return { ok: false, facturaId: estadoVenta.vigente.id, mensaje: mensajeFacturaVigente(estadoVenta) }
   }
   // Reutilizar borrador/pendiente de Factura si existe; nunca reusar una NC.
-  const existente = facturas.find((r) => String(r.estado_afip || '') !== 'Autorizada') ?? null
+  // Uno que nunca llegó a ARCA se descarta y se arma de nuevo con los ítems actuales de la venta;
+  // solo se reutiliza si ya se envió (para recuperar el CAE sin duplicar).
+  let existente: (typeof facturas)[number] | null = null
+  for (const r of facturas.filter((f) => String(f.estado_afip || '') !== 'Autorizada')) {
+    const descarte = await apiService.descartarBorradorSiNoSalioAArca(Number(r.id))
+    if (!descarte.ok && !existente) existente = r
+  }
 
   const cuit = String(overrides?.cliente_dni_cuit ?? venta.cliente_dni_cuit ?? '').trim()
-  let condicion = inferirCondicionIva(cuit)
+  let condicionInferida: CondicionIvaCliente | '' = inferirCondicionIva(cuit)
   let direccion =
     String(overrides?.cliente_direccion ?? venta.cliente_direccion ?? '').trim() || null
   if (venta.id_cliente) {
     const cli = await apiService.getClientePorId(venta.id_cliente)
     if (cli.success && cli.data) {
       const ivaCliente = normalizarCondicionIvaCliente(cli.data.condicion_iva)
-      if (ivaCliente) condicion = ivaCliente
+      if (ivaCliente) condicionInferida = ivaCliente
       if (!direccion) direccion = cli.data.direccion?.trim() || null
     }
   }
   const condicionOverride = normalizarCondicionIvaCliente(overrides?.cliente_condicion_iva)
-  if (condicionOverride) condicion = condicionOverride
+  if (condicionOverride) condicionInferida = condicionOverride
+  // Con CUIT y sin condición en la ficha no se adivina: la letra depende de eso (A vs B).
+  if (!condicionInferida) return { ok: false, mensaje: MSG_FALTA_CONDICION_IVA }
+  const condicion: CondicionIvaCliente = condicionInferida
   const tipo = inferirTipoFactura(cuit, condicion, cfg.data.condicion_iva)
   const errorReceptor = validarReceptorComprobante(tipo, condicion, cuit)
   if (errorReceptor) return { ok: false, mensaje: errorReceptor }

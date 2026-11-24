@@ -108,3 +108,17 @@ describe('textoConfirmacionFactura', () => {
     assert.equal(letraComprobante(datos.tipo), 'B')
   })
 })
+
+describe('inferirCondicionIva', () => {
+  it('con CUIT no adivina: la condición se elige', async () => {
+    const { inferirCondicionIva } = await import('./afipFacturaUi.ts')
+    assert.equal(inferirCondicionIva('30-70983318-5'), '')
+    assert.equal(inferirCondicionIva('30709833185'), '')
+  })
+  it('sin documento o con DNI es Consumidor Final', async () => {
+    const { inferirCondicionIva } = await import('./afipFacturaUi.ts')
+    assert.equal(inferirCondicionIva(''), 'Consumidor Final')
+    assert.equal(inferirCondicionIva(null), 'Consumidor Final')
+    assert.equal(inferirCondicionIva('30.123.456'), 'Consumidor Final')
+  })
+})

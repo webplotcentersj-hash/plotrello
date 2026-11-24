@@ -530,3 +530,23 @@
   background: #fef2f2;
   color: #991b1b;
 }
+
+/* Saldo a favor del cliente (nota de crédito mayor a lo adeudado) */
+.saldo-favor-movs {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.saldo-favor-aviso {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 10px;
+}

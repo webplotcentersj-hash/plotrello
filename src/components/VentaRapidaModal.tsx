@@ -14,6 +14,7 @@ import type { PlantillaVenta } from '../features/copiar/plantillasCopia'
 import {
   CONDICIONES_IVA_CLIENTE,
   inferirCondicionIva,
+  MSG_FALTA_CONDICION_IVA,
   letraComprobante,
   normalizarCondicionIvaCliente,
   type CondicionIvaCliente
@@ -172,7 +173,7 @@ const VentaRapidaModal = ({
     telefono: '',
     email: '',
     direccion: '',
-    condicion_iva: 'Consumidor Final' as CondicionIvaCliente
+    condicion_iva: 'Consumidor Final' as CondicionIvaCliente | ''
   })
 
   const [condicionVenta, setCondicionVenta] = useState<MedioPagoCodigo>('Efectivo')
@@ -987,6 +988,14 @@ const VentaRapidaModal = ({
       }
     }
 
+    const condicionElegida = crearNuevoCliente
+      ? nuevoCliente.condicion_iva
+      : normalizarCondicionIvaCliente(clienteSeleccionado?.condicion_iva)
+    if ((crearNuevoCliente || clienteSeleccionado) && !condicionElegida) {
+      alert(MSG_FALTA_CONDICION_IVA)
+      return
+    }
+
     if (faseCobro !== 'revisar') {
       setFaseCobro('revisar')
       return
@@ -1028,7 +1037,7 @@ const VentaRapidaModal = ({
           clienteFinal.id,
           {
             direccion: direccionCliente || undefined,
-            condicion_iva: condicionIvaCliente
+            condicion_iva: condicionIvaCliente || undefined
           },
           usuarioId
         )
@@ -1723,10 +1732,11 @@ const VentaRapidaModal = ({
                     onChange={(e) =>
                       setNuevoCliente({
                         ...nuevoCliente,
-                        condicion_iva: e.target.value as CondicionIvaCliente
+                        condicion_iva: e.target.value as CondicionIvaCliente | ''
                       })
                     }
                   >
+                    <option value="">Elegir…</option>
                     {CONDICIONES_IVA_CLIENTE.map((c) => (
                       <option key={c} value={c}>
                         {c}
@@ -1794,17 +1804,17 @@ const VentaRapidaModal = ({
                   <select
                     className="form-select"
                     value={
-                      normalizarCondicionIvaCliente(clienteSeleccionado.condicion_iva) ||
-                      'Consumidor Final'
+                      normalizarCondicionIvaCliente(clienteSeleccionado.condicion_iva) || ''
                     }
                     onChange={(e) =>
                       setClienteSeleccionado((prev) =>
                         prev
-                          ? { ...prev, condicion_iva: e.target.value as CondicionIvaCliente }
+                          ? { ...prev, condicion_iva: (e.target.value || null) as CondicionIvaCliente | null }
                           : prev
                       )
                     }
                   >
+                    <option value="">Elegir…</option>
                     {CONDICIONES_IVA_CLIENTE.map((c) => (
                       <option key={c} value={c}>
                         {c}

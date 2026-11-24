@@ -29,6 +29,7 @@ import {
   formatPvNumero,
   hoyISO,
   inferirCondicionIva,
+  MSG_FALTA_CONDICION_IVA,
   inferirTipoFactura,
   letraComprobante,
   normalizarCondicionIvaCliente,
@@ -165,7 +166,7 @@ export default function CrearFacturaPage() {
       id_cliente?: number | null
     }) => {
       const cuit = data.dni_cuit || ''
-      const cond = (data.condicion_iva || inferirCondicionIva(cuit)) as CondicionIvaCliente
+      const cond: CondicionIvaCliente | '' = data.condicion_iva || inferirCondicionIva(cuit)
       setCliente({
         nombre: data.nombre || 'Cliente',
         dni_cuit: cuit,
@@ -647,6 +648,10 @@ export default function CrearFacturaPage() {
       alert(`Con condición de emisor "${condicionEmisor}" solo podés emitir: ${tiposPermitidos.join(', ')}.`)
       return
     }
+    if (!cliente.condicion_iva) {
+      alert(MSG_FALTA_CONDICION_IVA)
+      return
+    }
     const errorReceptor = validarReceptorComprobante(formData.tipo_comprobante, cliente.condicion_iva, cliente.dni_cuit)
     if (errorReceptor) {
       alert(errorReceptor)
@@ -873,7 +878,12 @@ export default function CrearFacturaPage() {
                 value={cliente.dni_cuit}
                 onChange={(e) => {
                   const cuit = e.target.value
-                  const cond = cliente.condicion_iva || inferirCondicionIva(cuit)
+                  // Con CUIT completo, un "Consumidor Final" puesto por defecto no sirve: se vuelve a pedir.
+                  const esCuit = cuit.replace(/\D/g, '').length === 11
+                  const cond =
+                    cliente.condicion_iva && !(esCuit && cliente.condicion_iva === 'Consumidor Final')
+                      ? cliente.condicion_iva
+                      : inferirCondicionIva(cuit)
                   setCliente((p) => ({ ...p, dni_cuit: cuit, condicion_iva: cond }))
                   setFormData((p) => ({ ...p, tipo_comprobante: inferirTipoFactura(cuit, cond, condicionEmisor) }))
                 }}
@@ -884,11 +894,12 @@ export default function CrearFacturaPage() {
               <select
                 value={cliente.condicion_iva}
                 onChange={(e) => {
-                  const cond = e.target.value as CondicionIvaCliente
+                  const cond = e.target.value as CondicionIvaCliente | ''
                   setCliente((p) => ({ ...p, condicion_iva: cond }))
                   setFormData((p) => ({ ...p, tipo_comprobante: inferirTipoFactura(cliente.dni_cuit, cond, condicionEmisor) }))
                 }}
               >
+                <option value="">Elegir…</option>
                 <option value="Consumidor Final">Consumidor Final</option>
                 <option value="Responsable Inscripto">Responsable Inscripto</option>
                 <option value="Monotributista">Monotributista</option>

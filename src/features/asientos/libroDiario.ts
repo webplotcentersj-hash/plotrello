@@ -57,6 +57,7 @@ export function comprobanteRespaldatorio(a: Pick<AsientoLD, 'tipo_origen' | 'id_
   const t = String(a.tipo_origen ?? '').toLowerCase()
   if (t === 'factura' && a.id_origen) return `Factura #${a.id_origen}`
   if (t === 'pago_cobro' && a.id_origen) return `Cobro/Pago #${a.id_origen}`
+  if (t === 'cobro_venta' && a.id_origen) return `Cobro en la venta (factura #${a.id_origen})`
   if (t === 'contraasiento' && a.id_origen) return `Contraasiento del asiento #${a.id_origen}`
   if (t && a.id_origen) return `${a.tipo_origen} #${a.id_origen}`
   const obs = String(a.observaciones ?? '').trim()

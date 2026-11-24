@@ -6,6 +6,10 @@
 -- que ARCA/validación seguía rechazando ("El comprobante A solo se emite a Responsables Inscriptos…").
 --
 -- Ahora esos campos se pueden editar mientras la factura está en Borrador (sin CAE).
+--
+-- Además: numero_factura es UNIQUE y todos los borradores tomaban el mismo número provisorio
+-- (último autorizado + 1), así que un segundo borrador del mismo tipo chocaba. Cada borrador
+-- nace ahora como PEND-<id>; el número definitivo lo pone el servidor al autorizar en ARCA.
 -- Al final, rellena la condición IVA vacía de borradores tomándola de la ficha del cliente.
 
 CREATE OR REPLACE FUNCTION public.comercial_upsert(
@@ -110,7 +114,8 @@ BEGIN
         id_factura_referencia, subtotal, descuento, iva, total, estado, estado_afip,
         observaciones, id_usuario, concepto, fecha_servicio_desde, fecha_servicio_hasta
       ) VALUES (
-        COALESCE(NULLIF(p_row->>'numero_factura', ''), 'TMP'),
+        -- Número único provisorio: el definitivo lo asigna ARCA al autorizar (queda PEND-<id>)
+        'TMP-' || gen_random_uuid()::text,
         COALESCE(NULLIF(p_row->>'punto_venta', '')::integer, 1),
         COALESCE(NULLIF(p_row->>'numero_comprobante', '')::integer, 0),
         COALESCE(NULLIF(p_row->>'tipo_comprobante', ''), 'Factura B'),
@@ -137,7 +142,10 @@ BEGIN
         NULLIF(p_row->>'fecha_servicio_desde', '')::date,
         NULLIF(p_row->>'fecha_servicio_hasta', '')::date
       )
-      RETURNING to_jsonb(facturas_venta.*) INTO v_out;
+      RETURNING id INTO v_id;
+      UPDATE public.facturas_venta AS t SET numero_factura = 'PEND-' || v_id
+      WHERE t.id = v_id
+      RETURNING to_jsonb(t.*) INTO v_out;
       RETURN v_out;
     END IF;
 

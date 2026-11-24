@@ -124,11 +124,19 @@ export function inferirTipoFactura(
   return 'Factura B'
 }
 
-export function inferirCondicionIva(cuit: string | null | undefined): CondicionIvaCliente {
+/**
+ * Condición por defecto cuando la ficha no la tiene. Con CUIT no se puede saber
+ * (RI, Monotributista o Exento: cambia la letra), así que devuelve '' y hay que elegirla.
+ * Sin documento o con DNI es Consumidor Final.
+ */
+export function inferirCondicionIva(cuit: string | null | undefined): CondicionIvaCliente | '' {
   const clean = (cuit || '').replace(/\D/g, '')
-  if (clean.length === 11) return 'Responsable Inscripto'
+  if (clean.length === 11) return ''
   return 'Consumidor Final'
 }
+
+export const MSG_FALTA_CONDICION_IVA =
+  'El cliente tiene CUIT pero no tiene cargada la condición IVA. Elegila (o cargala en su ficha) antes de facturar.'
 
 /** CUIT/CUIL de 11 dígitos con dígito verificador correcto. */
 export function cuitValido(cuit: string | null | undefined): boolean {

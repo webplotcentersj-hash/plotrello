@@ -185,6 +185,7 @@ import { calcularLineaItem, normalizarAlicuota, redondear2 } from '../utils/afip
 import { autorizarFacturaAFIP } from './afipApi'
 import { isTransientSupabaseError, withSupabaseRetry } from '../utils/supabaseRetry'
 import { filtrarUsuariosRrhhOperarios } from '../utils/rrhhUsuariosExcluidos'
+import { estadoFacturacionVenta, mensajeFacturaVigente, type ComprobanteVenta } from '../utils/facturaVigenteVenta'
 
 export { formatSupabaseStatementTimeoutError }
 
@@ -21656,13 +21657,7 @@ class ApiService {
   async listIdsVentasFacturadas(idsVentas?: number[]): Promise<ApiResponse<number[]>> {
     if (!supabase) return { success: false, error: 'Supabase no inicializado' }
     try {
-      type Row = {
-        id_venta?: number | null
-        estado?: string | null
-        estado_afip?: string | null
-        tipo_comprobante?: string | null
-        cae?: string | null
-      }
+      type Row = ComprobanteVenta & { id_venta?: number | null }
 
       const wantedIds = (idsVentas || [])
         .map((id) => Number(id))
@@ -21678,7 +21673,7 @@ class ApiService {
           const chunk = list.slice(i, i + chunkSize)
           const { data, error } = await supabase
             .from('facturas_venta')
-            .select('id_venta, estado, estado_afip, tipo_comprobante, cae')
+            .select('id, id_venta, estado, estado_afip, tipo_comprobante, cae, total, id_factura_referencia')
             .in('id_venta', chunk)
           if (error) return { success: false, error: error.message }
           rows.push(...((data || []) as Row[]))
@@ -21688,7 +21683,7 @@ class ApiService {
         for (let from = 0; from < 20000; from += pageSize) {
           const { data, error } = await supabase
             .from('facturas_venta')
-            .select('id_venta, estado, estado_afip, tipo_comprobante, cae')
+            .select('id, id_venta, estado, estado_afip, tipo_comprobante, cae, total, id_factura_referencia')
             .not('id_venta', 'is', null)
             .order('id', { ascending: true })
             .range(from, from + pageSize - 1)
@@ -21712,25 +21707,10 @@ class ApiService {
         byVenta.set(id, list)
       }
 
-      const facturaVigente = (r: Row) => {
-        const tipo = String(r.tipo_comprobante || '')
-        if (!tipo.startsWith('Factura')) return false
-        const afip = String(r.estado_afip || '').trim()
-        const estado = String(r.estado || '').trim()
-        const cae = String(r.cae || '').trim()
-        // Autorizada AFIP, o emitida con CAE (por si el estado_afip viene desfasado).
-        return afip === 'Autorizada' || (estado === 'Emitida' && cae.length > 0)
-      }
-
+      // Facturada = tiene una factura autorizada que las notas de crédito no anularon por completo
       const ids: number[] = []
       for (const [idVenta, list] of byVenta) {
-        const tieneNc = list.some(
-          (r) =>
-            String(r.tipo_comprobante || '').startsWith('Nota de Crédito') &&
-            String(r.estado_afip || '') === 'Autorizada'
-        )
-        if (tieneNc) continue
-        if (list.some(facturaVigente)) ids.push(idVenta)
+        if (estadoFacturacionVenta(list).vigente) ids.push(idVenta)
       }
       return { success: true, data: ids }
     } catch (error: unknown) {
@@ -23903,6 +23883,39 @@ class ApiService {
     return { success: false, error: 'Supabase no configurado' }
   }
 
+  /**
+   * Descarta (Anulada) un borrador que nunca llegó a ARCA. Si tiene un intento de envío
+   * (pudo haber quedado autorizado sin respuesta), no se toca: hay que reintentarlo.
+   */
+  async descartarBorradorSiNoSalioAArca(id: number): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (!supabase) return { ok: false, error: 'Supabase no configurado' }
+    const { data: b, error } = await supabase
+      .from('facturas_venta')
+      .select('id, numero_factura, estado, estado_afip, afip_numero_intento')
+      .eq('id', id)
+      .maybeSingle()
+    if (error) return { ok: false, error: error.message }
+    if (!b || b.estado === 'Anulada' || b.estado_afip === 'Autorizada') return { ok: true }
+    if (b.estado !== 'Borrador' || b.estado_afip === 'Enviando' || b.afip_numero_intento) {
+      return {
+        ok: false,
+        error:
+          `Esta venta ya tiene el comprobante ${b.numero_factura} (id ${b.id}) que se envió a ARCA sin respuesta confirmada. ` +
+          'Abrilo en Facturas y tocá "Reintentar AFIP": si ARCA lo autorizó se recupera sin duplicar.'
+      }
+    }
+    try {
+      await this.rpcComercialUpsert('factura', {
+        id,
+        estado: 'Anulada',
+        observaciones: 'Borrador descartado: se generó uno nuevo con los datos actuales.'
+      })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'No se pudo descartar el borrador anterior.' }
+    }
+  }
+
   async crearFactura(factura: {
     tipo_comprobante: 'Factura A' | 'Factura B' | 'Factura C' | 'Nota de Crédito A' | 'Nota de Crédito B' | 'Nota de Crédito C' | 'Nota de Débito A' | 'Nota de Débito B' | 'Nota de Débito C'
     fecha_emision: string
@@ -23950,36 +23963,23 @@ class ApiService {
         if (factura.id_venta && String(factura.tipo_comprobante).startsWith('Factura')) {
           const { data: existentes, error: errorExistente } = await supabase
             .from('facturas_venta')
-            .select('id, numero_factura, estado_afip, tipo_comprobante')
+            .select('id, numero_factura, estado, estado_afip, cae, tipo_comprobante, total, id_factura_referencia')
             .eq('id_venta', factura.id_venta)
             .neq('estado', 'Anulada')
             .order('id', { ascending: false })
           if (errorExistente) return { success: false, error: errorExistente.message }
           const rows = Array.isArray(existentes) ? existentes : []
-          const tieneNcAutorizada = rows.some(
-            (r) =>
-              String(r.tipo_comprobante || '').startsWith('Nota de Crédito') &&
-              String(r.estado_afip || '') === 'Autorizada'
-          )
           const facturas = rows.filter((r) => String(r.tipo_comprobante || '').startsWith('Factura'))
-          const autorizadaVigente = facturas.find(
-            (r) => String(r.estado_afip || '') === 'Autorizada' && !tieneNcAutorizada
-          )
-          if (autorizadaVigente) {
-            return {
-              success: false,
-              error: `Esta venta ya tiene la factura ${autorizadaVigente.numero_factura} autorizada. Para anularla emití una nota de crédito.`
-            }
+          const estadoVenta = estadoFacturacionVenta(rows)
+          if (estadoVenta.vigente) {
+            return { success: false, error: mensajeFacturaVigente(estadoVenta) }
           }
-          const borrador = facturas.find((r) => String(r.estado_afip || '') !== 'Autorizada')
-          if (borrador?.id) {
-            const { data: completa, error: errorCompleta } = await supabase
-              .from('facturas_venta')
-              .select('*, items:facturas_items(*)')
-              .eq('id', borrador.id)
-              .single()
-            if (errorCompleta) return { success: false, error: errorCompleta.message }
-            return { success: true, data: completa as any }
+          // Un borrador previo NO se reutiliza en silencio (se emitirían sus datos viejos):
+          // si nunca salió a ARCA se descarta; si salió, hay que reintentar ese para no duplicar.
+          const borradores = facturas.filter((r) => String(r.estado_afip || '') !== 'Autorizada')
+          for (const borrador of borradores) {
+            const descarte = await this.descartarBorradorSiNoSalioAArca(Number(borrador.id))
+            if (!descarte.ok) return { success: false, error: descarte.error }
           }
         }
 

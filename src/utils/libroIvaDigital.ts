@@ -267,10 +267,12 @@ export function generarLibroIvaDigital(
       ventasAlic.push(tipo + pv + nro + fmtImporte(l.neto) + (codigoAlicuota(l.pct) as string) + fmtImporte(l.iva))
     }
 
+    // En el archivo van positivos (el tipo da el signo); en el resumen la nota de crédito resta.
+    const signoVenta = tipo === '003' || tipo === '008' || tipo === '013' ? -1 : 1
     resumen.ventas.comprobantes += 1
-    resumen.ventas.neto += neto
-    resumen.ventas.iva += iva
-    resumen.ventas.total += total
+    resumen.ventas.neto += neto * signoVenta
+    resumen.ventas.iva += iva * signoVenta
+    resumen.ventas.total += total * signoVenta
   }
 
   // ---- Compras ----
@@ -358,10 +360,11 @@ export function generarLibroIvaDigital(
       )
     }
 
+    const signoCompra = tipo === '003' || tipo === '008' || tipo === '013' ? -1 : 1
     resumen.compras.comprobantes += 1
-    resumen.compras.neto += neto
-    resumen.compras.iva += iva
-    resumen.compras.total += total
+    resumen.compras.neto += neto * signoCompra
+    resumen.compras.iva += iva * signoCompra
+    resumen.compras.total += total * signoCompra
   }
 
   const cierre = (lineas: string[]) => (lineas.length ? lineas.join(EOL) + EOL : '')

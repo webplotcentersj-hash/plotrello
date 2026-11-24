@@ -153,21 +153,9 @@ export async function autorizarFacturaAfip(
     fechaUltimo = afipDateToIso(infoUltimo?.CbteFch) || null
   }
 
-  // Un envío anterior pudo autorizar el último número y la respuesta no se guardó.
-  if (!(previo > 0) && infoUltimo && voucherCoincide(infoUltimo, baseData) && !(await opts.numeroUsadoPorOtra(ultimo, puntoVenta))) {
-    return {
-      cae: String(infoUltimo.CodAutorizacion),
-      caeVencimiento: afipDateToIso(infoUltimo.FchVto),
-      numeroComprobante: ultimo,
-      puntoVenta,
-      fechaEmision: afipDateToIso(infoUltimo.CbteFch) || opts.fechaEmision,
-      servicio: servicioInformado(infoUltimo),
-      resultado: 'A',
-      observaciones: 'CAE recuperado: ARCA ya había autorizado este comprobante.',
-      recuperado: true,
-      raw: infoUltimo
-    }
-  }
+  // No se "adopta" el último comprobante de ARCA solo porque coincidan importe y documento:
+  // podría ser otro emitido a mano en el mismo punto de venta. Todo envío reserva antes su
+  // número (afip_numero_intento), así que la recuperación de un CAE se hace solo por ese número.
 
   const numero = ultimo + 1
   const fechaEmision = fechaEmisionAlineadaConUltimo(opts.fechaEmision, fechaUltimo, concepto)

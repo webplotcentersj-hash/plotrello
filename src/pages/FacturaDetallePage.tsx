@@ -13,6 +13,7 @@ import {
   type CondicionIvaCliente
 } from '../utils/afipFacturaUi'
 import AvisoCertificadoAfip from '../components/facturas/AvisoCertificadoAfip'
+import { SaldoFavorNotaPanel, UsarSaldoFavorPanel } from '../components/facturas/SaldoFavorPanel'
 import { anularFacturaAfip } from '../utils/anularFacturaAfip'
 import { enviarFactura, puedeCompartirArchivos, type CanalEnvio } from '../utils/compartirFactura'
 import {
@@ -724,6 +725,8 @@ export default function FacturaDetallePage() {
           </div>
         </div>
 
+        {esNotaCredito && factura.estado_afip === 'Autorizada' && <SaldoFavorNotaPanel idNotaCredito={factura.id} />}
+
         {esCobrable && (
           <div className="factura-section">
             <h2>Cobranza</h2>
@@ -755,6 +758,15 @@ export default function FacturaDetallePage() {
                     </div>
                   )}
                 </div>
+
+                {cxc.monto_pendiente > 0 && (factura.id_cliente || cxc.id_cliente) && (
+                  <UsarSaldoFavorPanel
+                    idCliente={Number(factura.id_cliente || cxc.id_cliente)}
+                    idCuentaPorCobrar={cxc.id}
+                    pendiente={Number(cxc.monto_pendiente || 0)}
+                    onAplicado={() => loadCxc(factura.id)}
+                  />
+                )}
 
                 {cxc.monto_pendiente > 0 ? (
                   <div className="cobranza-actions">
