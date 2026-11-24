@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { buildWsfeVoucherData, calcularImportesAfip, FacturaInvalidaError, parseDoc } from './mapFactura.ts'
+import { buildWsfeVoucherData, calcularImportesAfip, condicionIvaToReceptorId, FacturaInvalidaError, normalizarCondicionIva, parseDoc } from './mapFactura.ts'
 import type { FacturaAfipInput } from './types.ts'
 
 function factura(overrides: Partial<FacturaAfipInput> = {}): FacturaAfipInput {
@@ -128,5 +128,17 @@ describe('receptor y letra', () => {
     })
     assert.deepEqual(data.CbtesAsoc, [{ Tipo: 6, PtoVta: 1, Nro: 4 }])
     assert.equal(data.CbteTipo, 8)
+  })
+})
+
+describe('condición IVA del receptor', () => {
+  it('acepta variantes de la ficha del cliente', () => {
+    assert.equal(normalizarCondicionIva('responsable_inscripto'), 'Responsable Inscripto')
+    assert.equal(normalizarCondicionIva('  IVA Responsable Inscripto '), 'Responsable Inscripto')
+    assert.equal(normalizarCondicionIva('monotributo'), 'Monotributista')
+    assert.equal(normalizarCondicionIva(''), null)
+    assert.equal(normalizarCondicionIva(null), null)
+    assert.equal(condicionIvaToReceptorId('responsable inscripto'), 1)
+    assert.equal(condicionIvaToReceptorId(null), 5)
   })
 })

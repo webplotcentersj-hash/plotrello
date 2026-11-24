@@ -76,8 +76,27 @@ export function parseDoc(
   return { DocTipo: 99, DocNro: 0 }
 }
 
+const CONDICIONES_IVA: Record<string, string> = {
+  responsable_inscripto: 'Responsable Inscripto',
+  iva_responsable_inscripto: 'Responsable Inscripto',
+  monotributo: 'Monotributista',
+  monotributista: 'Monotributista',
+  responsable_monotributo: 'Monotributista',
+  exento: 'Exento',
+  iva_exento: 'Exento',
+  iva_sujeto_exento: 'Exento',
+  no_responsable: 'No Responsable',
+  consumidor_final: 'Consumidor Final'
+}
+
+/** Lleva cualquier variante ("responsable_inscripto", "IVA Responsable Inscripto"…) al nombre canónico. */
+export function normalizarCondicionIva(condicion: string | null | undefined): string | null {
+  const key = String(condicion || '').trim().toLowerCase().replace(/[\s_-]+/g, '_')
+  return CONDICIONES_IVA[key] ?? null
+}
+
 export function condicionIvaToReceptorId(condicion: string | null | undefined): number {
-  switch (condicion) {
+  switch (normalizarCondicionIva(condicion)) {
     case 'Responsable Inscripto':
       return 1
     case 'Exento':

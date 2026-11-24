@@ -4,7 +4,12 @@ import { requireStaffSession } from '../_lib/staffAuth'
 import { AfipRechazoError, autorizarFacturaAfip, buildNumeroFacturaFromAutorizacion } from '../_lib/afip/autorizar'
 import { getAfipAccessToken } from '../_lib/afip/client'
 import { fechaComprobanteParaAfip, normalizarConcepto } from '../_lib/afip/fechas'
-import { calcularImportesAfip, FacturaInvalidaError, letraDeTipo } from '../_lib/afip/mapFactura'
+import {
+  calcularImportesAfip,
+  FacturaInvalidaError,
+  letraDeTipo,
+  normalizarCondicionIva
+} from '../_lib/afip/mapFactura'
 import { getSupabaseAdmin, loadAfipConfigResumen } from '../_lib/afip/supabaseAdmin'
 import type { AfipConfigResumen, FacturaAfipInput, FacturaReferenciaAfip } from '../_lib/afip/types'
 
@@ -31,6 +36,37 @@ async function cargarFactura(supabase: SupabaseClient, id: number) {
     .maybeSingle()
   if (error) throw new Error(error.message)
   return data as Record<string, any> | null
+}
+
+/**
+ * La factura guarda su propia copia de la condición IVA. Si quedó vacía (borradores viejos o
+ * creados sin ficha), se toma la de la ficha del cliente —por id o por CUIT— y se guarda.
+ */
+async function completarCondicionIvaDesdeCliente(supabase: SupabaseClient, factura: Record<string, any>) {
+  if (normalizarCondicionIva(factura.cliente_condicion_iva)) return
+  let condicion: string | null = null
+  if (factura.id_cliente) {
+    const { data } = await supabase.from('clientes').select('condicion_iva').eq('id', factura.id_cliente).maybeSingle()
+    condicion = normalizarCondicionIva(data?.condicion_iva)
+  }
+  const digitos = String(factura.cliente_dni_cuit || '').replace(/\D/g, '')
+  if (!condicion && digitos.length === 11) {
+    const conGuiones = `${digitos.slice(0, 2)}-${digitos.slice(2, 10)}-${digitos.slice(10)}`
+    const { data } = await supabase
+      .from('clientes')
+      .select('condicion_iva')
+      .in('dni_cuit', [digitos, conGuiones])
+      .not('condicion_iva', 'is', null)
+      .limit(1)
+    condicion = normalizarCondicionIva(data?.[0]?.condicion_iva)
+  }
+  if (!condicion) return
+  const { error } = await supabase
+    .from('facturas_venta')
+    .update({ cliente_condicion_iva: condicion })
+    .eq('id', factura.id)
+  if (error) throw new Error(`No se pudo completar la condición IVA desde la ficha del cliente: ${error.message}`)
+  factura.cliente_condicion_iva = condicion
 }
 
 /** Nota de crédito/débito: el original debe estar autorizado y el crédito no puede superar lo facturado. */
@@ -176,6 +212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new HttpError(400, `No se puede emitir un comprobante en estado ${factura.estado}.`)
     }
 
+    await completarCondicionIvaDesdeCliente(supabase, factura)
     const referencia = await validarReferencia(supabase, factura)
 
     // Lock atómico: evita que dos clics / pestañas autoricen dos veces el mismo comprobante

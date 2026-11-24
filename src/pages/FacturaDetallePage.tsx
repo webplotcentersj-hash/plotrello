@@ -185,7 +185,13 @@ export default function FacturaDetallePage() {
       const response = await apiService.getFactura(facturaId)
       if (response.success && response.data) {
         setFactura(response.data)
-        setEditCondicionIva(normalizarCondicionIvaCliente(response.data.cliente_condicion_iva) || '')
+        let condicionInicial = normalizarCondicionIvaCliente(response.data.cliente_condicion_iva)
+        // La factura guarda su propia copia; si quedó vacía, proponer la de la ficha del cliente.
+        if (!condicionInicial && response.data.id_cliente) {
+          const cli = await apiService.getClientePorId(response.data.id_cliente)
+          if (cli.success && cli.data) condicionInicial = normalizarCondicionIvaCliente(cli.data.condicion_iva)
+        }
+        setEditCondicionIva(condicionInicial || '')
         setEditDocumento(String(response.data.cliente_dni_cuit || ''))
         const tipo = String((response.data as any)?.tipo_comprobante || '')
         const esNotaCredito = tipo.startsWith('Nota de Crédito')
@@ -273,8 +279,16 @@ export default function FacturaDetallePage() {
         alert(r.error || 'No se pudo guardar.')
         return
       }
-      if (r.data) setFactura(r.data as FacturaVentaRecord & { items?: FacturaItemRecord[] })
-      else if (id) await loadFactura(parseInt(id))
+      if (r.data) {
+        setFactura(r.data as FacturaVentaRecord & { items?: FacturaItemRecord[] })
+        // La base vieja ignoraba estos campos sin error: avisar en vez de aparentar que se guardó.
+        if (normalizarCondicionIvaCliente(r.data.cliente_condicion_iva) !== condicion) {
+          alert(
+            'La base no guardó la condición IVA. Falta aplicar el patch ' +
+              '2026-11-24_factura_receptor_editable.sql en Supabase.'
+          )
+        }
+      } else if (id) await loadFactura(parseInt(id))
     } finally {
       setGuardandoReceptor(false)
     }
