@@ -4,6 +4,8 @@ import { useAuth } from '../hooks/useAuth'
 import apiService from '../services/api'
 import type { ClienteRecord, ClienteSolicitudRegistro } from '../types/api'
 import { clientesPerfil } from '../utils/clientesRoutes'
+import { abrirWhatsappAccesoPortal } from '../utils/portalClienteCredenciales'
+import { generarPasswordSegura } from '../utils/passwordSegura'
 import './ClientesWebGestionPage.css'
 
 type FiltroAcceso = 'todos' | 'con_acceso' | 'sin_acceso'
@@ -29,6 +31,7 @@ const ClientesWebGestionPage = () => {
   const [editingCliente, setEditingCliente] = useState<ClienteRecord | null>(null)
   const [darAccesoCliente, setDarAccesoCliente] = useState<ClienteRecord | null>(null)
   const [darAccesoForm, setDarAccesoForm] = useState({ usuario: '', password: '' })
+  const [avisoWhatsapp, setAvisoWhatsapp] = useState<{ nombre: string; url: string } | null>(null)
   const [sortField, setSortField] = useState<keyof ClienteRecord | ''>('nombre')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [solicitudes, setSolicitudes] = useState<ClienteSolicitudRegistro[]>([])
@@ -66,17 +69,18 @@ const ClientesWebGestionPage = () => {
     const partes = s.nombre.trim().split(/\s+/)
     const nombre = partes.shift() || s.nombre.trim()
     const apellido = partes.join(' ')
+    const email = (s.email || '').trim().toLowerCase()
     setEditingCliente(null)
     setCrearConAcceso(true)
     setSolicitudEnProceso(s)
     setFormData({
-      usuario: '',
-      password: '',
+      usuario: email,
+      password: generarPasswordSegura(),
       nombre,
       apellido,
       empresa: '',
       telefono: s.telefono || '',
-      email: s.email || '',
+      email,
       dni_cuit: '',
       direccion: ''
     })
@@ -273,15 +277,18 @@ const ClientesWebGestionPage = () => {
       alert('El nombre es requerido')
       return
     }
-    if (crearConAcceso) {
+    if (crearConAcceso && !editingCliente) {
       if (!formData.usuario.trim()) {
-        alert('El usuario es requerido')
+        alert('El usuario es requerido (usá el email del cliente)')
         return
       }
-      if (!formData.password || formData.password.length < 6) {
-        alert('La contraseña debe tener al menos 6 caracteres')
+      if (!formData.password || formData.password.length < 12) {
+        alert('La contraseña debe tener al menos 12 caracteres')
         return
       }
+    } else if (crearConAcceso && editingCliente && formData.password && formData.password.length < 6) {
+      alert('La contraseña debe tener al menos 6 caracteres')
+      return
     }
 
     if (!usuario?.id) {
@@ -341,6 +348,15 @@ const ClientesWebGestionPage = () => {
       }
 
       if (response.success) {
+        if (!editingCliente && crearConAcceso) {
+          const { url } = abrirWhatsappAccesoPortal({
+            telefono: formData.telefono,
+            nombre: formData.nombre,
+            usuario: formData.usuario.trim().toLowerCase(),
+            password: formData.password
+          })
+          setAvisoWhatsapp({ nombre: formData.nombre, url })
+        }
         if (!editingCliente && solicitudEnProceso) {
           const solId = solicitudEnProceso.id
           const solNombre = solicitudEnProceso.nombre
@@ -361,6 +377,30 @@ const ClientesWebGestionPage = () => {
     }
   }
 
+  const abrirDarAcceso = (cliente: ClienteRecord) => {
+    const email = (cliente.email || '').trim()
+    if (!email) {
+      alert('Este cliente no tiene email. Cargalo en Editar y después habilitá el acceso.')
+      return
+    }
+    setDarAccesoCliente(cliente)
+    setDarAccesoForm({ usuario: email.toLowerCase(), password: generarPasswordSegura() })
+  }
+
+  const regenerarPasswordAcceso = () => {
+    setDarAccesoForm((prev) => ({ ...prev, password: generarPasswordSegura() }))
+  }
+
+  const copiarCredencialesAcceso = async () => {
+    const texto = `Usuario: ${darAccesoForm.usuario}\nContraseña: ${darAccesoForm.password}`
+    try {
+      await navigator.clipboard.writeText(texto)
+      alert('Credenciales copiadas. Enviáselas al cliente por un canal privado.')
+    } catch {
+      alert(texto)
+    }
+  }
+
   const handleDarAcceso = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!darAccesoCliente) return
@@ -368,8 +408,8 @@ const ClientesWebGestionPage = () => {
       alert('El usuario es requerido')
       return
     }
-    if (!darAccesoForm.password || darAccesoForm.password.length < 6) {
-      alert('La contraseña debe tener al menos 6 caracteres')
+    if (!darAccesoForm.password || darAccesoForm.password.length < 12) {
+      alert('La contraseña debe tener al menos 12 caracteres')
       return
     }
     try {
@@ -377,13 +417,22 @@ const ClientesWebGestionPage = () => {
         alert('Sesión inválida: recargá e intentá de nuevo')
         return
       }
+      const usuarioLogin = darAccesoForm.usuario.trim().toLowerCase()
+      const password = darAccesoForm.password
       const response = await apiService.habilitarAccesoCliente(
         darAccesoCliente.id,
-        darAccesoForm.usuario,
-        darAccesoForm.password,
+        usuarioLogin,
+        password,
         usuario.id
       )
       if (response.success) {
+        const { url } = abrirWhatsappAccesoPortal({
+          telefono: darAccesoCliente.telefono,
+          nombre: darAccesoCliente.nombre,
+          usuario: usuarioLogin,
+          password
+        })
+        setAvisoWhatsapp({ nombre: darAccesoCliente.nombre, url })
         setDarAccesoCliente(null)
         setDarAccesoForm({ usuario: '', password: '' })
         await refreshStats()
@@ -542,8 +591,9 @@ const ClientesWebGestionPage = () => {
               type="button"
               className="cwg-btn cwg-btn--primary cwg-btn--xs"
               onClick={() => {
-                setCrearConAcceso(true)
                 resetForm()
+                setCrearConAcceso(true)
+                setFormData((prev) => ({ ...prev, password: generarPasswordSegura() }))
                 setShowCreateModal(true)
               }}
             >
@@ -551,6 +601,28 @@ const ClientesWebGestionPage = () => {
             </button>
           </div>
         </header>
+
+        {avisoWhatsapp && (
+          <div className="cwg-wa-aviso" role="status">
+            <div>
+              <strong>Acceso listo para {avisoWhatsapp.nombre}</strong>
+              <p>Se abrió WhatsApp con el mensaje (usuario, contraseña y link). Si no se abrió, usá el botón.</p>
+            </div>
+            <div className="cwg-wa-aviso__actions">
+              <a
+                className="cwg-btn cwg-btn--wa cwg-btn--xs"
+                href={avisoWhatsapp.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Enviar por WhatsApp
+              </a>
+              <button type="button" className="cwg-btn cwg-btn--ghost cwg-btn--xs" onClick={() => setAvisoWhatsapp(null)}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
 
         <section className="cwg-solicitudes" aria-label="Solicitudes de registro">
           <div className="cwg-solicitudes__head">
@@ -848,7 +920,7 @@ const ClientesWebGestionPage = () => {
                           <button
                             type="button"
                             className="cwg-btn cwg-btn--primary cwg-btn--xs"
-                            onClick={() => setDarAccesoCliente(cliente)}
+                            onClick={() => abrirDarAcceso(cliente)}
                           >
                             Acceso
                           </button>
@@ -906,24 +978,47 @@ const ClientesWebGestionPage = () => {
               {crearConAcceso && (
                 <div className="cwg-form-row">
                   <div className="cwg-field">
-                    <label>Usuario *</label>
+                    <label>Usuario (email) *</label>
                     <input
-                      type="text"
+                      type="email"
                       value={formData.usuario}
                       onChange={(e) => setFormData({ ...formData, usuario: e.target.value })}
                       disabled={!!editingCliente}
                       required={crearConAcceso && !editingCliente}
+                      autoComplete="off"
+                      placeholder="Se completa con el email"
                     />
                   </div>
                   <div className="cwg-field">
-                    <label>Contraseña {editingCliente ? '(vacío = sin cambio)' : '*'}</label>
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      required={crearConAcceso && !editingCliente}
-                      minLength={6}
-                    />
+                    <label>Contraseña {editingCliente ? '(vacío = sin cambio)' : 'generada *'}</label>
+                    {editingCliente ? (
+                      <input
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        minLength={6}
+                        autoComplete="new-password"
+                      />
+                    ) : (
+                      <div className="cwg-cred-row">
+                        <input
+                          type="text"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          required={crearConAcceso}
+                          minLength={12}
+                          autoComplete="new-password"
+                          spellCheck={false}
+                        />
+                        <button
+                          type="button"
+                          className="cwg-btn cwg-btn--ghost cwg-btn--xs"
+                          onClick={() => setFormData((prev) => ({ ...prev, password: generarPasswordSegura() }))}
+                        >
+                          Regenerar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -960,7 +1055,21 @@ const ClientesWebGestionPage = () => {
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => {
+                      const email = e.target.value
+                      setFormData((prev) => {
+                        const syncUsuario =
+                          crearConAcceso &&
+                          !editingCliente &&
+                          (!prev.usuario.trim() ||
+                            prev.usuario.trim().toLowerCase() === prev.email.trim().toLowerCase())
+                        return {
+                          ...prev,
+                          email,
+                          usuario: syncUsuario ? email.trim().toLowerCase() : prev.usuario
+                        }
+                      })
+                    }}
                   />
                 </div>
               </div>
@@ -1020,27 +1129,40 @@ const ClientesWebGestionPage = () => {
         >
           <div className="cwg-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h2>Acceso portal — {darAccesoCliente.nombre}</h2>
-            <p className="cwg-modal__hint">Usuario y contraseña para ingresar al portal de clientes.</p>
-            <form className="cwg-form" onSubmit={handleDarAcceso}>
+            <p className="cwg-modal__hint">
+              El usuario es el email del cliente. La contraseña se genera sola; copiala y enviasela por un canal privado.
+            </p>
+            <form className="cwg-form" onSubmit={handleDarAcceso} autoComplete="off">
               <div className="cwg-field">
-                <label>Usuario *</label>
+                <label>Usuario (email) *</label>
                 <input
-                  type="text"
+                  type="email"
                   value={darAccesoForm.usuario}
                   onChange={(e) => setDarAccesoForm({ ...darAccesoForm, usuario: e.target.value })}
                   required
-                  placeholder="juan.perez"
+                  autoComplete="off"
+                  placeholder="cliente@empresa.com"
                 />
               </div>
               <div className="cwg-field">
-                <label>Contraseña * (mín. 6)</label>
-                <input
-                  type="password"
-                  value={darAccesoForm.password}
-                  onChange={(e) => setDarAccesoForm({ ...darAccesoForm, password: e.target.value })}
-                  required
-                  minLength={6}
-                />
+                <label>Contraseña generada *</label>
+                <div className="cwg-cred-row">
+                  <input
+                    type="text"
+                    value={darAccesoForm.password}
+                    onChange={(e) => setDarAccesoForm({ ...darAccesoForm, password: e.target.value })}
+                    required
+                    minLength={12}
+                    autoComplete="new-password"
+                    spellCheck={false}
+                  />
+                  <button type="button" className="cwg-btn cwg-btn--ghost cwg-btn--xs" onClick={regenerarPasswordAcceso}>
+                    Regenerar
+                  </button>
+                  <button type="button" className="cwg-btn cwg-btn--muted cwg-btn--xs" onClick={() => void copiarCredencialesAcceso()}>
+                    Copiar
+                  </button>
+                </div>
               </div>
               <div className="cwg-modal-actions">
                 <button

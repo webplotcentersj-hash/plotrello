@@ -13,12 +13,14 @@ import {
 import {
   ENVIAR_ARCHIVOS_PUBLICO,
   enviarArchivosSesion,
+  esEnvioAtendidoHoy,
   esImagenVisible,
   esPdf,
   extensionDe,
   formatearBytes,
   type ArchivoEnviado
 } from '../utils/envioArchivosQr'
+import { getArgentinaDateString } from '../utils/dateUtils'
 import './RecibirArchivosQrPage.css'
 
 type Filtro = EstadoEnvioArchivosQr | 'todos'
@@ -317,16 +319,34 @@ export default function RecibirArchivosQrPage() {
     setSearchParams(next, { replace: true })
   }, [envios, cargando, searchParams, setSearchParams])
 
+  const hoyAr = getArgentinaDateString()
+
   const conteo = useMemo(() => {
-    const c: Record<Filtro, number> = { nuevo: 0, recibido: 0, archivado: 0, todos: envios.length }
-    for (const e of envios) c[e.estado]++
+    const c: Record<Filtro, number> = { nuevo: 0, recibido: 0, archivado: 0, todos: 0 }
+    for (const e of envios) {
+      if (e.estado === 'nuevo') {
+        c.nuevo++
+        c.todos++
+        continue
+      }
+      // Recibidos y archivados: solo el día de hoy (AR); al otro día desaparecen de la bandeja.
+      if (!esEnvioAtendidoHoy(e.atendido_at, hoyAr, e.created_at)) continue
+      if (e.estado === 'recibido') c.recibido++
+      if (e.estado === 'archivado') c.archivado++
+      c.todos++
+    }
     return c
-  }, [envios])
+  }, [envios, hoyAr])
 
   const visibles = useMemo(() => {
     const q = buscar.replace(/\D/g, '')
-    return envios.filter((e) => (q ? e.codigo.includes(q) : filtro === 'todos' || e.estado === filtro))
-  }, [envios, filtro, buscar])
+    return envios.filter((e) => {
+      if (q) return e.codigo.includes(q)
+      if (e.estado === 'nuevo') return filtro === 'nuevo' || filtro === 'todos'
+      if (!esEnvioAtendidoHoy(e.atendido_at, hoyAr, e.created_at)) return false
+      return filtro === 'todos' || e.estado === filtro
+    })
+  }, [envios, filtro, buscar, hoyAr])
 
   const marcar = async (e: EnvioArchivosQr, estado: EstadoEnvioArchivosQr) => {
     if (!usuario?.id) return
@@ -680,14 +700,24 @@ export default function RecibirArchivosQrPage() {
               <Icono d="inbox" size={30} />
             </span>
             <strong>
-              {buscar ? `No hay envíos con el código ${buscar}` : filtro === 'nuevo' ? 'Todo al día' : 'Sin envíos'}
+              {buscar
+                ? `No hay envíos con el código ${buscar}`
+                : filtro === 'nuevo'
+                  ? 'Todo al día'
+                  : filtro === 'recibido'
+                    ? 'Sin recibidos hoy'
+                    : filtro === 'archivado'
+                      ? 'Sin archivados hoy'
+                      : 'Sin envíos'}
             </strong>
             <small>
               {buscar
                 ? 'Revisá los números con el cliente.'
                 : filtro === 'nuevo'
                   ? 'Cuando un cliente envíe archivos con el QR fijo, aparecen acá y te llega un aviso.'
-                  : 'No hay envíos en esta categoría.'}
+                  : filtro === 'recibido' || filtro === 'archivado'
+                    ? 'Solo se listan los de hoy; los de días anteriores ya no aparecen.'
+                    : 'No hay envíos en esta categoría.'}
             </small>
           </div>
         ) : (

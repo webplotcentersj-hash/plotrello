@@ -4,6 +4,7 @@ import {
   ENVIO_MAX_ARCHIVOS,
   ENVIO_MAX_BYTES,
   agregarArchivosElegidos,
+  esEnvioAtendidoHoy,
   formatearBytes,
   mostradorArchivosQrPath,
   nombreSeguroStorage,
@@ -61,5 +62,12 @@ describe('envío de archivos por QR', () => {
     assert.equal(parseEnvioArchivosQrId('envio-archivos-qr:12'), 12)
     assert.equal(mostradorArchivosQrPath({ id: 12 }), '/mostrador/archivos-qr?id=12')
     assert.equal(mostradorArchivosQrPath({ codigo: '0857' }), '/mostrador/archivos-qr?codigo=0857')
+  })
+
+  it('recibidos solo cuentan el día AR; al otro día desaparecen', () => {
+    assert.equal(esEnvioAtendidoHoy('2026-11-20T18:00:00-03:00', '2026-11-20'), true)
+    assert.equal(esEnvioAtendidoHoy('2026-11-19T23:30:00-03:00', '2026-11-20'), false)
+    assert.equal(esEnvioAtendidoHoy(null, '2026-11-20'), false)
+    assert.equal(esEnvioAtendidoHoy(null, '2026-11-20', '2026-11-20T10:00:00-03:00'), true)
   })
 })

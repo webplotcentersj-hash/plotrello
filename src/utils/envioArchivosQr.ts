@@ -1,4 +1,5 @@
 import { TOTEM_PRINT_MAX_FILE_BYTES, TOTEM_PRINT_MAX_FILE_MB, TOTEM_PRINT_MAX_FILES } from '../constants/totemPrint'
+import { getArgentinaDateString, isoToArgentinaDateKey } from './dateUtils'
 
 /** QR fijo impreso: el cliente sube archivos sin sesión y recibe un código. */
 export const ENVIAR_ARCHIVOS_PUBLICO = '/enviar-archivos'
@@ -36,6 +37,23 @@ export function mostradorArchivosQrPath(opts?: {
   if (opts?.codigo) q.set('codigo', String(opts.codigo).replace(/\D/g, '').slice(0, 4))
   const s = q.toString()
   return s ? `${MOSTRADOR_ARCHIVOS_QR}?${s}` : MOSTRADOR_ARCHIVOS_QR
+}
+
+/**
+ * Recibidos / archivados de la bandeja: solo el día calendario AR.
+ * Al día siguiente dejan de aparecer en esas pestañas.
+ * Si no hay atendido_at, usa created_at como respaldo.
+ */
+export function esEnvioAtendidoHoy(
+  atendidoAt: string | null | undefined,
+  hoyYmd?: string,
+  fallbackIso?: string | null
+): boolean {
+  const iso = atendidoAt || fallbackIso
+  if (!iso) return false
+  const dia = isoToArgentinaDateKey(iso)
+  if (!dia) return false
+  return dia === (hoyYmd || getArgentinaDateString())
 }
 
 export const ENVIO_MAX_ARCHIVOS = TOTEM_PRINT_MAX_FILES
