@@ -44,6 +44,8 @@ async function cargarFactura(supabase: SupabaseClient, id: number) {
  */
 async function completarCondicionIvaDesdeCliente(supabase: SupabaseClient, factura: Record<string, any>) {
   if (normalizarCondicionIva(factura.cliente_condicion_iva)) return
+  // Las notas usan el receptor de la factura original (lo copia validarReferencia), no la ficha actual
+  if (String(factura.tipo_comprobante || '').startsWith('Nota de')) return
   let condicion: string | null = null
   if (factura.id_cliente) {
     const { data } = await supabase.from('clientes').select('condicion_iva').eq('id', factura.id_cliente).maybeSingle()
@@ -82,7 +84,7 @@ async function validarReferencia(
 
   const { data: ref, error } = await supabase
     .from('facturas_venta')
-    .select('id, tipo_comprobante, punto_venta, numero_comprobante, numero_factura, estado_afip, total')
+    .select('id, tipo_comprobante, punto_venta, numero_comprobante, numero_factura, estado_afip, total, cliente_condicion_iva, cliente_dni_cuit')
     .eq('id', factura.id_factura_referencia)
     .maybeSingle()
   if (error) throw new Error(error.message)
@@ -116,6 +118,23 @@ async function validarReferencia(
         `La nota de crédito ($${montoNota.toFixed(2)}) supera el saldo acreditable de ${ref.numero_factura} ($${Math.max(0, disponible).toFixed(2)}).`
       )
     }
+  }
+
+  // La nota corrige ESE comprobante: se informa con el mismo receptor (condición IVA y documento)
+  // que la factura original, aunque después se haya cambiado la ficha del cliente. Si no, una
+  // NC A a un cliente que hoy figura Exento sería rechazada y la factura A no se podría anular.
+  const condicionOriginal = normalizarCondicionIva(ref.cliente_condicion_iva)
+  const patch: Record<string, unknown> = {}
+  if (condicionOriginal && condicionOriginal !== factura.cliente_condicion_iva) {
+    patch.cliente_condicion_iva = condicionOriginal
+  }
+  if (ref.cliente_dni_cuit && ref.cliente_dni_cuit !== factura.cliente_dni_cuit) {
+    patch.cliente_dni_cuit = ref.cliente_dni_cuit
+  }
+  if (Object.keys(patch).length) {
+    const { error: errPatch } = await supabase.from('facturas_venta').update(patch).eq('id', factura.id)
+    if (errPatch) throw new Error(`No se pudo copiar el receptor de la factura original: ${errPatch.message}`)
+    Object.assign(factura, patch)
   }
 
   return {

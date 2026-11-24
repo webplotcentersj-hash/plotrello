@@ -188,7 +188,8 @@ export default function FacturaDetallePage() {
         setFactura(response.data)
         let condicionInicial = normalizarCondicionIvaCliente(response.data.cliente_condicion_iva)
         // La factura guarda su propia copia; si quedó vacía, proponer la de la ficha del cliente.
-        if (!condicionInicial && response.data.id_cliente) {
+        const esNotaCargada = String(response.data.tipo_comprobante || '').startsWith('Nota de')
+        if (!condicionInicial && !esNotaCargada && response.data.id_cliente) {
           const cli = await apiService.getClientePorId(response.data.id_cliente)
           if (cli.success && cli.data) condicionInicial = normalizarCondicionIvaCliente(cli.data.condicion_iva)
         }
@@ -220,7 +221,8 @@ export default function FacturaDetallePage() {
   const handleEmitirAfip = async () => {
     if (!factura) return
     const soloEfectos = factura.estado_afip === 'Autorizada'
-    if (!soloEfectos) {
+    const esNota = String(factura.tipo_comprobante || '').startsWith('Nota de')
+    if (!soloEfectos && !esNota) {
       const condicion =
         normalizarCondicionIvaCliente(editCondicionIva || factura.cliente_condicion_iva) ||
         (factura.cliente_condicion_iva as CondicionIvaCliente | '' | null)
@@ -453,7 +455,9 @@ export default function FacturaDetallePage() {
   // Borrador o comprobante viejo emitido sin CAE
   const puedeEmitirAfip = (factura.estado === 'Borrador' || factura.estado === 'Emitida') && !autorizada && !envioEnCurso
   const efectosPendientes = factura.estado === 'Emitida' && autorizada && !factura.efectos_aplicados_at
+  // Las notas se informan con el receptor de la factura original (lo pone el servidor al emitir)
   const puedeEditarReceptor =
+    !String(factura.tipo_comprobante || '').startsWith('Nota de') &&
     !autorizada &&
     !String(factura.cae || '').trim() &&
     (factura.estado === 'Borrador' || factura.estado === 'Emitida') &&

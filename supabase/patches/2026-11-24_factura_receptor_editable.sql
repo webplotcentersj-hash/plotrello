@@ -269,6 +269,7 @@ FROM public.clientes AS c
 WHERE f.id_cliente = c.id
   AND public.normalizar_condicion_iva_cliente(c.condicion_iva) IS NOT NULL
   AND f.estado = 'Borrador'
+  AND f.tipo_comprobante LIKE 'Factura%'
   AND COALESCE(f.estado_afip, '') <> 'Autorizada'
   AND NULLIF(btrim(f.cliente_condicion_iva), '') IS NULL;
 
@@ -287,5 +288,20 @@ FROM (
 WHERE f.id_cliente IS NULL
   AND regexp_replace(COALESCE(f.cliente_dni_cuit, ''), '\D', '', 'g') = x.cuit
   AND f.estado = 'Borrador'
+  AND f.tipo_comprobante LIKE 'Factura%'
   AND COALESCE(f.estado_afip, '') <> 'Autorizada'
   AND NULLIF(btrim(f.cliente_condicion_iva), '') IS NULL;
+
+-- Notas de crédito/débito sin autorizar: mismo receptor que la factura original
+-- (si la ficha del cliente cambió después, la nota igual debe ir con la condición de esa factura).
+UPDATE public.facturas_venta AS n
+SET cliente_condicion_iva = o.cliente_condicion_iva,
+    cliente_dni_cuit = COALESCE(o.cliente_dni_cuit, n.cliente_dni_cuit),
+    updated_at = now()
+FROM public.facturas_venta AS o
+WHERE n.id_factura_referencia = o.id
+  AND n.tipo_comprobante LIKE 'Nota de%'
+  AND n.estado = 'Borrador'
+  AND COALESCE(n.estado_afip, '') <> 'Autorizada'
+  AND o.cliente_condicion_iva IS NOT NULL
+  AND n.cliente_condicion_iva IS DISTINCT FROM o.cliente_condicion_iva;
