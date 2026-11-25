@@ -8,6 +8,15 @@ import {
   parseComprobanteAfip
 } from './gastoIvaLibro'
 
+export type GastoLibroExtras = Partial<{
+  percepcion_iva: number
+  percepcion_otros_nac: number
+  percepcion_iibb: number
+  percepcion_municipal: number
+  impuestos_internos: number
+  otros_tributos: number
+}>
+
 export async function syncGastoALibroIva(input: {
   gastoId: number
   fecha: string
@@ -22,12 +31,16 @@ export async function syncGastoALibroIva(input: {
   letra?: string | null
   iva_porcentaje?: number | null
   tipo_comprobante?: string | null
+  extras?: GastoLibroExtras | null
 }): Promise<{ ok: boolean; omitido?: boolean; id_factura_compra?: number; error?: string }> {
   if (!gastoPuedeIrALibroIva(input.iva)) {
     return { ok: true, omitido: true }
   }
+  const extrasSum = Object.values(input.extras ?? {}).reduce((s, v) => s + (Number(v) || 0), 0)
+  const totalAbs = Math.abs(Number(input.total) || 0)
+  const baseSinExtras = Math.max(0, totalAbs - Math.abs(extrasSum))
   const { neto, iva } = netoEIvaDesdeTotal(
-    Math.abs(Number(input.total) || 0),
+    baseSinExtras > 0 ? baseSinExtras : totalAbs,
     input.iva == null ? null : Math.abs(Number(input.iva)),
     input.neto == null ? null : Math.abs(Number(input.neto))
   )
@@ -65,6 +78,12 @@ export async function syncGastoALibroIva(input: {
         ? 'Nota de Débito'
         : 'Factura'
 
+  const extras = Object.fromEntries(
+    Object.entries(input.extras ?? {})
+      .map(([k, v]) => [k, Math.round(Math.abs(Number(v) || 0) * 100) / 100] as const)
+      .filter(([, v]) => v > 0)
+  ) as GastoLibroExtras
+
   const created = await apiService.createFacturaCompra({
     tipo_comprobante,
     letra,
@@ -83,7 +102,8 @@ export async function syncGastoALibroIva(input: {
         descuento: 0,
         iva_porcentaje: alic
       }
-    ]
+    ],
+    extras: Object.keys(extras).length ? extras : null
   })
   if (!created.success || !created.data) {
     return { ok: false, error: created.error || 'No se pudo cargar el IVA al libro de compras' }

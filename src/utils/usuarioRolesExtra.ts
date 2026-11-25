@@ -10,7 +10,9 @@ const ROLES_EXTRA_POR_LOGIN: Record<string, ReadonlyArray<UserRole>> = {
   'achavez@plotcenter.com.ar': ['mostrador', 'caja'],
   'jbarros@plotcenter.com.ar': ['mostrador', 'caja'],
   'mmilla@plotcenter.com.ar': ['caja'],
-  'fvidela@plotcenter.com.ar': ['mostrador', 'caja']
+  'fvidela@plotcenter.com.ar': ['mostrador', 'caja'],
+  // Ve todas las ventas del sistema (mismo alcance que presupuestos/admin en /ventas).
+  lunamonti: ['presupuestos']
 }
 
 /** El rol principal incluye estos otros (sin tocar el registro en DB). */

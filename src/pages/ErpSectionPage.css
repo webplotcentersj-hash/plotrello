@@ -1024,6 +1024,20 @@
   font-weight: 500;
 }
 
+.erp-gastos-impuestos-title {
+  margin: 14px 0 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--erp-muted);
+}
+
+.erp-gastos-impuestos-sum {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+}
+
 .erp-gastos-form-actions {
   display: flex;
   gap: 10px;

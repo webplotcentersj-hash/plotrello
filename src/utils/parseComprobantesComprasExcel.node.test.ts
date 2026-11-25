@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+  buscarGastoDuplicado,
+  gastoDuplicadoKey,
   gastoImportKey,
+  normalizarNroComprobanteGasto,
   parseComprobantesComprasAoa,
   parseTipoComprobanteAfip,
   payloadGastoDesdeExcel
@@ -94,5 +97,39 @@ describe('payloadGastoDesdeExcel', () => {
     assert.equal(nc.iva, -21)
     assert.equal(nc.tipo_comprobante, 'Nota de Crédito')
     assert.equal(gastoImportKey(parsed.rows[0]), '2026-08-01|30716891007|1|4048|A')
+  })
+})
+
+describe('duplicados de gastos', () => {
+  it('normaliza nro con PV pegado', () => {
+    assert.equal(normalizarNroComprobanteGasto('0000400001441', 4), '1441')
+    assert.equal(normalizarNroComprobanteGasto('0001-00004048', 1), '4048')
+  })
+
+  it('detecta el mismo comprobante y el mismo CUIT+letra+total', () => {
+    assert.equal(gastoDuplicadoKey({ proveedor_cuit: '27318693590', letra: 'A', punto_venta: 4, numero_comprobante: '0000400001441' }), '27318693590|A|1441')
+    const existentes = [
+      {
+        id: 96,
+        proveedor: 'AVANTE',
+        proveedor_cuit: '27318693590',
+        letra: 'A',
+        punto_venta: 1,
+        numero_comprobante: '000040000141',
+        total: 32700,
+        fecha_gasto: '2026-11-20',
+        tipo_comprobante: 'Factura'
+      }
+    ]
+    const dupTotal = buscarGastoDuplicado(existentes, {
+      proveedor_cuit: '27318693590',
+      letra: 'A',
+      punto_venta: 4,
+      numero_comprobante: '0000400001441',
+      total: 32700
+    })
+    assert.ok(dupTotal)
+    assert.equal(dupTotal.id, 96)
+    assert.match(dupTotal.motivo, /total/)
   })
 })

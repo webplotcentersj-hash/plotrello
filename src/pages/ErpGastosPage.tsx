@@ -7,8 +7,10 @@ import { getArgentinaDateString } from '../utils/dateUtils'
 import { gastoPuedeIrALibroIva, inferirAlicuotaIva, netoEIvaDesdeTotal } from '../utils/gastoIvaLibro'
 import { syncGastoALibroIva } from '../utils/syncGastoALibroIva'
 import {
+  buscarGastoDuplicado,
   gastoImportKey,
   labelMesYm,
+  normalizarNroComprobanteGasto,
   parseComprobantesComprasBuffer,
   payloadGastoDesdeExcel,
   type CompraExcelParseResult
@@ -46,6 +48,12 @@ type ErpGastoRow = {
   tipo_comprobante?: string | null
   cae?: string | null
   centro_costo?: string | null
+  percepcion_iva?: number | null
+  percepcion_otros_nac?: number | null
+  percepcion_iibb?: number | null
+  percepcion_municipal?: number | null
+  impuestos_internos?: number | null
+  otros_tributos?: number | null
 }
 
 type GastoForm = {
@@ -59,6 +67,12 @@ type GastoForm = {
   iva: string
   neto: string
   iva_porcentaje: string
+  percepcion_iva: string
+  percepcion_otros_nac: string
+  percepcion_iibb: string
+  percepcion_municipal: string
+  impuestos_internos: string
+  otros_tributos: string
   moneda: string
   metodo_pago: string
   tipo_comprobante: string
@@ -70,6 +84,15 @@ type GastoForm = {
   ticket_url: string
   enviar_libro_iva: boolean
 }
+
+const IMPUESTOS_EXTRA = [
+  { key: 'percepcion_iva' as const, label: 'Percepción IVA' },
+  { key: 'percepcion_iibb' as const, label: 'Percepción IIBB' },
+  { key: 'percepcion_municipal' as const, label: 'Percepción municipal' },
+  { key: 'percepcion_otros_nac' as const, label: 'Otras perc. nacionales' },
+  { key: 'impuestos_internos' as const, label: 'Impuestos internos' },
+  { key: 'otros_tributos' as const, label: 'Otros tributos' }
+]
 
 const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Débito', 'Transferencia', 'Cheque', 'Cuenta corriente', 'Mercado Pago', 'Otro'] as const
 const TIPOS_COMPROBANTE = ['Factura', 'Ticket', 'Recibo', 'Nota de Crédito', 'Nota de Débito'] as const
@@ -95,6 +118,12 @@ function emptyForm(): GastoForm {
     iva: '',
     neto: '',
     iva_porcentaje: '',
+    percepcion_iva: '',
+    percepcion_otros_nac: '',
+    percepcion_iibb: '',
+    percepcion_municipal: '',
+    impuestos_internos: '',
+    otros_tributos: '',
     moneda: 'ARS',
     metodo_pago: 'Efectivo',
     tipo_comprobante: 'Factura',
@@ -106,6 +135,10 @@ function emptyForm(): GastoForm {
     ticket_url: '',
     enviar_libro_iva: true
   }
+}
+
+function montoExtraImpuestos(form: Pick<GastoForm, (typeof IMPUESTOS_EXTRA)[number]['key']>): number {
+  return IMPUESTOS_EXTRA.reduce((s, { key }) => s + (safeNumber(form[key]) ?? 0), 0)
 }
 
 function matchBusqueda(r: ErpGastoRow, q: string): boolean {
@@ -141,36 +174,96 @@ function safeNumber(v: unknown): number | null {
 }
 
 function comprobanteLabel(r: Pick<ErpGastoRow, 'letra' | 'punto_venta' | 'numero_comprobante' | 'tipo_comprobante'>) {
-  const nro = (r.numero_comprobante || '').trim()
+  const nroRaw = (r.numero_comprobante || '').trim()
   const tipo = (r.tipo_comprobante || '').trim()
   const letra = (r.letra || '').trim()
   const pv = r.punto_venta != null && r.punto_venta > 0 ? String(r.punto_venta).padStart(4, '0') : ''
-  const parts = [tipo, letra, nro.includes('-') ? nro : pv && nro ? `${pv}-${nro}` : nro].filter(Boolean)
+  let nro = nroRaw
+  if (nro && !nro.includes('-')) {
+    const nroNorm = normalizarNroComprobanteGasto(nro, r.punto_venta)
+    nro = pv && nroNorm ? `${pv}-${nroNorm.padStart(8, '0')}` : nro
+  }
+  const parts = [tipo, letra, nro].filter(Boolean)
   return parts.join(' ') || '—'
 }
 
+function extrasPayloadFromForm(form: Pick<GastoForm, (typeof IMPUESTOS_EXTRA)[number]['key']>) {
+  const out: Partial<Record<(typeof IMPUESTOS_EXTRA)[number]['key'], number>> = {}
+  for (const { key } of IMPUESTOS_EXTRA) {
+    const n = safeNumber(form[key])
+    if (n != null && n > 0) out[key] = Math.round(n * 100) / 100
+  }
+  return out
+}
+
+function extrasFromRow(row: Pick<ErpGastoRow, (typeof IMPUESTOS_EXTRA)[number]['key']>) {
+  const out: Partial<Record<(typeof IMPUESTOS_EXTRA)[number]['key'], number>> = {}
+  for (const { key } of IMPUESTOS_EXTRA) {
+    const n = Number(row[key])
+    if (Number.isFinite(n) && n > 0) out[key] = Math.round(n * 100) / 100
+  }
+  return out
+}
+
+function roundMoney(n: number) {
+  return Math.round(n * 100) / 100
+}
+
+/** Total = neto + IVA + percepciones/otros. Los extras se suman al total. */
 function recalcForm(prev: GastoForm, patch: Partial<GastoForm>): GastoForm {
   const next = { ...prev, ...patch }
-  const total = safeNumber(next.total)
+  const extras = montoExtraImpuestos(next)
   const alic = safeNumber(next.iva_porcentaje)
-  if (patch.iva_porcentaje != null || (patch.total != null && alic != null && alic >= 0 && total != null)) {
-    if (total != null && alic != null && alic >= 0) {
-      const neto = total / (1 + alic / 100)
-      next.neto = (Math.round(neto * 100) / 100).toFixed(2)
-      next.iva = (Math.round((total - neto) * 100) / 100).toFixed(2)
+  const patchExtra = IMPUESTOS_EXTRA.some(({ key }) => patch[key] != null)
+  const hasAlic = alic != null && alic >= 0 && String(next.iva_porcentaje).trim() !== ''
+
+  const sumarTotal = () => {
+    const neto = safeNumber(next.neto) ?? 0
+    const iva = safeNumber(next.iva) ?? 0
+    next.total = roundMoney(neto + iva + extras).toFixed(2)
+  }
+
+  // Alícuota + neto → IVA, luego total suma todo
+  if (patch.iva_porcentaje != null && hasAlic) {
+    const neto = safeNumber(next.neto)
+    if (neto != null) {
+      next.iva = roundMoney(neto * (alic / 100)).toFixed(2)
+      sumarTotal()
       return next
     }
   }
-  if (patch.iva != null && total != null) {
-    const iva = safeNumber(next.iva) ?? 0
-    next.neto = (Math.round((total - iva) * 100) / 100).toFixed(2)
-  } else if (patch.neto != null && total != null) {
-    const neto = safeNumber(next.neto) ?? 0
-    next.iva = (Math.round((total - neto) * 100) / 100).toFixed(2)
-  } else if (patch.total != null && total != null) {
-    const iva = safeNumber(next.iva)
-    if (iva != null) next.neto = (Math.round((total - iva) * 100) / 100).toFixed(2)
+
+  // Total tipiado con alícuota: el total incluye extras; se abre neto/IVA sobre (total − extras)
+  if (patch.total != null && hasAlic) {
+    const total = safeNumber(next.total)
+    if (total != null) {
+      const base = Math.max(0, total - extras)
+      const neto = base / (1 + alic / 100)
+      next.neto = roundMoney(neto).toFixed(2)
+      next.iva = roundMoney(base - neto).toFixed(2)
+      return next
+    }
   }
+
+  // Neto / IVA / extras → el total se va sumando
+  if (patch.neto != null || patch.iva != null || patchExtra) {
+    if (patch.neto != null && hasAlic) {
+      const neto = safeNumber(next.neto) ?? 0
+      next.iva = roundMoney(neto * (alic / 100)).toFixed(2)
+    }
+    sumarTotal()
+    return next
+  }
+
+  // Total tipiado sin alícuota: ajusta neto si hay IVA
+  if (patch.total != null) {
+    const total = safeNumber(next.total)
+    const iva = safeNumber(next.iva)
+    if (total != null && iva != null) {
+      next.neto = roundMoney(total - iva - extras).toFixed(2)
+    }
+  }
+
   return next
 }
 
@@ -409,7 +502,8 @@ export default function ErpGastosPage() {
         punto_venta: row.punto_venta,
         letra: row.letra,
         iva_porcentaje: row.iva_porcentaje,
-        tipo_comprobante: row.tipo_comprobante
+        tipo_comprobante: row.tipo_comprobante,
+        extras: extrasFromRow(row)
       })
       if (!r.ok) throw new Error(r.error || 'No se pudo enviar al libro IVA')
       await reload()
@@ -435,6 +529,19 @@ export default function ErpGastosPage() {
       alert('Seleccioná la fecha.')
       return
     }
+    const dup = buscarGastoDuplicado(rows, {
+      proveedor_cuit: form.proveedor_cuit,
+      letra: form.letra,
+      punto_venta: safeNumber(form.punto_venta),
+      numero_comprobante: form.numero_comprobante,
+      total
+    })
+    if (dup) {
+      const seguir = confirm(
+        `Este comprobante parece duplicado de ${dup.proveedor}: ${dup.motivo}.\n\n¿Guardar igual?`
+      )
+      if (!seguir) return
+    }
     setSaving(true)
     try {
       const categoriaClean = form.categoria.trim()
@@ -443,6 +550,7 @@ export default function ErpGastosPage() {
       }
       const iva = safeNumber(form.iva)
       const neto = safeNumber(form.neto)
+      const extras = extrasPayloadFromForm(form)
       const payload = {
         fecha_gasto: form.fecha_gasto,
         proveedor: form.proveedor.trim() || null,
@@ -454,6 +562,12 @@ export default function ErpGastosPage() {
         iva,
         neto,
         iva_porcentaje: safeNumber(form.iva_porcentaje),
+        percepcion_iva: extras.percepcion_iva ?? null,
+        percepcion_otros_nac: extras.percepcion_otros_nac ?? null,
+        percepcion_iibb: extras.percepcion_iibb ?? null,
+        percepcion_municipal: extras.percepcion_municipal ?? null,
+        impuestos_internos: extras.impuestos_internos ?? null,
+        otros_tributos: extras.otros_tributos ?? null,
         moneda: form.moneda.trim() || 'ARS',
         metodo_pago: form.metodo_pago.trim() || null,
         tipo_comprobante: form.tipo_comprobante.trim() || null,
@@ -485,7 +599,8 @@ export default function ErpGastosPage() {
           punto_venta: safeNumber(form.punto_venta),
           letra: form.letra,
           iva_porcentaje: safeNumber(form.iva_porcentaje),
-          tipo_comprobante: form.tipo_comprobante
+          tipo_comprobante: form.tipo_comprobante,
+          extras
         })
         if (sync.ok && !sync.omitido) {
           libroMsg = ' IVA enviado al libro de compras.'
@@ -575,7 +690,8 @@ export default function ErpGastosPage() {
             punto_venta: r.punto_venta,
             letra: r.letra,
             iva_porcentaje: r.iva_porcentaje,
-            tipo_comprobante: r.tipo_comprobante
+            tipo_comprobante: r.tipo_comprobante,
+            extras: extrasFromRow(payload as ErpGastoRow)
           })
           if (sync.ok && !sync.omitido) libro++
         }
@@ -788,7 +904,7 @@ export default function ErpGastosPage() {
             </fieldset>
 
             <fieldset className="erp-gastos-fieldset">
-              <legend>Comprobante e IVA</legend>
+              <legend>Comprobante e impuestos</legend>
               <div className="erp-gastos-fields">
                 <label>
                   Tipo
@@ -862,15 +978,40 @@ export default function ErpGastosPage() {
                   <input className="erp-input" value={form.iva} onChange={(e) => patchForm({ iva: e.target.value })} />
                 </label>
               </div>
+              <p className="erp-gastos-impuestos-title">Percepciones y otros tributos</p>
+              <div className="erp-gastos-fields">
+                {IMPUESTOS_EXTRA.map(({ key, label }) => (
+                  <label key={key}>
+                    {label}
+                    <input
+                      className="erp-input"
+                      value={form[key]}
+                      onChange={(e) => patchForm({ [key]: e.target.value } as Partial<GastoForm>)}
+                      inputMode="decimal"
+                      placeholder="0"
+                    />
+                  </label>
+                ))}
+              </div>
+              <p className="erp-gastos-iva-hint erp-gastos-impuestos-sum">
+                Total = Neto {money(safeNumber(form.neto))} + IVA {money(safeNumber(form.iva))}
+                {montoExtraImpuestos(form) > 0 ? ` + otros ${money(montoExtraImpuestos(form))}` : ''}
+                {' = '}
+                {money(safeNumber(form.total))}
+              </p>
               <label className="erp-gastos-check">
                 <input
                   type="checkbox"
                   checked={form.enviar_libro_iva}
                   onChange={(e) => patchForm({ enviar_libro_iva: e.target.checked })}
                 />
-                Enviar IVA al libro de compras al guardar
+                Enviar IVA e impuestos al libro de compras al guardar
                 {gastoPuedeIrALibroIva(safeNumber(form.iva)) ? (
-                  <span className="erp-gastos-iva-hint"> · se va a registrar {money(safeNumber(form.iva))}</span>
+                  <span className="erp-gastos-iva-hint">
+                    {' '}
+                    · IVA {money(safeNumber(form.iva))}
+                    {montoExtraImpuestos(form) > 0 ? ` + otros ${money(montoExtraImpuestos(form))}` : ''}
+                  </span>
                 ) : (
                   <span className="erp-gastos-iva-hint"> · sin IVA no entra al libro</span>
                 )}

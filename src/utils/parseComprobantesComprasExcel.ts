@@ -51,6 +51,24 @@ export function labelMesYm(ym: string): string {
   return `${MESES_ES[mi]} ${y}`
 }
 
+/** Número comparable: dígitos, sin PV pegado al inicio, últimos 8, sin ceros a la izquierda. */
+export function normalizarNroComprobanteGasto(
+  numero: string | number | null | undefined,
+  puntoVenta?: number | null
+): string {
+  let d = String(numero ?? '').replace(/\D/g, '')
+  if (!d) return ''
+  const pv =
+    puntoVenta != null && Number(puntoVenta) > 0
+      ? String(Math.trunc(Number(puntoVenta))).padStart(4, '0')
+      : ''
+  // "0004" + "000001441" pegados, o nro que ya incluye el PV
+  if (pv && d.startsWith(pv) && d.length > pv.length + 2) d = d.slice(pv.length)
+  else if (d.length >= 12) d = d.slice(-8)
+  if (d.length > 8) d = d.slice(-8)
+  return d.replace(/^0+/, '') || '0'
+}
+
 export function gastoImportKey(r: {
   fecha: string
   proveedor_cuit?: string | null
@@ -59,11 +77,10 @@ export function gastoImportKey(r: {
   numero_comprobante?: string | null
   letra?: string | null
 }): string {
-  const nroRaw =
+  const nro =
     r.numero != null && r.numero > 0
-      ? String(r.numero)
-      : String(r.numero_comprobante || '').replace(/\D/g, '').slice(-8)
-  const nro = nroRaw.replace(/^0+/, '') || '0'
+      ? String(r.numero).replace(/^0+/, '') || '0'
+      : normalizarNroComprobanteGasto(r.numero_comprobante, r.punto_venta)
   const pv = String(r.punto_venta || '')
   return [
     String(r.fecha || '').slice(0, 10),
@@ -72,6 +89,78 @@ export function gastoImportKey(r: {
     nro,
     String(r.letra || '').toUpperCase()
   ].join('|')
+}
+
+/** Clave estable cuit|letra|nro (ignora fecha/PV mal parseados). */
+export function gastoDuplicadoKey(r: {
+  proveedor_cuit?: string | null
+  letra?: string | null
+  punto_venta?: number | null
+  numero_comprobante?: string | null
+  numero?: number | null
+}): string | null {
+  const cuit = String(r.proveedor_cuit || '').replace(/\D/g, '')
+  const nro =
+    r.numero != null && Number(r.numero) > 0
+      ? String(Math.trunc(Number(r.numero))).replace(/^0+/, '') || '0'
+      : normalizarNroComprobanteGasto(r.numero_comprobante, r.punto_venta)
+  if (cuit.length < 8 || !nro || nro === '0') return null
+  return `${cuit}|${String(r.letra || '').toUpperCase()}|${nro}`
+}
+
+export type GastoDupCandidato = {
+  id: number
+  proveedor?: string | null
+  proveedor_cuit?: string | null
+  letra?: string | null
+  punto_venta?: number | null
+  numero_comprobante?: string | null
+  total?: number | string | null
+  fecha_gasto?: string | null
+  tipo_comprobante?: string | null
+}
+
+/** Busca un gasto ya cargado del mismo comprobante (exacto o mismo CUIT+letra+total). */
+export function buscarGastoDuplicado(
+  existentes: GastoDupCandidato[],
+  nuevo: {
+    proveedor_cuit?: string | null
+    letra?: string | null
+    punto_venta?: number | null
+    numero_comprobante?: string | null
+    total?: number | null
+  }
+): { id: number; motivo: string; proveedor: string } | null {
+  const key = gastoDuplicadoKey(nuevo)
+  const cuit = String(nuevo.proveedor_cuit || '').replace(/\D/g, '')
+  const letra = String(nuevo.letra || '').toUpperCase()
+  const total = nuevo.total != null && Number.isFinite(nuevo.total) ? Math.round(Number(nuevo.total) * 100) / 100 : null
+
+  for (const e of existentes) {
+    const eKey = gastoDuplicadoKey(e)
+    if (key && eKey && key === eKey) {
+      return {
+        id: e.id,
+        proveedor: e.proveedor || 'proveedor',
+        motivo: `mismo comprobante (${e.tipo_comprobante || 'Factura'} ${e.letra || ''} ${e.numero_comprobante || ''})`.trim()
+      }
+    }
+  }
+  if (cuit.length >= 8 && letra && total != null && total !== 0) {
+    for (const e of existentes) {
+      const eCuit = String(e.proveedor_cuit || '').replace(/\D/g, '')
+      const eLetra = String(e.letra || '').toUpperCase()
+      const eTotal = Math.round((Number(e.total) || 0) * 100) / 100
+      if (eCuit === cuit && eLetra === letra && Math.abs(eTotal - total) < 0.02) {
+        return {
+          id: e.id,
+          proveedor: e.proveedor || 'proveedor',
+          motivo: `mismo CUIT, letra ${letra} y total $${total.toLocaleString('es-AR')} (gasto #${e.id} del ${String(e.fecha_gasto || '').slice(0, 10)})`
+        }
+      }
+    }
+  }
+  return null
 }
 
 function stripAccents(s: string): string {

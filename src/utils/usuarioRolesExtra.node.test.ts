@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { usuarioTieneAlgunRol, usuarioTieneRol } from './usuarioRolesExtra.ts'
-import { esUsuarioCajaOperativa } from './ventasCajaScope.ts'
+import { esUsuarioCajaOperativa, idVendedorParaConsulta } from './ventasCajaScope.ts'
 import { canUserAccessModule, type AdminModuleDef } from '../components/admin-module/adminModuleCatalog.ts'
 
 const imprenta = { nombre: 'taller@plotcenter.com.ar', rol: 'imprenta' as const }
@@ -38,6 +38,15 @@ describe('imprenta incluye mostrador', () => {
     }
     assert.equal(canUserAccessModule(imprenta, moduloMostrador), true)
     assert.equal(canUserAccessModule('imprenta', moduloMostrador), true)
+  })
+})
+
+describe('Lunamonti ve todas las ventas', () => {
+  it('tiene presupuestos extra y no pierde mostrador', () => {
+    const u = { nombre: 'Lunamonti', rol: 'mostrador' as const }
+    assert.equal(usuarioTieneRol(u, 'mostrador'), true)
+    assert.equal(usuarioTieneRol(u, 'presupuestos'), true)
+    assert.equal(idVendedorParaConsulta(false, true, 87), undefined)
   })
 })
 
