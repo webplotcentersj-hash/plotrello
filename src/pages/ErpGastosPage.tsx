@@ -278,6 +278,8 @@ export default function ErpGastosPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rows, setRows] = useState<ErpGastoRow[]>([])
+  const [anulados, setAnulados] = useState<ErpGastoRow[]>([])
+  const [anuladoLibroPorGasto, setAnuladoLibroPorGasto] = useState<Record<number, number | null>>({})
   const [catOptions, setCatOptions] = useState<string[]>([])
   const [ticketPreview, setTicketPreview] = useState<string | null>(null)
   const [ticketUploading, setTicketUploading] = useState(false)
@@ -296,7 +298,7 @@ export default function ErpGastosPage() {
   const [mesFiltro, setMesFiltro] = useState('')
   const [excelPreview, setExcelPreview] = useState<CompraExcelParseResult | null>(null)
   const [excelImporting, setExcelImporting] = useState(false)
-  const [vista, setVista] = useState<'tablero' | 'listado' | 'cargar'>('tablero')
+  const [vista, setVista] = useState<'tablero' | 'listado' | 'cargar' | 'anulados'>('tablero')
   const [mesTablero, setMesTablero] = useState(() => ymdToday().slice(0, 7))
   const [ticketOpen, setTicketOpen] = useState(false)
   const [excelOpen, setExcelOpen] = useState(false)
@@ -318,16 +320,33 @@ export default function ErpGastosPage() {
     setLoading(true)
     setError(null)
     try {
-      const { data, error: err } = await supabase
-        .from('erp_gastos')
-        .select('*')
-        .eq('anulado', false)
-        .order('fecha_gasto', { ascending: false })
-        .limit(2000)
-      if (err) throw new Error(err.message)
-      setRows((data as ErpGastoRow[]) || [])
+      const [vigRes, anuRes, movRes] = await Promise.all([
+        supabase.from('erp_gastos').select('*').eq('anulado', false).order('fecha_gasto', { ascending: false }).limit(2000),
+        supabase.from('erp_gastos').select('*').eq('anulado', true).order('anulado_at', { ascending: false }).limit(500),
+        supabase
+          .from('erp_gastos_movimientos')
+          .select('id_gasto, id_factura_compra, created_at')
+          .eq('accion', 'anular')
+          .order('created_at', { ascending: false })
+          .limit(500)
+      ])
+      if (vigRes.error) throw new Error(vigRes.error.message)
+      if (anuRes.error) throw new Error(anuRes.error.message)
+      setRows((vigRes.data as ErpGastoRow[]) || [])
+      setAnulados((anuRes.data as ErpGastoRow[]) || [])
+      const libroMap: Record<number, number | null> = {}
+      if (!movRes.error) {
+        for (const m of (movRes.data as Array<{ id_gasto: number; id_factura_compra: number | null }> | null) || []) {
+          const gid = Number(m.id_gasto)
+          if (!Number.isFinite(gid) || gid in libroMap) continue
+          libroMap[gid] = m.id_factura_compra != null ? Number(m.id_factura_compra) : null
+        }
+      }
+      setAnuladoLibroPorGasto(libroMap)
     } catch (e) {
       setRows([])
+      setAnulados([])
+      setAnuladoLibroPorGasto({})
       const msg = e instanceof Error ? e.message : 'Error cargando gastos.'
       setError(msg)
     } finally {
@@ -802,7 +821,8 @@ export default function ErpGastosPage() {
           [
             ['tablero', '📊', 'Tablero', 'Categorías, estadísticas y gráficos'],
             ['listado', '📋', 'Listado', `${filteredRows.length} gastos${filteredRows.length !== rows.length ? ' (filtrado)' : ''}`],
-            ['cargar', '➕', 'Cargar gasto', 'Manual, ticket con IA o Excel AFIP']
+            ['cargar', '➕', 'Cargar gasto', 'Manual, ticket con IA o Excel AFIP'],
+            ['anulados', '🗑', 'Anulados', `${anulados.length} con motivo guardado`]
           ] as const
         ).map(([v, icono, titulo, sub]) => (
           <button key={v} type="button" role="tab" aria-selected={vista === v} className={vista === v ? 'is-on' : undefined} onClick={() => setVista(v)}>
@@ -1255,6 +1275,64 @@ export default function ErpGastosPage() {
         </div>
 
       </div>
+      ) : null}
+
+      {vista === 'anulados' ? (
+        <div className="erp-panel erp-gastos-listado is-open">
+          <div className="erp-gastos-listado__body">
+            <p className="erp-muted" style={{ marginTop: 0 }}>
+              Gastos dados de baja. Quedan fuera del balance y del listado vigente; el motivo queda auditado.
+            </p>
+            {loading ? (
+              <p className="erp-muted">Cargando…</p>
+            ) : anulados.length === 0 ? (
+              <p className="erp-muted">Todavía no hay gastos anulados.</p>
+            ) : (
+              <div className="erp-table-wrap">
+                <table className="erp-table">
+                  <thead>
+                    <tr>
+                      <th>Anulado</th>
+                      <th>Fecha gasto</th>
+                      <th>Proveedor</th>
+                      <th>Comprobante</th>
+                      <th>Total</th>
+                      <th>Motivo</th>
+                      <th>Libro IVA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {anulados.map((r) => {
+                      const fc = anuladoLibroPorGasto[r.id]
+                      return (
+                        <tr key={r.id}>
+                          <td>
+                            {r.anulado_at
+                              ? new Date(r.anulado_at).toLocaleString('es-AR')
+                              : '—'}
+                          </td>
+                          <td>{String(r.fecha_gasto).slice(0, 10)}</td>
+                          <td>
+                            <div>{r.proveedor || '—'}</div>
+                            {r.proveedor_cuit ? <div className="erp-cell-sub">{r.proveedor_cuit}</div> : null}
+                          </td>
+                          <td>{comprobanteLabel(r)}</td>
+                          <td>{money(r.total)}</td>
+                          <td>{r.anulado_motivo || '—'}</td>
+                          <td>
+                            {fc != null
+                              ? `Se quitó #${fc}`
+                              : 'Sin vínculo / no había en libro'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       ) : null}
 
       {vista === 'listado' ? (
