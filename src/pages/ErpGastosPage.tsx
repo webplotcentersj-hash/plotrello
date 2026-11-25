@@ -5,6 +5,7 @@ import { extraerDatosTicket, fileToDataUrl, type TicketExtract } from '../utils/
 import { uploadAttachmentAndGetUrl } from '../utils/storage'
 import { getArgentinaDateString } from '../utils/dateUtils'
 import { gastoPuedeIrALibroIva, inferirAlicuotaIva, netoEIvaDesdeTotal } from '../utils/gastoIvaLibro'
+import { anularErpGasto } from '../utils/anularErpGasto'
 import { syncGastoALibroIva } from '../utils/syncGastoALibroIva'
 import {
   buscarGastoDuplicado,
@@ -54,6 +55,9 @@ type ErpGastoRow = {
   percepcion_municipal?: number | null
   impuestos_internos?: number | null
   otros_tributos?: number | null
+  anulado?: boolean | null
+  anulado_motivo?: string | null
+  anulado_at?: string | null
 }
 
 type GastoForm = {
@@ -297,6 +301,7 @@ export default function ErpGastosPage() {
   const [ticketOpen, setTicketOpen] = useState(false)
   const [excelOpen, setExcelOpen] = useState(false)
   const [mesesForzados, setMesesForzados] = useState<Record<string, boolean>>({})
+  const [anulandoId, setAnulandoId] = useState<number | null>(null)
 
   const [form, setForm] = useState<GastoForm>(() => emptyForm())
 
@@ -316,6 +321,7 @@ export default function ErpGastosPage() {
       const { data, error: err } = await supabase
         .from('erp_gastos')
         .select('*')
+        .eq('anulado', false)
         .order('fecha_gasto', { ascending: false })
         .limit(2000)
       if (err) throw new Error(err.message)
@@ -482,6 +488,40 @@ export default function ErpGastosPage() {
     } finally {
       setTicketExtracting(false)
       setTicketUploading(false)
+    }
+  }
+
+  const handleAnularGasto = async (row: ErpGastoRow) => {
+    const libroHint = row.id_factura_compra
+      ? `\nTambién se elimina del Libro IVA Compras (#${row.id_factura_compra}).`
+      : ''
+    const motivo = window.prompt(
+      `Anular gasto de ${row.proveedor || 'sin proveedor'} (${money(row.total)}).${libroHint}\n\nMotivo (obligatorio):`
+    )
+    if (motivo == null) return
+    const motivoClean = motivo.trim()
+    if (!motivoClean) {
+      alert('Tenés que indicar un motivo.')
+      return
+    }
+    if (!window.confirm(`¿Confirmar anulación?\nMotivo: ${motivoClean}`)) return
+
+    setAnulandoId(row.id)
+    setError(null)
+    try {
+      const r = await anularErpGasto(row.id, motivoClean)
+      if (!r.ok) throw new Error(r.error || 'No se pudo anular')
+      if (trazadoId === row.id) setTrazadoId(null)
+      await reload()
+      alert(
+        r.libro_borrado
+          ? 'Gasto anulado. También se quitó del Libro IVA Compras.'
+          : 'Gasto anulado. El movimiento quedó guardado con el motivo.'
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error anulando gasto.')
+    } finally {
+      setAnulandoId(null)
     }
   }
 
@@ -1423,13 +1463,24 @@ export default function ErpGastosPage() {
                             </td>
                             <td>{r.ticket_url ? <a href={r.ticket_url} target="_blank" rel="noreferrer">Abrir</a> : '—'}</td>
                             <td>
-                              <button
-                                type="button"
-                                className={trazadoId === r.id ? 'btn-primary' : 'btn-secondary'}
-                                onClick={() => setTrazadoId(trazadoId === r.id ? null : r.id)}
-                              >
-                                Trazado
-                              </button>
+                              <div className="erp-gastos-row-actions">
+                                <button
+                                  type="button"
+                                  className={trazadoId === r.id ? 'btn-primary' : 'btn-secondary'}
+                                  onClick={() => setTrazadoId(trazadoId === r.id ? null : r.id)}
+                                >
+                                  Trazado
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary erp-gastos-btn-anular"
+                                  disabled={anulandoId === r.id}
+                                  onClick={() => void handleAnularGasto(r)}
+                                  title="Anular gasto (pide motivo y saca del libro IVA si está vinculado)"
+                                >
+                                  {anulandoId === r.id ? 'Anulando…' : 'Anular'}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         )

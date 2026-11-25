@@ -1038,6 +1038,18 @@
   font-size: 0.85rem;
 }
 
+.erp-gastos-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.erp-gastos-btn-anular {
+  color: #fecaca !important;
+  border-color: rgba(248, 113, 113, 0.45) !important;
+}
+
 .erp-gastos-form-actions {
   display: flex;
   gap: 10px;

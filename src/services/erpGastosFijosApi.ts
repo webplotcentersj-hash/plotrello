@@ -204,6 +204,7 @@ export function listPagosGastosFijos(desde: string, hasta: string) {
       .from('erp_gastos')
       .select('id,id_gasto_fijo,periodo_fijo,fecha_gasto,total,metodo_pago')
       .not('id_gasto_fijo', 'is', null)
+      .eq('anulado', false)
       .gte('periodo_fijo', desde)
       .lte('periodo_fijo', hasta)
     lanzar(error)
@@ -262,11 +263,22 @@ export function registrarPagoGastoFijo(
   })
 }
 
-export function anularPagoGastoFijo(idGasto: number) {
+export function anularPagoGastoFijo(idGasto: number, motivo = 'Anulación de pago de gasto fijo') {
   return envolver(async () => {
-    const { error } = await cliente().from('erp_gastos').delete().eq('id', idGasto)
-    lanzar(error)
-    return true
+    const { data, error } = await cliente().rpc('erp_gasto_anular', {
+      p_actor_id: null,
+      p_id_gasto: idGasto,
+      p_motivo: String(motivo || '').trim() || 'Anulación de pago de gasto fijo'
+    })
+    if (error) {
+      if (/schema cache|does not exist|PGRST20|42883/i.test(error.message || '')) {
+        const { error: delErr } = await cliente().from('erp_gastos').delete().eq('id', idGasto)
+        lanzar(delErr)
+        return true
+      }
+      lanzar(error)
+    }
+    return !!data
   })
 }
 

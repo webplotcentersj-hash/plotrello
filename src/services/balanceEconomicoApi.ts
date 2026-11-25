@@ -93,6 +93,7 @@ export function gastosDelPeriodo(desde: string, hasta: string) {
       cliente()
         .from('erp_gastos')
         .select('fecha_gasto, total, categoria, descripcion, id_gasto_fijo, origen')
+        .eq('anulado', false)
         .gte('fecha_gasto', desde)
         .lte('fecha_gasto', hasta)
         .order('id', { ascending: true })
