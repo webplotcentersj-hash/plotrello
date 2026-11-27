@@ -5,6 +5,15 @@ export function fmtMoney(n: number | string | null | undefined): string {
   return (Number.isFinite(v) ? v : 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })
 }
 
+/** $1,3 M · $820 k · $950 (para gráficos y tarjetas). */
+export function fmtCorto(n: number): string {
+  const v = Math.abs(n)
+  const signo = n < 0 ? '-' : ''
+  if (v >= 1_000_000) return `${signo}$${(v / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })} M`
+  if (v >= 10_000) return `${signo}$${Math.round(v / 1000).toLocaleString('es-AR')} k`
+  return `${signo}$${Math.round(v).toLocaleString('es-AR')}`
+}
+
 export function fmtFecha(f: string | null | undefined): string {
   if (!f) return '—'
   const [y, m, d] = String(f).slice(0, 10).split('-')

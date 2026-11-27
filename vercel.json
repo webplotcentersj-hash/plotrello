@@ -1,5 +1,7 @@
 {
-  "crons": [],
+  "crons": [
+    { "path": "/api/cron/compromisos-vencimientos", "schedule": "0 11 * * *" }
+  ],
   "functions": {
     "api/plotai/chat-public.ts": { "maxDuration": 60 },
     "api/plotai/design-studio.ts": { "maxDuration": 120 },

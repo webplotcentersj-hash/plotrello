@@ -552,6 +552,38 @@ describe('liquidación mensual', () => {
     assert.equal(fila.importeExtra100, 8000)
   })
 
+  it('cuenta el sábado como ½ día sólo para quien trabaja de lunes a sábado', () => {
+    // Lun 5 … Sáb 10 … Dom 11 de octubre 2026 (sin feriados)
+    const dias = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11']
+    const base = {
+      id: 1,
+      nombre: 'Ana',
+      fechaIngreso: '2026-10-08', // jue: debía jue + vie (+ sáb)
+      stats: stats({ diasConEntrada: 0, diasExigibles: 0 }),
+      montos: { netoManual: null, precioHora: 0, sueldoBase: 300000, sueldoBlanco: 0, sueldoSinDeclarar: 0 },
+      precioHoraDefault: 0,
+      cargas: CARGAS_SOCIALES_DEFAULT,
+      novedades: [],
+      permisos: [],
+      dias,
+      fechaDesde: '2026-10-05',
+      fechaHasta: '2026-10-11'
+    }
+    const lunASab = armarLiquidacionEmpleado({
+      ...base,
+      horariosPorMes: { '2026-10': { 1: { entrada: '08:00', salida: '17:00', horas: 9, trabajaSabado: true } } }
+    })
+    assert.equal(lunASab.diasLaborablesPeriodo, 5.5)
+    assert.equal(lunASab.diasDebia, 2.5)
+
+    const lunAVie = armarLiquidacionEmpleado({
+      ...base,
+      horariosPorMes: { '2026-10': { 1: { entrada: '08:00', salida: '17:00', horas: 9, trabajaSabado: false } } }
+    })
+    assert.equal(lunAVie.diasLaborablesPeriodo, 5)
+    assert.equal(lunAVie.diasDebia, 2)
+  })
+
   it('prorratea antigüedad legal según ingreso y días laborables del período', () => {
     const horario = { entrada: '08:00', salida: '17:00', horas: 9, trabajaSabado: false }
     // Lun 5, Mar 6, Mié 7, Jue 8, Vie 9 de octubre 2026

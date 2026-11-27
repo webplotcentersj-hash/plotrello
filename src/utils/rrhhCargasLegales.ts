@@ -344,9 +344,11 @@ export function remuneracionDeclarada(i: RemuneracionDeclaradaInput): Remuneraci
   const antiguedad = round2(antiguedadCompleta * factor)
   const valorDia = round2((sueldo + antiguedadCompleta) / 30)
   const diasMes = Math.round(30 * factor)
-  const inas = Math.max(0, Math.floor(Number(i.diasInasistencia) || 0))
-  const susp = Math.max(0, Math.floor(Number(i.diasSuspension) || 0))
-  const media = Math.max(0, Math.floor(Number(i.diasMediaJornada) || 0))
+  // Días enteros o medios (un sábado vale ½ día).
+  const medios = (v: unknown) => Math.max(0, Math.floor((Number(v) || 0) * 2) / 2)
+  const inas = medios(i.diasInasistencia)
+  const susp = medios(i.diasSuspension)
+  const media = medios(i.diasMediaJornada)
   const conceptos: ConceptoDeclarado[] = []
   if (basico > 0) {
     conceptos.push({ codigo: 'SUELDO', concepto: 'Sueldo básico', cantidad: diasMes, unidad: 'D', importe: basico })

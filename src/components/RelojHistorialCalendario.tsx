@@ -11,6 +11,7 @@ import {
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { RrhhRelojReporteSemanal } from '../types/api'
+import { fmtDias } from '../utils/diasLaborables'
 import {
   diasEnSnapshot,
   fechaYmd,
@@ -251,7 +252,7 @@ const RelojHistorialCalendario = ({
                     <span className="reloj-historial-item-fechas">📅 {label}</span>
                     <span className="reloj-historial-item-stats">
                       {compactos.length > 0
-                        ? `${compactos.length} empleados · ${totalPresentes} días trab. · ${totalTardanzas} tardanzas`
+                        ? `${compactos.length} empleados · ${fmtDias(totalPresentes)} días trab. · ${totalTardanzas} tardanzas`
                         : 'Sin resumen agregado'}
                       {snap?.informeIa ? ' · 🤖 PlotAI' : ''}
                     </span>

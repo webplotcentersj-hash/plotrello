@@ -189,7 +189,7 @@ function conceptos03(liq: ReciboLiquidado): string[] {
     const cod = (x.codigo_lsd || x.concepto || 'EXTRA').replace(/\s+/g, '').slice(0, 10)
     // Descuentos e importes negativos (inasistencias, suspensiones) van como débito.
     const dc = x.tipo === 'descuento' || ef.monto < 0 ? 'D' : 'C'
-    const unidad = x.origen === 'liq' ? (x.unidad === 'hs' ? 'H' : 'D') : x.unidad.slice(0, 1)
+    const unidad = x.origen === 'liq' || x.origen === 'calc' ? (x.unidad === 'hs' ? 'H' : 'D') : x.unidad.slice(0, 1)
     const cant = x.cantidad ?? (ef.pct != null ? ef.pct * 100 : 0)
     lines.push(rec03(cuil, cod, cant, ef.pct != null ? '%' : unidad, Math.abs(ef.monto), dc))
   }

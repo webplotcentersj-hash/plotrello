@@ -46,7 +46,7 @@ import { nombreSinDominioCorreo } from '../utils/userDisplayName'
 import { dispatchMensajeriaDmUnreadRefresh } from '../hooks/useDmMensajeriaUnread'
 import { calcularIndicadoresNovedadesOrganizacion } from '../utils/rrhhNovedadesSectorStats'
 import type { LegajoSectorBasico } from '../utils/rrhhNovedadesSectorStats'
-import { parseFechaFiltro } from '../utils/rrhhNovedadesLegajoStats'
+import { diasLaborablesReferencia, parseFechaFiltro } from '../utils/rrhhNovedadesLegajoStats'
 import {
   etiquetaCortaChipCalendario,
   etiquetaCortaPermisoCalendario,
@@ -847,7 +847,7 @@ const RecursosHumanosNovedadesPage = () => {
                 <span className="rrhh-nov-gestion-kpi-label">Índice ausentismo</span>
                 <span className="rrhh-nov-gestion-kpi-hint">
                   Promedio mensual · {indicadoresOrg.mesesPeriodo} mes
-                  {indicadoresOrg.mesesPeriodo === 1 ? '' : 'es'} · base 22 días laborables
+                  {indicadoresOrg.mesesPeriodo === 1 ? '' : 'es'} · base {diasLaborablesReferencia()} días laborables (lun–vie del mes)
                 </span>
               </article>
               <article className="rrhh-nov-gestion-kpi">

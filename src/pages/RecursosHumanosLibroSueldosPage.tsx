@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import ReciboSueldoLct from '../components/ReciboSueldoLct'
+import RrhhSacVacacionesPanel from '../components/RrhhSacVacacionesPanel'
 import apiService from '../services/api'
 import {
   rrhhDocItemAgregar,
@@ -777,6 +778,9 @@ const RecursosHumanosLibroSueldosPage = () => {
           <button type="button" className="rrhh-ext-btn" onClick={() => navigate('/rrhh/liquidacion')}>
             Liquidación
           </button>
+          <button type="button" className="rrhh-ext-btn" onClick={() => navigate('/rrhh/simulador')}>
+            Simulador
+          </button>
           <button type="button" className="rrhh-ext-btn ghost" onClick={() => navigate('/rrhh')}>
             Volver
           </button>
@@ -823,6 +827,21 @@ const RecursosHumanosLibroSueldosPage = () => {
           <span className="libro-kpi-hint">Bruto + no remunerativo + contribuciones</span>
         </article>
       </section>
+
+      {libro ? (
+        <RrhhSacVacacionesPanel
+          key={periodo}
+          periodo={periodo}
+          libro={libro}
+          items={items}
+          cerrado={cerrado}
+          onAplicar={(cambios) => {
+            setItems((prev) => prev.map((it) => (cambios.has(it.id_usuario) ? { ...it, extras: cambios.get(it.id_usuario)! } : it)))
+            setSinGuardar(true)
+            setMsg('Aguinaldo y plus vacacional aplicados como conceptos del recibo. Revisalos y guardá el libro.')
+          }}
+        />
+      ) : null}
 
       {totales.conFaltantes > 0 ? (
         <p className="libro-alerta">

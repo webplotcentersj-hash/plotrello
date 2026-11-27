@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx'
 import { plotLabFetch } from '../utils/plotLabApiOrigin'
 import { asistenciaHoraCorta } from '../utils/dateUtils'
+import { pesoDia } from '../utils/diasLaborables'
 import { esUsuarioGenericoRrhh, esUsuarioRrhhExcluido } from '../utils/rrhhUsuariosExcluidos'
 
 // ============================================================
@@ -527,7 +528,11 @@ export function procesarMarcaciones(
     const punt = calcularPuntualidad(sesiones, config, horarioFijo)
     const totalHoras = sesiones.reduce((acc, s) => acc + s.horasTrabajadas, 0)
     const totalExtra = sesiones.reduce((acc, s) => acc + s.horasExtra, 0)
-    const diasTrabajados = new Set(sesiones.filter((s) => s.horasTrabajadas > 0).map((s) => s.fecha)).size
+    // Lun–Vie = 1 día; sábado = ½ día.
+    const diasTrabajados = [...new Set(sesiones.filter((s) => s.horasTrabajadas > 0).map((s) => s.fecha))].reduce(
+      (acc, f) => acc + pesoDia(f),
+      0
+    )
     const anomalias = sesiones.filter((s) => s.anomalia).length
     const primero = lista[0]
     resumenes.push({

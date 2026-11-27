@@ -1,6 +1,7 @@
 import type { Asistencia, RrhhNovedad, SolicitudPermiso } from '../types/api'
 import { isoToArgentinaDateKey } from './dateUtils'
 import { nombreFeriado } from './feriadosArgentina'
+import { pesoDia } from './diasLaborables'
 import { etiquetaCodigoRrhhNovedad, etiquetaGrupoRrhhNovedad } from './rrhhNovedadCatalog'
 import { novedadEnDia } from './rrhhNovedadDates'
 import { diaEnMediaJornadaPostSuspension, diaEnSuspension } from './rrhhSuspension'
@@ -704,8 +705,10 @@ export function armarLiquidacionEmpleado(params: {
     const esFranco =
       horarioEsperadoDesdeCtx(params.id, fecha, horario, params.horarioEsperadoCtx)?.esFranco === true
 
+    // Lun–Vie = 1 día; sábado = ½ día (sólo si trabaja de lunes a sábado).
+    const peso = pesoDia(fecha)
     if (esDiaLaborableEmpleado(fecha, horario) && !esFranco) {
-      diasLaborablesPeriodo += 1
+      diasLaborablesPeriodo += peso
     }
 
     // Antes del ingreso no cuenta como día debido ni falta.
@@ -733,7 +736,7 @@ export function armarLiquidacionEmpleado(params: {
       if (vino) noTrabajaVino += 1
       continue
     }
-    diasDebia += 1
+    diasDebia += peso
     if (enSuspension) {
       fechasSuspensiones.push(fecha)
       continue
@@ -742,7 +745,7 @@ export function armarLiquidacionEmpleado(params: {
       // Presente o justificado: ½ valor día (jornada reducida). Ausente: falta de 1 día.
       if (vino) {
         fechasMediaJornada.push(fecha)
-        diasVino += 1
+        diasVino += peso
         continue
       }
       if (fecha > hoy) {
@@ -758,7 +761,7 @@ export function armarLiquidacionEmpleado(params: {
       continue
     }
     if (vino) {
-      diasVino += 1
+      diasVino += peso
       continue
     }
     if (fecha > hoy) continue
@@ -769,9 +772,11 @@ export function armarLiquidacionEmpleado(params: {
     }
     fechasFaltas.push(fecha)
   }
-  const faltas = fechasFaltas.length
-  const diasSuspension = fechasSuspensiones.length
-  const diasMediaJornada = fechasMediaJornada.length
+  // Una falta / suspensión de sábado vale ½ día.
+  const sumarPesos = (fechas: string[]) => fechas.reduce((s, f) => s + pesoDia(f), 0)
+  const faltas = sumarPesos(fechasFaltas)
+  const diasSuspension = sumarPesos(fechasSuspensiones)
+  const diasMediaJornada = sumarPesos(fechasMediaJornada)
   const factorProporcional = factorProporcionalPeriodo(diasDebia, diasLaborablesPeriodo)
   const adicionalAntiguedadCompleto = round2(
     params.montos.sueldoBase * antiguedadAnios * (pctAntiguedadLegal / 100)

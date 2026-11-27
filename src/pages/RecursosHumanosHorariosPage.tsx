@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { fmtDias } from '../utils/diasLaborables'
 import {
   BarChart,
   Bar,
@@ -2425,7 +2426,7 @@ const EstadisticasAsistenciaTab = ({
               </div>
               <span className="reloj-rank-pct">{e.puntualidadPct}%</span>
               <span className="reloj-rank-detalle">
-                {e.tardanzas} tarde · {e.ausencias} aus. · {formatHoras(e.totalHorasExtra)} ext.
+                {e.tardanzas} tarde · {fmtDias(e.ausencias)} aus. · {formatHoras(e.totalHorasExtra)} ext.
               </span>
             </div>
           ))}
@@ -2644,7 +2645,7 @@ const EstadisticasAsistenciaTab = ({
                   <tr key={s.id}>
                     <td className="rrhh-stats-emp">{s.nombre}</td>
                     <td title="Días con marca / días que debía asistir (hasta hoy)">
-                      {s.diasConEntrada ? `${s.diasConEntrada} / ${s.diasExigibles}` : '—'}
+                      {s.diasConEntrada ? `${fmtDias(s.diasConEntrada)} / ${fmtDias(s.diasExigibles)}` : '—'}
                     </td>
                     <td>
                       <span

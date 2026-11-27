@@ -2,6 +2,7 @@ import type { Asistencia, RrhhNovedad } from '../types/api'
 import { CONFIG_CALCULO_DEFAULT, horarioSabadoEfectivo, type ConfigCalculo } from '../services/relojBiometricoService'
 import { asistenciaHoraCorta, isoToArgentinaDateKey } from './dateUtils'
 import { esFeriado } from './feriadosArgentina'
+import { pesoDia } from './diasLaborables'
 import { esDiaHabil, novedadEnDia } from './rrhhNovedadDates'
 import { resolverHorarioEsperadoDia } from './rrhhHorarioEsperadoDia'
 import type { RotacionAsignacion, RotacionPlantilla } from './rrhhTurnosRotativos'
@@ -629,6 +630,9 @@ export function calcularStatsAsistencia(params: {
     let extra100 = 0
     let minutosTardeTotal = 0
     let faltasExigibles = 0
+    // Conteos sin ponderar, sólo para la puntualidad (una tardanza es una tardanza).
+    let marcasPuntualidad = 0
+    let exigiblesPuntualidad = 0
     const tardanzasDetalle: { fecha: string; minutos: number }[] = []
 
     for (const f of dias) {
@@ -653,18 +657,25 @@ export function calcularStatsAsistencia(params: {
 
       if (horarioEsperado?.esFranco) continue
       if (esFeriado(f) || !esDiaLaborableEmpleado(f, horario)) continue
+      // Lun–Vie = 1 día; sábado = ½ día (sólo llega acá si trabaja de lunes a sábado).
+      const peso = pesoDia(f)
 
       if (ev.esAusenciaInjustificada) {
-        ausencias++
-        if (f <= hoy) faltasExigibles++
+        ausencias += peso
+        if (f <= hoy) {
+          faltasExigibles += peso
+          exigiblesPuntualidad++
+        }
         continue
       }
       if (ev.esJustificado) {
-        justificados++
+        justificados += peso
         continue
       }
       if (ev.cuentaParaPuntualidad) {
-        diasConEntrada++
+        diasConEntrada += peso
+        marcasPuntualidad++
+        exigiblesPuntualidad++
         if (ev.esTarde) {
           tardanzas++
           minutosTardeTotal += ev.minutosTarde
@@ -674,16 +685,20 @@ export function calcularStatsAsistencia(params: {
       }
       if (ev.soloNovedadHorasExtra) continue
       if (ev.esSinMarca) {
-        sinMarca++
-        if (f <= hoy && esDiaLaborableEmpleado(f, horario)) faltasExigibles++
+        sinMarca += peso
+        if (f <= hoy && esDiaLaborableEmpleado(f, horario)) {
+          faltasExigibles += peso
+          exigiblesPuntualidad++
+        }
       }
     }
 
+    // Días que debía asistir (sábado = ½).
+    const diasExigibles = diasConEntrada + faltasExigibles
     // Puntualidad sobre los días que debía asistir, no solo sobre los que marcó:
     // 4 marcas puntuales en un mes de 20 días hábiles = 20%, no 100%.
-    const diasExigibles = diasConEntrada + faltasExigibles
-    const puntualidadPct = diasExigibles
-      ? Math.round((Math.max(0, diasConEntrada - tardanzas) / diasExigibles) * 100)
+    const puntualidadPct = exigiblesPuntualidad
+      ? Math.round((Math.max(0, marcasPuntualidad - tardanzas) / exigiblesPuntualidad) * 100)
       : 0
 
     stats.push({

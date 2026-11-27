@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { fmtDias } from '../utils/diasLaborables'
 import apiService from '../services/api'
 import type {
   Asistencia,
@@ -76,6 +77,7 @@ import { ultimoDiaMes } from '../utils/asistenciaStats'
 import { filtrarUsuariosLiquidacionMensual } from '../utils/rrhhUsuariosExcluidos'
 import { feriadosEntre } from '../utils/feriadosArgentina'
 import './RrhhLiquidacionMensualTab.css'
+import RrhhRevisionLiquidacion from './RrhhRevisionLiquidacion'
 
 function leerPrecioDefault(): number {
   try {
@@ -1164,7 +1166,8 @@ export default function RrhhLiquidacionMensualTab({
           <h2>Liquidación mensual</h2>
           <p className="rrhh-section-sub">
             {periodoLabel}. Domingos y feriados/puentes de Argentina no son falta si no vino; si vino, se pagan al
-            doble (HE 100%). El sábado libre y el día que no le toca tampoco se descuentan.
+            doble (HE 100%). El sábado libre y el día que no le toca tampoco se descuentan. Días a trabajar: lunes a
+            viernes = 1, sábado = ½ (sólo quien trabaja de lunes a sábado).
             {feriadosPeriodo.length > 0
               ? ` Feriados del período: ${feriadosPeriodo.map((f) => `${f.fecha.slice(8)}/${f.fecha.slice(5, 7)} ${f.nombre}`).join(' · ')}.`
               : ''}
@@ -1190,6 +1193,8 @@ export default function RrhhLiquidacionMensualTab({
           </a>
         </div>
       </div>
+
+      <RrhhRevisionLiquidacion key={mes} periodo={mes} compacto />
 
       <div className="liq-controles">
         <label className="liq-campo">
@@ -1348,7 +1353,7 @@ export default function RrhhLiquidacionMensualTab({
               const puntualColor =
                 f.puntualidadPct >= 90 ? '#16a34a' : f.puntualidadPct >= 70 ? '#d97706' : '#dc2626'
               const descParts: string[] = []
-              if (f.faltas > 0) descParts.push(`${f.faltas} falta${f.faltas === 1 ? '' : 's'}`)
+              if (f.faltas > 0) descParts.push(`${fmtDias(f.faltas)} falta${f.faltas === 1 ? '' : 's'}`)
               if (f.diasDescuentoTardanzas > 0) {
                 descParts.push(
                   `${f.diasDescuentoTardanzas} falta${f.diasDescuentoTardanzas === 1 ? '' : 's'} (${f.tardanzas} tarde)`
@@ -1378,7 +1383,7 @@ export default function RrhhLiquidacionMensualTab({
                       {f.diasConEntrada || f.diasExigibles ? (
                         <div className="liq-cell-stack">
                           <span>
-                            {f.diasConEntrada}/{f.diasExigibles} días
+                            {fmtDias(f.diasConEntrada)}/{fmtDias(f.diasExigibles)} días
                           </span>
                           <span className="liq-pct" style={{ color: puntualColor }}>
                             {f.puntualidadPct}% punt.
@@ -1524,7 +1529,7 @@ export default function RrhhLiquidacionMensualTab({
                                   <div>
                                     <dt>Proporcional</dt>
                                     <dd>
-                                      {f.diasDebia}/{f.diasLaborablesPeriodo} días
+                                      {fmtDias(f.diasDebia)}/{fmtDias(f.diasLaborablesPeriodo)} días
                                       {f.factorProporcional < 1
                                         ? ` (${Math.round(f.factorProporcional * 100)}%)`
                                         : ''}{' '}
@@ -1589,7 +1594,7 @@ export default function RrhhLiquidacionMensualTab({
                                 <div>
                                   <dt>Marcas / exigibles</dt>
                                   <dd>
-                                    {f.diasConEntrada ? `${f.diasConEntrada} / ${f.diasExigibles}` : '—'}
+                                    {f.diasConEntrada ? `${fmtDias(f.diasConEntrada)} / ${fmtDias(f.diasExigibles)}` : '—'}
                                   </dd>
                                 </div>
                                 <div>
@@ -1608,7 +1613,7 @@ export default function RrhhLiquidacionMensualTab({
                                 <div>
                                   <dt>Aus. / just. / sin marca</dt>
                                   <dd>
-                                    {f.ausencias} / {f.diasJustificados} / {f.sinMarca}
+                                    {fmtDias(f.ausencias)} / {fmtDias(f.diasJustificados)} / {fmtDias(f.sinMarca)}
                                   </dd>
                                 </div>
                                 <div>
@@ -1678,7 +1683,7 @@ export default function RrhhLiquidacionMensualTab({
                                 <>
                                   <p className="liq-badge-row">
                                     <span className="liq-badge liq-badge-warn">
-                                      {f.faltas} injustificada{f.faltas === 1 ? '' : 's'}
+                                      {fmtDias(f.faltas)} injustificada{f.faltas === 1 ? '' : 's'}
                                     </span>
                                     <strong>−{formatArs(f.descuentoFaltas)}</strong>
                                   </p>
@@ -1731,7 +1736,7 @@ export default function RrhhLiquidacionMensualTab({
                                 <div>
                                   <dt>Debía / vino</dt>
                                   <dd>
-                                    {f.diasDebia} / {f.diasVino}
+                                    {fmtDias(f.diasDebia)} / {fmtDias(f.diasVino)}
                                   </dd>
                                 </div>
                                 <div>
@@ -2191,7 +2196,7 @@ export default function RrhhLiquidacionMensualTab({
                 <td>
                   <div className="liq-cell-stack">
                     <span>
-                      {totales.diasConEntrada}/{totales.diasExigibles} días
+                      {fmtDias(totales.diasConEntrada)}/{fmtDias(totales.diasExigibles)} días
                     </span>
                     <span className="liq-sub">
                       {totales.puntualidadPromedio ? `${totales.puntualidadPromedio}% punt.` : '—'}

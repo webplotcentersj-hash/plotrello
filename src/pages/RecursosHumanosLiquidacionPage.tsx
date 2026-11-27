@@ -32,6 +32,7 @@ import {
   valorDiaPeriodo
 } from '../utils/rrhhLiquidacion'
 import { exportarLiquidacionXlsx } from '../utils/exportLiquidacionXlsx'
+import RrhhRevisionLiquidacion, { type ResumenRevision } from '../components/RrhhRevisionLiquidacion'
 import { novedadEmpleadoIncorrecto } from '../utils/rrhhNovedadEmpleadoObs'
 import { nombreSinDominioCorreo } from '../utils/userDisplayName'
 import './RecursosHumanosLiquidacionPage.css'
@@ -68,6 +69,7 @@ const RecursosHumanosLiquidacionPage = () => {
   const [seccion, setSeccion] = useState<'liquidacion' | 'incluye' | 'envio'>('liquidacion')
   const [empleadoSel, setEmpleadoSel] = useState<number | null>(null)
   const [avisosSolape, setAvisosSolape] = useState<string[]>([])
+  const [revision, setRevision] = useState<ResumenRevision>({ errores: 0, avisos: 0, empleadosConErrores: 0, cargando: true })
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -312,6 +314,20 @@ const RecursosHumanosLiquidacionPage = () => {
       setError('Generá el borrador antes de cerrar')
       return
     }
+    if (revision.cargando) {
+      setError('Esperá a que termine la revisión antes de liquidar.')
+      return
+    }
+    if (
+      revision.errores > 0 &&
+      !confirm(
+        `La revisión encontró ${revision.errores} problema${revision.errores > 1 ? 's' : ''} que cambian la liquidación ` +
+          `(${revision.empleadosConErrores} empleado${revision.empleadosConErrores > 1 ? 's' : ''}): faltas sin justificar, permisos pendientes, horarios o legajos incompletos.\n\n` +
+          '¿Cerrar igual el período?'
+      )
+    ) {
+      return
+    }
     if (!confirm(`¿Cerrar liquidación de ${periodo}? Se congelará el snapshot para el estudio.`)) {
       return
     }
@@ -526,8 +542,14 @@ const RecursosHumanosLiquidacionPage = () => {
                     <button type="button" className="rrhh-liq-btn ghost" disabled={busy} onClick={() => void handleGuardarValor()}>
                       Guardar valor/notas
                     </button>
-                    <button type="button" className="rrhh-liq-btn primary" disabled={busy} onClick={() => void handleCerrar()}>
-                      Cerrar período
+                    <button
+                      type="button"
+                      className="rrhh-liq-btn primary"
+                      disabled={busy}
+                      onClick={() => void handleCerrar()}
+                      title={revision.errores ? `Hay ${revision.errores} problemas en la revisión` : undefined}
+                    >
+                      {revision.errores ? `⛔ Cerrar período (${revision.errores})` : 'Cerrar período'}
                     </button>
                   </>
                 ) : (
@@ -553,6 +575,7 @@ const RecursosHumanosLiquidacionPage = () => {
 
               {error ? <p className="rrhh-liq-error">{error}</p> : null}
               {msg ? <p className="rrhh-liq-msg">{msg}</p> : null}
+              {!cerrado ? <RrhhRevisionLiquidacion key={periodo} periodo={periodo} onResumen={setRevision} /> : null}
               {avisosCategoria.length > 0 ? (
                 <div className="rrhh-liq-avisos rrhh-liq-avisos-cat">
                   <strong>Revisar categoría de novedades</strong>

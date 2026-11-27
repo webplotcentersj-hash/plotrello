@@ -11,6 +11,8 @@ import {
   resumirPorFacturar
 } from '../services/facturacionResumen'
 import { getArgentinaDateString } from '../utils/dateUtils'
+import { listChequesPendientes, listCompromisos } from '../services/erpCompromisosApi'
+import { urgenciaDe, type Urgencia } from '../utils/compromisosUrgencia'
 import './ERPDashboardPage.css'
 
 type ModuleStat = { texto: string; tono: 'ok' | 'warn' | 'danger' | 'neutral' }
@@ -79,6 +81,20 @@ export default function ERPDashboardPage() {
         items.push({ texto: `${problemasRes.facturas.length} con problema en ARCA`, tono: 'danger' })
       }
       setModuleStats((prev) => ({ ...prev, facturas: items }))
+    })
+    void Promise.all([listCompromisos(), listChequesPendientes()]).then(([cRes, chRes]) => {
+      if (cancelled || !cRes.success) return
+      const urg: Urgencia[] = []
+      for (const c of cRes.data)
+        for (const v of c.vencimientos) if (v.estado === 'Pendiente') urg.push(urgenciaDe(v.fecha, hoy, c.dias_aviso, true))
+      if (chRes.success) for (const ch of chRes.data) urg.push(urgenciaDe(ch.fecha_pago, hoy, 7, true))
+      const vencidos = urg.filter((u) => u === 'vencido').length
+      const pronto = urg.filter((u) => u === 'hoy' || u === 'urgente' || u === 'proximo').length
+      const items: ModuleStat[] = []
+      if (vencidos) items.push({ texto: `${vencidos} vencido${vencidos === 1 ? '' : 's'}`, tono: 'danger' })
+      if (pronto) items.push({ texto: `${pronto} por vencer`, tono: 'warn' })
+      if (!items.length) items.push({ texto: urg.length ? `${urg.length} pendientes, en plazo` : 'Sin vencimientos pendientes', tono: 'ok' })
+      setModuleStats((prev) => ({ ...prev, compromisos: items }))
     })
     return () => {
       cancelled = true

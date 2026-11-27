@@ -1,0 +1,91 @@
+.rrhh-sac {
+  border: 1px solid color-mix(in srgb, #38bdf8 35%, transparent);
+  border-left: 4px solid #38bdf8;
+  border-radius: 12px;
+  background: color-mix(in srgb, #38bdf8 7%, transparent);
+  padding: 12px 16px;
+  margin: 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rrhh-sac__cab {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rrhh-sac__cab p {
+  margin: 4px 0 0;
+  font-size: 0.84rem;
+  opacity: 0.85;
+  max-width: 760px;
+}
+
+.rrhh-sac__acciones {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.84rem;
+}
+
+.rrhh-sac__acciones label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.rrhh-sac__resumen {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+
+.rrhh-sac__aviso {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #f59e0b;
+}
+
+.rrhh-sac__tabla-wrap {
+  overflow-x: auto;
+}
+
+.rrhh-sac__tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.rrhh-sac__tabla th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  padding: 6px 8px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.rrhh-sac__tabla td {
+  padding: 7px 8px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.rrhh-sac__tabla .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rrhh-sac__nota {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  opacity: 0.7;
+}

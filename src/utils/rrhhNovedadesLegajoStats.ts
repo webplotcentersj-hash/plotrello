@@ -11,6 +11,7 @@ import {
   type NovedadClasificacionLegajo
 } from './rrhhNovedadClasificacionLegajo'
 import { diasDescuentoPorTardanzas, TARDANZAS_POR_DIA_DESCUENTO } from './liquidacionMensual'
+import { diasATrabajarMes } from './diasLaborables'
 
 export type PuntoEvolucionNovedad = {
   mes: string
@@ -22,7 +23,13 @@ export type PuntoEvolucionNovedad = {
   totalEventos: number
 }
 
-const DIAS_LABORABLES_MES = 22
+/**
+ * Días laborables de referencia para el índice de ausentismo: lunes a viernes no feriados
+ * del mes (los sábados, ½ día, dependen de cada empleado y no entran en el índice general).
+ */
+export function diasLaborablesReferencia(ref: Date = new Date()): number {
+  return diasATrabajarMes(format(ref, 'yyyy-MM'), false) || 22
+}
 
 export function calcularEvolucionEnRango(
   novedades: RrhhNovedad[],
@@ -89,9 +96,9 @@ export function parseFechaFiltro(ymd: string, fallback: Date): Date {
   }
 }
 
-export function indiceAusentismoPct(diasAusencia: number, headcount: number): number {
+export function indiceAusentismoPct(diasAusencia: number, headcount: number, diasLaborables = diasLaborablesReferencia()): number {
   if (headcount <= 0) return 0
-  return Math.round((diasAusencia / (headcount * DIAS_LABORABLES_MES)) * 1000) / 10
+  return Math.round((diasAusencia / (headcount * diasLaborables)) * 1000) / 10
 }
 
 export type AlertaNovedadLegajo = {

@@ -1,11 +1,19 @@
 import {
   Barcode,
   BookOpen,
+  CalendarCheck,
   CalendarClock,
   Calculator,
   ChartColumn,
   CreditCard,
+  Gauge,
   Handshake,
+  ListChecks,
+  PhoneCall,
+  SearchCheck,
+  Target,
+  TrendingUp,
+  Activity,
   Landmark,
   ListTree,
   NotebookPen,
@@ -20,7 +28,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 
-export type ErpGroupId = 'ventas' | 'finanzas' | 'contabilidad' | 'herramientas'
+export type ErpGroupId = 'gestion' | 'ventas' | 'finanzas' | 'contabilidad' | 'herramientas'
 
 export type ErpGroupDef = {
   id: ErpGroupId
@@ -43,6 +51,7 @@ export type ErpModuleDef = {
 }
 
 export const ERP_GROUPS: ErpGroupDef[] = [
+  { id: 'gestion', title: 'Gestión e inteligencia', description: 'Tablero, flujo de caja, cobranza, rentabilidad y controles', accent: '#f472b6' },
   { id: 'ventas', title: 'Ventas y operación', description: 'Facturación, remitos, comisiones y stock', accent: '#34d399' },
   { id: 'finanzas', title: 'Finanzas', description: 'Tesorería, gastos, costos y reportes', accent: '#38bdf8' },
   { id: 'contabilidad', title: 'Contabilidad e impuestos', description: 'Asientos, plan de cuentas, IVA y AFIP', accent: '#a78bfa' },
@@ -52,6 +61,70 @@ export const ERP_GROUPS: ErpGroupDef[] = [
 export const GROUP_BY_ID = Object.fromEntries(ERP_GROUPS.map((g) => [g.id, g])) as Record<ErpGroupId, ErpGroupDef>
 
 export const CONTABLE_MODULES: ErpModuleDef[] = [
+  // Gestión e inteligencia
+  {
+    id: 'tablero',
+    group: 'gestion',
+    title: 'Tablero del dueño',
+    description: 'Lo importante del negocio en una pantalla',
+    icon: Gauge,
+    path: '/erp/tablero',
+    keywords: ['tablero', 'dueño', 'resumen', 'kpi', 'indicadores', 'dashboard', 'mañana']
+  },
+  {
+    id: 'flujo-caja',
+    group: 'gestion',
+    title: 'Flujo de caja proyectado',
+    description: 'Cuánta plata vas a tener cada semana',
+    icon: Activity,
+    path: '/erp/flujo-caja',
+    keywords: ['flujo', 'caja', 'proyeccion', 'semanas', 'liquidez', 'plata', 'saldo']
+  },
+  {
+    id: 'cobranza',
+    group: 'gestion',
+    title: 'Cobranza',
+    description: 'Deuda por antigüedad y recordatorios por WhatsApp',
+    icon: PhoneCall,
+    path: '/erp/cobranza',
+    keywords: ['cobranza', 'deudores', 'morosos', 'antiguedad', 'whatsapp', 'reclamar', 'cuenta corriente']
+  },
+  {
+    id: 'rentabilidad',
+    group: 'gestion',
+    title: 'Rentabilidad',
+    description: 'Margen por cliente y por tipo de trabajo',
+    icon: TrendingUp,
+    path: '/erp/rentabilidad',
+    keywords: ['rentabilidad', 'margen', 'ganancia', 'clientes', 'sector', 'costos']
+  },
+  {
+    id: 'presupuesto',
+    group: 'gestion',
+    title: 'Presupuesto vs. real',
+    description: 'Lo previsto contra lo que pasó, por categoría',
+    icon: Target,
+    path: '/erp/presupuesto',
+    keywords: ['presupuesto', 'previsto', 'real', 'desvio', 'objetivo', 'meta']
+  },
+  {
+    id: 'cierre-mensual',
+    group: 'gestion',
+    title: 'Cierre mensual',
+    description: 'Checklist guiado para cerrar el mes',
+    icon: ListChecks,
+    path: '/erp/cierre-mensual',
+    keywords: ['cierre', 'mensual', 'checklist', 'periodo', 'contador']
+  },
+  {
+    id: 'anomalias',
+    group: 'gestion',
+    title: 'Errores y anomalías',
+    description: 'Duplicados, montos raros, CUIT y cheques en riesgo',
+    icon: SearchCheck,
+    path: '/erp/anomalias',
+    keywords: ['anomalias', 'errores', 'duplicados', 'auditoria', 'control', 'cuit']
+  },
   // Ventas y operación
   {
     id: 'facturas',
@@ -116,6 +189,15 @@ export const CONTABLE_MODULES: ErpModuleDef[] = [
     icon: CalendarClock,
     path: '/erp/gastos-fijos',
     keywords: ['gastos', 'fijos', 'recurrentes', 'alquiler', 'servicios', 'abonos', 'vencimientos', 'mensual']
+  },
+  {
+    id: 'compromisos',
+    group: 'finanzas',
+    title: 'Compromisos financieros',
+    description: 'Cheques, pagarés y préstamos con clientes y proveedores: vencimientos y alertas',
+    icon: CalendarCheck,
+    path: '/erp/compromisos',
+    keywords: ['compromisos', 'cheques', 'echeq', 'pagare', 'prestamo', 'cuotas', 'vencimientos', 'alertas', 'cobrar', 'pagar', 'diferido']
   },
   {
     id: 'costos',

@@ -1,0 +1,143 @@
+.rrhh-rev {
+  --rev-c: #94a3b8;
+  border: 1px solid color-mix(in srgb, var(--rev-c) 40%, transparent);
+  border-left: 4px solid var(--rev-c);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--rev-c) 8%, transparent);
+  margin: 0 0 16px;
+  overflow: hidden;
+}
+
+.rrhh-rev--ok { --rev-c: #22c55e; }
+.rrhh-rev--avisos { --rev-c: #f59e0b; }
+.rrhh-rev--mal,
+.rrhh-rev--error { --rev-c: #ef4444; }
+
+.rrhh-rev__cab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rrhh-rev__icono {
+  font-size: 1.35rem;
+}
+
+.rrhh-rev__titulos {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rrhh-rev__titulos span {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.rrhh-rev__flecha {
+  opacity: 0.7;
+}
+
+.rrhh-rev__cuerpo {
+  padding: 0 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rrhh-rev__barra {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+
+.rrhh-rev__barra label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.rrhh-rev__btn {
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rrhh-rev__btn:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.rrhh-rev__grupo {
+  --g-c: #f59e0b;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--g-c) 30%, transparent);
+  background: color-mix(in srgb, var(--g-c) 6%, transparent);
+  padding: 10px 12px;
+}
+
+.rrhh-rev__grupo--error {
+  --g-c: #ef4444;
+}
+
+.rrhh-rev__grupo-cab {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.rrhh-rev__grupo-cab p {
+  margin: 3px 0 0;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.rrhh-rev__n {
+  display: inline-block;
+  min-width: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--g-c);
+  color: #fff;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.rrhh-rev__grupo ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.84rem;
+}
+
+.rrhh-rev__grupo li span {
+  opacity: 0.85;
+}
+
+.rrhh-rev__mas,
+.rrhh-rev__vacio {
+  opacity: 0.7;
+  font-size: 0.82rem;
+  margin: 0;
+}

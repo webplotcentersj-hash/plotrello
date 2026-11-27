@@ -54,8 +54,11 @@ export type ReciboExtra = {
   codigo_lsd: string
   /** Cantidad para el LSD (horas, días). */
   cantidad?: number
-  /** 'liq' = lo generó la Liquidación mensual (se reemplaza al sincronizar). */
-  origen?: 'liq'
+  /**
+   * 'liq' = lo generó la Liquidación mensual (se reemplaza al sincronizar).
+   * 'calc' = calculado en el libro (aguinaldo, plus vacacional): se conserva al sincronizar.
+   */
+  origen?: 'liq' | 'calc'
 }
 
 export function extraVacio(): ReciboExtra {
@@ -883,6 +886,8 @@ export const CONCEPTOS_ARCA_SISTEMA: ConceptoParaArca[] = [
   { codigo: 'SUSPSG', descripcion: 'Suspensión sin goce (art. 218 LCT)', tipo: 'Remunerativo (resta)', unidad: 'Días', asociar: 'Suspensión sin goce de haberes (descuento remunerativo)', delSistema: true },
   { codigo: 'MEDIAJ', descripcion: 'Media jornada sin goce', tipo: 'Remunerativo (resta)', unidad: 'Días', asociar: 'Inasistencias / horas no trabajadas (descuento remunerativo)', delSistema: true },
   { codigo: 'TARDANZA', descripcion: 'Tardanzas (tiempo no trabajado)', tipo: 'Remunerativo (resta)', unidad: 'Horas', asociar: 'Horas no trabajadas (descuento remunerativo)', delSistema: true },
+  { codigo: 'SAC', descripcion: 'Sueldo anual complementario (art. 121 LCT)', tipo: 'Remunerativo', unidad: '—', asociar: 'SAC (aguinaldo)', delSistema: true },
+  { codigo: 'PLUSVAC', descripcion: 'Plus vacacional (art. 155 LCT)', tipo: 'Remunerativo', unidad: 'Días', asociar: 'Vacaciones gozadas / plus vacacional', delSistema: true },
   { codigo: 'JUB', descripcion: 'Jubilación – Ley 24.241', tipo: 'Descuento', unidad: '%', asociar: 'Aporte SIPA', delSistema: true },
   { codigo: 'INSSJP', descripcion: 'INSSJP – Ley 19.032', tipo: 'Descuento', unidad: '%', asociar: 'Aporte INSSJP (Ley 19.032)', delSistema: true },
   { codigo: 'OS', descripcion: 'Obra Social – Ley 23.660', tipo: 'Descuento', unidad: '%', asociar: 'Aporte obra social', delSistema: true },
@@ -895,7 +900,7 @@ export function conceptosParaArca(items: Array<Pick<RrhhLibroSueldosItem, 'extra
   const vistos = new Set(out.map((c) => c.codigo))
   for (const it of items) {
     for (const x of it.extras || []) {
-      if (x.tipo === 'empleador' || x.origen === 'liq') continue
+      if (x.tipo === 'empleador' || x.origen === 'liq' || x.origen === 'calc') continue
       const cod = (x.codigo_lsd || x.concepto || '').replace(/\s+/g, '').slice(0, 10)
       if (!cod || vistos.has(cod)) continue
       vistos.add(cod)

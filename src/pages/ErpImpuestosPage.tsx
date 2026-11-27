@@ -157,6 +157,9 @@ export default function ErpImpuestosPage() {
   const [vinculoPedidoId, setVinculoPedidoId] = useState<number | null>(null)
   const [vinculoCxpId, setVinculoCxpId] = useState<number | null>(null)
   const [prefillBanner, setPrefillBanner] = useState<string | null>(null)
+  const [detalleHoja, setDetalleHoja] = useState(1)
+  const [detalleBuscar, setDetalleBuscar] = useState('')
+  const DETALLE_POR_HOJA = 20
 
   useEffect(() => {
     const pedidoRaw = searchParams.get('pedido')
@@ -682,6 +685,49 @@ export default function ErpImpuestosPage() {
   const activeLibro = tab === 'ventas' ? libroIvaVentas : libroIvaCompras
   const activeEntidadLabel = tab === 'ventas' ? 'Cliente' : 'Proveedor'
 
+  const detalleRowsOrdenados = useMemo(() => {
+    const q = detalleBuscar.trim().toLowerCase()
+    const qDigits = q.replace(/\D/g, '')
+    const rows = [...(activeLibro.rows || [])].sort((a: any, b: any) =>
+      a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0
+    )
+    if (!q) return rows
+    return rows.filter((r: any) => {
+      const hay = [
+        r.tipo,
+        r.pv,
+        r.nro,
+        r.cliente,
+        r.cuit,
+        r.fecha,
+        r.id_pedido_compra,
+        r.id_cuenta_por_pagar,
+        r.total
+      ]
+        .filter((v) => v != null && String(v).trim() !== '')
+        .join(' ')
+        .toLowerCase()
+      if (hay.includes(q)) return true
+      if (qDigits && String(r.cuit || '').replace(/\D/g, '').includes(qDigits)) return true
+      if (qDigits && String(r.nro || '').replace(/\D/g, '').includes(qDigits)) return true
+      return false
+    })
+  }, [activeLibro.rows, detalleBuscar])
+  const detalleTotalHojas = Math.max(1, Math.ceil(detalleRowsOrdenados.length / DETALLE_POR_HOJA))
+  const detalleHojaSafe = Math.min(Math.max(1, detalleHoja), detalleTotalHojas)
+  const detalleRowsHoja = detalleRowsOrdenados.slice(
+    (detalleHojaSafe - 1) * DETALLE_POR_HOJA,
+    detalleHojaSafe * DETALLE_POR_HOJA
+  )
+
+  useEffect(() => {
+    setDetalleHoja(1)
+  }, [tab, range.from, range.to, activeLibro.rows.length, detalleBuscar])
+
+  useEffect(() => {
+    setDetalleBuscar('')
+  }, [tab])
+
   return (
     <div className="erp-section">
       <header className="erp-section-header">
@@ -1065,13 +1111,60 @@ export default function ErpImpuestosPage() {
       </section>
 
       <section className="erp-panel">
-        <div className="erp-panel__head">
-          <h2>Detalle — {tab === 'ventas' ? 'Libro IVA Ventas' : 'Libro IVA Compras'}</h2>
+        <div className="erp-panel__head" style={{ flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h2>Detalle — {tab === 'ventas' ? 'Libro IVA Ventas' : 'Libro IVA Compras'}</h2>
+            {!loading && activeLibro.rows.length > 0 ? (
+              <p className="erp-panel__hint">
+                Hoja {detalleHojaSafe} de {detalleTotalHojas} · {DETALLE_POR_HOJA} por hoja · {detalleRowsOrdenados.length}
+                {detalleBuscar.trim() ? ` de ${activeLibro.rows.length}` : ''} comprobantes
+              </p>
+            ) : null}
+          </div>
+          <div className="erp-section-actions" style={{ flexWrap: 'wrap' }}>
+            <label className="erp-field" style={{ minWidth: 220, margin: 0 }}>
+              <span className="erp-field__label">Buscar</span>
+              <input
+                className="erp-input"
+                style={{ marginTop: 0 }}
+                value={detalleBuscar}
+                onChange={(e) => setDetalleBuscar(e.target.value)}
+                placeholder={tab === 'ventas' ? 'Cliente, CUIT, n°, tipo…' : 'Proveedor, CUIT, n°, tipo…'}
+              />
+            </label>
+            {detalleBuscar.trim() ? (
+              <button type="button" className="btn-secondary" onClick={() => setDetalleBuscar('')}>
+                Limpiar
+              </button>
+            ) : null}
+            {!loading && detalleRowsOrdenados.length > DETALLE_POR_HOJA ? (
+              <>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={detalleHojaSafe <= 1}
+                  onClick={() => setDetalleHoja((h) => Math.max(1, h - 1))}
+                >
+                  ← Anterior
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={detalleHojaSafe >= detalleTotalHojas}
+                  onClick={() => setDetalleHoja((h) => Math.min(detalleTotalHojas, h + 1))}
+                >
+                  Siguiente →
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
         {loading ? (
           <p className="erp-muted">Cargando…</p>
         ) : activeLibro.rows.length === 0 ? (
           <p className="erp-muted">Sin comprobantes para el rango.</p>
+        ) : detalleRowsOrdenados.length === 0 ? (
+          <p className="erp-muted">Ningún comprobante coincide con “{detalleBuscar.trim()}”.</p>
         ) : (
           <div className="erp-table-wrap">
             <table className="erp-table">
@@ -1098,40 +1191,61 @@ export default function ErpImpuestosPage() {
                 </tr>
               </thead>
               <tbody>
-                {activeLibro.rows
-                  .sort((a: any, b: any) => (a.fecha < b.fecha ? -1 : 1))
-                  .slice(0, 250)
-                  .map((r: any) => (
-                    <tr key={r.id}>
-                      <td>{r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR') : '—'}</td>
-                      <td>{r.tipo}</td>
-                      <td>{r.pv}</td>
-                      <td>{r.nro}</td>
-                      <td>{r.cliente}</td>
-                      <td>{r.cuit || '—'}</td>
-                      <td>${Number(r.neto_21 || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                      <td>${Number(r.iva_21 || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                      <td>${Number(r.neto_105 || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                      <td>${Number(r.iva_105 || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                      <td>${Number(r.neto_0 || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                      <td>${Number(r.total || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                      {tab === 'compras' && (
-                        <>
-                          <td>{r.id_pedido_compra != null ? r.id_pedido_compra : '—'}</td>
-                          <td>{r.id_cuenta_por_pagar != null ? r.id_cuenta_por_pagar : '—'}</td>
-                        </>
-                      )}
-                    </tr>
-                  ))}
+                {detalleRowsHoja.map((r: any) => (
+                  <tr key={r.id}>
+                    <td>{r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR') : '—'}</td>
+                    <td>{r.tipo}</td>
+                    <td>{r.pv}</td>
+                    <td>{r.nro}</td>
+                    <td>{r.cliente}</td>
+                    <td>{r.cuit || '—'}</td>
+                    <td>${Number(r.neto_21 || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td>${Number(r.iva_21 || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td>${Number(r.neto_105 || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td>${Number(r.iva_105 || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td>${Number(r.neto_0 || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td>${Number(r.total || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    {tab === 'compras' && (
+                      <>
+                        <td>{r.id_pedido_compra != null ? r.id_pedido_compra : '—'}</td>
+                        <td>{r.id_cuenta_por_pagar != null ? r.id_cuenta_por_pagar : '—'}</td>
+                      </>
+                    )}
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         )}
-        {!loading && activeLibro.rows.length > 250 && (
-          <p className="erp-muted" style={{ marginTop: 10 }}>
-            Mostrando 250 filas. Usá Export CSV para el archivo completo.
-          </p>
-        )}
+        {!loading && detalleRowsOrdenados.length > DETALLE_POR_HOJA ? (
+          <div className="erp-section-actions" style={{ marginTop: 12, justifyContent: 'space-between', width: '100%' }}>
+            <p className="erp-muted" style={{ margin: 0 }}>
+              Mostrando {(detalleHojaSafe - 1) * DETALLE_POR_HOJA + 1}–
+              {Math.min(detalleHojaSafe * DETALLE_POR_HOJA, detalleRowsOrdenados.length)} de {detalleRowsOrdenados.length}
+            </p>
+            <div className="erp-section-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={detalleHojaSafe <= 1}
+                onClick={() => setDetalleHoja((h) => Math.max(1, h - 1))}
+              >
+                ← Anterior
+              </button>
+              <span className="erp-muted">
+                Hoja {detalleHojaSafe} / {detalleTotalHojas}
+              </span>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={detalleHojaSafe >= detalleTotalHojas}
+                onClick={() => setDetalleHoja((h) => Math.min(detalleTotalHojas, h + 1))}
+              >
+                Siguiente →
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>
   )

@@ -78,6 +78,7 @@ const RecursosHumanosDesvinculacionesPage = lazy(
   () => import('../pages/RecursosHumanosDesvinculacionesPage')
 )
 const RecursosHumanosLiquidacionPage = lazy(() => import('../pages/RecursosHumanosLiquidacionPage'))
+const RecursosHumanosSimuladorPage = lazy(() => import('../pages/RecursosHumanosSimuladorPage'))
 const RecursosHumanosLibroSueldosPage = lazy(() => import('../pages/RecursosHumanosLibroSueldosPage'))
 const RecursosHumanosVacacionesPage = lazy(() => import('../pages/RecursosHumanosVacacionesPage'))
 const RecursosHumanosOnboardingPage = lazy(() => import('../pages/RecursosHumanosOnboardingPage'))
@@ -134,6 +135,14 @@ const ErpAdminPage = lazy(() => import('../pages/ErpAdminPage'))
 const ErpConfigCondicionesVentaPage = lazy(() => import('../pages/ErpConfigCondicionesVentaPage'))
 const ErpGastosPage = lazy(() => import('../pages/ErpGastosPage'))
 const ErpGastosFijosPage = lazy(() => import('../pages/ErpGastosFijosPage'))
+const ErpCompromisosPage = lazy(() => import('../pages/ErpCompromisosPage'))
+const ErpFlujoCajaPage = lazy(() => import('../pages/ErpFlujoCajaPage'))
+const ErpCobranzaPage = lazy(() => import('../pages/ErpCobranzaPage'))
+const ErpRentabilidadPage = lazy(() => import('../pages/ErpRentabilidadPage'))
+const ErpTableroDuenoPage = lazy(() => import('../pages/ErpTableroDuenoPage'))
+const ErpPresupuestoPage = lazy(() => import('../pages/ErpPresupuestoPage'))
+const ErpCierreMensualPage = lazy(() => import('../pages/ErpCierreMensualPage'))
+const ErpAnomaliasPage = lazy(() => import('../pages/ErpAnomaliasPage'))
 const TallerGraficoInventarioPage = lazy(() => import('../pages/TallerGraficoInventarioPage'))
 const MetalurgicaInventarioPage = lazy(() => import('../pages/MetalurgicaInventarioPage'))
 const SectorInventarioPage = lazy(() => import('../pages/SectorInventarioPage'))
@@ -155,6 +164,7 @@ const AsesorPresupuestosPage = lazy(() => import('../pages/AsesorPresupuestosPag
 const TallerGraficoPedidoEntregaOverlay = lazy(() => import('../components/TallerGraficoPedidoEntregaOverlay'))
 const TallerImprentaPedidoEntregaOverlay = lazy(() => import('../components/TallerImprentaPedidoEntregaOverlay'))
 import { useAuth } from '../hooks/useAuth'
+import { useAvisosCompromisos } from '../features/compromisos/avisosNavegador'
 import { ventasNuevaVenta } from '../utils/ventasRoutes'
 import { usePlatformActivityTracker } from '../hooks/usePlatformActivityTracker'
 import { nombreVisibleDesdeRecord } from '../utils/usuarioDisplayName'
@@ -234,6 +244,7 @@ export default function StaffAppHost() {
   const [materiales, setMateriales] = useState<MaterialRecord[]>([])
   const { setUsuario, usuario, canAccessMostradorViews } = useAuth()
   usePlatformActivityTracker(usuario?.id)
+  useAvisosCompromisos(usuario?.id, navigate)
   const [dataLoading, setDataLoading] = useState(false)
   const [dataError, setDataError] = useState<string | null>(null)
   const isBoardDraggingRef = useRef(false)
@@ -1541,6 +1552,7 @@ function AppRoutes({
         path="/rrhh/liquidacion"
         element={<RecursosHumanosLiquidacionPage />}
       />
+      <Route path="/rrhh/simulador" element={<RecursosHumanosSimuladorPage />} />
       <Route
         path="/rrhh/libro-sueldos"
         element={<RecursosHumanosLibroSueldosPage />}
@@ -1753,6 +1765,17 @@ function AppRoutes({
         path="/erp/gastos-fijos"
         element={<ErpGastosFijosPage />}
       />
+      <Route
+        path="/erp/compromisos"
+        element={<ErpCompromisosPage />}
+      />
+      <Route path="/erp/flujo-caja" element={<ErpFlujoCajaPage />} />
+      <Route path="/erp/cobranza" element={<ErpCobranzaPage />} />
+      <Route path="/erp/rentabilidad" element={<ErpRentabilidadPage />} />
+      <Route path="/erp/tablero" element={<ErpTableroDuenoPage />} />
+      <Route path="/erp/presupuesto" element={<ErpPresupuestoPage />} />
+      <Route path="/erp/cierre-mensual" element={<ErpCierreMensualPage />} />
+      <Route path="/erp/anomalias" element={<ErpAnomaliasPage />} />
       <Route
         path="/erp/admin"
         element={<ErpAdminPage />}

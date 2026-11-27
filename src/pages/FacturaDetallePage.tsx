@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import apiService from '../services/api'
+import { crearCheque } from '../services/erpContableApi'
 import { syncVentaPlotLabACaja } from '../features/control-cajas/plotlabVentaCajaSync'
 import type { CuentaPorCobrarRecord, FacturaVentaRecord, FacturaItemRecord } from '../types/api'
 import {
@@ -69,7 +70,12 @@ export default function FacturaDetallePage() {
     numero_comprobante: '',
     url_comprobante: '',
     id_cuenta_bancaria: '',
-    observaciones: ''
+    observaciones: '',
+    // Sólo para cobros con cheque: se ingresa a la cartera (Tesorería → Cheques y Compromisos).
+    cheque_a_cartera: true,
+    cheque_banco: '',
+    cheque_fecha_pago: todayStr,
+    cheque_echeq: false
   })
 
   const abrirFormCobro = () => {
@@ -80,7 +86,11 @@ export default function FacturaDetallePage() {
       fecha_pago: todayStr,
       url_comprobante: '',
       numero_comprobante: '',
-      observaciones: ''
+      observaciones: '',
+      cheque_a_cartera: true,
+      cheque_banco: '',
+      cheque_fecha_pago: todayStr,
+      cheque_echeq: false
     }))
     setComprobanteNombre('')
     setShowCobro(true)
@@ -370,6 +380,11 @@ export default function FacturaDetallePage() {
       alert('El monto no puede superar el pendiente.')
       return
     }
+    const chequeACartera = cobroForm.metodo_pago === 'Cheque' && cobroForm.cheque_a_cartera
+    if (chequeACartera && !cobroForm.numero_comprobante.trim()) {
+      alert('Ingresá el número del cheque en "N° / referencia" para cargarlo a la cartera.')
+      return
+    }
 
     setLoadingCobro(true)
     try {
@@ -409,7 +424,31 @@ export default function FacturaDetallePage() {
         usuarioNombre: usuario?.nombre || usuario?.usuario || 'Tesorería'
       }).catch((err) => console.warn('Sync cobro → caja:', err))
 
-      alert('Cobro registrado.')
+      let avisoCheque = ''
+      if (chequeACartera) {
+        const ch = await crearCheque({
+          tipo: 'Tercero',
+          es_echeq: cobroForm.cheque_echeq,
+          numero: cobroForm.numero_comprobante.trim(),
+          banco: cobroForm.cheque_banco.trim() || null,
+          sucursal: null,
+          librador_nombre: factura.cliente_nombre || null,
+          librador_cuit: factura.cliente_dni_cuit || null,
+          importe: monto,
+          fecha_emision: cobroForm.fecha_pago,
+          fecha_pago: cobroForm.cheque_fecha_pago || cobroForm.fecha_pago,
+          id_cliente: factura.id_cliente ?? null,
+          id_proveedor: null,
+          tercero_nombre: null,
+          id_cuenta_bancaria: null,
+          observaciones: `Cobro de la factura ${factura.numero_factura}`
+        })
+        avisoCheque = ch.success
+          ? `\nEl cheque quedó en la cartera con fecha de pago ${cobroForm.cheque_fecha_pago.split('-').reverse().join('/')} (aparece en Compromisos y Flujo de caja).`
+          : `\nOJO: el cobro se registró pero el cheque no se pudo cargar a la cartera: ${ch.error}`
+      }
+
+      alert('Cobro registrado.' + avisoCheque)
       await loadCxc(factura.id)
       setShowCobro(false)
       setComprobanteNombre('')
@@ -858,6 +897,53 @@ export default function FacturaDetallePage() {
                           ))}
                         </select>
                       </div>
+                      {cobroForm.metodo_pago === 'Cheque' && (
+                        <>
+                          <div className="cobranza-field cobranza-field--full">
+                            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <input
+                                type="checkbox"
+                                checked={cobroForm.cheque_a_cartera}
+                                onChange={(e) => setCobroForm((p) => ({ ...p, cheque_a_cartera: e.target.checked }))}
+                                style={{ width: 'auto' }}
+                              />
+                              Ingresar el cheque a la cartera (con aviso de vencimiento)
+                            </label>
+                          </div>
+                          {cobroForm.cheque_a_cartera && (
+                            <>
+                              <div className="cobranza-field">
+                                <label>Banco del cheque</label>
+                                <input
+                                  type="text"
+                                  value={cobroForm.cheque_banco}
+                                  onChange={(e) => setCobroForm((p) => ({ ...p, cheque_banco: e.target.value }))}
+                                  placeholder="Galicia, Nación…"
+                                />
+                              </div>
+                              <div className="cobranza-field">
+                                <label>Fecha de pago del cheque</label>
+                                <input
+                                  type="date"
+                                  value={cobroForm.cheque_fecha_pago}
+                                  onChange={(e) => setCobroForm((p) => ({ ...p, cheque_fecha_pago: e.target.value }))}
+                                />
+                              </div>
+                              <div className="cobranza-field">
+                                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={cobroForm.cheque_echeq}
+                                    onChange={(e) => setCobroForm((p) => ({ ...p, cheque_echeq: e.target.checked }))}
+                                    style={{ width: 'auto' }}
+                                  />
+                                  Es e-cheq
+                                </label>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
                       {metodoAceptaComprobante(cobroForm.metodo_pago) && (
                         <div className="cobranza-field cobranza-field--full">
                           <label>Adjuntar comprobante (PDF o imagen)</label>

@@ -168,6 +168,15 @@ const RecursosHumanosDashboardPage = () => {
 
             <button
               className="rrhh-action-card"
+              onClick={() => navigate('/rrhh/simulador')}
+            >
+              <div className="rrhh-action-icon">🧮</div>
+              <h3>Simulador de sueldos</h3>
+              <p>Aumentos, sumas fijas e ingresos: impacto en masa salarial y costo</p>
+            </button>
+
+            <button
+              className="rrhh-action-card"
               onClick={() => navigate('/rrhh/recibos')}
             >
               <div className="rrhh-action-icon">🧾</div>

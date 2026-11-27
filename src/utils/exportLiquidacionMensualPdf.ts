@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import type { LiquidacionEmpleado } from './liquidacionMensual'
 import { totalesLiquidacion } from './liquidacionMensual'
+import { fmtDias } from './diasLaborables'
 import { cargarLogoPlotLabDataUrl } from './relojTabletTarjetaPdf'
 
 type Rgb = [number, number, number]
@@ -24,7 +25,7 @@ function diaSemana(iso: string): string {
   return dia.charAt(0).toUpperCase() + dia.slice(1)
 }
 
-const plural = (n: number, uno: string, varios: string): string => `${n} ${n === 1 ? uno : varios}`
+const plural = (n: number, uno: string, varios: string): string => `${fmtDias(n)} ${n === 1 ? uno : varios}`
 
 /** Todos los descuentos que restan del neto (mismo total que usa el cálculo). */
 const descuentosLaborales = (f: LiquidacionEmpleado): number =>
@@ -439,12 +440,12 @@ export async function exportarLiquidacionMensualPdf(opts: {
       {
         label: 'Puntualidad',
         value: tot.puntualidadPromedio ? `${tot.puntualidadPromedio}%` : '—',
-        sub: `${tot.diasConEntrada} / ${tot.diasExigibles} c/ marca`,
+        sub: `${fmtDias(tot.diasConEntrada)} / ${fmtDias(tot.diasExigibles)} c/ marca`,
         color: C.blue
       },
       { label: 'Tardanzas', value: String(tot.tardanzas), sub: `${minutosTarde} min en total`, color: C.amber },
-      { label: 'Ausencias', value: String(tot.ausencias), sub: `${tot.justificados} justificados`, color: C.rose },
-      { label: 'Sin marca', value: String(tot.sinMarca), sub: `${tot.faltas} faltas liq.`, color: C.violet },
+      { label: 'Ausencias', value: fmtDias(tot.ausencias), sub: `${fmtDias(tot.justificados)} justificados`, color: C.rose },
+      { label: 'Sin marca', value: fmtDias(tot.sinMarca), sub: `${fmtDias(tot.faltas)} faltas liq.`, color: C.violet },
       {
         label: 'Horas / Extra',
         value: `${tot.totalHoras.toFixed(1)} hs`,
@@ -475,7 +476,7 @@ export async function exportarLiquidacionMensualPdf(opts: {
     ],
     filas: filas.map((f) => [
       { t: f.nombre, bold: true },
-      f.diasConEntrada ? `${f.diasConEntrada}/${f.diasExigibles}` : '—',
+      f.diasConEntrada ? `${fmtDias(f.diasConEntrada)}/${fmtDias(f.diasExigibles)}` : '—',
       f.diasConEntrada
         ? {
             t: `${f.puntualidadPct}%`,
@@ -494,12 +495,12 @@ export async function exportarLiquidacionMensualPdf(opts: {
     ]),
     total: [
       'Total',
-      `${tot.diasConEntrada}/${tot.diasExigibles}`,
+      `${fmtDias(tot.diasConEntrada)}/${fmtDias(tot.diasExigibles)}`,
       tot.puntualidadPromedio ? `${tot.puntualidadPromedio}%` : '—',
       String(tot.tardanzas),
-      String(tot.ausencias),
+      fmtDias(tot.ausencias),
       String(tot.justificados),
-      String(tot.sinMarca),
+      fmtDias(tot.sinMarca),
       tot.totalHoras.toFixed(1),
       tot.totalHorasExtra.toFixed(1),
       tot.extra50.toFixed(1),
@@ -577,7 +578,7 @@ export async function exportarLiquidacionMensualPdf(opts: {
     texto(recortar(f.nombre, 100), margen + 8, y + 10, { size: 15, bold: true, color: C.ink })
     const prop =
       f.factorProporcional < 1 && f.diasLaborablesPeriodo > 0
-        ? ` · Prop. ${f.diasDebia}/${f.diasLaborablesPeriodo} días`
+        ? ` · Prop. ${fmtDias(f.diasDebia)}/${fmtDias(f.diasLaborablesPeriodo)} días`
         : ''
     const antig = f.fechaIngreso
       ? `Ingreso ${fechaCorta(f.fechaIngreso)} · Antigüedad ${f.antiguedadLabel} · Legal ${f.pctAntiguedadLegal}%/año${prop}`
@@ -604,7 +605,7 @@ export async function exportarLiquidacionMensualPdf(opts: {
       fill(colorPct)
       doc.roundedRect(bx, y + 14, Math.max(3, (Math.min(pct, 100) / 100) * 56), 3, 1.5, 1.5, 'F')
     }
-    texto(f.diasDebia > 0 ? `${f.diasVino} de ${f.diasDebia} días` : 'Sin días a cumplir', bx, y + 22, {
+    texto(f.diasDebia > 0 ? `${fmtDias(f.diasVino)} de ${fmtDias(f.diasDebia)} días` : 'Sin días a cumplir', bx, y + 22, {
       size: 7.5,
       color: C.muted
     })
@@ -618,7 +619,7 @@ export async function exportarLiquidacionMensualPdf(opts: {
           t: 'Sueldo en blanco',
           sub:
             f.factorProporcional < 1
-              ? `Proporcional ${f.diasDebia}/${f.diasLaborablesPeriodo} días`
+              ? `Proporcional ${fmtDias(f.diasDebia)}/${fmtDias(f.diasLaborablesPeriodo)} días`
               : undefined
         },
         importe(f.sueldoBase)
@@ -735,8 +736,8 @@ export async function exportarLiquidacionMensualPdf(opts: {
                 sub: f.faltas > 0 ? `${plural(f.faltas, 'falta', 'faltas')} sin justificar` : 'Sin faltas',
                 subColor: f.faltas > 0 ? C.rose : C.soft
               },
-              String(f.diasDebia),
-              String(f.diasVino)
+              fmtDias(f.diasDebia),
+              fmtDias(f.diasVino)
             ],
             [
               { t: 'Domingos', bold: true, sub: dobles(f.domingosVino, f.horasDomingo, f.importeDomingo) },
@@ -785,7 +786,7 @@ export async function exportarLiquidacionMensualPdf(opts: {
           color: C.green
         },
         { label: 'Costo empresa', value: ars(f.costoEmpresa), sub: 'Con contribuciones patronales', color: C.brand },
-        { label: 'Días trabajados', value: `${f.diasVino} / ${f.diasDebia}`, sub: 'Vino / debía venir', color: C.blue },
+        { label: 'Días trabajados', value: `${fmtDias(f.diasVino)} / ${fmtDias(f.diasDebia)}`, sub: 'Vino / debía venir', color: C.blue },
         {
           label: 'Horas extra',
           value: `${(f.extra50 + f.extra100).toFixed(1)} hs`,
